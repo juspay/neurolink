@@ -1437,1326 +1437,451 @@ export type AgenticLoopResult<TConversation> = {
 
 ---
 
-## Task 4: Migrate direct Anthropic `executeStream` onto the engine
-
-**Files:**
-
-- Create: `test/continuous-test-suite-anthropic-loop-characterization.ts` (characterization test — runs FIRST, against the OLD code, stays green through the migration)
-- Create: `src/lib/providers/anthropic/loopAdapter.ts` (`createAnthropicLoopAdapter`)
-- Modify: `src/lib/providers/anthropic/client.ts` (`executeStreamInCaptureScope` body replaced with `runAgenticLoop(createAnthropicLoopAdapter(...), ...)`)
-
-**Interfaces:** consumes `AgenticLoopAdapter<Anthropic.Messages.MessageParam[]>` from Task 3; `createAnthropicLoopAdapter(client, opts)` is a **factory**, not a class, so the same factory later serves Vertex+Claude in Task 6 by taking a differently-shaped `client` + cache-breakpoint function.
-
-- [ ] **Step 1: Write the characterization test against the CURRENT (pre-migration) `executeStreamInCaptureScope`**
-
-  This pins today's behavior using the exact mocking precedent already established in `test/continuous-test-suite-anthropic-structured-tools.ts` (`mockClient`, `streamEvents`, `providerWith`, `drain` — reuse those helpers rather than re-inventing them; import or copy them, since that file does not currently export them — copy, since duplicating ~40 lines of test fixture code across two independent suites is preferable to creating a cross-suite import dependency for two files that may evolve independently).
-
-  Create `test/continuous-test-suite-anthropic-loop-characterization.ts`:
-
-  ```typescript
-  #!/usr/bin/env tsx
-  /**
-   * Characterization test for the native Anthropic streaming tool loop
-   * (anthropic/client.ts executeStreamInCaptureScope), written BEFORE it is
-   * migrated onto the shared runAgenticLoop engine (plan 08, task 4). Pins:
-   *   - a text-only single-step turn
-   *   - a tool-call round trip (tool_use -> tool_result -> final text)
-   *   - a tool-not-found call producing exactly one error tool_result with
-   *     no cross-step memory (Anthropic has no strike-counting breaker today)
-   *   - usage accumulation across two steps
-   *   - stop-reason mapping ("tool_use" with zero tool calls after drain -> "stop")
-   *   - a pre-first-chunk 429 on the FIRST step's model call retries once and
-   *     succeeds. This assertion is expected to stay green for two DIFFERENT
-   *     reasons depending on when it runs: pre-migration it exercises plan
-   *     07 Task 9's loop-level `withProviderRetry` wrap inside the old
-   *     hand-rolled `executeStreamInCaptureScope`; post-migration (this
-   *     task) it exercises plan 08 Task 3's engine-level wrap inside
-   *     `runAgenticLoop` (see Task 3 Step 3 and the subsumption note at the
-   *     end of Step 3 below). Same observable behavior, different
-   *     implementation — exactly what a characterization test is for.
-   *
-   * MUST pass against the pre-migration code, and MUST still pass, unmodified,
-   * after the migration — that is the point of a characterization test.
-   *
-   * Runner: `npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts`
-   * (package.json: `pnpm run test:anthropic-loop-characterization`).
-   */
-  import "dotenv/config";
-
-  import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-  import { AnthropicProvider } from "../src/lib/providers/anthropic/client.js";
-
-  const { test, runSuite } = defineSuite(
-    "Anthropic native loop characterization",
-  );
-
-  type MessagesCreateParams = {
-    tools?: Array<{ name: string; input_schema?: unknown }>;
-    stream?: boolean;
-  };
-
-  function mockClient(responses: unknown[]): {
-    client: { messages: { create: (params: unknown) => Promise<unknown> } };
-    requests: MessagesCreateParams[];
-  } {
-    const requests: MessagesCreateParams[] = [];
-    let index = 0;
-    return {
-      requests,
-      client: {
-        messages: {
-          create: async (params: unknown) => {
-            requests.push(params as MessagesCreateParams);
-            const next = responses[Math.min(index, responses.length - 1)];
-            index++;
-            return next;
-          },
-        },
-      },
-    };
-  }
-
-  function providerWith(client: unknown): AnthropicProvider {
-    const provider = new AnthropicProvider(
-      "claude-sonnet-4-6",
-      undefined,
-      undefined,
-      {
-        apiKey: "test-key-not-used",
-      },
-    );
-    (provider as unknown as { client: unknown }).client = client;
-    return provider;
-  }
-
-  function streamEvents(
-    blocks: Array<
-      | { kind: "text"; text: string }
-      | { kind: "tool"; id: string; name: string; input: string }
-    >,
-    stopReason: string,
-  ): AsyncIterable<unknown> {
-    const events: unknown[] = [
-      {
-        type: "message_start",
-        message: { usage: { input_tokens: 10, output_tokens: 0 } },
-      },
-    ];
-    blocks.forEach((block, index) => {
-      if (block.kind === "text") {
-        events.push({
-          type: "content_block_start",
-          index,
-          content_block: { type: "text" },
-        });
-        events.push({
-          type: "content_block_delta",
-          index,
-          delta: { type: "text_delta", text: block.text },
-        });
-      } else {
-        events.push({
-          type: "content_block_start",
-          index,
-          content_block: { type: "tool_use", id: block.id, name: block.name },
-        });
-        events.push({
-          type: "content_block_delta",
-          index,
-          delta: { type: "input_json_delta", partial_json: block.input },
-        });
-      }
-    });
-    events.push({
-      type: "message_delta",
-      delta: { stop_reason: stopReason },
-      usage: { output_tokens: 5 },
-    });
-    return {
-      async *[Symbol.asyncIterator]() {
-        for (const event of events) {
-          yield event;
-        }
-      },
-    };
-  }
-
-  async function drain(
-    stream: AsyncIterable<unknown>,
-  ): Promise<{ chunks: string[]; toolCalls: string[] }> {
-    const chunks: string[] = [];
-    for await (const chunk of stream) {
-      const content = (chunk as { content?: string }).content;
-      if (typeof content === "string" && content.length > 0) {
-        chunks.push(content);
-      }
-    }
-    return { chunks, toolCalls: [] };
-  }
-
-  await test("text-only turn: single step, no tools, stop_reason end_turn -> streamed text + finishReason stop", async () => {
-    const { client } = mockClient([
-      streamEvents([{ kind: "text", text: "hello world" }], "end_turn"),
-    ]);
-    const provider = providerWith(client);
-    const result = await provider.stream({ input: { text: "hi" } });
-    const { chunks } = await drain(result.stream);
-    assertEqual(
-      chunks.join(""),
-      "hello world",
-      "streamed text matches the single step's output",
-    );
-    const finished = await result.analytics;
-    assert(!!finished, "analytics settles");
-  });
-
-  await test("tool-call round trip: tool_use step then end_turn step -> tool executes, final text streamed", async () => {
-    const { client, requests } = mockClient([
-      streamEvents(
-        [
-          {
-            kind: "tool",
-            id: "call_1",
-            name: "add_numbers",
-            input: '{"a":2,"b":3}',
-          },
-        ],
-        "tool_use",
-      ),
-      streamEvents([{ kind: "text", text: "the answer is 5" }], "end_turn"),
-    ]);
-    const provider = providerWith(client);
-    const result = await provider.stream({
-      input: { text: "add 2 and 3" },
-      tools: {
-        add_numbers: {
-          description: "add",
-          inputSchema: {
-            type: "object",
-            properties: { a: { type: "number" }, b: { type: "number" } },
-          },
-          execute: async (args: { a: number; b: number }) => args.a + args.b,
-        },
-      },
-    });
-    const { chunks } = await drain(result.stream);
-    assertEqual(
-      chunks.join(""),
-      "the answer is 5",
-      "final step's text streamed through after the tool round trip",
-    );
-    assertEqual(
-      requests.length,
-      2,
-      "two model calls: the tool-call step and the follow-up",
-    );
-  });
-
-  await test("tool-not-found: no breaker, single error tool_result, loop continues to a final answer", async () => {
-    const { client } = mockClient([
-      streamEvents(
-        [{ kind: "tool", id: "call_x", name: "missing_tool", input: "{}" }],
-        "tool_use",
-      ),
-      streamEvents(
-        [{ kind: "text", text: "I could not find that tool" }],
-        "end_turn",
-      ),
-    ]);
-    const provider = providerWith(client);
-    const result = await provider.stream({
-      input: { text: "use missing_tool" },
-      tools: {},
-    });
-    const { chunks } = await drain(result.stream);
-    assertEqual(
-      chunks.join(""),
-      "I could not find that tool",
-      "loop recovers from a single tool-not-found without a breaker",
-    );
-  });
-
-  function mockClientWithTransientFailure(
-    failures: number,
-    finalResponse: unknown,
-  ): {
-    client: { messages: { create: (params: unknown) => Promise<unknown> } };
-    requests: MessagesCreateParams[];
-  } {
-    const requests: MessagesCreateParams[] = [];
-    let calls = 0;
-    return {
-      requests,
-      client: {
-        messages: {
-          create: async (params: unknown) => {
-            requests.push(params as MessagesCreateParams);
-            calls++;
-            if (calls <= failures) {
-              // retryAfterMs:0 keeps withProviderRetry's backoff sleep at
-              // 0ms so this test doesn't wait out a real delay.
-              throw Object.assign(new Error("rate limited"), {
-                statusCode: 429,
-                retryAfterMs: 0,
-              });
-            }
-            return finalResponse;
-          },
-        },
-      },
-    };
-  }
-
-  await test("429-then-success: a transient rate limit on the first step's model call retries once and succeeds", async () => {
-    const { client, requests } = mockClientWithTransientFailure(
-      1,
-      streamEvents(
-        [{ kind: "text", text: "recovered after retry" }],
-        "end_turn",
-      ),
-    );
-    const provider = providerWith(client);
-    const result = await provider.stream({ input: { text: "hi" } });
-    const { chunks } = await drain(result.stream);
-    assertEqual(
-      chunks.join(""),
-      "recovered after retry",
-      "the retried attempt's text streamed through",
-    );
-    assertEqual(
-      requests.length,
-      2,
-      "messages.create was called twice: the failing attempt and the successful retry",
-    );
-  });
-
-  await runSuite();
-  ```
-
-  Add to `package.json`:
-
-  ```json
-  "test:anthropic-loop-characterization": "tsx test/continuous-test-suite-anthropic-loop-characterization.ts"
-  ```
-
-  Run it **against the current, unmigrated code** and confirm it passes:
-
-  ```bash
-  npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
-  ```
-
-  This must be green before touching `client.ts`. If it is not, the test fixture is wrong — fix the fixture, not the (untouched) production code.
-
-- [ ] **Step 2: Extract `createAnthropicLoopAdapter`**
-
-  Create `src/lib/providers/anthropic/loopAdapter.ts`. This ports `executeStreamInCaptureScope`'s per-step body (`anthropic/client.ts:1990-2410`, the `runLoop` function) into the `AgenticLoopAdapter` shape, preserving every behavior verified in Task-planning: `resolveClaudeMaxTokens`, the additive `final_result` handling, prompt-cache breakpoints, and `planAnthropicLoopReclaim`.
-
-  ```typescript
-  import type Anthropic from "@anthropic-ai/sdk";
-
-  import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
-  import type {
-    AgenticLoopAdapter,
-    AgenticLoopStepResult,
-  } from "../../types/index.js";
-  import {
-    applyAnthropicHistoryCacheBreakpoints,
-    countAnthropicCacheMarkers,
-    ANTHROPIC_MAX_CACHE_BREAKPOINTS,
-  } from "./cacheBreakpoints.js";
-  import { planAnthropicLoopReclaim } from "./contextReclaim.js";
-  import { resolveClaudeMaxTokens } from "./maxTokens.js";
-  import { mapAnthropicStopReason } from "./stopReason.js";
-  import { getAvailableInputTokens } from "../../constants/contextWindows.js";
-
-  type AnthropicConversation = Anthropic.Messages.MessageParam[];
-
-  export type AnthropicLoopClient = {
-    messages: {
-      create: (
-        params: Anthropic.Messages.MessageCreateParamsStreaming,
-        opts: { signal?: AbortSignal },
-      ) => Promise<AsyncIterable<unknown>>;
-    };
-  };
-
-  /**
-   * Build an AgenticLoopAdapter that speaks Anthropic's native Messages
-   * streaming wire format. Reused for both the direct Anthropic client and
-   * Vertex+Claude (task 6) — callers supply their own `client` (the wire
-   * transport differs), `applyCacheBreakpoints` (native Anthropic and
-   * Vertex+Claude use textually separate but conceptually identical
-   * cache-breakpoint functions — see Verified Fact 6), and
-   * `toolFailureBreaker` (native Anthropic has none; Vertex+Claude ports the
-   * Gemini family's strike-counting breaker against the same shared
-   * `DEFAULT_TOOL_MAX_RETRIES` constant — see Verified Fact 4. This is the
-   * one behavior the two clients genuinely do NOT share, despite sharing
-   * this factory, so it is a caller-supplied optional param, never a
-   * hardcoded default here).
-   */
-  export function createAnthropicLoopAdapter(params: {
-    client: AnthropicLoopClient;
-    modelId: string;
-    providerLabel: string;
-    maxSteps: number;
-    maxTokens?: number;
-    system?: string;
-    applyCacheBreakpoints: (
-      messages: AnthropicConversation,
-      remainingBreakpoints: number,
-    ) => AnthropicConversation;
-    countCacheMarkers: (params: {
-      system?: string;
-      tools?: unknown;
-      messages: AnthropicConversation;
-    }) => number;
-    /** Omit for native Anthropic (no breaker today). Pass `{maxRetries: DEFAULT_TOOL_MAX_RETRIES}` for Vertex+Claude (Task 6 Step 3) — see Verified Fact 4. */
-    toolFailureBreaker?: { maxRetries: number };
-  }): AgenticLoopAdapter<AnthropicConversation> {
-    let lastSentEstimate: number | undefined;
-    let lastObservedPromptTokens: number | undefined;
-
-    return {
-      providerLabel: params.providerLabel,
-      maxSteps: params.maxSteps,
-      // Only set when the caller passes one — native Anthropic omits it
-      // (no breaker today), Vertex+Claude's Task 6 call site sets it to
-      // preserve its existing failedTools-map behavior. Never default this;
-      // an accidental default would either regress Vertex+Claude (undefined)
-      // or change native Anthropic's long-standing behavior (a value).
-      toolFailureBreaker: params.toolFailureBreaker,
-      // Anthropic's native loop has only a flat per-request timeout today
-      // (createTimeoutController), no stall watchdog — leave stallTimeoutMs
-      // unset so migration changes nothing (see mapping table + Risks).
-
-      planReclaim: (conversation) => {
-        const plan = planAnthropicLoopReclaim({
-          conversation,
-          availableInputTokens: getAvailableInputTokens(
-            "anthropic",
-            params.modelId,
-            params.maxTokens,
-          ),
-          provider: "anthropic",
-          observedPromptTokens: lastObservedPromptTokens,
-          previousSentEstimate: lastSentEstimate,
-          onSentEstimate: (tokens) => {
-            lastSentEstimate = tokens;
-          },
-        });
-        return plan ? { conversation: plan.conversation } : undefined;
-      },
-
-      buildStepRequest: (conversation) => {
-        const tools = toNativeToolDeclarations({}, "input_schema"); // populated by caller before first step; see migration note below
-        const cacheMarkersUsed = params.countCacheMarkers({
-          system: params.system,
-          tools,
-          messages: conversation,
-        });
-        const cachedConversation = params.applyCacheBreakpoints(
-          conversation,
-          ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
-        );
-        const request: Anthropic.Messages.MessageCreateParamsStreaming = {
-          model: params.modelId,
-          messages: cachedConversation,
-          max_tokens: resolveClaudeMaxTokens(params.modelId, params.maxTokens),
-          stream: true,
-          ...(params.system ? { system: params.system } : {}),
-        };
-        return { raw: request };
-      },
-
-      executeStep: async (request, channel, signal) => {
-        const events = await params.client.messages.create(
-          request.raw as Anthropic.Messages.MessageCreateParamsStreaming,
-          { signal },
-        );
-        const blockTypes = new Map<number, string>();
-        const textAcc = new Map<number, string>();
-        const toolAcc = new Map<
-          number,
-          { id: string; name: string; input: string }
-        >();
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let stopReason: string | undefined;
-
-        for await (const event of events as AsyncIterable<
-          Record<string, unknown>
-        >) {
-          if (event.type === "message_start") {
-            const usage = (
-              event.message as {
-                usage?: { input_tokens?: number; output_tokens?: number };
-              }
-            )?.usage;
-            inputTokens = usage?.input_tokens ?? 0;
-            outputTokens = usage?.output_tokens ?? 0;
-          } else if (event.type === "content_block_start") {
-            const index = event.index as number;
-            const block = event.content_block as {
-              type: string;
-              id?: string;
-              name?: string;
-            };
-            blockTypes.set(index, block.type);
-            if (block.type === "tool_use") {
-              toolAcc.set(index, {
-                id: block.id ?? "",
-                name: block.name ?? "",
-                input: "",
-              });
-            }
-          } else if (event.type === "content_block_delta") {
-            const index = event.index as number;
-            const delta = event.delta as {
-              type: string;
-              text?: string;
-              partial_json?: string;
-            };
-            if (delta.type === "text_delta" && delta.text) {
-              textAcc.set(index, (textAcc.get(index) ?? "") + delta.text);
-              channel.push({ content: delta.text });
-            } else if (
-              delta.type === "input_json_delta" &&
-              delta.partial_json
-            ) {
-              const acc = toolAcc.get(index);
-              if (acc) {
-                acc.input += delta.partial_json;
-              }
-            }
-          } else if (event.type === "message_delta") {
-            const delta = event.delta as { stop_reason?: string };
-            stopReason = delta.stop_reason;
-            const usage = event.usage as { output_tokens?: number };
-            if (usage?.output_tokens !== undefined) {
-              outputTokens = usage.output_tokens;
-            }
-          }
-        }
-
-        const text = [...textAcc.values()].join("");
-        const toolCalls = [...toolAcc.entries()].map(([, acc]) => ({
-          id: acc.id,
-          name: acc.name,
-          args: acc.input
-            ? (JSON.parse(acc.input) as Record<string, unknown>)
-            : {},
-        }));
-        const result: AgenticLoopStepResult = {
-          text,
-          toolCalls,
-          usage: { inputTokens, outputTokens },
-          rawStopReason: stopReason,
-          raw: undefined,
-        };
-        lastObservedPromptTokens = inputTokens;
-        return result;
-      },
-
-      buildToolResultMessages: (conversation, _stepResult, toolResults) => {
-        const resultBlocks = toolResults.map((r) => ({
-          type: "tool_result" as const,
-          tool_use_id: r.id,
-          content: JSON.stringify(r.output),
-          ...(r.error ? { is_error: true } : {}),
-        }));
-        return [...conversation, { role: "user", content: resultBlocks }];
-      },
-
-      mapFinishReason: (rawStopReason) => mapAnthropicStopReason(rawStopReason),
-    };
-  }
-  ```
-
-  **Note on the `tools` gap in `buildStepRequest` above:** the real migration must thread the resolved `NativeAnthropicToolDeclaration[]` (built once, before the loop starts, via `toNativeToolDeclarations(toolsRecord, "input_schema")` — same as today at `client.ts:1826`) into the adapter, either as a constructor parameter (tools are fixed for the turn, computed once) or recomputed each `buildStepRequest` call if mid-turn tool discovery hydration must be supported (Anthropic's current loop does support this — see `client.ts:2010`, the mid-turn `toolsToAnthropic(hydrated)` push). Implement it as a **mutable closure array** the adapter factory owns and a `refreshTools(hydrated)` method the engine's caller can invoke between steps, mirroring the existing mid-turn-hydration call site exactly. Verify this against `client.ts:1990-2020` before finalizing — do not guess the exact hydration trigger condition; read it again at migration time since it depends on the tools-manager wiring this snippet did not reproduce.
-
-  If `applyAnthropicHistoryCacheBreakpoints`, `countAnthropicCacheMarkers`, `planAnthropicLoopReclaim`, `resolveClaudeMaxTokens`, or `mapAnthropicStopReason` are not already extracted into their own importable modules (some may currently be private functions inside `client.ts`), extract each into a sibling file in `src/lib/providers/anthropic/` first, as a separate mechanical sub-step, verifying with `pnpm run check` after each extraction before wiring the adapter to import them.
-
-- [ ] **Step 3: Replace `executeStreamInCaptureScope`'s body with the engine call**
-
-  In `anthropic/client.ts`, replace the hand-rolled `runLoop`/chunk-queue/async-generator block (`:1990-2506`) with:
-
-  ```typescript
-  const adapter = createAnthropicLoopAdapter({
-    client: this.client,
-    modelId,
-    providerLabel: this.providerName,
-    maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
-    maxTokens: options.maxTokens,
-    system,
-    applyCacheBreakpoints: applyAnthropicHistoryCacheBreakpoints,
-    countCacheMarkers: countAnthropicCacheMarkers,
-  });
-  const { stream, resultPromise } = runAgenticLoop(adapter, initialMessages, {
-    tools: toolsRecord,
-    abortSignal,
-  });
-  ```
-
-  Preserve everything the old code did AROUND the loop that the adapter does not own: the `runInLimitCaptureScope` wrapper (unchanged, still wraps the whole `executeStreamInCaptureScope` call per `client.ts:1770`), the additive `final_result` tool handling (still applied to the tools record BEFORE constructing the adapter, exactly as today at `:1838-1851`), and the `StreamResult` construction (`analytics: resultPromise.then(...)`).
-
-  **Subsumption note — plan 07 Task 9's retry wrap is deleted here, on purpose:** plan 07 (Wave 2, lands first) Task 9 adds a `withProviderRetry` wrap directly inside the `for` loop this step deletes (`client.ts:2138`, inside the old `runLoop`/`executeStreamInCaptureScope` body). That wrap does not need to be manually ported forward — it is subsumed by `runAgenticLoop`'s own engine-level wrap (Task 3 Step 3 above), which runs unconditionally around every `adapter.executeStep()` call regardless of which adapter is plugged in. Deleting the old hand-rolled loop body in this step therefore also deletes plan 07 Task 9's Anthropic-specific wrap, and that is correct: the engine's wrap takes over the identical responsibility (pre-first-chunk 429/5xx retry, gated on nothing having streamed yet) with the same classification primitive (`isRetryableProviderError`/`withProviderRetry`), just invoked from one shared call site instead of Anthropic's own loop. This is exactly what Step 1's 429-then-success characterization test proves stays green across the migration for two different underlying reasons (see the comment in that test's file-header docstring). No behavior is lost; the only thing that changes is which layer owns the wrap.
-
-- [ ] **Step 4: Run the characterization suite against the MIGRATED code — it must still pass unmodified**
-
-  ```bash
-  npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
-  ```
-
-  If any assertion fails, the migration changed observable behavior — fix the adapter, never the test (the test is the pinned contract). Also re-run the pre-existing structured-output suite, since it exercises the same code path with the additive `final_result` pattern layered on top:
-
-  ```bash
-  npx tsx test/continuous-test-suite-anthropic-structured-tools.ts
-  ```
-
-- [ ] **Step 5: Full verification and commit**
-
-  ```bash
-  pnpm run check
-  pnpm run lint
-  npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
-  npx tsx test/continuous-test-suite-anthropic-structured-tools.ts
-  npx tsx test/continuous-test-suite-loop-engine.ts
-  pnpm run build
-  ```
-
-  ```bash
-  git add src/lib/providers/anthropic/loopAdapter.ts src/lib/providers/anthropic/client.ts \
-    test/continuous-test-suite-anthropic-loop-characterization.ts package.json
-  git commit -m "refactor(anthropic): migrate native streaming tool loop onto runAgenticLoop"
-  ```
-
-  **Rollback for this task specifically:** `git revert` this single commit. Because Task 1/2/3's primitives are additive (old call sites deleted, but the primitives themselves are new files), reverting this one commit fully restores Anthropic's pre-migration `executeStreamInCaptureScope` with no cross-task entanglement.
-
----
-
-## Task 5: Migrate Google AI Studio's native Gemini loop onto the engine
-
-**Files:**
-
-- Create: `test/continuous-test-suite-aistudio-loop-characterization.ts`
-- Create: `src/lib/providers/googleAiStudio/loopAdapter.ts` (`createGeminiLoopAdapter` — shared with Task 6's Vertex+Gemini migration)
-- Modify: `src/lib/providers/googleAiStudio/client.ts` (`executeNativeGemini3Stream` body replaced)
-
-- [ ] **Step 1: Write the characterization test against current `executeNativeGemini3Stream`**
-
-  Follow the exact mocking precedent from `test/continuous-test-suite-gemini-abort.ts` (private `createGoogleGenAIClient`/`createVertexGenAIClient`-style override, mock `models.generateContentStream`). Cover: a text-only turn, a tool-call round trip through `executeNativeToolCalls`'s real breaker (this is the one family where the breaker is load-bearing — assert a tool called 3 times with `DEFAULT_TOOL_MAX_RETRIES` set low via test injection eventually returns a `TOOL_PERMANENTLY_FAILED` result, not just "not found"), and the `MALFORMED_FUNCTION_CALL` finish-reason mapping to `"error"` (per `mapGeminiFinishReason`) confirming AI Studio does **not** retry it (unlike Vertex+Gemini in Task 6).
-
-  Create `test/continuous-test-suite-aistudio-loop-characterization.ts`:
-
-  ```typescript
-  #!/usr/bin/env tsx
-  /**
-   * Characterization test for Google AI Studio's native Gemini-3 streaming
-   * tool loop (googleAiStudio/client.ts executeNativeGemini3Stream), written
-   * BEFORE migration onto runAgenticLoop (plan 08, task 5). Pins:
-   *   - text-only single step
-   *   - tool-call round trip through the shared executeNativeToolCalls breaker
-   *   - a tool failing past DEFAULT_TOOL_MAX_RETRIES -> permanently_failed
-   *   - NO malformed-function-call retry (AI Studio lacks it; Vertex+Gemini
-   *     has it — task 5 must not accidentally add it here)
-   *
-   * Runner: `npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts`
-   * (package.json: `pnpm run test:aistudio-loop-characterization`).
-   */
-  import "dotenv/config";
-
-  import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-  import { GoogleAIStudioProvider } from "../src/lib/providers/googleAiStudio/client.js";
-
-  const { test, runSuite } = defineSuite(
-    "Google AI Studio native loop characterization",
-  );
-
-  type GenParams = {
-    model: string;
-    contents: unknown[];
-    config: Record<string, unknown>;
-  };
-  type Chunk = {
-    candidates?: Array<{
-      content?: { parts: unknown[] };
-      finishReason?: string;
-    }>;
-    functionCalls?: Array<{ name: string; args: Record<string, unknown> }>;
-    usageMetadata?: {
-      promptTokenCount?: number;
-      candidatesTokenCount?: number;
-    };
-  };
-
-  function textChunk(text: string, finishReason?: string): Chunk {
-    return {
-      candidates: [
-        {
-          content: { parts: [{ text }] },
-          ...(finishReason ? { finishReason } : {}),
-        },
-      ],
-      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
-    };
-  }
-
-  function toolCallChunk(
-    name: string,
-    args: Record<string, unknown>,
-    finishReason?: string,
-  ): Chunk {
-    return {
-      candidates: [
-        {
-          content: { parts: [{ functionCall: { name, args } }] },
-          ...(finishReason ? { finishReason } : {}),
-        },
-      ],
-      functionCalls: [{ name, args }],
-      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5 },
-    };
-  }
-
-  function mockGenerateContentStream(
-    sequence: Chunk[][],
-  ): (p: GenParams) => Promise<AsyncIterable<Chunk>> {
-    let call = 0;
-    return async () => {
-      const chunks = sequence[Math.min(call, sequence.length - 1)];
-      call++;
-      return (async function* () {
-        for (const chunk of chunks) {
-          yield chunk;
-        }
-      })();
-    };
-  }
-
-  function providerWithMockClient(
-    generateContentStream: (p: GenParams) => Promise<AsyncIterable<Chunk>>,
-  ): GoogleAIStudioProvider {
-    const provider = new GoogleAIStudioProvider(
-      "gemini-3-pro-preview",
-      undefined,
-      undefined,
-      {
-        apiKey: "test-key-not-used",
-      },
-    );
-    (provider as unknown as { getApiKey: () => string }).getApiKey = () =>
-      "test-key-not-used";
-    // createGoogleGenAIClient is a module-level factory imported into client.ts; override via the
-    // provider's private client-cache field if one exists, else inject at the module boundary —
-    // verify the exact override point against client.ts before finalizing (mirrors gemini-abort's
-    // createVertexGenAIClient override precedent).
-    (
-      provider as unknown as { models: { generateContentStream: unknown } }
-    ).models = { generateContentStream };
-    return provider;
-  }
-
-  async function drain(
-    stream: AsyncIterable<{ content: string }>,
-  ): Promise<string> {
-    let out = "";
-    for await (const chunk of stream) {
-      out += chunk.content;
-    }
-    return out;
-  }
-
-  await test("text-only turn streams through and stops on STOP finishReason", async () => {
-    const provider = providerWithMockClient(
-      mockGenerateContentStream([[textChunk("hello from gemini", "STOP")]]),
-    );
-    const result = await provider.stream({ input: { text: "hi" } });
-    const text = await drain(result.stream);
-    assertEqual(text, "hello from gemini", "single-step text streamed through");
-  });
-
-  await test("tool-call round trip executes the tool and returns the follow-up text", async () => {
-    const provider = providerWithMockClient(
-      mockGenerateContentStream([
-        [toolCallChunk("add_numbers", { a: 2, b: 3 }, "STOP")],
-        [textChunk("the answer is 5", "STOP")],
-      ]),
-    );
-    const result = await provider.stream({
-      input: { text: "add 2 and 3" },
-      tools: {
-        add_numbers: {
-          description: "add",
-          inputSchema: {
-            type: "object",
-            properties: { a: { type: "number" }, b: { type: "number" } },
-          },
-          execute: async (args: { a: number; b: number }) => args.a + args.b,
-        },
-      },
-    });
-    const text = await drain(result.stream);
-    assertEqual(
-      text,
-      "the answer is 5",
-      "tool executed, follow-up step's text streamed",
-    );
-  });
-
-  await runSuite();
-  ```
-
-  Add `test:aistudio-loop-characterization` to `package.json`. Run against unmigrated code, confirm green. **Note:** the exact override point for `models.generateContentStream` inside `executeNativeGemini3Stream` must be verified against the live `googleAiStudio/client.ts` source at implementation time (the client is constructed locally inside the method via `createGoogleGenAIClient(apiKey)`, not stored on `this` — the override strategy from `continuous-test-suite-gemini-abort.ts`, which overrides the **module-level factory function** `createVertexGenAIClient` with a cast on the imported module object, is the correct precedent to copy here for `createGoogleGenAIClient`, not a `this.models` property override as sketched above — fix this during implementation by reading the actual import/call site first).
-
-- [ ] **Step 2: Extract `createGeminiLoopAdapter`**
-
-  Create `src/lib/providers/googleAiStudio/loopAdapter.ts` (imported by both AI Studio and, in Task 6, Vertex+Gemini — despite the directory name, this is shared infrastructure; consider `src/lib/core/` instead of `googleAiStudio/` if Task 6 finds the AI-Studio-namespaced path awkward to import from `googleVertex/` — decide at Task 6 time and, if moved, update this task's import path in the same Task 6 commit with a one-line note explaining the move).
-
-  ```typescript
-  import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
-  import type {
-    AgenticLoopAdapter,
-    AgenticLoopStepResult,
-  } from "../../types/index.js";
-  import {
-    buildNativeConfig,
-    createContextGuard,
-    createTurnClock,
-    executeNativeToolCalls,
-    mapGeminiFinishReason,
-  } from "../googleNativeGemini3/utils.js";
-  import { DEFAULT_TOOL_MAX_RETRIES } from "../../core/constants.js";
-
-  type GeminiContents = Array<{ role: string; parts: unknown[] }>;
-
-  export type GeminiLoopClient = {
-    models: {
-      generateContentStream: (params: {
-        model: string;
-        contents: GeminiContents;
-        config: Record<string, unknown>;
-      }) => Promise<AsyncIterable<Record<string, unknown>>>;
-    };
-  };
-
-  /**
-   * Build an AgenticLoopAdapter speaking @google/genai's native wire format.
-   * Reused for both Google AI Studio and Vertex+Gemini (task 6) — the two
-   * clients differ only in how they're constructed (API key vs
-   * project/location) and in optional per-family knobs (Vertex+Gemini turns
-   * on malformedCallRetry; AI Studio does not — see the mapping table).
-   */
-  export function createGeminiLoopAdapter(params: {
-    client: GeminiLoopClient;
-    modelId: string;
-    providerLabel: string;
-    maxSteps: number;
-    config: Record<string, unknown>;
-    contextWindowTokens: number;
-    enableMalformedRetry: boolean;
-    reclaimContext: (
-      contents: GeminiContents,
-      modelId: string,
-      projectedTokens: number,
-    ) => boolean;
-  }): AgenticLoopAdapter<GeminiContents> {
-    const contextGuard = createContextGuard(params.contextWindowTokens);
-    const failedTools = new Map<string, { count: number; lastError: string }>();
-    const allToolCallRecords: Array<{
-      toolName: string;
-      args: Record<string, unknown>;
-    }> = [];
-
-    return {
-      providerLabel: params.providerLabel,
-      maxSteps: params.maxSteps,
-      toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES }, // = 2, src/lib/core/constants.ts:120 — same shared constant Vertex+Claude's factory call (Task 6 Step 3) also uses
-
-      planReclaim: (conversation) => {
-        if (!contextGuard.shouldStop()) {
-          return undefined;
-        }
-        const reclaimed = params.reclaimContext(
-          conversation,
-          params.modelId,
-          contextGuard.projectedNextPromptTokens,
-        );
-        if (reclaimed) {
-          contextGuard.resetAfterReclaim();
-          return { conversation };
-        }
-        return undefined;
-      },
-
-      ...(params.enableMalformedRetry
-        ? {
-            isMalformedStep: (stepResult: AgenticLoopStepResult) =>
-              stepResult.toolCalls.length === 0 &&
-              !stepResult.text &&
-              stepResult.rawStopReason === "MALFORMED_FUNCTION_CALL",
-            buildMalformedRetryNote: (conversation: GeminiContents) => [
-              ...conversation,
-              {
-                role: "user",
-                parts: [
-                  {
-                    text: "Your previous function call was malformed and could not be parsed. Re-issue it as a single valid function call, or answer in plain text.",
-                  },
-                ],
-              },
-            ],
-          }
-        : {}),
-
-      buildStepRequest: (conversation) => ({
-        raw: {
-          model: params.modelId,
-          contents: conversation,
-          config: params.config,
-        },
-      }),
-
-      executeStep: async (request, channel, signal) => {
-        const stream = await params.client.models.generateContentStream({
-          ...(request.raw as {
-            model: string;
-            contents: GeminiContents;
-            config: Record<string, unknown>;
-          }),
-          config: {
-            ...(request.raw as { config: Record<string, unknown> }).config,
-            abortSignal: signal,
-          },
-        });
-        const rawResponseParts: unknown[] = [];
-        const stepFunctionCalls: Array<{
-          name: string;
-          args: Record<string, unknown>;
-        }> = [];
-        let inputTokens = 0;
-        let outputTokens = 0;
-        let stopReason: string | undefined;
-
-        for await (const chunk of stream) {
-          const candidates = chunk.candidates as
-            | Array<Record<string, unknown>>
-            | undefined;
-          const first = candidates?.[0];
-          const finishReason = first?.finishReason;
-          if (typeof finishReason === "string" && finishReason) {
-            stopReason = finishReason;
-          }
-          const content = first?.content as { parts?: unknown[] } | undefined;
-          if (content?.parts) {
-            for (const part of content.parts as Array<
-              Record<string, unknown>
-            >) {
-              rawResponseParts.push(part);
-              if (typeof part.text === "string" && part.text.length > 0) {
-                channel.push({ content: part.text });
-              }
-            }
-          }
-          const calls = (
-            chunk as {
-              functionCalls?: Array<{
-                name: string;
-                args: Record<string, unknown>;
-              }>;
-            }
-          ).functionCalls;
-          if (calls) {
-            stepFunctionCalls.push(...calls);
-          }
-          const usage = chunk.usageMetadata as
-            | { promptTokenCount?: number; candidatesTokenCount?: number }
-            | undefined;
-          if (usage?.promptTokenCount) {
-            inputTokens = usage.promptTokenCount;
-            contextGuard.noteUsage(
-              usage.promptTokenCount,
-              usage.candidatesTokenCount ?? 0,
-            );
-          }
-          if (usage?.candidatesTokenCount) {
-            outputTokens = usage.candidatesTokenCount;
-          }
-        }
-
-        const text = rawResponseParts
-          .filter(
-            (p): p is { text: string } =>
-              typeof (p as Record<string, unknown>).text === "string",
-          )
-          .map((p) => p.text)
-          .join("");
-
-        return {
-          text,
-          toolCalls: stepFunctionCalls.map((c) => ({
-            id: `${c.name}-${Math.random().toString(36).slice(2)}`,
-            name: c.name,
-            args: c.args,
-          })),
-          usage: { inputTokens, outputTokens },
-          rawStopReason: stopReason,
-          raw: rawResponseParts,
-        };
-      },
-
-      buildToolResultMessages: (conversation, stepResult, toolResults) => {
-        const modelTurn = { role: "model", parts: stepResult.raw as unknown[] };
-        const functionResponses = toolResults.map((r) => ({
-          functionResponse: {
-            name: r.name,
-            response: r.error
-              ? {
-                  error: r.error,
-                  status: r.permanentlyFailed ? "permanently_failed" : "failed",
-                }
-              : { result: r.output },
-          },
-        }));
-        return [
-          ...conversation,
-          modelTurn,
-          { role: "user", parts: functionResponses },
-        ];
-      },
-
-      mapFinishReason: (rawStopReason, hadToolCallsAtCap) =>
-        hadToolCallsAtCap ? "tool-calls" : mapGeminiFinishReason(rawStopReason),
-    };
-  }
-  ```
-
-  **Explicitly deferred to implementation time, flagged here rather than guessed:** the exact call signature of `executeNativeToolCalls` (whether the engine's generic tool-dispatch in `loopEngine.ts` fully subsumes it, or whether the adapter must still call it directly for the mid-turn tool-discovery-hydration behavior at `utils.ts:1160-1186`, which the generic engine dispatcher in Task 3 does not implement). **Resolve this before writing Step 3**, by re-reading `executeNativeToolCalls` alongside the Task 3 engine's tool-dispatch block side by side; if hydration support is lost, either add a `refreshTools` escape hatch to the engine (mirroring the `refreshTools` hook noted in Task 4) or keep `executeNativeToolCalls` as the adapter's own tool-dispatch (bypassing the engine's generic dispatcher entirely for Gemini adapters via a `dispatchTools?` adapter override) — the second option is safer for a first migration pass and is the recommended default; revisit centralizing it only after both Gemini migrations (Tasks 5 and 6) are green.
-
-- [ ] **Step 3: Replace `executeNativeGemini3Stream`'s loop body with the engine call**, wiring `createGeminiLoopAdapter` with `enableMalformedRetry: false` (AI Studio's current behavior — see mapping table).
-
-- [ ] **Step 4: Run the characterization suite against the migrated code — must still pass unmodified.**
-
-  ```bash
-  npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
-  ```
-
-- [ ] **Step 5: Full verification and commit**
-
-  ```bash
-  pnpm run check
-  pnpm run lint
-  npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
-  npx tsx test/continuous-test-suite-loop-engine.ts
-  pnpm run build
-  ```
-
-  ```bash
-  git add src/lib/providers/googleAiStudio/loopAdapter.ts src/lib/providers/googleAiStudio/client.ts \
-    test/continuous-test-suite-aistudio-loop-characterization.ts package.json
-  git commit -m "refactor(googleAiStudio): migrate native Gemini streaming loop onto runAgenticLoop"
-  ```
-
----
-
-## Task 6: Migrate all four Google Vertex loops onto the engine
-
-**Files:**
-
-- Create: `test/continuous-test-suite-vertex-loop-characterization.ts` (covers all four: Gemini stream, Gemini generate, Claude stream, Claude generate)
-- Modify: `src/lib/providers/googleVertex/client.ts` (`executeNativeGemini3Stream`, `executeNativeGemini3Generate`, `executeNativeAnthropicStream`, `executeNativeAnthropicGenerate` bodies replaced)
-- Possibly move: `src/lib/providers/googleAiStudio/loopAdapter.ts` → `src/lib/core/geminiLoopAdapter.ts` (see Task 5's note — resolve the import-path question here since this is the first cross-directory consumer)
-
-This is the largest migration (four loops, ~4,000-5,000 duplicated lines per the audit's estimate) — split into four sub-steps, each independently characterized and committed, rather than one giant task, so a regression in one loop never blocks the other three from landing.
-
-- [ ] **Step 1: Write the four-part characterization suite against current code**
-
-  Reuse the exact `createVertexGenAIClient` override precedent from `test/continuous-test-suite-gemini-abort.ts` for the two Gemini loops (`executeNativeGemini3Stream`/`Generate`). For the two Claude-on-Vertex loops, the client is Vertex's Anthropic-compatible SDK client (constructed via a different factory — locate it by reading `executeNativeAnthropicStream`'s first ~30 lines at implementation time; likely `createVertexAnthropicClient` or similar, override the same way).
-
-  Structure the suite with four `describe`-style groups (the harness doesn't have `describe`, so use comment-delimited sections and descriptive test names prefixed `[gemini-stream]`, `[gemini-generate]`, `[claude-stream]`, `[claude-generate]`), each covering at minimum: text-only turn, tool-call round trip, and — for the two Gemini loops only — the `MALFORMED_FUNCTION_CALL` retry-once behavior (Vertex+Gemini has this; Vertex+Claude does not, since Claude's wire format has no such finish reason). For the two Claude loops, also cover: (a) a prompt-cache-breakpoint assertion — the mocked `client.messages.create` request must carry a `cache_control` marker on at least one message once the conversation crosses one round trip, proving `applyVertexAnthropicCacheBreakpoints` (or its call site) survived the migration; and (b) a **tool-failure-breaker assertion** — mock a tool that always throws, drive `DEFAULT_TOOL_MAX_RETRIES` (2) failed calls, and assert the next attempt returns a `permanently_failed`/`do_not_retry` result instead of a plain error (this is Verified Fact 4's Vertex+Claude-only divergence from native Anthropic; native Anthropic's own characterization suite in Task 4 asserts the OPPOSITE — no breaker, unbounded plain-error retries — so these two suites must not be copy-pasted from each other without adjusting this one assertion).
-
-  Add `test:vertex-loop-characterization` to `package.json`. Run against unmigrated code; confirm green.
-
-- [ ] **Step 2: Migrate `executeNativeGemini3Stream` and `executeNativeGemini3Generate`**
-
-  Both call `createGeminiLoopAdapter(...)` (from Task 5, now imported cross-directory — resolve the file-location question from Task 5's note in this step, moving the file if needed) with `enableMalformedRetry: true` and Vertex's own `reclaimVertexLoopContext` passed as the `reclaimContext` parameter. This is also where Verified Fact 3's buffered-then-replayed streaming quirk gets fixed as a side effect: the engine always returns `channel.iterable` immediately (background-loop model), so `executeNativeGemini3Stream` becomes genuinely concurrent with its consumer for the first time. Run the characterization suite's `[gemini-stream]`/`[gemini-generate]` sections; they must still pass (they assert chunk _content_, not chunk _timing_, so this is safe). Commit separately:
-
-  ```bash
-  git add src/lib/providers/googleVertex/client.ts src/lib/providers/googleAiStudio/loopAdapter.ts \
-    test/continuous-test-suite-vertex-loop-characterization.ts
-  git commit -m "refactor(googleVertex): migrate native Gemini-3 loops (stream+generate) onto runAgenticLoop"
-  ```
-
-- [ ] **Step 3: Migrate `executeNativeAnthropicStream` and `executeNativeAnthropicGenerate`**
-
-  Both call `createAnthropicLoopAdapter(...)` (from Task 4), passing Vertex's client, `applyCacheBreakpoints: applyVertexAnthropicCacheBreakpoints` (its own, per Verified Fact 6 — do not substitute native Anthropic's function here), **and** `toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES }` (imported from `core/constants.js`, the same shared constant Vertex's current hand-rolled `failedTools` Map already uses at `client.ts:5096,5438-5441` and `:6668+` — per Verified Fact 4, this is the one field the native-Anthropic call to this same factory correctly omits and this call must not). Run the `[claude-stream]`/`[claude-generate]` characterization sections; they must still pass, including the cache-breakpoint assertion AND the tool-failure-breaker assertion added in Step 1. Commit separately:
-
-  ```bash
-  git add src/lib/providers/googleVertex/client.ts src/lib/providers/anthropic/loopAdapter.ts \
-    test/continuous-test-suite-vertex-loop-characterization.ts
-  git commit -m "refactor(googleVertex): migrate native Claude loops (stream+generate) onto runAgenticLoop"
-  ```
-
-- [ ] **Step 4: Full verification**
-
-  ```bash
-  pnpm run check
-  pnpm run lint
-  npx tsx test/continuous-test-suite-vertex-loop-characterization.ts
-  npx tsx test/continuous-test-suite-gemini-abort.ts
-  npx tsx test/continuous-test-suite-loop-engine.ts
-  pnpm run build
-  ```
-
-  **Rollback for this task:** each of the two commits (Step 2, Step 3) reverts independently — a regression found only in the Claude-on-Vertex loops does not require reverting the Gemini-on-Vertex migration, and vice versa.
-
----
-
-## Task 7: Migrate Amazon Bedrock's two loops onto the engine
+## Task 4: Migrate Amazon Bedrock's two loops onto the engine
 
 **Files:**
 
 - Create: `test/continuous-test-suite-bedrock-loop-characterization.ts`
-- Create: `src/lib/providers/amazonBedrock/loopAdapter.ts` (`createBedrockLoopAdapter`)
-- Modify: `src/lib/providers/amazonBedrock/client.ts` (`conversationLoop`, `streamingConversationLoop` bodies replaced)
+- Create: `src/lib/providers/amazonBedrock/loopAdapter.ts`
+- Modify: `src/lib/providers/amazonBedrock/client.ts` (`streamingConversationLoop`, and the hardcoded-10-iteration generate-path loop)
+- Modify: `package.json` (add `test:bedrock-loop-characterization`)
+- Modify: `eslint.config.js` (add the new suite to `neurolink/e2e-tests-only`'s `allow` list)
 
-- [ ] **Step 1: Write the characterization test — explicitly pinning the pre-existing `maxIterations`/`options.maxSteps` inconsistency**
+Bedrock is unaffected by all three architectural blockers (no discovery/hydration code, no `originalNameMap`, no `final_result` mechanism — see the findings doc's blocker-3 scoping) and has no ordering dependency on any other task, so it migrates first as the engine's proving ground against real production code.
 
-  No existing mock-Bedrock precedent exists in the test suite; establish one following the `mockClient` pattern from Task 4, overriding the private `bedrockClient` field:
+**Interfaces:**
+
+Consumes (from Task 3):
+
+```typescript
+// from "../../types/index.js"
+import type {
+  AgenticLoopAdapter,
+  AgenticLoopStepResult,
+  AgenticLoopToolCallResult,
+} from "../../types/index.js";
+// from "../../core/loopEngine.js"
+import { runAgenticLoop } from "../../core/loopEngine.js";
+```
+
+Produces:
+
+```typescript
+// src/lib/providers/amazonBedrock/loopAdapter.ts
+export function createBedrockLoopAdapter(config: {
+  client: BedrockRuntimeClient; // from "@aws-sdk/client-bedrock-runtime"
+  modelId: string;
+  region: string;
+  maxSteps: number;
+  buildCommandInput: (
+    conversation: BedrockMessage[],
+    step: number,
+  ) => ConverseStreamCommandInput; // from "@aws-sdk/client-bedrock-runtime"
+}): AgenticLoopAdapter<BedrockMessage[], BedrockContentBlock[]>;
+```
+
+`BedrockMessage` and `BedrockContentBlock` are NeuroLink's own canonical types, already exported from `../../types/index.js` (used today by `amazonBedrock/client.ts`). Not reused by any later task — Bedrock's loop shape (AWS Converse events) is unrelated to the Anthropic/Gemini families.
+
+- [ ] **Step 1: Write the characterization suite against current code**
+
+  Create `test/continuous-test-suite-bedrock-loop-characterization.ts`:
 
   ```typescript
   #!/usr/bin/env tsx
-  /**
-   * Characterization test for Amazon Bedrock's two native ConverseStream tool
-   * loops (amazonBedrock/client.ts conversationLoop + streamingConversationLoop),
-   * written BEFORE migration onto runAgenticLoop (plan 08, task 7). Pins:
-   *   - text-only turn (both generate and stream paths)
-   *   - tool-call round trip (tool_use content block -> toolResult -> final text)
-   *   - a raw per-call throw on tool-not-found (Bedrock has no breaker today)
-   *   - the PRE-EXISTING maxIterations inconsistency: conversationLoop
-   *     (generate) is hardcoded to 10 and IGNORES options.maxSteps;
-   *     streamingConversationLoop (stream) honors options.maxSteps. This test
-   *     pins BOTH behaviors as they exist today so the migration's decision
-   *     to unify them (see this task's Step 3) is a deliberate, visible diff
-   *     against a known baseline, not an accidental one.
-   *
-   * Runner: `npx tsx test/continuous-test-suite-bedrock-loop-characterization.ts`
-   * (package.json: `pnpm run test:bedrock-loop-characterization`).
-   */
   import "dotenv/config";
+  import { defineSuite, assert } from "./helpers/harness.js";
 
-  import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-  import { AmazonBedrockProvider } from "../src/lib/providers/amazonBedrock/client.js";
+  /**
+   * Continuous Test Suite — Amazon Bedrock native-loop characterization
+   * (Plan 08, Task 4).
+   *
+   * DETERMINISM EXCEPTION (CLAUDE.md rule 15): AmazonBedrockProvider's
+   * constructor credentials shape is `{accessKeyId?, secretAccessKey?,
+   * sessionToken?, region?}` — no endpoint/baseURL override exists, so there
+   * is no way to redirect its AWS SDK v3 client at a local mock server
+   * through the public dist surface. This suite constructs
+   * AmazonBedrockProvider directly from `src/` and overrides the private
+   * `bedrockClient` field's `.send()` method with a canned response,
+   * sidestepping AWS SigV4 request signing and the ConverseStream binary
+   * wire format entirely. What determinism buys: an exact, pinned count of
+   * ConverseStream calls per turn, which the maxSteps-honored test below
+   * depends on — no live or wire-level mock could guarantee that
+   * deterministically. Declared in eslint.config.js's
+   * `neurolink/e2e-tests-only` allow list.
+   *
+   * Run: npx tsx test/continuous-test-suite-bedrock-loop-characterization.ts
+   *      pnpm run test:bedrock-loop-characterization
+   */
 
-  const { test, runSuite } = defineSuite(
-    "Amazon Bedrock native loop characterization",
+  const { test, runSuite, section } = defineSuite(
+    "Bedrock loop characterization",
   );
 
-  type ConverseInput = { messages: unknown[]; toolConfig?: unknown };
+  type ConverseStreamChunk = Record<string, unknown>;
 
-  function textConverseResponse(text: string): {
-    output: {
-      message: { role: string; content: Array<Record<string, unknown>> };
-    };
-    stopReason: string;
-    usage: { inputTokens: number; outputTokens: number };
-  } {
-    return {
-      output: { message: { role: "assistant", content: [{ text }] } },
-      stopReason: "end_turn",
-      usage: { inputTokens: 10, outputTokens: 5 },
-    };
+  function textConverseChunks(text: string): ConverseStreamChunk[] {
+    return [
+      { messageStart: { role: "assistant" } },
+      { contentBlockStart: { contentBlockIndex: 0, start: {} } },
+      { contentBlockDelta: { contentBlockIndex: 0, delta: { text } } },
+      { contentBlockStop: { contentBlockIndex: 0 } },
+      { messageStop: { stopReason: "end_turn" } },
+      { metadata: { usage: { inputTokens: 10, outputTokens: 4 } } },
+    ];
   }
 
-  function toolUseConverseResponse(
-    toolUseId: string,
+  function toolUseConverseChunks(
     name: string,
     input: Record<string, unknown>,
-  ) {
-    return {
-      output: {
-        message: {
-          role: "assistant",
-          content: [{ toolUse: { toolUseId, name, input } }],
+    toolUseId: string,
+  ): ConverseStreamChunk[] {
+    return [
+      { messageStart: { role: "assistant" } },
+      {
+        contentBlockStart: {
+          contentBlockIndex: 0,
+          start: { toolUse: { name, toolUseId } },
         },
       },
-      stopReason: "tool_use",
-      usage: { inputTokens: 10, outputTokens: 5 },
-    };
-  }
-
-  function mockBedrockClient(responses: unknown[]): {
-    send: (command: { input: ConverseInput }) => Promise<unknown>;
-  } {
-    let index = 0;
-    return {
-      send: async () => {
-        const next = responses[Math.min(index, responses.length - 1)];
-        index++;
-        return next;
+      {
+        contentBlockDelta: {
+          contentBlockIndex: 0,
+          delta: { toolUse: { input: JSON.stringify(input) } },
+        },
       },
-    };
+      { contentBlockStop: { contentBlockIndex: 0 } },
+      { messageStop: { stopReason: "tool_use" } },
+      { metadata: { usage: { inputTokens: 12, outputTokens: 6 } } },
+    ];
   }
 
-  function providerWith(bedrockClient: unknown): AmazonBedrockProvider {
+  async function* toAsyncIterable<T>(items: T[]): AsyncGenerator<T> {
+    for (const item of items) {
+      yield item;
+    }
+  }
+
+  type SendFn = (
+    command: unknown,
+  ) => Promise<{ stream: AsyncIterable<ConverseStreamChunk> }>;
+
+  async function providerWith(sendImpl: SendFn) {
+    const { AmazonBedrockProvider } =
+      await import("../src/lib/providers/amazonBedrock/client.js");
     const provider = new AmazonBedrockProvider(
       "anthropic.claude-3-5-sonnet-20241022-v2:0",
       undefined,
-      undefined,
-      {
-        region: "us-east-1",
-        accessKeyId: "test",
-        secretAccessKey: "test",
-      },
+      "us-east-1",
+      { accessKeyId: "test", secretAccessKey: "test" },
     );
-    (provider as unknown as { bedrockClient: unknown }).bedrockClient =
-      bedrockClient;
+    (provider as unknown as { bedrockClient: { send: SendFn } }).bedrockClient =
+      { send: sendImpl };
     return provider;
   }
 
-  await test("[generate] text-only turn produces the message text with no tool calls", async () => {
-    const provider = providerWith(
-      mockBedrockClient([textConverseResponse("hello from bedrock")]),
-    );
-    const result = await provider.generate({ input: { text: "hi" } });
-    assertEqual(
-      result.content,
-      "hello from bedrock",
-      "generate path returns the single-step text",
-    );
-  });
+  void runSuite(async () => {
+    section("text-only turn");
 
-  await test("[generate] tool-call round trip: tool_use then end_turn", async () => {
-    const provider = providerWith(
-      mockBedrockClient([
-        toolUseConverseResponse("call_1", "add_numbers", { a: 2, b: 3 }),
-        textConverseResponse("the answer is 5"),
-      ]),
-    );
-    const result = await provider.generate({
-      input: { text: "add 2 and 3" },
-      tools: {
-        add_numbers: {
-          description: "add",
-          execute: async (args: { a: number; b: number }) => args.a + args.b,
-        },
-      },
+    await test("a text-only Converse turn streams the text and stops", async () => {
+      const provider = await providerWith(async () => ({
+        stream: toAsyncIterable(textConverseChunks("hello from bedrock")),
+      }));
+      const result = await provider.stream({
+        input: { text: "hi" },
+        maxSteps: 3,
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += chunk.content ?? "";
+      }
+      assert(
+        text.includes("hello from bedrock"),
+        "text-only turn did not surface the streamed text",
+      );
     });
-    assertEqual(
-      result.content,
-      "the answer is 5",
-      "tool executed, follow-up text returned",
-    );
-  });
 
-  await runSuite();
+    section("tool-call round trip");
+
+    await test("a tool_use turn executes the tool and completes with a text turn", async () => {
+      let callCount = 0;
+      const provider = await providerWith(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            stream: toAsyncIterable(
+              toolUseConverseChunks("lookup", { query: "x" }, "tool_1"),
+            ),
+          };
+        }
+        return { stream: toAsyncIterable(textConverseChunks("done")) };
+      });
+      const result = await provider.stream({
+        input: { text: "look something up" },
+        maxSteps: 3,
+        tools: {
+          lookup: {
+            description: "look something up",
+            parameters: { type: "object", properties: {} },
+            execute: async () => ({ found: true }),
+          },
+        },
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += chunk.content ?? "";
+      }
+      assert(callCount === 2, "tool round trip did not take exactly two turns");
+      assert(text.includes("done"), "final turn text was not surfaced");
+    });
+
+    section("maxSteps is honored (call-count pinned)");
+
+    await test("a model that never stops calling tools is cut off at exactly maxSteps turns", async () => {
+      let callCount = 0;
+      const provider = await providerWith(async () => {
+        callCount++;
+        return {
+          stream: toAsyncIterable(
+            toolUseConverseChunks(
+              "loop_tool",
+              { n: callCount },
+              `t_${callCount}`,
+            ),
+          ),
+        };
+      });
+      const result = await provider.stream({
+        input: { text: "keep going" },
+        maxSteps: 3,
+        tools: {
+          loop_tool: {
+            description: "never stops",
+            parameters: { type: "object", properties: {} },
+            execute: async () => ({ ok: true }),
+          },
+        },
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      assert(
+        callCount === 3,
+        "maxSteps=3 did not cut the turn off at exactly 3 Converse calls",
+      );
+      assert(
+        result.finishReason === "tool-calls",
+        "cut-off turn should report finishReason tool-calls",
+      );
+    });
+  });
   ```
 
-  Add `test:bedrock-loop-characterization` to `package.json`. Run against unmigrated code; confirm green. Extend with a stream-path pair of tests once the streaming mock (a fake `AsyncIterable` matching `ConverseStreamCommand`'s event shape — `contentBlockStart`/`contentBlockDelta`/`contentBlockStop`/`messageStop`/`metadata`, per `client.ts:1949` `processStreamResponse`) is built, mirroring the same round-trip and text-only cases for `streamingConversationLoop`.
+  Add to `package.json` scripts:
 
-- [ ] **Step 2: Extract `createBedrockLoopAdapter`**
+  ```json
+  "test:bedrock-loop-characterization": "tsx test/continuous-test-suite-bedrock-loop-characterization.ts"
+  ```
 
-  Create `src/lib/providers/amazonBedrock/loopAdapter.ts`, porting `handleBedrockResponse` (`client.ts:703+`)'s stop-reason branch into `mapFinishReason`, `convertToAWSMessages`/`convertToBedrockMessages` (`client.ts:849,1111`) into `buildStepRequest`/`buildToolResultMessages`, and `formatToolsForBedrock`/`convertAISDKToolsToToolDefinitions` (`client.ts:~1014,1049`) into the tool-declaration portion of `buildStepRequest`. No `planReclaim`, no `toolFailureBreaker`, no `isMalformedStep` — all left `undefined`, matching Verified Fact 4/5/6 exactly (Bedrock has none of these today; the migration must not silently add them).
+  In `eslint.config.js`, add the new file to the `neurolink/e2e-tests-only` `allow` array and extend the comment above it:
+
+  ```javascript
+  // Internal agentic-loop-engine primitives (streamChannel, nativeToolFormat,
+  // loopEngine) have no exported surface at all, and AmazonBedrockProvider's
+  // constructor has no endpoint override to redirect at a local mock server —
+  // see each file's own header for the specific reasoning.
+  "test/continuous-test-suite-loop-engine.ts",
+  "test/continuous-test-suite-bedrock-loop-characterization.ts",
+  ```
+
+  Run against unmigrated code:
+
+  ```bash
+  npx tsx test/continuous-test-suite-bedrock-loop-characterization.ts
+  ```
+
+  Expected: all 3 tests pass (this is characterizing the CURRENT hand-rolled loop, which already honors `options.maxSteps` in `streamingConversationLoop` — the third test's call-count assertion is meaningful proof of that, not a tautology).
+
+- [ ] **Step 2: Write `createBedrockLoopAdapter`**
+
+  Create `src/lib/providers/amazonBedrock/loopAdapter.ts`:
 
   ```typescript
   import type {
+    ContentBlock,
+    ConverseStreamCommandInput,
+  } from "@aws-sdk/client-bedrock-runtime";
+  import {
+    ConverseStreamCommand,
+    type BedrockRuntimeClient,
+  } from "@aws-sdk/client-bedrock-runtime";
+  import type {
     AgenticLoopAdapter,
+    AgenticLoopStepRequest,
     AgenticLoopStepResult,
+    AgenticLoopToolCallResult,
+    BedrockContentBlock,
+    BedrockMessage,
   } from "../../types/index.js";
 
-  type BedrockConversation = Array<{ role: string; content: unknown[] }>;
-
-  export type BedrockLoopClient = {
-    send: (command: { input: unknown }) => Promise<{
-      output?: {
-        message?: { role: string; content: Array<Record<string, unknown>> };
-      };
-      stopReason?: string;
-      usage?: { inputTokens: number; outputTokens: number };
-    }>;
-  };
-
-  export function createBedrockLoopAdapter(params: {
-    client: BedrockLoopClient;
+  export function createBedrockLoopAdapter(config: {
+    client: BedrockRuntimeClient;
     modelId: string;
-    providerLabel: string;
+    region: string;
     maxSteps: number;
-    toolConfig?: unknown;
-    buildConverseCommand: (input: {
-      modelId: string;
-      messages: BedrockConversation;
-      toolConfig?: unknown;
-    }) => { input: unknown };
-  }): AgenticLoopAdapter<BedrockConversation> {
+    buildCommandInput: (
+      conversation: BedrockMessage[],
+      step: number,
+    ) => ConverseStreamCommandInput;
+  }): AgenticLoopAdapter<BedrockMessage[], BedrockContentBlock[]> {
     return {
-      providerLabel: params.providerLabel,
-      maxSteps: params.maxSteps,
+      providerLabel: "bedrock",
+      maxSteps: config.maxSteps,
+      // No toolFailureBreaker: Bedrock's own client today has unbounded plain-
+      // error retries with no breaker (Verified Fact 4) — preserved as-is.
 
-      buildStepRequest: (conversation) => ({
-        raw: params.buildConverseCommand({
-          modelId: params.modelId,
-          messages: conversation,
-          toolConfig: params.toolConfig,
-        }),
-      }),
+      buildStepRequest(
+        conversation: BedrockMessage[],
+        step: number,
+      ): AgenticLoopStepRequest {
+        return { raw: config.buildCommandInput(conversation, step) };
+      },
 
-      executeStep: async (request, channel) => {
-        const response = await params.client.send(
-          request.raw as { input: unknown },
-        );
-        const content = response.output?.message?.content ?? [];
+      async executeStep(
+        request: AgenticLoopStepRequest,
+        channel: { push(chunk: { content: string }): void },
+        signal: AbortSignal,
+      ): Promise<AgenticLoopStepResult<BedrockContentBlock[]>> {
+        const commandInput = request.raw as ConverseStreamCommandInput;
+        const command = new ConverseStreamCommand(commandInput);
+        const response = await config.client.send(command);
+
+        const contentBlocks: (BedrockContentBlock & {
+          _inputBuffer?: string;
+        })[] = [];
         let text = "";
-        const toolCalls: AgenticLoopStepResult["toolCalls"] = [];
-        for (const block of content) {
-          if (typeof block.text === "string") {
-            text += block.text;
-            channel.push({ content: block.text });
-          } else if (block.toolUse) {
-            const toolUse = block.toolUse as {
-              toolUseId: string;
-              name: string;
-              input: Record<string, unknown>;
-            };
-            toolCalls.push({
-              id: toolUse.toolUseId,
-              name: toolUse.name,
-              args: toolUse.input,
-            });
+        let rawStopReason: string | undefined;
+        let inputTokens = 0;
+        let outputTokens = 0;
+        let cacheReadTokens = 0;
+        let cacheWriteTokens = 0;
+
+        if (response.stream) {
+          for await (const chunk of response.stream) {
+            if (signal.aborted) {
+              break;
+            }
+            if (chunk.contentBlockStart) {
+              contentBlocks.push({});
+            }
+            if (chunk.contentBlockDelta?.delta?.text) {
+              const delta = chunk.contentBlockDelta.delta.text;
+              text += delta;
+              channel.push({ content: delta });
+            }
+            if (chunk.contentBlockStart?.start?.toolUse) {
+              const block = contentBlocks[contentBlocks.length - 1];
+              block.toolUse = {
+                name: chunk.contentBlockStart.start.toolUse.name || "",
+                input: {},
+                toolUseId:
+                  chunk.contentBlockStart.start.toolUse.toolUseId ||
+                  `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+              };
+            }
+            if (chunk.contentBlockDelta?.delta?.toolUse) {
+              const block = contentBlocks[contentBlocks.length - 1];
+              if (!block.toolUse) {
+                block.toolUse = {
+                  name: "",
+                  input: {},
+                  toolUseId: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+                };
+              }
+              const deltaInput = chunk.contentBlockDelta.delta.toolUse.input;
+              if (typeof deltaInput === "string") {
+                block._inputBuffer = (block._inputBuffer || "") + deltaInput;
+              }
+            }
+            if (chunk.contentBlockStop) {
+              const block = contentBlocks[contentBlocks.length - 1];
+              if (block?.toolUse && block._inputBuffer) {
+                try {
+                  block.toolUse.input = JSON.parse(block._inputBuffer);
+                } catch {
+                  block.toolUse.input = {};
+                }
+                delete block._inputBuffer;
+              }
+            }
+            if (chunk.messageStop) {
+              rawStopReason = chunk.messageStop.stopReason || "end_turn";
+              continue;
+            }
+            if (chunk.metadata?.usage) {
+              inputTokens += chunk.metadata.usage.inputTokens ?? 0;
+              outputTokens += chunk.metadata.usage.outputTokens ?? 0;
+              cacheReadTokens += chunk.metadata.usage.cacheReadInputTokens ?? 0;
+              cacheWriteTokens +=
+                chunk.metadata.usage.cacheWriteInputTokens ?? 0;
+              break;
+            }
           }
         }
+
+        const toolCalls = contentBlocks
+          .filter((b) => b.toolUse)
+          .map((b) => ({
+            id: b.toolUse!.toolUseId,
+            name: b.toolUse!.name,
+            args: (b.toolUse!.input as Record<string, unknown>) || {},
+          }));
+
         return {
           text,
           toolCalls,
           usage: {
-            inputTokens: response.usage?.inputTokens ?? 0,
-            outputTokens: response.usage?.outputTokens ?? 0,
+            inputTokens,
+            outputTokens,
+            cacheReadTokens,
+            cacheWriteTokens,
           },
-          rawStopReason: response.stopReason,
-          raw: content,
+          rawStopReason,
+          raw: contentBlocks as BedrockContentBlock[],
         };
       },
 
-      buildToolResultMessages: (conversation, stepResult, toolResults) => {
-        const assistantTurn = {
+      buildToolResultMessages(
+        conversation: BedrockMessage[],
+        stepResult: AgenticLoopStepResult<BedrockContentBlock[]>,
+        toolResults: AgenticLoopToolCallResult[],
+      ): BedrockMessage[] {
+        const assistantMessage: BedrockMessage = {
           role: "assistant",
-          content: stepResult.raw as unknown[],
+          content: stepResult.raw as ContentBlock[],
         };
-        const toolResultTurn = {
+        const toolResultMessage: BedrockMessage = {
           role: "user",
           content: toolResults.map((r) => ({
             toolResult: {
               toolUseId: r.id,
-              content: [{ json: r.output }],
-              ...(r.error ? { status: "error" } : {}),
+              content: [
+                {
+                  text: r.error
+                    ? `Error executing tool ${r.name}: ${r.error}`
+                    : JSON.stringify(r.output),
+                },
+              ],
+              status: r.error ? "error" : "success",
             },
-          })),
+          })) as unknown as ContentBlock[],
         };
-        return [...conversation, assistantTurn, toolResultTurn];
+        return [...conversation, assistantMessage, toolResultMessage];
       },
 
-      mapFinishReason: (rawStopReason, hadToolCallsAtCap) => {
-        if (hadToolCallsAtCap) {
-          return "tool-calls";
-        }
+      mapFinishReason(
+        rawStopReason: string | undefined,
+        hadToolCallsAtCap: boolean,
+      ): string {
         switch (rawStopReason) {
           case "end_turn":
           case "stop_sequence":
@@ -2766,45 +1891,28 @@ This is the largest migration (four loops, ~4,000-5,000 duplicated lines per the
           case "tool_use":
             return "tool-calls";
           default:
-            return "stop";
+            return hadToolCallsAtCap ? "tool-calls" : "stop";
         }
       },
     };
   }
   ```
 
-- [ ] **Step 3: Migrate `conversationLoop` (generate) and `streamingConversationLoop` (stream)**
+- [ ] **Step 3: Migrate both loops to call `runAgenticLoop`**
 
-  Wire both to `createBedrockLoopAdapter`. **Deliberate, called-out behavior unification:** replace `conversationLoop`'s hardcoded `maxIterations = 10` with the same `options.maxSteps || DEFAULT_MAX_STEPS` resolution `streamingConversationLoop` already uses — the engine takes one `maxSteps` value per adapter instance, so the two loops can no longer disagree by construction. This is flagged in Risks & Rollback as a real behavior change (a generate-path caller that relied on the undocumented 10-step ceiling could now run up to `DEFAULT_MAX_STEPS`), not swept in silently.
+  In `src/lib/providers/amazonBedrock/client.ts`, replace the body of `streamingConversationLoop` (and the hardcoded `maxIterations = 10` generate-path loop, unifying it onto the same `maxSteps || DEFAULT_MAX_STEPS` the streaming path already uses — a deliberate behavior change, already documented as such in Risks & Rollback) with a call to `createBedrockLoopAdapter(...)` followed by `runAgenticLoop(adapter, { tools: options.tools, abortSignal })`. The adapter's `buildCommandInput` closure reproduces the existing `prepareStreamCommand`/generate-path request-building logic unchanged — only the turn-loop control flow moves onto the engine.
 
-  The stream path also drops Bedrock's bespoke hand-rolled `ReadableStream` in favor of the engine's `streamChannel`-backed `channel.iterable` — the manual `controller.close()` WHATWG-spec requirement noted in the original code's comments (`client.ts:~1449` region) no longer applies since `streamChannel.ts` owns closing.
-
-- [ ] **Step 4: Run the characterization suite against the migrated code — assert the `maxIterations` unification explicitly**
-
-  Add one more test to the characterization suite (written in Step 1, extended here) proving the fix:
-
-  ```typescript
-  await test("[generate] maxSteps now honors options.maxSteps instead of the old hardcoded 10 (deliberate unification, see plan 08 task 7)", async () => {
-    const alwaysToolUse = toolUseConverseResponse("call_loop", "noop", {});
-    const provider = providerWith(mockBedrockClient([alwaysToolUse]));
-    const result = await provider.generate({
-      input: { text: "loop" },
-      maxSteps: 2,
-      tools: { noop: { description: "noop", execute: async () => "ok" } },
-    });
-    assertEqual(
-      result.finishReason,
-      "tool-calls",
-      "step cap honored options.maxSteps=2, not the old hardcoded 10",
-    );
-  });
-  ```
+  Run the characterization suite; all 3 tests must still pass unmodified (chunk _content_ and call _count_ pinned by the tests, not internal control-flow shape).
 
   ```bash
-  npx tsx test/continuous-test-suite-bedrock-loop-characterization.ts
+  git add src/lib/providers/amazonBedrock/client.ts \
+    src/lib/providers/amazonBedrock/loopAdapter.ts \
+    test/continuous-test-suite-bedrock-loop-characterization.ts \
+    package.json eslint.config.js
+  git commit -m "refactor(amazonBedrock): migrate both native loops onto runAgenticLoop"
   ```
 
-- [ ] **Step 5: Full verification and commit**
+- [ ] **Step 4: Full verification**
 
   ```bash
   pnpm run check
@@ -2814,230 +1922,219 @@ This is the largest migration (four loops, ~4,000-5,000 duplicated lines per the
   pnpm run build
   ```
 
-  ```bash
-  git add src/lib/providers/amazonBedrock/loopAdapter.ts src/lib/providers/amazonBedrock/client.ts \
-    test/continuous-test-suite-bedrock-loop-characterization.ts package.json
-  git commit -m "refactor(amazonBedrock): migrate both native ConverseStream loops onto runAgenticLoop; unify maxSteps resolution"
-  ```
+  **Rollback:** revert the single commit from Step 3; Steps 1-2's test/adapter files are additive and can stay.
 
 ---
 
-## Task 8: SPI hardening — default `executeStream` on `BaseProvider`
+## Task 5: SPI hardening — default `executeStream` on `BaseProvider`
 
 **Files:**
 
-- Modify: `src/lib/core/baseProvider.ts` (`executeStream` changes from `protected abstract` to a concrete `protected` method with a default body; `getAISDKModel` stays abstract)
-- Modify: `test/continuous-test-suite-loop-engine.ts` (append a section using a minimal fake provider subclass)
+- Modify: `src/lib/core/baseProvider.ts` (`executeStream` becomes a concrete default method instead of `protected abstract`)
+- Modify: `test/continuous-test-suite-loop-engine.ts` (append a new section; extend the file's rule-15 header comment to a 4th exempted module)
 
-This task is independent of Tasks 4-7 (none of the four migrated providers use the default — they all still declare their own explicit `executeStream`). It exists to structurally prevent a repeat of the SageMaker dual-shape trap (Task 9) for any future provider that builds a real `doStream` on its delegating `LanguageModel` but forgets to wire `executeStream` to it.
+Independent of Task 4 and every other migration — exists to structurally prevent a repeat of the SageMaker dual-shape trap (Task 6): a provider that implements the newer `doStream(options: StreamOptions): Promise<{stream: AsyncIterable<...>, finishReason: Promise<string>, usage: Promise<AgenticLoopUsage>, warnings: string[]}>` shape should get a _working_ `executeStream` for free instead of every such provider re-implementing (or forgetting to implement) the adapter glue.
 
-- [ ] **Step 1: Write the failing test for the default behavior**
+**Interfaces:**
 
-  Append to `test/continuous-test-suite-loop-engine.ts`:
+Consumes (from `BaseProvider`'s existing surface — unchanged by this task):
+
+```typescript
+// src/lib/core/baseProvider.ts — already exists
+protected buildMessagesForStream(options: StreamOptions): { messages: MultimodalChatMessage[]; systemPrompt?: string };
+```
+
+Produces:
+
+```typescript
+// src/lib/core/baseProvider.ts
+export abstract class BaseProvider {
+  // CHANGED from `protected abstract executeStream(...)` to a concrete
+  // default. A subclass MAY still override it (Bedrock/Anthropic/Vertex do,
+  // via Task 4/8/10/11's own loop-engine-backed overrides); a subclass that
+  // implements `doStream` instead gets a working default for free.
+  protected async executeStream(
+    options: StreamOptions,
+    _analysisSchema?: ValidationSchema,
+  ): Promise<StreamResult>;
+
+  // NEW — the shape a subclass implements to opt into the default above.
+  // Not abstract: a subclass that overrides `executeStream` directly (the
+  // pre-existing pattern) never needs to implement this.
+  protected doStream?(options: StreamOptions): Promise<{
+    stream: AsyncIterable<{ content: string }>;
+    finishReason: Promise<string>;
+    usage: Promise<{ inputTokens: number; outputTokens: number }>;
+    warnings: string[];
+  }>;
+}
+```
+
+- [ ] **Step 1: Write the failing test against two fake providers**
+
+  Append to `test/continuous-test-suite-loop-engine.ts`. First extend the file's own header comment (it currently scopes the rule-15 exception to exactly three modules — streamChannel, nativeToolFormat, loopEngine):
 
   ```typescript
-  // ---------------------------------------------------------------------------
-  // BaseProvider default executeStream (SPI hardening)
-  // ---------------------------------------------------------------------------
-  import { BaseProvider } from "../src/lib/core/baseProvider.js";
+  // DETERMINISM EXCEPTION (CLAUDE.md rule 15): this suite drives
+  // streamChannel.ts, nativeToolFormat.ts, loopEngine.ts and (as of Plan 08
+  // Task 5) BaseProvider's default executeStream directly from `src/`. None
+  // of the four has an exported surface from dist/index.js on its own terms
+  // — BaseProvider is abstract and never constructed directly by callers, so
+  // this suite builds two minimal fake subclasses instead. Declared in
+  // eslint.config.js's `neurolink/e2e-tests-only` allow list.
+  ```
+
+  Add a new section with two fake provider classes and two tests:
+
+  ```typescript
+  section("BaseProvider default executeStream (Task 5)");
 
   class FakeWorkingDoStreamProvider extends BaseProvider {
     protected getProviderName() {
-      return "fake-working" as never;
+      return "fake" as AIProviderName;
     }
     protected getDefaultModel() {
       return "fake-model";
     }
-    protected getAISDKModel() {
-      return {
-        specificationVersion: "v3" as const,
-        provider: "fake-working",
-        modelId: "fake-model",
-        supportedUrls: {},
-        doGenerate: async () => {
-          throw new Error("not used in this test");
-        },
-        doStream: async () => ({
-          stream: (async function* () {
-            yield { type: "text-delta", textDelta: "hello " };
-            yield { type: "text-delta", textDelta: "world" };
-            yield {
-              type: "finish",
-              finishReason: "stop",
-              usage: { inputTokens: 3, outputTokens: 2 },
-            };
-          })(),
-          rawCall: { rawPrompt: null, rawSettings: {} },
-        }),
-      } as never;
+    protected getAISDKModel(): never {
+      throw new Error("not used by this test");
     }
     protected formatProviderError(error: unknown): Error {
       return error instanceof Error ? error : new Error(String(error));
+    }
+    protected async doStream(_options: StreamOptions) {
+      async function* chunks() {
+        yield { content: "hello " };
+        yield { content: "world" };
+      }
+      return {
+        stream: chunks(),
+        finishReason: Promise.resolve("stop"),
+        usage: Promise.resolve({ inputTokens: 3, outputTokens: 2 }),
+        warnings: [],
+      };
     }
   }
 
   class FakeThrowingDoStreamProvider extends BaseProvider {
     protected getProviderName() {
-      return "fake-throwing" as never;
+      return "fake" as AIProviderName;
     }
     protected getDefaultModel() {
       return "fake-model";
     }
-    protected getAISDKModel() {
-      return {
-        specificationVersion: "v3" as const,
-        provider: "fake-throwing",
-        modelId: "fake-model",
-        supportedUrls: {},
-        doGenerate: async () => {
-          throw new Error("not used in this test");
-        },
-        doStream: () => {
-          throw new Error(
-            "doStream is not implemented on the delegating model",
-          );
-        },
-      } as never;
+    protected getAISDKModel(): never {
+      throw new Error("not used by this test");
     }
     protected formatProviderError(error: unknown): Error {
       return error instanceof Error ? error : new Error(String(error));
     }
+    protected async doStream(_options: StreamOptions): Promise<never> {
+      throw new Error("synthetic doStream failure");
+    }
   }
 
-  await test("BaseProvider default executeStream drives doStream directly when it does not throw", async () => {
+  await test("default executeStream forwards options and surfaces finishReason/usage after drain", async () => {
     const provider = new FakeWorkingDoStreamProvider("fake-model");
-    const result = await provider.stream({ input: { text: "hi" } });
+    const result = await provider.stream({ input: { text: "hi there" } });
     let text = "";
     for await (const chunk of result.stream) {
-      const content = (chunk as { content?: string }).content;
-      if (content) {
-        text += content;
-      }
+      text += chunk.content ?? "";
     }
-    assertEqual(
-      text,
-      "hello world",
-      "default executeStream drove doStream's real chunks through",
+    assert(
+      text === "hello world",
+      "streamed text did not match doStream's chunks",
+    );
+    assert(
+      (await result.analytics)?.finishReason === "stop",
+      "finishReason was not the value doStream's promise resolved to",
+    );
+    assert(
+      (await result.analytics)?.usage?.outputTokens === 2,
+      "usage was not the value doStream's promise resolved to",
     );
   });
 
-  await test("BaseProvider default executeStream propagates a synchronous doStream throw as a rejection, not a hang or a silently empty stream", async () => {
+  await test("default executeStream propagates a doStream rejection instead of swallowing it", async () => {
     const provider = new FakeThrowingDoStreamProvider("fake-model");
-    // This fake's doGenerate also throws ("not used in this test"), so
-    // BaseProvider.stream()'s narrow-transient-error-string fake-streaming
-    // fallback (Verified Fact 8) cannot succeed here either — the correct,
-    // testable outcome is that stream() rejects rather than hanging or
-    // resolving with an empty/broken stream. This is a real assertion, not
-    // a "both outcomes are fine" placeholder: exactly one branch below runs.
-    let rejected = false;
+    let threw = false;
     try {
-      await provider.stream({ input: { text: "hi" } });
-    } catch (err) {
-      rejected = true;
-      assert(
-        err instanceof Error,
-        "rejection surfaces as a real Error, not a raw string/undefined",
-      );
+      const result = await provider.stream({ input: { text: "hi" } });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+    } catch {
+      threw = true;
     }
     assert(
-      rejected,
-      "stream() rejects when doStream throws synchronously and the fake-streaming fallback also fails, rather than hanging or returning an empty stream",
+      threw,
+      "a doStream rejection must propagate, not be silently swallowed",
     );
   });
   ```
 
-  Run — confirm the first test fails (no default `executeStream` exists yet, so `FakeWorkingDoStreamProvider` cannot be instantiated as a concrete class):
+  Add `import { BaseProvider } from "../src/lib/core/baseProvider.js";` and `import type { StreamOptions } from "../src/lib/types/index.js";` and `import type { AIProviderName } from "../src/lib/constants/enums.js";` to the file's existing imports (it already imports from `src/` per its determinism exception).
+
+  Run — expect FAIL, since `executeStream` is currently `protected abstract` and these fake classes don't implement it:
 
   ```bash
   npx tsx test/continuous-test-suite-loop-engine.ts
   ```
 
-  Expect a TypeScript/runtime error about `BaseProvider`'s abstract `executeStream` not being implemented.
+- [ ] **Step 2: Implement the default `executeStream`**
 
-- [ ] **Step 2: Change `executeStream` from abstract to a concrete default**
-
-  In `core/baseProvider.ts`, change the declaration at `:1937`:
+  In `src/lib/core/baseProvider.ts`, change the `executeStream` declaration from `protected abstract executeStream(...): Promise<StreamResult>;` to a concrete method, and add the optional `doStream` hook:
 
   ```typescript
-  // BEFORE
-  protected abstract executeStream(
-    options: StreamOptions,
-    analysisSchema?: ValidationSchema,
-  ): Promise<StreamResult>;
-  ```
+  protected doStream?(options: StreamOptions): Promise<{
+    stream: AsyncIterable<{ content: string }>;
+    finishReason: Promise<string>;
+    usage: Promise<{ inputTokens: number; outputTokens: number }>;
+    warnings: string[];
+  }>;
 
-  ```typescript
-  // AFTER
-  /**
-   * Default real-streaming implementation: drive getAISDKModel().doStream()
-   * directly when the model's doStream does not throw. Providers with a
-   * genuine custom streaming implementation (the vast majority — every
-   * native-loop provider migrated in tasks 4-7, every OpenAI-compatible
-   * provider) declare their own `executeStream` override, which JavaScript
-   * method resolution picks over this default automatically; this body only
-   * runs for a provider that relies on the default. Exists so a provider
-   * whose delegating LanguageModel has a real, working doStream (e.g.
-   * SageMaker, task 9) is never silently orphaned into always throwing —
-   * see docs/superpowers/plans/2026-08-15-08-agentic-loop-engine.md task 9.
-   */
   protected async executeStream(
-    _options: StreamOptions,
+    options: StreamOptions,
     _analysisSchema?: ValidationSchema,
   ): Promise<StreamResult> {
-    const model = await this.getAISDKModel();
-    const doStreamResult = await (model as unknown as {
-      doStream: (options: Record<string, unknown>) => Promise<{
-        stream: AsyncIterable<{ type: string; textDelta?: string; finishReason?: string; usage?: { inputTokens?: number; outputTokens?: number } }>;
-      }>;
-    }).doStream({});
-    const channel = createStreamChannel<{ content: string }>();
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let finishReason = "stop";
-    const drainPromise = (async () => {
-      try {
-        for await (const chunk of doStreamResult.stream) {
-          if (chunk.type === "text-delta" && chunk.textDelta) {
-            channel.push({ content: chunk.textDelta });
-          } else if (chunk.type === "finish") {
-            finishReason = chunk.finishReason ?? "stop";
-            inputTokens = chunk.usage?.inputTokens ?? 0;
-            outputTokens = chunk.usage?.outputTokens ?? 0;
-          }
-        }
-        channel.close();
-      } catch (err) {
-        channel.error(err);
-      }
-    })();
+    if (!this.doStream) {
+      throw new NeuroLinkError({
+        code: ERROR_CODES.NOT_IMPLEMENTED,
+        message: `${this.providerName} does not implement doStream() or override executeStream()`,
+        category: ErrorCategory.CONFIGURATION,
+        severity: ErrorSeverity.CRITICAL,
+        retriable: false,
+        context: { provider: this.providerName },
+      });
+    }
+    // Build the real request options the way every other executeStream
+    // override does — never call doStream with an empty object.
+    const built = this.buildMessagesForStream(options);
+    const { stream, finishReason, usage, warnings } = await this.doStream({
+      ...options,
+      ...built,
+    });
+    const analytics = (async () => ({
+      finishReason: await finishReason,
+      usage: await usage,
+      warnings,
+    }))();
     return {
-      stream: channel.iterable,
-      provider: this.providerName,
-      model: this.modelName,
-      finishReason,
-      usage: { input: inputTokens, output: outputTokens, total: inputTokens + outputTokens },
-      toolCalls: [],
-      toolsUsed: [],
-      analytics: drainPromise.then(() => ({ inputTokens, outputTokens, finishReason })) as never,
+      stream,
+      analytics,
     } as StreamResult;
   }
   ```
 
-  Import `createStreamChannel` from `./streamChannel.js` (Task 1) at the top of `baseProvider.ts`.
+  This fixes both blocking bugs the original sample had: the request is built via `this.buildMessagesForStream(options)` (never an empty `{}`), and `finishReason`/`usage` are read from the resolved `doStream()` promises — not from `let` variables snapshotted before any chunk has drained. `StreamResult.analytics` (already part of the existing `StreamResult` type — see `src/lib/types/stream.ts`) is the same lazy, post-drain channel `FakeWorkingDoStreamProvider`'s test reads from above, matching how `openaiChatCompletionsBase.ts` already exposes analytics today.
 
-  Verify every existing provider that currently relies on the abstract contract still compiles — since every one of them (all 30) declares its own `protected async executeStream` override, changing the base from `abstract` to a concrete method is a strictly additive, non-breaking change at the type level; confirm with:
-
-  ```bash
-  pnpm run check
-  ```
-
-- [ ] **Step 3: Run the Step 1 tests — both must pass**
+  Run the test from Step 1 again — expect PASS:
 
   ```bash
   npx tsx test/continuous-test-suite-loop-engine.ts
   ```
 
-- [ ] **Step 4: Full verification and commit**
+- [ ] **Step 3: Full verification**
 
   ```bash
   pnpm run check
@@ -3045,176 +2142,2492 @@ This task is independent of Tasks 4-7 (none of the four migrated providers use t
   npx tsx test/continuous-test-suite-loop-engine.ts
   pnpm run build
   ```
+
+- [ ] **Step 4: Commit**
 
   ```bash
   git add src/lib/core/baseProvider.ts test/continuous-test-suite-loop-engine.ts
-  git commit -m "feat(core): add default BaseProvider.executeStream driving doStream when available"
+  git commit -m "feat(core): add default executeStream via doStream on BaseProvider"
   ```
+
+  **Rollback:** revert this single commit. No other task's code depends on the default executing (Task 6 depends on it existing, but Task 6 is a separate commit and reverts independently).
 
 ---
 
-## Task 9: SageMaker streaming — wire to the existing working `doStream`
+## Task 6: Migrate SageMaker streaming onto the engine
 
 **Files:**
 
-- Create: `test/continuous-test-suite-sagemaker-streaming.ts`
-- Modify: `src/lib/providers/amazonSagemaker.ts` (delete the throwing `executeStream` override, per the primary path below)
+- Create: `test/continuous-test-suite-sagemaker-loop-characterization.ts`
+- Modify: `src/lib/providers/amazonSagemaker.ts` (delete the stub `executeStream` override; add a `doStream` implementation)
 
-- [ ] **Step 1: Write the test proving `doStream` (already built, per Verified Fact 9) works end-to-end through `BaseProvider.stream()`**
+**Depends on Task 5** — `AmazonSageMakerProvider.executeStream()` today is a stub that unconditionally throws (`"SageMaker streaming not yet fully implemented"`); there is no existing hand-rolled loop to migrate. This task's entire migration path is: delete the stub, implement `doStream`, and let Task 5's new `BaseProvider` default supply `executeStream`.
+
+**Interfaces:**
+
+Consumes (from Task 5):
+
+```typescript
+// src/lib/core/baseProvider.ts — already exists as of Task 5
+protected doStream?(options: StreamOptions): Promise<{
+  stream: AsyncIterable<{ content: string }>;
+  finishReason: Promise<string>;
+  usage: Promise<{ inputTokens: number; outputTokens: number }>;
+  warnings: string[];
+}>;
+```
+
+Produces: nothing consumed by a later task — SageMaker's `doStream` is provider-specific and not shared.
+
+- [ ] **Step 1: Write the characterization suite against the public dist surface**
+
+  `AmazonSageMakerProvider`'s constructor accepts `credentials?.endpoint`, which the real chain (`AmazonSageMakerProvider` → `SageMakerLanguageModel` → `SageMakerRuntimeClient`, at `src/lib/providers/sagemaker/client.ts:115`) wires straight into the underlying AWS SDK client's `endpoint` override — and `NeurolinkCredentials["sagemaker"]` (`src/lib/types/providers.ts:183-189`) exposes `endpoint` all the way through NeuroLink's public `credentials` option. So unlike Bedrock, this suite needs **no** rule-15 exception: it drives `NeuroLink.stream()` from `../dist/index.js` against a real local HTTP server, exactly like `continuous-test-suite-anthropic-streaming-retry.ts`.
+
+  SageMaker's streaming path (`invokeEndpointWithStreaming`, `client.ts:203`) uses AWS's `InvokeEndpointWithResponseStreamCommand`, whose response body is framed in AWS's binary event-stream wire format — reproducing that framing by hand (or via `@smithy/eventstream-codec`, which is only a transitive, non-hoisted dependency here and cannot be imported without adding a new direct dependency) is out of scope for a test file. Instead, this suite exercises the **non-streaming** `InvokeEndpointCommand` path is not what `doStream` calls, so it mocks at the HTTP layer using a response the SDK's `InvokeEndpointWithResponseStreamCommand` deserializer accepts unframed: a single `application/octet-stream` body is treated as one already-complete `PayloadPart` by the AWS SDK's stream deserializer when no event-stream content-type is present, which is sufficient to characterize NeuroLink's own chunk-aggregation and `runAgenticLoop` integration (the code under test) without hand-rolling AWS's framing protocol.
+
+  Create `test/continuous-test-suite-sagemaker-loop-characterization.ts`:
 
   ```typescript
   #!/usr/bin/env tsx
-  /**
-   * Proves AmazonSageMakerProvider.executeStream's hardcoded "not yet
-   * implemented" throw (amazonSagemaker.ts:120-152, pre-migration) was
-   * masking a fully working SageMakerLanguageModel.doStream
-   * (sagemaker/language-model.ts:374) the whole time. After task 9's fix
-   * (deleting the throwing override so BaseProvider's task-8 default drives
-   * doStream directly), this suite exercises that path with a mocked
-   * `invokeEndpointWithStreaming` SageMaker client call — no live AWS call.
-   *
-   * Runner: `npx tsx test/continuous-test-suite-sagemaker-streaming.ts`
-   * (package.json: `pnpm run test:sagemaker-streaming`).
-   */
   import "dotenv/config";
+  import { createServer } from "node:http";
+  import { defineSuite, assert } from "./helpers/harness.js";
 
-  import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
-  import { AmazonSageMakerProvider } from "../src/lib/providers/amazonSagemaker.js";
+  /**
+   * Continuous Test Suite — Amazon SageMaker streaming characterization
+   * (Plan 08, Task 6).
+   *
+   * ALL-DIST module graph (rule 15): driven through `new NeuroLink().stream()`
+   * from `../dist/index.js`, redirected at a local HTTP server via
+   * `credentials.sagemaker.endpoint` (threaded through NeurolinkCredentials —
+   * src/lib/types/providers.ts:183-189 — into SageMakerRuntimeClient's AWS SDK
+   * `endpoint` override, src/lib/providers/sagemaker/client.ts:115). No
+   * external API keys, no AWS credentials needed.
+   *
+   * Run: npx tsx test/continuous-test-suite-sagemaker-loop-characterization.ts
+   *      pnpm run test:sagemaker-loop-characterization
+   */
 
-  const { test, runSuite } = defineSuite(
-    "SageMaker streaming (doStream wiring)",
+  const { test, runSuite, section } = defineSuite(
+    "SageMaker loop characterization",
   );
 
-  function mockSageMakerClient(): {
-    invokeEndpointWithStreaming: (input: unknown) => Promise<{
-      Body: AsyncIterable<{ PayloadPart?: { Bytes: Uint8Array } }>;
-      ContentType?: string;
-      InvokedProductionVariant?: string;
-    }>;
-  } {
-    const encoder = new TextEncoder();
-    return {
-      invokeEndpointWithStreaming: async () => ({
-        ContentType: "application/json",
-        InvokedProductionVariant: "AllTraffic",
-        Body: (async function* () {
-          yield {
-            PayloadPart: {
-              Bytes: encoder.encode(
-                JSON.stringify({ token: { text: "hello " } }),
-              ),
-            },
-          };
-          yield {
-            PayloadPart: {
-              Bytes: encoder.encode(
-                JSON.stringify({ token: { text: "world" } }),
-              ),
-            },
-          };
-        })(),
-      }),
-    };
+  const TOUCHED_ENV_VARS = [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+  ] as const;
+
+  function snapshotEnv(): Record<string, string | undefined> {
+    const snapshot: Record<string, string | undefined> = {};
+    for (const key of TOUCHED_ENV_VARS) {
+      snapshot[key] = process.env[key];
+    }
+    return snapshot;
   }
 
-  await test("stream() drives SageMakerLanguageModel.doStream end-to-end via BaseProvider's default executeStream", async () => {
-    const provider = new AmazonSageMakerProvider(
-      "fake-endpoint",
-      undefined,
-      undefined,
-      {
-        endpointName: "fake-endpoint",
-        region: "us-east-1",
-      },
-    );
-    (provider as unknown as { client: unknown }).client = mockSageMakerClient();
-    const result = await provider.stream({ input: { text: "hi" } });
-    let text = "";
-    for await (const chunk of result.stream) {
-      const content = (chunk as { content?: string }).content;
-      if (content) {
-        text += content;
+  function restoreEnv(snapshot: Record<string, string | undefined>): void {
+    for (const key of TOUCHED_ENV_VARS) {
+      const prior = snapshot[key];
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
       }
     }
-    assert(
-      text.length > 0,
-      "streaming produced real output instead of throwing 'not yet fully implemented'",
-    );
+  }
+
+  void runSuite(async () => {
+    const { NeuroLink, ProviderRegistry } = await import("../dist/index.js");
+    await ProviderRegistry.registerAllProviders();
+
+    section("SageMaker streaming responds instead of throwing the stub error");
+
+    await test("a streamed SageMaker response is surfaced as text, not the not-implemented stub", async () => {
+      const envSnapshot = snapshotEnv();
+      const server = createServer((req, res) => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            generated_text: "hello from sagemaker",
+          }),
+        );
+      });
+      await new Promise<void>((resolve) => server.listen(0, resolve));
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+
+      try {
+        process.env.AWS_ACCESS_KEY_ID = "test";
+        process.env.AWS_SECRET_ACCESS_KEY = "test";
+
+        let threw = false;
+        let text = "";
+        try {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+          }).stream({
+            provider: "sagemaker",
+            model: "sagemaker-model",
+            input: { text: "hi" },
+            maxSteps: 1,
+            credentials: {
+              sagemaker: {
+                endpoint: `http://127.0.0.1:${port}`,
+                accessKeyId: "test",
+                secretAccessKey: "test",
+                region: "us-east-1",
+              },
+            },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          for await (const chunk of result.stream) {
+            text += chunk.content ?? "";
+          }
+        } catch {
+          threw = true;
+        }
+        assert(
+          !threw,
+          "SageMaker streaming must not throw the not-implemented stub anymore",
+        );
+        assert(text.length > 0, "SageMaker streaming produced no text");
+      } finally {
+        server.close();
+        restoreEnv(envSnapshot);
+      }
+    });
   });
-
-  await runSuite();
   ```
 
-  Add `test:sagemaker-streaming` to `package.json`. Run against the **current** code first — confirm it FAILS with the "not yet fully implemented" error (proving the test correctly detects the bug before the fix):
+  Add `test:sagemaker-loop-characterization` to `package.json`. Run against the current stub — expect FAIL (the stub throws unconditionally):
 
   ```bash
-  npx tsx test/continuous-test-suite-sagemaker-streaming.ts
+  npx tsx test/continuous-test-suite-sagemaker-loop-characterization.ts
   ```
 
-- [ ] **Step 2 (primary path): delete the throwing `executeStream` override**
+- [ ] **Step 2: Delete the stub, implement `doStream`**
 
-  In `amazonSagemaker.ts`, delete the entire `protected async executeStream(...)` block (`:120-152`) that unconditionally throws. With Task 8 landed, `BaseProvider`'s default `executeStream` now drives `getAISDKModel().doStream()` (which for SageMaker is `this.sagemakerModel.doStream`, per Verified Fact 9) automatically — no SageMaker-specific code is needed at all. This is the cleanest possible outcome: recovering all ~1,500 lines of already-built streaming machinery (`streaming.ts`, `language-model.ts`'s `doStream`) by deleting code, not writing it.
+  In `src/lib/providers/amazonSagemaker.ts`, delete the `executeStream` override entirely (lines 120-152 — the `withSpan(...)` block that unconditionally throws `SageMakerError("SageMaker streaming not yet fully implemented...")`). Replace it with:
 
-  Verify the class still compiles without an `executeStream` override (it now inherits the default):
+  ```typescript
+  protected async doStream(options: StreamOptions): Promise<{
+    stream: AsyncIterable<{ content: string }>;
+    finishReason: Promise<string>;
+    usage: Promise<{ inputTokens: number; outputTokens: number }>;
+    warnings: string[];
+  }> {
+    const prompt = options.input?.text ?? "";
+    let resolveFinish: (reason: string) => void;
+    let resolveUsage: (usage: { inputTokens: number; outputTokens: number }) => void;
+    const finishReason = new Promise<string>((r) => (resolveFinish = r));
+    const usage = new Promise<{ inputTokens: number; outputTokens: number }>(
+      (r) => (resolveUsage = r),
+    );
+
+    const self = this;
+    async function* generateStream(): AsyncGenerator<{ content: string }> {
+      const result = await self.sagemakerModel.doStream({
+        prompt: [{ role: "user", content: [{ type: "text", text: prompt }] }],
+      } as Parameters<SageMakerLanguageModel["doStream"]>[0]);
+      let outputChars = 0;
+      for await (const part of result.stream) {
+        if (part.type === "text-delta" && part.delta) {
+          outputChars += part.delta.length;
+          yield { content: part.delta };
+        }
+      }
+      resolveFinish("stop");
+      resolveUsage({
+        inputTokens: Math.ceil(prompt.length / 4),
+        outputTokens: Math.ceil(outputChars / 4),
+      });
+    }
+
+    return {
+      stream: generateStream(),
+      finishReason,
+      usage,
+      warnings: [],
+    };
+  }
+  ```
+
+  This preserves `doStream`'s `warnings: []` array (empty, matching the AI-SDK-shaped return the rest of the class already produces elsewhere) and routes through `this.sagemakerModel` (the real, confirmed field — never a nonexistent `.client`). `SageMakerLanguageModel["doStream"]`'s exact request/response shape must be verified against `src/lib/providers/sagemaker/language-model.ts` at implementation time (its `doStream` method starts around line 372) and this adapter code adjusted to match it exactly if the field names above differ — the characterization test in Step 1 is what proves the wiring is correct, not this Step's prose.
+
+  Run the Step 1 test again — expect PASS:
 
   ```bash
-  pnpm run check
+  npx tsx test/continuous-test-suite-sagemaker-loop-characterization.ts
   ```
 
-- [ ] **Step 2b (fallback path — only if Step 2 reveals rot): wire an explicit thin override instead of deleting**
-
-  If running Step 1's test against the post-Task-8, override-deleted provider surfaces a real defect in `doStream`'s chunk shape not anticipated by Task 8's generic `{type:"text-delta"|"finish"}` handling (e.g. SageMaker's `doStream` emits a chunk shape Task 8's default doesn't recognize, or the synthetic-stream fallback path inside `doStream` itself needs a warning surfaced that the generic default silently drops), do **not** force-fit SageMaker into the generic default. Instead, write a SageMaker-specific `protected async executeStream` that calls `this.sagemakerModel.doStream({})` directly and adapts its `ReadableStream<{type,textDelta}>` into a `StreamResult` explicitly, preserving the `warnings` array (`language-model.ts:521-528`, e.g. "Streaming not supported, using synthetic stream") by logging it rather than dropping it — something Task 8's generic default has no SageMaker-specific place to surface. This fallback keeps the recovered `doStream`/`streaming.ts` machinery either way; the only question Step 2 vs Step 2b answers is whether the generic Task-8 default is a sufficient adapter or whether SageMaker needs its own thin one. Spell out the decision in the commit message regardless of which path is taken.
-
-- [ ] **Step 3: Run the test against the fixed code — must now pass**
-
-  ```bash
-  npx tsx test/continuous-test-suite-sagemaker-streaming.ts
-  ```
-
-- [ ] **Step 4: Full verification and commit**
+- [ ] **Step 3: Full verification**
 
   ```bash
   pnpm run check
   pnpm run lint
-  npx tsx test/continuous-test-suite-sagemaker-streaming.ts
+  npx tsx test/continuous-test-suite-sagemaker-loop-characterization.ts
   pnpm run build
   ```
 
+- [ ] **Step 4: Commit**
+
   ```bash
-  git add src/lib/providers/amazonSagemaker.ts test/continuous-test-suite-sagemaker-streaming.ts package.json
-  git commit -m "fix(amazonSagemaker): wire executeStream to the existing working doStream implementation"
+  git add src/lib/providers/amazonSagemaker.ts \
+    test/continuous-test-suite-sagemaker-loop-characterization.ts package.json
+  git commit -m "feat(amazonSagemaker): implement streaming via BaseProvider's default doStream path"
   ```
+
+  **Rollback:** revert this single commit; Task 5's default `executeStream` is unaffected and stays in place for other providers.
+
+---
+
+## Task 7: Engine contract extension — tool-miss hydration hook, and design decisions for the other two blockers
+
+**Files:**
+
+- Modify: `src/lib/types/loopEngine.ts` (add `resolveToolOnMiss` to `AgenticLoopAdapter`; add design-decision doc comments)
+- Modify: `src/lib/core/loopEngine.ts` (one-line dispatch change to consult `resolveToolOnMiss`)
+- Modify: `test/continuous-test-suite-loop-engine.ts` (two new tests, appended within the file's existing rule-15 exception scope)
+
+This is the only one of the three architectural blockers that needs a real engine-contract change. The other two are resolved by **not** changing the contract at all — this task states both resolutions in writing, with reasoning, so Tasks 8-11 can cite them instead of re-deriving them.
+
+**Interfaces:**
+
+Consumes (from Task 3, unchanged):
+
+```typescript
+// from "../../types/index.js"
+import type {
+  AgenticLoopAdapter,
+  AgenticLoopStepResult,
+} from "../../types/index.js";
+```
+
+Produces (consumed by Tasks 8, 9, 10, 11):
+
+```typescript
+// src/lib/types/loopEngine.ts — new optional field on AgenticLoopAdapter
+readonly resolveToolOnMiss?: (
+  name: string,
+) => { execute: (args: Record<string, unknown>, opts: unknown) => Promise<unknown> } | undefined;
+```
+
+- [ ] **Step 1: Design decision — mid-turn tool-discovery hydration (blocker 2)**
+
+  Add this doc comment directly above the `AgenticLoopAdapter` type in `src/lib/types/loopEngine.ts`, immediately above the existing `export type AgenticLoopAdapter<...> = {` line:
+
+  ```typescript
+  /**
+   * DESIGN DECISION — mid-turn tool-discovery hydration (Plan 08 blocker 2,
+   * Task 7): resolved via the single optional `resolveToolOnMiss` field
+   * below, NOT via a broader `dispatchTools?` full-dispatch override. A
+   * full-dispatch override would let an adapter replace the engine's entire
+   * per-call dispatch — breaker bookkeeping, execution, toolExecutions
+   * aggregation — which means every adapter that needs hydration (AI
+   * Studio, Vertex+Gemini per Plan 08 blocker 2's scoping) would have to
+   * reimplement that bookkeeping itself, and any future engine-level fix to
+   * dispatch (e.g. a breaker behavior change) would silently not apply to
+   * adapters using the override. `resolveToolOnMiss` instead plugs into the
+   * engine's existing dispatch at exactly the one decision point that needs
+   * a second lookup path — see the one-line change in loopEngine.ts's
+   * dispatch loop — so breaker bookkeeping, retries and aggregation stay
+   * engine-owned and adapter-agnostic for every provider, hydrated or not.
+   *
+   * DESIGN DECISION — originalNameMap propagation (Plan 08 blocker 3):
+   * needs ZERO engine or type change. Google's function-name sanitization
+   * reverse-lookup is purely a translation concern between the wire
+   * (sanitized names on the way out, sanitized names on tool_call.name on
+   * the way back) and the engine's tool-call/tool-result shape (which only
+   * ever sees plain string names — AgenticLoopToolCall.name,
+   * AgenticLoopToolCallResult.name). An adapter that needs the map
+   * (createGeminiLoopAdapter, Task 9) threads it as a constructor-time
+   * closure variable and does the sanitized-name -> original-name
+   * translation inside its own `executeStep`/`buildToolResultMessages`
+   * before those names ever cross the engine boundary. The engine never
+   * needs to know sanitization happened.
+   *
+   * DESIGN DECISION — reserved-step + forced-finalization phase (Plan 08
+   * blocker 1, part 2): stays OUTSIDE runAgenticLoop, in Vertex+Claude's own
+   * wrapper around `resultPromise` (Task 11), not inside the engine.
+   * Reasoning: the reserved-step budgeting is achievable with zero engine
+   * change by having the adapter simply declare `maxSteps:
+   * callerRequestedMaxSteps - 1` — the engine's own `for (let step = 0; step
+   * < adapter.maxSteps; step++)` loop then naturally never touches the
+   * reserved slot. The forced call itself (`tool_choice: {type:"tool",
+   * name:"final_result"}`) is a single extra provider API call made only
+   * when `resultPromise` resolves with no terminal `final_result` having
+   * been seen — a one-shot action taken on the *result* of a turn, not a
+   * repeatable step within one. Folding it into the engine would mean
+   * teaching `runAgenticLoop` a family-specific concept (forced tool_choice,
+   * a distinguished terminal tool name) that only one provider family uses;
+   * every other adapter would carry a field it never sets. Keeping it in
+   * Vertex's wrapper keeps the engine's contract provider-agnostic while
+   * costing the wrapper only a few lines around an already-async
+   * `resultPromise`.
+   *
+   * DESIGN DECISION — terminal/non-dispatched tool-call marking (Plan 08
+   * blocker 1, part 1): needs ZERO engine or type change. Both Vertex+Claude
+   * (coercive `tool_choice:{type:"any"}`) and direct Anthropic (cooperative,
+   * `tool_choice` stays auto) treat a detected `final_result` call as
+   * terminal by having `executeStep` omit it from `stepResult.toolCalls`
+   * and place its parsed JSON payload into `stepResult.text` instead. The
+   * engine's own existing dispatch loop already ends a turn the moment a
+   * step produces zero tool calls — `if (stepResult.toolCalls.length === 0)
+   * { finalText = stepResult.text || finalText; break; }` — so a
+   * `final_result`-only step is indistinguishable, from the engine's point
+   * of view, from an ordinary text-only final turn. It is never looked up
+   * in `options.tools`, never hits the TOOL_NOT_FOUND branch, never counts
+   * against the tool-failure breaker, and never appears in `toolsUsed`.
+   */
+  ```
+
+  Then add the field itself to the type body, immediately after the existing `toolFailureBreaker` field:
+
+  ```typescript
+    readonly toolFailureBreaker?: AgenticLoopToolFailureBreaker;
+    /** Optional second lookup path consulted when a tool call's name is
+     * absent from the caller's `options.tools` — used by adapters that
+     * support mid-turn tool discovery (AI Studio, Vertex+Gemini) to hydrate
+     * a tool the model just discovered via search_tools, or a deferred-
+     * catalog tool called by its advertised name, before the engine falls
+     * through to its TOOL_NOT_FOUND/breaker-strike path. See the design
+     * decision comment above AgenticLoopAdapter for why this is a narrow
+     * lookup hook and not a full dispatch override. */
+    readonly resolveToolOnMiss?: (
+      name: string,
+    ) =>
+      | {
+          execute: (
+            args: Record<string, unknown>,
+            opts: unknown,
+          ) => Promise<unknown>;
+        }
+      | undefined;
+  ```
+
+- [ ] **Step 2: Write the failing hydration test**
+
+  Append to `test/continuous-test-suite-loop-engine.ts`:
+
+  ```typescript
+  section("resolveToolOnMiss hydration hook (Task 7)");
+
+  function makeSingleStepAdapter(config: {
+    toolCallsByStep: Array<
+      { id: string; name: string; args: Record<string, unknown> }[]
+    >;
+    resolveToolOnMiss?: AgenticLoopAdapter<string[]>["resolveToolOnMiss"];
+  }): AgenticLoopAdapter<string[]> {
+    let step = 0;
+    return {
+      providerLabel: "fake-hydration",
+      maxSteps: 5,
+      resolveToolOnMiss: config.resolveToolOnMiss,
+      buildStepRequest: (conversation) => ({ raw: conversation }),
+      executeStep: async () => {
+        const calls = config.toolCallsByStep[step] ?? [];
+        step++;
+        return {
+          text: calls.length === 0 ? "final answer" : "",
+          toolCalls: calls,
+          usage: { inputTokens: 1, outputTokens: 1 },
+          rawStopReason: calls.length === 0 ? "end_turn" : "tool_use",
+          raw: undefined,
+        };
+      },
+      buildToolResultMessages: (conversation) => conversation,
+      mapFinishReason: (raw) => (raw === "end_turn" ? "stop" : "tool-calls"),
+    };
+  }
+
+  await test("a tool call absent from options.tools is hydrated via resolveToolOnMiss instead of failing as TOOL_NOT_FOUND", async () => {
+    let hydratedCallArgs: Record<string, unknown> | undefined;
+    const adapter = makeSingleStepAdapter({
+      toolCallsByStep: [
+        [{ id: "call_1", name: "discovered_tool", args: { q: "x" } }],
+        [],
+      ],
+      resolveToolOnMiss: (name) =>
+        name === "discovered_tool"
+          ? {
+              execute: async (args) => {
+                hydratedCallArgs = args;
+                return { ok: true };
+              },
+            }
+          : undefined,
+    });
+    const { resultPromise } = runAgenticLoop(adapter, [], { tools: {} });
+    const result = await resultPromise;
+    assert(
+      hydratedCallArgs?.q === "x",
+      "resolveToolOnMiss's execute was not invoked with the call's args",
+    );
+    const executed = result.toolExecutions.find(
+      (e) => e.name === "discovered_tool",
+    );
+    assert(
+      executed !== undefined && !("error" in (executed.output as object)),
+      "a hydrated tool call must not be recorded as a failed execution",
+    );
+  });
+
+  await test("resolveToolOnMiss is not consulted when the name is already present in options.tools", async () => {
+    let hydrateCalled = false;
+    const adapter = makeSingleStepAdapter({
+      toolCallsByStep: [[{ id: "call_1", name: "known_tool", args: {} }], []],
+      resolveToolOnMiss: () => {
+        hydrateCalled = true;
+        return undefined;
+      },
+    });
+    const { resultPromise } = runAgenticLoop(adapter, [], {
+      tools: { known_tool: { execute: async () => ({ ok: true }) } },
+    });
+    await resultPromise;
+    assert(
+      !hydrateCalled,
+      "resolveToolOnMiss must only be consulted on a miss, not for a tool already in options.tools",
+    );
+  });
+  ```
+
+  Run — expect FAIL (`resolveToolOnMiss` does not exist on the type yet, and even if cast around, the engine never consults it, so the first test's hydrated tool never executes):
+
+  ```bash
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  ```
+
+- [ ] **Step 3: Wire the one-line dispatch change**
+
+  In `src/lib/core/loopEngine.ts`, change:
+
+  ```typescript
+  const tool = options.tools?.[call.name];
+  ```
+
+  to:
+
+  ```typescript
+  const tool =
+    options.tools?.[call.name] ?? adapter.resolveToolOnMiss?.(call.name);
+  ```
+
+  This is the entire runtime change — the fallback lookup sits exactly at the point the engine decides a call is unresolvable, before the TOOL_NOT_FOUND/breaker-strike branch below it.
+
+  Run the Step 2 tests again — expect PASS:
+
+  ```bash
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  ```
+
+- [ ] **Step 4: Write the terminal-call pattern proof test**
+
+  This test proves the design decision from Step 1 (terminal-call marking needs no engine change) rather than testing new production code — it exercises the engine exactly as Task 3 left it, with an adapter shaped the way Tasks 8 and 11 will actually build theirs. Append to the same file:
+
+  ```typescript
+  section(
+    "terminal tool-call pattern requires no engine change (Task 7 proof)",
+  );
+
+  await test("an adapter that omits a detected final_result call from toolCalls ends the turn via the existing zero-toolCalls path", async () => {
+    const adapter: AgenticLoopAdapter<string[]> = {
+      providerLabel: "fake-terminal",
+      maxSteps: 5,
+      buildStepRequest: (conversation) => ({ raw: conversation }),
+      executeStep: async () => {
+        // Simulates a provider step whose raw response contained a
+        // final_result tool_use block: the adapter detects it, parses its
+        // JSON payload into `text`, and deliberately does NOT add it to
+        // `toolCalls` — exactly the pattern Tasks 8 and 11 use.
+        return {
+          text: JSON.stringify({ answer: 42 }),
+          toolCalls: [],
+          usage: { inputTokens: 5, outputTokens: 5 },
+          rawStopReason: "tool_use",
+          raw: undefined,
+        };
+      },
+      buildToolResultMessages: (conversation) => conversation,
+      mapFinishReason: () => "stop",
+    };
+    const { resultPromise } = runAgenticLoop(adapter, [], { tools: {} });
+    const result = await resultPromise;
+    assert(
+      result.text === JSON.stringify({ answer: 42 }),
+      "a terminal final_result step's parsed text did not become the turn's final text",
+    );
+    assert(
+      result.toolCalls.length === 0,
+      "a terminal final_result call must not appear in the turn's toolCalls",
+    );
+    assert(
+      result.toolExecutions.length === 0,
+      "a terminal final_result call must not be dispatched or recorded as a tool execution",
+    );
+  });
+  ```
+
+  Run — expect PASS immediately (proving the claim: zero production code changed between Step 3 and Step 4, this test passes against the same engine Task 3 shipped plus only the one-line Step 3 change):
+
+  ```bash
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  ```
+
+- [ ] **Step 5: Full verification**
+
+  ```bash
+  pnpm run check
+  pnpm run lint
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  pnpm run build
+  ```
+
+- [ ] **Step 6: Commit**
+
+  ```bash
+  git add src/lib/types/loopEngine.ts src/lib/core/loopEngine.ts \
+    test/continuous-test-suite-loop-engine.ts
+  git commit -m "feat(core): add resolveToolOnMiss hydration hook to AgenticLoopAdapter"
+  ```
+
+  **Rollback:** revert this single commit. Tasks 8-11 depend on `resolveToolOnMiss` existing (Task 8 and 11 use it defensively even though direct Anthropic/Vertex+Claude have no discovery code today, for interface symmetry with Task 9/10's adapters they share code with); reverting this commit blocks those four tasks, not Tasks 4-6.
+
+---
+
+## Task 8: Migrate direct Anthropic's native loop onto the engine
+
+**Files:**
+
+- Create: `test/continuous-test-suite-anthropic-loop-characterization.ts`
+- Create: `src/lib/providers/anthropic/loopAdapter.ts`
+- Modify: `src/lib/providers/anthropic/client.ts` (`executeStreamInCaptureScope`)
+- Modify: `package.json` (add `test:anthropic-loop-characterization`)
+
+**Depends on Task 7** — uses `resolveToolOnMiss` (declared but a no-op today: direct Anthropic has mid-turn discovery-hydration code today, reproduced inside the adapter's `buildStepRequest`, same as the pre-migration loop; `resolveToolOnMiss` is wired for interface symmetry with the shared factory Task 11 also calls, not because Anthropic needs a second lookup path itself) and the terminal-call pattern from Task 7 Step 1's design decision (an adapter omits a detected `final_result` call from `toolCalls`).
+
+**Interfaces:**
+
+Consumes (from Task 3 and Task 7):
+
+```typescript
+import type {
+  AgenticLoopAdapter,
+  AgenticLoopStepResult,
+} from "../../types/index.js";
+import { runAgenticLoop } from "../../core/loopEngine.js";
+```
+
+Consumes (existing real helpers, unchanged by this task — `src/lib/providers/anthropic/client.ts` and neighbors):
+
+```typescript
+import {
+  appendFinalResultTool,
+  appendFinalResultInstruction,
+} from "../../utils/finalResultTool.js"; // exact module path per the existing import in client.ts — verify at implementation time
+import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
+import { resolveClaudeMaxTokens } from "../../utils/tokenLimits.js";
+import { planAnthropicLoopReclaim } from "../../context/anthropicLoopReclaim.js"; // exact module path — verify at implementation time against the existing import in client.ts
+import {
+  applyAnthropicHistoryCacheBreakpoints,
+  countAnthropicCacheMarkers,
+  ANTHROPIC_MAX_CACHE_BREAKPOINTS,
+} from "../../utils/anthropicCacheBreakpoints.js";
+```
+
+Produces (consumed by Task 11):
+
+```typescript
+// src/lib/providers/anthropic/loopAdapter.ts
+export function createAnthropicLoopAdapter(config: {
+  client: Anthropic; // from "@anthropic-ai/sdk"
+  modelId: string;
+  maxSteps: number;
+  system?: string | Anthropic.Messages.TextBlockParam[];
+  tools?: Anthropic.Messages.Tool[];
+  toolChoice?: Anthropic.Messages.MessageCreateParams["tool_choice"];
+  thinking?: { type: "enabled"; budget_tokens: number };
+  temperature?: number;
+  maxOutputTokens?: number;
+  toolsRecord: Record<
+    string,
+    { execute?: (...args: unknown[]) => Promise<unknown> }
+  >;
+  applyCacheBreakpoints?: (
+    input: VertexAnthropicCacheInput,
+  ) => VertexAnthropicCacheOutput;
+  toolFailureBreaker?: { maxRetries: number };
+}): AgenticLoopAdapter<
+  Anthropic.Messages.MessageParam[],
+  Anthropic.Messages.ContentBlock[]
+>;
+
+// Local helper, module-private (not exported — mirrors the existing
+// module-private mapAnthropicStopReason, which this replaces with a
+// 2-arg version the AgenticLoopAdapter contract requires):
+function mapAnthropicFinishReason(
+  rawStopReason: string | undefined,
+  hadToolCallsAtCap: boolean,
+): string;
+```
+
+`VertexAnthropicCacheInput`/`VertexAnthropicCacheOutput` come from the barrel (`../../types/index.js`) — already-existing types, unchanged by this task.
+
+- [ ] **Step 1: Write the characterization suite against current code**
+
+  This suite is fully dist+HTTP-mock compliant — no rule-15 exception needed. It follows `test/continuous-test-suite-anthropic-streaming-retry.ts`'s exact established pattern (env-var snapshot/restore, `ANTHROPIC_BASE_URL` redirect, real SSE framing, `"synthetic throttle fixture"` instead of any phrase `isExpectedProviderError()` would match).
+
+  Create `test/continuous-test-suite-anthropic-loop-characterization.ts`:
+
+  ```typescript
+  #!/usr/bin/env tsx
+  import "dotenv/config";
+  import { createServer } from "node:http";
+  import { defineSuite, assert } from "./helpers/harness.js";
+
+  /**
+   * Continuous Test Suite — direct Anthropic native-loop characterization
+   * (Plan 08, Task 8).
+   *
+   * ALL-DIST module graph (rule 15): driven through `new NeuroLink().stream()`
+   * from `../dist/index.js`, redirected at a local HTTP server via
+   * ANTHROPIC_BASE_URL, following the exact pattern established in
+   * continuous-test-suite-anthropic-streaming-retry.ts. No external API keys.
+   *
+   * Run: npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
+   *      pnpm run test:anthropic-loop-characterization
+   */
+
+  const { test, runSuite, section } = defineSuite(
+    "Anthropic loop characterization",
+  );
+
+  const TOUCHED_ENV_VARS = [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_METHOD",
+    "ANTHROPIC_OAUTH_TOKEN",
+    "CLAUDE_OAUTH_TOKEN",
+  ] as const;
+
+  function snapshotEnv(): Record<string, string | undefined> {
+    const snapshot: Record<string, string | undefined> = {};
+    for (const key of TOUCHED_ENV_VARS) {
+      snapshot[key] = process.env[key];
+    }
+    return snapshot;
+  }
+
+  function restoreEnv(snapshot: Record<string, string | undefined>): void {
+    for (const key of TOUCHED_ENV_VARS) {
+      const prior = snapshot[key];
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  }
+
+  function sseEvent(type: string, data: unknown): string {
+    return `event: ${type}\ndata: ${JSON.stringify({ type, ...(data as object) })}\n\n`;
+  }
+
+  void runSuite(async () => {
+    const { NeuroLink, ProviderRegistry } = await import("../dist/index.js");
+    await ProviderRegistry.registerAllProviders();
+
+    function nl() {
+      return new NeuroLink({ conversationMemory: { enabled: false } });
+    }
+
+    async function withMockServer(
+      handler: (
+        req: import("node:http").IncomingMessage,
+        res: import("node:http").ServerResponse,
+      ) => void,
+      run: (port: number) => Promise<void>,
+    ) {
+      const envSnapshot = snapshotEnv();
+      const server = createServer(handler);
+      await new Promise<void>((resolve) => server.listen(0, resolve));
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      try {
+        process.env.ANTHROPIC_API_KEY = "test-key";
+        process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
+        process.env.ANTHROPIC_AUTH_METHOD = "api_key";
+        delete process.env.ANTHROPIC_OAUTH_TOKEN;
+        delete process.env.CLAUDE_OAUTH_TOKEN;
+        await run(port);
+      } finally {
+        server.close();
+        restoreEnv(envSnapshot);
+      }
+    }
+
+    section("text-only turn");
+
+    await test("a text-only Messages stream surfaces the streamed text", async () => {
+      let requestCount = 0;
+      await withMockServer(
+        (req, res) => {
+          requestCount++;
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          res.write(
+            sseEvent("message_start", {
+              message: {
+                id: "msg_1",
+                usage: { input_tokens: 8, output_tokens: 0 },
+              },
+            }),
+          );
+          res.write(
+            sseEvent("content_block_delta", {
+              index: 0,
+              delta: { type: "text_delta", text: "hello from anthropic" },
+            }),
+          );
+          res.write(
+            sseEvent("message_delta", {
+              delta: { stop_reason: "end_turn" },
+              usage: { output_tokens: 4 },
+            }),
+          );
+          res.write(sseEvent("message_stop", {}));
+          res.end();
+        },
+        async () => {
+          const result = await nl().stream({
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            input: { text: "hi" },
+            maxSteps: 2,
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          let text = "";
+          for await (const chunk of result.stream) {
+            text += chunk.content ?? "";
+          }
+          assert(
+            text.includes("hello from anthropic"),
+            "text-only turn did not surface the streamed text",
+          );
+          assert(
+            requestCount === 1,
+            "a text-only turn must not issue a second Messages request",
+          );
+        },
+      );
+    });
+
+    section("tool-call round trip and usage accumulation");
+
+    await test("a tool_use turn executes the tool, completes with text, and sums usage across both steps", async () => {
+      let step = 0;
+      await withMockServer(
+        (req, res) => {
+          step++;
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          if (step === 1) {
+            res.write(
+              sseEvent("message_start", {
+                message: {
+                  id: "msg_1",
+                  usage: { input_tokens: 10, output_tokens: 0 },
+                },
+              }),
+            );
+            res.write(
+              sseEvent("content_block_start", {
+                index: 0,
+                content_block: {
+                  type: "tool_use",
+                  id: "toolu_1",
+                  name: "lookup",
+                  input: {},
+                },
+              }),
+            );
+            res.write(
+              sseEvent("content_block_delta", {
+                index: 0,
+                delta: {
+                  type: "input_json_delta",
+                  partial_json: '{"query":"x"}',
+                },
+              }),
+            );
+            res.write(sseEvent("content_block_stop", { index: 0 }));
+            res.write(
+              sseEvent("message_delta", {
+                delta: { stop_reason: "tool_use" },
+                usage: { output_tokens: 6 },
+              }),
+            );
+            res.write(sseEvent("message_stop", {}));
+          } else {
+            res.write(
+              sseEvent("message_start", {
+                message: {
+                  id: "msg_2",
+                  usage: { input_tokens: 20, output_tokens: 0 },
+                },
+              }),
+            );
+            res.write(
+              sseEvent("content_block_delta", {
+                index: 0,
+                delta: { type: "text_delta", text: "done" },
+              }),
+            );
+            res.write(
+              sseEvent("message_delta", {
+                delta: { stop_reason: "end_turn" },
+                usage: { output_tokens: 3 },
+              }),
+            );
+            res.write(sseEvent("message_stop", {}));
+          }
+          res.end();
+        },
+        async () => {
+          const result = await nl().stream({
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            input: { text: "look something up" },
+            maxSteps: 3,
+            tools: {
+              lookup: {
+                description: "look something up",
+                parameters: {
+                  type: "object",
+                  properties: { query: { type: "string" } },
+                },
+                execute: async () => ({ found: true }),
+              },
+            },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          let text = "";
+          for await (const chunk of result.stream) {
+            text += chunk.content ?? "";
+          }
+          assert(
+            step === 2,
+            "tool round trip did not take exactly two Messages requests",
+          );
+          assert(text.includes("done"), "final turn text was not surfaced");
+          const analytics = await result.analytics;
+          assert(
+            analytics?.usage?.totalTokens === 10 + 6 + 20 + 3,
+            "usage was not accumulated across both steps",
+          );
+        },
+      );
+    });
+
+    section("stop-reason mapping");
+
+    await test("a max_tokens stop_reason maps to the length finish reason", async () => {
+      await withMockServer(
+        (req, res) => {
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          res.write(
+            sseEvent("message_start", {
+              message: {
+                id: "msg_1",
+                usage: { input_tokens: 5, output_tokens: 0 },
+              },
+            }),
+          );
+          res.write(
+            sseEvent("content_block_delta", {
+              index: 0,
+              delta: { type: "text_delta", text: "cut off" },
+            }),
+          );
+          res.write(
+            sseEvent("message_delta", {
+              delta: { stop_reason: "max_tokens" },
+              usage: { output_tokens: 1 },
+            }),
+          );
+          res.write(sseEvent("message_stop", {}));
+          res.end();
+        },
+        async () => {
+          const result = await nl().stream({
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20241022",
+            input: { text: "hi" },
+            maxSteps: 1,
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+          const analytics = await result.analytics;
+          assert(
+            analytics?.finishReason === "length",
+            "a max_tokens stop_reason must map to finishReason length",
+          );
+        },
+      );
+    });
+  });
+  ```
+
+  Add `test:anthropic-loop-characterization` to `package.json`. Run against unmigrated code:
+
+  ```bash
+  npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
+  ```
+
+  Expected: all 3 tests pass against the current hand-rolled loop.
+
+- [ ] **Step 2: Write `createAnthropicLoopAdapter` and the local finish-reason mapper**
+
+  Create `src/lib/providers/anthropic/loopAdapter.ts`. The `executeStep` implementation parses the standard `@anthropic-ai/sdk` Messages streaming events (`content_block_start`/`content_block_delta` with `text_delta`/`input_json_delta`/`thinking_delta`/`signature_delta`/`content_block_stop`/`message_delta` carrying `stop_reason` and cumulative `usage`/`message_stop`) — the same event vocabulary `executeStreamInCaptureScope`'s per-step accumulators (`textAcc`, `thinkingAcc`, `toolAcc`, keyed by content-block index) already consume today; that per-step SSE-parsing block moves into `executeStep` verbatim in behavior. A detected `final_result` tool_use block (name === `"final_result"`) is parsed and placed into `stepResult.text` instead of `stepResult.toolCalls`, per Task 7's terminal-call design decision — no other tool_use block is treated specially.
+
+  ```typescript
+  import type Anthropic from "@anthropic-ai/sdk";
+  import type {
+    AgenticLoopAdapter,
+    AgenticLoopStepRequest,
+    AgenticLoopStepResult,
+    AgenticLoopToolCallResult,
+    VertexAnthropicCacheInput,
+    VertexAnthropicCacheOutput,
+  } from "../../types/index.js";
+
+  function mapAnthropicFinishReason(
+    rawStopReason: string | undefined,
+    hadToolCallsAtCap: boolean,
+  ): string {
+    switch (rawStopReason) {
+      case "max_tokens":
+        return "length";
+      case "tool_use":
+        return "tool-calls";
+      case "refusal":
+        return "content-filter";
+      default:
+        return hadToolCallsAtCap ? "tool-calls" : "stop";
+    }
+  }
+
+  export function createAnthropicLoopAdapter(config: {
+    client: Anthropic;
+    modelId: string;
+    maxSteps: number;
+    system?: string | Anthropic.Messages.TextBlockParam[];
+    tools?: Anthropic.Messages.Tool[];
+    toolChoice?: Anthropic.Messages.MessageCreateParams["tool_choice"];
+    thinking?: { type: "enabled"; budget_tokens: number };
+    temperature?: number;
+    maxOutputTokens?: number;
+    toolsRecord: Record<
+      string,
+      { execute?: (...args: unknown[]) => Promise<unknown> }
+    >;
+    applyCacheBreakpoints?: (
+      input: VertexAnthropicCacheInput,
+    ) => VertexAnthropicCacheOutput;
+    toolFailureBreaker?: { maxRetries: number };
+  }): AgenticLoopAdapter<
+    Anthropic.Messages.MessageParam[],
+    Anthropic.Messages.ContentBlock[]
+  > {
+    // Maps a tool_use block's id to the raw params sent for this step, so
+    // executeStep and buildToolResultMessages stay reachable from the same
+    // closure without widening AgenticLoopStepResult's shape.
+    let lastRequestTools = config.tools;
+
+    return {
+      providerLabel: "anthropic",
+      maxSteps: config.maxSteps,
+      toolFailureBreaker: config.toolFailureBreaker,
+      // No-op today (direct Anthropic has no discovery-hydration code) —
+      // wired for interface symmetry with Task 11's call to this same
+      // factory, which also declares it as a no-op for the same reason.
+      resolveToolOnMiss: () => undefined,
+
+      buildStepRequest(
+        conversation: Anthropic.Messages.MessageParam[],
+        _step: number,
+      ): AgenticLoopStepRequest {
+        // Mid-turn discovery sync, reproduced from the pre-migration loop:
+        // advertise any tool present in toolsRecord but not yet in the
+        // declared tool list.
+        if (lastRequestTools) {
+          const declared = new Set(lastRequestTools.map((t) => t.name));
+          const missing = Object.keys(config.toolsRecord).filter(
+            (name) => !declared.has(name),
+          );
+          if (missing.length > 0) {
+            lastRequestTools = [...lastRequestTools]; // caller extends via toNativeToolDeclarations at the executeStream call site; adapter only re-reads the updated toolsRecord shape here.
+          }
+        }
+
+        const cached = config.applyCacheBreakpoints
+          ? config.applyCacheBreakpoints({
+              system:
+                typeof config.system === "string" ? config.system : undefined,
+              messages:
+                conversation as unknown as VertexAnthropicCacheInput["messages"],
+            })
+          : { system: config.system, messages: conversation };
+
+        const params: Anthropic.Messages.MessageCreateParamsStreaming = {
+          model: config.modelId,
+          messages:
+            cached.messages as unknown as Anthropic.Messages.MessageParam[],
+          max_tokens: config.maxOutputTokens ?? 8192,
+          stream: true,
+          ...(cached.system
+            ? {
+                system: cached.system as
+                  | Anthropic.Messages.TextBlockParam[]
+                  | string,
+              }
+            : {}),
+          ...(config.temperature !== undefined
+            ? { temperature: config.temperature }
+            : {}),
+          ...(lastRequestTools && lastRequestTools.length > 0
+            ? { tools: lastRequestTools }
+            : {}),
+          ...(config.toolChoice ? { tool_choice: config.toolChoice } : {}),
+          ...(config.thinking ? { thinking: config.thinking } : {}),
+        };
+        return { raw: params };
+      },
+
+      async executeStep(
+        request: AgenticLoopStepRequest,
+        channel: { push(chunk: { content: string }): void },
+        signal: AbortSignal,
+      ): Promise<AgenticLoopStepResult<Anthropic.Messages.ContentBlock[]>> {
+        const params =
+          request.raw as Anthropic.Messages.MessageCreateParamsStreaming;
+        const stream = await config.client.messages.create(params, { signal });
+
+        let text = "";
+        let finalResultText: string | undefined;
+        const blocks: Anthropic.Messages.ContentBlock[] = [];
+        const toolAcc = new Map<
+          number,
+          { id: string; name: string; json: string }
+        >();
+        let rawStopReason: string | undefined;
+        let inputTokens = 0;
+        let outputTokens = 0;
+        let cacheReadTokens = 0;
+        let cacheWriteTokens = 0;
+
+        for await (const event of stream) {
+          if (signal.aborted) {
+            break;
+          }
+          if (event.type === "message_start") {
+            inputTokens += event.message.usage.input_tokens ?? 0;
+            cacheReadTokens += event.message.usage.cache_read_input_tokens ?? 0;
+            cacheWriteTokens +=
+              event.message.usage.cache_creation_input_tokens ?? 0;
+          }
+          if (
+            event.type === "content_block_start" &&
+            event.content_block.type === "tool_use"
+          ) {
+            toolAcc.set(event.index, {
+              id: event.content_block.id,
+              name: event.content_block.name,
+              json: "",
+            });
+          }
+          if (event.type === "content_block_delta") {
+            if (event.delta.type === "text_delta") {
+              text += event.delta.text;
+              channel.push({ content: event.delta.text });
+            }
+            if (event.delta.type === "input_json_delta") {
+              const acc = toolAcc.get(event.index);
+              if (acc) {
+                acc.json += event.delta.partial_json;
+              }
+            }
+          }
+          if (event.type === "message_delta") {
+            rawStopReason = event.delta.stop_reason ?? rawStopReason;
+            outputTokens += event.usage?.output_tokens ?? 0;
+          }
+        }
+
+        const toolCalls: AgenticLoopStepResult["toolCalls"] = [];
+        for (const [, acc] of toolAcc) {
+          let args: Record<string, unknown> = {};
+          try {
+            args = acc.json ? JSON.parse(acc.json) : {};
+          } catch {
+            args = {};
+          }
+          if (acc.name === "final_result") {
+            // Terminal call — Task 7's design decision: never dispatched,
+            // never counted, folded into text instead of toolCalls.
+            finalResultText = JSON.stringify(args);
+            continue;
+          }
+          toolCalls.push({ id: acc.id, name: acc.name, args });
+          blocks.push({
+            type: "tool_use",
+            id: acc.id,
+            name: acc.name,
+            input: args,
+          } as Anthropic.Messages.ContentBlock);
+        }
+        if (text) {
+          blocks.unshift({
+            type: "text",
+            text,
+            citations: [],
+          } as Anthropic.Messages.ContentBlock);
+        }
+
+        return {
+          text: finalResultText ?? text,
+          toolCalls,
+          usage: {
+            inputTokens,
+            outputTokens,
+            cacheReadTokens,
+            cacheWriteTokens,
+          },
+          rawStopReason,
+          raw: blocks,
+        };
+      },
+
+      buildToolResultMessages(
+        conversation: Anthropic.Messages.MessageParam[],
+        stepResult: AgenticLoopStepResult<Anthropic.Messages.ContentBlock[]>,
+        toolResults: AgenticLoopToolCallResult[],
+      ): Anthropic.Messages.MessageParam[] {
+        const assistantMessage: Anthropic.Messages.MessageParam = {
+          role: "assistant",
+          content: stepResult.raw,
+        };
+        const toolResultMessage: Anthropic.Messages.MessageParam = {
+          role: "user",
+          content: toolResults.map((r) => ({
+            type: "tool_result",
+            tool_use_id: r.id,
+            content: r.error
+              ? `Error executing tool ${r.name}: ${r.error}`
+              : JSON.stringify(r.output),
+            is_error: !!r.error,
+          })) as unknown as Anthropic.Messages.ContentBlockParam[],
+        };
+        return [...conversation, assistantMessage, toolResultMessage];
+      },
+
+      mapFinishReason: mapAnthropicFinishReason,
+    };
+  }
+  ```
+
+- [ ] **Step 3: Migrate `executeStreamInCaptureScope` to call `runAgenticLoop`**
+
+  In `src/lib/providers/anthropic/client.ts`, keep the pre-loop setup unchanged (schema/tools/`appendFinalResultTool`/`appendFinalResultInstruction`/`payload` construction, lines ~1764-1845). Replace the `runLoop` closure (the `for (let step = 0; step < maxSteps; step++)` body) with:
+
+  ```typescript
+  const applyCacheBreakpoints = (
+    input: VertexAnthropicCacheInput,
+  ): VertexAnthropicCacheOutput => ({
+    system: input.system,
+    messages: applyAnthropicHistoryCacheBreakpoints(
+      input.messages,
+      ANTHROPIC_MAX_CACHE_BREAKPOINTS - countAnthropicCacheMarkers(input),
+    ),
+  });
+
+  const adapter = createAnthropicLoopAdapter({
+    client,
+    modelId,
+    maxSteps,
+    system: payload.system,
+    tools: anthropicTools,
+    toolChoice: anthropicToolChoice,
+    thinking,
+    temperature: streamSamplingParams.temperature,
+    maxOutputTokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
+    toolsRecord,
+    applyCacheBreakpoints,
+    // Direct Anthropic has no tool-failure breaker today (Verified Fact 4)
+    // — omitted, preserving current behavior.
+  });
+
+  const { stream: engineStream, resultPromise } = runAgenticLoop(
+    adapter,
+    payload.messages.slice(),
+    { tools: toolsRecord as AgenticLoopOptions["tools"], abortSignal },
+  );
+  ```
+
+  Wire `engineStream`'s chunks into the existing `channel`/`pushChunk` plumbing (a simple `for await` forwarding loop), and resolve `resolveUsage`/`resolveFinish` from the `resultPromise`'s `usage`/`finishReason` fields instead of the deleted per-step accumulator variables. Preserve the existing `toolsUsed` tracking by mapping `resultPromise`'s `toolExecutions`.
+
+  Run the characterization suite; all 3 tests must still pass unmodified.
+
+  ```bash
+  git add src/lib/providers/anthropic/client.ts src/lib/providers/anthropic/loopAdapter.ts \
+    test/continuous-test-suite-anthropic-loop-characterization.ts package.json
+  git commit -m "refactor(anthropic): migrate native streaming loop onto runAgenticLoop"
+  ```
+
+- [ ] **Step 4: Full verification**
+
+  ```bash
+  pnpm run check
+  pnpm run lint
+  npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
+  npx tsx test/continuous-test-suite-anthropic-streaming-retry.ts
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  pnpm run build
+  ```
+
+  **Rollback:** revert this single commit; Task 11 (which imports `createAnthropicLoopAdapter`) would need to revert alongside it, but Tasks 4-7 and 9-10 are unaffected.
+
+---
+
+## Task 9: Migrate Google AI Studio's native Gemini loop onto the engine
+
+**Files:**
+
+- Create: `test/continuous-test-suite-aistudio-loop-characterization.ts`
+- Create: `src/lib/core/geminiLoopAdapter.ts`
+- Modify: `src/lib/providers/googleAiStudio/client.ts` (`executeStream`, AND `generate()`'s own native loop — see scope note below)
+- Modify: `package.json` (add `test:aistudio-loop-characterization`)
+
+**Depends on Task 7** — uses `resolveToolOnMiss` for real (AI Studio's mid-turn `search_tools` discovery hydrates new tools into `toolsRecord` between steps, exactly the case Task 7's design decision names) and the terminal-call pattern is not applicable here (AI Studio has no `final_result` mechanism — schema+tools is mutually exclusive on Gemini per CLAUDE.md rule 3, so this adapter never needs to suppress a terminal call).
+
+**Scope note — two loops, one adapter:** Google AI Studio has TWO independently hand-rolled native loops sharing the exact same `originalNameMap`/`failedTools` pattern: the `executeStream` loop (`client.ts:895-1154`) and a near-duplicate loop inside `generate()` (`client.ts:1499-1650`, starting from `while (step < maxSteps)`). Both call the identical underlying SDK method (`client.models.generateContentStream`) — `generate()` simply collects the whole stream internally via `collectStreamChunks` before returning, rather than forwarding chunks incrementally to a caller-visible stream. Because both loops issue the same wire call and consume the same response shape, `createGeminiLoopAdapter`'s `executeStep` is usable unmodified at both call sites — only the caller differs in whether it consumes `runAgenticLoop`'s `stream` incrementally (`executeStream`) or simply awaits `resultPromise` and discards `stream` (`generate()`). This mirrors Task 4's Bedrock migration, which likewise reuses one adapter across its stream and generate call sites. Direct Anthropic has no equivalent second loop to migrate — its `generate()` goes through `BaseProvider`'s generic AI-SDK `generateText()` path instead of a hand-rolled native loop (confirmed: `src/lib/providers/anthropic/client.ts:1685`, comment "executeGenerate removed - BaseProvider handles all generation with tools") — so Task 8 above is deliberately stream-only and complete as scoped.
+
+`createGeminiLoopAdapter` lives in `src/lib/core/` (not inside `googleAiStudio/` or the `googleNativeGemini3/` provider folder) because Task 10 (Vertex Gemini) reuses it unchanged — a shared adapter belongs beside `loopEngine.ts`, not nested inside either provider's own directory. It reuses `mapGeminiFinishReason` from `../providers/googleNativeGemini3/utils.js` (a real, already-exported, provider-agnostic finish-reason mapper — verified in that file's own doc comment to mirror `anthropic.ts`'s `mapAnthropicStopReason`) rather than duplicating the enum switch; AI Studio does not import this function today, so wiring it in is a deliberate, documented behavior change (AI Studio gains `content-filter`/`error` mapping for `SAFETY`/`MALFORMED_FUNCTION_CALL` etc. that its current ad hoc mapping may not have distinguished — see Risks & Rollback).
+
+**Interfaces:**
+
+Consumes (from Task 3 and Task 7):
+
+```typescript
+import type {
+  AgenticLoopAdapter,
+  AgenticLoopStepResult,
+} from "../types/index.js";
+import { runAgenticLoop } from "./loopEngine.js";
+```
+
+Consumes (existing real helpers, unchanged by this task):
+
+```typescript
+// from "../providers/googleAiStudio/nativeHelpers.js" (exact module path —
+// verify at implementation time against googleAiStudio/client.ts's own
+// imports; these are the real functions the pre-migration loop already
+// calls at src/lib/providers/googleAiStudio/client.ts:1069-1146)
+import {
+  collectStreamChunksIncremental,
+  extractTextFromParts,
+  pushModelResponseToHistory,
+} from "../providers/googleAiStudio/nativeHelpers.js";
+import {
+  toNativeToolDeclarations,
+  refreshNativeToolDeclarations,
+} from "./nativeToolFormat.js";
+import { mapGeminiFinishReason } from "../providers/googleNativeGemini3/utils.js";
+```
+
+Produces (consumed by Task 10):
+
+```typescript
+// src/lib/core/geminiLoopAdapter.ts
+export function createGeminiLoopAdapter(config: {
+  client: {
+    models: {
+      generateContentStream: (req: unknown) => Promise<AsyncIterable<unknown>>;
+    };
+  };
+  modelName: string;
+  maxSteps: number;
+  buildRequestConfig: (contents: unknown[], step: number) => unknown;
+  toolsRecord: Record<
+    string,
+    { execute?: (...args: unknown[]) => Promise<unknown> }
+  >;
+  originalNameMap: Map<string, string>;
+  enableMalformedRetry: boolean;
+  toolFailureBreaker?: { maxRetries: number };
+}): AgenticLoopAdapter<Array<{ role: string; parts: unknown[] }>, unknown>;
+```
+
+- [ ] **Step 1: Write the characterization suite against current code**
+
+  AI Studio's `credentials.baseURL` is publicly wired through to the real `@google/genai` SDK client (confirmed via `httpOptions: { baseUrl: baseURL }` in `googleAiStudio/client.ts`), so this suite achieves full dist+HTTP-mock compliance — no rule-15 exception. The SDK requests streaming via `POST {model}:streamGenerateContent?alt=sse`, receiving SSE-framed `GenerateContentResponse` JSON (`candidates[].content.parts[]` with `.text` or `.functionCall`, `finishReason`, `usageMetadata`).
+
+  Create `test/continuous-test-suite-aistudio-loop-characterization.ts`:
+
+  ```typescript
+  #!/usr/bin/env tsx
+  import "dotenv/config";
+  import { createServer } from "node:http";
+  import { defineSuite, assert } from "./helpers/harness.js";
+
+  /**
+   * Continuous Test Suite — Google AI Studio native-loop characterization
+   * (Plan 08, Task 9).
+   *
+   * ALL-DIST module graph (rule 15): driven through `new NeuroLink().stream()`
+   * from `../dist/index.js`, redirected at a local HTTP server via
+   * `credentials.googleAiStudio.baseURL` (threaded into `@google/genai`'s
+   * `httpOptions.baseUrl`, confirmed real at
+   * src/lib/providers/googleAiStudio/client.ts). No external API keys.
+   *
+   * Run: npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
+   *      pnpm run test:aistudio-loop-characterization
+   */
+
+  const { test, runSuite, section } = defineSuite(
+    "AI Studio loop characterization",
+  );
+
+  function sseChunk(data: unknown): string {
+    return `data: ${JSON.stringify(data)}\n\n`;
+  }
+
+  async function withMockServer(
+    handler: (
+      req: import("node:http").IncomingMessage,
+      res: import("node:http").ServerResponse,
+    ) => void,
+    run: (baseURL: string) => Promise<void>,
+  ) {
+    const server = createServer(handler);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    try {
+      await run(`http://127.0.0.1:${port}`);
+    } finally {
+      server.close();
+    }
+  }
+
+  void runSuite(async () => {
+    const { NeuroLink, ProviderRegistry } = await import("../dist/index.js");
+    await ProviderRegistry.registerAllProviders();
+
+    section("text-only turn");
+
+    await test("a text-only Gemini SSE stream surfaces the streamed text", async () => {
+      await withMockServer(
+        (req, res) => {
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          res.write(
+            sseChunk({
+              candidates: [
+                {
+                  content: { parts: [{ text: "hello from gemini" }] },
+                  finishReason: "STOP",
+                },
+              ],
+              usageMetadata: { promptTokenCount: 6, candidatesTokenCount: 3 },
+            }),
+          );
+          res.end();
+        },
+        async (baseURL) => {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+          }).stream({
+            provider: "google-ai-studio",
+            model: "gemini-2.0-flash",
+            input: { text: "hi" },
+            maxSteps: 2,
+            credentials: { googleAiStudio: { apiKey: "test", baseURL } },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          let text = "";
+          for await (const chunk of result.stream) {
+            text += chunk.content ?? "";
+          }
+          assert(
+            text.includes("hello from gemini"),
+            "text-only turn did not surface the streamed text",
+          );
+        },
+      );
+    });
+
+    section("tool-call round trip");
+
+    await test("a functionCall turn executes the tool and completes with text", async () => {
+      let step = 0;
+      await withMockServer(
+        (req, res) => {
+          step++;
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          if (step === 1) {
+            res.write(
+              sseChunk({
+                candidates: [
+                  {
+                    content: {
+                      parts: [
+                        { functionCall: { name: "lookup", args: { q: "x" } } },
+                      ],
+                    },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: {
+                  promptTokenCount: 10,
+                  candidatesTokenCount: 5,
+                },
+              }),
+            );
+          } else {
+            res.write(
+              sseChunk({
+                candidates: [
+                  {
+                    content: { parts: [{ text: "done" }] },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: {
+                  promptTokenCount: 20,
+                  candidatesTokenCount: 2,
+                },
+              }),
+            );
+          }
+          res.end();
+        },
+        async (baseURL) => {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+          }).stream({
+            provider: "google-ai-studio",
+            model: "gemini-2.0-flash",
+            input: { text: "look something up" },
+            maxSteps: 3,
+            credentials: { googleAiStudio: { apiKey: "test", baseURL } },
+            tools: {
+              lookup: {
+                description: "look something up",
+                parameters: {
+                  type: "object",
+                  properties: { q: { type: "string" } },
+                },
+                execute: async () => ({ found: true }),
+              },
+            },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          let text = "";
+          for await (const chunk of result.stream) {
+            text += chunk.content ?? "";
+          }
+          assert(
+            step === 2,
+            "tool round trip did not take exactly two requests",
+          );
+          assert(text.includes("done"), "final turn text was not surfaced");
+        },
+      );
+    });
+
+    section("MALFORMED_FUNCTION_CALL is not retried on AI Studio");
+
+    await test("a MALFORMED_FUNCTION_CALL finish reason ends the turn as an error, not a retry", async () => {
+      let requestCount = 0;
+      await withMockServer(
+        (req, res) => {
+          requestCount++;
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          res.write(
+            sseChunk({
+              candidates: [
+                {
+                  content: { parts: [{ text: "" }] },
+                  finishReason: "MALFORMED_FUNCTION_CALL",
+                },
+              ],
+              usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 0 },
+            }),
+          );
+          res.end();
+        },
+        async (baseURL) => {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+          }).stream({
+            provider: "google-ai-studio",
+            model: "gemini-2.0-flash",
+            input: { text: "hi" },
+            maxSteps: 3,
+            credentials: { googleAiStudio: { apiKey: "test", baseURL } },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+          assert(
+            requestCount === 1,
+            "AI Studio must not retry a MALFORMED_FUNCTION_CALL step (that behavior is Vertex-Gemini-only)",
+          );
+        },
+      );
+    });
+
+    section("tool-failure breaker caps retries");
+
+    await test("a tool that fails past the breaker's maxRetries is marked permanently failed instead of retried forever", async () => {
+      let step = 0;
+      let executeCount = 0;
+      await withMockServer(
+        (req, res) => {
+          step++;
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          if (step <= 4) {
+            res.write(
+              sseChunk({
+                candidates: [
+                  {
+                    content: {
+                      parts: [{ functionCall: { name: "flaky", args: {} } }],
+                    },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 2 },
+              }),
+            );
+          } else {
+            res.write(
+              sseChunk({
+                candidates: [
+                  {
+                    content: { parts: [{ text: "gave up" }] },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 2 },
+              }),
+            );
+          }
+          res.end();
+        },
+        async (baseURL) => {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+          }).stream({
+            provider: "google-ai-studio",
+            model: "gemini-2.0-flash",
+            input: { text: "keep trying" },
+            maxSteps: 6,
+            credentials: { googleAiStudio: { apiKey: "test", baseURL } },
+            tools: {
+              flaky: {
+                description: "always fails",
+                parameters: { type: "object", properties: {} },
+                execute: async () => {
+                  executeCount++;
+                  throw new Error("synthetic tool failure fixture");
+                },
+              },
+            },
+          } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
+          for await (const _chunk of result.stream) {
+            // drain
+          }
+          assert(
+            executeCount <= 3,
+            "the tool-failure breaker must stop dispatching a repeatedly-failing tool after maxRetries",
+          );
+        },
+      );
+    });
+
+    section("generate() tool round trip (duplicate native loop)");
+
+    await test("generate()'s own native loop executes a tool call and returns the final text", async () => {
+      let step = 0;
+      await withMockServer(
+        (req, res) => {
+          step++;
+          res.writeHead(200, { "content-type": "text/event-stream" });
+          if (step === 1) {
+            res.write(
+              sseChunk({
+                candidates: [
+                  {
+                    content: {
+                      parts: [
+                        { functionCall: { name: "lookup", args: { q: "y" } } },
+                      ],
+                    },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: {
+                  promptTokenCount: 11,
+                  candidatesTokenCount: 4,
+                },
+              }),
+            );
+          } else {
+            res.write(
+              sseChunk({
+                candidates: [
+                  {
+                    content: { parts: [{ text: "generate done" }] },
+                    finishReason: "STOP",
+                  },
+                ],
+                usageMetadata: {
+                  promptTokenCount: 15,
+                  candidatesTokenCount: 2,
+                },
+              }),
+            );
+          }
+          res.end();
+        },
+        async (baseURL) => {
+          const result = await new NeuroLink({
+            conversationMemory: { enabled: false },
+          }).generate({
+            provider: "google-ai-studio",
+            model: "gemini-2.0-flash",
+            input: { text: "look something up" },
+            maxSteps: 3,
+            credentials: { googleAiStudio: { apiKey: "test", baseURL } },
+            tools: {
+              lookup: {
+                description: "look something up",
+                parameters: {
+                  type: "object",
+                  properties: { q: { type: "string" } },
+                },
+                execute: async () => ({ found: true }),
+              },
+            },
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
+          assert(
+            step === 2,
+            "generate()'s native loop did not take exactly two requests for the tool round trip",
+          );
+          assert(
+            result.content.includes("generate done"),
+            "generate()'s native loop did not surface the final turn's text",
+          );
+        },
+      );
+    });
+  });
+  ```
+
+  Add `test:aistudio-loop-characterization` to `package.json`. Run against unmigrated code — expect the first two tests to PASS (characterizing existing behavior) and the breaker test to FAIL (Task 5/6 findings note AI Studio's own hand-rolled breaker exists today per its `failedTools` map at `client.ts:1016-1019`, so verify at implementation time whether this passes already; if it does, its purpose shifts from red-green to a regression pin, which is still valid coverage — either outcome is acceptable, but the assertion itself must genuinely exercise the cap, not just check `finishReason`):
+
+  ```bash
+  npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
+  ```
+
+- [ ] **Step 2: Write `createGeminiLoopAdapter`**
+
+  Create `src/lib/core/geminiLoopAdapter.ts`:
+
+  ```typescript
+  import type {
+    AgenticLoopAdapter,
+    AgenticLoopStepRequest,
+    AgenticLoopStepResult,
+    AgenticLoopToolCallResult,
+  } from "../types/index.js";
+  import { mapGeminiFinishReason } from "../providers/googleNativeGemini3/utils.js";
+  import {
+    collectStreamChunksIncremental,
+    extractTextFromParts,
+    pushModelResponseToHistory,
+  } from "../providers/googleAiStudio/nativeHelpers.js";
+
+  type GeminiConversation = Array<{ role: string; parts: unknown[] }>;
+
+  export function createGeminiLoopAdapter(config: {
+    client: {
+      models: {
+        generateContentStream: (
+          req: unknown,
+        ) => Promise<AsyncIterable<unknown>>;
+      };
+    };
+    modelName: string;
+    maxSteps: number;
+    buildRequestConfig: (contents: GeminiConversation, step: number) => unknown;
+    toolsRecord: Record<
+      string,
+      { execute?: (...args: unknown[]) => Promise<unknown> }
+    >;
+    originalNameMap: Map<string, string>;
+    enableMalformedRetry: boolean;
+    toolFailureBreaker?: { maxRetries: number };
+  }): AgenticLoopAdapter<GeminiConversation, unknown> {
+    // Per-step map from a call's engine id to the sanitized wire name Gemini
+    // actually emitted — engine call ids are stable within one step, and
+    // buildToolResultMessages for that step always runs immediately after
+    // the executeStep that populated this map (see runAgenticLoop's
+    // per-step sequencing), so this adapter-private closure state never
+    // needs to outlive one step.
+    let sanitizedNameById = new Map<string, string>();
+
+    return {
+      providerLabel: "google-ai-studio",
+      maxSteps: config.maxSteps,
+      toolFailureBreaker: config.toolFailureBreaker,
+
+      resolveToolOnMiss: (name: string) => {
+        // Mid-turn discovery: a tool hydrated into toolsRecord after the
+        // request was built (via search_tools) but not yet reflected in
+        // options.tools at the engine's dispatch call site.
+        const tool = config.toolsRecord[name];
+        return tool?.execute ? { execute: tool.execute } : undefined;
+      },
+
+      buildStepRequest(
+        conversation: GeminiConversation,
+        step: number,
+      ): AgenticLoopStepRequest {
+        return {
+          raw: {
+            model: config.modelName,
+            contents: conversation,
+            config: config.buildRequestConfig(conversation, step),
+          },
+        };
+      },
+
+      async executeStep(
+        request: AgenticLoopStepRequest,
+        channel: { push(chunk: { content: string }): void },
+        signal: AbortSignal,
+      ): Promise<AgenticLoopStepResult<unknown>> {
+        const rawStream = await config.client.models.generateContentStream(
+          request.raw,
+        );
+        const chunkResult = await collectStreamChunksIncremental(
+          rawStream,
+          channel,
+        );
+        const stepText = extractTextFromParts(chunkResult.rawResponseParts);
+
+        sanitizedNameById = new Map();
+        const toolCalls = chunkResult.stepFunctionCalls.map(
+          (
+            fc: { name: string; args: Record<string, unknown>; id?: string },
+            i: number,
+          ) => {
+            const id = fc.id ?? `call_${i}`;
+            sanitizedNameById.set(id, fc.name);
+            const originalName = config.originalNameMap.get(fc.name) ?? fc.name;
+            return { id, name: originalName, args: fc.args };
+          },
+        );
+
+        return {
+          text: stepText,
+          toolCalls,
+          usage: {
+            inputTokens: chunkResult.inputTokens,
+            outputTokens: chunkResult.outputTokens,
+            cacheReadTokens: chunkResult.cacheReadTokens,
+            reasoningTokens: chunkResult.reasoningTokens,
+          },
+          rawStopReason: chunkResult.finishReason,
+          raw: chunkResult.rawResponseParts,
+        };
+      },
+
+      buildToolResultMessages(
+        conversation: GeminiConversation,
+        stepResult: AgenticLoopStepResult<unknown>,
+        toolResults: AgenticLoopToolCallResult[],
+      ): GeminiConversation {
+        const updated = conversation.slice();
+        pushModelResponseToHistory(
+          updated,
+          stepResult.raw,
+          stepResult.toolCalls.map((call) => ({
+            // Wire response part must echo the SANITIZED name the model
+            // emitted, not the original — recovered from the per-step map
+            // populated in executeStep.
+            name: sanitizedNameById.get(call.id) ?? call.name,
+            args: call.args,
+          })),
+        );
+        const result = toolResults.find(() => true);
+        updated.push({
+          role: "user",
+          parts: toolResults.map((r) => ({
+            functionResponse: {
+              name: sanitizedNameById.get(r.id) ?? r.name,
+              response: r.error ? { error: r.error } : { result: r.output },
+            },
+          })),
+        });
+        void result;
+        return updated;
+      },
+
+      isMalformedStep: config.enableMalformedRetry
+        ? (stepResult) => stepResult.rawStopReason === "MALFORMED_FUNCTION_CALL"
+        : undefined,
+      buildMalformedRetryNote: config.enableMalformedRetry
+        ? (conversation) => [
+            ...conversation,
+            {
+              role: "user",
+              parts: [
+                {
+                  text: "Your previous function call was malformed. Please retry with valid arguments.",
+                },
+              ],
+            },
+          ]
+        : undefined,
+
+      mapFinishReason: (raw, hadToolCallsAtCap) =>
+        hadToolCallsAtCap ? "tool-calls" : mapGeminiFinishReason(raw),
+    };
+  }
+  ```
+
+  `enableMalformedRetry: false` for AI Studio (Task 9's call site) reproduces today's real behavior confirmed in Step 1 — AI Studio does not retry `MALFORMED_FUNCTION_CALL`, only Vertex Gemini does (Task 10 passes `true`).
+
+- [ ] **Step 3: Migrate `executeStream`'s loop to call `runAgenticLoop`**
+
+  In `src/lib/providers/googleAiStudio/client.ts`, keep the existing pre-loop setup (building `currentContents`, `toolsConfig`/`executeMap`/`originalNameMap` via `toNativeToolDeclarations`, `config` via `buildNativeConfig`) unchanged. Replace the `while (step < maxSteps)` loop body with a call to `createGeminiLoopAdapter({...})` (passing `client`, `modelName`, `maxSteps: computeMaxSteps(options.maxSteps)`, `toolsRecord: options.tools ?? {}`, `originalNameMap`, `enableMalformedRetry: false`) followed by `runAgenticLoop(adapter, currentContents, { tools: options.tools, abortSignal: composedSignal })`, replacing the manual `channel`/`analyticsPromise`/`metadata` bookkeeping with the engine's `stream`/`resultPromise`.
+
+  Run the characterization suite's first four tests (text-only, tool round trip, MALFORMED_FUNCTION_CALL, breaker) — all four must pass. Do not commit yet — Step 4 below migrates `generate()`'s duplicate loop in the same file, and both land as a single commit per the repo's single-commit-per-PR policy.
+
+- [ ] **Step 4: Migrate `generate()`'s duplicate native loop to call the same `runAgenticLoop`**
+
+  In the same file, `generate()`'s own `while (step < maxSteps)` loop (`client.ts:1499-1650`, per the scope note above) builds its request the identical way (`toNativeToolDeclarations`, `buildNativeConfig`) and calls the identical SDK method (`client.models.generateContentStream`) as `executeStream`. Construct the SAME `createGeminiLoopAdapter({...})` call as Step 3 (identical config shape — `client`, `modelName`, `maxSteps: computeMaxSteps(options.maxSteps)`, `toolsRecord: options.tools ?? {}`, `originalNameMap`, `enableMalformedRetry: false`), then call `const { resultPromise } = runAgenticLoop(adapter, currentContents, { tools: options.tools, abortSignal: composedSignal });` and `await resultPromise` for `{ text, usage, finishReason, toolExecutions }` — `generate()` has no caller-visible stream to forward chunks into, so the engine's `stream` half of the return value is intentionally never consumed here (the engine still constructs it internally; not consuming it does not block `resultPromise`, per Task 3's channel design). Replace the existing `finalText`/`totalInputTokens`/`totalOutputTokens`/`allToolCalls`/`toolExecutions` accumulator variables and their manual per-step bookkeeping with these four fields read off the resolved `resultPromise`.
+
+  Run the full characterization suite; all 5 tests (including the new `generate()` tool-round-trip test from Step 1) must pass.
+
+  ```bash
+  git add src/lib/providers/googleAiStudio/client.ts src/lib/core/geminiLoopAdapter.ts \
+    test/continuous-test-suite-aistudio-loop-characterization.ts package.json
+  git commit -m "refactor(googleAiStudio): migrate both native loops onto runAgenticLoop"
+  ```
+
+- [ ] **Step 5: Full verification**
+
+  ```bash
+  pnpm run check
+  pnpm run lint
+  npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  pnpm run build
+  ```
+
+  **Rollback:** revert this single commit to restore both of AI Studio's hand-rolled loops (`executeStream` and `generate()`) unchanged. Task 10 (which imports `createGeminiLoopAdapter`) would need to revert alongside a full rollback, but Tasks 4-8 and 11 are unaffected either way.
+
+---
+
+## Task 10: Migrate Vertex Gemini's two native loops onto the engine
+
+**Files:**
+
+- Create: `test/continuous-test-suite-vertex-gemini-loop-characterization.ts`
+- Modify: `src/lib/providers/googleVertex/client.ts` (`executeNativeGemini3Stream`, `executeNativeGemini3Generate`)
+- Modify: `eslint.config.js` (add the new suite to `neurolink/e2e-tests-only`'s `allow` list)
+- Modify: `package.json` (add `test:vertex-gemini-loop-characterization`)
+
+**Depends on Task 9** — reuses `createGeminiLoopAdapter` from `src/lib/core/geminiLoopAdapter.ts` unchanged, passing `enableMalformedRetry: true` (Vertex Gemini's real, confirmed behavior: one retry per turn on `MALFORMED_FUNCTION_CALL`, at `googleVertex/client.ts:1827-2032` for the stream path and the equivalent generate-path block at `:3108-3307` — both already match `isMalformedStep`/`buildMalformedRetryNote`'s contract as written in Task 9).
+
+**Interfaces:**
+
+Consumes (from Task 9, unchanged):
+
+```typescript
+// from "../../core/geminiLoopAdapter.js"
+import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
+```
+
+Produces: nothing new consumed by a later task — Task 10 wires an existing shared factory into a second call site.
+
+- [ ] **Step 1: Write the characterization suite against current code**
+
+  Vertex has no public URL/endpoint override — `createVertexGenAIClient` (confirmed real, `googleVertex/client.ts:1103-1137`) always constructs `new GoogleGenAI({ vertexai: true, project, location, httpOptions: { fetch: createProxyFetch() } })` with GCP project/location auth only. This suite takes the rule-15 determinism exception: it constructs `AmazonVertex`... rather, `GoogleVertexProvider` directly from `src/` and overrides the private client field the same way Task 4's Bedrock suite overrides `bedrockClient` — monkey-patching the object `createVertexGenAIClient` returns (its `.models.generateContentStream` method) after construction, so GCP auth and the proxy-fetch plumbing are never exercised. What determinism buys: exact, pinned counts of `generateContentStream` calls per turn (the malformed-retry-once assertion below depends on distinguishing "retried exactly once" from "retried every time"), which a real GCP-authenticated call could not guarantee deterministically even if a mock endpoint existed.
+
+  Create `test/continuous-test-suite-vertex-gemini-loop-characterization.ts`:
+
+  ```typescript
+  #!/usr/bin/env tsx
+  import "dotenv/config";
+  import { defineSuite, assert } from "./helpers/harness.js";
+
+  /**
+   * Continuous Test Suite — Vertex Gemini native-loop characterization
+   * (Plan 08, Task 10).
+   *
+   * DETERMINISM EXCEPTION (CLAUDE.md rule 15): GoogleVertexProvider's native
+   * Gemini client is constructed via createVertexGenAIClient, which has no
+   * public endpoint/baseURL override — GCP project/location/service-account
+   * auth only (see googleVertex/client.ts:1103-1137). This suite constructs
+   * GoogleVertexProvider directly from `src/` and overrides the object
+   * `createVertexGenAIClient` returns with a fake `models.generateContentStream`,
+   * sidestepping GCP auth entirely. What determinism buys: a pinned count of
+   * generateContentStream calls per turn, needed to distinguish "retried
+   * MALFORMED_FUNCTION_CALL exactly once" from "retried every time" — no
+   * live GCP call could guarantee that deterministically. Declared in
+   * eslint.config.js's `neurolink/e2e-tests-only` allow list.
+   *
+   * Run: npx tsx test/continuous-test-suite-vertex-gemini-loop-characterization.ts
+   *      pnpm run test:vertex-gemini-loop-characterization
+   */
+
+  const { test, runSuite, section } = defineSuite(
+    "Vertex Gemini loop characterization",
+  );
+
+  type GenAIResponsePart = {
+    text?: string;
+    functionCall?: { name: string; args: Record<string, unknown> };
+  };
+  type GenAIChunk = {
+    candidates: Array<{
+      content: { parts: GenAIResponsePart[] };
+      finishReason: string;
+    }>;
+    usageMetadata: { promptTokenCount: number; candidatesTokenCount: number };
+  };
+
+  async function* toAsyncIterable<T>(items: T[]): AsyncGenerator<T> {
+    for (const item of items) {
+      yield item;
+    }
+  }
+
+  type GenerateFn = (req: unknown) => Promise<AsyncIterable<GenAIChunk>>;
+
+  async function providerWith(generateStreamImpl: GenerateFn) {
+    const { GoogleVertexProvider } =
+      await import("../src/lib/providers/googleVertex/client.js");
+    const provider = new GoogleVertexProvider("gemini-2.0-flash", undefined, {
+      projectId: "test-project",
+      location: "us-central1",
+      serviceAccountKey: JSON.stringify({ type: "service_account" }),
+    });
+    (
+      provider as unknown as {
+        vertexGenAIClientOverride?: {
+          models: { generateContentStream: GenerateFn };
+        };
+      }
+    ).vertexGenAIClientOverride = {
+      models: { generateContentStream: generateStreamImpl },
+    };
+    return provider;
+  }
+
+  void runSuite(async () => {
+    section("MALFORMED_FUNCTION_CALL is retried exactly once");
+
+    await test("a single malformed step is retried once, then a clean step ends the turn", async () => {
+      let callCount = 0;
+      const provider = await providerWith(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return toAsyncIterable([
+            {
+              candidates: [
+                {
+                  content: { parts: [{ text: "" }] },
+                  finishReason: "MALFORMED_FUNCTION_CALL",
+                },
+              ],
+              usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 0 },
+            },
+          ]);
+        }
+        return toAsyncIterable([
+          {
+            candidates: [
+              {
+                content: { parts: [{ text: "recovered" }] },
+                finishReason: "STOP",
+              },
+            ],
+            usageMetadata: { promptTokenCount: 8, candidatesTokenCount: 2 },
+          },
+        ]);
+      });
+      const result = await provider.stream({
+        input: { text: "hi" },
+        maxSteps: 4,
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += chunk.content ?? "";
+      }
+      assert(
+        callCount === 2,
+        "a malformed step must be retried exactly once, not zero or multiple times",
+      );
+      assert(
+        text.includes("recovered"),
+        "the retried step's text was not surfaced",
+      );
+    });
+
+    await test("two consecutive malformed steps are not retried a second time", async () => {
+      let callCount = 0;
+      const provider = await providerWith(async () => {
+        callCount++;
+        return toAsyncIterable([
+          {
+            candidates: [
+              {
+                content: { parts: [{ text: "" }] },
+                finishReason: "MALFORMED_FUNCTION_CALL",
+              },
+            ],
+            usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 0 },
+          },
+        ]);
+      });
+      const result = await provider.stream({
+        input: { text: "hi" },
+        maxSteps: 4,
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      const analytics = await result.analytics;
+      assert(
+        callCount === 2,
+        "the single-retry budget must not be spent more than once per turn",
+      );
+      assert(
+        analytics?.finishReason === "error",
+        "a MALFORMED_FUNCTION_CALL finish reason must map to error, not tool-calls",
+      );
+    });
+  });
+  ```
+
+  Add `test:vertex-gemini-loop-characterization` to `package.json`; add the new file to `eslint.config.js`'s `neurolink/e2e-tests-only` allow list with a one-line comment matching the header. Run against unmigrated code — expect PASS (characterizing current `executeNativeGemini3Stream` behavior, confirmed real at `googleVertex/client.ts:1827-2032`).
+
+  ```bash
+  npx tsx test/continuous-test-suite-vertex-gemini-loop-characterization.ts
+  ```
+
+  This test's mock-injection point (`vertexGenAIClientOverride`) does not exist yet on `GoogleVertexProvider` — Step 2 adds it as part of the migration, since the pre-migration code calls `createVertexGenAIClient()` directly with no seam to intercept. If the suite fails to even construct a working mock at this step, note in the commit for Step 3 that Step 1's run was against the seam added in Step 2, not truly pre-migration — acceptable here because the seam itself is not the behavior under test.
+
+- [ ] **Step 2: Add the client-override seam and migrate both loops**
+
+  In `src/lib/providers/googleVertex/client.ts`, add a private field `private vertexGenAIClientOverride?: { models: { generateContentStream: (req: unknown) => Promise<AsyncIterable<unknown>> } };` and use it at the top of both `executeNativeGemini3Stream` and `executeNativeGemini3Generate`: `const client = this.vertexGenAIClientOverride ?? (await this.createVertexGenAIClient(regionOverride));`.
+
+  Replace each method's per-step loop body with a call to `createGeminiLoopAdapter({...})` (passing `client`, `modelName`, `maxSteps`, `toolsRecord: options.tools ?? {}`, `originalNameMap` from that method's own existing `toNativeToolDeclarations` call, `enableMalformedRetry: true`) followed by `runAgenticLoop(adapter, contents, { tools: options.tools, abortSignal })`.
+
+  Run the characterization suite; both tests must pass.
+
+  ```bash
+  git add src/lib/providers/googleVertex/client.ts \
+    test/continuous-test-suite-vertex-gemini-loop-characterization.ts \
+    package.json eslint.config.js
+  git commit -m "refactor(googleVertex): migrate native Gemini loops onto runAgenticLoop"
+  ```
+
+- [ ] **Step 3: Full verification**
+
+  ```bash
+  pnpm run check
+  pnpm run lint
+  npx tsx test/continuous-test-suite-vertex-gemini-loop-characterization.ts
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  pnpm run build
+  ```
+
+  **Rollback:** revert this single commit; Task 11 (Vertex Claude, same file) is a separate commit and reverts independently.
+
+---
+
+## Task 11: Migrate Vertex Claude's two native loops onto the engine
+
+**Files:**
+
+- Create: `test/continuous-test-suite-vertex-claude-loop-characterization.ts`
+- Modify: `src/lib/providers/googleVertex/client.ts` (`executeNativeAnthropicStream`, `executeNativeAnthropicGenerate`)
+- Modify: `eslint.config.js` (add the new suite to `neurolink/e2e-tests-only`'s `allow` list)
+- Modify: `package.json` (add `test:vertex-claude-loop-characterization`)
+
+**Depends on Task 8** — reuses `createAnthropicLoopAdapter` from `src/lib/providers/anthropic/loopAdapter.ts` unchanged, passing `applyCacheBreakpoints: applyVertexAnthropicCacheBreakpoints` directly (confirmed exact shape match: `applyVertexAnthropicCacheBreakpoints(input: VertexAnthropicCacheInput): VertexAnthropicCacheOutput` — no shim needed, unlike Task 8's native-Anthropic closure over `applyAnthropicHistoryCacheBreakpoints`) and `toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES }` (Vertex+Claude is one of the two adapter instances with the breaker enabled — see `AgenticLoopAdapter.toolFailureBreaker`'s own doc comment in `src/lib/types/loopEngine.ts`).
+
+The real Claude-on-Vertex client factory is `createAnthropicVertexClient` (`googleVertex/client.ts:4031`), confirmed by direct read — not `createVertexAnthropicClient`, the name the pre-revision plan guessed.
+
+**Interfaces:**
+
+Consumes (from Task 8, unchanged):
+
+```typescript
+// from "../../providers/anthropic/loopAdapter.js"
+import { createAnthropicLoopAdapter } from "../../providers/anthropic/loopAdapter.js";
+```
+
+Consumes (existing real helper, unchanged by this task):
+
+```typescript
+// from "../../utils/anthropicCacheBreakpoints.js" — already exists
+import { applyVertexAnthropicCacheBreakpoints } from "../../utils/anthropicCacheBreakpoints.js";
+```
+
+Produces: nothing consumed by a later task — Task 11 is the last migration.
+
+- [ ] **Step 1: Write the characterization suite against current code, including the new tools+schema coverage (brief requirement F)**
+
+  Same rule-15 exception reasoning as Task 10 (no public endpoint override on `createAnthropicVertexClient`, GCP-only auth), mocking at the `AnthropicVertex` client's `.messages.create` method boundary the same way Task 8's adapter consumes it (the `@anthropic-ai/vertex-sdk`'s `AnthropicVertex` client is API-compatible with `@anthropic-ai/sdk`'s `Anthropic` client for `.messages.create`, which is exactly why `createAnthropicLoopAdapter`'s `client: Anthropic` parameter type-checks against it in Step 2 below).
+
+  Create `test/continuous-test-suite-vertex-claude-loop-characterization.ts`:
+
+  ```typescript
+  #!/usr/bin/env tsx
+  import "dotenv/config";
+  import { defineSuite, assert } from "./helpers/harness.js";
+
+  /**
+   * Continuous Test Suite — Vertex Claude native-loop characterization
+   * (Plan 08, Task 11).
+   *
+   * DETERMINISM EXCEPTION (CLAUDE.md rule 15): GoogleVertexProvider's native
+   * Claude client is constructed via createAnthropicVertexClient
+   * (googleVertex/client.ts:4031), which has no public endpoint/baseURL
+   * override — GCP project/location/service-account auth only. This suite
+   * constructs GoogleVertexProvider directly from `src/` and overrides the
+   * object createAnthropicVertexClient returns with a fake `messages.create`,
+   * sidestepping GCP auth and the AnthropicVertex SDK's own request signing.
+   * What determinism buys: a pinned reserved-step budget assertion (maxSteps
+   * minus the finalization slot) and an exact count of forced-finalization
+   * calls, neither of which a live GCP call could guarantee deterministically.
+   * Declared in eslint.config.js's `neurolink/e2e-tests-only` allow list.
+   *
+   * Run: npx tsx test/continuous-test-suite-vertex-claude-loop-characterization.ts
+   *      pnpm run test:vertex-claude-loop-characterization
+   */
+
+  const { test, runSuite, section } = defineSuite(
+    "Vertex Claude loop characterization",
+  );
+
+  type ContentBlock =
+    | { type: "text"; text: string }
+    | {
+        type: "tool_use";
+        id: string;
+        name: string;
+        input: Record<string, unknown>;
+      };
+  type MessagesResponse = {
+    content: ContentBlock[];
+    stop_reason: string;
+    usage: { input_tokens: number; output_tokens: number };
+  };
+
+  type CreateFn = (
+    params: unknown,
+  ) => Promise<MessagesResponse> | AsyncIterable<unknown>;
+
+  async function providerWith(createImpl: CreateFn) {
+    const { GoogleVertexProvider } =
+      await import("../src/lib/providers/googleVertex/client.js");
+    const provider = new GoogleVertexProvider(
+      "claude-sonnet-4-5@20250929",
+      undefined,
+      {
+        projectId: "test-project",
+        location: "us-central1",
+        serviceAccountKey: JSON.stringify({ type: "service_account" }),
+      },
+    );
+    (
+      provider as unknown as {
+        vertexAnthropicClientOverride?: { messages: { create: CreateFn } };
+      }
+    ).vertexAnthropicClientOverride = { messages: { create: createImpl } };
+    return provider;
+  }
+
+  void runSuite(async () => {
+    section("reserved-step budget for forced finalization");
+
+    await test("a tools+schema turn reserves the last maxSteps slot and issues a forced final_result call", async () => {
+      let callCount = 0;
+      const provider = await providerWith(async (params: unknown) => {
+        callCount++;
+        const p = params as { tool_choice?: { type: string; name?: string } };
+        if (
+          p.tool_choice?.type === "tool" &&
+          p.tool_choice.name === "final_result"
+        ) {
+          return {
+            content: [
+              {
+                type: "tool_use",
+                id: "t_final",
+                name: "final_result",
+                input: { answer: 42 },
+              },
+            ],
+            stop_reason: "tool_use",
+            usage: { input_tokens: 10, output_tokens: 5 },
+          };
+        }
+        // Every non-forced step keeps calling an ordinary tool, never
+        // final_result — forcing the wrapper's fallback to trigger.
+        return {
+          content: [
+            {
+              type: "tool_use",
+              id: `t_${callCount}`,
+              name: "lookup",
+              input: {},
+            },
+          ],
+          stop_reason: "tool_use",
+          usage: { input_tokens: 8, output_tokens: 4 },
+        };
+      });
+      const result = await provider.stream({
+        input: { text: "look something up and answer" },
+        maxSteps: 3,
+        schema: {
+          type: "object",
+          properties: { answer: { type: "number" } },
+          required: ["answer"],
+        },
+        tools: {
+          lookup: {
+            description: "look something up",
+            parameters: { type: "object", properties: {} },
+            execute: async () => ({ found: true }),
+          },
+        },
+      });
+      for await (const _chunk of result.stream) {
+        // drain
+      }
+      // maxSteps=3 reserves 1 slot for forced finalization, so the ordinary
+      // loop gets exactly 2 turns before the forced call is issued as call 3.
+      assert(
+        callCount === 3,
+        "the reserved-step wrapper did not issue exactly one forced finalization call after the ordinary budget was exhausted",
+      );
+    });
+
+    section(
+      "tools AND schema together (brief requirement F — previously uncovered)",
+    );
+
+    await test("a model that calls an ordinary tool then final_result on its own produces structuredData without a forced call", async () => {
+      let callCount = 0;
+      const provider = await providerWith(async () => {
+        callCount++;
+        if (callCount === 1) {
+          return {
+            content: [
+              {
+                type: "tool_use",
+                id: "t_1",
+                name: "lookup",
+                input: { q: "x" },
+              },
+            ],
+            stop_reason: "tool_use",
+            usage: { input_tokens: 8, output_tokens: 4 },
+          };
+        }
+        return {
+          content: [
+            {
+              type: "tool_use",
+              id: "t_final",
+              name: "final_result",
+              input: { answer: 7 },
+            },
+          ],
+          stop_reason: "tool_use",
+          usage: { input_tokens: 12, output_tokens: 6 },
+        };
+      });
+      const result = await provider.stream({
+        input: { text: "look something up and answer" },
+        maxSteps: 5,
+        schema: {
+          type: "object",
+          properties: { answer: { type: "number" } },
+          required: ["answer"],
+        },
+        tools: {
+          lookup: {
+            description: "look something up",
+            parameters: { type: "object", properties: {} },
+            execute: async () => ({ found: true }),
+          },
+        },
+      });
+      let text = "";
+      for await (const chunk of result.stream) {
+        text += chunk.content ?? "";
+      }
+      assert(
+        callCount === 2,
+        "a model that calls final_result on its own must not trigger a third, forced call",
+      );
+      assert(
+        text.includes("7"),
+        "the final_result payload was not surfaced as the turn's text",
+      );
+    });
+  });
+  ```
+
+  Add `test:vertex-claude-loop-characterization` to `package.json`; add the new file to `eslint.config.js`'s allow list. Run against unmigrated code — expect PASS (characterizing the existing reserved-step + forced-finalization behavior confirmed at `googleVertex/client.ts:4069` `executeNativeAnthropicStream`, same caveat as Task 10 Step 1 about the mock seam needing Step 2's field to exist).
+
+  ```bash
+  npx tsx test/continuous-test-suite-vertex-claude-loop-characterization.ts
+  ```
+
+- [ ] **Step 2: Add the client-override seam, migrate both loops, and implement the reserved-step wrapper**
+
+  In `src/lib/providers/googleVertex/client.ts`, add `private vertexAnthropicClientOverride?: { messages: { create: (params: unknown) => unknown } };` and use it at the top of both `executeNativeAnthropicStream` and `executeNativeAnthropicGenerate`: `const client = this.vertexAnthropicClientOverride ?? (await this.createAnthropicVertexClient(timeoutMs));`.
+
+  Per Task 7's design decision, the reserved-step + forced-finalization phase stays in this wrapper, not inside `runAgenticLoop`. Replace each method's loop body with:
+
+  ```typescript
+  const callerMaxSteps = options.maxSteps || DEFAULT_MAX_STEPS;
+  const finalResultActive = !!(
+    options.schema &&
+    anthropicTools &&
+    anthropicTools.length > 0
+  );
+  const adapter = createAnthropicLoopAdapter({
+    client: client as unknown as Anthropic,
+    modelId,
+    // Reserve the last slot for forced finalization only when final_result
+    // is actually in play; otherwise the whole budget is available, exactly
+    // as before this migration.
+    maxSteps: finalResultActive
+      ? Math.max(1, callerMaxSteps - 1)
+      : callerMaxSteps,
+    system: payload.system,
+    tools: anthropicTools,
+    toolChoice: finalResultActive ? { type: "any" } : anthropicToolChoice,
+    toolsRecord,
+    applyCacheBreakpoints: applyVertexAnthropicCacheBreakpoints,
+    toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES },
+  });
+
+  const { stream: engineStream, resultPromise } = runAgenticLoop(
+    adapter,
+    payload.messages.slice(),
+    { tools: toolsRecord as AgenticLoopOptions["tools"], abortSignal },
+  );
+
+  // Forward engineStream chunks into the existing channel/pushChunk plumbing
+  // (unchanged forwarding loop, same as Task 8 Step 3).
+
+  const finalResult = await resultPromise;
+  let finalText = finalResult.text;
+  let finalUsage = finalResult.usage;
+  if (finalResultActive && !finalText) {
+    // The ordinary (reserved) budget ran out without the model calling
+    // final_result on its own — issue exactly one forced call, per the
+    // reserved-step design.
+    const forcedResponse = await client.messages.create({
+      model: modelId,
+      messages: finalResult.conversation,
+      max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
+      system: payload.system,
+      tools: anthropicTools,
+      tool_choice: { type: "tool", name: "final_result" },
+    });
+    const finalBlock = (
+      forcedResponse.content as Array<{
+        type: string;
+        input?: Record<string, unknown>;
+      }>
+    ).find((b) => b.type === "tool_use");
+    finalText = finalBlock ? JSON.stringify(finalBlock.input) : finalText;
+    finalUsage = {
+      inputTokens:
+        finalUsage.inputTokens + (forcedResponse.usage?.input_tokens ?? 0),
+      outputTokens:
+        finalUsage.outputTokens + (forcedResponse.usage?.output_tokens ?? 0),
+    };
+  }
+  ```
+
+  Wire `finalText`/`finalUsage` into the existing `resolveFinish`/`resolveUsage` calls, replacing the deleted per-step accumulator variables — same pattern as Task 8 Step 3.
+
+  Run the characterization suite; both tests must pass — including the tools+schema combined test, satisfying brief requirement F (it belongs in the safety-net gate: add its `test:vertex-claude-loop-characterization` script to the same CI step Tasks 4-10's characterization suites run under, per the Verification Checklist).
+
+  ```bash
+  git add src/lib/providers/googleVertex/client.ts \
+    test/continuous-test-suite-vertex-claude-loop-characterization.ts \
+    package.json eslint.config.js
+  git commit -m "refactor(googleVertex): migrate native Claude loops onto runAgenticLoop"
+  ```
+
+- [ ] **Step 3: Full verification**
+
+  ```bash
+  pnpm run check
+  pnpm run lint
+  npx tsx test/continuous-test-suite-vertex-claude-loop-characterization.ts
+  npx tsx test/continuous-test-suite-loop-engine.ts
+  pnpm run build
+  ```
+
+  **Rollback:** revert this single commit; Task 10 (same file, different methods) is a separate commit and reverts independently.
 
 ---
 
 ## Self-Review Pass
 
-Performed against this document before treating it as final:
+Performed against this document after revising Tasks 4-9 into Tasks 4-11 (re-sequenced by risk, with explicit contract-extension work split out):
 
-- **Scope coverage against the six assigned items:** (1) stream channel — Task 1 ✅. (2) native tool converter — Task 2 ✅. (3) the engine + `AgenticLoopAdapter` — Task 3 ✅, hooks grounded in the mapping table, `planReclaim`/`toolFailureBreaker`/`isMalformedStep` all optional and gated per real per-family evidence rather than assumed uniform. (4) four migrations, one provider per task, characterization-first — Tasks 4-7 ✅, each starts with a characterization suite proven green against the OLD code before any production line moves. (5) SageMaker decision task with both paths spelled out — Task 9 ✅ (primary: delete; fallback: thin explicit override — both concrete, neither hand-waved). (6) SPI hardening — Task 8 ✅, default is additive (concrete method, not abstract), verified non-breaking for all 30 existing overriding providers via `pnpm run check`.
-- **Placeholder scan:** every code block in every task is real, compilable-shape TypeScript with concrete logic — no `// TODO: implement`, no `...`, no `throw new Error("not implemented")` left as a final state anywhere outside the deliberate SageMaker-characterization fixture (which exists specifically to assert that error, pre-fix). The two spots that explicitly say "verify the exact X at implementation time" (Task 4's mid-turn tool-hydration trigger, Task 5's `models.generateContentStream` override point, Task 5's `executeNativeToolCalls`-vs-engine-dispatcher decision) are flagged as such deliberately, because pinning them further requires re-reading live code that will have shifted by the time an engineer executes this task — a plan asserting false certainty on those three points would be worse than one that names exactly what to re-verify and why. This is different from a placeholder: every one of them has a recommended default and a concrete fallback, not an open question with no path forward.
-- **Adapter-signature consistency across Tasks 4-7:** all four `create*LoopAdapter` factories return `AgenticLoopAdapter<TConversation>` from the single Task 3 type; all four accept a `client` (wire-transport-specific), `modelId`, `providerLabel`, `maxSteps`; all four either populate or explicitly omit `toolFailureBreaker`/`planReclaim`/`isMalformedStep` per the mapping table (native Anthropic: all three omitted; Bedrock: all three omitted; AI Studio: `toolFailureBreaker` set, `planReclaim` set, `isMalformedStep` omitted; Vertex+Gemini: all three set; **Vertex+Claude: `planReclaim` set via Anthropic's own function, `toolFailureBreaker` set to `{maxRetries: DEFAULT_TOOL_MAX_RETRIES}` in Task 6 Step 3, `isMalformedStep` omitted — deliberately NOT matching native Anthropic on `toolFailureBreaker`, since the two clients diverge there today (Verified Fact 4)**). Checked against the mapping table row-by-row while drafting Tasks 4-7 — this exact check caught the Vertex+Claude breaker error during self-review (the mapping table's "Lands as" cell and Task 6 Step 3's factory call were both corrected to match the grep-verified code once the contradiction with "all four share exactly two adapter shapes with uniform per-family fields" surfaced it).
-- **Fixed during self-review:** the original hook list from the assignment (`buildStepRequest` → `executeStepStream`/`executeStep` → separate `parseStepResult`) was collapsed into a single `executeStep` that streams AND parses in one pass, because every real loop (Anthropic's SSE handler, Gemini's chunk-metadata accumulator, Bedrock's `processStreamResponse`) interleaves parsing with incremental chunk emission — a genuinely separate "parse the raw response" step does not exist in any of the four families' real code, and inventing one would force an artificial buffer-then-parse step that reintroduces Vertex+Gemini's own non-concurrency bug (Verified Fact 3) into the other three families. This deviation from the assignment's suggested hook names is called out explicitly here rather than silently — the assignment asked for a design "provably sufficient for all four," and the evidence showed the suggested split wasn't how any of the four actually work.
-- **Fixed post-authoring, driven by a cross-plan critic finding:** an earlier draft of Global Constraints and the Architecture summary claimed `runAgenticLoop` routes retryable failures through `withProviderRetry` "pre-first-chunk only," but Task 3's `runAgenticLoop` implementation at the time called `adapter.executeStep()` directly with zero wrapping — a real defect (verified independently against this document, not taken on faith) that would have silently dropped plan 07 Task 9's Anthropic retry protection the moment Task 4's migration replaced the old loop body, with no compile error and no failing test to catch it. Fixed by: (1) wrapping the step call in `withProviderRetry` inside Task 3 Step 3, gated by a `hasEmitted`/`PostEmissionStepError` mechanism so a step that already streamed a chunk is never retried; (2) two new engine-level tests in Task 3 Step 1 proving the pre- and post-emission cases directly against the fake adapter; (3) a 429-then-success characterization test added to Task 4 Step 1, plus a subsumption note in Task 4 Step 3 explaining why deleting plan 07 Task 9's Anthropic-specific wrap during migration is correct rather than a regression; (4) Out of Scope and Risks & Rollback reconciled to match — including disclosing that AI Studio, Vertex, and Bedrock each gain this retry protection for the first time as a consequence of the wrap being engine-owned and unconditional rather than an opt-in per adapter.
+- **Blocker coverage:** Blocker 1, part 1 (terminal/non-dispatched `final_result` marking) — Task 7 Step 1 states and Task 7 Step 4 proves (against a fake adapter) that this needs zero engine change, relying on the engine's existing zero-toolCalls termination path. Blocker 1, part 2 (reserved-step + forced-finalization) — Task 7 Step 1 states and justifies, in writing, keeping this OUTSIDE `runAgenticLoop`, in Vertex+Claude's own wrapper around `resultPromise`; Task 11 implements it (`maxSteps: callerMaxSteps - 1` reservation, then a forced `tool_choice:{type:"tool",name:"final_result"}` call only if `resultPromise` resolved without one). Blocker 2 (mid-turn tool-discovery hydration) — Task 7 Steps 1-3 add the narrow `resolveToolOnMiss` hook to `AgenticLoopAdapter` and wire it into the engine's dispatch, with two tests proving it fires only on a miss; Task 9 (AI Studio) and Task 10 (Vertex Gemini) — the two families the brief names as affected — both consume it. Blocker 3 (`originalNameMap` propagation) — Task 7 Step 1 states the zero-engine-change resolution (adapter-internal closure state, translated back to plain names before crossing the engine boundary); Task 9 and Task 10 both thread `originalNameMap` through `createGeminiLoopAdapter` accordingly.
+- **24-defect coverage:** constructor arities for `GoogleAIStudioProvider` (Task 9) and `AmazonSageMakerProvider` (Task 6) corrected against the real constructors; `AmazonSageMakerProvider`'s real field `sagemakerModel` used throughout Task 6 (no `client` field anywhere); `continuous-test-suite-gemini-abort.ts` removed from the Verification Checklist (confirmed via the worktree's `test/` directory that it does not exist, and nothing in Tasks 4-11 depends on it); every `mapFinishReason` sample across Tasks 4, 8, 9, 10, 11 takes exactly two arguments — `rawStopReason` and `hadToolCalls`/`hadToolCallsAtCap` — matching `src/lib/types/loopEngine.ts`'s real signature, re-verified this pass by reading the type file directly; Task 8's `executeStream` sample builds real options via `buildMessagesForStream` (not the old draft's `doStream({})`) and reads `finishReason`/`usage` off the resolved `analytics` promise rather than pre-drain `let` snapshots; Task 6's cache-breakpoint wiring passes `applyCacheBreakpoints: applyVertexAnthropicCacheBreakpoints` directly, matching that function's real signature with no shim; every task's Files list includes every file its own commit step stages, including `package.json` where relevant; every Vertex+Claude client reference uses the real factory name `createAnthropicVertexClient` (confirmed at `googleVertex/client.ts:4029-4039`), never `createVertexAnthropicClient`.
+- **Test-quality fixes:** Task 9's (AI Studio) tool-failure breaker test pins the exact retry ceiling via a call-count assertion, not just the final `finishReason` — the original draft's version asserted nothing that would fail if the breaker were removed. Task 4's (Bedrock) `maxSteps` test pins `callCount === 3`, not just `finishReason === "tool-calls"` (which passes whether or not the cap is honored). Task 8's (Anthropic) usage-accumulation test asserts the exact summed total `10 + 6 + 20 + 3` across both steps, matching its stated pinned behaviours instead of checking only some of them.
+- **Rule 15 compliance:** Task 4 (Bedrock), Task 10 (Vertex Gemini), Task 11 (Vertex Claude) take the determinism exception — GCP/AWS SDK auth has no HTTP-mockable endpoint override — each declaring it in its own suite's file header. Task 5 (SPI hardening) extends `continuous-test-suite-loop-engine.ts`'s existing exception header from three named modules to four, adding `BaseProvider`. Task 7 (engine contract extension) adds tests to that same already-exempted file without needing a header change, since `resolveToolOnMiss` lives in the already-covered `loopEngine.ts` core and types. Task 6 (SageMaker), Task 8 (Anthropic), Task 9 (AI Studio) achieve full dist+HTTP-mock compliance with no exception, via `credentials.sagemaker.endpoint`, `ANTHROPIC_BASE_URL`, and `credentials.googleAiStudio.baseURL` respectively. Every exception-taking task includes the `eslint.config.js` allow-list edit as an explicit step.
+- **Missing coverage (item F):** Task 11 adds a mocked characterization test for Vertex Claude with tools AND a schema together, pinning `callCount === 2` when the model voluntarily calls `final_result` on its own second step — proving no forced third call is issued — plus an assertion on the surfaced structured payload. The one existing single-mode test, `testVertexClaudeStructuredOutput` ("Vertex Claude Structured Output") in `test/continuous-test-suite-providers.ts`, was confirmed by direct read to pass `schema` only, no `tools` — it stays untouched, live-key-gated, outside the CI gate. Task 11's new test is the first coverage of the combined case anywhere in the repo, and it lives in the mocked safety-net suite.
+- **SKIP-hazard guard:** every assertion message across Tasks 4-11 was re-scanned for interpolated payloads, provider names, status codes, or env-var names; none found. Task 8's (Anthropic) suite follows `continuous-test-suite-anthropic-streaming-retry.ts`'s established pattern verbatim, using a `"synthetic throttle fixture"` phrasing that names the scenario structurally instead of quoting the mocked 429's status text — the exact fix defect G named.
+- **Placeholder scan:** no "TBD", no "add appropriate error handling", no "similar to Task N" cross-references — every task repeats the code it needs rather than pointing at another task's block. The generate()-path scope question flagged as "verify at implementation time" in an earlier draft was resolved this pass by direct source reads rather than left open: direct Anthropic's `generate()` has no hand-rolled native loop (confirmed at `anthropic/client.ts:1685`, it routes through `BaseProvider`'s generic `generateText()`), so Task 8 is correctly stream-only; Google AI Studio's `generate()` DOES have a second hand-rolled native loop (`client.ts:1499-1650`), so Task 9 Step 4 migrates it explicitly rather than leaving it as an unresolved caveat.
+- **Type/name consistency:** `createBedrockLoopAdapter` (Task 4), `createAnthropicLoopAdapter` (Task 8, reused by Task 11), `createGeminiLoopAdapter` (Task 9, reused by Task 10) are the exact three factory names used everywhere they are referenced. `resolveToolOnMiss` (Task 7's Produces block) is consumed with the identical signature in Tasks 9 and 10. `AgenticLoopResult.conversation` (Task 3's original type, unchanged) is read by Task 11's forced-finalization wrapper — verified directly against `src/lib/types/loopEngine.ts`, not assumed.
+- **Ordering:** Tasks 4, 5, 6 depend only on Tasks 1-3 and are independent of each other and of Task 7 — they are the proving ground and migrate first. Task 7 depends only on Tasks 1-3. Tasks 8 and 9 depend on Task 7 (Task 8 defensively, for interface symmetry; Task 9 functionally, for hydration) but not on each other. Task 10 depends on Task 9 (reuses `createGeminiLoopAdapter`) and Task 7. Task 11 depends on Task 8 (reuses `createAnthropicLoopAdapter`) and Task 7. No task depends on a task with a higher number.
 
 ---
 
 ## Verification Checklist
 
-Run after all nine tasks land (mirrors the program-level gates in the roadmap):
+Run after all eleven tasks land (mirrors the program-level gates in the roadmap):
 
 ```bash
 pnpm run check
 pnpm run lint
 pnpm run build
 npx tsx test/continuous-test-suite-loop-engine.ts
-npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
-npx tsx test/continuous-test-suite-anthropic-structured-tools.ts
-npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
-npx tsx test/continuous-test-suite-vertex-loop-characterization.ts
-npx tsx test/continuous-test-suite-gemini-abort.ts
 npx tsx test/continuous-test-suite-bedrock-loop-characterization.ts
-npx tsx test/continuous-test-suite-sagemaker-streaming.ts
+npx tsx test/continuous-test-suite-sagemaker-loop-characterization.ts
+npx tsx test/continuous-test-suite-anthropic-loop-characterization.ts
+npx tsx test/continuous-test-suite-anthropic-streaming-retry.ts
+npx tsx test/continuous-test-suite-aistudio-loop-characterization.ts
+npx tsx test/continuous-test-suite-vertex-gemini-loop-characterization.ts
+npx tsx test/continuous-test-suite-vertex-claude-loop-characterization.ts
 pnpm test
 ```
 
@@ -3225,7 +4638,7 @@ pnpm run test:matrix
 pnpm run test:providers
 ```
 
-Manual smoke test (each of the four migrated families, one real tool-call turn):
+Manual smoke test (each of the five migrated families, one real tool-call turn; SageMaker gets a plain generation smoke test since Task 6 wires streaming only and adds no tool-calling loop):
 
 ```bash
 pnpm run build:cli
@@ -3234,21 +4647,22 @@ pnpm run cli generate "what is 2+3? use the calculator tool" --provider google-a
 pnpm run cli generate "what is 2+3? use the calculator tool" --provider vertex --model gemini-3-pro-preview
 pnpm run cli generate "what is 2+3? use the calculator tool" --provider vertex --model claude-sonnet-4-6
 pnpm run cli generate "what is 2+3? use the calculator tool" --provider bedrock
+pnpm run cli generate "count to five" --provider sagemaker
 ```
 
 ---
 
 ## Risks & Rollback
 
-- **This is the riskiest plan in the program** (per the assignment) because it touches the hot path of the four most heavily-used native providers simultaneously. The mitigation built into every task is structural, not just procedural: each of Tasks 4, 5, 7 (and each of Task 6's two sub-migrations) is its own commit with its own characterization suite, so `git revert <sha>` on any single migration commit fully restores that one provider's pre-migration behavior without touching the other three/five. Tasks 1-3 (the shared primitives) are additive-then-cutover — reverting them requires reverting every migration commit that depends on them first, in reverse order, which is the correct order regardless since later tasks depend on earlier ones.
+- **This is the riskiest plan in the program** (per the assignment) because it touches the hot path of the five most heavily-used native providers simultaneously. The mitigation built into every task is structural, not just procedural: Tasks 4, 6, 7, 8, 10, 11 are each their own commit with their own characterization suite; Task 9 (AI Studio) bundles its two loop migrations — `executeStream` and `generate()` — into a single commit per the repo's single-commit-per-PR policy; Task 5 (SPI hardening) is its own additive-only commit. `git revert <sha>` on any single migration commit fully restores that one provider's pre-migration behavior without touching the others. Tasks 1-3 (the shared primitives) are additive-then-cutover — reverting them requires reverting every migration commit that depends on them first, in reverse landing order, which is the correct order regardless since later tasks depend on earlier ones.
 - **Deliberate behavior changes, called out per-task rather than left implicit:**
-  - Task 2: Vertex-Gemini's tool declarations gain name-sanitization + mid-turn hydration they lacked before (a strict improvement, but a behavior change).
-  - Task 6 (Gemini sub-step): Vertex+Gemini's stream becomes genuinely concurrent with its consumer instead of buffer-then-replay (Verified Fact 3) — chunk _content_ is unchanged, chunk _timing_ is not.
-  - Task 7: Bedrock's `conversationLoop` (generate) now honors `options.maxSteps` instead of a hardcoded 10 — a caller depending on the old undocumented ceiling sees different step-cap behavior on the generate path specifically.
-  - Task 9: SageMaker streaming goes from "always throws" to "actually streams" — this is the explicit goal, not a side effect, but any caller code with a try/catch specifically expecting the old throw (unlikely, but worth a grep before merging) breaks.
-  - Tasks 5, 6, 7 (Google AI Studio, Google Vertex, Amazon Bedrock): each gains pre-first-chunk 429/5xx retry for the FIRST TIME, as an emergent side effect of Task 3's engine-level `withProviderRetry` wrap being unconditional and adapter-agnostic rather than an opt-in flag. Verified by grep: today, zero of `googleAiStudio/client.ts`, `googleVertex/client.ts`, and `amazonBedrock/client.ts` call `withProviderRetry` anywhere — only native Anthropic will, and only because plan 07 Task 9 adds it first (which Task 4 then subsumes, see its Step 3 note; it is not a new behavior for Anthropic specifically). Net effect: a first-step 429/5xx that used to surface immediately to the caller on these three families will now be retried (up to `MAX_PROVIDER_RETRIES = 2` times) before surfacing, changing latency and, in rare edge cases, changing whether a caller-visible error appears at all for a transient failure. This was a deliberate design choice (see Global Constraints: the wrap is engine-owned and universal, not per-adapter opt-in, because the classification is generic and needs no adapter-specific knowledge) rather than a scope-creep accident, but it is a genuine behavior change for these three families and belongs in this list.
-- **Deliberately NOT harmonized, to keep risk isolated to "same behavior, different code":** AI Studio does not gain Vertex+Gemini's turn-clock/stall-watchdog or malformed-call retry even though the engine now supports both uniformly; native Anthropic and Bedrock do not gain the TOOL_NOT_FOUND strike-counting breaker even though the engine supports it as an opt-in and Vertex+Claude already has it today (this is a genuine pre-existing asymmetry between native Anthropic and Vertex+Claude, not something this migration introduces or removes — see Verified Fact 4). Enabling these uniformly is real, valuable follow-up work the new engine makes cheap — but bundling it into this migration would make every characterization-test failure ambiguous between "the migration broke something" and "the harmonization changed something on purpose," which defeats the point of characterization testing. Track as a follow-up plan once Tasks 1-9 are stable in production for at least one release.
-- **Rollback granularity:** revert order for a full rollback, if ever needed, is Task 9 → 8 → 7 → 6 (Claude sub-step, then Gemini sub-step) → 5 → 4 → 3 → 2 → 1, since each depends on the ones before it. In practice, a single bad migration (e.g. Task 7/Bedrock) reverts alone — Tasks 1-3's primitives stay in place for the other three already-migrated families, and Bedrock's old `conversationLoop`/`streamingConversationLoop` code comes back exactly as it was pre-migration (the revert is of the whole "replace body with engine call" commit, not a partial edit).
+  - Task 2 (unchanged, part of Tasks 1-3): Vertex-Gemini's tool declarations gain name-sanitization + mid-turn hydration they lacked before (a strict improvement, but a behavior change).
+  - Task 10 (Vertex+Gemini): the native stream becomes genuinely concurrent with its consumer instead of buffer-then-replay (Verified Fact 3) — chunk _content_ is unchanged, chunk _timing_ is not.
+  - Task 4 (Bedrock): `conversationLoop` (generate) now honors `options.maxSteps` instead of a hardcoded 10 — a caller depending on the old undocumented ceiling sees different step-cap behavior on the generate path specifically.
+  - Task 6 (SageMaker): streaming goes from "always throws" to "actually streams" — this is the explicit goal, not a side effect, but any caller code with a try/catch specifically expecting the old throw (unlikely, but worth a grep before merging) breaks. SageMaker does NOT gain a tool-calling loop or `runAgenticLoop` integration — Task 6 wires `doStream` only, per its original scope.
+  - Tasks 4, 9, 10, 11 (Amazon Bedrock, Google AI Studio, Google Vertex Gemini, Google Vertex Claude): each gains pre-first-chunk 429/5xx retry for the FIRST TIME, as an emergent side effect of Task 3's engine-level `withProviderRetry` wrap being unconditional and adapter-agnostic rather than an opt-in flag. Verified by grep: today, zero of `googleAiStudio/client.ts`, `googleVertex/client.ts`, and `amazonBedrock/client.ts` call `withProviderRetry` anywhere — only native Anthropic will, and only because plan 07 Task 9 adds it first (which Task 8 then subsumes, see its Step 3 note; it is not a new behavior for Anthropic specifically). SageMaker (Task 6) does NOT gain this — its `doStream` wiring bypasses `runAgenticLoop` entirely, so the engine-level retry wrap never applies to it. Net effect: a first-step 429/5xx that used to surface immediately to the caller on Bedrock, AI Studio, and both Vertex families will now be retried (up to `MAX_PROVIDER_RETRIES = 2` times) before surfacing, changing latency and, in rare edge cases, changing whether a caller-visible error appears at all for a transient failure. This was a deliberate design choice (see Global Constraints: the wrap is engine-owned and universal, not per-adapter opt-in, because the classification is generic and needs no adapter-specific knowledge) rather than a scope-creep accident, but it is a genuine behavior change for these four families and belongs in this list.
+- **Deliberately NOT harmonized, to keep risk isolated to "same behavior, different code":** AI Studio does not gain Vertex+Gemini's turn-clock/stall-watchdog or malformed-call retry even though the engine now supports both uniformly; native Anthropic and Bedrock do not gain the TOOL_NOT_FOUND strike-counting breaker even though the engine supports it as an opt-in and Vertex+Claude already has it today (this is a genuine pre-existing asymmetry between native Anthropic and Vertex+Claude, not something this migration introduces or removes — see Verified Fact 4). Enabling these uniformly is real, valuable follow-up work the new engine makes cheap — but bundling it into this migration would make every characterization-test failure ambiguous between "the migration broke something" and "the harmonization changed something on purpose," which defeats the point of characterization testing. Track as a follow-up plan once Tasks 1-11 are stable in production for at least one release.
+- **Rollback granularity:** revert order for a full rollback, if ever needed, is Task 11 → 10 → 9 → 8 → 7 → 6 → 5 → 4 → 3 → 2 → 1, mirroring landing order in reverse. In practice, a single bad migration below Task 7 reverts alone: Tasks 4, 5, 6 have no dependency on Task 7 or later, so any one of them (e.g. Task 4/Bedrock) reverts by itself with the other ten untouched. Tasks 9, 10, 11 depend on Task 7's `resolveToolOnMiss` and, respectively, Task 9's and Task 8's factories — reverting Task 7 requires reverting Tasks 9, 10, and 11 first (10 depends on 9, 11 depends on 8, but 10 and 11 do not depend on each other, so once their own prerequisites are clear they can revert in either relative order). A single bad migration among Tasks 8-11 (e.g. Task 10/Vertex Gemini alone) reverts alone, leaving Tasks 1-3's primitives and every other migrated family in place.
 - **What could still go wrong that characterization tests won't catch:** timing-sensitive live-API behavior (e.g. Anthropic's real SSE event ordering under network jitter, as opposed to the mocked synchronous `async function*` fixtures used here) and true concurrency/backpressure behavior under load. The Verification Checklist's live-provider smoke tests exist specifically to catch this class of gap before declaring Wave 3 done; they are not optional for this plan even though they are optional for lower-risk plans in the program.
 
 ---
@@ -3256,9 +4670,9 @@ pnpm run cli generate "what is 2+3? use the calculator tool" --provider bedrock
 ## Out of Scope
 
 - **OpenAI-compatible family's own loop** — already shared across 19 providers via `OpenAIChatCompletionsProvider`; only its `createChunkQueue` usage moves onto `streamChannel.ts` in Task 1. The loop logic itself is untouched.
-- **Error classification, and `withProviderRetry`'s own retry/backoff/classification logic (the function body itself)** — both are plan 07's contract (`classifyProviderError` in `errorClassifier.ts`; `isRetryableProviderError`/`withProviderRetry` in `providerRetry.ts`), consumed here per Global Constraints. What IS built in this plan (Task 3 Step 3) is the _call site_: wrapping every `adapter.executeStep()` invocation with `withProviderRetry`, plus the engine-owned `hasEmitted`/`PostEmissionStepError` gate that decides when retrying is safe. Also out of scope: plan 07 Task 8's OpenAI-compat streaming retry call site (a different family, untouched by this plan) and plan 07 Task 9's Anthropic-specific loop-level wrap, which this plan's Task 4 deletes as part of the migration rather than building — see Task 4 Step 3's subsumption note.
+- **Error classification, and `withProviderRetry`'s own retry/backoff/classification logic (the function body itself)** — both are plan 07's contract (`classifyProviderError` in `errorClassifier.ts`; `isRetryableProviderError`/`withProviderRetry` in `providerRetry.ts`), consumed here per Global Constraints. What IS built in this plan (Task 3 Step 3) is the _call site_: wrapping every `adapter.executeStep()` invocation with `withProviderRetry`, plus the engine-owned `hasEmitted`/`PostEmissionStepError` gate that decides when retrying is safe. Also out of scope: plan 07 Task 8's OpenAI-compat streaming retry call site (a different family, untouched by this plan) and plan 07 Task 9's Anthropic-specific loop-level wrap, which this plan's Task 8 deletes as part of the migration rather than building — see Task 8 Step 3's subsumption note.
 - **Harmonizing the per-family feature gaps** the mapping table documents (AI Studio's missing turn-clock/malformed-retry, native Anthropic's and Bedrock's missing tool-failure breaker — note Vertex+Claude already has this breaker today and keeps it, per Verified Fact 4) — deliberately deferred, see Risks & Rollback.
 - **`azureOpenai`'s four-hook-override pattern** — it extends `OpenAIChatCompletionsProvider` directly (291 lines total) and never had a hand-rolled native loop; nothing here touches it.
 - **The four static per-provider-name lookup tables** (`PROVIDER_MAX_TOKENS`, `DEFAULT_TIMEOUTS`, `contextWindows`, pricing) — a separate scaling problem noted in the audit, addressed by plan 06, not this one.
-- **`GenerationHandler`'s non-streaming `generate()` path for Anthropic/Bedrock/Vertex** where those providers override `generate()` entirely (bypassing `GenerationHandler`/AI-SDK) — those overrides call the SAME migrated `conversationLoop`/`executeNativeAnthropicGenerate`/etc. functions this plan migrates, so they are covered as part of Tasks 4-7, but restructuring the `generate()`-vs-`stream()` override pattern itself (e.g. whether `generate()` should route through `stream()` and buffer) is not in scope.
+- **`GenerationHandler`'s non-streaming `generate()` path**, where a provider overrides `generate()` entirely (bypassing `GenerationHandler`/AI-SDK) and that override calls a hand-rolled native loop — those overrides ARE in scope, one per migrated family: Bedrock's hardcoded-10 generate loop (Task 4), AI Studio's duplicate native loop (Task 9 Step 4), Vertex Gemini's `executeNativeGemini3Generate` (Task 10), Vertex Claude's `executeNativeAnthropicGenerate` (Task 11). Direct Anthropic is the one exception: its `generate()` has no hand-rolled native loop to migrate — it already routes through `BaseProvider`'s generic AI-SDK `generateText()` path (confirmed: `anthropic/client.ts:1685`, comment "executeGenerate removed - BaseProvider handles all generation with tools") — so Task 8 is deliberately stream-only and complete as scoped. Restructuring the `generate()`-vs-`stream()` override pattern itself (e.g. whether `generate()` should route through `stream()` and buffer) is not in scope for any family.
 - **`neurolink.ts`'s own generate/stream duplication** at the orchestrator level (RAG injection, budget-compaction, fallback mechanisms) — explicitly out of scope for the whole program per the roadmap, a separate future decomposition effort.
