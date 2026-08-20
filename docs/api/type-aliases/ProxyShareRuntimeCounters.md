@@ -1,0 +1,30 @@
+[**NeuroLink API Reference**](../README.md)
+
+---
+
+[NeuroLink API Reference](../README.md) / ProxyShareRuntimeCounters
+
+# Type Alias: ProxyShareRuntimeCounters
+
+> **ProxyShareRuntimeCounters** = `object`
+
+Defined in: [types/proxy.ts:3513](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3513)
+
+Runtime counters the rate gates need, supplied by the caller so the policy
+evaluator stays pure.
+
+## Properties
+
+### requestsInLastMinute
+
+> **requestsInLastMinute**: `number`
+
+Defined in: [types/proxy.ts:3514](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3514)
+
+---
+
+### inFlight
+
+> **inFlight**: `number`
+
+Defined in: [types/proxy.ts:3515](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3515)

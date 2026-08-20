@@ -911,6 +911,8 @@ export namespace MistralSetup {
 /** Arguments accepted by `neurolink proxy start` */
 export type ProxyStartArgs = {
   port?: number;
+  /** Gate-only listener port. Defaults to `port + 1`. */
+  sharePort?: number;
   host?: string;
   strategy?: string;
   healthInterval?: number;
@@ -1017,6 +1019,8 @@ export type ProxyState = {
   pid: number;
   port: number;
   host: string;
+  /** Gate-only listener port, present only while this node lends capacity. */
+  sharePort?: number;
   strategy: string;
   startTime: string;
   ready?: boolean;
@@ -2067,3 +2071,82 @@ export type CliValidatedFileOption =
   | "--pdf"
   | "--video"
   | "--file";
+
+/** Actions accepted by `neurolink proxy share`. */
+export type ProxyShareCliAction =
+  | "create"
+  | "list"
+  | "status"
+  | "pause"
+  | "resume"
+  | "revoke"
+  | "topup"
+  | "set"
+  | "link"
+  | "rotate"
+  | "level"
+  | "provision"
+  | "url"
+  | "note"
+  | "notes"
+  | "receipts"
+  | "delete";
+
+/** Named starting points for a grant's gate set. */
+export type ProxySharePresetName = "spare" | "spillover" | "metered" | "open";
+
+export type ProxyShareArgs = {
+  action?: ProxyShareCliAction;
+  /** Positional argument for actions that take one, e.g. `share url <url>`. */
+  value?: string;
+  /** `share url --clear`: forget this node's recorded public address. */
+  clear?: boolean;
+  peer?: string;
+  /** Lender account a complete share is minted from, for drift auditing. */
+  fromAccount?: string;
+  /** Authorization code from the lender's browser, for split provisioning. */
+  code?: string;
+  /** `share note`: how long the note stays redeemable. */
+  ttl?: string;
+  /** `share note`: free-text note carried on the coin note itself. */
+  memo?: string;
+  /** Complete-mode lease shape. */
+  offlineGrace?: string;
+  heartbeat?: string;
+  leaseTtl?: string;
+  /** Public URL this node is reachable at, used to mint a share link. */
+  publicUrl?: string;
+  level?: string;
+  preset?: string;
+  ledger?: string;
+  coins?: number;
+  refill?: string;
+  maxSlice?: string;
+  maxSlicePerAccount?: string;
+  reserve?: string;
+  spillover?: string;
+  models?: string[];
+  accounts?: string[];
+  rate?: string;
+  concurrency?: number;
+  schedule?: string;
+  expires?: string;
+  note?: string;
+  to?: string;
+  json?: boolean;
+  dev?: boolean;
+};
+
+export type ProxyExposeArgs = {
+  port?: number;
+  host?: string;
+  named?: string;
+  force?: boolean;
+};
+
+/** What `proxy expose` learned by asking the running proxy directly. */
+export type ProxyGateProbe = {
+  gated: boolean;
+  reachable: boolean;
+  detail: string;
+};

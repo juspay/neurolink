@@ -55,6 +55,7 @@ import type {
   ProxyStartApp,
   ProxyStartArgs,
   ProxyStartStrategy,
+  ProxyClosableServer,
   ProxyState,
   ProxySupervisorState,
   ProxyStatusArgs,
@@ -139,7 +140,27 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
     import.meta.url,
   ),
 );
+/**
+ * Requests accepted by the gate-only share listener.
+ *
+ * Both listeners serve the same Hono app, so the only thing separating a gated
+ * request from an ungated one is which socket accepted it. Recovering that from
+ * `c.env.incoming.socket.localPort` worked but failed in two directions: an
+ * unreadable port answered "not gated", which is fail-open on the one listener
+ * that must never fail open, and a share port configured equal to the main port
+ * answered "gated" for the operator's own untokened traffic.
+ *
+ * Stamping the Request as the share listener hands it to the app settles both.
+ * The mark is applied by the accepting listener before any handler runs, it
+ * says nothing about ports, and nothing a client sends can add or remove it. A
+ * `WeakSet` keyed on the Request holds it for exactly as long as the request
+ * object lives and not a moment longer.
+ */
+const gatedShareRequests = new WeakSet<Request>();
+
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
+/** How long shutdown waits on the share listener before moving on. */
+const SHARE_LISTENER_CLOSE_TIMEOUT_MS = 10_000;
 const LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS = 5_000;
 const PROXY_STATUS_TOKEN_READ_TIMEOUT_MS = 2_000;
 const PROXY_STATUS_RECONCILE_TIMEOUT_MS = 750;
@@ -1373,6 +1394,46 @@ async function createProxyNeurolinkRuntime(logsDir?: string) {
   };
 }
 
+/**
+ * Replace account identity in a `/status` payload with a stable placeholder.
+ *
+ * The shape is preserved — same rows, same counters — so status tooling keeps
+ * working and only the names go away. Callers that legitimately need the names
+ * present the update-control token.
+ */
+function redactStatusAccounts(
+  rows: ReadonlyArray<Record<string, unknown>>,
+  allowed: boolean,
+): Array<Record<string, unknown>> {
+  if (allowed) {
+    return rows as Array<Record<string, unknown>>;
+  }
+  return rows.map((row, index) => ({
+    ...row,
+    label: `account-${index + 1}`,
+    ...(row.email !== undefined ? { email: null } : {}),
+  }));
+}
+
+/**
+ * The same treatment for the configured/effective primary account block.
+ *
+ * Named fields rather than "every non-empty string": `source` is a discriminant
+ * (`configured` | `fallback`), not an identity, and blanking it both left the
+ * value outside its own union and hid the one thing a caller reads this block
+ * for — whether the configured primary is the account actually in use.
+ */
+function redactStatusPrimaryAccount(
+  primary: ProxyStatusPrimaryAccount,
+): ProxyStatusPrimaryAccount {
+  return {
+    configured: primary.configured === null ? null : "redacted",
+    key: primary.key === null ? null : "redacted",
+    label: primary.label === null ? null : "redacted",
+    source: primary.source,
+  };
+}
+
 function registerProxyRequestTracking(
   app: Hono,
   requestMetadata: WeakMap<Request, RuntimeRequestMetadata>,
@@ -1408,6 +1469,10 @@ function registerProxyRequestTracking(
       : beginProxyRequest();
     const finish = () => {
       finishActivity();
+      // Borrowed traffic holds a concurrency slot for the lifetime of the
+      // response body, so it is released here rather than when the handler
+      // returns. Idempotent — a request can finish more than one way.
+      metadata.shareRelease?.();
       requestMetadata.delete(c.req.raw);
     };
     // The route adapter populates model/stream/toolCount after parsing. Omit
@@ -1482,6 +1547,11 @@ function registerProxyRequestTracking(
       // Keep metadata available to app.onError, which records the client-facing
       // failure with the same request ID before deleting the WeakMap entry.
       finishActivity();
+      // A handler that threw never produced a body for `trackProxyResponse` to
+      // follow, so `finish` will not run and the borrowed-traffic slot (and its
+      // coin hold) would be held until the process restarts. Both releases are
+      // idempotent, so the double call on paths that do reach `finish` is free.
+      metadata.shareRelease?.();
       logProxyLifecycleEvent({
         event: "request_terminal",
         requestId: metadata.requestId,
@@ -1526,6 +1596,8 @@ export async function createProxyStartApp(params: {
   accountAllowlist: AccountAllowlist | undefined;
   runtimeConfigStore?: ProxyRuntimeConfigStore;
   updateControlToken?: string;
+  /** Port of the gate-only share listener, when one is configured. */
+  sharePort?: number;
 }) {
   const { createClaudeProxyRoutes } =
     await import("../../lib/server/routes/claudeProxyRoutes.js");
@@ -1538,9 +1610,29 @@ export async function createProxyStartApp(params: {
   const { logBodyCapture, logRequest } =
     await import("../../lib/proxy/requestLogger.js");
   const { recordFinalError } = await import("../../lib/proxy/usageStats.js");
+  const { admitInboundShareRequest, isGrantRequiredByEnv } =
+    await import("../../lib/proxy/shareGate.js");
+  const { runWithShareContext } =
+    await import("../../lib/proxy/shareContext.js");
   const { Hono } = await import("hono");
 
   const app = new Hono();
+
+  /**
+   * Is this request arriving on the gate-only share listener?
+   *
+   * Decided by the **local port the connection was accepted on**, which no
+   * client can influence. A header or an address check could not do this job:
+   * cloudflared and every reverse proxy connect from 127.0.0.1, so tunnelled
+   * traffic is indistinguishable from the operator's own by origin alone.
+   *
+   * The share port refuses untokened requests by construction; the main port
+   * keeps its existing behaviour unless the operator opts in with
+   * `NEUROLINK_PROXY_REQUIRE_GRANT` — which stays the answer for anyone binding
+   * `0.0.0.0` with nothing in front of it.
+   */
+  const isGatedListener = (c: { req: { raw: Request } }): boolean =>
+    isGrantRequiredByEnv() || gatedShareRequests.has(c.req.raw);
   const readiness = createProxyReadinessState();
   const requestMetadata = new WeakMap<Request, RuntimeRequestMetadata>();
 
@@ -1668,6 +1760,20 @@ export async function createProxyStartApp(params: {
 
   registerProxyRequestTracking(app, requestMetadata, readiness);
 
+  // Complete-mode credentials adopted from a lender have to check in, or they
+  // stop when their offline grace runs out. The timer is unref'd so it never
+  // keeps the process alive, and failures are the lender being unreachable —
+  // exactly the case the grace period exists for, not an error.
+  const { heartbeatDueResidentGrants } =
+    await import("../../lib/proxy/residentGrants.js");
+  const residentHeartbeatTimer = setInterval(
+    () => {
+      void heartbeatDueResidentGrants().catch(() => undefined);
+    },
+    5 * 60 * 1000,
+  );
+  residentHeartbeatTimer.unref();
+
   const runtimeConfigStore = params.runtimeConfigStore;
   const runtimeConfigProvider = runtimeConfigStore
     ? () => runtimeConfigStore.getSnapshot()
@@ -1784,6 +1890,63 @@ export async function createProxyStartApp(params: {
         `[proxy] ${c.req.method} ${c.req.path} → model=${logModel} ${stream} tools=${toolCount}`,
       );
 
+      // Peer-sharing gate. Runs here rather than as middleware because the
+      // model is only known after the body is parsed, and the model allowlist
+      // is one of the gates. Requests with no share token take the `local`
+      // branch untouched, which is every request on a node that shares nothing.
+      // `Number()` answers 0 for `null`, `""` and `[]` — all finite, all wrong.
+      // A zero reaches `estimateHoldCoins` and clamps up to its 256 floor
+      // rather than the 4096 an absent value defaults to, so the hold opened
+      // for the request comes out sixteen times too small. Only a real positive
+      // number counts here; anything else is treated as absent, which is the
+      // conservative direction because it holds more, not less.
+      const rawMaxTokens = (body as Record<string, unknown>)?.max_tokens;
+      const requestedMaxTokens =
+        typeof rawMaxTokens === "number" &&
+        Number.isFinite(rawMaxTokens) &&
+        rawMaxTokens > 0
+          ? rawMaxTokens
+          : undefined;
+      // The heartbeat surface authenticates itself against the grant's lease
+      // secret. Running it through the request gate as well would spend the
+      // grant's rate allowance and open a coin hold for a call that consumes no
+      // capacity at all.
+      const shareOutcome = c.req.path.startsWith("/peer/")
+        ? ({ kind: "local" } as const)
+        : await admitInboundShareRequest({
+            headers: Object.fromEntries(c.req.raw.headers.entries()),
+            model: String(model),
+            ...(requestedMaxTokens !== undefined
+              ? { maxTokens: requestedMaxTokens }
+              : {}),
+            requireGrant: isGatedListener(c),
+          });
+      if (shareOutcome.kind === "refused") {
+        const refusal = shareOutcome.response;
+        for (const [key, value] of Object.entries(refusal.headers)) {
+          c.header(key, value);
+        }
+        if (metadata) {
+          metadata.terminalErrorType = `share_${refusal.body.error.type}`;
+        }
+        // Narrow to the literals the gate can actually produce; Hono's json()
+        // wants a status literal and the alternative is a cast.
+        const refusalStatus =
+          refusal.status === 401 ? 401 : refusal.status === 403 ? 403 : 429;
+        return c.json(refusal.body, refusalStatus);
+      }
+      const shareContext =
+        shareOutcome.kind === "admitted" ? shareOutcome.context : undefined;
+      if (shareOutcome.kind === "admitted") {
+        if (metadata) {
+          metadata.shareRelease = shareOutcome.release;
+        } else {
+          // No tracked metadata means nothing will call the completion hook;
+          // release immediately rather than leaking the concurrency slot.
+          shareOutcome.release();
+        }
+      }
+
       const ctx = {
         requestId: metadata?.requestId ?? crypto.randomUUID(),
         method: c.req.method,
@@ -1813,7 +1976,9 @@ export async function createProxyStartApp(params: {
         }
       };
 
-      const result = await route.handler(ctx);
+      const result = shareContext
+        ? await runWithShareContext(shareContext, () => route.handler(ctx))
+        : await route.handler(ctx);
       if (result instanceof Response) {
         // Streaming responses own their headers; merge in anything the
         // handler published on the context that the Response lacks. A Response
@@ -1930,6 +2095,20 @@ export async function createProxyStartApp(params: {
   });
 
   app.get("/status", async (c) => {
+    // A gated proxy is, by definition, one that may be exposed. `/status`
+    // enumerates account labels — which for an OAuth account is an email — plus
+    // quota and cooldown state, and it is not behind the request gate, so
+    // without this anyone who reaches the tunnel could read the pool's identity.
+    //
+    // A loopback check would be no defence: cloudflared runs locally and
+    // connects to 127.0.0.1, so tunnelled traffic arrives from loopback too.
+    // Identity is therefore released only to a caller holding the update-control
+    // token, and redacted for everyone else. Counters and health stay visible so
+    // liveness tooling keeps working.
+    const statusIdentityAllowed =
+      !isGatedListener(c) ||
+      c.req.header("x-neurolink-update-token") ===
+        (params.updateControlToken ?? PROXY_UPDATE_CONTROL_TOKEN);
     const runtimeConfig = params.runtimeConfigStore?.getSnapshot();
     const runtimeConfigStatus = params.runtimeConfigStore?.getStatus();
     const activeStrategy = runtimeConfig
@@ -2279,8 +2458,10 @@ export async function createProxyStartApp(params: {
         terminalErrorDetailsMissing,
         terminalErrorDetailsExcess,
         snapshotSource,
-        accounts: accountRows,
-        primaryAccount,
+        accounts: redactStatusAccounts(accountRows, statusIdentityAllowed),
+        primaryAccount: statusIdentityAllowed
+          ? primaryAccount
+          : redactStatusPrimaryAccount(primaryAccount),
         persistence: getUsageStatsPersistenceStatus(),
       },
       activity: (() => {
@@ -2618,9 +2799,45 @@ function registerProxyShutdownHandlers(params: {
   logCleanupScheduler: ProxyLogCleanupScheduler;
   updaterSupervisor?: { stop: () => void };
   stopRuntimeConfig?: () => void;
+  shareListener?: { stop: () => Promise<void> };
   registerSignals?: boolean;
 }): (signal: string, options?: { skipServerClose?: boolean }) => Promise<void> {
   let shutdownStarted = false;
+
+  /**
+   * Await one shutdown step, but never for longer than `ms`.
+   *
+   * By the time a signal has arrived every step here is best-effort: the
+   * process is going away either way, and the only thing an unbounded await
+   * buys is the chance that the supervisor's patience runs out first and turns
+   * a clean exit into a SIGKILL.
+   */
+  const withShutdownDeadline = async (
+    step: Promise<unknown> | undefined,
+    ms: number,
+    label: string,
+  ): Promise<void> => {
+    if (!step) {
+      return;
+    }
+    let timer: NodeJS.Timeout | undefined;
+    const timedOut = await Promise.race([
+      step.then(
+        () => false,
+        () => false,
+      ),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(true), ms);
+        timer.unref?.();
+      }),
+    ]);
+    if (timer) {
+      clearTimeout(timer);
+    }
+    if (timedOut) {
+      logger.always(`[proxy] ${label} did not close in time; continuing`);
+    }
+  };
 
   const closeServer = async (): Promise<void> => {
     const close = params.server.close?.bind(params.server);
@@ -2666,6 +2883,15 @@ function registerProxyShutdownHandlers(params: {
     await params.logCleanupScheduler.stop();
     params.updaterSupervisor?.stop();
     params.stopRuntimeConfig?.();
+    // Bounded like the main server's close below. `stop()` awaits the
+    // listener's own close, and a borrower holding a stream open keeps that
+    // pending for as long as it likes — an unbounded await here is a proxy
+    // that appears to ignore SIGTERM until the borrower hangs up.
+    await withShutdownDeadline(
+      params.shareListener?.stop(),
+      SHARE_LISTENER_CLOSE_TIMEOUT_MS,
+      "share listener",
+    );
     logger.always(`\nShutting down proxy (${signal})...`);
     let exitCode = signal === "SIGINT" || signal === "ROLLING_DRAIN" ? 0 : 1;
 
@@ -2782,6 +3008,7 @@ async function startProxyRuntime(params: {
   readiness: ProxyStartApp["readiness"];
   host: string;
   port: number;
+  sharePort: number;
   strategy: ProxyStartStrategy;
   proxyConfig: LoadedProxyConfig | null;
   accountAllowlist: AccountAllowlist | undefined;
@@ -2802,6 +3029,74 @@ async function startProxyRuntime(params: {
         port: params.port,
         hostname: params.host,
       });
+  // The gate-only listener. It exists only while this node lends something, and
+  // it is the port an operator exposes: the main port keeps serving the
+  // operator's own untokened client exactly as before.
+  const { isShareListenerDisabled, superviseShareListener } =
+    await import("../../lib/proxy/shareListener.js");
+  // Runs under socket workers too. During a rolling replacement both
+  // generations are briefly live and the incoming one loses the bind; that is
+  // now a logged retry rather than a crash, and the supervisor picks the port up
+  // on its next poll once the outgoing worker drains. Disabling it here instead
+  // would leave launchd installs — the main production shape — with no share
+  // listener at all, which is the thing this exists to remove.
+  const shareListener = isShareListenerDisabled()
+    ? undefined
+    : superviseShareListener({
+        start: async () => {
+          // Bind before reporting success, and take the bind error as a
+          // rejection rather than an unhandled `error` event — a port
+          // collision on the derived `port + 1` must cost the operator a log
+          // line and a `--share-port`, never the whole proxy.
+          const shareServer = await new Promise<ProxyClosableServer>(
+            (resolve, reject) => {
+              let listening = false;
+              const started = serve(
+                {
+                  // Every request this listener accepts is gated, and this is
+                  // the only place that fact is known for certain — see
+                  // `gatedShareRequests`.
+                  fetch: (request, env) => {
+                    gatedShareRequests.add(request);
+                    return params.app.fetch(request, env);
+                  },
+                  port: params.sharePort,
+                  hostname: params.host,
+                },
+                () => {
+                  listening = true;
+                  resolve(started);
+                },
+              );
+              started.on("error", (error: Error) => {
+                if (!listening) {
+                  reject(error);
+                  return;
+                }
+                // Past startup a listener error is a runtime event, not a
+                // reason to take the process down with it.
+                logger.always(`[proxy] share listener error: ${error.message}`);
+              });
+            },
+          );
+          return {
+            port: params.sharePort,
+            close: () =>
+              new Promise<void>((resolve) => {
+                const close = shareServer.close?.bind(shareServer);
+                if (!close) {
+                  resolve();
+                  return;
+                }
+                close(() => resolve());
+              }),
+          };
+        },
+      });
+  // Bring it up now if grants already exist, rather than waiting a poll cycle
+  // for a proxy that restarted with shares already issued.
+  await shareListener?.poll();
+
   const managedByLaunchd = isLaunchdManagedProcess() || socketWorker;
   // launchd already owns restart supervision. A second detached supervisor can
   // outlive its parent and terminate a healthy replacement, so the guard is
@@ -2886,6 +3181,7 @@ async function startProxyRuntime(params: {
       pid: process.pid,
       port: params.port,
       host: params.host,
+      sharePort: shareListener ? params.sharePort : undefined,
       strategy: activeStrategy,
       startTime: new Date().toISOString(),
       ready: true,
@@ -3063,6 +3359,7 @@ async function startProxyRuntime(params: {
     isDev,
     updaterSupervisor,
     stopRuntimeConfig,
+    shareListener,
     registerSignals: !socketWorker,
     ...maintenance,
   });
@@ -3235,8 +3532,18 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     }
     // In dev mode: redirect writable state to .neurolink-dev/ and skip singleton check
     let devPaths: import("../../lib/types/index.js").ProxyPaths | undefined;
-    const { resolveProxyPaths, resolveProxyUsageStatsPath } =
-      await import("../../lib/proxy/proxyPaths.js");
+    const {
+      resolveProxyPaths,
+      resolveProxyUsageStatsPath,
+      resolveProxyGrantsPath,
+      resolveProxyLedgerPath,
+      resolveProxyPeersPath,
+      resolveProxyResidentGrantsPath,
+      resolveProxyNotesPath,
+      resolveProxyProvisioningPath,
+      resolveProxyReceiptsPath,
+      resolveProxyShareAuditPath,
+    } = await import("../../lib/proxy/proxyPaths.js");
     const proxyPaths = resolveProxyPaths(isDev);
     if (isDev) {
       devPaths = proxyPaths;
@@ -3248,6 +3555,27 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       const { initAccountCooldown } =
         await import("../../lib/proxy/accountCooldown.js");
       initAccountCooldown(devPaths.cooldownFile);
+      const { initShareGrants } =
+        await import("../../lib/proxy/shareGrants.js");
+      initShareGrants(resolveProxyGrantsPath(devPaths));
+      const { initShareLedger } =
+        await import("../../lib/proxy/shareLedger.js");
+      initShareLedger(resolveProxyLedgerPath(devPaths));
+      const { initPeerStore } = await import("../../lib/proxy/peerStore.js");
+      initPeerStore(resolveProxyPeersPath(devPaths));
+      const { initResidentGrants } =
+        await import("../../lib/proxy/residentGrants.js");
+      initResidentGrants(resolveProxyResidentGrantsPath(devPaths));
+      const { initShareAudit } = await import("../../lib/proxy/shareAudit.js");
+      initShareAudit(resolveProxyShareAuditPath(devPaths));
+      const { initShareProvisioning } =
+        await import("../../lib/proxy/shareProvisioning.js");
+      initShareProvisioning(resolveProxyProvisioningPath(devPaths));
+      const { initShareReceipts } =
+        await import("../../lib/proxy/shareReceipts.js");
+      initShareReceipts(resolveProxyReceiptsPath(devPaths));
+      const { initShareNotes } = await import("../../lib/proxy/shareNotes.js");
+      initShareNotes(resolveProxyNotesPath(devPaths));
 
       // Ensure the dev state directory exists
       const { mkdirSync, existsSync } = await import("fs");
@@ -3328,6 +3656,12 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
     }
 
     const port = argv.port ?? 55669;
+    const { resolveSharePort } =
+      await import("../../lib/proxy/shareListener.js");
+    const sharePort = resolveSharePort({
+      ...(argv.sharePort !== undefined ? { explicit: argv.sharePort } : {}),
+      mainPort: port,
+    });
     const host = argv.host ?? "127.0.0.1";
     const { app, readiness } = await createProxyStartApp({
       neurolink,
@@ -3340,6 +3674,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       primaryAccountKey,
       accountAllowlist,
       runtimeConfigStore,
+      sharePort,
     });
 
     await initializeProxyOpenTelemetry();
@@ -3355,6 +3690,7 @@ async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {
       readiness,
       host,
       port,
+      sharePort,
       strategy,
       proxyConfig,
       accountAllowlist,
@@ -3393,6 +3729,13 @@ export const proxyStartCommand: CommandModule<object, ProxyStartArgs> = {
         alias: "p",
         default: 55669,
         description: "Port to listen on",
+      })
+      .option("share-port", {
+        type: "number",
+        alias: "sharePort",
+        description:
+          "Gate-only listener port for peer sharing (default: port + 1). " +
+          "Runs only while at least one active grant exists; this is the port to expose.",
       })
       .option("host", {
         type: "string",

@@ -8,6 +8,6 @@
 
 > **SupportedProvider** = `"anthropic"` \| `"codex"`
 
-Defined in: [types/cli.ts:1440](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1440)
+Defined in: [types/cli.ts:1444](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1444)
 
 Providers supported by the `neurolink auth` command.

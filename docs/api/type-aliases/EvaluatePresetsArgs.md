@@ -8,7 +8,7 @@
 
 > **EvaluatePresetsArgs** = `object`
 
-Defined in: [types/cli.ts:1514](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1514)
+Defined in: [types/cli.ts:1518](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1518)
 
 Arguments for `neurolink evaluate presets`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink evaluate presets`.
 
 > `optional` **preset?**: `string`
 
-Defined in: [types/cli.ts:1515](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1515)
+Defined in: [types/cli.ts:1519](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1519)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1515](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/cli.ts:1516](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1516)
+Defined in: [types/cli.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1520)

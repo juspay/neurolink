@@ -19,6 +19,7 @@ Start the Claude multi-account proxy server.
 | Flag                | Alias | Type      | Default                          | Description                                                       |
 | ------------------- | ----- | --------- | -------------------------------- | ----------------------------------------------------------------- |
 | `--port`            | `-p`  | `number`  | `55669`                          | Port to listen on.                                                |
+| `--share-port`      |       | `number`  | `--port` + 1                     | Gate-only listener port for peer sharing (see below).             |
 | `--host`            | `-H`  | `string`  | `127.0.0.1`                      | Host/IP to bind to. Use `0.0.0.0` to listen on all interfaces.    |
 | `--strategy`        | `-s`  | `string`  | `fill-first`                     | Account selection strategy. Choices: `fill-first`, `round-robin`. |
 | `--health-interval` |       | `number`  | `30`                             | Health check interval in seconds.                                 |
@@ -43,6 +44,31 @@ neurolink proxy start --health-interval 60 --debug
 # Use a custom config file
 neurolink proxy start --config /path/to/my-proxy.yaml
 ```
+
+#### The share listener
+
+`proxy start` runs a **second, gate-only listener** whenever this node has at
+least one active share grant. It serves the same routes on a different port and
+refuses every request that carries no valid share token; the main port keeps
+serving the operator's own untokened client exactly as before.
+
+Which port a request arrived on is decided by the accepting socket, so nothing a
+client sends can move it across. That is the reason for a second port rather
+than an origin check: cloudflared and every reverse proxy connect from
+`127.0.0.1`, so tunnelled traffic is indistinguishable from local traffic by
+address alone.
+
+| Behaviour           | Detail                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| Port                | `--share-port`, else `NEUROLINK_PROXY_SHARE_PORT`, else main port + 1                            |
+| Lifecycle           | Comes up on the first active grant, closes when the last is revoked — no restart on either edge  |
+| Poll interval       | 15s against the grant file                                                                       |
+| Bind failure        | Logged once and retried; never fatal. Set `--share-port` to move it                              |
+| Rolling replacement | The incoming worker loses the bind until the outgoing one drains, then takes it on the next poll |
+| Disable             | `NEUROLINK_PROXY_SHARE_LISTENER=0`                                                               |
+
+`neurolink proxy expose` picks this port automatically. Expose it, not the main
+one.
 
 ### `neurolink proxy status`
 
@@ -325,6 +351,84 @@ neurolink auth clear-primary
 ```
 
 Idempotent — clearing when no primary is configured prints `No primary account was configured.` and exits 0.
+
+### `neurolink proxy share <action>`
+
+Lender-side controls for peer sharing. Conceptual documentation lives in
+[Proxy peer sharing](/docs/features/proxy-peer-sharing); this is the flag
+reference. Actions: `create`, `provision`, `url`, `list`, `status`, `pause`,
+`resume`, `revoke`, `topup`, `set`, `link`, `rotate`, `level`, `note`, `notes`,
+`receipts`, `delete`.
+
+| Argument                  | Type      | Description                                                                                                                                                            |
+| ------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--peer`                  | `string`  | Borrower label, or a grant id. Required by everything but `list`, `status`, `url`, `note` and `notes` — the coin-note actions are issued against the node, not a peer. |
+| `--preset`                | `string`  | `spare` (default), `spillover`, `metered`, `open`. Fills the gate set; every field stays overridable by an explicit flag.                                              |
+| `--level`                 | `string`  | `live` (default) or `complete`.                                                                                                                                        |
+| `--ledger`                | `string`  | `coins` or `unlimited`. Implied `coins` when `--coins` is given.                                                                                                       |
+| `--coins`                 | `number`  | Starting balance for a metered grant. With `topup`, the amount to add; with `set`, the absolute balance.                                                               |
+| `--refill`                | `string`  | Standing allowance, e.g. `100/week` or `50/session`. Applied at the first borrowed request after the period elapses, not on a timer.                                   |
+| `--max-slice`             | `string`  | Ceiling as a percent of the **pool**: `20`, or `5h=20,7d=15`. Consumption is summed across the grant's reachable accounts and divided by their count.                  |
+| `--max-slice-per-account` | `string`  | The same ceiling applied to each account independently. Opt-in; the pre-pool behaviour.                                                                                |
+| `--reserve`               | `string`  | Headroom floor the borrower may never eat into: `30`, or `5h=30,7d=20`. Per-account by design.                                                                         |
+| `--spillover`             | `string`  | Use-it-or-lose-it window: `12h<60` or `12h<60@25` (hours before reset, utilization below, optional slice cap).                                                         |
+| `--models`                | `array`   | Tier allowlist, matched as case-insensitive substrings — `sonnet,haiku` covers every dated id in those tiers.                                                          |
+| `--accounts`              | `array`   | Which of your accounts this grant may draw on, by full key or bare label. Also the denominator of `--max-slice`.                                                       |
+| `--rate`                  | `string`  | Requests per minute: `20/min` or `20`.                                                                                                                                 |
+| `--concurrency`           | `number`  | Simultaneous in-flight borrowed requests.                                                                                                                              |
+| `--schedule`              | `string`  | Hour-of-day window in local time: `21-9` wraps midnight.                                                                                                               |
+| `--expires`               | `string`  | Grant expiry: `7d`, `48h`, `90m`. A bare number means days.                                                                                                            |
+| `--from-account`          | `string`  | Which account a complete share is minted from. Without it the drift audit has no baseline to reconcile against.                                                        |
+| `--code`                  | `string`  | Authorization code from your browser, to finish `share provision`.                                                                                                     |
+| `--offline-grace`         | `string`  | How long a complete-share borrower may run unheard-from. Default `24h`.                                                                                                |
+| `--heartbeat`             | `string`  | Complete-share check-in interval. Default `15m`.                                                                                                                       |
+| `--lease-ttl`             | `string`  | Lease lifetime. Default `7d`. A lease can never outlive the grant's own `--expires`.                                                                                   |
+| `--public-url`            | `string`  | Address share links are minted against. Recorded once by `share url`.                                                                                                  |
+| `--clear`                 | `boolean` | With `share url`: forget the recorded address.                                                                                                                         |
+| `--to`                    | `string`  | With `share level`: `live` or `complete`.                                                                                                                              |
+| `--note`                  | `string`  | Free-text note kept with the grant.                                                                                                                                    |
+| `--ttl`                   | `string`  | With `share note`: how long a coin note stays redeemable. Default 30d.                                                                                                 |
+| `--memo`                  | `string`  | With `share note`: text carried on the coin note itself.                                                                                                               |
+| `--json`                  | `boolean` | Emit JSON. `share create --json` is the only way to capture a token programmatically — it is never stored.                                                             |
+| `--dev`                   | `boolean` | Use the isolated dev-mode state directory.                                                                                                                             |
+
+`share url` also takes a positional: `share url <address>` records one,
+`share url get` prints the bare value (exit 1 when unset), `share url clear`
+forgets it, and a bare `share url` reports the current value.
+
+### `neurolink proxy peer <action>`
+
+Borrower-side controls. Actions: `add`, `request`, `sync`, `receipts`, `net`,
+`redeem`, `list`, `status`, `test`, `remove`, `pause`, `resume`, `set`.
+
+| Argument           | Type      | Description                                                                                                                              |
+| ------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `--name`           | `string`  | Local name for the lender. Required by everything but `list` and `sync`.                                                                 |
+| `--link`           | `string`  | Share link from the lender: `neurolink://share/<host>#<token>`. The token rides in the fragment, which is never transmitted to the host. |
+| `--url`            | `string`  | Lender's proxy address, when adding by hand instead of by link.                                                                          |
+| `--token`          | `string`  | Share token, when adding by hand.                                                                                                        |
+| `--priority`       | `number`  | Lower is tried first. Default `100`.                                                                                                     |
+| `--claim`          | `boolean` | With `peer request`: collect a code the lender has authorized, and exchange it locally.                                                  |
+| `--label`          | `string`  | Local account label for a provisioned credential. Default `<peer>-shared`.                                                               |
+| `--note`           | `string`  | Free-text note kept with the peer.                                                                                                       |
+| `--receipt-secret` | `string`  | Secret this lender signs receipts with, when adding a peer by hand instead of from a link.                                               |
+| `--reciprocal`     | `string`  | With `peer net`: label of the grant you issued to the same person. Defaults to the peer's own name.                                      |
+| `--coin-note`      | `string`  | With `peer redeem`: the coin note to present.                                                                                            |
+| `--check`          | `boolean` | With `peer redeem`: ask the issuer about the note without spending it.                                                                   |
+| `--json`           | `boolean` | Emit JSON instead of formatted text.                                                                                                     |
+| `--dev`            | `boolean` | Use the isolated dev-mode state directory.                                                                                               |
+
+### `neurolink proxy expose`
+
+Publish this proxy over a Cloudflare tunnel, refusing to do so while the gate is
+off.
+
+| Argument  | Type      | Description                                                                                                                            |
+| --------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `--port`  | `number`  | Local port to expose. No default — omit it and the gate-only share listener is picked, falling back to the running proxy's port.       |
+| `--host`  | `string`  | Local host to expose. Default `127.0.0.1`.                                                                                             |
+| `--named` | `string`  | Named tunnel to run instead of a quick tunnel. Quick-tunnel URLs change on restart and rot every peer entry.                           |
+| `--force` | `boolean` | Publish anyway when the gate probe says the proxy answers untokened requests. Publishes your subscription to anyone who finds the URL. |
 
 ---
 
@@ -621,23 +725,26 @@ routing.
 
 ## 3. Environment Variables
 
-| Variable                                     | Purpose                                                                                                                                                                                                                                                                     | Used By                                          |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `ANTHROPIC_API_KEY`                          | Anthropic API key. Used as a fallback credential when no OAuth accounts are found.                                                                                                                                                                                          | Proxy routes, Anthropic provider                 |
-| `ANTHROPIC_OAUTH_TOKEN`                      | OAuth access token for Anthropic (alternative to stored tokens).                                                                                                                                                                                                            | Anthropic provider, providerConfig               |
-| `CLAUDE_OAUTH_TOKEN`                         | Alias for `ANTHROPIC_OAUTH_TOKEN`. Checked as a fallback.                                                                                                                                                                                                                   | Anthropic provider, providerConfig               |
-| `NEUROLINK_SKIP_MCP`                         | Set to `"true"` to skip MCP server initialization. Automatically set by `proxy start` (tools come from Claude Code, not local MCP servers).                                                                                                                                 | `NeuroLink` constructor                          |
-| `NEUROLINK_LOG_LEVEL`                        | Log level for the NeuroLink logger. Values: `error`, `warn`, `info`, `debug`.                                                                                                                                                                                               | Logger utility                                   |
-| `OTEL_EXPORTER_OTLP_ENDPOINT`                | OTLP HTTP endpoint for proxy telemetry export. Written automatically to `~/.neurolink/.env` by `neurolink proxy telemetry setup`. Example: `http://localhost:14318`.                                                                                                        | Proxy OTEL init (`initializeProxyOpenTelemetry`) |
-| `NEUROLINK_ENV_FILE`                         | Path to a `.env` file the proxy should load at startup. Overrides the default `~/.neurolink/.env` auto-load.                                                                                                                                                                | `proxyEnv.ts` (`resolveProxyEnvFile`)            |
-| `NEUROLINK_PROXY_AUTO_UPDATE`                | Automatic package updates for launchd installations. Enabled by default; set to `0`, `off`, or `false` to disable. Updates use the package manager owning the running install and restart only after all requests and streams are idle.                                     | Dedicated launchd updater worker                 |
-| `NEUROLINK_PROXY_QUOTA_ROUTING`              | Quota-aware fill-first ordering. Enabled by default; set to `0`, `off`, or `false` to disable. Reloads from the proxy env file at runtime.                                                                                                                                  | Runtime routing configuration                    |
-| `NEUROLINK_PROXY_SESSION_SOFT_LIMIT`         | Session utilization threshold in `(0, 1]`; defaults to `0.97`. Reloads from the proxy env file at runtime.                                                                                                                                                                  | Runtime routing configuration                    |
-| `NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS` | Positive reset-time bucket width in milliseconds; defaults to `900000`. Reloads from the proxy env file at runtime.                                                                                                                                                         | Runtime routing configuration                    |
-| `NEUROLINK_PROXY_SESSION_SECRET`             | Optional secret used to produce stable, non-reversible lifecycle session hashes. When unset, the proxy creates a random mode-`0600` installation key in the log directory and reuses it across restarts. Changing this value intentionally starts a new correlation domain. | Lifecycle metadata logger                        |
-| `NEUROLINK_PACKAGE_MANAGER_PATH`             | Optional absolute path to the npm or pnpm executable used by the updater. The candidate is still rejected unless its writable global root owns the running NeuroLink installation.                                                                                          | Dedicated launchd updater worker                 |
-| `NEUROLINK_PACKAGE_MANAGER`                  | Optional `npm` or `pnpm` type for `NEUROLINK_PACKAGE_MANAGER_PATH`. When omitted, the updater infers the type from the executable name.                                                                                                                                     | Dedicated launchd updater worker                 |
-| `NEUROLINK_PNPM_PATH`                        | Legacy pnpm-specific updater override. Prefer `NEUROLINK_PACKAGE_MANAGER_PATH` for new installations.                                                                                                                                                                       | Dedicated launchd updater worker                 |
+| Variable                                     | Purpose                                                                                                                                                                                                                                                                                                                | Used By                                          |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `ANTHROPIC_API_KEY`                          | Anthropic API key. Used as a fallback credential when no OAuth accounts are found.                                                                                                                                                                                                                                     | Proxy routes, Anthropic provider                 |
+| `ANTHROPIC_OAUTH_TOKEN`                      | OAuth access token for Anthropic (alternative to stored tokens).                                                                                                                                                                                                                                                       | Anthropic provider, providerConfig               |
+| `CLAUDE_OAUTH_TOKEN`                         | Alias for `ANTHROPIC_OAUTH_TOKEN`. Checked as a fallback.                                                                                                                                                                                                                                                              | Anthropic provider, providerConfig               |
+| `NEUROLINK_SKIP_MCP`                         | Set to `"true"` to skip MCP server initialization. Automatically set by `proxy start` (tools come from Claude Code, not local MCP servers).                                                                                                                                                                            | `NeuroLink` constructor                          |
+| `NEUROLINK_LOG_LEVEL`                        | Log level for the NeuroLink logger. Values: `error`, `warn`, `info`, `debug`.                                                                                                                                                                                                                                          | Logger utility                                   |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`                | OTLP HTTP endpoint for proxy telemetry export. Written automatically to `~/.neurolink/.env` by `neurolink proxy telemetry setup`. Example: `http://localhost:14318`.                                                                                                                                                   | Proxy OTEL init (`initializeProxyOpenTelemetry`) |
+| `NEUROLINK_ENV_FILE`                         | Path to a `.env` file the proxy should load at startup. Overrides the default `~/.neurolink/.env` auto-load.                                                                                                                                                                                                           | `proxyEnv.ts` (`resolveProxyEnvFile`)            |
+| `NEUROLINK_PROXY_AUTO_UPDATE`                | Automatic package updates for launchd installations. Enabled by default; set to `0`, `off`, or `false` to disable. Updates use the package manager owning the running install and restart only after all requests and streams are idle.                                                                                | Dedicated launchd updater worker                 |
+| `NEUROLINK_PROXY_REQUIRE_GRANT`              | Gate the **main** port too, refusing any request without a valid share token — including the operator's own client. Rarely needed now that the share listener exists; keep it for binding `0.0.0.0` with nothing in front. Also redacts account identity on `/status`. Values: `1`, `true`, `on`, `yes`. Startup-only. | Peer-sharing gate (`shareGate.ts`)               |
+| `NEUROLINK_PROXY_SHARE_PORT`                 | Port for the gate-only share listener. Default: main port + 1. `--share-port` wins over this.                                                                                                                                                                                                                          | Share listener (`shareListener.ts`)              |
+| `NEUROLINK_PROXY_SHARE_LISTENER`             | Set to `0`, `off`, `false` or `no` to suppress the share listener entirely, whatever grants exist.                                                                                                                                                                                                                     | Share listener (`shareListener.ts`)              |
+| `NEUROLINK_PROXY_QUOTA_ROUTING`              | Quota-aware fill-first ordering. Enabled by default; set to `0`, `off`, or `false` to disable. Reloads from the proxy env file at runtime.                                                                                                                                                                             | Runtime routing configuration                    |
+| `NEUROLINK_PROXY_SESSION_SOFT_LIMIT`         | Session utilization threshold in `(0, 1]`; defaults to `0.97`. Reloads from the proxy env file at runtime.                                                                                                                                                                                                             | Runtime routing configuration                    |
+| `NEUROLINK_PROXY_SESSION_RESET_TOLERANCE_MS` | Positive reset-time bucket width in milliseconds; defaults to `900000`. Reloads from the proxy env file at runtime.                                                                                                                                                                                                    | Runtime routing configuration                    |
+| `NEUROLINK_PROXY_SESSION_SECRET`             | Optional secret used to produce stable, non-reversible lifecycle session hashes. When unset, the proxy creates a random mode-`0600` installation key in the log directory and reuses it across restarts. Changing this value intentionally starts a new correlation domain.                                            | Lifecycle metadata logger                        |
+| `NEUROLINK_PACKAGE_MANAGER_PATH`             | Optional absolute path to the npm or pnpm executable used by the updater. The candidate is still rejected unless its writable global root owns the running NeuroLink installation.                                                                                                                                     | Dedicated launchd updater worker                 |
+| `NEUROLINK_PACKAGE_MANAGER`                  | Optional `npm` or `pnpm` type for `NEUROLINK_PACKAGE_MANAGER_PATH`. When omitted, the updater infers the type from the executable name.                                                                                                                                                                                | Dedicated launchd updater worker                 |
+| `NEUROLINK_PNPM_PATH`                        | Legacy pnpm-specific updater override. Prefer `NEUROLINK_PACKAGE_MANAGER_PATH` for new installations.                                                                                                                                                                                                                  | Dedicated launchd updater worker                 |
 
 ### Proxy Env File Resolution Order
 
@@ -707,6 +814,24 @@ All NeuroLink proxy files are stored under `~/.neurolink/` (with `0o700` directo
 | `~/.neurolink/account-quotas.json`                           | `0o600`      | **Account quotas** -- Cached quota/utilization data from Anthropic's `unified-5h` and `unified-7d` rate-limit headers. Flushed to disk every 5 seconds.                                                                                                                 |
 | `~/.neurolink/account-cooldowns.json`                        | `0o600`      | **Account cooldowns** -- Extend-only rate-limit and transient-auth recovery timestamps. Persisted atomically so a proxy restart cannot immediately retry a known-exhausted account.                                                                                     |
 | `~/.claude/settings.json`                                    | user default | **Claude Code settings** -- Auto-configured with `ANTHROPIC_BASE_URL` and `ENABLE_TOOL_SEARCH` when the proxy starts. Cleaned up on shutdown.                                                                                                                           |
+
+### Peer-sharing state
+
+Written only once this node lends or borrows capacity — see
+[Proxy peer sharing](/docs/features/proxy-peer-sharing). All follow the same
+`0o600` + atomic-rename discipline as the files above. In `--dev` mode they
+resolve under `<cwd>/.neurolink-dev/` instead.
+
+| File                                         | Owner    | Description                                                                                                                                                                                                                                                                                  |
+| -------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.neurolink/proxy-grants.json`             | lender   | **Share grants** -- One record per borrower: hashed token (`sha256(salt + secret)`; the token itself is never stored), level, state, entitlement and the full gate set. Also holds this node's recorded `publicUrl`. Re-read when its mtime moves, so `share pause` lands without a restart. |
+| `~/.neurolink/proxy-share-ledger.json`       | lender   | **Coin ledger and window buckets** -- Settled coin spend and request counts per `grantId\|accountKey`, plus how much of each 5h/7d window a grant has taken, keyed by that window's reset timestamp so a rollover starts fresh. In-flight holds are memory-only.                             |
+| `~/.neurolink/proxy-share-audit.json`        | lender   | **Drift audit** -- Last utilization observation per complete-mode grant, the consecutive-drift streak and the auto-pause marker. Cleared by `share resume`; deleted with the grant.                                                                                                          |
+| `~/.neurolink/proxy-share-provisioning.json` | lender   | **Split-PKCE requests** -- A borrower's outstanding code challenge, its 15-minute expiry, and (between authorization and the single claim that consumes it) the authorization code. Never a verifier, never a token.                                                                         |
+| `~/.neurolink/proxy-peers.json`              | borrower | **Peers** -- Lender name, URL, share token, priority, per-reason cooldown, last observed grant status, and any outstanding provisioning verifier.                                                                                                                                            |
+| `~/.neurolink/proxy-resident-grants.json`    | borrower | **Resident grants** -- The signed lease governing each credential a lender provisioned here, its lease secret, last heartbeat and unreported spend.                                                                                                                                          |
+| `~/.neurolink/proxy-share-receipts.json`     | lender   | **Receipts** -- The last 500 signed settlement statements per grant, each carrying the usage its charge was computed from, plus the cumulative coins forgiven by reciprocal netting.                                                                                                         |
+| `~/.neurolink/proxy-share-notes.json`        | issuer   | **Coin notes** -- Every transferable note this node minted, and which have been redeemed, by which grant and when. The spent-set is the replay protection.                                                                                                                                   |
 
 ### TokenStore Details
 
@@ -920,13 +1045,26 @@ This configuration:
 
 For reference, the running proxy exposes these HTTP endpoints:
 
-| Method | Path                        | Description                                                                                  |
-| ------ | --------------------------- | -------------------------------------------------------------------------------------------- |
-| `POST` | `/v1/messages`              | Anthropic-compatible chat completions (main endpoint).                                       |
-| `GET`  | `/v1/models`                | List available models.                                                                       |
-| `POST` | `/v1/messages/count_tokens` | Token counting endpoint.                                                                     |
-| `GET`  | `/health`                   | Health check. Returns `{ status, strategy, uptime }`.                                        |
-| `GET`  | `/status`                   | Detailed status with per-account stats, total attempts, completed requests, and error rates. |
+| Method | Path                        | Description                                                                                                                                                                                    |
+| ------ | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST` | `/v1/messages`              | Anthropic-compatible chat completions (main endpoint).                                                                                                                                         |
+| `GET`  | `/v1/models`                | List available models.                                                                                                                                                                         |
+| `POST` | `/v1/messages/count_tokens` | Token counting endpoint.                                                                                                                                                                       |
+| `GET`  | `/health`                   | Health check. Returns `{ status, strategy, uptime }`.                                                                                                                                          |
+| `GET`  | `/status`                   | Detailed status with per-account stats, total attempts, completed requests, and error rates. On a gated proxy, account identity is released only to a caller holding the update-control token. |
+| `GET`  | `/limits`                   | Fresh per-account limits from Anthropic's usage API. `?account=<label>` for one, `?snapshot=true` for stored state. Operator-only: refused for borrowed traffic.                               |
+| `GET`  | `/peer/handshake`           | Peer protocol version, capabilities and grant state. Authenticated by share token; touches no account.                                                                                         |
+| `GET`  | `/peer/limits`              | What the calling grant may still do: remaining coins, slice left, whether anything can serve it. Carries no account identity.                                                                  |
+| `POST` | `/peer/provision`           | Lodge a split-PKCE code challenge (complete shares).                                                                                                                                           |
+| `GET`  | `/peer/provision`           | Collect the authorization code the lender produced. Single-use.                                                                                                                                |
+| `POST` | `/peer/heartbeat`           | Complete-share check-in: report spend, receive a refreshed lease or a stop. Authenticated by the grant's lease secret.                                                                         |
+| `GET`  | `/peer/receipts`            | Signed statements of what this grant was charged. `?since=<sequence>` for the ones not yet collected.                                                                                          |
+| `POST` | `/peer/net`                 | Settle one round of reciprocal netting. The claim is signed with the grant's receipt secret.                                                                                                   |
+| `POST` | `/peer/note`                | Check a transferable coin note, or redeem it into this grant's balance. A check needs only the note; redeeming needs a grant to credit.                                                        |
+
+The `/peer/*` routes sit outside the request gate: they consume no capacity, and
+running them through it would spend the grant's rate allowance on calls that
+exist to ask whether spending is possible. Each authenticates itself.
 
 ---
 

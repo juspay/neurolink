@@ -62,10 +62,40 @@ proxy-usage-stats.json — restart- and handoff-safe usage counters
 
 ---
 
+### grantsFile?
+
+> `optional` **grantsFile?**: `string`
+
+Defined in: [types/proxy.ts:1598](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1598)
+
+proxy-grants.json — grants this node has issued to borrowers
+
+---
+
+### ledgerFile?
+
+> `optional` **ledgerFile?**: `string`
+
+Defined in: [types/proxy.ts:1600](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1600)
+
+proxy-share-ledger.json — coin balances, holds and settled spend
+
+---
+
+### peersFile?
+
+> `optional` **peersFile?**: `string`
+
+Defined in: [types/proxy.ts:1602](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1602)
+
+proxy-peers.json — lenders this node may borrow from
+
+---
+
 ### isDev
 
 > **isDev**: `boolean`
 
-Defined in: [types/proxy.ts:1598](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1598)
+Defined in: [types/proxy.ts:1604](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1604)
 
 Whether this is a dev-mode isolated instance

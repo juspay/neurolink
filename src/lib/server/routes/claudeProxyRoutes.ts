@@ -83,6 +83,59 @@ import {
 } from "../../proxy/requestLogger.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { createSSEInterceptor } from "../../proxy/sseInterceptor.js";
+import { selectBorrowablePeers } from "../../proxy/peerStore.js";
+import {
+  evaluateResidentAccount,
+  getResidentGrantForAccount,
+  recordResidentSpend,
+} from "../../proxy/residentGrants.js";
+import {
+  buildProvisionClaim,
+  isLeaseRefusal,
+  issueLease,
+} from "../../proxy/shareLease.js";
+import { forwardToPeer } from "../../proxy/peerTransport.js";
+import { getShareContext } from "../../proxy/shareContext.js";
+import { buildShareRefusal, extractShareToken } from "../../proxy/shareGate.js";
+import {
+  debitShareGrantCoins,
+  getNodePublicUrl,
+  getNoteSecret,
+  getShareGrant,
+  resolveShareToken,
+  setShareGrantState,
+} from "../../proxy/shareGrants.js";
+import { recordAuditObservation } from "../../proxy/shareAudit.js";
+import {
+  claimProvisionRequest,
+  openProvisionRequest,
+} from "../../proxy/shareProvisioning.js";
+import {
+  applyReciprocalNetting,
+  listShareReceipts,
+} from "../../proxy/shareReceipts.js";
+import {
+  decodeShareNote,
+  inspectShareNote,
+  redeemShareNote,
+} from "../../proxy/shareNotes.js";
+import { verifySharePayload } from "../../proxy/shareSigning.js";
+import {
+  availableCoins,
+  readSharePoolWindowUsage,
+  readShareWindowUsage,
+  recordShareWindowDelta,
+  settleShareUsage,
+  usageToCoins,
+} from "../../proxy/shareLedger.js";
+import {
+  accountsInGrantScope,
+  filterAccountsForGrant,
+  isModelAllowed,
+  isWithinSchedule,
+  shareRefusalStatus,
+  summarizeAccountExclusions,
+} from "../../proxy/sharePolicy.js";
 import {
   createStreamTerminalOutcomeTracker,
   mergeStreamTerminalOutcome,
@@ -106,6 +159,7 @@ import type {
 } from "../../types/index.js";
 import { writeJsonSnapshotAtomically } from "../../proxy/snapshotPersistence.js";
 import {
+  getAccountStats,
   recordAttempt,
   recordAttemptError,
   recordFinalError,
@@ -165,6 +219,13 @@ import type {
   StreamResult,
   StreamTerminalOutcome,
   TransientRateLimitRetryBudget,
+  ProxyPeerAuthOutcome,
+  ProxyPeerLimitsSnapshot,
+  ProxyResidentGrant,
+  ProxyShareAccountView,
+  ProxyShareGates,
+  ProxyShareGrant,
+  ProxyShareRefusalResponse,
 } from "../../types/index.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
@@ -765,7 +826,10 @@ function publishLimitHeaders(
       },
     });
 
-    ctx.responseHeaders = { ...(ctx.responseHeaders ?? {}), ...headers };
+    ctx.responseHeaders = {
+      ...(ctx.responseHeaders ?? {}),
+      ...redactHeadersForBorrower(headers),
+    };
   } catch (error) {
     // Diagnostics must never break a response that is otherwise fine.
     logger.debug(
@@ -3457,6 +3521,686 @@ async function handleClaudePassthroughJsonResponse(args: {
   return responseJson;
 }
 
+/**
+ * Narrow the pool to what the current borrowed request's grant may use.
+ *
+ * A no-op — and one map lookup — for the node's own traffic, which is every
+ * request on a proxy that shares nothing.
+ *
+ * When the filter empties the pool the refusal must be share-shaped, not the
+ * generic "no credentials" 401: the borrower has perfectly good credentials,
+ * the lender is simply holding capacity back. Saying it precisely is what lets
+ * the borrower fall through to another peer instead of re-authenticating.
+ */
+async function applyShareAccountGates(args: {
+  accounts: ProxyPassthroughAccount[];
+  ctx: ServerContext;
+  buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
+}): Promise<{
+  accounts: ProxyPassthroughAccount[];
+  refusal?: { response: unknown; status: number; message: string };
+}> {
+  const share = getShareContext();
+  if (!share) {
+    return { accounts: args.accounts };
+  }
+  if (args.accounts.length === 0) {
+    // Nothing to withhold. Claiming a share refusal here would tell the
+    // borrower the lender is holding capacity back, when in fact the lender has
+    // no usable accounts at all — a different problem with a different fix,
+    // and the existing no-credentials path already words it correctly.
+    return { accounts: args.accounts };
+  }
+
+  const now = Date.now();
+  const views: ProxyShareAccountView[] = await Promise.all(
+    args.accounts.map(async (account) => {
+      const quota = getOrCreateRuntimeState(account.key).quota;
+      const sessionResetAt = resetEpochToMs(quota?.sessionResetAt, now) ?? null;
+      const weeklyResetAt = resetEpochToMs(quota?.weeklyResetAt, now) ?? null;
+      const borrowed = await readShareWindowUsage(
+        share.grantId,
+        account.key,
+        sessionResetAt,
+        weeklyResetAt,
+      );
+      return {
+        accountKey: account.key,
+        sessionUsed: quota?.sessionUsed ?? null,
+        weeklyUsed: quota?.weeklyUsed ?? null,
+        sessionResetAt,
+        weeklyResetAt,
+        borrowedSessionFraction: borrowed.sessionFraction,
+        borrowedWeeklyFraction: borrowed.weeklyFraction,
+      };
+    }),
+  );
+
+  const grant = await getShareGrant(share.grantId);
+  if (!grant) {
+    return { accounts: args.accounts };
+  }
+  // Pool-wide first: how much of the pool this grant has already taken. The
+  // denominator is the accounts the grant may actually draw on — an
+  // `--accounts`-restricted grant divides by those, not by every credential
+  // this node holds, or its ceiling would scale with the size of a pool it
+  // cannot reach.
+  const poolUsage = await readSharePoolWindowUsage(
+    share.grantId,
+    accountsInGrantScope(grant.gates, views).inScope,
+  );
+  const decision = filterAccountsForGrant(grant, views, now, poolUsage);
+  const allowed = new Set(decision.allowed);
+  const survivors = args.accounts.filter((account) => allowed.has(account.key));
+
+  if (survivors.length > 0) {
+    return { accounts: survivors };
+  }
+
+  const reason = summarizeAccountExclusions(decision.excluded);
+  const refusal = buildShareRefusal(reason, {
+    status: shareRefusalStatus(reason),
+    grant,
+    retryAfterSeconds: earliestShareRecoverySeconds(views, now),
+  });
+  // Assigned, not merged into an existing object: a refusal is often the first
+  // thing to touch this context, and only copying when headers already existed
+  // meant the borrower learned nothing about why it was refused.
+  args.ctx.responseHeaders = {
+    ...(args.ctx.responseHeaders ?? {}),
+    ...refusal.headers,
+  };
+  logger.always(
+    `[proxy] share ${share.peerLabel} withheld: ${reason} (${decision.excluded.length} accounts)`,
+  );
+  return {
+    accounts: [],
+    refusal: {
+      response: args.buildLoggedClaudeError(
+        refusal.status,
+        refusal.body.error.message,
+        refusal.body.error.type,
+      ),
+      status: refusal.status,
+      message: refusal.body.error.message,
+    },
+  };
+}
+
+/**
+ * Withhold credentials a lender provisioned here whose lease has lapsed.
+ *
+ * A complete-mode credential keeps working while the lender is unreachable —
+ * that is what it is for — but only for as long as the lease allows. Past that,
+ * the honest thing is to stop using it, and the borrower is the only party in a
+ * position to do so.
+ *
+ * A no-op for a node with no resident grants, which is every node until someone
+ * provisions one.
+ */
+async function dropExpiredResidentAccounts(
+  accounts: ProxyPassthroughAccount[],
+): Promise<{
+  accounts: ProxyPassthroughAccount[];
+  withheld: Array<{ label: string; reason: string }>;
+}> {
+  const survivors: ProxyPassthroughAccount[] = [];
+  const withheld: Array<{ label: string; reason: string }> = [];
+  for (const account of accounts) {
+    const verdict = await evaluateResidentAccount(account.key);
+    if (!verdict) {
+      survivors.push(account);
+      continue;
+    }
+    if (!isLeaseRefusal(verdict)) {
+      survivors.push(account);
+      continue;
+    }
+    logger.always(
+      `[proxy] withholding leased account=${account.label}: ${verdict.reason}`,
+    );
+    withheld.push({ label: account.label, reason: verdict.reason });
+  }
+  return { accounts: survivors, withheld };
+}
+
+/**
+ * Enforce a lender's model allowlist on the credential they provisioned here.
+ *
+ * A live share checks this at the lender's gate. A complete share has no gate in
+ * the request path, so the borrower has to hold the line itself — otherwise a
+ * grant that says "Sonnet only" becomes "anything" the moment it is provisioned,
+ * which is exactly the property that would make complete mode unshippable.
+ */
+async function dropLeaseDisallowedAccounts(
+  accounts: ProxyPassthroughAccount[],
+  requestedModel: string | undefined,
+): Promise<{
+  accounts: ProxyPassthroughAccount[];
+  withheld: Array<{ label: string; reason: string }>;
+}> {
+  const survivors: ProxyPassthroughAccount[] = [];
+  const withheld: Array<{ label: string; reason: string }> = [];
+  const now = Date.now();
+  for (const account of accounts) {
+    const resident = await getResidentGrantForAccount(account.key);
+    if (!resident) {
+      survivors.push(account);
+      continue;
+    }
+    const gates = resident.lease.gates;
+
+    // Request-level gates first: they do not depend on any window figure, and
+    // saying "this share does not cover Opus" is more useful than saying the
+    // slice is spent when both are true.
+    if (!isModelAllowed(gates.models, requestedModel)) {
+      logger.always(
+        `[proxy] leased account=${account.label} does not cover model ${sanitizeForLog(requestedModel ?? "unknown")}`,
+      );
+      withheld.push({ label: account.label, reason: "model_not_allowed" });
+      continue;
+    }
+    if (gates.schedule && !isWithinSchedule(gates.schedule, now)) {
+      logger.always(
+        `[proxy] leased account=${account.label} is outside its allowed hours`,
+      );
+      withheld.push({ label: account.label, reason: "out_of_window" });
+      continue;
+    }
+
+    // Account-level gates through the lender's own evaluator, on the lender's
+    // own numbers. A resident credential is minted from exactly one account, so
+    // the pool of the pool-wide slice is that one account and the formula
+    // collapses to the per-account case — which is precisely why the same code
+    // can serve both sides.
+    const quota = getOrCreateRuntimeState(account.key).quota;
+    const sessionResetAt = resetEpochToMs(quota?.sessionResetAt, now) ?? null;
+    const weeklyResetAt = resetEpochToMs(quota?.weeklyResetAt, now) ?? null;
+    const borrowed = await readShareWindowUsage(
+      resident.grantId,
+      account.key,
+      sessionResetAt,
+      weeklyResetAt,
+    );
+    const view: ProxyShareAccountView = {
+      accountKey: account.key,
+      sessionUsed: quota?.sessionUsed ?? null,
+      weeklyUsed: quota?.weeklyUsed ?? null,
+      sessionResetAt,
+      weeklyResetAt,
+      borrowedSessionFraction: borrowed.sessionFraction,
+      borrowedWeeklyFraction: borrowed.weeklyFraction,
+    };
+    const poolUsage = await readSharePoolWindowUsage(resident.grantId, [view]);
+    // `gates.accounts` names the *lender's* accounts and means nothing here —
+    // the credential this lease governs is the only account in scope by
+    // construction. Carrying it over would filter the account out by its local
+    // label and withhold every leased request.
+    const { accounts: _lenderAccounts, ...localGates } = gates;
+    const decision = filterAccountsForGrant(
+      leaseAsGrant(resident, localGates),
+      [view],
+      now,
+      poolUsage,
+    );
+    if (decision.allowed.length === 0) {
+      const reason = summarizeAccountExclusions(decision.excluded);
+      logger.always(
+        `[proxy] withholding leased account=${account.label}: ${reason}`,
+      );
+      withheld.push({ label: account.label, reason });
+      continue;
+    }
+    survivors.push(account);
+  }
+  return { accounts: survivors, withheld };
+}
+
+/**
+ * Dress a lease up as the grant its gates came from.
+ *
+ * The borrower has no grant record — only the signed projection of one — but the
+ * admission evaluator takes a grant. Rebuilding one here means both sides run
+ * the identical gate code rather than a borrower-side reimplementation that
+ * drifts from the lender's the first time a gate is added.
+ */
+function leaseAsGrant(
+  resident: ProxyResidentGrant,
+  gates: ProxyShareGates,
+): ProxyShareGrant {
+  const snapshot = resident.lease.entitlementSnapshot;
+  return {
+    schemaVersion: 1,
+    id: resident.grantId,
+    peerLabel: resident.lease.peerLabel,
+    // Never compared: the lease's own signature is what authenticates it, and
+    // it was checked before this account was allowed to reach here at all.
+    tokenHash: "",
+    tokenSalt: "",
+    level: "complete",
+    state: "active",
+    entitlement:
+      snapshot === "unlimited"
+        ? { ledger: "unlimited" }
+        : { ledger: "coins", coins: snapshot },
+    gates,
+    createdAt: resident.lease.issuedAt,
+    updatedAt: resident.lease.issuedAt,
+  };
+}
+
+/**
+ * Attribute a window movement to the grant that caused it.
+ *
+ * A no-op for the node's own traffic. Fire-and-forget: bookkeeping must never
+ * delay or fail a response the borrower is already receiving.
+ */
+function recordBorrowedWindowDelta(
+  accountKey: string,
+  before: AccountQuota | undefined,
+  after: AccountQuota,
+): void {
+  const now = Date.now();
+  const observe = (grantId: string): void => {
+    void recordShareWindowDelta({
+      grantId,
+      accountKey,
+      sessionBefore: before?.sessionUsed ?? null,
+      sessionAfter: after.sessionUsed,
+      sessionResetAt: resetEpochToMs(after.sessionResetAt, now) ?? null,
+      weeklyBefore: before?.weeklyUsed ?? null,
+      weeklyAfter: after.weeklyUsed,
+      weeklyResetAt: resetEpochToMs(after.weeklyResetAt, now) ?? null,
+    });
+  };
+
+  const share = getShareContext();
+  if (share) {
+    observe(share.grantId);
+    return;
+  }
+  // Not borrowed *from* us — but it may be borrowed *by* us. A leased account's
+  // windows move because this node spent them, and the lease's slice ceiling has
+  // nothing to measure unless that movement is recorded against the grant. The
+  // lender keeps the same book on its side; both read it with the same formula.
+  void getResidentGrantForAccount(accountKey)
+    .then((resident) => {
+      if (resident) {
+        observe(resident.grantId);
+      }
+    })
+    .catch(() => {
+      // Bookkeeping only — never fail a response the client already has.
+    });
+}
+
+/**
+ * Charge a completed borrowed request against its grant.
+ *
+ * A no-op for the node's own traffic, and fire-and-forget for the same reason
+ * as the window delta above.
+ */
+/**
+ * Bill a request served by a credential a lender provisioned here.
+ *
+ * The mirror of `settleBorrowedRequest`: that one charges a borrower on the
+ * lender's node, this one records what *this* node owes a lender whose
+ * credential it is holding. Without it a complete-mode heartbeat reports zero
+ * forever and the lender's balance never moves.
+ */
+function recordLeasedAccountSpend(
+  accountLabel: string,
+  model: string | undefined,
+  usage: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  },
+): void {
+  const coins = usageToCoins(
+    {
+      inputTokens: usage.inputTokens ?? 0,
+      outputTokens: usage.outputTokens ?? 0,
+      ...(usage.cacheCreationTokens !== undefined
+        ? { cacheCreationTokens: usage.cacheCreationTokens }
+        : {}),
+      ...(usage.cacheReadTokens !== undefined
+        ? { cacheReadTokens: usage.cacheReadTokens }
+        : {}),
+    },
+    model,
+  );
+  void recordResidentSpend(accountLabel, coins).catch(() => {
+    // Bookkeeping only — never fail a response the client already has.
+  });
+}
+
+/**
+ * Charge a served non-streaming response to whichever ledger owns the account.
+ *
+ * Both sides are no-ops unless the account is actually borrowed or leased, so
+ * this is safe to call on every response — which is the point: gating it on
+ * anything else is how it came to be skipped.
+ */
+function settleFromResponseUsage(
+  account: ProxyPassthroughAccount,
+  responseJson: unknown,
+): void {
+  if (!responseJson || typeof responseJson !== "object") {
+    return;
+  }
+  const usage = (responseJson as Record<string, unknown>).usage as
+    | Record<string, number>
+    | undefined;
+  if (!usage) {
+    return;
+  }
+  const model = servedModelName(responseJson);
+  const tokens = {
+    inputTokens: usage.input_tokens ?? 0,
+    outputTokens: usage.output_tokens ?? 0,
+    cacheCreationTokens: usage.cache_creation_input_tokens ?? 0,
+    cacheReadTokens: usage.cache_read_input_tokens ?? 0,
+  };
+  settleBorrowedRequest(account.key, model, tokens);
+  recordLeasedAccountSpend(account.label, model, tokens);
+}
+
+function settleBorrowedRequest(
+  accountKey: string,
+  model: string | undefined,
+  usage: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheCreationTokens?: number;
+    cacheReadTokens?: number;
+  },
+): void {
+  const share = getShareContext();
+  if (!share) {
+    return;
+  }
+  void settleShareUsage({
+    grantId: share.grantId,
+    accountKey,
+    model: model ?? share.model,
+    usage: {
+      inputTokens: usage.inputTokens ?? 0,
+      outputTokens: usage.outputTokens ?? 0,
+      ...(usage.cacheCreationTokens !== undefined
+        ? { cacheCreationTokens: usage.cacheCreationTokens }
+        : {}),
+      ...(usage.cacheReadTokens !== undefined
+        ? { cacheReadTokens: usage.cacheReadTokens }
+        : {}),
+    },
+    ...(share.holdId ? { holdId: share.holdId } : {}),
+  });
+}
+
+/**
+ * Remove what a borrower has no business seeing.
+ *
+ * `x-neurolink-account` carries the lender's account label, which for an OAuth
+ * account is their email address; the pool counters describe the shape of a
+ * pool that is not the borrower's. The borrower's own routing needs the quota
+ * and grant headers, and nothing else here.
+ *
+ * A no-op for the node's own traffic, where these headers are exactly the
+ * diagnostics the operator wants.
+ */
+function redactHeadersForBorrower(
+  headers: Record<string, string>,
+): Record<string, string> {
+  if (!getShareContext()) {
+    return headers;
+  }
+  const redacted: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    const lower = key.toLowerCase();
+    if (
+      lower === "x-neurolink-account" ||
+      lower === "x-neurolink-account-type"
+    ) {
+      continue;
+    }
+    if (lower.startsWith("x-neurolink-pool-")) {
+      continue;
+    }
+    redacted[key] = value;
+  }
+  return redacted;
+}
+
+/**
+ * Record a heartbeat against the account's real utilization, and pause the grant
+ * when the two have disagreed too many times in a row.
+ *
+ * The lender's own request count on that account is read from its usage stats:
+ * an interval this node also used is not evidence about anybody, so the audit
+ * abstains rather than guessing.
+ */
+async function auditCompleteShareHeartbeat(
+  grant: ProxyShareGrant,
+  reportedCoins: number,
+): Promise<{ paused: boolean; detail: string }> {
+  const accountLabel = grant.provisionedAccount;
+  if (!accountLabel) {
+    // Nothing to audit against: the grant predates provisioning or was attached
+    // by hand. Say nothing rather than inventing a baseline.
+    return { paused: false, detail: "no provisioned account recorded" };
+  }
+  const state = accountRuntimeState.get(`anthropic:${accountLabel}`);
+  const stats = getAccountStats(accountLabel);
+  const { verdict, shouldPause } = await recordAuditObservation({
+    grantId: grant.id,
+    accountLabel,
+    lenderRequestsTotal: stats?.successCount ?? 0,
+    observation: {
+      at: Date.now(),
+      sessionUsed: state?.quota?.sessionUsed ?? null,
+      weeklyUsed: state?.quota?.weeklyUsed ?? null,
+      reportedCoins,
+      // Replaced with the per-interval delta by the recorder.
+      lenderRequests: 0,
+    },
+  });
+
+  if (shouldPause) {
+    await setShareGrantState(grant.id, "paused");
+    return {
+      paused: true,
+      detail: verdict.drifted ? verdict.detail : "repeated unexplained usage",
+    };
+  }
+  return {
+    paused: false,
+    detail: verdict.drifted ? verdict.detail : "consistent",
+  };
+}
+
+/**
+ * Apply a complete-mode borrower's self-reported spend to their balance.
+ *
+ * Deliberately trusting at this layer and deliberately verified elsewhere: the
+ * lender cannot see a resident credential's traffic directly, but it can see the
+ * account's true utilization through the usage API, so under-reporting shows up
+ * as drift rather than as free capacity.
+ */
+async function recordReportedResidentSpend(
+  grant: ProxyShareGrant,
+  coins: number,
+): Promise<void> {
+  await debitShareGrantCoins(grant.id, coins);
+}
+
+/**
+ * Compare a presented secret against the stored one without leaking where they
+ * diverge. Hand-rolled rather than `crypto.timingSafeEqual` for the same reason
+ * as `shareGrants.digestsMatch`: this module is reachable from a build whose
+ * `node:crypto` stub does not carry it.
+ */
+function secretsMatch(expected: string, presented: string): boolean {
+  if (expected.length !== presented.length || expected.length === 0) {
+    return false;
+  }
+  let difference = 0;
+  for (let index = 0; index < expected.length; index += 1) {
+    difference |= expected.charCodeAt(index) ^ presented.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
+/**
+ * Peer wire protocol version. Bumped when a borrower would misread an older
+ * node's answers — not when a field is added, which every version tolerates.
+ */
+const PEER_PROTOCOL_VERSION = 1;
+
+/** What this node can do for a peer, so a borrower need not probe to find out. */
+const PEER_CAPABILITIES = ["live", "complete", "handshake", "limits"] as const;
+
+/**
+ * What a borrower may know about the lender's pool.
+ *
+ * Deliberately shaped as "what is left for *you*", never "what the lender has":
+ * no labels, no per-account figures, no counts that would let a borrower infer
+ * how many credentials sit behind the tunnel. Enough to route on and nothing
+ * more, which is what `/peer/limits` is for.
+ */
+async function buildPeerLimitsSnapshot(
+  grant: ProxyShareGrant,
+  allowlist: AccountAllowlist | undefined,
+): Promise<ProxyPeerLimitsSnapshot> {
+  const now = Date.now();
+  const accounts = await listAnthropicAccountsForUsage(allowlist);
+  const views: ProxyShareAccountView[] = await Promise.all(
+    accounts.map(async (account) => {
+      const quota = getOrCreateRuntimeState(account.key).quota;
+      const sessionResetAt = resetEpochToMs(quota?.sessionResetAt, now) ?? null;
+      const weeklyResetAt = resetEpochToMs(quota?.weeklyResetAt, now) ?? null;
+      const borrowed = await readShareWindowUsage(
+        grant.id,
+        account.key,
+        sessionResetAt,
+        weeklyResetAt,
+      );
+      return {
+        accountKey: account.key,
+        sessionUsed: quota?.sessionUsed ?? null,
+        weeklyUsed: quota?.weeklyUsed ?? null,
+        sessionResetAt,
+        weeklyResetAt,
+        borrowedSessionFraction: borrowed.sessionFraction,
+        borrowedWeeklyFraction: borrowed.weeklyFraction,
+      };
+    }),
+  );
+
+  const inScope = accountsInGrantScope(grant.gates, views).inScope;
+  const poolUsage = await readSharePoolWindowUsage(grant.id, inScope);
+  const decision = filterAccountsForGrant(grant, views, now, poolUsage);
+  const left = (ceiling: number | undefined, taken: number): number | null =>
+    ceiling === undefined ? null : Math.max(0, ceiling - taken * 100);
+
+  return {
+    grantState: grant.state,
+    level: grant.level,
+    ledger: grant.entitlement.ledger,
+    ...(grant.entitlement.ledger === "coins"
+      ? { remainingCoins: Math.max(0, Math.floor(availableCoins(grant))) }
+      : {}),
+    servable: decision.allowed.length > 0,
+    ...(decision.allowed.length === 0 && decision.excluded.length > 0
+      ? { withheldReason: summarizeAccountExclusions(decision.excluded) }
+      : {}),
+    sliceLeftPct: {
+      session: left(
+        grant.gates.maxSlice?.session5hPct,
+        poolUsage.sessionFraction,
+      ),
+      weekly: left(grant.gates.maxSlice?.weekly7dPct, poolUsage.weeklyFraction),
+    },
+    ...(decision.allowed.length === 0
+      ? (() => {
+          const retry = earliestShareRecoverySeconds(views, now);
+          return retry === undefined ? {} : { retryAfterSeconds: retry };
+        })()
+      : {}),
+  };
+}
+
+/**
+ * Resolve the share token on a `/peer/*` call.
+ *
+ * These routes sit outside the request gate — they consume no capacity, and
+ * running them through it would spend the grant's rate allowance on a call that
+ * exists to ask whether spending is possible — so each one authenticates itself.
+ */
+/**
+ * Narrow a peer-auth outcome to its refusing half.
+ *
+ * Explicit rather than `!auth.ok`, because one of the package's build steps
+ * compiles this file without `strictNullChecks`, where TypeScript will not
+ * narrow a boolean discriminant at all — the same reason `isShareRefusal` and
+ * `isLeaseRefusal` exist.
+ */
+function isPeerAuthRefusal(
+  outcome: ProxyPeerAuthOutcome,
+): outcome is { ok: false; body: ProxyShareRefusalResponse["body"] } {
+  return !outcome.ok;
+}
+
+async function authenticatePeerRequest(
+  headers: Record<string, string | undefined>,
+): Promise<ProxyPeerAuthOutcome> {
+  const token = extractShareToken(headers);
+  if (!token) {
+    return {
+      ok: false,
+      body: buildShareRefusal("missing_token", { status: 401 }).body,
+    };
+  }
+  const grant = await resolveShareToken(token);
+  if (!grant) {
+    return {
+      ok: false,
+      body: buildShareRefusal("unknown_token", { status: 401 }).body,
+    };
+  }
+  return { ok: true, grant };
+}
+
+/** The model an upstream JSON response says it served, when it says so. */
+function servedModelName(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+  const model = (payload as Record<string, unknown>).model;
+  return typeof model === "string" ? model : undefined;
+}
+
+/**
+ * Soonest window reset across the pool, in seconds.
+ *
+ * A withheld borrower's honest answer to "when should I come back" is when the
+ * lender's tightest window turns over — anything sooner is a guess that invites
+ * a retry storm.
+ */
+function earliestShareRecoverySeconds(
+  views: readonly ProxyShareAccountView[],
+  now: number,
+): number | undefined {
+  const resets = views
+    .flatMap((view) => [view.sessionResetAt, view.weeklyResetAt])
+    .filter((value): value is number => value !== null && value > now);
+  if (resets.length === 0) {
+    return undefined;
+  }
+  return Math.max(1, Math.round((Math.min(...resets) - now) / 1000));
+}
+
 async function loadClaudeProxyAccounts(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
@@ -3743,9 +4487,63 @@ async function loadClaudeProxyAccounts(args: {
 
   await seedRuntimeQuotasFromDisk(accounts);
 
-  const enabledAccounts = accounts.filter((account) => {
+  const eligibleAccounts = accounts.filter((account) => {
     return !getOrCreateRuntimeState(account.key).permanentlyDisabled;
   });
+
+  // Peer-sharing account gates. A borrowed request may only draw on accounts
+  // its grant allows, that still leave the lender's reserved headroom intact,
+  // and whose window slice the grant has not already spent. These are account
+  // properties rather than request properties, which is why they filter the
+  // pool here instead of refusing at the inbound gate.
+  const leaseExpiryFiltered =
+    await dropExpiredResidentAccounts(eligibleAccounts);
+  const leaseScopeFiltered = await dropLeaseDisallowedAccounts(
+    leaseExpiryFiltered.accounts,
+    typeof body.model === "string" ? body.model : undefined,
+  );
+  const leaseFiltered = {
+    accounts: leaseScopeFiltered.accounts,
+    withheld: [...leaseExpiryFiltered.withheld, ...leaseScopeFiltered.withheld],
+  };
+  const leasedAccounts = leaseFiltered.accounts;
+  if (leasedAccounts.length === 0 && leaseFiltered.withheld.length > 0) {
+    // Every account here belongs to a lender whose lease has lapsed. The
+    // re-authentication message below would be actively wrong — it would send
+    // the borrower to OAuth into somebody else's account, which cannot work and
+    // should not be attempted. Say what actually happened instead.
+    const detail = leaseFiltered.withheld
+      .map((entry) => `${entry.label} (${entry.reason})`)
+      .join(", ");
+    // Scope and lifetime need different advice. Telling someone to re-sync when
+    // the lender simply never lent them this model sends them in circles.
+    const scopeOnly = leaseFiltered.withheld.every(
+      (entry) => entry.reason === "model_not_allowed",
+    );
+    const leaseMessage = scopeOnly
+      ? `Borrowed account(s) do not cover the requested model: ${detail}. ` +
+        `Ask the lender to widen the share, or use a model it allows.`
+      : `Borrowed account(s) are no longer covered by a lease: ${detail}. ` +
+        `Run 'neurolink proxy peer sync' to check in with the lender, or ask them to resume the share.`;
+    tracer?.setError("permission_error", leaseMessage);
+    tracer?.end(403, Date.now() - requestStartTime);
+    return {
+      response: buildLoggedClaudeError(403, leaseMessage, "permission_error"),
+    };
+  }
+
+  const shareFiltered = await applyShareAccountGates({
+    accounts: leasedAccounts,
+    ctx,
+    buildLoggedClaudeError,
+  });
+  if (shareFiltered.refusal) {
+    tracer?.setError("rate_limit_error", shareFiltered.refusal.message);
+    tracer?.end(shareFiltered.refusal.status, Date.now() - requestStartTime);
+    return { response: shareFiltered.refusal.response };
+  }
+  const enabledAccounts = shareFiltered.accounts;
+
   if (enabledAccounts.length === 0) {
     const reauthMsg = formatReauthMessage(
       accounts.map((account) => account.label),
@@ -4025,6 +4823,79 @@ async function executeClaudeFallbackWithRetry(
     }
   }
   throw lastError;
+}
+
+/**
+ * Try each borrowable peer in priority order once the local pool is spent.
+ *
+ * Returns a `Response` for a stream — which must keep streaming — the parsed
+ * JSON body otherwise, or `null` when no peer served, leaving the provider
+ * fallback chain to take over. The two success shapes are what the rest of this
+ * module returns as well; the route adapter tells them apart.
+ *
+ * Deliberately one attempt per peer: this path only runs after every local
+ * account has already been tried, so the request has spent most of its latency
+ * budget. Re-trying a peer that just declined would spend the rest of it.
+ *
+ * A borrowed request is never itself forwarded to a peer. Chaining a lend onto
+ * a lend would spend a third party's capacity under a grant that says nothing
+ * about them, and a cycle between two nodes would bounce a single request
+ * between them until something timed out.
+ */
+async function tryBorrowFromPeers(args: {
+  body: ClaudeRequest;
+  logFinalRequest: (
+    status: number,
+    accountLabel: string,
+    accountType: string,
+    errorType?: string,
+    errorMessage?: string,
+  ) => void;
+}): Promise<Response | Record<string, unknown> | null> {
+  if (getShareContext()) {
+    return null;
+  }
+
+  const peers = await selectBorrowablePeers();
+  if (peers.length === 0) {
+    return null;
+  }
+
+  const stream = args.body.stream === true;
+  // Re-serialize the request as the client shaped it. The peer runs its own
+  // routing and its own pool, so forwarding our resolved account or attempt
+  // state would mean nothing to it.
+  const forwardBody = JSON.stringify(args.body);
+  for (const peer of peers) {
+    logger.always(`[proxy] local pool spent — trying peer=${peer.name}`);
+    const attempt = await forwardToPeer({ peer, body: forwardBody, stream });
+    if (attempt.ok) {
+      logger.always(`[proxy] served by peer=${peer.name}`);
+      args.logFinalRequest(
+        attempt.response.status,
+        `peer:${peer.name}`,
+        "peer",
+      );
+      // Hand back what the rest of this module hands back: a locally
+      // constructed Response for a stream, a parsed object for JSON. Returning
+      // the fetch Response itself would be serialized to `{}` by the route
+      // adapter, which only recognizes Responses this process created.
+      if (stream) {
+        return new Response(attempt.response.body, {
+          status: attempt.response.status,
+          headers: {
+            "content-type":
+              attempt.response.headers.get("content-type") ??
+              "text/event-stream",
+            "cache-control": "no-cache",
+            connection: "keep-alive",
+          },
+        });
+      }
+      return (await attempt.response.json().catch(() => null)) ?? null;
+    }
+  }
+  return null;
 }
 
 async function tryConfiguredClaudeFallbackChain(args: {
@@ -4702,6 +5573,10 @@ async function handleAnthropicSuccessfulResponse(args: {
 
   const quota = parseQuotaHeaders(response.headers, { model: body.model });
   if (quota) {
+    // Attribute the window movement to the borrowing grant before the snapshot
+    // is overwritten — this is the only moment both the previous and the new
+    // utilization are in hand, and a slice ceiling is meaningless without it.
+    recordBorrowedWindowDelta(account.key, accountState.quota, quota);
     // Stash the latest quota on runtime state so the next request can pick the
     // account whose window resets soonest (max-utilization) and proactively
     // skip rejected windows unless Anthropic explicitly permits overage.
@@ -5184,6 +6059,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
       const capturedResponse = response;
       const capturedRequestBytes = finalBodyStr.length;
       const capturedAccountLabel = account.label;
+      const capturedAccountKey = account.key;
 
       telemetryDone = Promise.all([telemetry, clientCapture, streamOutcome])
         .then(([data, clientBody, rawOutcome]) => {
@@ -5196,6 +6072,20 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             account,
           );
           capturedTracer.setUsage({
+            inputTokens: data.usage.inputTokens,
+            outputTokens: data.usage.outputTokens,
+            cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            cacheReadTokens: data.usage.cacheReadInputTokens,
+          });
+          // Bill the borrowing grant from the same totals. A stream's usage is
+          // only final at message_delta, which is exactly here.
+          settleBorrowedRequest(capturedAccountKey, data.model, {
+            inputTokens: data.usage.inputTokens,
+            outputTokens: data.usage.outputTokens,
+            cacheCreationTokens: data.usage.cacheCreationInputTokens,
+            cacheReadTokens: data.usage.cacheReadInputTokens,
+          });
+          recordLeasedAccountSpend(capturedAccountLabel, data.model, {
             inputTokens: data.usage.inputTokens,
             outputTokens: data.usage.outputTokens,
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
@@ -5339,6 +6229,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
         });
       streamSource = streamSource.pipeThrough(noTracerInterceptor);
       const capturedAccountLabel = account.label;
+      const capturedAccountKey = account.key;
       telemetryDone = Promise.all([
         noTracerTelemetry,
         clientCapture,
@@ -5360,6 +6251,10 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             cacheCreationTokens: data.usage.cacheCreationInputTokens,
             cacheReadTokens: data.usage.cacheReadInputTokens,
           };
+          // Settled on the untraced path too: whether telemetry is exported has
+          // nothing to do with whether a borrower should be charged.
+          settleBorrowedRequest(capturedAccountKey, data.model, usage);
+          recordLeasedAccountSpend(capturedAccountLabel, data.model, usage);
           if (failure) {
             logFinalRequest(
               failure.status,
@@ -5547,6 +6442,11 @@ async function handleAnthropicJsonSuccessResponse(args: {
     durationMs: Date.now() - requestStartTime,
   });
   const responseJson = JSON.parse(responseText);
+
+  // Settlement is not diagnostics. It ran inside the tracer branch, so a node
+  // with tracing off served every borrowed request for free and the lender's
+  // ledger never moved — settle from the response itself instead.
+  settleFromResponseUsage(account, responseJson);
 
   if (tracer && responseJson && typeof responseJson === "object") {
     const usage = (responseJson as Record<string, unknown>).usage as
@@ -5739,6 +6639,9 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   });
 
   const retryJson = JSON.parse(retryText);
+  // A response served after an auth retry is a served response: it costs the
+  // lender's account exactly what any other one does.
+  settleFromResponseUsage(account, retryJson);
   if (tracer && retryJson && typeof retryJson === "object") {
     const retryUsage = (retryJson as Record<string, unknown>).usage as
       | Record<string, number>
@@ -7630,6 +8533,14 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     setRoutingDecision,
   });
   if ("response" in loadedAccounts) {
+    // No usable local account. A node that has none of its own — or whose only
+    // accounts are disabled — is still entitled to borrow: that is the whole
+    // point of being lent capacity. Peers are tried before the credentials
+    // error is returned, and the error stands if none of them serves.
+    const peerOnlyResult = await tryBorrowFromPeers({ body, logFinalRequest });
+    if (peerOnlyResult) {
+      return peerOnlyResult;
+    }
     return loadedAccounts.response;
   }
 
@@ -8199,6 +9110,15 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   // rather than delaying it or returning unrelated fallback output.
   if (shouldAttemptClaudeFallback(loopState)) {
     let fallbackFailureMessage: string | undefined;
+
+    // Peers first. A peer serves the same models over the same wire format, so
+    // borrowing costs one extra hop, while the provider chain below has to
+    // reshape the request for a different API and answers as a different model.
+    const peerResult = await tryBorrowFromPeers({ body, logFinalRequest });
+    if (peerResult) {
+      return peerResult;
+    }
+
     const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
       ctx,
       body,
@@ -8573,6 +9493,412 @@ export function createClaudeProxyRoutes(
       },
 
       // =====================================================================
+      // POST /peer/heartbeat -- complete-mode check-in
+      //
+      // The only control surface a complete-mode borrower still touches. It
+      // answers with a fresh lease while the grant is active, and with a stop
+      // once it is not — which is how a pause reaches a borrower whose requests
+      // never come through here at all.
+      // =====================================================================
+      {
+        method: "POST",
+        path: `${basePath}/peer/heartbeat`,
+        handler: async (ctx: ServerContext) => {
+          const token = ctx.headers["x-neurolink-share-token"];
+          const grantId = ctx.headers["x-neurolink-grant-id"];
+          if (!token || !grantId) {
+            // A stop, not an HTTP error: the borrower reads `ok`/`stop` from
+            // the body, and a status code here would be discarded by the route
+            // adaptor while reading as though it were enforced.
+            return { ok: false, stop: true, reason: "no grant identified" };
+          }
+          const grant = await getShareGrant(grantId);
+          // The lease secret is the shared credential for this surface: the
+          // borrower proves identity with the same secret it verifies leases
+          // with, so a heartbeat needs no separate token to leak.
+          if (
+            !grant ||
+            !grant.leaseSecret ||
+            !secretsMatch(grant.leaseSecret, token)
+          ) {
+            return { ok: false, stop: true, reason: "grant not recognized" };
+          }
+          if (grant.level !== "complete") {
+            return {
+              ok: false,
+              stop: true,
+              reason: "grant is not a complete share",
+            };
+          }
+          if (grant.state !== "active") {
+            return { ok: false, stop: true, reason: grant.state };
+          }
+
+          // Fold in what the borrower says it spent. This is self-reported and
+          // treated as such — `share status` reconciles it against the
+          // account's real utilization, which the borrower cannot influence.
+          const body = ctx.body as
+            | { coinsSpent?: number; requests?: number }
+            | undefined;
+          const reported = Number(body?.coinsSpent ?? 0);
+          if (Number.isFinite(reported) && reported > 0) {
+            await recordReportedResidentSpend(grant, reported);
+          }
+
+          // Weigh the claim against what the account actually did. A borrower
+          // that stops reporting is invisible in every other signal we have.
+          const drift = await auditCompleteShareHeartbeat(
+            grant,
+            Number.isFinite(reported) ? reported : 0,
+          );
+          if (drift.paused) {
+            logger.always(
+              `[proxy] auto-paused share ${grant.peerLabel}: ${drift.detail}`,
+            );
+            return { ok: false, stop: true, reason: "usage drift" };
+          }
+
+          return { ok: true, lease: issueLease(grant) };
+        },
+        description: "Complete-share heartbeat: report spend, renew the lease",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // GET /peer/handshake -- version and capability negotiation
+      //
+      // The cheapest possible "are we still on speaking terms": it touches no
+      // account, spends no capacity and reaches no upstream, so a borrower can
+      // call it on a timer. It reports the grant's own state and nothing about
+      // the pool behind it.
+      // =====================================================================
+      {
+        method: "GET",
+        path: `${basePath}/peer/handshake`,
+        handler: async (ctx: ServerContext) => {
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          return {
+            ok: true,
+            protocol: PEER_PROTOCOL_VERSION,
+            capabilities: PEER_CAPABILITIES,
+            grant: {
+              peerLabel: auth.grant.peerLabel,
+              level: auth.grant.level,
+              state: auth.grant.state,
+              ledger: auth.grant.entitlement.ledger,
+            },
+          };
+        },
+        description:
+          "Peer handshake: protocol version, capabilities, grant state",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // POST /peer/provision -- borrower lodges a PKCE challenge
+      //
+      // Split provisioning: the borrower keeps the verifier and sends only its
+      // digest, so the lender is never in possession of anything that could
+      // become a credential. The lender authorizes in its own browser and
+      // relays back a code that is useless without the verifier.
+      // =====================================================================
+      {
+        method: "POST",
+        path: `${basePath}/peer/provision`,
+        handler: async (ctx: ServerContext) => {
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          if (auth.grant.state !== "active") {
+            return buildShareRefusal(
+              auth.grant.state === "paused" ? "paused" : "revoked",
+              { status: 403, grant: auth.grant },
+            ).body;
+          }
+          if (auth.grant.level !== "complete") {
+            return {
+              type: "error",
+              error: {
+                type: "invalid_request_error",
+                message:
+                  "This is a live share. Ask the lender to run " +
+                  "`neurolink proxy share level --to complete` first.",
+              },
+            };
+          }
+          const body = ctx.body as
+            | { codeChallenge?: string; state?: string }
+            | undefined;
+          const opened = await openProvisionRequest({
+            grantId: auth.grant.id,
+            codeChallenge: String(body?.codeChallenge ?? ""),
+            state: String(body?.state ?? ""),
+          });
+          if (opened.ok !== true) {
+            return {
+              type: "error",
+              error: {
+                type: "invalid_request_error",
+                message: opened.reason,
+              },
+            };
+          }
+          logger.always(
+            `[proxy] ${auth.grant.peerLabel} asked to be provisioned — run ` +
+              `\`neurolink proxy share provision --peer ${auth.grant.peerLabel}\``,
+          );
+          return {
+            ok: true,
+            status: "pending",
+            expiresAt: opened.request.expiresAt,
+          };
+        },
+        description:
+          "Lodge a PKCE challenge for a resident credential (complete shares)",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // GET /peer/provision -- borrower collects its authorization code
+      //
+      // Answers once. A code that could be claimed twice would let a replay
+      // mint a second credential on the lender's account, so consumption is
+      // recorded before the value is handed over.
+      // =====================================================================
+      {
+        method: "GET",
+        path: `${basePath}/peer/provision`,
+        handler: async (ctx: ServerContext) => {
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          const claimed = await claimProvisionRequest(auth.grant.id);
+          if (claimed.status !== "ready") {
+            return { ok: true, status: claimed.status };
+          }
+          // The heartbeat address the borrower will call home on. Without it a
+          // resident grant can never renew and stops at its offline grace.
+          const lenderUrl = await getNodePublicUrl();
+          return {
+            ok: true,
+            status: "ready",
+            claim: buildProvisionClaim({
+              grant: auth.grant,
+              // The borrower renames this locally at `peer request --name`;
+              // here it only has to make the token-store label unique.
+              lenderName: "lender",
+              ...(lenderUrl ? { lenderUrl } : {}),
+              code: claimed.code,
+              state: claimed.state,
+            }),
+          };
+        },
+        description: "Collect the authorization code the lender produced",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // GET /peer/receipts -- collect signed statements of what was charged
+      //
+      // So the lender's word is not the only record. Each receipt carries the
+      // usage it was computed from, and sequences are contiguous, so a borrower
+      // can recompute every charge and see a withheld one as a gap.
+      // =====================================================================
+      {
+        method: "GET",
+        path: `${basePath}/peer/receipts`,
+        handler: async (ctx: ServerContext) => {
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          const since = Number(ctx.query?.since ?? 0);
+          const collected = await listShareReceipts(
+            auth.grant.id,
+            Number.isFinite(since) ? since : 0,
+          );
+          return { ok: true, receipts: collected };
+        },
+        description: "Collect signed receipts for this grant's settled charges",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // POST /peer/net -- settle one round of reciprocal netting
+      //
+      // Both sides state cumulative positions, and the round forgives the
+      // overlap not yet forgiven. Cumulative rather than incremental is what
+      // makes a replayed round free rather than a second payout.
+      // =====================================================================
+      {
+        method: "POST",
+        path: `${basePath}/peer/net`,
+        handler: async (ctx: ServerContext) => {
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          const secret = auth.grant.receiptSecret;
+          if (!secret) {
+            return {
+              type: "error",
+              error: {
+                type: "invalid_request_error",
+                message:
+                  "This grant predates receipts and cannot be netted. " +
+                  "Ask the lender to re-issue it.",
+              },
+            };
+          }
+          const body = ctx.body as
+            | {
+                consumedByYou?: number;
+                alreadyNetted?: number;
+                signature?: string;
+              }
+            | undefined;
+          const consumedByYou = Number(body?.consumedByYou ?? NaN);
+          const alreadyNetted = Number(body?.alreadyNetted ?? NaN);
+          if (
+            !Number.isFinite(consumedByYou) ||
+            !Number.isFinite(alreadyNetted)
+          ) {
+            return {
+              type: "error",
+              error: {
+                type: "invalid_request_error",
+                message: "A netting claim needs both cumulative totals.",
+              },
+            };
+          }
+          // The claim is the peer's own accounting, so it is signed: a figure
+          // that credits the caller must not be forgeable by anyone who merely
+          // reaches the port.
+          const authentic = verifySharePayload(
+            { consumedByYou, alreadyNetted, grantId: auth.grant.id },
+            String(body?.signature ?? ""),
+            secret,
+          );
+          if (!authentic) {
+            return buildShareRefusal("unknown_token", { status: 401 }).body;
+          }
+          const result = await applyReciprocalNetting({
+            grantId: auth.grant.id,
+            consumedFromPeer: consumedByYou,
+            peerAlreadyNetted: alreadyNetted,
+          });
+          return { ok: true, ...result };
+        },
+        description:
+          "Settle one round of reciprocal netting against this grant",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // POST /peer/note -- check or redeem a transferable coin note
+      //
+      // Holding the note is the credential for a check; redeeming additionally
+      // needs a grant to credit. Marking spent and crediting happen under one
+      // lock, so two holders racing the same note produce exactly one credit.
+      // =====================================================================
+      {
+        method: "POST",
+        path: `${basePath}/peer/note`,
+        handler: async (ctx: ServerContext) => {
+          const body = ctx.body as
+            | { note?: string; redeem?: boolean }
+            | undefined;
+          const note = decodeShareNote(String(body?.note ?? ""));
+          if (!note) {
+            return {
+              type: "error",
+              error: {
+                type: "invalid_request_error",
+                message: "That is not a NeuroLink coin note.",
+              },
+            };
+          }
+          const secret = await getNoteSecret();
+          if (!body?.redeem) {
+            // A status check needs no grant: the note itself is the credential,
+            // and the answer tells a stranger nothing they did not already hold.
+            const inspected = await inspectShareNote(note, secret);
+            return { ok: true, ...inspected };
+          }
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          if (auth.grant.entitlement.ledger !== "coins") {
+            return {
+              type: "error",
+              error: {
+                type: "invalid_request_error",
+                message:
+                  "This grant is unlimited — there is no balance to redeem into.",
+              },
+            };
+          }
+          const redeemed = await redeemShareNote({
+            note,
+            grantId: auth.grant.id,
+            secret,
+          });
+          if (redeemed.ok !== true) {
+            return {
+              ok: false,
+              status: redeemed.status,
+              error: {
+                type: "invalid_request_error",
+                message: `That note is ${redeemed.status}.`,
+              },
+            };
+          }
+          return {
+            ok: true,
+            status: "redeemed",
+            coins: redeemed.coins,
+            balance: redeemed.balance ?? null,
+          };
+        },
+        description: "Check or redeem a transferable coin note",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
+      // GET /peer/limits -- what this grant may still do
+      //
+      // So a borrower can decide *before* spending a request whether this peer
+      // is worth the extra hop. Everything here is scoped to the caller's own
+      // grant: no account labels, no per-account figures, nothing that would
+      // describe the lender's pool.
+      // =====================================================================
+      {
+        method: "GET",
+        path: `${basePath}/peer/limits`,
+        handler: async (ctx: ServerContext) => {
+          const auth = await authenticatePeerRequest(ctx.headers);
+          if (isPeerAuthRefusal(auth)) {
+            return auth.body;
+          }
+          const limitsRouting = runtimeConfigProvider?.();
+          const snapshot = await buildPeerLimitsSnapshot(
+            auth.grant,
+            limitsRouting?.accountAllowlist ?? accountAllowlist,
+          );
+          return { ok: true, ...snapshot };
+        },
+        description:
+          "Peer limits: remaining coins, slice left, whether the grant can be served",
+        tags: ["claude-proxy", "sharing"],
+      },
+
+      // =====================================================================
       // GET /v1/models -- List available models (Anthropic schema)
       //
       // Returns the Anthropic-shaped list response (`type`, `display_name`,
@@ -8657,6 +9983,20 @@ export function createClaudeProxyRoutes(
         method: "GET",
         path: `${basePath}/limits`,
         handler: async (ctx: ServerContext) => {
+          // `/limits` names every account and its quota — for an OAuth account
+          // the label is the operator's email. That is an operator diagnostic,
+          // not something a borrower may read, and a refresh also drives real
+          // usage-API calls on the lender's accounts. Borrowed traffic gets
+          // `/peer/limits`, which answers the same routing question about the
+          // borrower's own grant without describing the pool.
+          if (getShareContext()) {
+            return buildShareRefusal("no_capacity", {
+              status: 403,
+              message:
+                "This proxy does not expose pool limits to peers. " +
+                "Use GET /peer/limits for what your grant may still do.",
+            }).body;
+          }
           const limitsRouting = runtimeConfigProvider?.();
           const effectiveAllowlist =
             limitsRouting?.accountAllowlist ?? accountAllowlist;

@@ -1594,6 +1594,12 @@ export type ProxyPaths = {
   cooldownFile: string;
   /** proxy-usage-stats.json — restart- and handoff-safe usage counters */
   statsFile?: string;
+  /** proxy-grants.json — grants this node has issued to borrowers */
+  grantsFile?: string;
+  /** proxy-share-ledger.json — coin balances, holds and settled spend */
+  ledgerFile?: string;
+  /** proxy-peers.json — lenders this node may borrow from */
+  peersFile?: string;
   /** Whether this is a dev-mode isolated instance */
   isDev: boolean;
 };
@@ -2097,6 +2103,10 @@ export type RuntimeRequestMetadata = {
   rejectForUpdate?: boolean;
   terminalErrorType?: string;
   terminalErrorCode?: string;
+  /** Releases this request's peer-share concurrency slot. Set by the share
+   *  gate for borrowed traffic; invoked once the response body completes, so a
+   *  long stream holds its slot for as long as it is actually streaming. */
+  shareRelease?: () => void;
 };
 
 // =============================================================================
@@ -3276,4 +3286,886 @@ export type ParsedOpenAIRequest = {
   toolChoiceName?: string;
   stopSequences?: string[];
   responseFormat?: { type: string; jsonSchema?: unknown };
+};
+
+// =============================================================================
+// PEER SHARING TYPES (from proxy/shareGrants.ts, sharePolicy.ts, peerPool.ts)
+// =============================================================================
+
+/**
+ * How a borrower reaches the lender's capacity.
+ *
+ * - `live` — the borrower forwards each request to the lender's exposed proxy.
+ *   The lender's credentials never leave the lender's device and every request
+ *   passes the lender's gate, so control is immediate and cryptographic. The
+ *   borrower is dependent on the lender's device being reachable.
+ * - `complete` — the borrower holds an independently provisioned OAuth grant on
+ *   the lender's account and calls the upstream directly. Survives the lender
+ *   being offline; control is enforced by a signed lease plus usage audit,
+ *   which makes it cooperative rather than cryptographic.
+ */
+export type ProxyShareLevel = "live" | "complete";
+
+export type ProxyShareGrantState = "active" | "paused" | "revoked" | "expired";
+
+/** Whether consumption is metered against a coin balance or uncapped. */
+export type ProxyShareLedgerMode = "coins" | "unlimited";
+
+/** A ceiling expressed as a percentage of each subscription window. */
+export type ProxyShareWindowSlice = {
+  /** Percent of the 5-hour session window. */
+  session5hPct?: number;
+  /** Percent of the 7-day weekly window. */
+  weekly7dPct?: number;
+};
+
+/**
+ * Use-it-or-lose-it capacity: admit the borrower only in the run-up to a window
+ * reset, and only when little of that window was consumed. `maxSlicePct` caps
+ * how much of the remaining window the borrower may take while spilling over,
+ * so a spillover grant can still carry a hard ceiling.
+ */
+export type ProxyShareSpilloverGate = {
+  beforeResetHours: number;
+  whenUtilizationBelowPct: number;
+  maxSlicePct?: number;
+};
+
+/** Hour-of-day admission window, evaluated in the lender's local time. */
+export type ProxyShareSchedule = {
+  fromHour: number;
+  toHour: number;
+};
+
+export type ProxyShareRate = {
+  perMinute?: number;
+  concurrency?: number;
+};
+
+/**
+ * The gate set. Every configured gate must pass; the effective allowance is the
+ * minimum across all of them. Gates are deliberately orthogonal so a headroom
+ * grant can also carry a window-slice ceiling, a spillover grant can also carry
+ * a model allowlist, and so on.
+ */
+export type ProxyShareGates = {
+  /** Hard ceiling on how much of the **pool** the borrower may consume, as a
+   *  percentage of one window's worth of capacity. Pool-wide because an
+   *  operator saying "a fifth" means a fifth of what they have, not a fifth of
+   *  every credential they happen to own. */
+  maxSlice?: ProxyShareWindowSlice;
+  /** Per-account ceiling. Rare — reach for `maxSlice` unless you specifically
+   *  mean "this much of every credential, independently". */
+  maxSlicePerAccount?: ProxyShareWindowSlice;
+  /** Admit only while the lender's own utilization leaves this much headroom. */
+  reserveFloor?: ProxyShareWindowSlice;
+  spillover?: ProxyShareSpilloverGate;
+  /** Model tier allowlist, matched case-insensitively as substrings. */
+  models?: string[];
+  /** Which of the lender's accounts are lendable under this grant. */
+  accounts?: string[];
+  rate?: ProxyShareRate;
+  schedule?: ProxyShareSchedule;
+  /** Grant expiry, epoch ms. */
+  notAfter?: number;
+};
+
+export type ProxyShareRefillPeriod = "session" | "week";
+
+export type ProxyShareEntitlement = {
+  ledger: ProxyShareLedgerMode;
+  /** Remaining balance when `ledger` is "coins". */
+  coins?: number;
+  refill?: {
+    amount: number;
+    per: ProxyShareRefillPeriod;
+    lastAt?: number;
+  };
+};
+
+/** One lender-issued authorization for one borrower. */
+export type ProxyShareGrant = {
+  schemaVersion: 1;
+  id: string;
+  peerLabel: string;
+  /** sha256(salt + token). The token itself is never persisted. */
+  tokenHash: string;
+  tokenSalt: string;
+  level: ProxyShareLevel;
+  state: ProxyShareGrantState;
+  entitlement: ProxyShareEntitlement;
+  gates: ProxyShareGates;
+  createdAt: number;
+  updatedAt: number;
+  lastUsedAt?: number;
+  note?: string;
+  /** Complete-mode only: shared secret the lease signature is keyed by. */
+  leaseSecret?: string;
+  /**
+   * Shared secret receipts and netting claims are keyed by. Minted with the
+   * grant and handed to the borrower in the share link; deliberately survives
+   * `share rotate`, so receipts issued under an old token stay checkable.
+   */
+  receiptSecret?: string;
+  /** Cumulative coins forgiven by reciprocal netting on this grant. */
+  nettedCoins?: number;
+  /** Complete-mode only: which of the lender's own accounts was provisioned. */
+  provisionedAccount?: string;
+  /** Complete-mode lease shape. Absent means the defaults apply. */
+  leasePolicy?: {
+    ttlMs: number;
+    heartbeatEveryMs: number;
+    offlineGraceMs: number;
+  };
+};
+
+export type ProxyShareGrantFile = {
+  schemaVersion: 1;
+  grants: Record<string, ProxyShareGrant>;
+  /** This node's stable public address, when it has one. Recorded once so
+   *  every share link is minted against it without retyping. */
+  publicUrl?: string;
+  /** Node-level secret coin notes are signed with. Minted on first issue. */
+  noteSecret?: string;
+};
+
+/** Why a borrowed request was refused. Surfaced verbatim in a response header. */
+export type ProxyShareRefusalReason =
+  | "missing_token"
+  | "unknown_token"
+  | "malformed_token"
+  | "paused"
+  | "revoked"
+  | "expired"
+  | "out_of_window"
+  | "model_not_allowed"
+  | "exhausted"
+  | "rate_limited"
+  | "concurrency_limited"
+  | "reserve_floor"
+  /** Spillover is configured and the lender is not yet spilling. Transient. */
+  | "spillover_inactive"
+  | "slice_exhausted"
+  | "no_capacity";
+
+/**
+ * Result of evaluating an inbound borrowed request.
+ *
+ * A refusal carries its own status and reason so the borrower can distinguish
+ * "you are out of credits" from an upstream rate limit. Conflating the two makes
+ * a borrower cool the peer as if it were throttled and retry forever.
+ */
+export type ProxyShareAdmission =
+  | { admitted: true; grant: ProxyShareGrant }
+  | {
+      admitted: false;
+      status: number;
+      reason: ProxyShareRefusalReason;
+      message: string;
+      retryAfterSeconds?: number;
+      grant?: ProxyShareGrant;
+    };
+
+/** The refusing half of {@link ProxyShareAdmission}. */
+export type ProxyShareRefusedAdmission = Extract<
+  ProxyShareAdmission,
+  { admitted: false }
+>;
+
+/** Request-scoped view of the grant serving the current borrowed request. */
+export type ProxyShareRequestContext = {
+  grantId: string;
+  peerLabel: string;
+  level: ProxyShareLevel;
+  gates: ProxyShareGates;
+  ledger: ProxyShareLedgerMode;
+  /** Pre-authorization opened at admission; settlement closes it. */
+  holdId?: string;
+  /** Model the borrower asked for, carried so settlement can price it. */
+  model?: string;
+};
+
+/** What `share create` returns — the only moment the raw token exists. */
+export type ProxyShareIssuedGrant = {
+  grant: ProxyShareGrant;
+  token: string;
+};
+
+/** Everything `createShareGrant` needs to mint a grant. */
+export type ProxyShareGrantInput = {
+  peerLabel: string;
+  level: ProxyShareLevel;
+  entitlement: ProxyShareEntitlement;
+  gates: ProxyShareGates;
+  note?: string;
+};
+
+/** Partial edit applied by `share set` / `share topup` / `share level`. */
+export type ProxyShareGrantPatch = {
+  entitlement?: Partial<ProxyShareEntitlement>;
+  gates?: ProxyShareGates;
+  level?: ProxyShareLevel;
+  note?: string;
+};
+
+/** Runtime counters the rate gates need, supplied by the caller so the policy
+ *  evaluator stays pure. */
+export type ProxyShareRuntimeCounters = {
+  requestsInLastMinute: number;
+  inFlight: number;
+};
+
+/** Everything `evaluateShareAdmission` needs. Pure input — no I/O. */
+export type ProxyShareAdmissionInput = {
+  grant: ProxyShareGrant;
+  now: number;
+  /** Requested model, used against the model allowlist. */
+  model?: string;
+  counters: ProxyShareRuntimeCounters;
+  /** Remaining coins; omitted for an unlimited grant. */
+  coinBalance?: number;
+};
+
+/** One candidate account as the share gates see it. */
+export type ProxyShareAccountView = {
+  accountKey: string;
+  /** 0..1 utilization of the 5h window, or null when unobserved. */
+  sessionUsed: number | null;
+  /** 0..1 utilization of the 7d window, or null when unobserved. */
+  weeklyUsed: number | null;
+  /** Epoch ms when the 5h window resets, or null when unknown. */
+  sessionResetAt: number | null;
+  /** Epoch ms when the 7d window resets, or null when unknown. */
+  weeklyResetAt: number | null;
+  /** Fraction (0..1) of the current 5h window this grant has already taken. */
+  borrowedSessionFraction: number;
+  /** Fraction (0..1) of the current 7d window this grant has already taken. */
+  borrowedWeeklyFraction: number;
+};
+
+/**
+ * A grant's consumption of the pool, normalised to one window's worth.
+ *
+ * `Σ per-account fractions / accountCount`, so 0.2 means the borrower has taken
+ * a fifth of total pool capacity however it was spread across credentials.
+ */
+export type ProxySharePoolUsage = {
+  sessionFraction: number;
+  weeklyFraction: number;
+};
+
+/**
+ * One borrower's outstanding request for a resident credential.
+ *
+ * Holds the challenge, never a verifier and never a token — the lender is not
+ * in a position to leak what it does not have. `code` exists only between the
+ * lender authorizing and the borrower claiming, and is erased by consumption.
+ */
+export type ProxyShareProvisionRequest = {
+  schemaVersion: 1;
+  grantId: string;
+  /** Base64url SHA-256 of the borrower's verifier. */
+  codeChallenge: string;
+  challengeMethod: "S256";
+  /** Borrower-chosen state, echoed through the authorization round trip. */
+  state: string;
+  requestedAt: number;
+  expiresAt: number;
+  status: ProxyShareProvisionStatus;
+  /** Present only between authorization and the single claim that consumes it. */
+  code?: string;
+  authorizedAt?: number;
+  claimedAt?: number;
+  /** Which of the lender's accounts was authorized, for the drift audit. */
+  accountLabel?: string;
+};
+
+export type ProxyShareProvisionStatus = "pending" | "authorized" | "consumed";
+
+export type ProxyShareProvisionFile = {
+  schemaVersion: 1;
+  requests: Record<string, ProxyShareProvisionRequest>;
+};
+
+/**
+ * A lender's signed statement that one borrowed request was settled, and for
+ * how much.
+ *
+ * `usage` travels with it so the borrower can recompute the charge from the
+ * response it actually received, rather than taking the coin figure on faith.
+ * `sequence` is contiguous per grant, so a withheld receipt shows up as a gap.
+ */
+export type ProxyShareReceipt = {
+  schemaVersion: 1;
+  grantId: string;
+  /** Monotonic, contiguous, per grant. */
+  sequence: number;
+  settledAt: number;
+  model?: string;
+  usage: ProxyShareUsage;
+  coins: number;
+  /** Remaining balance after this charge; null on an unlimited grant. */
+  balanceAfter: number | null;
+  signature: string;
+};
+
+export type ProxyShareReceiptFile = {
+  schemaVersion: 1;
+  /** Per grant, oldest first, bounded. */
+  receipts: Record<string, ProxyShareReceipt[]>;
+  /** Cumulative coins each grant has had forgiven by netting. */
+  netted: Record<string, number>;
+  /**
+   * Lifetime coins receipted per grant.
+   *
+   * Kept separately because `receipts` is trimmed: summing the retained history
+   * would quietly under-count a busy grant, and netting reads this number.
+   */
+  consumedTotal?: Record<string, number>;
+  /**
+   * Highest sequence issued per grant, for the same reason.
+   *
+   * Taking it from the retained tail is right only until the tail is trimmed
+   * away, and a sequence that restarts would look like a replay to the
+   * borrower's audit.
+   */
+  highestSequence?: Record<string, number>;
+};
+
+/** What a borrower makes of the receipts it collected. */
+export type ProxyShareStatement = {
+  grantId: string;
+  receipts: number;
+  coins: number;
+  /** Receipts whose signature did not verify against the shared secret. */
+  unverified: number;
+  /** Receipts whose coin figure disagrees with its own usage block. */
+  miscounted: number;
+  /** Sequence numbers missing from an otherwise contiguous run. */
+  gaps: number[];
+  latestSequence: number;
+};
+
+/** One side's position in a reciprocal netting round. */
+export type ProxyShareNettingClaim = {
+  /** Cumulative coins the *other* node has consumed under my grant to them. */
+  consumedByYou: number;
+  /** Cumulative coins already forgiven on my side, so a replay nets nothing. */
+  alreadyNetted: number;
+  signature: string;
+};
+
+export type ProxyShareNettingResult = {
+  /** Coins forgiven in this round, on both sides. */
+  netted: number;
+  /** Cumulative total after this round. */
+  totalNetted: number;
+  detail: string;
+};
+
+/**
+ * A bearer credit one node issued, which any node holding it may redeem against
+ * the issuer.
+ *
+ * Signed by the issuer with a node-level secret, because the grant that
+ * eventually redeems it need not have existed when it was issued.
+ */
+export type ProxyShareNote = {
+  schemaVersion: 1;
+  noteId: string;
+  issuer: string;
+  coins: number;
+  issuedAt: number;
+  notAfter: number;
+  memo?: string;
+  signature: string;
+};
+
+export type ProxyShareNoteStatus =
+  | "valid"
+  | "spent"
+  | "expired"
+  | "unknown"
+  | "forged";
+
+export type ProxyShareNoteRecord = {
+  noteId: string;
+  coins: number;
+  issuedAt: number;
+  notAfter: number;
+  memo?: string;
+  redeemedAt?: number;
+  redeemedByGrant?: string;
+};
+
+export type ProxyShareNoteFile = {
+  schemaVersion: 1;
+  notes: Record<string, ProxyShareNoteRecord>;
+};
+
+/** The slice of a node HTTP server the proxy runtime actually closes. */
+export type ProxyClosableServer = {
+  close?: (callback?: (error?: Error) => void) => void;
+};
+
+/** A running gate-only share listener, as its supervisor sees it. */
+export type ProxyShareListenerHandle = {
+  port: number;
+  close: () => Promise<void>;
+};
+
+/** Result of lodging or authorizing a split-PKCE provisioning request. */
+export type ProxyShareProvisionOutcome =
+  | { ok: true; request: ProxyShareProvisionRequest }
+  | { ok: false; reason: string };
+
+/** Result of authenticating a `/peer/*` caller by its share token. */
+export type ProxyPeerAuthOutcome =
+  | { ok: true; grant: ProxyShareGrant }
+  | { ok: false; body: ProxyShareRefusalResponse["body"] };
+
+/** What a borrower gets back when its authorization code is ready to collect. */
+export type ProxyShareProvisionClaim = {
+  code: string;
+  state: string;
+  accountLabel: string;
+  leaseSecret: string;
+  lease: ProxyShareLease;
+  lenderUrl: string;
+};
+
+/** The verifier a borrower is holding while it waits to be authorized. */
+export type ProxyPeerPendingProvision = {
+  codeVerifier: string;
+  state: string;
+  requestedAt: number;
+};
+
+/**
+ * What `GET /peer/limits` tells a borrower.
+ *
+ * Scoped to the caller's own grant on purpose: it carries no account labels and
+ * no per-account figures, so it cannot be used to describe — or count — the
+ * lender's pool. `null` on a slice means no ceiling is configured for that
+ * window, which is different from a ceiling with nothing left.
+ */
+export type ProxyPeerLimitsSnapshot = {
+  grantState: ProxyShareGrantState;
+  level: ProxyShareLevel;
+  ledger: ProxyShareLedgerMode;
+  remainingCoins?: number;
+  /** Whether at least one of the lender's accounts can serve this grant now. */
+  servable: boolean;
+  withheldReason?: ProxyShareRefusalReason;
+  sliceLeftPct: {
+    session: number | null;
+    weekly: number | null;
+  };
+  retryAfterSeconds?: number;
+};
+
+/** Why one account was withheld from a grant. */
+export type ProxyShareAccountExclusion = {
+  accountKey: string;
+  reason: ProxyShareRefusalReason;
+};
+
+export type ProxyShareAccountFilterResult = {
+  allowed: string[];
+  excluded: ProxyShareAccountExclusion[];
+};
+
+/** A refusal rendered for the wire: status, headers and Anthropic-shaped body. */
+export type ProxyShareRefusalResponse = {
+  status: number;
+  headers: Record<string, string>;
+  body: {
+    type: "error";
+    error: { type: string; message: string };
+  };
+};
+
+/**
+ * What the inbound gate decided.
+ *
+ * `local` is the unauthenticated path a node's own client takes on loopback; it
+ * carries no grant and no accounting. `admitted` owns a concurrency slot that
+ * the caller must release. `refused` is ready to write to the wire as-is.
+ */
+export type ProxyShareGateOutcome =
+  | { kind: "local" }
+  | {
+      kind: "admitted";
+      context: ProxyShareRequestContext;
+      release: () => void;
+    }
+  | { kind: "refused"; response: ProxyShareRefusalResponse };
+
+/** Per-grant sliding-window request timestamps and in-flight count. */
+export type ProxyShareGrantCounters = {
+  timestamps: number[];
+  inFlight: number;
+};
+
+/** Model-weighted token usage settled against a grant. */
+export type ProxyShareUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens?: number;
+  cacheReadTokens?: number;
+};
+
+/**
+ * One grant's consumption of one account's current windows.
+ *
+ * Keyed by the window's reset timestamp so a reset starts a fresh bucket
+ * automatically — without that, a slice ceiling would latch permanently after
+ * the first busy window.
+ */
+export type ProxyShareLedgerBucket = {
+  grantId: string;
+  accountKey: string;
+  sessionResetAt: number | null;
+  weeklyResetAt: number | null;
+  /** Accumulated 5h-window utilization attributable to this grant (0..1). */
+  sessionFraction: number;
+  /** Accumulated 7d-window utilization attributable to this grant (0..1). */
+  weeklyFraction: number;
+  coinsSpent: number;
+  requests: number;
+  updatedAt: number;
+};
+
+export type ProxyShareLedgerFile = {
+  schemaVersion: 1;
+  buckets: Record<string, ProxyShareLedgerBucket>;
+};
+
+/** An open pre-authorization against a grant's balance. */
+export type ProxyShareHold = {
+  id: string;
+  grantId: string;
+  coins: number;
+  openedAt: number;
+};
+
+/** Coin settlement for a finished borrowed request. */
+export type ProxyShareSettlement = {
+  grantId: string;
+  accountKey: string;
+  model?: string;
+  usage: ProxyShareUsage;
+  holdId?: string;
+};
+
+/**
+ * A before/after utilization observation for one borrowed request.
+ *
+ * Recorded where the response's quota headers are parsed, because that is the
+ * only point at which both the previous snapshot and the new one are in hand.
+ * Token usage settles separately: on a stream it is not known until
+ * `message_delta`, long after the headers arrived.
+ */
+export type ProxyShareWindowObservation = {
+  grantId: string;
+  accountKey: string;
+  sessionBefore?: number | null;
+  sessionAfter?: number | null;
+  sessionResetAt?: number | null;
+  weeklyBefore?: number | null;
+  weeklyAfter?: number | null;
+  weeklyResetAt?: number | null;
+};
+
+/** Per-grant rollup for `share status`. */
+export type ProxyShareGrantUsageSummary = {
+  grantId: string;
+  coinsSpent: number;
+  requests: number;
+  accounts: number;
+  lastUsedAt: number | null;
+};
+
+// =============================================================================
+// PEER BORROWING TYPES (from proxy/peerStore.ts, peerTransport.ts)
+// =============================================================================
+
+/** Why a peer is temporarily not worth trying. */
+export type ProxyPeerCooldownReason =
+  | "exhausted"
+  | "paused"
+  | "revoked"
+  | "expired"
+  | "withheld"
+  | "unreachable"
+  | "upstream_error";
+
+/** Last thing a peer told us, kept so `peer status` can answer offline. */
+export type ProxyPeerObservation = {
+  grantStatus?: string;
+  grantReason?: string;
+  remainingCoins?: number;
+  observedAt: number;
+};
+
+/** A lender this node may borrow from. */
+export type ProxyPeer = {
+  schemaVersion: 1;
+  name: string;
+  url: string;
+  token: string;
+  /** Lower is tried first. Peers of equal priority keep insertion order. */
+  priority: number;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+  note?: string;
+  lastUsedAt?: number;
+  cooldownUntil?: number;
+  cooldownReason?: ProxyPeerCooldownReason;
+  lastObservation?: ProxyPeerObservation;
+  /** Set while a split-PKCE provisioning request is outstanding. */
+  pendingProvision?: ProxyPeerPendingProvision;
+  /** Shared secret this lender's receipts are signed with, when known. */
+  receiptSecret?: string;
+  /** Label of the grant this node issued to the same person, for netting. */
+  reciprocalPeer?: string;
+  /** Highest receipt sequence collected from this lender. */
+  lastReceiptSequence?: number;
+};
+
+export type ProxyPeerFile = {
+  schemaVersion: 1;
+  peers: Record<string, ProxyPeer>;
+};
+
+/** Outcome of forwarding one request to one peer. */
+export type ProxyPeerAttempt =
+  | { ok: true; response: Response; peer: ProxyPeer }
+  | {
+      ok: false;
+      peer: ProxyPeer;
+      status?: number;
+      reason: ProxyPeerCooldownReason;
+      message: string;
+      retryAfterSeconds?: number;
+    };
+
+/** What `peer add` accepts. */
+export type ProxyPeerInput = {
+  name: string;
+  url: string;
+  token: string;
+  /** Shared secret this lender signs receipts with, when the link carried one. */
+  receiptSecret?: string;
+  priority?: number;
+  note?: string;
+};
+
+export type ProxyPeerArgs = {
+  action?:
+    | "add"
+    | "request"
+    | "list"
+    | "status"
+    | "sync"
+    | "receipts"
+    | "net"
+    | "redeem"
+    | "test"
+    | "remove"
+    | "pause"
+    | "resume"
+    | "set";
+  /** `peer request --claim`: collect a code the lender has authorized. */
+  claim?: boolean;
+  /** Shared secret for verifying this lender's receipts, when added by hand. */
+  receiptSecret?: string;
+  /** `peer net`: label of the grant this node issued to the same person. */
+  reciprocal?: string;
+  /** `peer redeem`: the coin note to present. */
+  noteValue?: string;
+  /** `peer redeem --check`: ask the issuer about a note without spending it. */
+  check?: boolean;
+  /** Local account label for a provisioned credential. */
+  label?: string;
+  name?: string;
+  url?: string;
+  token?: string;
+  link?: string;
+  priority?: number;
+  note?: string;
+  json?: boolean;
+  dev?: boolean;
+};
+
+// =============================================================================
+// COMPLETE-MODE LEASE TYPES (from proxy/shareLease.ts)
+// =============================================================================
+
+/**
+ * The offline-survivable projection of a grant.
+ *
+ * A complete-mode borrower holds a credential on the lender's account and calls
+ * the upstream directly, so the lender's gate is not in the request path. The
+ * lease is what control looks like without that gate: the borrower enforces it
+ * locally, refreshes it by heartbeat, and stops when it can no longer prove the
+ * lender still consents.
+ */
+export type ProxyShareLease = {
+  schemaVersion: 1;
+  grantId: string;
+  peerLabel: string;
+  issuedAt: number;
+  /** Hard stop, honored even by a borrower that never calls home again. */
+  notAfter: number;
+  /** How often the borrower should check in. */
+  heartbeatEveryMs: number;
+  /** How long the borrower may keep serving while the lender is unreachable. */
+  offlineGraceMs: number;
+  /** The gate set, snapshotted at issue time. */
+  gates: ProxyShareGates;
+  /** Coin balance at issue time; "unlimited" for an uncapped grant. */
+  entitlementSnapshot: number | "unlimited";
+  /** HMAC over the payload, keyed by the grant's lease secret. */
+  signature: string;
+};
+
+/** Why a lease is not currently usable. */
+export type ProxyShareLeaseVerdict =
+  | { usable: true; nextHeartbeatDueAt: number }
+  | {
+      usable: false;
+      reason: "unsigned" | "expired" | "grace_elapsed" | "stopped";
+      detail: string;
+    };
+
+/** The refusing half of {@link ProxyShareLeaseVerdict}. */
+export type ProxyShareLeaseRefusal = Extract<
+  ProxyShareLeaseVerdict,
+  { usable: false }
+>;
+
+/** What a borrower sends when checking in. */
+export type ProxyShareHeartbeatRequest = {
+  grantId: string;
+  /** Coins the borrower believes it has spent since the last heartbeat. */
+  coinsSpent?: number;
+  requests?: number;
+  /** Borrower's clock, for drift diagnostics only. */
+  reportedAt: number;
+};
+
+/** What the lender answers with. */
+export type ProxyShareHeartbeatResponse =
+  | { ok: true; lease: ProxyShareLease }
+  | { ok: false; stop: true; reason: string };
+
+/** The stopping half of {@link ProxyShareHeartbeatResponse}. */
+export type ProxyShareHeartbeatStop = Extract<
+  ProxyShareHeartbeatResponse,
+  { ok: false }
+>;
+
+/** The renewing half of {@link ProxyShareHeartbeatResponse}. */
+export type ProxyShareHeartbeatRenewal = Extract<
+  ProxyShareHeartbeatResponse,
+  { ok: true }
+>;
+
+/** A credential provisioned onto a borrower's device under a complete grant. */
+export type ProxyResidentGrant = {
+  schemaVersion: 1;
+  /** Local tokenStore label, unique on the borrower's device. */
+  accountLabel: string;
+  grantId: string;
+  lenderName: string;
+  lenderUrl: string;
+  /** Shared secret used to verify leases from this lender. */
+  leaseSecret: string;
+  lease: ProxyShareLease;
+  lastHeartbeatAt?: number;
+  /** Coins spent since the last successful heartbeat, awaiting report. */
+  unreportedCoins?: number;
+  unreportedRequests?: number;
+};
+
+export type ProxyResidentGrantFile = {
+  schemaVersion: 1;
+  grants: Record<string, ProxyResidentGrant>;
+};
+
+// =============================================================================
+// COMPLETE-MODE DRIFT AUDIT (from proxy/shareAudit.ts)
+// =============================================================================
+
+/**
+ * One heartbeat's worth of evidence about a complete-mode grant.
+ *
+ * The lender cannot see a resident credential's requests — they never touch this
+ * node. What it *can* see is the account's own utilization, which the provider
+ * reports and the borrower cannot influence. Pairing that with what the borrower
+ * claimed to spend is the whole audit.
+ */
+export type ProxyShareAuditObservation = {
+  at: number;
+  /** 0..1 utilization of the account's 5h window at this heartbeat. */
+  sessionUsed: number | null;
+  /** 0..1 utilization of the account's 7d window at this heartbeat. */
+  weeklyUsed: number | null;
+  /** Coins the borrower reported since the previous heartbeat. */
+  reportedCoins: number;
+  /** Requests this node itself served on the account **since the previous
+   *  observation**. A per-interval delta, not a running total: the drift check
+   *  asks whether the lender used the account during this interval. */
+  lenderRequests: number;
+};
+
+/** Rolling audit state for one complete-mode grant. */
+export type ProxyShareAuditRecord = {
+  grantId: string;
+  /** The lender's own account the credential was provisioned from. */
+  accountLabel: string;
+  lastObservation?: ProxyShareAuditObservation;
+  /** Running lifetime total of lender-served requests on the account, kept so
+   *  the next observation's delta can be computed. */
+  lenderRequestsTotal?: number;
+  /** Consecutive heartbeats where the account moved but nothing was reported. */
+  driftStreak: number;
+  lastDriftAt?: number;
+  lastDriftDetail?: string;
+  /** Set once the streak crossed the tolerance and the grant was paused. */
+  autoPausedAt?: number;
+};
+
+export type ProxyShareAuditFile = {
+  schemaVersion: 1;
+  records: Record<string, ProxyShareAuditRecord>;
+};
+
+/** The verdict of comparing one heartbeat against the account's real movement. */
+export type ProxyShareDriftVerdict =
+  | { drifted: false; reason: "no_baseline" | "attributable" | "quiet" }
+  | {
+      drifted: true;
+      /** How much of a window moved without being accounted for. */
+      unexplainedSessionPct: number;
+      unexplainedWeeklyPct: number;
+      detail: string;
+    };
+
+/** The handover artifact a lender gives a complete-share borrower. */
+export type ProxyShareProvisioningBundle = {
+  schemaVersion: 1;
+  grantId: string;
+  lenderName: string;
+  lenderUrl: string;
+  accountLabel: string;
+  leaseSecret: string;
+  lease: ProxyShareLease;
+  tokens: {
+    accessToken: string;
+    refreshToken?: string;
+    expiresAt?: number;
+  };
 };

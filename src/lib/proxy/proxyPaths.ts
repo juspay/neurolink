@@ -17,29 +17,76 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ProxyPaths } from "../types/index.js";
 
+/**
+ * The state files, named once.
+ *
+ * Each name used to appear three times — dev branch, home branch, and the
+ * resolver's fallback — which is three places to keep in step and two chances
+ * to write a dev proxy's state into the global directory.
+ */
+const FILE_NAMES = {
+  quota: "account-quotas.json",
+  cooldown: "account-cooldowns.json",
+  stats: "proxy-usage-stats.json",
+  grants: "proxy-grants.json",
+  ledger: "proxy-share-ledger.json",
+  peers: "proxy-peers.json",
+  residentGrants: "proxy-resident-grants.json",
+  shareAudit: "proxy-share-audit.json",
+  provisioning: "proxy-share-provisioning.json",
+  receipts: "proxy-share-receipts.json",
+  notes: "proxy-share-notes.json",
+} as const;
+
 export function resolveProxyPaths(dev: boolean): ProxyPaths {
-  if (dev) {
-    const base = join(process.cwd(), ".neurolink-dev");
-    return {
-      stateDir: base,
-      logsDir: join(base, "logs"),
-      quotaFile: join(base, "account-quotas.json"),
-      cooldownFile: join(base, "account-cooldowns.json"),
-      statsFile: join(base, "proxy-usage-stats.json"),
-      isDev: true,
-    };
-  }
-  const base = join(homedir(), ".neurolink");
+  const base = dev
+    ? join(process.cwd(), ".neurolink-dev")
+    : join(homedir(), ".neurolink");
   return {
     stateDir: base,
     logsDir: join(base, "logs"),
-    quotaFile: join(base, "account-quotas.json"),
-    cooldownFile: join(base, "account-cooldowns.json"),
-    statsFile: join(base, "proxy-usage-stats.json"),
-    isDev: false,
+    quotaFile: join(base, FILE_NAMES.quota),
+    cooldownFile: join(base, FILE_NAMES.cooldown),
+    statsFile: join(base, FILE_NAMES.stats),
+    grantsFile: join(base, FILE_NAMES.grants),
+    ledgerFile: join(base, FILE_NAMES.ledger),
+    peersFile: join(base, FILE_NAMES.peers),
+    isDev: dev,
   };
 }
 
 export function resolveProxyUsageStatsPath(paths: ProxyPaths): string {
-  return paths.statsFile ?? join(paths.stateDir, "proxy-usage-stats.json");
+  return paths.statsFile ?? join(paths.stateDir, FILE_NAMES.stats);
+}
+
+export function resolveProxyGrantsPath(paths: ProxyPaths): string {
+  return paths.grantsFile ?? join(paths.stateDir, FILE_NAMES.grants);
+}
+
+export function resolveProxyLedgerPath(paths: ProxyPaths): string {
+  return paths.ledgerFile ?? join(paths.stateDir, FILE_NAMES.ledger);
+}
+
+export function resolveProxyPeersPath(paths: ProxyPaths): string {
+  return paths.peersFile ?? join(paths.stateDir, FILE_NAMES.peers);
+}
+
+export function resolveProxyResidentGrantsPath(paths: ProxyPaths): string {
+  return join(paths.stateDir, FILE_NAMES.residentGrants);
+}
+
+export function resolveProxyShareAuditPath(paths: ProxyPaths): string {
+  return join(paths.stateDir, FILE_NAMES.shareAudit);
+}
+
+export function resolveProxyProvisioningPath(paths: ProxyPaths): string {
+  return join(paths.stateDir, FILE_NAMES.provisioning);
+}
+
+export function resolveProxyReceiptsPath(paths: ProxyPaths): string {
+  return join(paths.stateDir, FILE_NAMES.receipts);
+}
+
+export function resolveProxyNotesPath(paths: ProxyPaths): string {
+  return join(paths.stateDir, FILE_NAMES.notes);
 }

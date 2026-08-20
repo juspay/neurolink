@@ -337,6 +337,19 @@ export default [
             // Sentence carry-over and flush behaviour drive the public
             // `stream()` surface instead.
             "test/continuous-test-suite-tts-unit.ts",
+            // Grant-gate arithmetic that no live call can stage: lease clock
+            // expiry against a fixed `now`, drift streaks that only pause on
+            // the Nth consecutive over-report, refill catch-up across a
+            // simulated clock jump, coin hold/settle under concurrent
+            // settlement, receipt sequence gaps, and reciprocal netting
+            // replays. Each is a decision the gate makes before any account is
+            // contacted, from state a real subscription would have to be
+            // driven for hours to reach. The suite's HTTP and CLI cases —
+            // handshake, /limits withholding, the gate-only share listener,
+            // coin notes over the wire — spawn the built CLI and drive the
+            // real endpoints, and are deliberately outside this exception. Its
+            // header states this in full.
+            "test/continuous-test-suite-proxy-sharing.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`
