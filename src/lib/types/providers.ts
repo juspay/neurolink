@@ -1023,6 +1023,16 @@ export type BedrockContentBlock = {
 };
 
 /**
+ * A Bedrock content block still being assembled from a ConverseStream event
+ * sequence. `_inputBuffer` holds the partial tool-call JSON that arrives
+ * across several `contentBlockDelta` events and is parsed away at
+ * `contentBlockStop`, so it never appears on a finished block.
+ */
+export type BedrockPendingContentBlock = BedrockContentBlock & {
+  _inputBuffer?: string;
+};
+
+/**
  * Bedrock message structure
  */
 export type BedrockMessage = {

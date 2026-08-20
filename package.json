@@ -211,7 +211,8 @@
     "test:model-pool": "npx tsx test/continuous-test-suite-model-pool.ts",
     "test:vector-chroma": "npx tsx test/continuous-test-suite-vector-chroma.ts",
     "test:vector-pgvector": "npx tsx test/continuous-test-suite-vector-pgvector.ts",
-    "test:vector-pinecone": "npx tsx test/continuous-test-suite-vector-pinecone.ts"
+    "test:vector-pinecone": "npx tsx test/continuous-test-suite-vector-pinecone.ts",
+    "test:bedrock-loop-characterization": "tsx test/continuous-test-suite-bedrock-loop-characterization.ts"
   },
   "files": [
     "dist",

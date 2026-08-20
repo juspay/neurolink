@@ -116,6 +116,9 @@ jobs:
       - name: Bedrock inference-profile fallback (local HTTP/2 stand-in, no API keys required)
         run: pnpm run test:bedrock-inference-profile
 
+      - name: Bedrock loop characterization (local HTTP/2 stand-in, no API keys required)
+        run: pnpm run test:bedrock-loop-characterization
+
       - name: 🧩 Provider Onboarding Completeness
         run: pnpm run verify:provider-onboarding
 

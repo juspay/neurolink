@@ -83,6 +83,8 @@ export function runAgenticLoop<TConversation>(
     let conversation = initialConversation;
     let usage: AgenticLoopUsage = { inputTokens: 0, outputTokens: 0 };
     let finalText = "";
+    // The most recent step's text, kept only for the step-cap case below.
+    let lastStepText = "";
     let rawStopReason: string | undefined;
     const allToolCalls: AgenticLoopResult<TConversation>["toolCalls"] = [];
     const allToolExecutions: AgenticLoopResult<TConversation>["toolExecutions"] =
@@ -147,6 +149,7 @@ export function runAgenticLoop<TConversation>(
 
         usage = sumUsage(usage, stepResult.usage);
         rawStopReason = stepResult.rawStopReason;
+        lastStepText = stepResult.text || lastStepText;
 
         if (
           adapter.isMalformedStep?.(stepResult) &&
@@ -261,7 +264,14 @@ export function runAgenticLoop<TConversation>(
         hadToolCallsAtCap,
       );
       return {
-        text: finalText,
+        // `finalText` is only set by a step that asked for no tools, so a turn
+        // that runs out of steps mid-tool-call would otherwise return "" and
+        // throw away everything the model actually said. An empty result also
+        // reads as a failed generation to callers that retry on empty content,
+        // turning one capped turn into several. Fall back to the last step's
+        // text in that case only — when the loop ended normally, an empty
+        // final step genuinely means the model said nothing.
+        text: finalText || (hadToolCallsAtCap ? lastStepText : ""),
         toolCalls: allToolCalls,
         toolExecutions: allToolExecutions,
         usage,

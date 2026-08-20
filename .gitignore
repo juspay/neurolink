@@ -185,3 +185,6 @@ NEUROLINK_SDK_GAPS.md
 .yama/analytics/
 .yama/reports/
 .scaffold-output/
+
+# Subagent-driven-development scratch workspace (ledger, briefs, review packages)
+.superpowers/
