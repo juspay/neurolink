@@ -75,6 +75,10 @@ import type {
   OpenAICompatCatalogEntry,
 } from "../src/lib/types/index.js";
 import { TimeoutError } from "../src/lib/utils/timeout.js";
+import {
+  duckTypedStatusCode,
+  isRetryableProviderError,
+} from "../src/lib/utils/providerRetry.js";
 import { AIProviderName } from "../src/lib/constants/enums.js";
 import { ConfiguredOpenAICompatProvider } from "../src/lib/providers/configuredOpenAICompat.js";
 import { OPENAI_COMPAT_CATALOG } from "../src/lib/providers/openaiCompatCatalog.js";
@@ -93,7 +97,7 @@ import { CohereProvider } from "../src/lib/providers/cohere.js";
 import { AnthropicProvider } from "../src/lib/providers/anthropic/client.js";
 import { AmazonBedrockProvider } from "../src/lib/providers/amazonBedrock/client.js";
 import { isToolsSchemaExclusionInForce } from "../src/lib/core/modules/structuredOutputPolicy.js";
-import { defineSuite, assert } from "./helpers/harness.js";
+import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
 
 const { test, runSuite, section } = defineSuite(
   "Error classifier contract (Plan 07, rule 15 determinism exception)",
@@ -742,6 +746,71 @@ void runSuite(async () => {
     assert(
       !isToolsSchemaExclusionInForce("google-ai", "gemini-2.5-pro", true, 0),
       "zero active tools should never trigger the exclusion",
+    );
+  });
+
+  section("AWS SDK v3 error status codes");
+
+  await test("an AWS SDK error's status is read from $metadata.httpStatusCode", async () => {
+    // AWS SDK v3 puts the HTTP status there and nowhere else — no .statusCode,
+    // no .status. Every status-based path in this codebase goes through
+    // duckTypedStatusCode, so without this an AWS 429 is not recognisable as a
+    // rate limit and a 5xx not recognisable as transient.
+    const throttling = Object.assign(new Error("Rate exceeded"), {
+      name: "ThrottlingException",
+      $metadata: { httpStatusCode: 429, requestId: "abc" },
+    });
+    assertEqual(
+      duckTypedStatusCode(throttling),
+      429,
+      "an AWS throttling error's status was not read from $metadata",
+    );
+    assert(
+      isRetryableProviderError(throttling),
+      "an AWS 429 must classify as retryable",
+    );
+  });
+
+  await test("a direct statusCode still wins over $metadata", async () => {
+    // The AWS branch is a last resort; anything carrying its own status keeps
+    // reporting it.
+    const err = Object.assign(new Error("boom"), {
+      statusCode: 503,
+      $metadata: { httpStatusCode: 200 },
+    });
+    assertEqual(
+      duckTypedStatusCode(err),
+      503,
+      "an explicit statusCode must take precedence over $metadata",
+    );
+  });
+
+  await test("an AWS 4xx that is not 429 stays non-retryable", async () => {
+    const validation = Object.assign(new Error("Malformed input"), {
+      name: "ValidationException",
+      $metadata: { httpStatusCode: 400 },
+    });
+    assertEqual(
+      duckTypedStatusCode(validation),
+      400,
+      "an AWS validation error's status was not read",
+    );
+    assert(
+      !isRetryableProviderError(validation),
+      "a 400 must not become retryable just because its status is now visible",
+    );
+  });
+
+  await test("an error with no status anywhere still reports undefined", async () => {
+    assertEqual(
+      duckTypedStatusCode(new Error("plain")),
+      undefined,
+      "a plain error must not acquire a status code",
+    );
+    assertEqual(
+      duckTypedStatusCode({ $metadata: {} }),
+      undefined,
+      "an empty $metadata must not produce a status code",
     );
   });
 });

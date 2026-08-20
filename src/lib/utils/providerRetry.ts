@@ -60,12 +60,32 @@ export function duckTypedStatusCode(error: unknown): number | undefined {
   if (!error || typeof error !== "object") {
     return undefined;
   }
-  const err = error as { statusCode?: unknown; status?: unknown };
+  const err = error as {
+    statusCode?: unknown;
+    status?: unknown;
+    $metadata?: unknown;
+  };
   if (typeof err.statusCode === "number") {
     return err.statusCode;
   }
   if (typeof err.status === "number") {
     return err.status;
+  }
+  // AWS SDK v3 puts the HTTP status on `$metadata.httpStatusCode` and nowhere
+  // else, so without this branch no AWS error carries a status code as far as
+  // anything here is concerned. That is not only a retry question: this
+  // function also feeds `classifyProviderError` and the retry telemetry, so a
+  // Bedrock or SageMaker 429 was not recognisable as a rate limit, and a 5xx
+  // not recognisable as transient, by any status-based path. Name-based
+  // classification (ThrottlingException, AccessDeniedException) still worked,
+  // which is why this stayed hidden.
+  const metadata = err.$metadata;
+  if (typeof metadata === "object" && metadata !== null) {
+    const httpStatusCode = (metadata as { httpStatusCode?: unknown })
+      .httpStatusCode;
+    if (typeof httpStatusCode === "number") {
+      return httpStatusCode;
+    }
   }
   return undefined;
 }
