@@ -37,10 +37,10 @@ importers:
     devDependencies:
       '@sveltejs/adapter-vercel':
         specifier: ^6.3.2
-        version: 6.3.3(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(rollup@4.61.1)
+        version: 6.3.3(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(rollup@4.61.1)
       '@sveltejs/kit':
-        specifier: ^2.60.1
-        version: 2.60.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))
+        specifier: ^2.70.2
+        version: 2.70.2(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))
       '@sveltejs/vite-plugin-svelte':
         specifier: ^6.2.4
         version: 6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))
@@ -406,14 +406,19 @@ packages:
     peerDependencies:
       acorn: ^8.9.0
 
+  '@sveltejs/acorn-typescript@1.0.13':
+    resolution: {integrity: sha512-wgKggnhZVL9Bfx1OaKKTrYY9BFRk6C8UAkQNUcIv1+llzYrIqy+RZm5HPKzn0NpEBvTVhTqB4kQyllZywsRBRQ==}
+    peerDependencies:
+      acorn: ^8.9.0
+
   '@sveltejs/adapter-vercel@6.3.3':
     resolution: {integrity: sha512-jI7jT/XqRyFe9oqKvFcNPQfyNBi3pXqN1iQXa2lmeKT5Vzgr9iSOqJOD3pXf/9Q2Os6SXzqYYm6osRjHYEhkyw==}
     engines: {node: '>=20.0'}
     peerDependencies:
       '@sveltejs/kit': ^2.4.0
 
-  '@sveltejs/kit@2.60.1':
-    resolution: {integrity: sha512-mQjlkNo+rJvpln7V2IGY2j99BqhcFbS4UN0AQNKNYfhBAFZTuCDAdW3a1sgf330mvtNvsBXn3HpAhcmvdJTcIQ==}
+  '@sveltejs/kit@2.70.2':
+    resolution: {integrity: sha512-RzRoRpuR2KXqc5yMO0akQHDZeT4AslOlznGITURsqHaVbtyYP4Wn3eE3gxj9JcDyNYO0crkxhdwFHc+2vkVm6w==}
     engines: {node: '>=18.13'}
     hasBin: true
     peerDependencies:
@@ -561,6 +566,11 @@ packages:
     engines: {node: '>=0.4.0'}
     hasBin: true
 
+  acorn@8.18.0:
+    resolution: {integrity: sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==}
+    engines: {node: '>=0.4.0'}
+    hasBin: true
+
   agent-base@7.1.4:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
@@ -613,9 +623,9 @@ packages:
     resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
     engines: {node: ^14.18.0 || >=16.10.0}
 
-  cookie@1.1.1:
-    resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
-    engines: {node: '>=18'}
+  cookie@2.0.1:
+    resolution: {integrity: sha512-yuToqVvRrj6pfDXREyQAAv8SkAEk/8GS3jQRTiUMm66TVtBYmqQeoEjL2Lmq8Rpo6271vH76InTChTitEAm65w==}
+    engines: {node: '>=22'}
 
   css-background-parser@0.1.0:
     resolution: {integrity: sha512-2EZLisiZQ+7m4wwur/qiYJRniHX4K5Tc9w93MT3AS0WS1u5kaZ4FKXlOTBhOjc+CgEgPiGY+fX1yWD8UwpEqUA==}
@@ -653,6 +663,9 @@ packages:
 
   devalue@5.8.1:
     resolution: {integrity: sha512-4CXDYRBGqN+57wVJkuXBYmpAVUSg3L6JAQa/DFqm238G73E1wuyc/JhGQJzN7vUf/CMphYau2zXbfWzDR5aTEw==}
+
+  devalue@5.9.1:
+    resolution: {integrity: sha512-+17vil3EVQRzvtDJSFuTWEb8XJRvXqAiV3qZyQWD398QeXUa6CxsUyMdD1fxzEhUrd4FojitFz7lhIHBTlV4fw==}
 
   emoji-regex-xs@2.0.1:
     resolution: {integrity: sha512-1QFuh8l7LqUcKe24LsPUNzjrzJQ7pgRwp1QMcZ5MX6mFplk2zQ08NVCM84++1cveaUUYtcCYHmeFEuNg16sU4g==}
@@ -949,8 +962,8 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  set-cookie-parser@3.1.0:
-    resolution: {integrity: sha512-kjnC1DXBHcxaOaOXBHBeRtltsDG2nUiUni+jP92M9gYdW12rsmx92UsfpH7o5tDRs7I1ZZPSQJQGv3UaRfCiuw==}
+  set-cookie-parser@3.1.2:
+    resolution: {integrity: sha512-5/r/lTwbJ3zQ+qwdUFZYeRNqda7P5HD8zQKqlSjdGt1/S0cjLAphHusj4Y58ahDtWn/g32xrIS58/ikOvwl0Lw==}
 
   sirv@3.0.2:
     resolution: {integrity: sha512-2wcC/oGxHis/BoHkkPwldgiPSYcpZK3JU28WoMVv55yHJgcZ8rlXvuG9iZggz+sU1d4bRgIGASwyWqjxu3FM0g==}
@@ -1289,9 +1302,13 @@ snapshots:
     dependencies:
       acorn: 8.16.0
 
-  '@sveltejs/adapter-vercel@6.3.3(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(rollup@4.61.1)':
+  '@sveltejs/acorn-typescript@1.0.13(acorn@8.18.0)':
     dependencies:
-      '@sveltejs/kit': 2.60.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))
+      acorn: 8.18.0
+
+  '@sveltejs/adapter-vercel@6.3.3(@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(rollup@4.61.1)':
+    dependencies:
+      '@sveltejs/kit': 2.70.2(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))
       '@vercel/nft': 1.10.2(rollup@4.61.1)
       esbuild: 0.28.1
     transitivePeerDependencies:
@@ -1299,20 +1316,20 @@ snapshots:
       - rollup
       - supports-color
 
-  '@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))':
+  '@sveltejs/kit@2.70.2(@sveltejs/vite-plugin-svelte@6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2)))(svelte@5.55.7)(typescript@5.9.3)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))':
     dependencies:
       '@standard-schema/spec': 1.1.0
-      '@sveltejs/acorn-typescript': 1.0.10(acorn@8.16.0)
+      '@sveltejs/acorn-typescript': 1.0.13(acorn@8.18.0)
       '@sveltejs/vite-plugin-svelte': 6.2.4(svelte@5.55.7)(vite@7.3.6(jiti@2.6.1)(lightningcss@1.30.2))
       '@types/cookie': 0.6.0
-      acorn: 8.16.0
-      cookie: 1.1.1
-      devalue: 5.8.1
+      acorn: 8.18.0
+      cookie: 2.0.1
+      devalue: 5.9.1
       esm-env: 1.2.2
       kleur: 4.1.5
       magic-string: 0.30.21
       mrmime: 2.0.1
-      set-cookie-parser: 3.1.0
+      set-cookie-parser: 3.1.2
       sirv: 3.0.2
       svelte: 5.55.7
       vite: 7.3.6(jiti@2.6.1)(lightningcss@1.30.2)
@@ -1437,6 +1454,8 @@ snapshots:
 
   acorn@8.16.0: {}
 
+  acorn@8.18.0: {}
+
   agent-base@7.1.4: {}
 
   aria-query@5.3.1: {}
@@ -1471,7 +1490,7 @@ snapshots:
 
   consola@3.4.2: {}
 
-  cookie@1.1.1: {}
+  cookie@2.0.1: {}
 
   css-background-parser@0.1.0: {}
 
@@ -1496,6 +1515,8 @@ snapshots:
   detect-libc@2.1.2: {}
 
   devalue@5.8.1: {}
+
+  devalue@5.9.1: {}
 
   emoji-regex-xs@2.0.1: {}
 
@@ -1769,7 +1790,7 @@ snapshots:
 
   semver@7.7.4: {}
 
-  set-cookie-parser@3.1.0: {}
+  set-cookie-parser@3.1.2: {}
 
   sirv@3.0.2:
     dependencies:
