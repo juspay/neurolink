@@ -122,6 +122,9 @@ jobs:
       - name: SageMaker streaming (local stand-in, no API keys required)
         run: pnpm run test:sagemaker-streaming
 
+      - name: Anthropic loop characterization (local SSE stand-in, no API keys required)
+        run: pnpm run test:anthropic-loop-characterization
+
       - name: 🧩 Provider Onboarding Completeness
         run: pnpm run verify:provider-onboarding
 
