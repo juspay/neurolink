@@ -29,6 +29,7 @@ import type {
   RequestLogEntry,
   StoredBodyArtifact,
 } from "../types/index.js";
+import { isBorrowedRequest } from "./shareContext.js";
 import { OtelBridge } from "../observability/otelBridge.js";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
@@ -706,6 +707,13 @@ export async function logBodyCapture(
   entry: ProxyBodyCaptureEntry,
 ): Promise<void> {
   if (!logEnabled || !logDir) {
+    return;
+  }
+  // Borrowed traffic is somebody else's conversation. Capturing it would leave
+  // a peer's prompts and the model's replies on this machine's disk, which is
+  // not something a share token can be read as consenting to. The request is
+  // still logged; only the bodies are dropped.
+  if (isBorrowedRequest()) {
     return;
   }
 

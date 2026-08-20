@@ -8,7 +8,7 @@
 
 > **UpdaterWorkerSupervisorOptions** = `object`
 
-Defined in: [types/proxy.ts:2531](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2531)
+Defined in: [types/proxy.ts:2541](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2541)
 
 Dependencies and callbacks used to supervise the updater worker process.
 
@@ -18,7 +18,7 @@ Dependencies and callbacks used to supervise the updater worker process.
 
 > **spawnWorker**: () => `number` \| `undefined`
 
-Defined in: [types/proxy.ts:2532](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2532)
+Defined in: [types/proxy.ts:2542](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2542)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:2532](https://github.com/juspay/neurolink/blob/relea
 
 > **isProcessRunning**: (`pid`) => `boolean`
 
-Defined in: [types/proxy.ts:2533](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2533)
+Defined in: [types/proxy.ts:2543](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2543)
 
 #### Parameters
 
@@ -48,7 +48,7 @@ Defined in: [types/proxy.ts:2533](https://github.com/juspay/neurolink/blob/relea
 
 > **stopWorker**: (`pid`) => `void`
 
-Defined in: [types/proxy.ts:2534](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2534)
+Defined in: [types/proxy.ts:2544](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2544)
 
 #### Parameters
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:2534](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **onPidChange?**: (`pid`) => `void`
 
-Defined in: [types/proxy.ts:2535](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2535)
+Defined in: [types/proxy.ts:2545](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2545)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [types/proxy.ts:2535](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **log?**: (`message`) => `void`
 
-Defined in: [types/proxy.ts:2536](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2536)
+Defined in: [types/proxy.ts:2546](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2546)
 
 #### Parameters
 
@@ -102,4 +102,4 @@ Defined in: [types/proxy.ts:2536](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **intervalMs?**: `number`
 
-Defined in: [types/proxy.ts:2537](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2537)
+Defined in: [types/proxy.ts:2547](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2547)

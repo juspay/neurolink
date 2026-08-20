@@ -8,7 +8,7 @@
 
 > **UpdaterWorkerSupervisor** = `object`
 
-Defined in: [types/proxy.ts:2541](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2541)
+Defined in: [types/proxy.ts:2551](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2551)
 
 Handle used by the proxy process to inspect and stop updater supervision.
 
@@ -18,7 +18,7 @@ Handle used by the proxy process to inspect and stop updater supervision.
 
 > **currentPid**: () => `number` \| `undefined`
 
-Defined in: [types/proxy.ts:2542](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2542)
+Defined in: [types/proxy.ts:2552](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2552)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:2542](https://github.com/juspay/neurolink/blob/relea
 
 > **checkNow**: () => `number` \| `undefined`
 
-Defined in: [types/proxy.ts:2543](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2543)
+Defined in: [types/proxy.ts:2553](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2553)
 
 #### Returns
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2543](https://github.com/juspay/neurolink/blob/relea
 
 > **stop**: () => `void`
 
-Defined in: [types/proxy.ts:2544](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2544)
+Defined in: [types/proxy.ts:2554](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2554)
 
 #### Returns
 

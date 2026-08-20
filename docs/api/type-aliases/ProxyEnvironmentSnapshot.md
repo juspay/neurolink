@@ -8,7 +8,7 @@
 
 > **ProxyEnvironmentSnapshot** = `object`
 
-Defined in: [types/proxy.ts:1720](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1720)
+Defined in: [types/proxy.ts:1726](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1726)
 
 Snapshot of proxy-related environment variables captured at startup.
 
@@ -18,7 +18,7 @@ Snapshot of proxy-related environment variables captured at startup.
 
 > `optional` **httpsProxy?**: `string`
 
-Defined in: [types/proxy.ts:1721](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1721)
+Defined in: [types/proxy.ts:1727](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1727)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1721](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **httpProxy?**: `string`
 
-Defined in: [types/proxy.ts:1722](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1722)
+Defined in: [types/proxy.ts:1728](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1728)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1722](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **allProxy?**: `string`
 
-Defined in: [types/proxy.ts:1723](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1723)
+Defined in: [types/proxy.ts:1729](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1729)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:1723](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **socksProxy?**: `string`
 
-Defined in: [types/proxy.ts:1724](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1724)
+Defined in: [types/proxy.ts:1730](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1730)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:1724](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **noProxy?**: `string`
 
-Defined in: [types/proxy.ts:1725](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1725)
+Defined in: [types/proxy.ts:1731](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1731)

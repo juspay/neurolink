@@ -8,7 +8,7 @@
 
 > **ResponseInfoContext** = `object`
 
-Defined in: [types/proxy.ts:1648](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1648)
+Defined in: [types/proxy.ts:1654](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1654)
 
 Response-side details parsed from the upstream reply (model, finish, tools).
 
@@ -18,7 +18,7 @@ Response-side details parsed from the upstream reply (model, finish, tools).
 
 > `optional` **responseModel?**: `string`
 
-Defined in: [types/proxy.ts:1649](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1649)
+Defined in: [types/proxy.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1655)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1649](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/proxy.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1650)
+Defined in: [types/proxy.ts:1656](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1656)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1650](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **stopSequence?**: `string`
 
-Defined in: [types/proxy.ts:1651](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1651)
+Defined in: [types/proxy.ts:1657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1657)
 
 ---
 
@@ -42,6 +42,6 @@ Defined in: [types/proxy.ts:1651](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolCalls?**: `string`[]
 
-Defined in: [types/proxy.ts:1653](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1653)
+Defined in: [types/proxy.ts:1659](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1659)
 
 Names of the tools the model actually invoked (tool_use blocks).

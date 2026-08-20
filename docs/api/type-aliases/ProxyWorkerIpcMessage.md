@@ -8,4 +8,4 @@
 
 > **ProxyWorkerIpcMessage** = [`ProxyWorkerControlMessage`](ProxyWorkerControlMessage.md) \| [`ProxyWorkerStatusMessage`](ProxyWorkerStatusMessage.md) \| [`ProxyWorkerSocketMessage`](ProxyWorkerSocketMessage.md)
 
-Defined in: [types/proxy.ts:2608](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2608)
+Defined in: [types/proxy.ts:2618](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2618)

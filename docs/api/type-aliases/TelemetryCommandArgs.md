@@ -8,7 +8,7 @@
 
 > **TelemetryCommandArgs** = `object`
 
-Defined in: [types/cli.ts:1125](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1125)
+Defined in: [types/cli.ts:1129](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1129)
 
 Telemetry command arguments
 
@@ -18,7 +18,7 @@ Telemetry command arguments
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"`
 
-Defined in: [types/cli.ts:1126](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1126)
+Defined in: [types/cli.ts:1130](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1130)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1126](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:1127](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1127)
+Defined in: [types/cli.ts:1131](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1131)

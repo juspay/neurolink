@@ -8,7 +8,7 @@
 
 > **ProxyAnalyzeArgs** = `object`
 
-Defined in: [types/cli.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L932)
+Defined in: [types/cli.ts:934](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L934)
 
 Arguments accepted by `neurolink proxy analyze`
 
@@ -18,7 +18,7 @@ Arguments accepted by `neurolink proxy analyze`
 
 > `optional` **logsDir?**: `string`
 
-Defined in: [types/cli.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L933)
+Defined in: [types/cli.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L935)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:933](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **since?**: `string`
 
-Defined in: [types/cli.ts:934](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L934)
+Defined in: [types/cli.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L936)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:934](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **until?**: `string`
 
-Defined in: [types/cli.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L935)
+Defined in: [types/cli.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L937)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:935](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **format?**: `"text"` \| `"json"`
 
-Defined in: [types/cli.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L936)
+Defined in: [types/cli.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L938)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/cli.ts:936](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L937)
+Defined in: [types/cli.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L939)

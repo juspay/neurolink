@@ -1307,6 +1307,122 @@ export async function stopCallbackServer(server: Server): Promise<void> {
  * const authUrl = oauth.generateAuthUrl({ codeChallenge });
  * ```
  */
+/**
+ * The scopes a Claude Pro/Max subscription login asks for.
+ *
+ * Narrower than {@link DEFAULT_SCOPES}: the subscription flow does not create
+ * API keys, so `org:create_api_key` would be asking for a permission nothing
+ * downstream uses.
+ */
+export const SUBSCRIPTION_SCOPES = "user:profile user:inference";
+
+/**
+ * Build the Claude Pro/Max authorization URL for a caller-supplied challenge.
+ *
+ * Extracted so the subscription login and split-PKCE provisioning cannot drift
+ * apart: they must produce byte-identical URLs but for the challenge and state,
+ * and a second hand-rolled copy is how one of them ends up missing `code=true`
+ * and silently redirecting instead of showing a code.
+ *
+ * **`state` is not the verifier here.** The interactive login sets `state` to
+ * the verifier as a convenience, which is safe when one machine holds both. In
+ * split provisioning it would hand the verifier to the party that must not have
+ * it, so the caller supplies an unrelated random state and keeps its verifier.
+ */
+export function buildSubscriptionAuthUrl(params: {
+  codeChallenge: string;
+  state: string;
+  clientId?: string;
+  redirectUri?: string;
+  scope?: string;
+}): string {
+  const url = new URL(ANTHROPIC_AUTH_URL);
+  url.searchParams.set("code", "true");
+  url.searchParams.set("client_id", params.clientId ?? CLAUDE_CODE_CLIENT_ID);
+  url.searchParams.set("response_type", "code");
+  url.searchParams.set(
+    "redirect_uri",
+    params.redirectUri ?? ANTHROPIC_REDIRECT_URI,
+  );
+  url.searchParams.set("scope", params.scope ?? SUBSCRIPTION_SCOPES);
+  url.searchParams.set("code_challenge", params.codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("state", params.state);
+  return url.toString();
+}
+
+/**
+ * Exchange an authorization code for subscription tokens.
+ *
+ * The token endpoint wants a JSON body, not form encoding, and it wants the
+ * verifier that produced the challenge in the authorization URL. In split
+ * provisioning that verifier lives only on the borrower's machine, which is the
+ * entire point: the code alone buys nothing.
+ */
+export async function exchangeSubscriptionCode(params: {
+  code: string;
+  state: string;
+  codeVerifier: string;
+  clientId?: string;
+  redirectUri?: string;
+}): Promise<{
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  tokenType: string;
+  scope?: string;
+  accountEmail?: string;
+}> {
+  const response = await fetch(ANTHROPIC_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      code: params.code,
+      state: params.state,
+      grant_type: "authorization_code",
+      client_id: params.clientId ?? CLAUDE_CODE_CLIENT_ID,
+      redirect_uri: params.redirectUri ?? ANTHROPIC_REDIRECT_URI,
+      code_verifier: params.codeVerifier,
+    }),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new OAuthError(
+      `Token exchange failed: ${response.status} ${detail.slice(0, 300)}`,
+      "TOKEN_EXCHANGE_FAILED",
+    );
+  }
+  const data = (await response.json()) as {
+    access_token?: string;
+    refresh_token?: string;
+    expires_in?: number;
+    token_type?: string;
+    scope?: string;
+    account?: { email_address?: string };
+  };
+  // A 200 with no token is not a success. Returning `undefined` here would be
+  // written to the token store as a credential and only fail on first use, by
+  // which point the authorization code that could have fixed it is spent.
+  if (typeof data.access_token !== "string" || data.access_token === "") {
+    throw new OAuthError(
+      "Token exchange returned no access token.",
+      "TOKEN_EXCHANGE_FAILED",
+    );
+  }
+  return {
+    accessToken: data.access_token,
+    ...(data.refresh_token ? { refreshToken: data.refresh_token } : {}),
+    ...(data.expires_in
+      ? { expiresAt: Date.now() + data.expires_in * 1000 }
+      : {}),
+    tokenType: data.token_type || "Bearer",
+    ...(data.scope ? { scope: data.scope } : {}),
+    ...(data.account?.email_address
+      ? { accountEmail: data.account.email_address }
+      : {}),
+  };
+}
+
 export function createAnthropicOAuth(
   overrides: Partial<AnthropicOAuthConfig> = {},
 ): AnthropicOAuth {

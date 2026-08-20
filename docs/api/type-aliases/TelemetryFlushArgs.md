@@ -8,7 +8,7 @@
 
 > **TelemetryFlushArgs** = [`TelemetryCommandArgs`](TelemetryCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1143)
+Defined in: [types/cli.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1147)
 
 Telemetry flush sub-command args
 

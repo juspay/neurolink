@@ -8,7 +8,7 @@
 
 > **AccountSelectionContext** = `object`
 
-Defined in: [types/proxy.ts:1657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1657)
+Defined in: [types/proxy.ts:1663](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1663)
 
 Context recorded when an account is selected for a proxy request.
 
@@ -18,7 +18,7 @@ Context recorded when an account is selected for a proxy request.
 
 > **strategy**: `string`
 
-Defined in: [types/proxy.ts:1658](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1658)
+Defined in: [types/proxy.ts:1664](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1664)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1658](https://github.com/juspay/neurolink/blob/relea
 
 > **accountsTotal**: `number`
 
-Defined in: [types/proxy.ts:1659](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1659)
+Defined in: [types/proxy.ts:1665](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1665)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1659](https://github.com/juspay/neurolink/blob/relea
 
 > **accountsHealthy**: `number`
 
-Defined in: [types/proxy.ts:1660](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1660)
+Defined in: [types/proxy.ts:1666](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1666)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:1660](https://github.com/juspay/neurolink/blob/relea
 
 > **selectedAccount**: `string`
 
-Defined in: [types/proxy.ts:1661](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1661)
+Defined in: [types/proxy.ts:1667](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1667)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:1661](https://github.com/juspay/neurolink/blob/relea
 
 > **accountType**: `string`
 
-Defined in: [types/proxy.ts:1662](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1662)
+Defined in: [types/proxy.ts:1668](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1668)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:1662](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **rateLimitBefore5h?**: `number`
 
-Defined in: [types/proxy.ts:1663](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1663)
+Defined in: [types/proxy.ts:1669](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1669)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/proxy.ts:1663](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **rateLimitBefore7d?**: `number`
 
-Defined in: [types/proxy.ts:1664](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1664)
+Defined in: [types/proxy.ts:1670](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1670)

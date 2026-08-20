@@ -32,6 +32,21 @@ Claude Code
   ▼
 Hono app (proxy.ts)
   │  Logs: method, path, model, stream/non-stream, tool count
+  │
+  ├─ Peer-sharing gate (shareGate.ts) — see /docs/features/proxy-peer-sharing
+  │    │  Runs after the body is parsed, because the model allowlist is a gate.
+  │    │
+  │    ├─ No share token:
+  │    │    NEUROLINK_PROXY_REQUIRE_GRANT unset → `local`, request continues untouched
+  │    │    NEUROLINK_PROXY_REQUIRE_GRANT=1    → 401 missing_token
+  │    │
+  │    ├─ Share token present → resolve grant, apply refill, evaluate admission
+  │    │    (state, notAfter, schedule, models, rate, concurrency, coins)
+  │    │    Refused → 401/403/429 carrying x-neurolink-grant-status / -reason
+  │    │
+  │    └─ Admitted → open a coin hold, claim a concurrency slot, and run the
+  │       handler inside an AsyncLocalStorage share context
+  │
   │  Builds ServerContext with NeuroLink instance
   │
   ▼
@@ -47,6 +62,14 @@ claudeProxyRoutes.ts  POST /v1/messages handler
   │
   ├─ Load accounts (see §3 Account Management)
   │    TokenStore compound keys → legacy credentials file → env var
+  │
+  ├─ Withhold leased accounts whose lease has lapsed or whose leased gates
+  │    exclude this request (residentGrants.ts — borrower side of a complete share)
+  │
+  ├─ Narrow to what the borrowed request's grant may use (sharePolicy.ts):
+  │    account allowlist → pool-wide slice ceiling → reserve floor →
+  │    spillover window → per-account ceiling.
+  │    Nothing survives → share-shaped refusal, not the generic 401
   │
   ├─ Order accounts by configured strategy (`fill-first` by default)
   │
@@ -75,9 +98,15 @@ claudeProxyRoutes.ts  POST /v1/messages handler
   │    └─ Reset backoffLevel on success
   │
   ├─ All accounts exhausted →
+  │    ├─ Try peers (peerTransport.ts) — only here, never as a ranking tweak
   │    ├─ Try fallback chain (modelRouter.getFallbackChain())
   │    ├─ Try auto-provider fallback (no explicit chain)
   │    └─ Return 429 with Retry-After header
+  │
+  ├─ On completion (borrowed traffic only):
+  │    settle the coin hold from real usage, record the window delta against
+  │    the grant, and strip x-neurolink-account* and pool counters from the
+  │    response headers
   │
   ▼
 Claude Code receives Response
@@ -448,6 +477,23 @@ Supporting modules:
   ├── accountQuota.ts      ─ Parse unified-5h/7d quota headers, debounced persistence
   ├── proxyConfig.ts       ─ YAML/JSON config loader with env var interpolation
   └── tokenStore.ts        ─ Multi-provider token persistence (~/.neurolink/tokens.json)
+
+Peer sharing (see /docs/features/proxy-peer-sharing):
+  ├── shareGate.ts         ─ Inbound gate; refusal contract (x-neurolink-grant-*)
+  ├── shareGrants.ts       ─ Grant store, token minting/hashing, hot reload on mtime
+  ├── sharePolicy.ts       ─ Pure admission evaluation; account scoping and slicing
+  ├── shareLedger.ts       ─ NeuroCoins (hold → settle) and per-window buckets
+  ├── shareContext.ts      ─ AsyncLocalStorage grant scope + rate/concurrency counters
+  ├── shareLease.ts        ─ HMAC-signed leases for complete mode
+  ├── shareProvisioning.ts ─ Split-PKCE challenge/code exchange (lender side)
+  ├── shareAudit.ts        ─ Usage-drift reconciliation and auto-pause
+  ├── shareSigning.ts      ─ The one HMAC: canonicalise, sign, constant-time verify
+  ├── shareReceipts.ts     ─ Signed settlement statements and reciprocal netting
+  ├── shareNotes.ts        ─ Transferable coin notes and their spent-set
+  ├── shareListener.ts     ─ The gate-only second listener and its supervisor
+  ├── residentGrants.ts    ─ Borrower side of a complete share; heartbeats
+  ├── peerStore.ts         ─ Borrower's peer list, priorities, per-reason cooldowns
+  └── peerTransport.ts     ─ Raw Anthropic passthrough forward to a lender
 ```
 
 ---
@@ -470,3 +516,12 @@ Supporting modules:
 | `src/cli/commands/auth.ts`                   | ~1991   | CLI commands: `auth login`, `auth list`, `auth remove`, `auth logout`, `auth status`, `auth refresh`, `auth cleanup`, `auth enable` |
 | `src/lib/auth/tokenStore.ts`                 | ~varies | Multi-provider token persistence with XOR obfuscation                                                                               |
 | `src/lib/auth/anthropicOAuth.ts`             | ~varies | OAuth 2.0 PKCE flow, constants (USER_AGENT, MCP_TOOL_PREFIX)                                                                        |
+| `src/lib/proxy/shareGate.ts`                 | ~varies | Inbound peer-sharing gate and the `x-neurolink-grant-*` refusal contract                                                            |
+| `src/lib/proxy/sharePolicy.ts`               | ~varies | Pure admission evaluation: reserve floor, slice ceilings, spillover, scope                                                          |
+| `src/lib/proxy/shareLedger.ts`               | ~varies | NeuroCoin hold/settle and per-window consumption buckets                                                                            |
+| `src/lib/proxy/shareLease.ts`                | ~varies | HMAC-signed leases; the offline-grace contract for complete shares                                                                  |
+| `src/lib/proxy/shareProvisioning.ts`         | ~varies | Split-PKCE provisioning: challenge in, single-use code out                                                                          |
+| `src/lib/proxy/peerTransport.ts`             | ~varies | Forwarding a borrowed request to a lender and reading its refusal                                                                   |
+| `src/lib/proxy/shareReceipts.ts`             | ~varies | Signed settlement statements, and the reciprocal netting built on them                                                              |
+| `src/lib/proxy/shareNotes.ts`                | ~varies | Transferable coin notes: issue, inspect, redeem-once                                                                                |
+| `src/lib/proxy/shareListener.ts`             | ~varies | The gate-only listener that follows the grant file                                                                                  |

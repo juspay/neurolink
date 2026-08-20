@@ -8,7 +8,7 @@
 
 > **GcpAuthMethodStatus** = `object`
 
-Defined in: [types/cli.ts:1628](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1628)
+Defined in: [types/cli.ts:1632](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1632)
 
 Status of each GCP auth method tried by setup-gcp.
 
@@ -18,7 +18,7 @@ Status of each GCP auth method tried by setup-gcp.
 
 > **method1**: `object`
 
-Defined in: [types/cli.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1629)
+Defined in: [types/cli.ts:1633](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1633)
 
 #### complete
 
@@ -38,7 +38,7 @@ Defined in: [types/cli.ts:1629](https://github.com/juspay/neurolink/blob/release
 
 > **method2**: `object`
 
-Defined in: [types/cli.ts:1634](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1634)
+Defined in: [types/cli.ts:1638](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1638)
 
 #### complete
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1634](https://github.com/juspay/neurolink/blob/release
 
 > **method3**: `object`
 
-Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1639)
+Defined in: [types/cli.ts:1643](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1643)
 
 #### complete
 
@@ -82,7 +82,7 @@ Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/release
 
 > **common**: `object`
 
-Defined in: [types/cli.ts:1645](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1645)
+Defined in: [types/cli.ts:1649](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1649)
 
 #### hasProject
 

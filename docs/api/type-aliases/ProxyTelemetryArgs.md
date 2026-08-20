@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryArgs** = `object`
 
-Defined in: [types/cli.ts:971](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L971)
+Defined in: [types/cli.ts:973](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L973)
 
 Arguments accepted by `neurolink proxy telemetry <subcommand>`
 
@@ -18,7 +18,7 @@ Arguments accepted by `neurolink proxy telemetry <subcommand>`
 
 > `optional` **action?**: `"setup"` \| `"start"` \| `"stop"` \| `"status"` \| `"logs"` \| `"import-dashboard"`
 
-Defined in: [types/cli.ts:972](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L972)
+Defined in: [types/cli.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L974)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:972](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:973](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L973)
+Defined in: [types/cli.ts:975](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L975)

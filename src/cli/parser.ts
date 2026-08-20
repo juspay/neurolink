@@ -31,6 +31,9 @@ import {
   proxyUninstallCommand,
 } from "./commands/proxy.js";
 import { proxyAnalyzeCommand } from "./commands/proxyAnalyze.js";
+import { proxyShareCommand } from "./commands/proxyShare.js";
+import { proxyPeerCommand } from "./commands/proxyPeer.js";
+import { proxyExposeCommand } from "./commands/proxyExpose.js";
 import { proxyReplayCommand } from "./commands/proxyReplay.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
 import { TaskCommandFactory } from "./commands/task.js";
@@ -271,6 +274,9 @@ export function initializeCliParser() {
           yargs
             .command(proxyStartCommand)
             .command(proxyStatusCommand)
+            .command(proxyShareCommand)
+            .command(proxyPeerCommand)
+            .command(proxyExposeCommand)
             .command(proxyAnalyzeCommand)
             .command(proxyReplayCommand)
             .command(proxyTelemetryCommand)
@@ -280,7 +286,7 @@ export function initializeCliParser() {
             .command(proxyUninstallCommand)
             .demandCommand(
               1,
-              "Please specify a proxy subcommand: start, status, analyze, replay <export|compare>, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
+              "Please specify a proxy subcommand: start, status, share <create|provision|url|list|status|pause|resume|revoke|topup|set|link|rotate|level|note|notes|receipts|delete>, peer <add|request|sync|receipts|net|redeem|list|status|test|remove|pause|resume|set>, expose, analyze, replay <export|compare>, telemetry <setup|start|stop|status|logs|import-dashboard>, setup, guard, install, or uninstall",
             ),
         handler: () => {},
       })
