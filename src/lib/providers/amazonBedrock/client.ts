@@ -20,6 +20,7 @@ import type { AIProviderName } from "../../constants/enums.js";
 import { createAnalytics } from "../../core/analytics.js";
 import { BaseProvider } from "../../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../../core/constants.js";
+import { withInferenceProfileFallback } from "./inferenceProfile.js";
 import type { NeuroLink } from "../../neurolink.js";
 import type {
   JsonValue,
@@ -557,9 +558,6 @@ export class AmazonBedrockProvider extends BaseProvider {
             `[AmazonBedrockProvider] Calling Bedrock with ${this.conversationHistory.length} messages and ${toolConfig?.tools?.length || 0} tools`,
           );
 
-          // Create command and attempt API call
-          const command = new ConverseCommand(commandInput);
-
           logger.debug("[Observability] Bedrock API request", {
             model: commandInput.modelId,
             region: region,
@@ -569,10 +567,24 @@ export class AmazonBedrockProvider extends BaseProvider {
           });
 
           const apiCallStartTime = Date.now();
-          const response = await withTimeout(
-            this.bedrockClient.send(command),
-            120_000,
-            new Error("Bedrock API call timed out"),
+          const response = await withInferenceProfileFallback(
+            commandInput.modelId ?? "",
+            // `this.region`, not the local `region` above: that one is
+            // best-effort for logging and stays "unknown" if the lookup
+            // throws. It must also match the id the streaming path keys its
+            // cache by, or a resolution found here is never reused there.
+            this.region,
+            (effectiveModelId) =>
+              withTimeout(
+                this.bedrockClient.send(
+                  new ConverseCommand({
+                    ...commandInput,
+                    modelId: effectiveModelId,
+                  }),
+                ),
+                120_000,
+                new Error("Bedrock API call timed out"),
+              ),
           );
           const apiCallDuration = Date.now() - apiCallStartTime;
 
@@ -1473,7 +1485,6 @@ export class AmazonBedrockProvider extends BaseProvider {
         "[TRACE] streamingConversationLoop - testing first streaming call",
       );
       const commandInput = await this.prepareStreamCommand(options);
-      const command = new ConverseStreamCommand(commandInput);
 
       logger.debug("[Observability] Bedrock streaming API request", {
         model: commandInput.modelId,
@@ -1487,10 +1498,20 @@ export class AmazonBedrockProvider extends BaseProvider {
       });
 
       const streamStartTime = Date.now();
-      const response = await withTimeout(
-        this.bedrockClient.send(command),
-        120_000,
-        new Error("Bedrock streaming API call timed out"),
+      const response = await withInferenceProfileFallback(
+        commandInput.modelId ?? "",
+        this.region,
+        (effectiveModelId) =>
+          withTimeout(
+            this.bedrockClient.send(
+              new ConverseStreamCommand({
+                ...commandInput,
+                modelId: effectiveModelId,
+              }),
+            ),
+            120_000,
+            new Error("Bedrock streaming API call timed out"),
+          ),
       );
 
       logger.debug(

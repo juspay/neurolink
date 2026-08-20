@@ -113,6 +113,9 @@ jobs:
       - name: Error classifier contract tests (TimeoutError classification per provider, no API keys required)
         run: pnpm run test:error-classifier-contract
 
+      - name: Bedrock inference-profile fallback (local HTTP/2 stand-in, no API keys required)
+        run: pnpm run test:bedrock-inference-profile
+
       - name: 🧩 Provider Onboarding Completeness
         run: pnpm run verify:provider-onboarding
 
