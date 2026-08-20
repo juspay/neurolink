@@ -1,12 +1,11 @@
-import type { ZodType } from "zod";
 import type { AIProviderName } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
+import { createStreamChannel } from "../core/streamChannel.js";
 import type { NeuroLink } from "../neurolink.js";
 import type {
   SageMakerConfig,
   SageMakerModelConfig,
   StreamOptions,
-  StreamResult,
   SageMakerAsLanguageModel,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
@@ -21,7 +20,7 @@ import {
 } from "./sagemaker/config.js";
 import { handleSageMakerError, SageMakerError } from "./sagemaker/errors.js";
 import { SageMakerLanguageModel } from "./sagemaker/language-model.js";
-import type { LanguageModel, Schema } from "../types/index.js";
+import type { LanguageModel } from "../types/index.js";
 
 /**
  * Amazon SageMaker Provider extending BaseProvider
@@ -51,7 +50,25 @@ export class AmazonSageMakerProvider extends BaseProvider {
 
     try {
       // Load and validate configuration, then overlay per-request credentials
-      const baseConfig = getSageMakerConfig(credentials?.region ?? region);
+      // Credentials are passed in rather than overlaid afterwards, so they
+      // are present when the config is validated.
+      const baseConfig = getSageMakerConfig(credentials?.region ?? region, {
+        ...(credentials?.region !== undefined && {
+          region: credentials.region,
+        }),
+        ...(credentials?.accessKeyId !== undefined && {
+          accessKeyId: credentials.accessKeyId,
+        }),
+        ...(credentials?.secretAccessKey !== undefined && {
+          secretAccessKey: credentials.secretAccessKey,
+        }),
+        ...(credentials?.sessionToken !== undefined && {
+          sessionToken: credentials.sessionToken,
+        }),
+        ...(credentials?.endpoint !== undefined && {
+          endpoint: credentials.endpoint,
+        }),
+      });
       this.sagemakerConfig = {
         ...baseConfig,
         ...(credentials?.region !== undefined && {
@@ -117,10 +134,25 @@ export class AmazonSageMakerProvider extends BaseProvider {
     return smModel as LanguageModel;
   }
 
-  protected async executeStream(
-    _options: StreamOptions,
-    _analysisSchema?: ZodType | Schema<unknown>,
-  ): Promise<StreamResult> {
+  /**
+   * Streaming was previously an `executeStream` override that unconditionally
+   * threw "not yet fully implemented" — while `SageMakerLanguageModel.doStream`
+   * sat one property access away, complete and working, with its own fallback
+   * to a synthetic stream when the endpoint does not support true streaming.
+   *
+   * This adapts that AI-SDK-shaped result to `BaseProvider`'s `doStream` hook,
+   * and the inherited default supplies `executeStream`. The two shapes differ:
+   * the language model emits typed parts (`text-delta`, `finish`) on a
+   * `ReadableStream`, while the hook wants text chunks plus promises for how
+   * the turn ended. Those promises are resolved from the `finish` part by a
+   * detached pump, so they settle whether or not the caller reads a chunk.
+   */
+  protected async doStream(options: StreamOptions): Promise<{
+    stream: AsyncIterable<{ content: string }>;
+    finishReason: Promise<string>;
+    usage: Promise<{ inputTokens: number; outputTokens: number }>;
+    warnings?: string[];
+  }> {
     return withSpan(
       {
         name: "neurolink.provider.sagemaker.stream",
@@ -130,20 +162,103 @@ export class AmazonSageMakerProvider extends BaseProvider {
           "model.name": this.modelName,
           "sagemaker.endpoint": this.modelConfig.endpointName,
           "sagemaker.region": this.sagemakerConfig.region,
-          "sagemaker.not_implemented": true,
         },
       },
       async () => {
         try {
-          // For now, throw an error indicating this is not yet implemented
-          throw new SageMakerError(
-            "SageMaker streaming not yet fully implemented. Coming in next phase.",
-            {
-              code: "MODEL_ERROR",
-              statusCode: 501,
-              endpoint: this.modelConfig.endpointName,
-            },
-          );
+          const messages = await this.buildMessagesForStream(options);
+          const result = await this.sagemakerModel.doStream({
+            prompt: messages,
+            maxTokens: options.maxTokens,
+            temperature: options.temperature,
+          });
+
+          // Settled from the `finish` part below. A turn that ends without one
+          // — a truncated or errored stream — still settles, so a caller
+          // awaiting either promise cannot hang.
+          let settleFinishReason!: (reason: string) => void;
+          let settleUsage!: (usage: {
+            inputTokens: number;
+            outputTokens: number;
+          }) => void;
+          const finishReason = new Promise<string>((resolve) => {
+            settleFinishReason = resolve;
+          });
+          const usage = new Promise<{
+            inputTokens: number;
+            outputTokens: number;
+          }>((resolve) => {
+            settleUsage = resolve;
+          });
+
+          // The source is drained by a detached pump rather than lazily by the
+          // consumer. Resolving `finishReason`/`usage` from inside a generator
+          // ties them to somebody iterating it, and the inherited
+          // `executeStream` chains analytics off exactly those promises — so a
+          // caller that awaits `result.analytics` without consuming the stream
+          // would wait forever. Pumping here means the turn completes, and
+          // both promises settle, whether or not anyone reads a chunk.
+          const channel = createStreamChannel<{ content: string }>();
+          void (async () => {
+            const reader = result.stream.getReader();
+            let sawFinish = false;
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) {
+                  break;
+                }
+                const part = value as {
+                  type?: string;
+                  textDelta?: string;
+                  finishReason?: string;
+                  usage?: {
+                    inputTokens?: number;
+                    outputTokens?: number;
+                    promptTokens?: number;
+                    completionTokens?: number;
+                  };
+                };
+                if (part.type === "text-delta" && part.textDelta) {
+                  channel.push({ content: part.textDelta });
+                  continue;
+                }
+                if (part.type === "finish") {
+                  sawFinish = true;
+                  settleFinishReason(part.finishReason ?? "stop");
+                  settleUsage({
+                    inputTokens:
+                      part.usage?.inputTokens ?? part.usage?.promptTokens ?? 0,
+                    outputTokens:
+                      part.usage?.outputTokens ??
+                      part.usage?.completionTokens ??
+                      0,
+                  });
+                }
+              }
+              channel.close();
+            } catch (error) {
+              channel.error(error);
+            } finally {
+              reader.releaseLock();
+              // A stream that ended without a finish part — truncated or
+              // errored — must still settle both promises, or the same hang
+              // returns by a different route.
+              if (!sawFinish) {
+                settleFinishReason("unknown");
+                settleUsage({ inputTokens: 0, outputTokens: 0 });
+              }
+            }
+          })();
+
+          return {
+            stream: channel.iterable,
+            finishReason,
+            usage,
+            warnings: (result.warnings ?? []).map(
+              (warning) => warning.message ?? String(warning),
+            ),
+          };
         } catch (error) {
           throw this.handleProviderError(error);
         }

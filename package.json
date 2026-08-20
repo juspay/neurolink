@@ -212,7 +212,8 @@
     "test:vector-chroma": "npx tsx test/continuous-test-suite-vector-chroma.ts",
     "test:vector-pgvector": "npx tsx test/continuous-test-suite-vector-pgvector.ts",
     "test:vector-pinecone": "npx tsx test/continuous-test-suite-vector-pinecone.ts",
-    "test:bedrock-loop-characterization": "tsx test/continuous-test-suite-bedrock-loop-characterization.ts"
+    "test:bedrock-loop-characterization": "tsx test/continuous-test-suite-bedrock-loop-characterization.ts",
+    "test:sagemaker-streaming": "tsx test/continuous-test-suite-sagemaker-streaming.ts"
   },
   "files": [
     "dist",
