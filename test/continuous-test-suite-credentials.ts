@@ -35,8 +35,8 @@ import type {
   GenerateOptions,
   StreamOptions,
 } from "../dist/index.js";
-import { ProviderFactory } from "../dist/lib/factories/providerFactory.js";
-import { ProviderRegistry } from "../dist/lib/factories/providerRegistry.js";
+import { ProviderFactory } from "../dist/factories/providerFactory.js";
+import { ProviderRegistry } from "../dist/factories/providerRegistry.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 

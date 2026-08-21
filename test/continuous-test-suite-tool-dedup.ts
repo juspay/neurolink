@@ -578,7 +578,7 @@ async function buildToolSeam(
   neurolinkInstance: InstanceType<typeof NeuroLink>,
 ): Promise<(opts: Record<string, unknown>) => Promise<Record<string, Tool>>> {
   const { BaseProvider } =
-    (await import("../dist/lib/core/baseProvider.js")) as unknown as {
+    (await import("../dist/core/baseProvider.js")) as unknown as {
       BaseProvider: new (
         modelName: string,
         providerName: string,

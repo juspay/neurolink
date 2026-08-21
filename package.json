@@ -31,7 +31,7 @@
     "build": "vite build && pnpm run prepack",
     "build:browser": "node scripts/build-browser.mjs",
     "build:browser:dev": "node scripts/build-browser.mjs --dev",
-    "build:cli": "echo 'Building CLI...' && svelte-kit sync && tsc --project tsconfig.cli.json",
+    "build:cli": "echo 'Building CLI...' && svelte-kit sync && tsc --project tsconfig.cli.json && node scripts/collapse-cli-lib-duplicate.mjs",
     "build:cli:bundle": "node scripts/bundle-cli.mjs",
     "build:cli:bundle:minify": "node scripts/bundle-cli.mjs --minify",
     "build:action": "ncc build src/action/index.ts -o action-dist --source-map",

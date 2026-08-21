@@ -3561,7 +3561,7 @@ async function testPromptBuilderFiltersPollutedTurns(): Promise<
     await memorySdk.setSessionMessages(sessionId, polluted, userId);
 
     const utilModule =
-      (await import("../dist/lib/utils/conversationMemory.js")) as {
+      (await import("../dist/utils/conversationMemory.js")) as {
         getConversationMessages: (
           memory: unknown,
           options: unknown,
@@ -3783,7 +3783,7 @@ async function testFilterPreservesToolBearingTurns(): Promise<boolean | null> {
     await memorySdk.setSessionMessages(sessionId, polluted, userId);
 
     const utilModule =
-      (await import("../dist/lib/utils/conversationMemory.js")) as {
+      (await import("../dist/utils/conversationMemory.js")) as {
         getConversationMessages: (
           memory: unknown,
           options: unknown,

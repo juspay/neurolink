@@ -1881,9 +1881,9 @@ async function runVertexSection(): Promise<void> {
 
   try {
     const { GoogleVertexProvider } =
-      await import("../dist/lib/providers/googleVertex/client.js");
+      await import("../dist/providers/googleVertex/client.js");
     const { AuthenticationError, RateLimitError } =
-      await import("../dist/lib/types/index.js");
+      await import("../dist/types/index.js");
 
     const provider = new GoogleVertexProvider(
       "gemini-2.5-flash",
@@ -1949,9 +1949,9 @@ async function runBedrockSection(): Promise<void> {
 
   try {
     const { AmazonBedrockProvider } =
-      await import("../dist/lib/providers/amazonBedrock/client.js");
+      await import("../dist/providers/amazonBedrock/client.js");
     const { AuthenticationError, RateLimitError } =
-      await import("../dist/lib/types/index.js");
+      await import("../dist/types/index.js");
 
     const provider = new AmazonBedrockProvider(
       "anthropic.claude-3-5-sonnet-20241022-v2:0",

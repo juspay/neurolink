@@ -77,14 +77,14 @@ import { NeuroLink } from "../dist/index.js";
 
 import { Hono } from "hono";
 
-import { CustomAuthProvider } from "../dist/lib/auth/index.js";
+import { CustomAuthProvider } from "../dist/auth/index.js";
 
-import { ServerAuthorizationError } from "../dist/lib/server/index.js";
+import { ServerAuthorizationError } from "../dist/server/index.js";
 
 import {
   createBearerAuthMiddleware,
   createRoleAuthMiddleware,
-} from "../dist/lib/server/middleware/auth.js";
+} from "../dist/server/middleware/auth.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 

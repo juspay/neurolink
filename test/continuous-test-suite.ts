@@ -3150,7 +3150,7 @@ async function testSDKMimetypeHintExtensionlessBuffer(): Promise<
   // tiers in one test invocation.
   try {
     const { FileDetector } = await import(
-      `${process.cwd()}/dist/lib/utils/fileDetector.js`
+      `${process.cwd()}/dist/utils/fileDetector.js`
     );
     const tinyJson = Buffer.from('{"ok":true}', "utf-8");
     const det = await FileDetector.detectAndProcess(tinyJson, {
@@ -4152,7 +4152,7 @@ async function testModelAliasWarn(): Promise<boolean | null> {
 async function testAccountPoolRuntime(): Promise<boolean | null> {
   logSection("Testing AccountPool Runtime");
   try {
-    const { AccountPool } = await import("../dist/lib/auth/accountPool.js");
+    const { AccountPool } = await import("../dist/auth/accountPool.js");
 
     const pool = new AccountPool({ strategy: "round-robin" });
     pool.addAccount({
@@ -4231,7 +4231,7 @@ async function testAccountPoolRuntime(): Promise<boolean | null> {
 async function testModelRouterRuntime(): Promise<boolean | null> {
   logSection("Testing ModelRouter Runtime");
   try {
-    const { ModelRouter } = await import("../dist/lib/proxy/modelRouter.js");
+    const { ModelRouter } = await import("../dist/proxy/modelRouter.js");
     const router = new ModelRouter({
       strategy: "round-robin",
       modelMappings: [
@@ -4294,7 +4294,7 @@ async function testClaudeFormatRuntime(): Promise<boolean | null> {
   logSection("Testing ClaudeFormat Runtime");
   try {
     const { parseClaudeRequest, serializeClaudeResponse, buildClaudeError } =
-      await import("../dist/lib/proxy/claudeFormat.js");
+      await import("../dist/proxy/claudeFormat.js");
 
     // Parse request
     const parsed = parseClaudeRequest({
@@ -4366,7 +4366,7 @@ async function testSSESerializerRuntime(): Promise<boolean | null> {
   logSection("Testing SSE Serializer Runtime");
   try {
     const { ClaudeStreamSerializer } =
-      await import("../dist/lib/proxy/claudeFormat.js");
+      await import("../dist/proxy/claudeFormat.js");
     const sse = new ClaudeStreamSerializer("claude-sonnet-4", 100);
 
     const events: string[] = [];
@@ -4450,15 +4450,15 @@ async function testCloakingRuntime(): Promise<boolean | null> {
   logSection("Testing Cloaking Pipeline Runtime");
   try {
     const { CloakingPipeline } =
-      await import("../dist/lib/proxy/cloaking/index.js");
+      await import("../dist/proxy/cloaking/index.js");
     const { parseClaudeCodeUserId } =
-      await import("../dist/lib/auth/anthropicOAuth.js");
+      await import("../dist/auth/anthropicOAuth.js");
     const { createHeaderScrubber } =
-      await import("../dist/lib/proxy/cloaking/plugins/headerScrubber.js");
+      await import("../dist/proxy/cloaking/plugins/headerScrubber.js");
     const { createSessionIdentity } =
-      await import("../dist/lib/proxy/cloaking/plugins/sessionIdentity.js");
+      await import("../dist/proxy/cloaking/plugins/sessionIdentity.js");
     const { createWordObfuscator } =
-      await import("../dist/lib/proxy/cloaking/plugins/wordObfuscator.js");
+      await import("../dist/proxy/cloaking/plugins/wordObfuscator.js");
 
     const pipeline = new CloakingPipeline();
     pipeline.use(createHeaderScrubber());
@@ -4574,7 +4574,7 @@ async function testProxyConfigRuntime(): Promise<boolean | null> {
   logSection("Testing ProxyConfig Runtime");
   try {
     const { parseProxyConfigString } =
-      await import("../dist/lib/proxy/proxyConfig.js");
+      await import("../dist/proxy/proxyConfig.js");
 
     const config = await parseProxyConfigString(
       JSON.stringify({
