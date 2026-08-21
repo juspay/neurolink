@@ -27,8 +27,16 @@
  * because `detect()`/`apply()`/`restore()` resolve paths from HOME, and the
  * behaviours worth pinning — refusing to write for an absent CLI, refusing to
  * restore without a snapshot — are precisely the ones a live `proxy start`
- * never exercises.
-
+ * never exercises. `Analyze: exact rates…` is the exception: it drives the
+ * built CLI end to end.
+ *
+ * The `Ledger:` cases and `Accounts: route joins…` take the same exception for
+ * the same reason. The ledger's whole job is what happens to malformed input —
+ * a half-written line, a request logged twice, a token-less record arriving
+ * after a real one — none of which a live proxy can be asked to produce on
+ * demand. `Accounts:` invokes the route handler directly rather than over HTTP
+ * because the assertions are about the shape of the joined payload, not about
+ * transport.
  *
  * Tests the proxy server end-to-end:
  * - Starts the proxy
@@ -2357,24 +2365,6 @@ async function testClaudeRestoreRefusesWithoutSnapshot(): Promise<boolean> {
  * and Vertex's fallback to the Google table. Both are exact hits that were
  * reported to the operator as guessed rates.
  */
-// ============================================================================
-// Tests: GET /accounts and the per-account usage ledger
-// ============================================================================
-
-/**
- * A request can be logged twice — once on response headers, once when a
- * streamed body finishes and its token counts arrive. Summing raw lines would
- * double count it.
- */
-/**
- * A later record for the same requestId can carry NO token fields — a terminal
- * error logged after a successful response, for instance. A naive spread merge
- * lets its zeros overwrite real usage, silently erasing the request's tokens.
- */
-/**
- * The request log is shared with the Codex engine, and an operator can use the
- * same email for both. Codex tokens must not land on the Anthropic row.
- */
 /**
  * A streamed request is logged twice: once when the response headers are known
  * and again when the body finishes and its token counts arrive. The Codex
@@ -2625,6 +2615,473 @@ async function testAnalyzePricingProvenance(): Promise<boolean> {
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+// ============================================================================
+// Tests: GET /accounts and the per-account usage ledger
+// ============================================================================
+
+/** Write a request-log fixture into an isolated HOME and read it back. */
+async function withLedgerHome<T>(
+  rows: Record<string, unknown>[],
+  date: string,
+  fn: (home: string) => Promise<T>,
+): Promise<T> {
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-ledger-"));
+  fs.mkdirSync(path.join(root, ".neurolink", "logs"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, ".neurolink", "logs", `proxy-${date}.jsonl`),
+    rows.map((r) => JSON.stringify(r)).join("\n") + "\n",
+  );
+  process.env.HOME = root;
+  try {
+    return await fn(root);
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const LEDGER_DATE = "2026-01-15";
+
+function ledgerRow(over: Record<string, unknown>): Record<string, unknown> {
+  return {
+    timestamp: `${LEDGER_DATE}T00:00:00.000Z`,
+    method: "POST",
+    path: "/v1/messages",
+    stream: false,
+    toolCount: 0,
+    accountType: "oauth",
+    responseStatus: 200,
+    responseTimeMs: 100,
+    model: "claude-sonnet-5",
+    inputTokens: 1000,
+    outputTokens: 100,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
+    ...over,
+  };
+}
+
+/**
+ * A request can be logged twice — once on response headers, once when a
+ * streamed body finishes and its token counts arrive. Summing raw lines would
+ * double count it.
+ */
+async function testLedgerDedupesRepeatedRequestId(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  return await withLedgerHome(
+    [
+      ledgerRow({
+        requestId: "r1",
+        account: "a@t",
+        inputTokens: 0,
+        outputTokens: 0,
+      }),
+      ledgerRow({
+        requestId: "r1",
+        account: "a@t",
+        inputTokens: 1000,
+        outputTokens: 100,
+      }),
+    ],
+    LEDGER_DATE,
+    async () => {
+      resetAccountLedgerCache();
+      const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      if (!row) {
+        log("ledger did not report the account at all", "red");
+        return false;
+      }
+      if (row.requests !== 1) {
+        log("ledger counted a re-logged request twice", "red");
+        return false;
+      }
+      if (row.inputTokens !== 1000 || row.outputTokens !== 100) {
+        log(
+          "ledger summed both records instead of taking the later one",
+          "red",
+        );
+        return false;
+      }
+      return true;
+    },
+  );
+}
+
+/**
+ * A later record for the same requestId can carry NO token fields — a terminal
+ * error logged after a successful response, for instance. A naive spread merge
+ * lets its zeros overwrite real usage, silently erasing the request's tokens.
+ */
+async function testLedgerKeepsMaxTokensAcrossRecords(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  return await withLedgerHome(
+    [
+      ledgerRow({ requestId: "r1", account: "a@t" }),
+      // No token fields at all on the second record.
+      {
+        timestamp: `${LEDGER_DATE}T00:00:01.000Z`,
+        requestId: "r1",
+        account: "a@t",
+        accountType: "oauth",
+        model: "claude-sonnet-5",
+        errorType: "stream_error",
+      },
+    ],
+    LEDGER_DATE,
+    async () => {
+      resetAccountLedgerCache();
+      const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      if (!row) {
+        log("ledger dropped the account", "red");
+        return false;
+      }
+      if (row.inputTokens !== 1000 || row.outputTokens !== 100) {
+        log("a token-less later record erased the recorded usage", "red");
+        return false;
+      }
+      return true;
+    },
+  );
+}
+
+/**
+ * The request log is shared with the Codex engine, and an operator can use the
+ * same email for both. Codex tokens must not land on the Anthropic row.
+ */
+async function testLedgerExcludesCodexRows(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  return await withLedgerHome(
+    [
+      ledgerRow({ requestId: "r1", account: "same@t" }),
+      ledgerRow({
+        requestId: "r2",
+        account: "same@t",
+        accountType: "codex-oauth",
+        model: "gpt-5.6-sol",
+        inputTokens: 999999,
+        outputTokens: 999999,
+      }),
+    ],
+    LEDGER_DATE,
+    async () => {
+      resetAccountLedgerCache();
+      const row = (await readAccountUsage(LEDGER_DATE)).get("same@t");
+      if (!row) {
+        log("ledger dropped the Anthropic row entirely", "red");
+        return false;
+      }
+      if (row.requests !== 1 || row.inputTokens !== 1000) {
+        log("Codex usage was attributed to the Anthropic account", "red");
+        return false;
+      }
+      return true;
+    },
+  );
+}
+
+/** Cost must be real, and an unknown model must be named rather than silently zeroed. */
+async function testLedgerCostsAndFlagsUnpriced(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  return await withLedgerHome(
+    [
+      ledgerRow({ requestId: "r1", account: "a@t" }),
+      ledgerRow({
+        requestId: "r2",
+        account: "a@t",
+        model: "claude-imaginary-99",
+        inputTokens: 500,
+        outputTokens: 50,
+      }),
+    ],
+    LEDGER_DATE,
+    async () => {
+      resetAccountLedgerCache();
+      const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      if (!row) {
+        log("ledger did not report the account", "red");
+        return false;
+      }
+      // claude-sonnet-5: 1000 in @ $2/M + 100 out @ $10/M = 0.002 + 0.001
+      if (Math.abs(row.costUsd - 0.003) > 1e-9) {
+        log("ledger cost does not match the published rate", "red");
+        return false;
+      }
+      if (row.unpricedRequests !== 1) {
+        log("ledger did not count the unpriced request", "red");
+        return false;
+      }
+      if (row.unpricedModels.join(",") !== "claude-imaginary-99") {
+        log("ledger did not name the unpriced model", "red");
+        return false;
+      }
+      return true;
+    },
+  );
+}
+
+/** A line still being appended must not be parsed truncated. */
+async function testLedgerIgnoresPartialTrailingLine(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  return await withLedgerHome(
+    [ledgerRow({ requestId: "r1", account: "a@t" })],
+    LEDGER_DATE,
+    async (home) => {
+      const file = path.join(
+        home,
+        ".neurolink",
+        "logs",
+        `proxy-${LEDGER_DATE}.jsonl`,
+      );
+      fs.appendFileSync(file, '{"requestId":"r2","account":"a@t","inputTo');
+      resetAccountLedgerCache();
+      const first = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      if (!first || first.requests !== 1) {
+        log("ledger consumed a partial trailing line", "red");
+        return false;
+      }
+      // Completing the line must then be picked up whole.
+      fs.appendFileSync(
+        file,
+        'kens":1000,"outputTokens":100,"accountType":"oauth","model":"claude-sonnet-5"}\n',
+      );
+      const second = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      if (!second || second.requests !== 2) {
+        log(
+          "ledger did not pick up the completed line on the next read",
+          "red",
+        );
+        return false;
+      }
+      return true;
+    },
+  );
+}
+
+/**
+ * Two genuinely distinct requests can share a requestId.
+ *
+ * `ctx.requestId` comes straight from a client-supplied `X-Request-ID` header
+ * when one is present, and nothing enforces uniqueness — a fixed correlation
+ * header, an idempotency wrapper or a load-test harness will reuse one for
+ * every call. The ledger dedupes by requestId to collapse the Codex double
+ * write, so without a way to tell a re-log from a repeat, N real requests
+ * against the same account and model collapsed into one and reported a
+ * fraction of the tokens and cost actually spent.
+ */
+async function testLedgerSeparatesDistinctRequestsSharingAnId(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  const rows = Array.from({ length: 5 }, () =>
+    ledgerRow({ requestId: "fixed-id-123", account: "a@t" }),
+  );
+  return await withLedgerHome(rows, LEDGER_DATE, async () => {
+    resetAccountLedgerCache();
+    const totals = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+    if (!totals) {
+      log("ledger reported nothing for an account with traffic", "red");
+      return false;
+    }
+    if (totals.requests !== 5) {
+      log(
+        "ledger collapsed distinct requests that shared a client-supplied id",
+        "red",
+      );
+      return false;
+    }
+    if (totals.inputTokens !== 5000 || totals.outputTokens !== 500) {
+      log("ledger undercounted tokens across a shared request id", "red");
+      return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Every row must carry a `kind` that says what it really is.
+ *
+ * The row set is built from two loops: real logins from the quota snapshot,
+ * then whatever is left in the usage stats. The second loop tagged everything
+ * that was not a translation pseudo-account as `internal` — including a real
+ * OAuth account that had been disabled or dropped from the allowlist, which is
+ * exactly the account an operator is looking for when they ask why traffic
+ * stopped. The docs tell consumers to filter `internal` out, so it vanished.
+ *
+ * This also pins the row set to something non-empty. The original shape test
+ * looped over `body.accounts` to assert its invariants and never seeded an
+ * account, so with an empty array both loops ran zero times and it passed no
+ * matter what the handler did.
+ */
+async function testAccountsRowsAreClassifiedByKind(): Promise<boolean> {
+  const { createClaudeProxyRoutes } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const stats = await import("../src/lib/proxy/usageStats.js");
+  await stats.resetUsageStatsForTests();
+
+  // A real login that stopped being routable, plus the two pseudo-accounts.
+  stats.recordAttempt("alice@example.com", "oauth");
+  stats.recordFinalSuccess("alice@example.com", "oauth");
+  stats.recordAttempt("proxy/internal", "internal");
+  stats.recordFinalSuccess("proxy/internal", "internal");
+  stats.recordAttempt("gemini-translate", "translation");
+  stats.recordFinalSuccess("gemini-translate", "translation");
+
+  const route = createClaudeProxyRoutes().routes.find((r) =>
+    r.path.endsWith("/accounts"),
+  );
+  if (!route) {
+    log("GET /accounts is not registered", "red");
+    return false;
+  }
+  const body = (await route.handler({
+    query: {},
+    headers: {},
+    method: "GET",
+    path: "/accounts",
+    requestId: "suite",
+  } as never)) as {
+    accounts?: { label?: string; kind?: string; type?: string }[];
+  };
+  const rows = body.accounts ?? [];
+  if (rows.length < 3) {
+    log("accounts did not report the seeded rows", "red");
+    return false;
+  }
+  for (const row of rows) {
+    if (!row.kind) {
+      log("an account row is missing its kind discriminator", "red");
+      return false;
+    }
+  }
+  const byLabel = new Map(rows.map((r) => [r.label, r]));
+  if (byLabel.get("alice@example.com")?.kind !== "account") {
+    log(
+      "a real credential was tagged as internal plumbing and would be filtered out",
+      "red",
+    );
+    return false;
+  }
+  if (byLabel.get("proxy/internal")?.kind !== "internal") {
+    log("an internal pseudo-account was not tagged as internal", "red");
+    return false;
+  }
+  if (byLabel.get("gemini-translate")?.kind !== "translation") {
+    log("a translation pseudo-account was not tagged as translation", "red");
+    return false;
+  }
+  await stats.resetUsageStatsForTests();
+  return true;
+}
+
+/**
+ * Quota windows must reach consumers already normalised.
+ *
+ * Asserted directly rather than through the route: a window only appears on a
+ * row built from a live quota snapshot, which needs a seeded token store, so
+ * the route-level loop over `row.quota.windows` runs zero times in this suite
+ * and can never see a regression here.
+ */
+async function testAccountsQuotaWindowsAreNormalised(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  // resetsAt is Unix seconds on the wire; consumers want milliseconds.
+  const weeklyResetSeconds = Math.floor(Date.UTC(2026, 7, 22, 0, 0, 0) / 1000);
+  const normalised = __testHooks.normalizeQuotaForAccounts({
+    weeklyResetAt: weeklyResetSeconds,
+    windows: [
+      { name: "session", status: "allowed", resetsAt: weeklyResetSeconds },
+      { name: "weekly", status: "rejected", resetsAt: weeklyResetSeconds },
+    ],
+  }) as { weeklyResetAtMs?: number; windows?: Record<string, unknown>[] };
+
+  if (normalised?.weeklyResetAtMs !== weeklyResetSeconds * 1000) {
+    log("a reset timestamp was not normalised to milliseconds", "red");
+    return false;
+  }
+  const windows = normalised.windows ?? [];
+  if (windows.length !== 2) {
+    log("normalisation dropped a quota window", "red");
+    return false;
+  }
+  for (const w of windows) {
+    if (!("severity" in w) || !("isActive" in w) || !("resetsAtMs" in w)) {
+      log("a quota window was not normalised for consumers", "red");
+      return false;
+    }
+  }
+  if (windows[1].severity !== "critical") {
+    log("a rejected window was not raised to critical severity", "red");
+    return false;
+  }
+  return true;
+}
+
+/** The route must join quota, stats and usage, and label the cost basis. */
+async function testAccountsRouteShape(): Promise<boolean> {
+  const { createClaudeProxyRoutes } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const route = createClaudeProxyRoutes().routes.find((r) =>
+    r.path.endsWith("/accounts"),
+  );
+  if (!route || route.method !== "GET") {
+    log(
+      "GET /accounts is not registered on the Claude proxy route group",
+      "red",
+    );
+    return false;
+  }
+  const body = (await route.handler({
+    query: {},
+    headers: {},
+    method: "GET",
+    path: "/accounts",
+    requestId: "suite",
+  } as never)) as {
+    costBasis?: string;
+    quotaFromSnapshot?: boolean;
+    accounts?: { kind?: string; quota?: Record<string, unknown> | null }[];
+  };
+
+  if (body.costBasis !== "api-equivalent") {
+    log(
+      "cost basis is not labelled, so a consumer could read it as a bill",
+      "red",
+    );
+    return false;
+  }
+  if (body.quotaFromSnapshot !== true) {
+    log("a polled route defaulted to a live upstream quota fetch", "red");
+    return false;
+  }
+  if (!Array.isArray(body.accounts)) {
+    log("accounts is not an array", "red");
+    return false;
+  }
+  for (const row of body.accounts) {
+    if (!row.kind) {
+      log("an account row is missing its kind discriminator", "red");
+      return false;
+    }
+    const windows = (row.quota?.windows ?? []) as Record<string, unknown>[];
+    for (const w of windows) {
+      if (!("severity" in w) || !("isActive" in w) || !("resetsAtMs" in w)) {
+        log("a quota window was not normalised for consumers", "red");
+        return false;
+      }
+    }
+  }
+  return true;
 }
 
 // ============================================================================
@@ -4822,6 +5279,51 @@ const tests: TestFunction[] = [
   {
     name: "Analyze: usage survives a completion after the window edge",
     fn: testAnalyzeKeepsUsageAcrossWindowEdge,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: a re-logged request is not double counted",
+    fn: testLedgerDedupesRepeatedRequestId,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: a token-less later record cannot erase usage",
+    fn: testLedgerKeepsMaxTokensAcrossRecords,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: Codex usage never lands on an Anthropic account",
+    fn: testLedgerExcludesCodexRows,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: costs at published rates and names unpriced models",
+    fn: testLedgerCostsAndFlagsUnpriced,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: a partially written line is not consumed",
+    fn: testLedgerIgnoresPartialTrailingLine,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: distinct requests sharing a client id stay separate",
+    fn: testLedgerSeparatesDistinctRequestsSharingAnId,
+    category: "proxy-config",
+  },
+  {
+    name: "Accounts: every row is classified by kind",
+    fn: testAccountsRowsAreClassifiedByKind,
+    category: "proxy-config",
+  },
+  {
+    name: "Accounts: quota windows reach consumers normalised",
+    fn: testAccountsQuotaWindowsAreNormalised,
+    category: "proxy-config",
+  },
+  {
+    name: "Accounts: route joins quota, stats and usage with a labelled basis",
+    fn: testAccountsRouteShape,
     category: "proxy-config",
   },
   {

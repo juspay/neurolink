@@ -99,7 +99,10 @@ import {
   parseRetryAfterMs,
 } from "../../proxy/routingPolicy.js";
 import { normalizeMaxInflightPerAccount } from "../../proxy/modelRouter.js";
-import type { ProxyTranslationPlan } from "../../types/index.js";
+import type {
+  PersistedAccountCooldown,
+  ProxyTranslationPlan,
+} from "../../types/index.js";
 import { writeJsonSnapshotAtomically } from "../../proxy/snapshotPersistence.js";
 import {
   recordAttempt,
@@ -110,6 +113,10 @@ import {
 import type {
   AccountAllowlist,
   AccountAdmissionLease,
+  CliAccountUsageTotals,
+  CliAccountsResponse,
+  CliAccountsRow,
+  JsonObject,
   AccountAdmissionState,
   AccountCooldownPlan,
   AccountCoolingReason,
@@ -8313,6 +8320,65 @@ function buildEarlyClaudeRequestError(args: {
  * @param basePath    - Base path prefix (default: "" since Claude API uses /v1/...).
  * @returns RouteGroup with Claude-compatible endpoints.
  */
+
+/**
+ * Quota timestamps arrive in two units. `sessionResetAt`, `weeklyResetAt` and
+ * each window's `resetsAt` are unix SECONDS; `lastUpdated`, `updatedAt` and
+ * `coolingUntil` are already MILLISECONDS. Blanket-multiplying would push the
+ * millisecond fields tens of thousands of years into the future, so only the
+ * seconds fields are converted, and 0 becomes null rather than epoch zero.
+ */
+/**
+ * Account types that represent a real credential rather than proxy plumbing.
+ * Mirrors the Anthropic pool's own account types.
+ */
+const REAL_ACCOUNT_TYPES = new Set(["oauth", "api_key"]);
+
+function toMillis(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? Math.round(value * 1000)
+    : null;
+}
+
+/**
+ * Normalise one account's quota for a dashboard consumer.
+ *
+ * `severity` and `isActive` are absent on header-sourced windows — a
+ * structural property of how those rows are parsed, not a transient gap — so
+ * every consumer would otherwise need the same fallback branch.
+ */
+function normalizeQuotaForAccounts(quota: unknown): JsonObject | null {
+  if (!quota || typeof quota !== "object") {
+    return null;
+  }
+  const q = { ...(quota as Record<string, unknown>) };
+  q.sessionResetAtMs = toMillis(q.sessionResetAt);
+  q.weeklyResetAtMs = toMillis(q.weeklyResetAt);
+
+  if (Array.isArray(q.windows)) {
+    q.windows = q.windows.map((raw) => {
+      const w = { ...(raw as Record<string, unknown>) };
+      w.resetsAtMs = toMillis(w.resetsAt);
+      w.severity =
+        w.severity ?? (w.status === "rejected" ? "critical" : "normal");
+      w.isActive = w.isActive ?? false;
+      return w;
+    });
+  }
+  return q as JsonObject;
+}
+
+/** "rejected" and "throttled" both mean degraded; unknown strings stay unknown. */
+function quotaHealth(status: unknown): "ok" | "degraded" | "unknown" {
+  if (status === "allowed") {
+    return "ok";
+  }
+  if (status === "rejected" || status === "throttled") {
+    return "degraded";
+  }
+  return "unknown";
+}
+
 export function createClaudeProxyRoutes(
   modelRouter?: ModelRouterInterface,
   basePath: string = "",
@@ -8614,6 +8680,215 @@ export function createClaudeProxyRoutes(
           "Fetch fresh per-account limits from Anthropic (usage API). " +
           "?account=<label> for one account, ?snapshot=true for stored state",
         tags: ["claude-proxy", "limits"],
+      },
+
+      // =====================================================================
+      // GET /accounts -- One dashboard-shaped row per account
+      // =====================================================================
+      // Joins what previously took two calls with incompatible schemas plus a
+      // client-side merge: request counters from the usage snapshot, quota from
+      // the limits snapshot, and today's tokens and cost from the request log.
+      {
+        method: "GET",
+        path: `${basePath}/accounts`,
+        handler: async (ctx: ServerContext) => {
+          const routing = runtimeConfigProvider?.();
+          const effectiveAllowlist =
+            routing?.accountAllowlist ?? accountAllowlist;
+
+          // Cached by default. This endpoint is built to be polled, and a live
+          // refresh spends the user's own OAuth credentials against Anthropic's
+          // usage API — one dashboard on a short interval would hammer it.
+          const live = ctx.query?.refresh === "true";
+
+          // A live refresh reconciles cooldowns from the fetched quota, so it
+          // makes the same overage judgement the request path does and needs
+          // the same operator policy in scope — exactly as /limits sets it.
+          if (live) {
+            setOveragePolicy(routing?.useOverage);
+          }
+
+          // Every other source in this handler degrades to a partial row on
+          // failure; quota must too, or one upstream hiccup 500s a dashboard.
+          let limits: Awaited<ReturnType<typeof refreshAccountLimits>> = {
+            fetchedAt: Date.now(),
+            snapshot: !live,
+            results: [],
+          } as Awaited<ReturnType<typeof refreshAccountLimits>>;
+          let quotaError: string | null = null;
+          try {
+            limits = await refreshAccountLimits({
+              accountAllowlist: effectiveAllowlist,
+              snapshotOnly: !live,
+            });
+          } catch (error) {
+            quotaError = error instanceof Error ? error.message : String(error);
+          }
+
+          const { getUsageSnapshot } =
+            await import("../../proxy/usageStats.js");
+          const statsAccounts = getUsageSnapshot().stats.accounts;
+
+          // `cooling` is the field an operator actually acts on, and one small
+          // file read answers it. `allowed`/`expired` additionally need the
+          // token store, which /status guards behind its own timeouts — this
+          // route reports them as null rather than taking that latency.
+          const now = Date.now();
+          // Typed from the loader, NOT re-asserted into a local shape. The
+          // first version cast this to `{ until?: number }` and read
+          // `.until` — a field PersistedAccountCooldown does not have, so
+          // every row reported cooling: false and the assertion is precisely
+          // what stopped the compiler from saying so.
+          let cooldowns: Record<string, PersistedAccountCooldown> = {};
+          try {
+            cooldowns = await loadAccountCooldowns();
+          } catch {
+            // Non-fatal: every row simply reports cooling: false.
+          }
+          const isCooling = (key: string | null): boolean => {
+            if (!key) {
+              return false;
+            }
+            const until = cooldowns[key]?.coolingUntil;
+            return typeof until === "number" && until > now;
+          };
+
+          let usageByAccount = new Map<string, CliAccountUsageTotals>();
+          let usageError: string | null = null;
+          let usageDate = "";
+          try {
+            const { readAccountUsage, currentUsageDate } =
+              await import("../../proxy/accountLedger.js");
+            usageDate = currentUsageDate();
+            usageByAccount = await readAccountUsage(usageDate);
+          } catch (error) {
+            // Usage is the optional half; quota and status must still render.
+            usageError = error instanceof Error ? error.message : String(error);
+          }
+
+          const statsByLabel = new Map<
+            string,
+            (typeof statsAccounts)[string]
+          >();
+          for (const entry of Object.values(statsAccounts)) {
+            statsByLabel.set(entry.label, entry);
+          }
+
+          const rows: CliAccountsRow[] = [];
+          const claimed = new Set<string>();
+
+          // Real logins drive the row set. Building it from the log instead
+          // would silently drop any account that happened to serve no traffic
+          // today, which is exactly when an operator most wants to see it.
+          for (const result of limits.results) {
+            const label = result.account;
+            claimed.add(label);
+            const stat = statsByLabel.get(label);
+            const quota = normalizeQuotaForAccounts(result.quota);
+            const cooling = isCooling(result.key ?? null);
+            rows.push({
+              label,
+              key: result.key ?? null,
+              kind: "account",
+              type: result.type ?? stat?.type ?? "oauth",
+              // result.status describes how the quota was obtained
+              // ("snapshot"/"fetched"), not the account's health, so it must
+              // not leak into a field consumers read as health.
+              // BOTH quota windows, not just the weekly one. A session
+              // window that is rejected or throttled stops the account
+              // serving right now — this same file gates routing on
+              // `sessionStatus` (see the overage checks above) — so an
+              // account with a healthy weekly window and a degraded session
+              // window would otherwise be reported "active" while being
+              // unable to take work.
+              status: cooling
+                ? "cooling"
+                : quotaHealth(quota?.weeklyStatus) === "degraded" ||
+                    quotaHealth(quota?.sessionStatus) === "degraded"
+                  ? "exhausted"
+                  : "active",
+              cooling,
+              allowed: null,
+              expired: null,
+              isPrimary: false,
+              requests: stat ? stat.successCount + stat.errorCount : null,
+              errors: stat?.errorCount ?? null,
+              rateLimits: stat?.rateLimitCount ?? null,
+              quotaRateLimits: stat?.quotaRateLimitCount ?? null,
+              quota: quota
+                ? ({
+                    ...quota,
+                    sessionHealth: quotaHealth(quota.sessionStatus),
+                    weeklyHealth: quotaHealth(quota.weeklyStatus),
+                  } as JsonObject)
+                : null,
+              usage: usageByAccount.get(label) ?? null,
+            });
+          }
+
+          // Plumbing rows are still reported, but tagged, so a consumer can
+          // show or hide them rather than rendering them as credentials.
+          //
+          // A real login can land here too: listAnthropicAccountsForUsage
+          // skips accounts the token store has disabled or the allowlist
+          // excludes, so an account with real usage history but no current
+          // route is absent from limits.results. Tagging that as plumbing hid
+          // the one account an operator is looking for when they ask why
+          // traffic stopped — the docs tell consumers to filter internal rows
+          // out. It stays kind "account", with a status saying why it has no
+          // quota block.
+          for (const entry of Object.values(statsAccounts)) {
+            if (claimed.has(entry.label)) {
+              continue;
+            }
+            const isRealAccount = REAL_ACCOUNT_TYPES.has(entry.type);
+            rows.push({
+              label: entry.label,
+              key: null,
+              kind: isRealAccount
+                ? "account"
+                : entry.type === "translation"
+                  ? "translation"
+                  : "internal",
+              type: entry.type,
+              status: isRealAccount ? "unrouted" : null,
+              cooling: false,
+              allowed: null,
+              expired: null,
+              isPrimary: false,
+              requests: entry.successCount + entry.errorCount,
+              errors: entry.errorCount,
+              rateLimits: entry.rateLimitCount,
+              quotaRateLimits: entry.quotaRateLimitCount,
+              quota: null,
+              // Looked up the same way the routed rows do. These accounts are
+              // built FROM today's usage stats, so an account that served
+              // requests and was then disabled or excluded still has tokens
+              // and cost in the ledger — hardcoding null here discarded
+              // exactly the usage an operator is looking for when they ask
+              // why traffic stopped.
+              usage: usageByAccount.get(entry.label) ?? null,
+            });
+          }
+
+          const response: CliAccountsResponse = {
+            generatedAt: Date.now(),
+            usageDate,
+            quotaFromSnapshot: !live,
+            usageError,
+            quotaError,
+            // Pooled accounts bill by subscription. This is what the recorded
+            // tokens would have cost at published rates — a value estimate, not
+            // an invoice — and consumers must label it that way.
+            costBasis: "api-equivalent",
+            accounts: rows,
+          };
+          return response;
+        },
+        description:
+          "One row per account: status, quota, and today's tokens and " +
+          "API-equivalent cost. ?refresh=true forces a live quota fetch",
+        tags: ["claude-proxy", "accounts"],
       },
     ],
   };
@@ -9102,6 +9377,7 @@ export function redactProviderErrorMessage(message: string): string {
 // ---------------------------------------------------------------------------
 
 export const __testHooks = {
+  normalizeQuotaForAccounts,
   resolveHomeIndex,
   maybeResetPrimaryToHome,
   planCooldownFor429,
