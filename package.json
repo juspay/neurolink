@@ -91,6 +91,7 @@
     "test:middleware": "npx tsx test/continuous-test-suite-middleware.ts",
     "test:observability": "npx tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "npx tsx test/continuous-test-suite-ppt.ts",
+    "test:vertex-loop-characterization": "tsx test/continuous-test-suite-vertex-loop-characterization.ts",
     "test:providers": "npx tsx test/continuous-test-suite-providers.ts",
     "test:new-providers": "npx tsx test/continuous-test-suite-new-providers.ts",
     "test:matrix": "npx tsx test/continuous-test-suite-provider-matrix.ts",

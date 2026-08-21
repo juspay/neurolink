@@ -799,6 +799,27 @@ function reclaimVertexAnthropicContext(
 export class GoogleVertexProvider extends BaseProvider {
   private projectId: string;
   private location: string;
+  /**
+   * Vertex AI Express Mode credentials.
+   *
+   * Vertex supports two authentication modes. The long-standing one pairs a
+   * project and location with Application Default Credentials, which makes
+   * the SDK mint an OAuth token through google-auth-library before every
+   * request. Express Mode instead authenticates with an API key alone.
+   *
+   * Express is used only when an apiKey is supplied WITHOUT an explicit
+   * project or location, so existing ADC callers — including those already
+   * passing an apiKey alongside a project — keep exactly the behaviour they
+   * have today.
+   */
+  private expressApiKey?: string;
+  /**
+   * Optional endpoint override, mirroring AI Studio's
+   * `credentials.googleAiStudio.baseURL`: per-request credential first, then
+   * the environment, then unset so the SDK applies its own default. Blank
+   * values count as unset so an empty override cannot clobber that default.
+   */
+  private baseURL?: string;
   private registeredTools: Map<
     string,
     {
@@ -839,16 +860,36 @@ export class GoogleVertexProvider extends BaseProvider {
       }
       if (credentials.apiKey) {
         process.env.GOOGLE_API_KEY = String(credentials.apiKey);
+        // Express Mode only when the caller gave a key and NOTHING else to
+        // authenticate with. An apiKey passed next to a project is the
+        // pre-existing combination and must keep resolving through ADC.
+        if (!credentials.projectId && !credentials.location) {
+          this.expressApiKey = String(credentials.apiKey);
+        }
+      }
+      if (credentials.baseURL) {
+        this.baseURL = String(credentials.baseURL);
       }
     }
 
-    // Validate Google Cloud credentials - now using consolidated utility
-    if (!hasGoogleCredentials()) {
-      validateApiKey(createGoogleAuthConfig());
+    // Express Mode authenticates with the key alone, so neither the ADC
+    // credential check nor project resolution applies. Both THROW when
+    // nothing is configured, which would fail an apiKey-only request before
+    // the Express client is ever built — and would do so only on machines
+    // without an ambient project, which is exactly where Express is the point.
+    const usingExpress = Boolean(this.resolveExpressApiKey());
+
+    if (!usingExpress) {
+      // Validate Google Cloud credentials - now using consolidated utility
+      if (!hasGoogleCredentials()) {
+        validateApiKey(createGoogleAuthConfig());
+      }
     }
 
     // Initialize Google Cloud configuration
-    this.projectId = (credentials?.projectId as string) || getVertexProjectId();
+    this.projectId =
+      (credentials?.projectId as string) ||
+      (usingExpress ? "" : getVertexProjectId());
     this.location =
       region || (credentials?.location as string) || getVertexLocation();
 
@@ -1106,7 +1147,10 @@ export class GoogleVertexProvider extends BaseProvider {
   private async createVertexGenAIClient(
     regionOverride?: string,
   ): Promise<GenAIClient> {
-    const project = getVertexProjectId();
+    const expressApiKey = this.resolveExpressApiKey();
+    // Resolved only on the ADC path: getVertexProjectId() throws when no
+    // project is configured, which an Express request legitimately has none of.
+    const project = expressApiKey ? "" : getVertexProjectId();
     const location = regionOverride || this.location || getVertexLocation();
 
     const mod: unknown = await import("@google/genai");
@@ -1124,16 +1168,74 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const Ctor = ctor as GoogleGenAIClass;
 
-    // Use vertexai mode with project and location
-    // Include httpOptions with proxy fetch for corporate network support
+    const baseUrl = this.resolveBaseURL();
+    const httpOptions = {
+      // Proxy fetch for corporate network support.
+      fetch: createProxyFetch(),
+      // Only set when resolved: the SDK falls back to its own default
+      // whenever httpOptions.baseUrl is undefined, so omitting the key and
+      // passing undefined behave identically.
+      ...(baseUrl ? { baseUrl } : {}),
+    };
+
+    if (expressApiKey) {
+      // Express Mode: an API key replaces project/location entirely. Passing
+      // them alongside the key would defeat it — the SDK prefers
+      // project/location and falls back to ADC, which is the very thing
+      // Express exists to avoid.
+      return new Ctor({
+        vertexai: true,
+        apiKey: expressApiKey,
+        httpOptions,
+      });
+    }
+
+    // Project/location mode, authenticating through ADC.
     return new Ctor({
       vertexai: true,
       project,
       location,
-      httpOptions: {
-        fetch: createProxyFetch(),
-      },
+      httpOptions,
     });
+  }
+
+  /** Endpoint override: credential, then environment, then unset. */
+  private resolveBaseURL(): string | undefined {
+    const resolved =
+      this.baseURL?.trim() || process.env.GOOGLE_VERTEX_BASE_URL?.trim();
+    return resolved && resolved.length > 0 ? resolved : undefined;
+  }
+
+  /**
+   * Express Mode key, if this provider should use it.
+   *
+   * Deliberately NOT read from GOOGLE_API_KEY: that variable is already set
+   * by callers who also configure a project, and treating it as an Express
+   * opt-in would silently switch their authentication mode. Express is opted
+   * into per request, or through GOOGLE_VERTEX_API_KEY which exists only for
+   * this purpose.
+   */
+  private resolveExpressApiKey(): string | undefined {
+    // A per-request key already carries its own guard: it is only recorded
+    // when the caller supplied no project and no location.
+    const fromCredentials = this.expressApiKey?.trim();
+    if (fromCredentials) {
+      return fromCredentials;
+    }
+    const fromEnv = process.env.GOOGLE_VERTEX_API_KEY?.trim();
+    if (!fromEnv) {
+      return undefined;
+    }
+    // The environment key gets the same guard. A process that configures a
+    // project has an ADC setup, and letting an ambient key silently switch it
+    // to Express would change how that process authenticates.
+    const projectConfigured = [
+      "GOOGLE_CLOUD_PROJECT_ID",
+      "VERTEX_PROJECT_ID",
+      "GOOGLE_VERTEX_PROJECT",
+      "GOOGLE_CLOUD_PROJECT",
+    ].some((name) => (process.env[name] ?? "").trim().length > 0);
+    return projectConfigured ? undefined : fromEnv;
   }
 
   /**
