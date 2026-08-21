@@ -384,6 +384,7 @@
     "js-yaml": "^4.3.1",
     "json-schema-to-zod": "^2.7.0",
     "jsonrepair": "^3.14.0",
+    "minisearch": "^7.2.0",
     "nanoid": "^5.1.5",
     "open": "^11.0.0",
     "ora": "^9.3.0",

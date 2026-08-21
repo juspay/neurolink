@@ -1,6 +1,7 @@
 import MiniSearch from "minisearch";
 import type {
   IndexDocument,
+  RawSearchRecord,
   SearchIndex,
   SearchResult,
   SectionInfo,
@@ -30,8 +31,28 @@ export class DocsSearch {
     this.sections.clear();
     this.miniSearch = new MiniSearch(MINISEARCH_CONFIG);
 
-    for (const doc of indexData.documents) {
-      this.documents.set(doc.id, doc);
+    // indexData is a flat array: one record per page plus one per heading
+    // anchor on that page (url contains "#..."). Normalize every record to
+    // IndexDocument so search() covers page and anchor text alike, but only
+    // keep the page-level ones (no "#" in path) for the page map / sections
+    // that get_page, list_sections and get_by_section rely on.
+    const normalized: IndexDocument[] = indexData.map(
+      (raw: RawSearchRecord) => ({
+        id: raw.objectID,
+        title: raw.title,
+        description: "",
+        content: raw.content ?? "",
+        section: (raw.hierarchy?.lvl0 ?? "").toLowerCase(),
+        tags: [],
+        path: raw.url.replace(/^\/docs\//, ""),
+      }),
+    );
+
+    for (const doc of normalized) {
+      if (doc.path.includes("#")) {
+        continue;
+      }
+      this.documents.set(doc.path, doc);
     }
 
     for (const doc of this.documents.values()) {
@@ -39,7 +60,7 @@ export class DocsSearch {
       sectionDocs.push(doc);
       this.sections.set(doc.section, sectionDocs);
     }
-    this.miniSearch.addAll(Array.from(this.documents.values()));
+    this.miniSearch.addAll(normalized);
   }
 
   search(query: string, limit = 10, section?: string): SearchResult[] {

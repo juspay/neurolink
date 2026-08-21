@@ -7,12 +7,19 @@ export type IndexDocument = {
     tags: string[];
     path: string;
 };
-export type SearchIndex = {
-    version: number;
-    generatedAt: string;
-    documentCount: number;
-    documents: IndexDocument[];
+export type RawSearchRecord = {
+    objectID: string;
+    title: string;
+    url: string;
+    content?: string;
+    hierarchy: {
+        lvl0?: string;
+        lvl1?: string;
+        lvl2?: string;
+        lvl3?: string;
+    };
 };
+export type SearchIndex = RawSearchRecord[];
 export type SearchResult = {
     id: string;
     title: string;
