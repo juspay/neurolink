@@ -9,8 +9,8 @@ import path from "path";
 import dotenv from "dotenv";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
-import { NeuroLink } from "@juspay/neurolink";
-import { createAIProvider } from "@juspay/neurolink";
+import { NeuroLink } from "neurolink";
+import { createAIProvider } from "neurolink";
 
 // Initialize configuration
 const __filename = fileURLToPath(import.meta.url);
