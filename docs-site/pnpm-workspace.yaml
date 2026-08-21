@@ -1,0 +1,6 @@
+# Standalone project — this file exists only to stop pnpm's upward workspace-root
+# search at this directory (mirrors landing/pnpm-workspace.yaml). Without it, pnpm walks
+# up to the repo-root pnpm-workspace.yaml and docs-site drops out of its own
+# `pnpm ls -r` / recursive command scope, since it is not listed in that file's
+# `packages:` patterns. docs-site keeps its own lockfile and package.json; it is not
+# part of the root workspace.

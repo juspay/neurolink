@@ -1,0 +1,8 @@
+# Supply-chain cooldown: delay adoption of freshly published npm releases across every
+# dependency (including the single-maintainer untrusted-input parsers: adm-zip,
+# fast-xml-parser, pdf-parse, pdf-to-img, mammoth, js-yaml, chardet, jsonrepair, sharp)
+# by 3 days, giving the ecosystem time to catch a compromised release before it can be
+# resolved here. No `packages:` field is set, so this does not turn the repo into a
+# pnpm workspace — landing/ and docs-site/ remain independent projects (see
+# docs-site/pnpm-workspace.yaml, added alongside this file, for why that needed a shield).
+minimumReleaseAge: 4320
