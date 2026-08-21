@@ -101,7 +101,7 @@ The following SDK-wide changes apply to all clients (including Bedrock and SageM
 
 ## Node.js Compatibility Note
 
-As of **January 2026**, the AWS SDK for JavaScript v3 has dropped support for Node.js 18.x. NeuroLink requires Node.js >=20.18.1, so this is not a concern. The SDK currently supports:
+As of **January 2026**, the AWS SDK for JavaScript v3 has dropped support for Node.js 18.x. NeuroLink requires Node.js >=20.19.0, so this is not a concern. The SDK currently supports:
 
 - Node.js 20.x (until April 2026)
 - Node.js 22.x / 24.x (current LTS)
@@ -127,7 +127,7 @@ These are pre-existing capabilities, not new with 3.999.0.
 - Zero breaking changes
 - Zero functional changes to any of the four packages
 - Only a minor SDK-wide user-agent telemetry improvement
-- Full compatibility with NeuroLink's Node.js >=20.18.1 requirement
+- Full compatibility with NeuroLink's Node.js >=20.19.0 requirement
 
 No code changes are required in NeuroLink's Bedrock or SageMaker provider implementations.
 
