@@ -1,0 +1,479 @@
+#!/usr/bin/env tsx
+import "dotenv/config";
+
+/**
+ * Continuous Test Suite — Google Vertex (Gemini) native-loop characterization
+ * (Plan 08, Task 10).
+ *
+ * Vertex has two hand-rolled turn loops, both `while (step < maxSteps)` over
+ * `models.generateContentStream`. This pins what they do before either moves
+ * onto `runAgenticLoop`, the same way the AI Studio and Anthropic suites did
+ * for their migrations.
+ *
+ * Until recently this suite could not exist. Vertex authenticated through ADC
+ * before every request, which ignores an endpoint override, so a stand-in
+ * received nothing at all. Vertex AI Express Mode
+ * (`credentials.vertex.apiKey` with no project/location) skips ADC entirely
+ * and makes the provider reachable offline through
+ * `credentials.vertex.baseURL`.
+ *
+ * Everything drives the shipped surface: `NeuroLink` from `../dist/index.js`,
+ * no imports out of `src/`, nothing stubbed. No rule-15 exception.
+ *
+ * Three things are deliberate and load-bearing:
+ *
+ *  - `disableInternalFallback` on every case. Without it a turn that ends
+ *    unsuccessfully makes NeuroLink retry on a DIFFERENT provider, and whether
+ *    that succeeds depends on which unrelated credentials sit in the
+ *    environment — which is exactly how an earlier suite passed locally and
+ *    failed in CI.
+ *  - The ADC environment variables are cleared per case, so an ambient
+ *    project or service account cannot pull the provider off Express Mode and
+ *    away from the stand-in.
+ *  - No provider wording in assertion messages. The harness downgrades a
+ *    failure matching `isExpectedProviderError()` to a SKIP, so a real
+ *    regression would read as green.
+ *
+ * Run: npx tsx test/continuous-test-suite-vertex-loop-characterization.ts
+ */
+
+import { createServer, type Server } from "node:http";
+import { assert, defineSuite } from "./helpers/harness.js";
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+assertDistFresh();
+
+const { test, section, runSuite } = defineSuite("Vertex loop characterization");
+
+const { NeuroLink } = await import("../dist/index.js");
+
+const MODEL = "gemini-2.0-flash";
+
+/**
+ * Every variable that could keep this provider on the ADC path.
+ *
+ * All FOUR project names matter. Project resolution falls back through
+ * GOOGLE_CLOUD_PROJECT_ID, VERTEX_PROJECT_ID, GOOGLE_VERTEX_PROJECT and
+ * GOOGLE_CLOUD_PROJECT, and an earlier version of this list cleared only the
+ * last one — so an ambient VERTEX_PROJECT_ID kept the constructor from
+ * throwing and the suite passed for a reason that had nothing to do with
+ * Express Mode. A dev machine with a project configured is precisely where
+ * that hides.
+ */
+const TOUCHED_ENV_VARS = [
+  "GOOGLE_CLOUD_PROJECT",
+  "GOOGLE_CLOUD_PROJECT_ID",
+  "VERTEX_PROJECT_ID",
+  "GOOGLE_VERTEX_PROJECT",
+  "GOOGLE_CLOUD_LOCATION",
+  "VERTEX_LOCATION",
+  "GOOGLE_VERTEX_LOCATION",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "GOOGLE_VERTEX_API_KEY",
+  "GOOGLE_VERTEX_BASE_URL",
+  "GOOGLE_API_KEY",
+] as const;
+
+function withVertexEnv(): () => void {
+  const saved: Record<string, string | undefined> = {};
+  for (const key of TOUCHED_ENV_VARS) {
+    saved[key] = process.env[key];
+    delete process.env[key];
+  }
+  return () => {
+    for (const key of TOUCHED_ENV_VARS) {
+      const prior = saved[key];
+      if (prior === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = prior;
+      }
+    }
+  };
+}
+
+type GeminiPart = Record<string, unknown>;
+
+function sse(parts: GeminiPart[], finishReason?: string): string {
+  const payload = {
+    candidates: [
+      {
+        content: { parts, role: "model" },
+        ...(finishReason ? { finishReason } : {}),
+        index: 0,
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 5,
+      candidatesTokenCount: 4,
+      totalTokenCount: 9,
+    },
+  };
+  return `data: ${JSON.stringify(payload)}\r\n\r\n`;
+}
+
+function textTurn(text: string): string {
+  return sse([{ text }], "STOP");
+}
+
+function toolTurn(name: string, args: Record<string, unknown>): string {
+  return sse([{ functionCall: { name, args } }], "STOP");
+}
+
+type StandInCall = { body: Record<string, unknown>; path: string };
+
+type StandIn = {
+  calls: StandInCall[];
+  port: number;
+  close: () => Promise<void>;
+};
+
+function declaredToolNames(call: StandInCall | undefined): string[] {
+  const tools = (call?.body?.tools ?? []) as Array<{
+    functionDeclarations?: Array<{ name?: string }>;
+  }>;
+  return tools
+    .flatMap((t) => t.functionDeclarations ?? [])
+    .map((d) => d.name)
+    .filter((n): n is string => typeof n === "string");
+}
+
+function functionResponsePayloads(
+  call: StandInCall | undefined,
+): Array<{ name?: string; response?: unknown }> {
+  const contents = (call?.body?.contents ?? []) as Array<{
+    parts?: Array<{ functionResponse?: { name?: string; response?: unknown } }>;
+  }>;
+  return contents
+    .flatMap((c) => c.parts ?? [])
+    .map((p) => p.functionResponse)
+    .filter((r): r is { name?: string; response?: unknown } => r !== undefined);
+}
+
+async function startStandIn(
+  reply: (callIndex: number) => string,
+): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      const parseBody = (): Record<string, unknown> => {
+        try {
+          return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+        } catch {
+          return {};
+        }
+      };
+      calls.push({
+        body: parseBody(),
+        path: String(req.url ?? "").split("?")[0],
+      });
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(reply(calls.length - 1));
+      res.end();
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      }),
+  };
+}
+
+function credentialsFor(port: number) {
+  return {
+    vertex: {
+      apiKey: "express-key",
+      baseURL: `http://127.0.0.1:${port}`,
+    },
+  };
+}
+
+function customTool(counter: { calls: number }) {
+  return {
+    lookup: {
+      description: "look a value up",
+      inputSchema: {
+        type: "object",
+        properties: {},
+        additionalProperties: true,
+      },
+      execute: async () => {
+        counter.calls++;
+        return { found: true };
+      },
+    },
+  };
+}
+
+section("express-mode reachability");
+
+await test("the turn reaches the stand-in over Express Mode rather than ADC", async () => {
+  // Guards the affordance the whole suite rests on. If Vertex ever stops
+  // honouring an apiKey-only credential it will silently fall back to
+  // project/location and ADC, and every case below would then be exercising
+  // something other than what it claims.
+  const server = await startStandIn(() => textTurn("hello from vertex"));
+  const restore = withVertexEnv();
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.port),
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += chunk?.content ?? "";
+    }
+    assert(
+      text.includes("hello from vertex"),
+      "the streamed text was not surfaced to the consumer",
+    );
+    assert(
+      server.calls.length === 1,
+      `a text-only turn should take exactly one call, took ${server.calls.length}`,
+    );
+    // The Express path carries no project/location segment. The ADC path does,
+    // so this distinguishes the two rather than merely proving a request
+    // arrived.
+    assert(
+      !(server.calls[0]?.path ?? "").includes("/projects/"),
+      "the request did not take the key-only route",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+section("caller-supplied tools");
+
+await test("a caller's own tool is declared, executed, and its result returns to the model", async () => {
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn("lookup", { q: "x" }) : textTurn("done"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += chunk?.content ?? "";
+    }
+    assert(
+      declaredToolNames(server.calls[0]).includes("lookup"),
+      "the caller's tool was not declared to the model",
+    );
+    assert(
+      server.calls.length === 2,
+      `a tool round trip should take exactly two calls, took ${server.calls.length}`,
+    );
+    assert(counter.calls === 1, "the caller's tool did not execute once");
+    const answered = functionResponsePayloads(server.calls[1]).filter(
+      (entry) => entry.name === "lookup",
+    );
+    assert(
+      answered.length === 1,
+      "the tool result was not carried back to the model",
+    );
+    assert(text.includes("done"), "the final turn's text was not surfaced");
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+section("malformed function call");
+
+await test("a malformed call is retried exactly once with a corrective note", async () => {
+  // Vertex is the ONLY provider with this behaviour, so no other migration in
+  // this plan had to preserve it. A step that produced no text, no function
+  // calls and MALFORMED_FUNCTION_CALL is a transient formatting failure, not
+  // a finished turn: the loop re-issues it once with a corrective note rather
+  // than ending the turn on empty content.
+  //
+  // The budget is one retry PER TURN, which is the half most easily lost —
+  // an implementation that retried on every malformed step would loop to the
+  // step cap, and one that never retried would end the turn silently. The
+  // fixture stays malformed forever so both mistakes are visible in the call
+  // count.
+  const server = await startStandIn(() => sse([], "MALFORMED_FUNCTION_CALL"));
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let streamed = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call something" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      streamed += chunk?.content ?? "";
+    }
+  } catch {
+    // The turn's outcome is not what is pinned here; the retry budget is.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] malformed turn: calls=${server.calls.length} chars=${streamed.length}`,
+  );
+  // One original attempt plus one retry. Not maxSteps, and not one.
+  assert(
+    server.calls.length === 2,
+    `a permanently malformed turn made ${server.calls.length} calls, not the 2 this loop performs`,
+  );
+  // The retry must carry the corrective note, otherwise it re-sends the same
+  // request and reproduces the same failure for nothing.
+  const retryBody = JSON.stringify(server.calls[1]?.body ?? {});
+  assert(
+    retryBody.includes("malformed"),
+    "the retry did not carry a corrective note",
+  );
+});
+
+section("step cap");
+
+await test("a model that never stops calling tools is bounded and still answers", async () => {
+  // Vertex's step cap is richer than the other providers': rather than simply
+  // ending, it spends a reserved step asking the model to finalize, and only
+  // falls back to a built cap message if that produces nothing. Both the call
+  // count and the fact that SOMETHING is returned are pinned, because the
+  // failure mode of a migration here is a silent empty answer.
+  const server = await startStandIn((i) =>
+    i < 3
+      ? toolTurn("lookup", { n: i })
+      : textTurn("here is my summary so far"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let streamed = "";
+  let failed = false;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "keep going" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      streamed += chunk?.content ?? "";
+    }
+  } catch {
+    failed = true;
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex step-cap: calls=${server.calls.length} tools=${counter.calls} chars=${streamed.length} threw=${failed}`,
+  );
+  // maxSteps=3 produces FOUR provider calls, not three.
+  //
+  // The cause is deliberately not asserted here, because it is not the one it
+  // looks like. Vertex does have a reserved finalization step gated on
+  // `hitStepLimit`, and the obvious reading is that the fourth call is it —
+  // but forcing `hitStepLimit = false` at BOTH of its assignment sites leaves
+  // this turn at four calls and the same output, so the extra call comes from
+  // somewhere else. Pinning the observed count without naming a mechanism
+  // keeps the guard honest; whatever the migration does, it has to reproduce
+  // this shape.
+  assert(
+    server.calls.length === 4,
+    `a maxSteps=3 turn made ${server.calls.length} calls, not the 4 this loop performs`,
+  );
+  assert(
+    streamed.length > 0,
+    "reaching the step cap delivered nothing at all to the consumer",
+  );
+  assert(!failed, "reaching the step cap should not fail the turn");
+});
+
+section("repeatedly failing tool");
+
+await test("a tool that always throws is dispatched a bounded number of times", async () => {
+  const server = await startStandIn(() => toolTurn("flaky", {}));
+  const restore = withVertexEnv();
+  let attempts = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "keep trying" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 4,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        flaky: {
+          description: "always fails",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: true,
+          },
+          execute: async () => {
+            attempts++;
+            throw new Error("synthetic tool failure");
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The outcome is not what is pinned; the dispatch count is.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex failing-tool: attempts=${attempts} calls=${server.calls.length}`,
+  );
+  // DEFAULT_TOOL_MAX_RETRIES is 2, the same threshold AI Studio uses, so the
+  // breaker must stop dispatching after two failures while the turn runs on.
+  assert(
+    attempts === 2,
+    `the failing tool was dispatched ${attempts} times, not the 2 this loop performs`,
+  );
+});
+
+await runSuite();
