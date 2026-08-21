@@ -400,7 +400,7 @@
   "peerDependencies": {
     "@juspay/hippocampus": ">=0.1.4",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-trace-node": "^2.0.0",
+    "@opentelemetry/sdk-trace-node": "^2.6.0",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
   },
