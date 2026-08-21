@@ -1,5 +1,9 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Tool } from "./tools.js";
+import type {
+  NativeFunctionCall,
+  NativeToolDeclarationsResult,
+} from "./providers.js";
 
 /**
  * One chunk on the engine's stream.
@@ -209,6 +213,112 @@ export type AnthropicLoopAdapterConfig = {
   noteObservedPromptTokens?: (promptTokens: number) => void;
   abortSignal?: AbortSignal;
 };
+
+/** What one Gemini step produced, carried to `buildToolResultMessages`. */
+export type GeminiStepRaw = {
+  rawResponseParts: unknown[];
+  stepFunctionCalls: NativeFunctionCall[];
+};
+
+/** One turn entry in a Gemini conversation: a role plus its content parts. */
+export type GeminiTurnContent = {
+  role: string;
+  parts: unknown[];
+};
+
+/**
+ * Construction input for `createGeminiLoopAdapter`, shared by Google AI Studio
+ * and Vertex Gemini. Both issue `models.generateContentStream` and consume the
+ * same response shape, so one adapter serves four hand-rolled loops.
+ */
+export type GeminiLoopAdapterCoreConfig = {
+  /** Used in log lines and generated tool-call ids. */
+  providerLabel: string;
+  maxSteps: number;
+  /** Build one step's request object (model, contents, config). */
+  buildRequest: (conversation: GeminiTurnContent[], step: number) => unknown;
+  /** Issue the request. Kept injectable so each provider keeps its own client. */
+  sendStep: (
+    request: unknown,
+    signal: AbortSignal,
+  ) => Promise<
+    AsyncIterable<{
+      functionCalls?: NativeFunctionCall[];
+      [key: string]: unknown;
+    }>
+  >;
+  /**
+   * The turn's live tool record. Mid-turn `search_tools` discovery hydrates
+   * into this, which is what both the declaration refresh and
+   * `resolveToolOnMiss` read.
+   */
+  liveTools: Record<string, Tool>;
+  /**
+   * Declarations built for this turn. Carries `originalNameMap`, which keeps
+   * Google's function-name sanitization on the adapter side of the engine
+   * boundary.
+   */
+  declarations?: NativeToolDeclarationsResult;
+  toolFailureBreaker?: AgenticLoopToolFailureBreaker;
+  /**
+   * In-turn context reclaim, run once per step before the request is built.
+   * Returns the rebuilt conversation when it reclaimed, undefined when the
+   * request still fits.
+   *
+   * Provider-supplied rather than engine-owned because the two Gemini
+   * providers reclaim differently (reclaimAiStudioContext vs
+   * reclaimVertexLoopContext) while the engine only decides WHEN to ask. The
+   * loops append a model turn plus a tool turn every step with nothing else
+   * bounding growth, so a migration that drops this overflows the context
+   * window mid-turn and loses every completed step.
+   */
+  planReclaim?: (
+    conversation: GeminiTurnContent[],
+    step: number,
+  ) => GeminiTurnContent[] | undefined;
+  /**
+   * Usage feedback for the provider's own context guard, called after each
+   * step with that step's real token counts.
+   */
+  noteUsage?: (inputTokens: number, outputTokens: number) => void;
+};
+
+/**
+ * Opt in to the single MALFORMED_FUNCTION_CALL retry.
+ *
+ * Vertex Gemini only. AI Studio has no such retry today (confirmed: zero
+ * MALFORMED_FUNCTION_CALL handling in its client), and turning it on there
+ * would be a behaviour change disguised as a shared refactor. The engine owns
+ * the one-retry budget; this only says whether to ask.
+ *
+ * A union rather than two independent optional fields because the retry is
+ * only worth spending a step on if the re-issued request differs from the one
+ * that just failed. `runAgenticLoop` falls back to the unchanged conversation
+ * when no note builder is supplied (`buildMalformedRetryNote?.(…) ??
+ * conversation`), so enabling the retry without one re-sends a byte-identical
+ * request and most often reproduces the same malformed call — a step burned
+ * for nothing. Requiring the builder here makes that combination unsayable
+ * instead of merely discouraged.
+ */
+export type GeminiMalformedRetryConfig =
+  | {
+      enableMalformedRetry: true;
+      /**
+       * Append the corrective turn that the retry re-issues with.
+       * Provider-supplied because the note is written in the provider's own
+       * content shape.
+       */
+      buildMalformedRetryNote: (
+        conversation: GeminiTurnContent[],
+      ) => GeminiTurnContent[];
+    }
+  | {
+      enableMalformedRetry?: false;
+      buildMalformedRetryNote?: never;
+    };
+
+export type GeminiLoopAdapterConfig = GeminiLoopAdapterCoreConfig &
+  GeminiMalformedRetryConfig;
 
 export type AgenticLoopOptions = {
   tools?: Record<

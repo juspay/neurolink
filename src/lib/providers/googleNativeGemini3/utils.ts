@@ -899,6 +899,10 @@ export async function collectStreamChunksIncremental(
   let outputTokens = 0;
   let cacheReadTokens = 0;
   let reasoningTokens = 0;
+  // Surfaced so a caller can map SAFETY / MALFORMED_FUNCTION_CALL rather
+  // than inferring the turn ended normally. Additive: existing callers that
+  // ignore it are unaffected.
+  let finishReason: string | undefined;
 
   for await (const chunk of stream) {
     const chunkRecord = chunk as Record<string, unknown>;
@@ -906,6 +910,10 @@ export async function collectStreamChunksIncremental(
       | Array<Record<string, unknown>>
       | undefined;
     const firstCandidate = candidates?.[0];
+    const candidateFinish = firstCandidate?.finishReason;
+    if (typeof candidateFinish === "string") {
+      finishReason = candidateFinish;
+    }
     const chunkContent = firstCandidate?.content as
       | Record<string, unknown>
       | undefined;
@@ -951,6 +959,7 @@ export async function collectStreamChunksIncremental(
   return {
     rawResponseParts,
     stepFunctionCalls,
+    finishReason,
     inputTokens,
     outputTokens,
     cacheReadTokens,

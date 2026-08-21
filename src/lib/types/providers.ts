@@ -2018,6 +2018,8 @@ export type NativeFunctionResponse = {
 export type CollectedChunkResult = {
   rawResponseParts: unknown[];
   stepFunctionCalls: NativeFunctionCall[];
+  /** Raw `Candidate.finishReason` from the last chunk that carried one. */
+  finishReason?: string;
   inputTokens: number;
   outputTokens: number;
   /**
