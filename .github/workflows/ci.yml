@@ -202,22 +202,26 @@ jobs:
   # failed native build or a --no-optional install, so "it built" here proves
   # nothing about whether the CLI still runs without them.
   #
-  # continue-on-error: true — deliberately non-blocking on day one. Today
-  # `voiceServerApp.js` statically imports `express` (an optionalDependency)
-  # at module load, so `node dist/cli/index.js --help` crashes with
-  # ERR_MODULE_NOT_FOUND as soon as that module is reachable from the CLI
-  # entrypoint. The fix lives on fix/cli-express-optional-crash, not yet
-  # merged to release. Promote this job to a required check (add it to the
-  # required-status-checks list and drop continue-on-error) once that branch
-  # lands. Note @aws-sdk/client-bedrock-runtime is also statically imported
-  # from an optionalDependency (amazonBedrock/client.ts,
-  # amazonBedrock/loopAdapter.ts), so this job may keep surfacing a second,
-  # separate failure even after the express fix — that is expected and is a
-  # second bug for a follow-up branch, not a reason to loosen this check.
+  # This job is now BLOCKING. It spent its whole life non-blocking and red —
+  # first because it installed --no-optional before building (so rolldown's
+  # own native binding vanished and the build tool disappeared), then because
+  # it built with `build:cli` on a clean checkout (so the collapse step found
+  # every rewritten specifier dangling). Neither failure ever ran a smoke
+  # step, and continue-on-error meant nothing ever complained.
+  #
+  # Both are fixed, d9f0b495 made `--help` survive the prune, and the job
+  # reported SUCCESS on the run that fixed it. A green non-blocking job
+  # protects nothing, so the error suppression comes off here.
+  #
+  # Note @aws-sdk/client-bedrock-runtime is also statically imported from an
+  # optionalDependency (amazonBedrock/client.ts, amazonBedrock/loopAdapter.ts).
+  # That import is not reachable from `--help`, `--version` or
+  # `generate --help`, which is why those three pass today; if a later change
+  # pulls it onto the entrypoint path this job goes red, and that is the job
+  # working, not the check being too strict.
   optional-deps-omitted-smoke-test:
     name: CLI Smoke Test (optional deps omitted)
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
