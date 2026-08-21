@@ -60,6 +60,10 @@ test-reports/
 docs-site/.docusaurus/
 docs-site/docs/
 
+# Generated, tracked-but-shipped search index — a machine-built minified JSON
+# blob (docusaurus-plugin-docs-search-index), not source; do not reformat it.
+docs-site/static/search-index.json
+
 # Svelte files require prettier-plugin-svelte (handled by landing workspace)
 landing/**/*.svelte
 
