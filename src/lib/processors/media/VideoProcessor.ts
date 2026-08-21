@@ -129,6 +129,31 @@ async function loadMediaBunny() {
   return _mediabunny;
 }
 
+// Keyframe resize (both extraction paths) previously swallowed a missing
+// `sharp` with a fully silent per-frame catch — every frame failed the same
+// way and nothing ever said why. Route the import through this loader so the
+// cause is logged once (not once per frame) the first time it fails; the
+// per-frame catch sites still skip individually, matching prior behavior.
+let sharpLoadWarned = false;
+async function loadSharp() {
+  try {
+    const mod = await tryImport<{ default: typeof import("sharp") }>(
+      "sharp",
+      "Video keyframe resizing",
+    );
+    return mod.default;
+  } catch (error) {
+    if (!sharpLoadWarned) {
+      sharpLoadWarned = true;
+      logger.warn(
+        "[VideoProcessor] sharp is required to resize extracted keyframes but failed to load; keyframe extraction will return no frames",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+    }
+    throw error;
+  }
+}
+
 // =============================================================================
 // FFMPEG PATH INITIALIZATION
 // =============================================================================
@@ -870,7 +895,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         const rawFrame = await fs.readFile(framePath);
 
         // Resize to fit within max dimension while preserving aspect ratio
-        const sharp = (await import("sharp")).default;
+        const sharp = await loadSharp();
         const pipeline = sharp(rawFrame).resize(
           VIDEO_CONFIG.FRAME_MAX_DIMENSION,
           VIDEO_CONFIG.FRAME_MAX_DIMENSION,
@@ -1291,7 +1316,7 @@ export class VideoProcessor extends BaseFileProcessor<ProcessedVideo> {
         try {
           await fs.access(framePath);
           const rawFrame = await fs.readFile(framePath);
-          const sharp = (await import("sharp")).default;
+          const sharp = await loadSharp();
           const resized = await sharp(rawFrame)
             .resize(
               VIDEO_CONFIG.FRAME_MAX_DIMENSION,

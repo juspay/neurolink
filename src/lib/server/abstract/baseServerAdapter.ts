@@ -16,9 +16,11 @@ import {
 } from "../../observability/index.js";
 import { withTimeout } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
+import { tryImport } from "../../utils/tryImport.js";
 import {
   DrainTimeoutError,
   InvalidLifecycleStateError,
+  MissingDependencyError,
   ShutdownTimeoutError,
 } from "../errors.js";
 import type {
@@ -188,6 +190,32 @@ export abstract class BaseServerAdapter extends EventEmitter {
   // ============================================
   // Common Methods (Shared Implementation)
   // ============================================
+
+  /**
+   * Import an optional framework dependency (express/fastify/koa and their
+   * plugins), converting a missing package into a {@link MissingDependencyError}
+   * instead of letting the framework's `Cannot find package` propagate raw.
+   *
+   * Delegates to {@link tryImport} for the actual resolution and message
+   * formatting, then re-wraps only the "package genuinely absent" case — the
+   * one `tryImport` signals by attaching the loader's own module-not-found
+   * error as `cause` — into the adapter-specific error type. Any other
+   * failure (installed but broken, non-package specifier) passes through
+   * unchanged, matching `tryImport`'s own contract.
+   */
+  protected async importFrameworkDependency<T>(
+    pkg: string,
+    framework: string,
+  ): Promise<T> {
+    try {
+      return await tryImport<T>(pkg, `${framework} server adapter`);
+    } catch (error) {
+      if (error instanceof Error && isModuleNotFoundCause(error.cause)) {
+        throw new MissingDependencyError(pkg, framework, `pnpm add ${pkg}`);
+      }
+      throw error;
+    }
+  }
 
   /**
    * Initialize the server adapter
@@ -788,4 +816,19 @@ export abstract class BaseServerAdapter extends EventEmitter {
   public getConfig(): RequiredServerAdapterConfig {
     return { ...this.config };
   }
+}
+
+/**
+ * True when `cause` is the module loader's own "package not found" error —
+ * the shape `tryImport` attaches as `cause` exactly when it decides the
+ * package is genuinely missing (see `isMissingModule` in `tryImport.ts`).
+ * Anything else (installed-but-broken, no cause at all) is not our case to
+ * convert into a {@link MissingDependencyError}.
+ */
+function isModuleNotFoundCause(cause: unknown): boolean {
+  if (!(cause instanceof Error)) {
+    return false;
+  }
+  const code = (cause as NodeJS.ErrnoException).code;
+  return code === "ERR_MODULE_NOT_FOUND" || code === "MODULE_NOT_FOUND";
 }

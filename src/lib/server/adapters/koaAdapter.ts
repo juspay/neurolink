@@ -56,8 +56,12 @@ export class KoaServerAdapter extends BaseServerAdapter {
     }
 
     // Dynamic imports to avoid loading if not used
-    const KoaModule = await import("koa");
-    const RouterModule = await import("@koa/router");
+    const KoaModule = await this.importFrameworkDependency<{
+      default: typeof import("koa");
+    }>("koa", "Koa");
+    const RouterModule = await this.importFrameworkDependency<
+      typeof import("@koa/router")
+    >("@koa/router", "Koa");
 
     const Koa = KoaModule.default;
     const Router = RouterModule.default;
@@ -111,7 +115,9 @@ export class KoaServerAdapter extends BaseServerAdapter {
 
     // CORS middleware
     if (this.config.cors.enabled) {
-      const corsModule = await import("@koa/cors");
+      const corsModule = await this.importFrameworkDependency<{
+        default: typeof import("@koa/cors");
+      }>("@koa/cors", "Koa");
       const cors = corsModule.default;
       this.app.use(
         cors({
@@ -132,7 +138,9 @@ export class KoaServerAdapter extends BaseServerAdapter {
 
     // Body parsing middleware
     if (this.config.bodyParser.enabled) {
-      const bodyParserModule = await import("koa-bodyparser");
+      const bodyParserModule = await this.importFrameworkDependency<{
+        default: typeof import("koa-bodyparser");
+      }>("koa-bodyparser", "Koa");
       const bodyParser = bodyParserModule.default;
       this.app.use(
         bodyParser({
@@ -257,8 +265,17 @@ export class KoaServerAdapter extends BaseServerAdapter {
    * Override initialize to ensure async framework setup
    */
   public async initialize(): Promise<void> {
-    // Initialize Koa asynchronously first
-    await this.initializeFrameworkAsync();
+    // Initialize Koa asynchronously first. This runs before
+    // super.initialize()'s try/catch even starts, so a failure here (e.g. the
+    // "koa" package is not installed) must be caught here too — otherwise it
+    // propagates with lifecycleState left at "uninitialized" instead of
+    // "error".
+    try {
+      await this.initializeFrameworkAsync();
+    } catch (error) {
+      this.lifecycleState = "error";
+      throw error;
+    }
 
     // Then call base class initialize
     await super.initialize();

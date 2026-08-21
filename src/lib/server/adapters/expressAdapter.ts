@@ -54,7 +54,9 @@ export class ExpressServerAdapter extends BaseServerAdapter {
     }
 
     // Dynamic import to avoid loading if not used (ESM-compatible)
-    const expressModule = await import("express");
+    const expressModule = await this.importFrameworkDependency<{
+      default: typeof import("express");
+    }>("express", "Express");
     const express = expressModule.default;
     this.app = express();
 
@@ -72,7 +74,9 @@ export class ExpressServerAdapter extends BaseServerAdapter {
 
     // CORS
     if (this.config.cors.enabled) {
-      const corsModule = await import("cors");
+      const corsModule = await this.importFrameworkDependency<{
+        default: typeof import("cors");
+      }>("cors", "Express");
       const cors = corsModule.default;
       this.app.use(
         cors({
@@ -87,7 +91,9 @@ export class ExpressServerAdapter extends BaseServerAdapter {
 
     // Rate limiting
     if (this.config.rateLimit.enabled) {
-      const rateLimitModule = await import("express-rate-limit");
+      const rateLimitModule = await this.importFrameworkDependency<
+        typeof import("express-rate-limit")
+      >("express-rate-limit", "Express");
       const rateLimit = rateLimitModule.default;
       const windowMs = this.config.rateLimit.windowMs;
       const limiter = rateLimit({
@@ -159,8 +165,17 @@ export class ExpressServerAdapter extends BaseServerAdapter {
    * Override initialize to ensure async framework setup
    */
   public async initialize(): Promise<void> {
-    // Initialize Express asynchronously first
-    await this.initializeFrameworkAsync();
+    // Initialize Express asynchronously first. This runs before
+    // super.initialize()'s try/catch even starts, so a failure here (e.g. the
+    // "express" package is not installed) must be caught here too — otherwise
+    // it propagates with lifecycleState left at "uninitialized" instead of
+    // "error".
+    try {
+      await this.initializeFrameworkAsync();
+    } catch (error) {
+      this.lifecycleState = "error";
+      throw error;
+    }
 
     // Then call base class initialize
     await super.initialize();
