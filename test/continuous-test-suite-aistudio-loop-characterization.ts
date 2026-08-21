@@ -547,4 +547,124 @@ await test("the generate path hitting the step cap still returns the last step's
   }
 });
 
+section("repeated identical tool calls");
+
+// BZ-3327: Gemini re-emits a tool call with identical arguments across
+// agentic steps even though the prior result is already in the conversation
+// history. Re-executing means duplicate side effects and duplicate reports
+// for the user, so the per-turn executeMap (DedupExecuteMap) caches by
+// {name + stable-stringified args} and serves the repeat from the cache.
+//
+// Both AI Studio loops are covered because both had the dedup and both were
+// migrated onto the shared engine.
+
+await test("the streaming loop runs an identical repeated call only once", async () => {
+  const server = await startStandIn(() => toolTurn("repeatable", { q: "x" }));
+  const restore = withAiStudioEnv();
+  let dispatched = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call the same tool repeatedly" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        repeatable: {
+          description: "records how often it really ran",
+          inputSchema: {
+            type: "object",
+            properties: { q: { type: "string" } },
+            additionalProperties: true,
+          },
+          execute: async () => {
+            dispatched++;
+            return { ran: dispatched };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The dispatch count is what is pinned, not the turn's outcome.
+  } finally {
+    restore();
+    await server.close();
+  }
+  const responses = functionResponsePayloads(
+    server.calls[server.calls.length - 1],
+  );
+  console.log(
+    `    [diagnostic] aistudio dedup stream: dispatched=${dispatched} responses=${responses.length}`,
+  );
+  assert(
+    dispatched === 1,
+    `the repeated identical call executed ${dispatched} times instead of being served from the per-turn cache`,
+  );
+  // Both halves matter: the dispatch count alone would also be 1 if the loop
+  // had simply stopped after the first step.
+  assert(
+    responses.length === 4,
+    `the model was answered ${responses.length} times, so the turn did not keep running on cached results`,
+  );
+});
+
+await test("the generate loop runs an identical repeated call only once", async () => {
+  const server = await startStandIn(() => toolTurn("repeatable", { q: "x" }));
+  const restore = withAiStudioEnv();
+  let dispatched = 0;
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: { text: "call the same tool repeatedly" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        repeatable: {
+          description: "records how often it really ran",
+          inputSchema: {
+            type: "object",
+            properties: { q: { type: "string" } },
+            additionalProperties: true,
+          },
+          execute: async () => {
+            dispatched++;
+            return { ran: dispatched };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+  } catch {
+    // The dispatch count is what is pinned, not the turn's outcome.
+  } finally {
+    restore();
+    await server.close();
+  }
+  const responses = functionResponsePayloads(
+    server.calls[server.calls.length - 1],
+  );
+  console.log(
+    `    [diagnostic] aistudio dedup generate: dispatched=${dispatched} responses=${responses.length}`,
+  );
+  assert(
+    dispatched === 1,
+    `the repeated identical call executed ${dispatched} times instead of being served from the per-turn cache`,
+  );
+  assert(
+    responses.length === 4,
+    `the model was answered ${responses.length} times, so the turn did not keep running on cached results`,
+  );
+});
+
 await runSuite();
