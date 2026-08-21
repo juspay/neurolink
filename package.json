@@ -214,7 +214,8 @@
     "test:vector-pinecone": "npx tsx test/continuous-test-suite-vector-pinecone.ts",
     "test:bedrock-loop-characterization": "tsx test/continuous-test-suite-bedrock-loop-characterization.ts",
     "test:sagemaker-streaming": "tsx test/continuous-test-suite-sagemaker-streaming.ts",
-    "test:anthropic-loop-characterization": "tsx test/continuous-test-suite-anthropic-loop-characterization.ts"
+    "test:anthropic-loop-characterization": "tsx test/continuous-test-suite-anthropic-loop-characterization.ts",
+    "test:aistudio-loop-characterization": "tsx test/continuous-test-suite-aistudio-loop-characterization.ts"
   },
   "files": [
     "dist",
