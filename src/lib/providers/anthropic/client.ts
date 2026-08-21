@@ -2194,12 +2194,20 @@ export class AnthropicProvider extends BaseProvider {
         };
       }
 
+      // The active span goes with it. Before this loop moved onto the shared
+      // engine it called
+      //   withProviderRetry(fn, trace.getActiveSpan() ?? undefined, label)
+      // and that span is where gen_ai.provider.total_attempts is recorded.
+      // The engine passed `undefined` in its place, so the attribute silently
+      // stopped being emitted for every native Anthropic turn.
+      const activeSpan = trace.getActiveSpan();
       const { stream, resultPromise } = runAgenticLoop(
         adapter,
         payload.messages.slice(),
         {
           tools: engineTools,
           ...(abortSignal ? { abortSignal } : {}),
+          ...(activeSpan ? { span: activeSpan } : {}),
         },
       );
 

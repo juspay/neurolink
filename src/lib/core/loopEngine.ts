@@ -141,7 +141,10 @@ export function runAgenticLoop<TConversation>(
                 throw hasEmitted ? new PostEmissionStepError(err) : err;
               }
             },
-            undefined, // no OTel span threaded through the engine today; adapters instrument their own steps if they need span-level detail
+            // The caller's span, when it passes one. withProviderRetry writes
+            // gen_ai.provider.total_attempts here, so a loop that threaded a
+            // span before it moved onto this engine keeps emitting it.
+            options.span,
             `${adapter.providerLabel}.step`,
           );
         } catch (err) {

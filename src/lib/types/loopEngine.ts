@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import type { Span } from "@opentelemetry/api";
 import type { Tool } from "./tools.js";
 import type {
   CollectedChunkResult,
@@ -373,6 +374,19 @@ export type AgenticLoopOptions = {
     }
   >;
   abortSignal?: AbortSignal;
+  /**
+   * Span the per-step provider retry annotates, via
+   * `withProviderRetry(..., span, ...)` — it records
+   * `gen_ai.provider.total_attempts` on every completed step, retried or not.
+   *
+   * Caller-supplied rather than read from the ambient context inside the
+   * engine. Reading it here would hand the attribute to every provider on the
+   * engine, including ones whose hand-rolled loops never emitted it, and a
+   * refactor that silently ADDS observable behaviour is the same defect as one
+   * that silently drops it. Today only the direct Anthropic loops set this,
+   * because only they threaded a span before moving onto the engine.
+   */
+  span?: Span;
 };
 
 export type AgenticLoopResult<TConversation> = {
