@@ -1077,4 +1077,49 @@ await test("an unresolvable tool name is recorded with an id and an error", asyn
   );
 });
 
+await test("the engine's breaker dispatches an always-failing tool exactly twice at maxRetries 2", async () => {
+  // Task 9 prerequisite, proven rather than assumed. AI Studio's own
+  // dispatcher stops after DEFAULT_TOOL_MAX_RETRIES (2) failures, which the
+  // characterization suite measured end-to-end as attempts=2 across 4 model
+  // calls. Migrating that loop onto this engine is only safe if the engine
+  // reproduces the same count from the same threshold.
+  let attempts = 0;
+  const adapter: AgenticLoopAdapter<string[]> = {
+    ...makeHydrationAdapter({
+      toolCallsByStep: [
+        [{ id: "c1", name: "flaky", args: {} }],
+        [{ id: "c2", name: "flaky", args: {} }],
+        [{ id: "c3", name: "flaky", args: {} }],
+        [{ id: "c4", name: "flaky", args: {} }],
+        [],
+      ],
+    }),
+    toolFailureBreaker: { maxRetries: 2 },
+  };
+  const { resultPromise } = runAgenticLoop(adapter, [], {
+    tools: {
+      flaky: {
+        execute: async () => {
+          attempts++;
+          throw new Error("synthetic tool failure");
+        },
+      },
+    },
+  });
+  const result = await resultPromise;
+  assertEqual(
+    attempts,
+    2,
+    "the breaker must stop dispatching after maxRetries failures",
+  );
+  // Every call is still ANSWERED — the model is told the tool is permanently
+  // failed rather than the turn stalling. Four calls, two dispatches.
+  const answered = result.toolExecutions.filter((e) => e.name === "flaky");
+  assertEqual(
+    answered.length,
+    4,
+    "every call must be answered even once the breaker has tripped",
+  );
+});
+
 await runSuite();
