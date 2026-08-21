@@ -336,6 +336,9 @@ export function createAnthropicLoopAdapter(
       const finalText = terminal
         ? stringifyFinalResultInput(terminal.inputJson)
         : text;
+      if (terminal) {
+        config.onTerminalResult?.(finalText);
+      }
 
       return {
         text: finalText,

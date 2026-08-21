@@ -83,8 +83,9 @@ import type {
   VertexAnthropicMessage,
 } from "../../types/index.js";
 import { calculateCost } from "../../utils/pricing.js";
-import { resolveDeferredTool } from "../../tools/toolDiscovery.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
+import { createAnthropicLoopAdapter } from "./loopAdapter.js";
+import { runAgenticLoop } from "../../core/loopEngine.js";
 import {
   createAnthropicConfig,
   getProviderModel,
@@ -105,7 +106,6 @@ import {
 } from "../../utils/noOutputSentinel.js";
 import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import { resolveClaudeMaxTokens } from "../../utils/tokenLimits.js";
-import { withProviderRetry } from "../../utils/providerRetry.js";
 import {
   toAnthropicImageBlock,
   fileToAnthropicBlock,
@@ -124,7 +124,6 @@ import {
   appendFinalResultInstruction,
   appendFinalResultTool,
   FINAL_RESULT_TOOL_NAME,
-  stringifyFinalResultInput,
 } from "./structuredOutput.js";
 
 // AnthropicProviderConfig is imported from types/providers.ts
@@ -1925,7 +1924,6 @@ export class AnthropicProvider extends BaseProvider {
     };
 
     const runLoop = async (): Promise<void> => {
-      const conversation = payload.messages.slice();
       // The provider's REAL prompt-token count for the previous step,
       // calibrating the guard's char-based estimate for free, paired with the
       // guard's own estimate for that same request — a ratio between counts of
@@ -1933,33 +1931,17 @@ export class AnthropicProvider extends BaseProvider {
       let lastObservedPromptTokens: number | undefined;
       let lastSentEstimate: number | undefined;
 
-      for (let step = 0; step < maxSteps; step++) {
-        // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
-        // new tools into toolsRecord between steps; Claude only calls tools
-        // declared in the request, so advertise them now (`params` below
-        // rebuilds from anthropicTools every step).
-        if (anthropicTools) {
-          const declared = new Set(anthropicTools.map((t) => t.name));
-          const hydrated = Object.fromEntries(
-            Object.entries(toolsRecord).filter(([name]) => !declared.has(name)),
-          );
-          if (Object.keys(hydrated).length > 0) {
-            anthropicTools.push(
-              ...((toNativeToolDeclarations(hydrated, "input_schema") as
-                | Anthropic.Messages.Tool[]
-                | undefined) ?? []),
-            );
-            logger.info(
-              `[Anthropic] ${Object.keys(hydrated).length} tool(s) hydrated mid-turn via discovery: ${Object.keys(hydrated).join(", ")}`,
-            );
-          }
-        }
-        // In-turn context guard. This loop appends an assistant tool_use
-        // message plus a user tool_result message every step — growth the
-        // pre-dispatch budget check never sees. Without it a long agentic run
-        // overflows the window mid-loop and loses every completed step.
-        // Returns undefined while the request still fits, leaving the history
-        // byte-identical so the rolling cache prefix below stays valid.
+      /**
+       * Reclaim, as a PURE function of the conversation.
+       *
+       * The hand-rolled loop this replaces rebuilt in place
+       * (`conversation.length = 0; conversation.push(...rebuilt)`) because it
+       * owned the array. The engine owns it now and assigns what this
+       * returns, so mutating here would corrupt a retried or reclaimed step.
+       */
+      const planReclaim = (
+        conversation: Anthropic.Messages.MessageParam[],
+      ): Anthropic.Messages.MessageParam[] | undefined => {
         const reclaim = planAnthropicLoopReclaim({
           conversation,
           availableInputTokens: getAvailableInputTokens(
@@ -1981,68 +1963,85 @@ export class AnthropicProvider extends BaseProvider {
             lastSentEstimate = tokens;
           },
         });
-        if (reclaim) {
-          // Applied HERE, in the loop's own concrete types: the guard decides,
-          // the caller mutates. Dropping an assistant tool_use message together
-          // with its user tool_result message is what keeps blocks paired.
-          const dropSet = new Set(reclaim.drop);
-          const truncateSet = new Set(reclaim.truncate);
-          const rebuilt: Anthropic.Messages.MessageParam[] = [];
-          for (let i = 0; i < conversation.length; i++) {
-            if (dropSet.has(i)) {
-              continue;
-            }
-            const message = conversation[i];
-            if (truncateSet.has(i) && Array.isArray(message.content)) {
-              rebuilt.push({
-                ...message,
-                content: message.content.map((block) =>
-                  block.type === "tool_result"
-                    ? {
-                        ...block,
-                        content: previewAnthropicToolResultText(
-                          typeof block.content === "string"
-                            ? block.content
-                            : (JSON.stringify(block.content) ?? ""),
-                        ),
-                      }
-                    : block,
-                ),
-              });
-              continue;
-            }
-            rebuilt.push(message);
+        if (!reclaim) {
+          return undefined;
+        }
+        // Dropping an assistant tool_use message together with its user
+        // tool_result message is what keeps blocks paired.
+        const dropSet = new Set(reclaim.drop);
+        const truncateSet = new Set(reclaim.truncate);
+        const rebuilt: Anthropic.Messages.MessageParam[] = [];
+        for (let i = 0; i < conversation.length; i++) {
+          if (dropSet.has(i)) {
+            continue;
           }
-          if (dropSet.size > 0) {
-            // Anthropic requires user/assistant alternation around tool blocks;
-            // the note is a user turn placed immediately before the first
-            // surviving assistant tool_use turn, which preserves it.
-            let noteIndex = rebuilt.findIndex(
-              (m) =>
-                Array.isArray(m.content) &&
-                m.content.some(
-                  (b) => b.type === "tool_use" || b.type === "tool_result",
-                ),
-            );
-            if (noteIndex < 0) {
-              noteIndex = Math.min(1, rebuilt.length);
-            }
-            rebuilt.splice(noteIndex, 0, {
-              role: "user",
-              content: [{ type: "text", text: ANTHROPIC_ELISION_NOTE }],
+          const message = conversation[i];
+          if (truncateSet.has(i) && Array.isArray(message.content)) {
+            rebuilt.push({
+              ...message,
+              content: message.content.map((block) =>
+                block.type === "tool_result"
+                  ? {
+                      ...block,
+                      content: previewAnthropicToolResultText(
+                        typeof block.content === "string"
+                          ? block.content
+                          : (JSON.stringify(block.content) ?? ""),
+                      ),
+                    }
+                  : block,
+              ),
             });
+            continue;
           }
-          conversation.length = 0;
-          conversation.push(...rebuilt);
+          rebuilt.push(message);
+        }
+        if (dropSet.size > 0) {
+          // Anthropic requires user/assistant alternation around tool blocks;
+          // the note is a user turn placed immediately before the first
+          // surviving assistant tool_use turn, which preserves it.
+          let noteIndex = rebuilt.findIndex(
+            (m) =>
+              Array.isArray(m.content) &&
+              m.content.some(
+                (b) => b.type === "tool_use" || b.type === "tool_result",
+              ),
+          );
+          if (noteIndex < 0) {
+            noteIndex = Math.min(1, rebuilt.length);
+          }
+          rebuilt.splice(noteIndex, 0, {
+            role: "user",
+            content: [{ type: "text", text: ANTHROPIC_ELISION_NOTE }],
+          });
+        }
+        return rebuilt;
+      };
+
+      const buildParams = (
+        conversation: Anthropic.Messages.MessageParam[],
+      ): Anthropic.Messages.MessageCreateParams => {
+        // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
+        // new tools into toolsRecord between steps; Claude only calls tools
+        // declared in the request, so advertise them now.
+        if (anthropicTools) {
+          const declared = new Set(anthropicTools.map((t) => t.name));
+          const hydrated = Object.fromEntries(
+            Object.entries(toolsRecord).filter(([name]) => !declared.has(name)),
+          );
+          if (Object.keys(hydrated).length > 0) {
+            const extra = toNativeToolDeclarations(hydrated, "input_schema") as
+              | Anthropic.Messages.Tool[]
+              | undefined;
+            if (extra && extra.length > 0) {
+              anthropicTools = [...anthropicTools, ...extra];
+            }
+          }
         }
 
         // Prompt-cache parity with the native Vertex+Claude path — rolling
-        // history breakpoints, re-applied per step so the stable prefix
-        // stays byte-identical while the breakpoint follows the growing
-        // tail. Budget respects markers upstream layers already placed
-        // (system / last tool / message blocks) so the request never
-        // exceeds Anthropic's four-marker cap. Pure: `conversation` itself
-        // is never mutated, so re-counting per step stays stable.
+        // history breakpoints, re-applied per step so the stable prefix stays
+        // byte-identical while the breakpoint follows the growing tail.
         const cacheMarkersUsed = countAnthropicCacheMarkers({
           system: payload.system,
           tools: anthropicTools,
@@ -2052,7 +2051,6 @@ export class AnthropicProvider extends BaseProvider {
           conversation as VertexAnthropicMessage[],
           ANTHROPIC_MAX_CACHE_BREAKPOINTS - cacheMarkersUsed,
         ) as Anthropic.Messages.MessageParam[];
-        // Registry-driven strip (Sonnet 5 / Opus 4.7+ / Fable 5 families)
         const streamSamplingParams = resolveSamplingParams(
           "anthropic",
           modelId,
@@ -2061,7 +2059,7 @@ export class AnthropicProvider extends BaseProvider {
             : {},
           "anthropic.executeStream",
         );
-        const params: Anthropic.Messages.MessageCreateParamsStreaming = {
+        return {
           model: modelId,
           messages: cachedConversation,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
@@ -2076,285 +2074,162 @@ export class AnthropicProvider extends BaseProvider {
           ...(anthropicToolChoice ? { tool_choice: anthropicToolChoice } : {}),
           ...(thinking ? { thinking } : {}),
         };
-        const events = await withProviderRetry(
-          () =>
-            client.messages.create(params, {
-              signal: abortSignal ?? undefined,
-            }),
-          trace.getActiveSpan() ?? undefined,
-          `${this.providerName} stream`,
-        );
+      };
 
-        // Per-step accumulators, keyed by content-block index so blocks are
-        // replayed to the conversation in order (thinking blocks must be
-        // passed back with their signatures when tool use continues a turn).
-        const blockTypes = new Map<number, string>();
-        const textAcc = new Map<number, string>();
-        const thinkingAcc = new Map<
-          number,
-          { text: string; signature: string }
-        >();
-        const toolAcc = new Map<
-          number,
-          { id: string; name: string; inputJson: string }
-        >();
-        let stopReason: string | null = null;
-        // message_start carries a small output placeholder and message_delta
-        // reports the CUMULATIVE output for the message — latest wins within
-        // the step (adding both double-counted the placeholder every step).
-        // Write-through: each event folds only the DELTA over this step's
-        // previous value into totalOutput, so the total is correct at every
-        // point mid-drain — a step killed mid-stream (abort/timeout) still
-        // counts the billed output it already reported.
-        let stepOutputTokens = 0;
+      const baseAdapter = createAnthropicLoopAdapter({
+        client,
+        maxSteps,
+        toolsRecord,
+        buildParams,
+        planReclaim,
+        noteObservedPromptTokens: (tokens) => {
+          lastObservedPromptTokens = tokens;
+        },
+        ...(finalResultActive
+          ? {
+              finalResultToolName: FINAL_RESULT_TOOL_NAME,
+              onTerminalResult: (text: string) => {
+                finalResultText = text;
+                logger.debug(
+                  "[Anthropic] Extracted structured output from final_result tool (stream)",
+                  { chars: text.length },
+                );
+              },
+            }
+          : {}),
+      });
 
-        for await (const event of events) {
-          if (event.type === "message_start") {
-            totalInput += event.message.usage.input_tokens ?? 0;
-            const startOutputTokens = event.message.usage.output_tokens ?? 0;
-            totalOutput += startOutputTokens - stepOutputTokens;
-            stepOutputTokens = startOutputTokens;
-            // Anthropic reports cache reads/writes SEPARATELY from
-            // input_tokens on the same message_start event — without these
-            // the streaming path silently drops all cache accounting.
-            totalCacheRead += event.message.usage.cache_read_input_tokens ?? 0;
-            totalCacheWrite +=
-              event.message.usage.cache_creation_input_tokens ?? 0;
-            // Calibration signal for the in-turn guard: the FULL prompt size,
-            // which on this path means uncached input plus both cache tiers.
-            // Using input_tokens alone would read a cache-hit step as tiny and
-            // let the guard drift far under the real cost.
-            lastObservedPromptTokens =
-              (event.message.usage.input_tokens ?? 0) +
-              (event.message.usage.cache_read_input_tokens ?? 0) +
-              (event.message.usage.cache_creation_input_tokens ?? 0);
-          } else if (event.type === "content_block_start") {
-            blockTypes.set(event.index, event.content_block.type);
-            if (event.content_block.type === "tool_use") {
-              toolAcc.set(event.index, {
-                id: event.content_block.id,
-                name: event.content_block.name,
-                inputJson: "",
-              });
-            }
-          } else if (event.type === "content_block_delta") {
-            const delta = event.delta;
-            if (delta.type === "text_delta") {
-              textAcc.set(
-                event.index,
-                (textAcc.get(event.index) ?? "") + delta.text,
-              );
-              if (finalResultActive) {
-                bufferedText += delta.text;
-              } else {
-                pushChunk({ content: delta.text });
-              }
-            } else if (delta.type === "thinking_delta") {
-              const acc = thinkingAcc.get(event.index) ?? {
-                text: "",
-                signature: "",
-              };
-              acc.text += delta.thinking;
-              thinkingAcc.set(event.index, acc);
-              // Reasoning rides the dedicated chunk channel; `content` stays
-              // an always-present string so plain-text consumers are safe.
-              pushChunk({ content: "", reasoning: delta.thinking });
-            } else if (delta.type === "signature_delta") {
-              const acc = thinkingAcc.get(event.index) ?? {
-                text: "",
-                signature: "",
-              };
-              acc.signature += delta.signature;
-              thinkingAcc.set(event.index, acc);
-            } else if (delta.type === "input_json_delta") {
-              const acc = toolAcc.get(event.index);
-              if (acc) {
-                acc.inputJson += delta.partial_json;
-              }
-            }
-          } else if (event.type === "message_delta") {
-            stopReason = event.delta.stop_reason ?? stopReason;
-            const cumulativeOutputTokens =
-              event.usage?.output_tokens ?? stepOutputTokens;
-            totalOutput += cumulativeOutputTokens - stepOutputTokens;
-            stepOutputTokens = cumulativeOutputTokens;
+      // Wrapped rather than folded into the adapter: analytics emission and
+      // tool-execution storage fire ONCE PER STEP in the loop this replaces,
+      // and buildToolResultMessages is the only per-step hook — it receives
+      // exactly that step's results. Doing this from the turn's final result
+      // instead would batch every step's tools into one late write.
+      const adapter: typeof baseAdapter = {
+        ...baseAdapter,
+        buildToolResultMessages: (conversation, stepResult, toolResults) => {
+          for (const result of toolResults) {
+            toolsUsed.push(result.name);
           }
-        }
-        lastStop = stopReason;
-
-        // final_result is terminal: its arguments ARE the answer, so the turn
-        // ends here and any tool calls issued alongside it are not executed
-        // (parity with the native Vertex loops). It is never executed as a
-        // tool, never recorded in toolsUsed, and never stored as a tool
-        // execution — the pattern stays invisible to callers.
-        if (finalResultActive) {
-          const finalCall = [...toolAcc.values()].find(
-            (acc) => acc.name === FINAL_RESULT_TOOL_NAME,
+          const toolCallsForStorage = toolResults.map((result) => ({
+            type: "tool-call" as const,
+            toolCallId: result.id,
+            toolName: result.name,
+            args: result.args,
+          }));
+          const toolResultsForStorage = toolResults.map((result) =>
+            result.error
+              ? {
+                  type: "tool-result" as const,
+                  toolCallId: result.id,
+                  toolName: result.name,
+                  error: result.error,
+                }
+              : {
+                  type: "tool-result" as const,
+                  toolCallId: result.id,
+                  toolName: result.name,
+                  result: result.output,
+                },
           );
-          if (finalCall) {
-            finalResultText = stringifyFinalResultInput(finalCall.inputJson);
-            lastStop = "end_turn";
-            logger.debug(
-              "[Anthropic] Extracted structured output from final_result tool (stream)",
-              { chars: finalResultText.length },
-            );
-            break;
-          }
-        }
-
-        if (stopReason !== "tool_use" || toolAcc.size === 0) {
-          break;
-        }
-
-        // Replay this assistant turn (thinking + text + tool_use blocks, in
-        // block order) then execute the requested tools and append their
-        // results as a user turn — the native multi-step tool loop.
-        const assistantBlocks: Anthropic.Messages.ContentBlockParam[] = [];
-        const orderedIndexes = [...blockTypes.keys()].sort((a, b) => a - b);
-        for (const idx of orderedIndexes) {
-          const type = blockTypes.get(idx);
-          if (type === "thinking") {
-            const acc = thinkingAcc.get(idx);
-            if (acc && acc.text.length > 0) {
-              assistantBlocks.push({
-                type: "thinking",
-                thinking: acc.text,
-                signature: acc.signature,
-              });
-            }
-          } else if (type === "text") {
-            const text = textAcc.get(idx);
-            if (text && text.length > 0) {
-              assistantBlocks.push({ type: "text", text });
-            }
-          } else if (type === "tool_use") {
-            const acc = toolAcc.get(idx);
-            if (acc) {
-              let input: unknown;
-              try {
-                input = acc.inputJson ? JSON.parse(acc.inputJson) : {};
-              } catch {
-                input = {};
-              }
-              assistantBlocks.push({
-                type: "tool_use",
-                id: acc.id,
-                name: acc.name,
-                input,
-              });
-            }
-          }
-        }
-        conversation.push({ role: "assistant", content: assistantBlocks });
-
-        const resultBlocks: Anthropic.Messages.ToolResultBlockParam[] = [];
-        const toolCallsForStorage: Array<{
-          type: string;
-          toolCallId: string;
-          toolName: string;
-          args: unknown;
-        }> = [];
-        const toolResultsForStorage: Array<{
-          type: string;
-          toolCallId: string;
-          toolName: string;
-          result?: unknown;
-          error?: string;
-        }> = [];
-
-        for (const acc of toolAcc.values()) {
-          let args: Record<string, unknown>;
-          try {
-            args = acc.inputJson
-              ? (JSON.parse(acc.inputJson) as Record<string, unknown>)
-              : {};
-          } catch {
-            args = {};
-          }
-          toolCallsForStorage.push({
-            type: "tool-call",
-            toolCallId: acc.id,
-            toolName: acc.name,
-            args,
+          emitToolEndFromStepFinish(
+            emitter,
+            toolResultsForStorage.map((tr) => ({
+              toolName: tr.toolName,
+              result: "result" in tr ? tr.result : undefined,
+              error: "error" in tr ? tr.error : undefined,
+            })),
+          );
+          this.handleToolExecutionStorage(
+            toolCallsForStorage,
+            toolResultsForStorage,
+            options,
+            new Date(),
+          ).catch((storageErr: unknown) => {
+            logger.warn("[AnthropicProvider] Failed to store tool executions", {
+              provider: this.providerName,
+              error:
+                storageErr instanceof Error
+                  ? storageErr.message
+                  : String(storageErr),
+            });
           });
-          toolsUsed.push(acc.name);
+          return baseAdapter.buildToolResultMessages(
+            conversation,
+            stepResult,
+            toolResults,
+          );
+        },
+      };
 
-          // Live record lookup, then deferred-catalog auto-hydration: with
-          // tools.discovery on, the model may call a cataloged tool it never
-          // loaded via search_tools — a real tool, not a hallucination.
-          const tool = (toolsRecord[acc.name] ??
-            resolveDeferredTool(toolsRecord, acc.name)) as
-            | {
-                execute?: (
-                  input: Record<string, unknown>,
-                  ctx: { toolCallId: string; messages: unknown[] },
-                ) => Promise<unknown>;
-              }
-            | undefined;
-          try {
-            if (!tool?.execute) {
-              throw new Error(`Tool not found: ${acc.name}`);
-            }
-            const result = await tool.execute(args, {
-              toolCallId: acc.id,
+      // Presented in the shape the engine dispatches through. The engine
+      // supplies `{ toolCallId, abortSignal }`; the loop this replaces also
+      // supplied `messages: []`, so it is kept — a tool that reads it would
+      // otherwise see undefined where it used to see an empty array.
+      const engineTools: Record<
+        string,
+        {
+          execute: (
+            args: Record<string, unknown>,
+            opts: unknown,
+          ) => Promise<unknown>;
+        }
+      > = {};
+      for (const [name, tool] of Object.entries(toolsRecord)) {
+        const execute = tool.execute;
+        if (!execute) {
+          continue;
+        }
+        engineTools[name] = {
+          execute: async (args: Record<string, unknown>, opts: unknown) => {
+            const ctx = opts as {
+              toolCallId?: string;
+              abortSignal?: AbortSignal;
+            };
+            return execute(args, {
+              toolCallId: ctx.toolCallId ?? "",
+              ...(ctx.abortSignal ? { abortSignal: ctx.abortSignal } : {}),
               messages: [],
-            });
-            toolResultsForStorage.push({
-              type: "tool-result",
-              toolCallId: acc.id,
-              toolName: acc.name,
-              result,
-            });
-            resultBlocks.push({
-              type: "tool_result",
-              tool_use_id: acc.id,
-              content: stringifyAnthropicToolOutput(result),
-            });
-          } catch (toolErr) {
-            const message =
-              toolErr instanceof Error ? toolErr.message : String(toolErr);
-            toolResultsForStorage.push({
-              type: "tool-result",
-              toolCallId: acc.id,
-              toolName: acc.name,
-              error: message,
-            });
-            resultBlocks.push({
-              type: "tool_result",
-              tool_use_id: acc.id,
-              content: `Error: ${message}`,
-              is_error: true,
-            });
+            } as Parameters<typeof execute>[1]);
+          },
+        };
+      }
+
+      const { stream, resultPromise } = runAgenticLoop(
+        adapter,
+        payload.messages.slice(),
+        {
+          tools: engineTools,
+          ...(abortSignal ? { abortSignal } : {}),
+        },
+      );
+
+      // Structured turns buffer their text rather than streaming it: a caller
+      // that passed a schema needs parseable JSON, and deltas emitted before
+      // the model calls final_result would prefix the payload with prose.
+      // Reasoning is forwarded either way — it is not part of the payload.
+      const pump = (async () => {
+        for await (const chunk of stream) {
+          if (chunk.reasoning) {
+            pushChunk({ content: "", reasoning: chunk.reasoning });
+          }
+          if (chunk.content) {
+            if (finalResultActive) {
+              bufferedText += chunk.content;
+            } else {
+              pushChunk({ content: chunk.content });
+            }
           }
         }
+      })();
 
-        // Emit tool:end events for Pipeline B and persist tool executions —
-        // the same hooks the streamText onStepFinish callback used to drive.
-        emitToolEndFromStepFinish(
-          emitter,
-          toolResultsForStorage.map((tr) => ({
-            toolName: tr.toolName,
-            result: tr.result,
-            error: tr.error,
-          })),
-        );
-        this.handleToolExecutionStorage(
-          toolCallsForStorage,
-          toolResultsForStorage,
-          options,
-          new Date(),
-        ).catch((storageErr: unknown) => {
-          logger.warn("[AnthropicProvider] Failed to store tool executions", {
-            provider: this.providerName,
-            error:
-              storageErr instanceof Error
-                ? storageErr.message
-                : String(storageErr),
-          });
-        });
+      const result = await resultPromise;
+      await pump;
 
-        conversation.push({ role: "user", content: resultBlocks });
-      }
+      totalInput += result.usage.inputTokens;
+      totalOutput += result.usage.outputTokens;
+      totalCacheRead += result.usage.cacheReadTokens ?? 0;
+      totalCacheWrite += result.usage.cacheWriteTokens ?? 0;
+      lastStop = result.rawStopReason ?? lastStop;
 
       resolveUsage(buildDeferredUsage());
       resolveFinish(lastStop ?? "stop");
