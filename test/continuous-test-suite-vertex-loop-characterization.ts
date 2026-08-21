@@ -272,6 +272,66 @@ async function startDribblingStandIn(): Promise<StandIn> {
   };
 }
 
+/**
+ * A stand-in that reports an enormous prompt size.
+ *
+ * The context guard trips on the FULL prompt tokens a call reports, and the
+ * stand-in owns `usageMetadata` — so a turn can be pushed against the window
+ * without building a genuinely enormous conversation.
+ */
+async function startContextPressureStandIn(): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      const parseBody = (): Record<string, unknown> => {
+        try {
+          return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+        } catch {
+          return {};
+        }
+      };
+      calls.push({
+        body: parseBody(),
+        path: String(req.url ?? "").split("?")[0],
+      });
+      res.writeHead(200, { "content-type": "text/event-stream" });
+      res.write(
+        `data: ${JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [{ functionCall: { name: "lookup", args: {} } }],
+                role: "model",
+              },
+              finishReason: "STOP",
+              index: 0,
+            },
+          ],
+          usageMetadata: {
+            promptTokenCount: 900_000,
+            candidatesTokenCount: 1_000,
+            totalTokenCount: 901_000,
+          },
+        })}\r\n\r\n`,
+      );
+      res.end();
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
+  };
+}
+
 section("express-mode reachability");
 
 await test("the turn reaches the stand-in over Express Mode rather than ADC", async () => {
@@ -700,6 +760,81 @@ await test("a turn that outlives turnTimeoutMs ends on the wall-clock deadline",
   assert(
     stopReason === "time-limit",
     "a turn past its wall-clock deadline was not reported against that deadline",
+  );
+});
+
+section("context guard");
+
+await test("a turn pressing against the context window stops and still answers", async () => {
+  // The context guard is the one loop control that can END a turn rather than
+  // trim it, and the distinction matters for the migration: reclaiming
+  // returns a smaller conversation, but when reclaiming buys nothing the loop
+  // sets hitContextLimit, breaks, and synthesizes a final answer instead of
+  // stepping into a provider "prompt is too long" rejection.
+  //
+  // That stop cannot be expressed by the engine's planReclaim hook, which
+  // says "here is a smaller conversation" or "nothing to do" and has no way
+  // to say "end the turn" — so whatever the migration does about it has to be
+  // deliberate, and this case is what will hold it honest.
+  //
+  // The guard trips on the prompt size a call REPORTS, and the stand-in owns
+  // usageMetadata, so pressure is applied without building a real 900k-token
+  // conversation.
+  const server = await startContextPressureStandIn();
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let streamed = "";
+  let stopReason: string | undefined;
+  let outcome: string;
+  let thrown: unknown;
+  try {
+    const turn = (async () => {
+      const result = await nl().stream({
+        input: { text: "keep going" },
+        provider: "vertex",
+        model: MODEL,
+        maxTokens: 32,
+        maxSteps: 6,
+        disableTools: false,
+        disableInternalFallback: true,
+        tools: customTool(counter),
+        credentials: credentialsFor(server.port),
+      });
+      for await (const chunk of result.stream) {
+        streamed += chunk?.content ?? "";
+      }
+      stopReason = (result as { metadata?: { stopReason?: string } }).metadata
+        ?.stopReason;
+      return "ended";
+    })();
+    outcome = await Promise.race([
+      turn.catch((error: unknown) => {
+        thrown = error;
+        return "threw";
+      }),
+      new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("never-ended"), 25_000);
+        t.unref?.();
+      }),
+    ]);
+  } finally {
+    restore();
+    await server.close();
+  }
+  if (outcome === "threw") {
+    console.log(
+      `    [diagnostic] context-cap turn threw: ${String((thrown as Error)?.message).slice(0, 160)}`,
+    );
+  }
+  console.log(
+    `    [diagnostic] context-cap turn: outcome=${outcome} calls=${server.calls.length} stopReason=${String(stopReason)} chars=${streamed.length}`,
+  );
+  assert(outcome === "ended", "the pressured turn failed instead of ending");
+  // Well short of maxSteps: the guard stops the loop rather than letting it
+  // run the budget out against a prompt it already knows is too large.
+  assert(
+    server.calls.length < 6,
+    `the guard let the turn run ${server.calls.length} calls, up to its step budget`,
   );
 });
 
