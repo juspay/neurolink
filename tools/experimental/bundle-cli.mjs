@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// Experimental / unwired: not referenced by any package.json script, prepack,
+// pre-push hook, or CI workflow. Relocated out of scripts/ so its presence no
+// longer implies it's part of an active build path. Run manually if needed:
+//   node tools/experimental/bundle-cli.mjs [--minify] [--meta]
+// Tracked as an open "revisit" item in
+// docs/plans/2026-05-02-remove-aisdk-execution-agent-prompt.md.
 import * as esbuild from "esbuild";
 import { writeFileSync } from "fs";
 
@@ -25,13 +31,17 @@ const stubRemovedDepsPlugin = {
       "@opentelemetry/auto-instrumentations-node",
     ];
     for (const pkg of removed) {
-      build.onResolve({ filter: new RegExp(`^${pkg.replace("/", "\\/")}$`) }, () => ({
-        path: pkg,
-        namespace: "stub",
-      }));
+      build.onResolve(
+        { filter: new RegExp(`^${pkg.replace("/", "\\/")}$`) },
+        () => ({
+          path: pkg,
+          namespace: "stub",
+        }),
+      );
     }
     build.onLoad({ filter: /.*/, namespace: "stub" }, () => ({
-      contents: "export default {}; export const NodeSDK = class {}; export function getNodeAutoInstrumentations() { return []; }",
+      contents:
+        "export default {}; export const NodeSDK = class {}; export function getNodeAutoInstrumentations() { return []; }",
       loader: "js",
     }));
   },
@@ -55,7 +65,8 @@ const result = await esbuild.build({
   logLevel: "warning",
 });
 
-const outSize = (result.metafile.outputs["dist/cli-bundle.mjs"]?.bytes || 0) / 1024 / 1024;
+const outSize =
+  (result.metafile.outputs["dist/cli-bundle.mjs"]?.bytes || 0) / 1024 / 1024;
 console.log(`✅ CLI bundle: dist/cli-bundle.mjs (${outSize.toFixed(1)} MB)`);
 
 if (process.argv.includes("--meta")) {

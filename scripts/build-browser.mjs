@@ -17,13 +17,13 @@ const nodeBuiltins = [
 const npmStubs = [
   'sharp','canvas','ffmpeg-static','ffprobe-static','@resvg/resvg-wasm','satori','satori-html',
   'better-sqlite3','node-pty','redis','@google-cloud/text-to-speech','google-auth-library',
-  '@google-cloud/vertexai','cors','fastify','fastify-plugin','express','koa','@fastify/cors',
+  'cors','fastify','fastify-plugin','express','koa','@fastify/cors',
   'mammoth','pdf-parse','exceljs','adm-zip','tar-stream','music-metadata','fluent-ffmpeg',
   'pptxgenjs','csv-parser','@juspay/hippocampus','@aws-sdk/client-bedrock',
   '@aws-sdk/client-bedrock-runtime','@aws-sdk/client-sagemaker-runtime','@hapi/bourne',
   'ajv','ajv-formats','chardet','debug','iconv-lite','inherits','ip-address','pkce-challenge','qs',
   'which','pdf-to-img','express-rate-limit','@hono/node-server','powershell-utils',
-  'wsl-utils','default-browser','default-browser-id','run-applescript','open',
+  'wsl-utils','default-browser','default-browser-id','run-applescript',
   '@langfuse/langfuse','undici','bullmq','croner','ioredis',
   // Optional peer of @anthropic-ai/sdk's beta webhooks module (server-only
   // webhook signature verification) — irrelevant in the browser bundle.
