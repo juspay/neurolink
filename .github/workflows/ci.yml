@@ -195,7 +195,8 @@ jobs:
 
   #         echo "✅ Action smoke test passed!"
 
-  # Installs with optionalDependencies omitted, then runs the built CLI.
+  # Builds with a full install, prunes optionalDependencies, then runs the
+  # built CLI against the pruned tree.
   # optionalDependencies (express, the AWS SDK bedrock/sagemaker clients,
   # fastify, koa, etc.) are exactly the packages npm/pnpm silently skip on a
   # failed native build or a --no-optional install, so "it built" here proves
@@ -232,11 +233,26 @@ jobs:
           node-version: "22"
           cache: "pnpm"
 
-      - name: Install dependencies (optionalDependencies omitted)
-        run: pnpm install --no-optional
+      # Build with a FULL install, then prune. The previous order installed
+      # --no-optional first and never reached the CLI at all: rolldown's
+      # native binding (@rolldown/binding-linux-x64-gnu) is itself an
+      # optionalDependency, so the BUILD TOOL disappeared and the job failed
+      # at "Build CLI" with "Cannot find native binding" — red forever, and
+      # proving nothing about the CLI.
+      #
+      # What this job exists to prove is a RUNTIME property: that the built
+      # CLI still starts when the optional runtime packages are absent. So the
+      # build gets everything it needs, and only the run is starved.
+      - name: Install dependencies (full, for the build)
+        run: pnpm install --frozen-lockfile
 
       - name: Build CLI
         run: pnpm run build:cli
+
+      # dist/ survives this: it lives outside node_modules, so the CLI below
+      # is the artifact built above, now running against a pruned tree.
+      - name: Re-install with optionalDependencies omitted
+        run: pnpm install --no-optional
 
       - name: CLI smoke test — --help
         run: node dist/cli/index.js --help
