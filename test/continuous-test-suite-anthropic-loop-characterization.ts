@@ -41,6 +41,12 @@ import "dotenv/config";
 
 import { createServer, type Server } from "node:http";
 import { z } from "zod";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -49,6 +55,14 @@ assertDistFresh();
 const { test, section, runSuite } = defineSuite(
   "Anthropic loop characterization",
 );
+
+// Registered BEFORE NeuroLink is imported, so its tracers bind to this
+// provider. Only the span-attribute case below reads the exporter; for every
+// other case it is an inert extra span processor.
+const spanExporter = new InMemorySpanExporter();
+new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+}).register();
 
 const { NeuroLink } = await import("../dist/index.js");
 
@@ -511,6 +525,69 @@ await test("a truncated final_result payload survives verbatim instead of collap
     restore();
     await server.close();
   }
+});
+
+section("retry telemetry");
+
+await test("a native loop turn records the provider attempt count on the active span", async () => {
+  // Before this loop moved onto the shared engine it called
+  //   withProviderRetry(fn, trace.getActiveSpan() ?? undefined, label)
+  // and withProviderRetry writes gen_ai.provider.total_attempts on that span
+  // after every completed attempt, retried or not. The engine passed
+  // `undefined` in its place, so the attribute stopped being emitted for
+  // every native Anthropic turn — invisibly, because nothing asserted on it.
+  //
+  // One tool step so the turn actually runs on the agentic loop rather than a
+  // single-shot call.
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn("lookup", { q: "x" }) : textTurn("done"),
+  );
+  const restore = withAnthropicEnv(server.port);
+  const counter = { calls: 0 };
+  spanExporter.reset();
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "anthropic",
+      disableInternalFallback: true,
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      tools: customTool(counter),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } finally {
+    restore();
+    await server.close();
+  }
+  const ATTR = "gen_ai.provider.total_attempts";
+  const carrying = spanExporter
+    .getFinishedSpans()
+    .filter((span: ReadableSpan) => span.attributes[ATTR] !== undefined);
+  console.log(
+    `    [diagnostic] anthropic retry telemetry: toolCalls=${counter.calls} spansWithAttr=${carrying.length} values=${carrying
+      .map((span: ReadableSpan) => String(span.attributes[ATTR]))
+      .join(",")}`,
+  );
+  assert(
+    counter.calls === 1,
+    "the turn did not run a tool step, so it never reached the agentic loop",
+  );
+  assert(
+    carrying.length > 0,
+    "no span carries the provider attempt count, so the loop is not passing one",
+  );
+  // Every step of a clean turn succeeds first try, so each recorded count is 1.
+  // Asserting the VALUE and not merely the key's presence is what keeps this
+  // from passing on an attribute written by some unrelated code path.
+  assert(
+    carrying.every((span: ReadableSpan) => span.attributes[ATTR] === 1),
+    "a step reported an attempt count other than the single attempt it made",
+  );
 });
 
 await runSuite();
