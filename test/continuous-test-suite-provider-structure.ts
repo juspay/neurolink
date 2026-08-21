@@ -217,10 +217,10 @@ await test("Provider Registration Completeness", async () => {
   );
 
   const { ProviderRegistry } =
-    await import("../dist/lib/factories/providerRegistry.js");
+    await import("../dist/factories/providerRegistry.js");
   const { ProviderFactory } =
-    await import("../dist/lib/factories/providerFactory.js");
-  const { AIProviderName } = await import("../dist/lib/constants/enums.js");
+    await import("../dist/factories/providerFactory.js");
+  const { AIProviderName } = await import("../dist/constants/enums.js");
 
   ProviderRegistry.clearRegistrations();
   await ProviderRegistry.registerAllProviders();
@@ -318,9 +318,8 @@ const KNOWN_UNREFERENCED_TOKEN_KEYS: Record<string, readonly string[]> = {
 
 await test("Model id tables agree with the model enums", async () => {
   const { BedrockModels, VertexModels, AnthropicModels } =
-    await import("../dist/lib/constants/enums.js");
-  const { PROVIDER_TOKEN_LIMITS } =
-    await import("../dist/lib/constants/tokens.js");
+    await import("../dist/constants/enums.js");
+  const { PROVIDER_TOKEN_LIMITS } = await import("../dist/constants/tokens.js");
 
   const surfaces = [
     { table: "BEDROCK", models: BedrockModels },

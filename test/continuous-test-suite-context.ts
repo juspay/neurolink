@@ -2059,7 +2059,7 @@ async function testFileDetectorLoadFromURLRetry(): Promise<boolean | null> {
     // compile-time-only modifier — at runtime it's a plain static method on
     // FileDetector, which is what this test exercises directly rather than
     // routing through the full detectAndProcess() pipeline.
-    const { FileDetector } = await import("../dist/lib/utils/fileDetector.js");
+    const { FileDetector } = await import("../dist/utils/fileDetector.js");
     const detector = FileDetector as unknown as {
       loadFromURL: (
         url: string,
@@ -2386,7 +2386,7 @@ async function callSdk(
 async function test_2_0_static_artifact_contains_fix(): Promise<void> {
   const testName = "2.0 — STATIC: shipped artifact contains the fix code";
   const fs = await import("node:fs/promises");
-  const path = "dist/lib/neurolink.js";
+  const path = "dist/neurolink.js";
   let src: string;
   try {
     src = await fs.readFile(path, "utf-8");
@@ -2849,7 +2849,7 @@ async function test_6_static_artifact_shape(): Promise<void> {
   // StreamHandler). Verify the literal carries finishReason / usage /
   // providerError so downstream telemetry has structured failure context.
   const fs = await import("node:fs/promises");
-  const path = "dist/lib/utils/noOutputSentinel.js";
+  const path = "dist/utils/noOutputSentinel.js";
   let src: string;
   try {
     src = await fs.readFile(path, "utf-8");
@@ -2940,7 +2940,7 @@ async function test_6_1_all_providers_wired(): Promise<void> {
   const fs = await import("node:fs/promises");
   for (const p of [...providers.map((n) => `providers/${n}`), ...otherSites]) {
     const testName = `6.1 — ${p} wired to NoOutput sentinel helper`;
-    const path = `dist/lib/${p}.js`;
+    const path = `dist/${p}.js`;
     let src: string;
     try {
       src = await fs.readFile(path, "utf-8");
@@ -2975,7 +2975,7 @@ async function test_6_1_all_providers_wired(): Promise<void> {
 async function test_6_2_helper_produces_full_sentinel(): Promise<void> {
   const testName =
     "6.2 — RUNTIME: buildNoOutputSentinel produces all 6 enriched keys";
-  const mod = await import("../dist/lib/utils/noOutputSentinel.js");
+  const mod = await import("../dist/utils/noOutputSentinel.js");
   if (typeof mod.buildNoOutputSentinel !== "function") {
     return recordIssue06(
       testName,
@@ -3034,7 +3034,7 @@ async function test_6_2_helper_produces_full_sentinel(): Promise<void> {
 async function test_6_3_helper_reads_partial_values(): Promise<void> {
   const testName =
     "6.3 — RUNTIME: buildNoOutputSentinel reads partial values from result-like";
-  const mod = await import("../dist/lib/utils/noOutputSentinel.js");
+  const mod = await import("../dist/utils/noOutputSentinel.js");
 
   // Case A: resolved result fields surface to the sentinel.
   const errA = new Error("Stream produced no output");
@@ -3096,7 +3096,7 @@ async function test_6_3_helper_reads_partial_values(): Promise<void> {
 async function test_6_4_helper_extracts_cause(): Promise<void> {
   const testName =
     "6.4 — RUNTIME: buildNoOutputSentinel surfaces error.cause into modelResponseRaw";
-  const mod = await import("../dist/lib/utils/noOutputSentinel.js");
+  const mod = await import("../dist/utils/noOutputSentinel.js");
 
   // Case A: error has a `cause` (AI SDK wraps the underlying provider error).
   const errA = new Error("AI_NoOutputGeneratedError") as Error & {
@@ -3300,7 +3300,7 @@ async function test_6_6_streamhandler_no_duplicate_sentinel(): Promise<void> {
   // Read the shipped artifact and verify the catch block returns after
   // yielding the sentinel (so the post-stream detection block doesn't run).
   const fs = await import("node:fs/promises");
-  const path = "dist/lib/core/modules/StreamHandler.js";
+  const path = "dist/core/modules/StreamHandler.js";
   let src: string;
   try {
     src = await fs.readFile(path, "utf-8");
@@ -3354,7 +3354,7 @@ async function test_6_7_pipeline_b_preserves_status_message(): Promise<void> {
   const testName =
     "6.7 — REGRESSION: Pipeline B applyNonErrorLangfuseLevel preserves enriched langfuse.status_message";
   const fs = await import("node:fs/promises");
-  const path = "dist/lib/services/server/ai/observability/instrumentation.js";
+  const path = "dist/services/server/ai/observability/instrumentation.js";
   let src: string;
   try {
     src = await fs.readFile(path, "utf-8");
@@ -3483,7 +3483,7 @@ async function test_6_9_all_wired_sites_stamp_otel_span(): Promise<void> {
   ];
   for (const t of targets) {
     const testName = `6.9 — ${t} stamps OTel span via stampNoOutputSpan`;
-    const path = `dist/lib/${t}.js`;
+    const path = `dist/${t}.js`;
     let src: string;
     try {
       src = await fs.readFile(path, "utf-8");
@@ -3515,7 +3515,7 @@ async function test_6_9_all_wired_sites_stamp_otel_span(): Promise<void> {
 async function test_6_10_status_message_handles_v6_usage(): Promise<void> {
   const testName =
     "6.10 — REGRESSION: buildNoOutputStatusMessage reads AI SDK v6 usage fields";
-  const mod = await import("../dist/lib/utils/noOutputSentinel.js");
+  const mod = await import("../dist/utils/noOutputSentinel.js");
   // v6 shape
   const v6 = mod.buildNoOutputStatusMessage("stop", {
     inputTokens: 42,
@@ -3551,7 +3551,7 @@ async function test_6_11_wrapper_excludes_sentinel_from_fallback_gate(): Promise
   const testName =
     "6.11 — REGRESSION: NeuroLink stream wrapper excludes NoOutputSentinel from fallback content gate";
   const fs = await import("node:fs/promises");
-  const path = "dist/lib/neurolink.js";
+  const path = "dist/neurolink.js";
   let src: string;
   try {
     src = await fs.readFile(path, "utf-8");
@@ -3592,7 +3592,7 @@ async function test_6_12_media_chunks_count_as_real_output(): Promise<void> {
   const testName =
     "6.12 — REGRESSION: wrapper counts audio/image chunks as real output (no spurious fallback)";
   const fs = await import("node:fs/promises");
-  const path = "dist/lib/neurolink.js";
+  const path = "dist/neurolink.js";
   let src: string;
   try {
     src = await fs.readFile(path, "utf-8");
@@ -3637,7 +3637,7 @@ async function test_6_12_media_chunks_count_as_real_output(): Promise<void> {
 async function test_6_13_helper_accepts_underlying_error(): Promise<void> {
   const testName =
     "6.13 — REGRESSION: buildNoOutputSentinel accepts underlyingError and prefers it for providerError/modelResponseRaw";
-  const mod = await import("../dist/lib/utils/noOutputSentinel.js");
+  const mod = await import("../dist/utils/noOutputSentinel.js");
   const aiSdkError = new Error(
     "No output generated. Check the stream for errors.",
   );
@@ -3701,11 +3701,11 @@ async function test_6_14_providers_capture_and_pass_error(): Promise<void> {
   // during the native migration. Assert the capture on the base for those, and
   // on their own file for self-streaming providers (openRouter, anthropic).
   const baseSrc = await fs
-    .readFile("dist/lib/providers/openaiChatCompletionsBase.js", "utf-8")
+    .readFile("dist/providers/openaiChatCompletionsBase.js", "utf-8")
     .catch(() => "");
   for (const t of targets) {
     const testName = `6.14 — ${t} captures onError and passes underlyingError to NoOutput helpers`;
-    const path = `dist/lib/${t}.js`;
+    const path = `dist/${t}.js`;
     let src: string;
     try {
       src = await fs.readFile(path, "utf-8");

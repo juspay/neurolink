@@ -10,7 +10,7 @@ import "dotenv/config";
  * and the output-ceiling invariant (maxOutputTokens must never exceed the
  * relevant contextWindow) across every registered provider manifest.
  *
- * ## Why this reaches into `dist/lib/` directly (CLAUDE.md rule 15)
+ * ## Why this reaches into `dist/` directly (CLAUDE.md rule 15)
  *
  * manifestRegistry.ts has no consumer yet, by design: this PR (model-metadata
  * consolidation, Task 5) is purely additive and deliberately does not migrate
@@ -29,12 +29,12 @@ import "dotenv/config";
  * a public surface, not a unit test.
  *
  * This is not the rule 15 `allow`-list exception (deterministic control a
- * live call can't give) — it is the same "drive a specific compiled dist/lib
+ * live call can't give) — it is the same "drive a specific compiled dist
  * module that isn't re-exported from dist/index.js" pattern already used by
  * continuous-test-suite.ts (AccountPool, ModelRouter, the cloaking plugins),
  * -credentials.ts (ProviderFactory/ProviderRegistry), -provider-structure.ts
  * (providerRegistry.js) and others, none of which are on the `allow` list.
- * Every import below resolves under `../dist/lib/...` — the compiled
+ * Every import below resolves under `../dist/...` — the compiled
  * artifact, not raw TypeScript source — so it stays a single module graph
  * per rule 15's "one module graph per suite" mandate, it just isn't the
  * top-level public one.
@@ -56,7 +56,7 @@ const {
   resolveManifestEntryExact,
   getManifestForProvider,
   getAllManifestProviders,
-} = await import("../dist/lib/models/manifestRegistry.js");
+} = await import("../dist/models/manifestRegistry.js");
 
 await test("Alias resolves to its canonical entry, not the default", async () => {
   // ollama's "llama3.2:latest" entry declares "llama3.2" as a bare-name

@@ -31,9 +31,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { NeuroLink, RedisSkillStore, S3SkillStore } from "../dist/index.js";
-import { ConversationMemoryManager } from "../dist/lib/core/conversationMemoryManager.js";
-import { buildContextFromPointer } from "../dist/lib/utils/conversationMemory.js";
-import { truncateWithSlidingWindow } from "../dist/lib/context/stages/slidingWindowTruncator.js";
+import { ConversationMemoryManager } from "../dist/core/conversationMemoryManager.js";
+import { buildContextFromPointer } from "../dist/utils/conversationMemory.js";
+import { truncateWithSlidingWindow } from "../dist/context/stages/slidingWindowTruncator.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 

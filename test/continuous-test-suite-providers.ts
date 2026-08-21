@@ -3038,9 +3038,9 @@ async function testIssue03TypeSurfaceMissesOptions(): Promise<boolean | null> {
   const fs = await import("node:fs/promises");
   const candidatePaths = [
     "dist/index.d.ts",
-    "dist/lib/types/config.d.ts",
-    "dist/lib/types/generate.d.ts",
-    "dist/lib/types/stream.d.ts",
+    "dist/types/config.d.ts",
+    "dist/types/generate.d.ts",
+    "dist/types/stream.d.ts",
   ];
   let combined = "";
   for (const p of candidatePaths) {
