@@ -8695,6 +8695,17 @@ export function createClaudeProxyRoutes(
           const routing = runtimeConfigProvider?.();
           const effectiveAllowlist =
             routing?.accountAllowlist ?? accountAllowlist;
+          // Hot-reloaded routing wins over the value baked in at construction,
+          // the same precedence the request path uses.
+          const effectivePrimaryKey =
+            routing?.primaryAccountKey ?? primaryAccountKey;
+          // Rows carry a bare label in one loop and a full pool key in the
+          // other; anthropicAccountKeysEqual normalises both, so neither can
+          // miss the match on prefix alone.
+          const isPrimaryAccount = (keyOrLabel: string | null): boolean =>
+            !!effectivePrimaryKey &&
+            !!keyOrLabel &&
+            anthropicAccountKeysEqual(keyOrLabel, effectivePrimaryKey);
 
           // Cached by default. This endpoint is built to be polled, and a live
           // refresh spends the user's own OAuth credentials against Anthropic's
@@ -8810,7 +8821,7 @@ export function createClaudeProxyRoutes(
               cooling,
               allowed: null,
               expired: null,
-              isPrimary: false,
+              isPrimary: isPrimaryAccount(result.key ?? label),
               requests: stat ? stat.successCount + stat.errorCount : null,
               errors: stat?.errorCount ?? null,
               rateLimits: stat?.rateLimitCount ?? null,
@@ -8855,7 +8866,7 @@ export function createClaudeProxyRoutes(
               cooling: false,
               allowed: null,
               expired: null,
-              isPrimary: false,
+              isPrimary: isPrimaryAccount(entry.label),
               requests: entry.successCount + entry.errorCount,
               errors: entry.errorCount,
               rateLimits: entry.rateLimitCount,

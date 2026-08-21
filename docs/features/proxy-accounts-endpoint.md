@@ -106,6 +106,12 @@ not hammer Anthropic.
   seconds fields get a `*Ms` companion; the rest pass through untouched.
   Blanket-multiplying the object would throw the millisecond fields tens of
   thousands of years forward.
+- **`isPrimary`** marks the account the pool prefers, from the proxy's
+  hot-reloaded routing config where one is set and the value it was constructed
+  with otherwise. Keys compare normalised, so a bare label (`me@example.com`)
+  and a full pool key (`anthropic:me@example.com`) match. It is `false` on
+  `internal` and `translation` rows, which are not credentials and cannot be
+  primary.
 - **`severity` and `isActive`** are absent on header-sourced `overage` windows —
   a structural property of how those rows are parsed, not a transient gap. This
   endpoint fills them (`severity: "critical"` when the window is rejected,
