@@ -201,7 +201,7 @@
     "quality:metrics": "tsx scripts/quality-metrics.ts",
     "quality:report": "pnpm run quality:metrics && echo 'Quality metrics saved to quality-metrics.json'",
     "pre-commit": "lint-staged",
-    "pre-push": "pnpm run build && pnpm run test:providers-mocked && pnpm run test:provider-structure && pnpm run test:model-manifests",
+    "pre-push": "pnpm run check:deps && pnpm run build && pnpm run test:providers-mocked && pnpm run test:provider-structure && pnpm run test:model-manifests",
     "check:all": "pnpm run lint && pnpm run format --check && pnpm run validate && pnpm run validate:commit",
     "test:file-formats": "npx tsx test/continuous-test-suite-file-formats.ts",
     "test:multimodal": "pnpm run test:file-formats && pnpm run test:multimodal:sdk",
@@ -346,8 +346,6 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.50",
-    "@ai-sdk/google": "^4.0.29",
-    "@ai-sdk/google-vertex": "^5.0.36",
     "@ai-sdk/mistral": "^3.0.21",
     "@ai-sdk/openai": "^3.0.37",
     "@ai-sdk/provider": "^3.0.8",

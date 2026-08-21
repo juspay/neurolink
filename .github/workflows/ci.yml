@@ -68,6 +68,11 @@ jobs:
           echo "🔍 Running build rule enforcement validations..."
           pnpm run validate:all
 
+      - name: 🚫 Check banned dependencies
+        run: |
+          echo "🔍 Verifying no banned packages leaked into production dependencies..."
+          pnpm run check:deps
+
       - name: Build package
         run: pnpm run build
 
