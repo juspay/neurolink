@@ -272,7 +272,7 @@ await test("a caller's own tool is declared, executed, and its result returns to
 
 section("generate loop");
 
-await test("the generate path does not declare a caller's tools (known defect)", async () => {
+await test("the generate path declares and executes a caller's tools", async () => {
   // AI Studio's generate() has a second, near-duplicate hand-rolled loop.
   // Pinning it separately matters because Task 9 migrates BOTH onto one
   // adapter, and a regression in either would otherwise be invisible.
@@ -294,29 +294,26 @@ await test("the generate path does not declare a caller's tools (known defect)",
       tools: customTool(counter),
       credentials: credentialsFor(server.port),
     });
-    // Pins behaviour that is WRONG, so the migration has a baseline.
+    // The inverted form of what the characterization pass pinned, now that
+    // the cause is fixed.
     //
-    // AI Studio's generate() never advertises the caller's tools: the loop
-    // builds its declarations from `options.tools`, but nothing merges the
-    // caller's tools into it on this path the way BaseProvider.stream() does
-    // for the streaming twin. So `nl.generate({ provider: "google-ai",
-    // tools })` cannot use those tools at all — the model is never told they
-    // exist. This is the same defect class already found and fixed on
-    // Bedrock's generate path.
-    //
-    // The two calls below therefore prove the loop ran, not that the tool
-    // worked: the fixture returns a canned functionCall the provider never
-    // declared, so the loop answers it with a not-found functionResponse and
-    // takes a second turn. When Task 9's migration fixes the declaration,
-    // these assertions invert — which is the intended outcome, not a
-    // regression.
+    // The generate path gated its tool-declaration branch on
+    // `!exclusionInForce` alone. `isToolsSchemaExclusionInForce` reports
+    // whether the Gemini tools/schema exclusion APPLIES to this provider and
+    // model, and it is true for any Gemini request that carries tools at all
+    // — so that branch was reachable only when there were no tools to
+    // declare, and every caller-supplied tool was dropped whether or not
+    // structured output was ever requested. The gate now takes both
+    // conjuncts, matching the warning immediately above it and the stream
+    // path's own gate.
     assert(
-      !declaredToolNames(server.calls[0]).includes("lookup"),
-      "the generate path declared the caller's tool — the defect is fixed, invert this assertion",
+      declaredToolNames(server.calls[0]).includes("lookup"),
+      "the generate path did not declare the caller's tool",
     );
+    assert(counter.calls === 1, "the caller's tool did not execute once");
     assert(
-      counter.calls === 0,
-      "the caller's tool executed on the generate path — the defect is fixed, invert this assertion",
+      functionResponses(server.calls[1]).includes("lookup"),
+      "the tool result was not carried back to the model",
     );
     assert(
       server.calls.length === 2,

@@ -1419,7 +1419,18 @@ export class GoogleAIStudioProvider extends BaseProvider {
               "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request (generate()).",
             );
           }
-          if (shouldUseTools && !exclusionInForce) {
+          // Both conjuncts, matching the warning directly above and the
+          // stream path's gate. `isToolsSchemaExclusionInForce` answers "does
+          // the tools/schema exclusion APPLY to this provider and model", and
+          // is true for any Gemini request that has tools at all — it is not
+          // "the exclusion is triggered". Testing `!exclusionInForce` alone
+          // therefore made this branch reachable only when there were NO
+          // tools, so every caller-supplied tool was dropped on the generate
+          // path whether or not structured output was ever requested.
+          if (
+            shouldUseTools &&
+            !(wantsNativeJsonRequested && exclusionInForce)
+          ) {
             const tools = options.tools || {};
 
             if (Object.keys(tools).length > 0) {
