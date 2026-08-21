@@ -179,7 +179,19 @@ export function runAgenticLoop<TConversation>(
         }
 
         const toolResults: AgenticLoopToolCallResult[] = [];
+        let abortedMidBatch = false;
         for (const call of stepResult.toolCalls) {
+          // Honour an abort BETWEEN tool executions. A step can carry several
+          // calls, and each one costs up to a full tool timeout, so without
+          // this a wide batch keeps running long past the moment the turn was
+          // cancelled — the step-top check above only fires once the whole
+          // batch has drained. Passing the signal into execute() is not
+          // enough on its own: a tool that ignores it still runs to
+          // completion, and every remaining call still gets STARTED.
+          if (internalAbort.signal.aborted) {
+            abortedMidBatch = true;
+            break;
+          }
           allToolCalls.push(call);
           const breaker = adapter.toolFailureBreaker;
           const failInfo = breaker ? failedTools.get(call.name) : undefined;
@@ -270,6 +282,16 @@ export function runAgenticLoop<TConversation>(
               error: message,
             });
           }
+        }
+
+        // A batch cut short leaves some calls without results, and the
+        // tool-result turn is appended as one message: writing it here would
+        // put an unanswered tool call into history. Anthropic rejects exactly
+        // that on the next request, and Gemini carries a dangling call
+        // forward. Break instead, leaving history ending on the model turn —
+        // which is a valid place to stop.
+        if (abortedMidBatch) {
+          break;
         }
 
         conversation = adapter.buildToolResultMessages(
