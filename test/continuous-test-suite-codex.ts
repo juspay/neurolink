@@ -628,4 +628,364 @@ await test("the built CLI enters the codex import path and reports the missing c
   );
 });
 
+// ---------------------------------------------------------------------------
+// Codex SSE usage tap (issue #1369)
+//
+// The wire shape is verified against live traffic: the fixture case below
+// asserts against `test/fixtures/codex-response-usage.sse`, captured from a
+// real `codex exec` run through the proxy. These cases pin the parser's
+// contract on top of that: recognised shapes yield counts, unrecognised ones
+// yield null (never zero), and the tap never alters the bytes it relays.
+// ---------------------------------------------------------------------------
+
+await test("codex usage tap bounds a stream with no line breaks", async () => {
+  // A hung upstream, or a non-SSE body relayed by mistake, can send bytes
+  // forever without a newline. The tap keeps the unterminated tail so the next
+  // chunk can complete the line, so without a ceiling that buffer grows for the
+  // life of the request — in the hot path of a live relay.
+  const { createCodexUsageTap } =
+    await import("../src/lib/proxy/codexUsage.js");
+  const { stream, usage } = createCodexUsageTap();
+  const encoder = new TextEncoder();
+  const blob = encoder.encode("x".repeat(256 * 1024));
+
+  const writer = stream.writable.getWriter();
+  const reader = stream.readable.getReader();
+  let relayed = 0;
+  const drain = (async () => {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      relayed += value.byteLength;
+    }
+  })();
+  for (let i = 0; i < 12; i += 1) {
+    await writer.write(blob);
+  }
+  await writer.close();
+  await drain;
+
+  // Every byte still reaches the client — the tap must never hold one back.
+  assert(
+    relayed === blob.byteLength * 12,
+    "usage tap did not relay every byte of a line-break-free stream",
+  );
+  assert((await usage) === null, "usage tap invented a reading from noise");
+});
+
+await test("codex usage tap reads the documented response.completed shape", async () => {
+  const { scanCodexSSEForUsage } =
+    await import("../src/lib/proxy/codexUsage.js");
+  const usage = scanCodexSSEForUsage(
+    [
+      "event: response.output_text.delta",
+      'data: {"type":"response.output_text.delta","delta":"hi"}',
+      "",
+      "event: response.completed",
+      'data: {"type":"response.completed","response":{"usage":{"input_tokens":1200,"output_tokens":340,"input_tokens_details":{"cached_tokens":900},"output_tokens_details":{"reasoning_tokens":128}}}}',
+      "",
+    ].join("\n"),
+  );
+  assert(usage !== null, "usage was not recognised in the documented shape");
+  assertEqual(usage?.inputTokens, 1200, "input token count mismatch");
+  assertEqual(usage?.outputTokens, 340, "output token count mismatch");
+  assertEqual(usage?.cacheReadTokens, 900, "cache-read token count mismatch");
+  assertEqual(usage?.reasoningTokens, 128, "reasoning token count mismatch");
+});
+
+await test("codex usage tap reports null rather than zero when unrecognised", async () => {
+  const { scanCodexSSEForUsage } =
+    await import("../src/lib/proxy/codexUsage.js");
+  const noUsage = scanCodexSSEForUsage(
+    [
+      "event: response.output_text.delta",
+      'data: {"type":"response.output_text.delta","delta":"hi"}',
+      "data: [DONE]",
+      "",
+    ].join("\n"),
+  );
+  assert(
+    noUsage === null,
+    "a stream with no usage must report null, not a zeroed object",
+  );
+});
+
+await test("codex usage tap survives malformed and partial payloads", async () => {
+  const { scanCodexSSEForUsage } =
+    await import("../src/lib/proxy/codexUsage.js");
+  const usage = scanCodexSSEForUsage(
+    [
+      "data: {not json at all",
+      'data: {"type":"response.completed","response":{"usa',
+      'data: {"usage":{"prompt_tokens":10,"completion_tokens":5}}',
+      "",
+    ].join("\n"),
+  );
+  assert(usage !== null, "the alternate token spelling was not recognised");
+  assertEqual(usage?.inputTokens, 10, "prompt_tokens was not mapped to input");
+  assertEqual(
+    usage?.outputTokens,
+    5,
+    "completion_tokens was not mapped to output",
+  );
+});
+
+await test("codex usage tap relays every byte unchanged", async () => {
+  const { createCodexUsageTap } =
+    await import("../src/lib/proxy/codexUsage.js");
+  const payload =
+    'event: response.completed\ndata: {"type":"response.completed","response":{"usage":{"input_tokens":7,"output_tokens":3}}}\n\n';
+  const { stream, usage } = createCodexUsageTap();
+
+  const source = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const bytes = new TextEncoder().encode(payload);
+      // Split mid-event to prove the tap reassembles across chunk boundaries
+      // without withholding or reordering bytes.
+      controller.enqueue(bytes.slice(0, 40));
+      controller.enqueue(bytes.slice(40));
+      controller.close();
+    },
+  });
+
+  const relayed: Uint8Array[] = [];
+  const reader = source.pipeThrough(stream).getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    relayed.push(value);
+  }
+  const out = new TextDecoder().decode(
+    new Uint8Array(relayed.flatMap((c) => Array.from(c))),
+  );
+  assertEqual(out, payload, "relayed bytes differ from the upstream payload");
+
+  const seen = await usage;
+  assert(seen !== null, "usage was not recovered across the chunk split");
+  assertEqual(seen?.inputTokens, 7, "input token count mismatch after split");
+});
+
+await test("codex usage tap captures a raw sample when opted in", async () => {
+  const fsMod = await import("fs");
+  const osMod = await import("os");
+  const pathMod = await import("path");
+  const { createCodexUsageTap } =
+    await import("../src/lib/proxy/codexUsage.js");
+
+  const dir = fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), "codex-cap-"));
+  const target = pathMod.join(dir, "sample.sse");
+  const prev = process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
+  try {
+    process.env.NEUROLINK_PROXY_CODEX_CAPTURE = target;
+    const payload =
+      'event: response.completed\ndata: {"type":"response.completed","response":{"usage":{"input_tokens":9,"output_tokens":4}}}\n\n';
+    const { stream, usage } = createCodexUsageTap();
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(payload));
+        controller.close();
+      },
+    });
+    const reader = source.pipeThrough(stream).getReader();
+    for (;;) {
+      const { done } = await reader.read();
+      if (done) {
+        break;
+      }
+    }
+    await usage;
+
+    assert(
+      fsMod.existsSync(target),
+      "capture file was not written when opted in",
+    );
+    const written = fsMod.readFileSync(target, "utf8");
+    assertEqual(
+      written,
+      payload,
+      "captured bytes differ from the relayed payload",
+    );
+  } finally {
+    if (prev === undefined) {
+      delete process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
+    } else {
+      process.env.NEUROLINK_PROXY_CODEX_CAPTURE = prev;
+    }
+    fsMod.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test("codex usage tap writes nothing when capture is not opted in", async () => {
+  const fsMod = await import("fs");
+  const osMod = await import("os");
+  const pathMod = await import("path");
+  const { createCodexUsageTap } =
+    await import("../src/lib/proxy/codexUsage.js");
+
+  const dir = fsMod.mkdtempSync(pathMod.join(osMod.tmpdir(), "codex-nocap-"));
+  const target = pathMod.join(dir, "sample.sse");
+  const prev = process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
+  try {
+    delete process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
+    const { stream, usage } = createCodexUsageTap();
+    const source = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode("data: {}\n\n"));
+        controller.close();
+      },
+    });
+    const reader = source.pipeThrough(stream).getReader();
+    for (;;) {
+      const { done } = await reader.read();
+      if (done) {
+        break;
+      }
+    }
+    await usage;
+    assert(
+      !fsMod.existsSync(target),
+      "capture file was created without the opt-in env var",
+    );
+  } finally {
+    if (prev !== undefined) {
+      process.env.NEUROLINK_PROXY_CODEX_CAPTURE = prev;
+    }
+    fsMod.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test("codex usage tap settles its promise when the stream is aborted", async () => {
+  const { createCodexUsageTap } =
+    await import("../src/lib/proxy/codexUsage.js");
+  const { stream, usage } = createCodexUsageTap();
+
+  const source = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode('data: {"partial":true}\n'));
+    },
+  });
+
+  const piped = source.pipeThrough(stream);
+  const reader = piped.getReader();
+  await reader.read();
+  // Client hangs up mid-response — the normal case for a proxy: timeouts and
+  // disconnects abort rather than close cleanly, so flush() never runs.
+  await reader.cancel(new Error("client disconnected")).catch(() => undefined);
+
+  const settled = await Promise.race([
+    usage.then(() => "settled"),
+    new Promise((resolve) => setTimeout(() => resolve("hung"), 2000)),
+  ]);
+  assertEqual(
+    settled,
+    "settled",
+    "usage promise did not settle after an aborted stream",
+  );
+});
+
+await test("codex usage tap parses a stream captured from real traffic", async () => {
+  const fsMod = await import("fs");
+  const { scanCodexSSEForUsage } =
+    await import("../src/lib/proxy/codexUsage.js");
+  // Captured from a real `codex exec` run through the proxy on 2026-08-21 and
+  // trimmed to the usage envelope. This is what promotes the parser from
+  // written-to-spec to verified.
+  const fixture = fsMod.readFileSync(
+    new URL("./fixtures/codex-response-usage.sse", import.meta.url),
+    "utf8",
+  );
+  const usage = scanCodexSSEForUsage(fixture);
+  assert(usage !== null, "usage was not recognised in real captured traffic");
+  assertEqual(usage?.inputTokens, 17339, "input token count mismatch");
+  assertEqual(usage?.outputTokens, 7, "output token count mismatch");
+  assertEqual(usage?.cacheReadTokens, 8576, "cache-read token count mismatch");
+  assertEqual(usage?.reasoningTokens, 0, "reasoning token count mismatch");
+});
+
+await test("codex usage tap records cache-creation tokens", async () => {
+  const { extractCodexUsage } = await import("../src/lib/proxy/codexUsage.js");
+  // Real streams carry input_tokens_details.cache_write_tokens alongside
+  // cached_tokens. Cache writes bill at a premium, so dropping them
+  // under-reports cost.
+  const usage = extractCodexUsage({
+    type: "response.completed",
+    response: {
+      usage: {
+        input_tokens: 100,
+        output_tokens: 10,
+        input_tokens_details: { cached_tokens: 40, cache_write_tokens: 25 },
+      },
+    },
+  });
+  assert(usage !== null, "usage was not recognised");
+  assertEqual(usage?.cacheCreationTokens, 25, "cache-creation tokens dropped");
+  assertEqual(usage?.cacheReadTokens, 40, "cache-read token count mismatch");
+});
+
+await test("codex capture holds its byte cap against a single oversized chunk", async () => {
+  // The capture is opt-in debugging that writes the assistant's real response
+  // to disk, so its cap is the thing keeping a long stream from filling an
+  // operator's filesystem. The guard only checked whether the cap had ALREADY
+  // been reached before appending a whole chunk, so one large chunk arriving
+  // just under the limit landed in full.
+  //
+  // One chunk, far larger than the cap, is the smallest case that
+  // distinguishes a per-write cap from a per-stream one.
+  const os = await import("node:os");
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-capture-"));
+  const target = path.join(dir, "capture.sse");
+  const prior = process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
+  process.env.NEUROLINK_PROXY_CODEX_CAPTURE = target;
+  try {
+    const { createCodexUsageTap } =
+      await import("../src/lib/proxy/codexUsage.js");
+    const { stream, usage } = createCodexUsageTap();
+    const huge = new Uint8Array(2 * 1024 * 1024).fill(120);
+    const readable = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(huge);
+        controller.close();
+      },
+    });
+    let relayed = 0;
+    const reader = readable.pipeThrough(stream).getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      relayed += value.byteLength;
+    }
+    await usage;
+    const size = fs.statSync(target).size;
+    console.log(
+      `    [diagnostic] capture cap: file=${size} relayed=${relayed}`,
+    );
+    assert(
+      size <= 256 * 1024,
+      `the capture file grew past its cap, reaching ${size} bytes`,
+    );
+    // The relay is the contract that must not bend: capping what is written to
+    // disk must never cost the client bytes.
+    assertEqual(
+      relayed,
+      huge.byteLength,
+      "capping the capture file also truncated the relayed stream",
+    );
+  } finally {
+    if (prior === undefined) {
+      delete process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
+    } else {
+      process.env.NEUROLINK_PROXY_CODEX_CAPTURE = prior;
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 await runSuite();

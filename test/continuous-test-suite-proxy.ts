@@ -1487,6 +1487,438 @@ async function testOpenCodeWriterReportsWhetherItWrote(): Promise<boolean> {
   }
 }
 
+/**
+ * Restoring must require proving we own the value, not just the URL.
+ *
+ * The base-URL check catches a user who repointed the client somewhere else,
+ * but not one who kept the proxy URL and changed something beside it — a
+ * rotated key, an added field. Those edits were silently reverted to the
+ * snapshot on shutdown. Now that each writer records exactly what it wrote,
+ * a value that no longer matches that record is the user's: restore leaves it
+ * alone and only clears the proxy's own bookkeeping keys.
+ */
+async function testQwenRestoreLeavesUserEditedAuth(): Promise<boolean> {
+  const { __qwenCodeTestHooks } =
+    await import("../src/cli/proxy-clients/qwenCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-qwen-own-"));
+  const url = "http://127.0.0.1:55669/v1";
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".qwen"), { recursive: true });
+    const settingsPath = __qwenCodeTestHooks.getQwenSettingsPath();
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          $version: 2,
+          security: {
+            auth: {
+              selectedType: "openai",
+              baseUrl: "https://gateway.example.com/v1",
+              apiKey: "original-key",
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    await __qwenCodeTestHooks.setQwenProxySettings(url);
+
+    // Still pointed at the proxy, but the user rotated the key beside it.
+    const live = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    (
+      (live.security as Record<string, unknown>).auth as Record<string, unknown>
+    ).apiKey = "rotated-by-user";
+    fs.writeFileSync(settingsPath, JSON.stringify(live, null, 2));
+
+    await __qwenCodeTestHooks.clearQwenProxySettings(url);
+
+    const after = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      security?: { auth?: { apiKey?: string } };
+      __proxy_original_qwen_auth?: unknown;
+      __proxy_written_qwen_auth?: unknown;
+    };
+    if (after.security?.auth?.apiKey !== "rotated-by-user") {
+      log("Qwen restore reverted a credential the user changed", "red");
+      return false;
+    }
+    if (
+      "__proxy_original_qwen_auth" in after ||
+      "__proxy_written_qwen_auth" in after
+    ) {
+      log("Qwen restore left its bookkeeping keys in the user's file", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** See testQwenRestoreLeavesUserEditedAuth — same rule, Claude's env map. */
+async function testClaudeRestoreLeavesUserEditedValue(): Promise<boolean> {
+  const { __claudeCodeTestHooks } =
+    await import("../src/cli/proxy-clients/claudeCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-claude-own-"));
+  const url = "http://127.0.0.1:55669";
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".claude"), { recursive: true });
+    const settingsPath = __claudeCodeTestHooks.getClaudeSettingsPath();
+    // The user had no ENABLE_TOOL_SEARCH at all, so the snapshot records
+    // "absent" and a restore would delete the key outright.
+    fs.writeFileSync(settingsPath, JSON.stringify({ env: {} }, null, 2));
+
+    await __claudeCodeTestHooks.setClaudeProxySettings(url);
+
+    // Base URL untouched, but the user turned tool search back off.
+    const live = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    (live.env as Record<string, string>).ENABLE_TOOL_SEARCH = "false";
+    fs.writeFileSync(settingsPath, JSON.stringify(live, null, 2));
+
+    await __claudeCodeTestHooks.clearClaudeProxySettings(url);
+
+    const after = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      env?: Record<string, string>;
+    };
+    if (after.env?.ENABLE_TOOL_SEARCH !== "false") {
+      log("Claude restore overwrote a value the user changed", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** See testQwenRestoreLeavesUserEditedAuth — same rule, OpenCode's block. */
+async function testOpenCodeRestoreLeavesUserEditedBlock(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-own-"));
+  const url = "http://127.0.0.1:55669/v1";
+  try {
+    fs.mkdirSync(path.join(root, "opencode"), { recursive: true });
+    process.env.XDG_CONFIG_HOME = root;
+    const configPath = __openCodeTestHooks.getOpenCodeConfigPath();
+    fs.writeFileSync(configPath, JSON.stringify({ provider: {} }, null, 2));
+
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+
+    // Same baseURL, but the user pinned a model list on our block.
+    const live = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    (
+      (live.provider as Record<string, unknown>).neurolink as Record<
+        string,
+        unknown
+      >
+    ).models = { "gpt-5.1": {} };
+    fs.writeFileSync(configPath, JSON.stringify(live, null, 2));
+
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+
+    const after = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+      provider?: { neurolink?: { models?: Record<string, unknown> } };
+    };
+    if (!after.provider?.neurolink?.models?.["gpt-5.1"]) {
+      log("OpenCode restore discarded a field the user added", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Regression: `proxy uninstall` must put every client config back.
+ *
+ * The shutdown path restores only on SIGINT. A launchd-managed service never
+ * receives one — `launchctl unload` and `proxy uninstall` both send SIGTERM,
+ * and the supervisor's own shutdown closure never touched client configs at
+ * all. So the documented one-command install left all five CLIs pointing at a
+ * socket that stopped answering, with no message saying why.
+ *
+ * Driven through the built CLI rather than the module, because the defect was
+ * precisely that the wiring was missing: a test that called the helper
+ * directly would have passed the whole time the bug existed.
+ */
+async function testUninstallRestoresClientConfigs(): Promise<boolean | null> {
+  if (process.platform !== "darwin") {
+    log("proxy uninstall is macOS-only; skipping on this platform", "yellow");
+    return null;
+  }
+  const cliEntry = path.join(process.cwd(), "dist", "cli", "index.js");
+  if (!fs.existsSync(cliEntry)) {
+    log("dist/cli/index.js not built; skipping", "yellow");
+    return null;
+  }
+
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-uninstall-"));
+  try {
+    // A proxy that ran on this host/port and pointed OpenCode at itself.
+    fs.mkdirSync(path.join(home, ".neurolink"), { recursive: true });
+    fs.writeFileSync(
+      path.join(home, ".neurolink", "proxy-state.json"),
+      JSON.stringify({
+        pid: 2147483000,
+        port: 55669,
+        host: "127.0.0.1",
+        strategy: "round-robin",
+        startTime: new Date(0).toISOString(),
+      }),
+    );
+
+    const openCodeDir = path.join(home, ".config", "opencode");
+    fs.mkdirSync(openCodeDir, { recursive: true });
+    const openCodePath = path.join(openCodeDir, "opencode.json");
+    fs.writeFileSync(
+      openCodePath,
+      JSON.stringify(
+        {
+          provider: {
+            neurolink: {
+              id: "neurolink",
+              name: "NeuroLink Proxy",
+              npm: "@ai-sdk/openai-compatible",
+              env: [],
+              models: {},
+              options: {
+                baseURL: "http://127.0.0.1:55669/v1",
+                apiKey: "neurolink-proxy",
+              },
+            },
+          },
+          __proxy_original_neurolink: { name: "user's own block" },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const { execFileSync } = await import("node:child_process");
+    const env = { ...process.env, HOME: home };
+    delete env.XDG_CONFIG_HOME;
+    try {
+      execFileSync(process.execPath, [cliEntry, "proxy", "uninstall"], {
+        env,
+        encoding: "utf8",
+        stdio: "pipe",
+        timeout: 60_000,
+      });
+    } catch {
+      // uninstall exits non-zero when nothing is installed; the restore is
+      // what this test is about, and it is asserted below either way.
+    }
+
+    const after = JSON.parse(fs.readFileSync(openCodePath, "utf8")) as {
+      provider?: { neurolink?: { name?: string } };
+    };
+    if (after.provider?.neurolink?.name !== "user's own block") {
+      log("proxy uninstall left OpenCode pointing at the removed proxy", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Regression: a stale snapshot must never outlive the value it describes.
+ *
+ * The snapshot-on-first-touch guard exists so a second apply() cannot record
+ * the proxy's own block as the "original". But the guard is presence-only, so
+ * after an unclean kill (no restore ran) the sentinel survives in the file. If
+ * the user then replaces the block by hand and the proxy restarts, apply()
+ * overwrites their edit while keeping the now-stale snapshot — and the next
+ * restore writes the stale value back, destroying the user's real config.
+ *
+ * Each of the three JSON configurators is checked, because each carries its
+ * own copy of the guard.
+ */
+async function testOpenCodeReSnapshotsAfterUncleanExit(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-opencode-"));
+  const url = "http://127.0.0.1:55669/v1";
+  try {
+    fs.mkdirSync(path.join(root, "opencode"), { recursive: true });
+    process.env.XDG_CONFIG_HOME = root;
+    const configPath = __openCodeTestHooks.getOpenCodeConfigPath();
+
+    // User starts with no provider.neurolink at all.
+    fs.writeFileSync(configPath, JSON.stringify({ provider: {} }, null, 2));
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+
+    // Proxy is killed uncleanly: no restore runs, the sentinel stays behind.
+    // The user then writes their own block over the proxy's.
+    const crashed = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    (crashed.provider as Record<string, unknown>).neurolink = {
+      name: "user's own gateway",
+      options: { baseURL: "https://gateway.example.com", apiKey: "real-key" },
+    };
+    fs.writeFileSync(configPath, JSON.stringify(crashed, null, 2));
+
+    // Proxy restarts, then shuts down cleanly.
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+
+    const after = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+      provider?: { neurolink?: { name?: string } };
+    };
+    if (after.provider?.neurolink?.name !== "user's own gateway") {
+      log(
+        "OpenCode restore discarded a block the user wrote after an unclean exit",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/** See testOpenCodeReSnapshotsAfterUncleanExit — same hazard, Claude's env map. */
+async function testClaudeReSnapshotsAfterUncleanExit(): Promise<boolean> {
+  const { __claudeCodeTestHooks } =
+    await import("../src/cli/proxy-clients/claudeCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-claude-"));
+  const url = "http://127.0.0.1:55669";
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".claude"), { recursive: true });
+    const settingsPath = __claudeCodeTestHooks.getClaudeSettingsPath();
+    fs.writeFileSync(settingsPath, JSON.stringify({ env: {} }, null, 2));
+
+    await __claudeCodeTestHooks.setClaudeProxySettings(url);
+
+    const crashed = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    (crashed.env as Record<string, string>).ANTHROPIC_BASE_URL =
+      "https://gateway.example.com";
+    fs.writeFileSync(settingsPath, JSON.stringify(crashed, null, 2));
+
+    await __claudeCodeTestHooks.setClaudeProxySettings(url);
+    await __claudeCodeTestHooks.clearClaudeProxySettings(url);
+
+    const after = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      env?: Record<string, string>;
+    };
+    if (after.env?.ANTHROPIC_BASE_URL !== "https://gateway.example.com") {
+      log(
+        "Claude restore discarded a base URL the user set after an unclean exit",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * See testOpenCodeReSnapshotsAfterUncleanExit. Qwen is the worst case of the
+ * three: security.auth holds the user's real API key, so a stale snapshot
+ * deletes a live credential rather than a URL.
+ */
+async function testQwenReSnapshotsAfterUncleanExit(): Promise<boolean> {
+  const { __qwenCodeTestHooks } =
+    await import("../src/cli/proxy-clients/qwenCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-qwen-"));
+  const url = "http://127.0.0.1:55669/v1";
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".qwen"), { recursive: true });
+    const settingsPath = __qwenCodeTestHooks.getQwenSettingsPath();
+    fs.writeFileSync(settingsPath, JSON.stringify({ $version: 2 }, null, 2));
+
+    await __qwenCodeTestHooks.setQwenProxySettings(url);
+
+    const crashed = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    (crashed.security as Record<string, unknown>).auth = {
+      selectedType: "openai",
+      baseUrl: "https://gateway.example.com/v1",
+      apiKey: "user-real-key",
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(crashed, null, 2));
+
+    await __qwenCodeTestHooks.setQwenProxySettings(url);
+    await __qwenCodeTestHooks.clearQwenProxySettings(url);
+
+    const after = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      security?: { auth?: { apiKey?: string } };
+    };
+    if (after.security?.auth?.apiKey !== "user-real-key") {
+      log(
+        "Qwen restore discarded a credential the user set after an unclean exit",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
 /** A user's pre-existing provider.neurolink must survive set() then clear(). */
 async function testOpenCodeClearRestoresUserConfig(): Promise<boolean> {
   const { __openCodeTestHooks } =
@@ -1943,6 +2375,258 @@ async function testClaudeRestoreRefusesWithoutSnapshot(): Promise<boolean> {
  * The request log is shared with the Codex engine, and an operator can use the
  * same email for both. Codex tokens must not land on the Anthropic row.
  */
+/**
+ * A streamed request is logged twice: once when the response headers are known
+ * and again when the body finishes and its token counts arrive. The Codex
+ * engine does exactly this, and the second write is the only one that carries
+ * usage.
+ *
+ * Merging those two records rather than replacing is what makes the tokens
+ * survive alongside the first record's status and errorType. Nothing covered
+ * it, so a revert to a plain overwrite would have gone unnoticed while
+ * silently zeroing every Codex request's cost.
+ */
+async function testAnalyzeMergesDoubleWrittenRequest(): Promise<boolean> {
+  const { execFileSync } = await import("child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-merge-"));
+  const logs = path.join(dir, "logs");
+  fs.mkdirSync(logs, { recursive: true });
+  const ts = new Date().toISOString();
+  const day = ts.slice(0, 10);
+  const base = {
+    timestamp: ts,
+    method: "POST",
+    path: "/backend-api/codex/responses",
+    stream: true,
+    toolCount: 0,
+    account: "codex-a",
+    accountType: "codex-oauth",
+    responseStatus: 200,
+    responseTimeMs: 4200,
+    requestId: "codex-double",
+  };
+  const rows = [
+    // Headers are known; no usage yet, and no model resolved.
+    JSON.stringify(base),
+    // Stream finished: usage and provider arrive on a second line.
+    JSON.stringify({
+      ...base,
+      model: "gpt-5.1-codex",
+      provider: "openai",
+      inputTokens: 17339,
+      outputTokens: 700,
+      cacheReadTokens: 8576,
+    }),
+  ];
+  fs.writeFileSync(
+    path.join(logs, `proxy-${day}.jsonl`),
+    rows.join("\n") + "\n",
+  );
+
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [
+        "dist/cli/index.js",
+        "proxy",
+        "analyze",
+        "--logs-dir",
+        logs,
+        "--format",
+        "json",
+      ],
+      { encoding: "utf8" },
+    );
+    const report = JSON.parse(out) as {
+      requests?: { completed?: number };
+      cache?: { outputTokens?: number; estimatedCostUsd?: number };
+    };
+    // One request, not two: the second line enriches the first.
+    if (report.requests?.completed !== 1) {
+      log("analyze counted a re-logged request more than once", "red");
+      return false;
+    }
+    if (report.cache?.outputTokens !== 700) {
+      log("analyze lost the usage carried by the second record", "red");
+      return false;
+    }
+    if (!report.cache?.estimatedCostUsd) {
+      log("analyze priced a merged request at nothing", "red");
+      return false;
+    }
+    return true;
+  } catch {
+    log("proxy analyze did not produce a parseable report", "red");
+    return false;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The same double write can straddle a report's window edge: a Codex turn that
+ * gets its headers at 23:59:50 and finishes at 00:00:05 puts every token it
+ * spent in a record stamped after `--until`.
+ *
+ * Filtering that record out by its own timestamp drops the usage silently —
+ * the request still counts as completed, but contributes nothing to tokens or
+ * cost, and nothing in the report says so. A request the window already
+ * admitted has to keep accepting its own later records.
+ */
+async function testAnalyzeKeepsUsageAcrossWindowEdge(): Promise<boolean> {
+  const { execFileSync } = await import("child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-window-"));
+  const logs = path.join(dir, "logs");
+  fs.mkdirSync(logs, { recursive: true });
+
+  const headersAt = "2026-08-20T23:59:50.000Z";
+  const finishedAt = "2026-08-21T00:00:05.000Z";
+  const base = {
+    method: "POST",
+    path: "/backend-api/codex/responses",
+    stream: true,
+    toolCount: 0,
+    account: "codex-a",
+    accountType: "codex-oauth",
+    responseStatus: 200,
+    responseTimeMs: 15_000,
+    requestId: "codex-straddle",
+  };
+  fs.writeFileSync(
+    path.join(logs, "proxy-2026-08-20.jsonl"),
+    JSON.stringify({ ...base, timestamp: headersAt }) + "\n",
+  );
+  fs.writeFileSync(
+    path.join(logs, "proxy-2026-08-21.jsonl"),
+    JSON.stringify({
+      ...base,
+      timestamp: finishedAt,
+      model: "gpt-5.1-codex",
+      provider: "openai",
+      inputTokens: 17339,
+      outputTokens: 700,
+      cacheReadTokens: 8576,
+    }) + "\n",
+  );
+
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [
+        "dist/cli/index.js",
+        "proxy",
+        "analyze",
+        "--logs-dir",
+        logs,
+        "--since",
+        "2026-08-20T00:00:00Z",
+        "--until",
+        "2026-08-20T23:59:59Z",
+        "--format",
+        "json",
+      ],
+      { encoding: "utf8" },
+    );
+    const report = JSON.parse(out) as {
+      requests?: { completed?: number };
+      cache?: { outputTokens?: number };
+    };
+    if (report.requests?.completed !== 1) {
+      log("analyze did not count the request its window admitted", "red");
+      return false;
+    }
+    if (report.cache?.outputTokens !== 700) {
+      log(
+        "analyze dropped the usage of a request whose completion landed after the window",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } catch {
+    log("proxy analyze did not produce a parseable report", "red");
+    return false;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+async function testAnalyzePricingProvenance(): Promise<boolean> {
+  const { execFileSync } = await import("child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-pricing-"));
+  const logs = path.join(dir, "logs");
+  fs.mkdirSync(logs, { recursive: true });
+  const ts = new Date().toISOString();
+  const day = ts.slice(0, 10);
+  const rows = [
+    {
+      requestId: "b1",
+      model: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+      provider: "bedrock",
+    },
+    { requestId: "v1", model: "gemini-2.5-pro", provider: "vertex" },
+    { requestId: "s1", model: "claude-sonnet-4-5", provider: "anthropic" },
+  ].map((r) =>
+    JSON.stringify({
+      timestamp: ts,
+      method: "POST",
+      path: "/v1/messages",
+      stream: false,
+      toolCount: 0,
+      account: "a",
+      accountType: "oauth",
+      responseStatus: 200,
+      responseTimeMs: 900,
+      inputTokens: 1000,
+      outputTokens: 100,
+      ...r,
+    }),
+  );
+  fs.writeFileSync(
+    path.join(logs, `proxy-${day}.jsonl`),
+    rows.join("\n") + "\n",
+  );
+
+  try {
+    const out = execFileSync(
+      process.execPath,
+      [
+        "dist/cli/index.js",
+        "proxy",
+        "analyze",
+        "--logs-dir",
+        logs,
+        "--format",
+        "json",
+      ],
+      { encoding: "utf8" },
+    );
+    const report = JSON.parse(out) as {
+      cache?: { requestsPriced?: number; requestsPricedByPrefix?: number };
+    };
+    if (report.cache?.requestsPriced !== 3) {
+      log(
+        "analyze did not price every request that carried a known model",
+        "red",
+      );
+      return false;
+    }
+    if (report.cache?.requestsPricedByPrefix !== 0) {
+      log(
+        "analyze reported an exact rate as an inferred one — provenance regressed",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } catch {
+    log("proxy analyze did not produce a parseable report", "red");
+    return false;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // ============================================================================
 // Tests: Primary account selection (in-process unit-style)
 // ============================================================================
@@ -4093,6 +4777,56 @@ const tests: TestFunction[] = [
   {
     name: "OpenCode: clear restores the user's own config",
     fn: testOpenCodeClearRestoresUserConfig,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Qwen restore leaves a user-edited credential",
+    fn: testQwenRestoreLeavesUserEditedAuth,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Claude restore leaves a user-edited value",
+    fn: testClaudeRestoreLeavesUserEditedValue,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: OpenCode restore leaves a user-edited block",
+    fn: testOpenCodeRestoreLeavesUserEditedBlock,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: uninstall restores every client config",
+    fn: testUninstallRestoresClientConfigs,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: OpenCode re-snapshots after an unclean exit",
+    fn: testOpenCodeReSnapshotsAfterUncleanExit,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Claude re-snapshots after an unclean exit",
+    fn: testClaudeReSnapshotsAfterUncleanExit,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Qwen re-snapshots after an unclean exit",
+    fn: testQwenReSnapshotsAfterUncleanExit,
+    category: "proxy-config",
+  },
+  {
+    name: "Analyze: a re-logged request merges instead of overwriting",
+    fn: testAnalyzeMergesDoubleWrittenRequest,
+    category: "proxy-config",
+  },
+  {
+    name: "Analyze: usage survives a completion after the window edge",
+    fn: testAnalyzeKeepsUsageAcrossWindowEdge,
+    category: "proxy-config",
+  },
+  {
+    name: "Analyze: exact rates are not reported as inferred",
+    fn: testAnalyzePricingProvenance,
     category: "proxy-config",
   },
   {

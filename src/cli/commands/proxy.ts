@@ -5222,6 +5222,50 @@ export const proxyInstallCommand: CommandModule = {
   },
 };
 
+/**
+ * Put every auto-configured CLI back the way it was, using the URL recorded in
+ * the proxy's own state file.
+ *
+ * `proxy uninstall` is the one moment where "the proxy is going away for good"
+ * is unambiguous, and it is the only place this can be done for a
+ * launchd-managed service: the shutdown path restores on SIGINT only, and both
+ * `launchctl unload` and this command stop the supervisor with SIGTERM. Without
+ * this, uninstalling left all five clients pointing at a socket that no longer
+ * answers, with nothing to say why.
+ *
+ * Must run before `clearProxyState()` — the state file is what tells us which
+ * URL the clients were given, and the restore helpers deliberately refuse to
+ * touch a URL they did not write.
+ */
+async function restoreClientsOnUninstall(): Promise<void> {
+  let state: ProxyState | null = null;
+  try {
+    state = loadProxyState();
+  } catch {
+    // An unreadable state file is not a reason to abort an uninstall.
+  }
+  if (!state?.port) {
+    // Nothing recorded, so we cannot prove which URL the configs carry.
+    return;
+  }
+  // 0.0.0.0 is a bind address, never a reachable one; clients were handed
+  // localhost, so that is what restore has to match on.
+  const host =
+    state.host === "0.0.0.0" ? "localhost" : (state.host ?? "localhost");
+  const results = await restoreAllClients(`http://${host}:${state.port}`);
+  for (const result of results) {
+    if (result.restored) {
+      console.info(
+        chalk.green(`\u2713 Restored ${result.displayName} settings`),
+      );
+    } else if (result.error) {
+      logger.debug(
+        `[proxy] ${result.id} restore failed during uninstall: ${result.error.message}`,
+      );
+    }
+  }
+}
+
 export const proxyUninstallCommand: CommandModule = {
   command: "uninstall",
   describe: "Remove proxy background service",
@@ -5243,6 +5287,7 @@ export const proxyUninstallCommand: CommandModule = {
         );
         process.exit(1);
       }
+      await restoreClientsOnUninstall();
       clearProxyState();
       clearProxySupervisorState();
       console.info(chalk.yellow("No proxy service installed."));
@@ -5270,6 +5315,7 @@ export const proxyUninstallCommand: CommandModule = {
     }
 
     unlinkSync(PLIST_PATH);
+    await restoreClientsOnUninstall();
     clearProxyState();
     clearProxySupervisorState();
     console.info(chalk.green(`✓ Plist removed from ${PLIST_PATH}`));

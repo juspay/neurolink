@@ -837,3 +837,59 @@ git commit -m "feat(proxy): auto-configure Qwen Code through the client registry
 - **Behaviour drift in messages.** The two apply blocks print different strings. The loop parameterises them; a careless merge collapses them into one wording and changes user-visible output. The manual check above catches it.
 - **HOME resolution timing.** Three module-level path constants become functions. If any moved function still closes over a stale constant, tests pass under the suite's isolated HOME but the real writer targets the wrong path — the exact shape of #1366. Grep for remaining `const .*_PATH = join(homedir()` after Task 3.
 - **`proxy-performance` gate.** `proxy.ts` shrinks by roughly 400 lines; the benchmark job imports `proxyLifecycle.ts` and `proxyActivity.ts`, not the writers, so impact is unlikely — but it is an always-on CI gate, so run it before pushing.
+
+---
+
+## Post-review addenda
+
+Two defects surfaced in review after the registry landed. Both are recorded here
+because they are properties of the _lifecycle_ the registry now owns, not of any
+one configurator.
+
+### The snapshot must not outlive the value it describes
+
+Each JSON writer persists the user's pre-existing value under a
+`__proxy_original_*` key **inside the user's own config file**, so a restore
+still works after a crash or from another process. Snapshotting only on first
+touch stops a second `apply()` from recording the proxy's own block as the
+"original".
+
+That guard is presence-only, and the sentinel survives an unclean kill where no
+restore ever ran. A user who then edits the block by hand — reasonably, since
+the proxy is gone — hits this sequence:
+
+1. `apply()` writes the proxy block; snapshot records "user had nothing".
+2. `kill -9`. No restore. Sentinel stays in the file.
+3. User replaces the block with their own provider config and API key.
+4. Proxy restarts. `apply()` sees the sentinel, keeps the stale snapshot, and
+   overwrites the user's block.
+5. Clean shutdown. `restore()` reads "user had nothing" and **deletes** it.
+
+For Qwen that final step destroys a live credential. Each writer therefore also
+records what it wrote, under `__proxy_written_*`; `shouldCaptureSnapshot()` in
+`snapshot.ts` re-snapshots whenever the value in the file is not the value we
+put there. A file written before this change carries no `__proxy_written_*` key,
+so the old behaviour is preserved for exactly one apply, then self-heals.
+
+### `uninstall` is the only restore point a service ever reaches
+
+`restoreAllClients()` runs from the shutdown path only under
+`signal === "SIGINT"`. A launchd-managed service never receives one: `launchctl
+unload`, `launchctl stop` and `proxy uninstall` all send SIGTERM, and the
+supervisor's own shutdown closure never touched client configs at all. The
+fail-open guard that would otherwise cover this is not spawned when
+`managedByLaunchd`.
+
+So the documented one-command install — `neurolink proxy setup` — left all five
+CLIs pointing at a dead socket after uninstall, silently. `uninstall` now calls
+`restoreClientsOnUninstall()` before `clearProxyState()`, deriving the URL from
+the recorded host/port (`0.0.0.0` normalised to `localhost`, matching what the
+clients were actually handed).
+
+Widening the signal gate was considered and rejected: a service also receives
+SIGTERM on reboot and on rolling restart, where restoring would be wrong.
+`uninstall` is the one point where "going away for good" is unambiguous.
+
+The regression test drives the built CLI rather than the helper, because the
+defect _was_ the missing wiring — a test calling the helper directly would have
+passed for as long as the bug existed.

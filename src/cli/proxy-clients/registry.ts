@@ -1,3 +1,4 @@
+import { logger } from "../../lib/utils/logger.js";
 import type {
   CliProxyClientApplyResult,
   CliProxyClientConfigurator,
@@ -43,11 +44,16 @@ export async function applyAllClients(
         : false;
       results.push({ id: client.id, displayName: client.displayName, applied });
     } catch (error) {
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      // The result already carries the id, but a caller is free to ignore it.
+      // Naming the client here means a path-resolution failure (a HOME that
+      // moved, a directory that vanished mid-run) is never fully silent.
+      logger.debug(`[proxy] ${client.id} apply failed: ${wrapped.message}`);
       results.push({
         id: client.id,
         displayName: client.displayName,
         applied: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: wrapped,
       });
     }
   }
@@ -67,11 +73,13 @@ export async function restoreAllClients(
         restored: await client.restore(proxyBaseUrl),
       });
     } catch (error) {
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      logger.debug(`[proxy] ${client.id} restore failed: ${wrapped.message}`);
       results.push({
         id: client.id,
         displayName: client.displayName,
         restored: false,
-        error: error instanceof Error ? error : new Error(String(error)),
+        error: wrapped,
       });
     }
   }
