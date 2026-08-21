@@ -116,8 +116,8 @@
 ### Phase 3.2: Working Directory ✅ **COMPLETED**
 
 - ✅ **Task 3.2.1**: Rename project folder
-  - Previous: `/Users/sachinsharma/Developer/Official/zephyr-mind`
-  - Current: `/Users/sachinsharma/Developer/Official/neurolink`
+  - Previous: `$WORKSPACE/zephyr-mind`
+  - Current: `$WORKSPACE/neurolink`
 - ✅ **Task 3.2.2**: Update git remote URL
   - Previous: `git@github.com:juspay/zephyr-mind.git`
   - Current: `git@github.com:juspay/NeuroLink.git`

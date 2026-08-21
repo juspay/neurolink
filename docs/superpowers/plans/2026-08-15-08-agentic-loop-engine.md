@@ -10,10 +10,10 @@
 
 **Spec:** This plan argues from ground-truth code reads (file:line citations throughout) plus four audit-area reports (session scratchpad, not repo-tracked — copy alongside this plan or re-derive from the cited code if the scratchpad has been cleaned up by the time this plan is executed):
 
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/04-cloud-enterprise-provider-family-googlevertex-amaz.md` (googleVertex, amazonBedrock, amazonSagemaker, azureOpenai)
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/03-native-sdk-provider-family-anthropic-openai-google.md` (anthropic, openai, googleAiStudio, googleNativeGemini3)
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/09-cross-cutting-provider-concerns-tools-mcp-injectio.md` (tool merging, structuredOutputPolicy, error normalization, retries)
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/01-baseprovider-the-abstract-contract-every-provider-.md` (BaseProvider's abstract contract and `stream()` orchestration)
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/04-cloud-enterprise-provider-family-googlevertex-amaz.md` (googleVertex, amazonBedrock, amazonSagemaker, azureOpenai)
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/03-native-sdk-provider-family-anthropic-openai-google.md` (anthropic, openai, googleAiStudio, googleNativeGemini3)
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/09-cross-cutting-provider-concerns-tools-mcp-injectio.md` (tool merging, structuredOutputPolicy, error normalization, retries)
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/01-baseprovider-the-abstract-contract-every-provider-.md` (BaseProvider's abstract contract and `stream()` orchestration)
 
 Every claim about "current behavior" below was verified by reading the actual file at the cited line, not by trusting the spec summaries — several spec-stated facts were corrected during that verification (noted inline where it matters: the `createChunkQueue` importer count, the location of the TOOL_NOT_FOUND breaker, and the discovery of two additional bespoke streaming primitives the spec didn't mention).
 

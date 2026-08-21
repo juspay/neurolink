@@ -22,4 +22,4 @@ Generated on: 6/12/2025, 1:30:25 AM
 - ✅ Performance Metrics: 100% test coverage, <1ms execution time
 
 Total screenshots: 7
-Location: /Users/sachinsharma/Developer/Official/neurolink/docs/visual-content/screenshots/phase-1-2-workflow
+Location: $WORKSPACE/neurolink/docs/visual-content/screenshots/phase-1-2-workflow

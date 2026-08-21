@@ -319,7 +319,7 @@ tar -tzf juspay-neurolink-*.tgz | head -20
 mkdir /tmp/test-install
 cd /tmp/test-install
 npm init -y
-npm install /Users/sachinsharma/Developer/temp/neurolink/juspay-neurolink-*.tgz
+npm install $WORKSPACE/neurolink/juspay-neurolink-*.tgz
 node -e "console.log(require('@juspay/neurolink'))"
 ```
 

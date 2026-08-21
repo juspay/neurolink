@@ -16,14 +16,14 @@
 
 **Files:**
 
-- Modify: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing/package.json`
+- Modify: `$WORKSPACE/neurolink-fork/neurolink/landing/package.json`
 
 **Step 1: Install packages**
 
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && pnpm add satori satori-html @resvg/resvg-wasm
+cd $WORKSPACE/neurolink-fork/neurolink/landing && pnpm add satori satori-html @resvg/resvg-wasm
 ```
 
 Expected: 3 packages added to `dependencies` in package.json
@@ -33,7 +33,7 @@ Expected: 3 packages added to `dependencies` in package.json
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && node -e "import('satori').then(() => console.log('satori OK')); import('satori-html').then(() => console.log('satori-html OK')); import('@resvg/resvg-wasm').then(() => console.log('resvg-wasm OK'));"
+cd $WORKSPACE/neurolink-fork/neurolink/landing && node -e "import('satori').then(() => console.log('satori OK')); import('satori-html').then(() => console.log('satori-html OK')); import('@resvg/resvg-wasm').then(() => console.log('resvg-wasm OK'));"
 ```
 
 Expected: All three print OK
@@ -41,7 +41,7 @@ Expected: All three print OK
 **Step 3: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git add package.json pnpm-lock.yaml && git commit -m "chore: add satori + resvg-wasm for dynamic OG images"
+cd $WORKSPACE/neurolink-fork/neurolink/landing && git add package.json pnpm-lock.yaml && git commit -m "chore: add satori + resvg-wasm for dynamic OG images"
 ```
 
 ---
@@ -50,7 +50,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git ad
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing/src/routes/api/og/fonts.ts`
+- Create: `$WORKSPACE/neurolink-fork/neurolink/landing/src/routes/api/og/fonts.ts`
 
 **Step 1: Create fonts.ts**
 
@@ -113,7 +113,7 @@ export async function loadFonts(): Promise<
 **Step 2: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git add src/routes/api/og/fonts.ts && git commit -m "feat(og): add font loading utility for satori"
+cd $WORKSPACE/neurolink-fork/neurolink/landing && git add src/routes/api/og/fonts.ts && git commit -m "feat(og): add font loading utility for satori"
 ```
 
 ---
@@ -122,7 +122,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git ad
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing/src/routes/api/og/templates.ts`
+- Create: `$WORKSPACE/neurolink-fork/neurolink/landing/src/routes/api/og/templates.ts`
 
 **Step 1: Create templates.ts**
 
@@ -266,7 +266,7 @@ export function getTemplate(params: OGParams): string {
 **Step 2: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git add src/routes/api/og/templates.ts && git commit -m "feat(og): add 4 OG image templates (home, docs, sdk, examples)"
+cd $WORKSPACE/neurolink-fork/neurolink/landing && git add src/routes/api/og/templates.ts && git commit -m "feat(og): add 4 OG image templates (home, docs, sdk, examples)"
 ```
 
 ---
@@ -275,7 +275,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git ad
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing/src/routes/api/og/+server.ts`
+- Create: `$WORKSPACE/neurolink-fork/neurolink/landing/src/routes/api/og/+server.ts`
 
 **Step 1: Create the SvelteKit API route**
 
@@ -358,7 +358,7 @@ export const GET: RequestHandler = async ({ url }) => {
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && pnpm dev
+cd $WORKSPACE/neurolink-fork/neurolink/landing && pnpm dev
 ```
 
 Then open in browser:
@@ -373,7 +373,7 @@ Expected: Each URL returns a 1200x630 PNG image with the correct template design
 **Step 3: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git add src/routes/api/og/+server.ts && git commit -m "feat(og): add /api/og endpoint with satori + resvg-wasm rendering"
+cd $WORKSPACE/neurolink-fork/neurolink/landing && git add src/routes/api/og/+server.ts && git commit -m "feat(og): add /api/og endpoint with satori + resvg-wasm rendering"
 ```
 
 ---
@@ -382,7 +382,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git ad
 
 **Files:**
 
-- Modify: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing/src/routes/+layout.svelte` (line 61, line 68)
+- Modify: `$WORKSPACE/neurolink-fork/neurolink/landing/src/routes/+layout.svelte` (line 61, line 68)
 
 **Step 1: Update og:image and twitter:image URLs**
 
@@ -413,7 +413,7 @@ to:
 **Step 2: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git add src/routes/+layout.svelte && git commit -m "feat(og): update meta tags to use dynamic OG image endpoint"
+cd $WORKSPACE/neurolink-fork/neurolink/landing && git add src/routes/+layout.svelte && git commit -m "feat(og): update meta tags to use dynamic OG image endpoint"
 ```
 
 ---
@@ -424,14 +424,14 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/landing && git ad
 
 **Files:**
 
-- Modify: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/package.json`
+- Modify: `$WORKSPACE/neurolink-fork/fix/documentation-issues/package.json`
 
 **Step 1: Install packages**
 
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && pnpm add minisearch gray-matter
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && pnpm add minisearch gray-matter
 ```
 
 `@modelcontextprotocol/sdk` is already at ^1.26.0.
@@ -441,7 +441,7 @@ Expected: `minisearch` and `gray-matter` added to dependencies
 **Step 2: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add package.json pnpm-lock.yaml && git commit -m "chore: add minisearch + gray-matter for MCP docs server"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add package.json pnpm-lock.yaml && git commit -m "chore: add minisearch + gray-matter for MCP docs server"
 ```
 
 ---
@@ -450,8 +450,8 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues &&
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/plugins/docusaurus-plugin-search-index/index.js`
-- Modify: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/docusaurus.config.ts` (plugins array, ~line 355)
+- Create: `$WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/plugins/docusaurus-plugin-search-index/index.js`
+- Modify: `$WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/docusaurus.config.ts` (plugins array, ~line 355)
 
 **Step 1: Create the plugin**
 
@@ -608,13 +608,13 @@ Add to the `plugins` array (after the existing `docusaurus-plugin-new-docs` entr
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site && pnpm build 2>&1 | head -30
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site && pnpm build 2>&1 | head -30
 ```
 
 Then verify the index was generated:
 
 ```bash
-ls -la /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/static/search-index.json
+ls -la $WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/static/search-index.json
 ```
 
 Expected: File exists, non-empty JSON with `documents` array.
@@ -630,7 +630,7 @@ Expected: `Docs: <number> Version: 1`
 **Step 4: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add docs-site/plugins/docusaurus-plugin-search-index/index.js docs-site/docusaurus.config.ts && git commit -m "feat(mcp-docs): add search index Docusaurus plugin"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add docs-site/plugins/docusaurus-plugin-search-index/index.js docs-site/docusaurus.config.ts && git commit -m "feat(mcp-docs): add search index Docusaurus plugin"
 ```
 
 ---
@@ -639,8 +639,8 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues &&
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/types.ts`
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/search.ts`
+- Create: `$WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/types.ts`
+- Create: `$WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/search.ts`
 
 **Step 1: Create types.ts**
 
@@ -782,7 +782,7 @@ export class DocsSearch {
 **Step 3: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add docs-site/mcp-server/types.ts docs-site/mcp-server/search.ts && git commit -m "feat(mcp-docs): add types and MiniSearch wrapper"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add docs-site/mcp-server/types.ts docs-site/mcp-server/search.ts && git commit -m "feat(mcp-docs): add types and MiniSearch wrapper"
 ```
 
 ---
@@ -791,7 +791,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues &&
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/tools.ts`
+- Create: `$WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/tools.ts`
 
 **Step 1: Create tools.ts**
 
@@ -1137,7 +1137,7 @@ export function createToolDefinitions(search: DocsSearch) {
 **Step 2: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add docs-site/mcp-server/tools.ts && git commit -m "feat(mcp-docs): add 6 MCP tool definitions"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add docs-site/mcp-server/tools.ts && git commit -m "feat(mcp-docs): add 6 MCP tool definitions"
 ```
 
 ---
@@ -1146,7 +1146,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues &&
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/index.ts`
+- Create: `$WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site/mcp-server/index.ts`
 
 **Step 1: Create the server entry point**
 
@@ -1318,7 +1318,7 @@ if (isDirectExecution) {
 **Step 2: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add docs-site/mcp-server/index.ts && git commit -m "feat(mcp-docs): add MCP server entry with stdio + HTTP transport"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add docs-site/mcp-server/index.ts && git commit -m "feat(mcp-docs): add MCP server entry with stdio + HTTP transport"
 ```
 
 ---
@@ -1327,8 +1327,8 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues &&
 
 **Files:**
 
-- Create: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/src/cli/commands/docs.ts`
-- Modify: `/Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/src/cli/parser.ts` (add import + .command() call)
+- Create: `$WORKSPACE/neurolink-fork/fix/documentation-issues/src/cli/commands/docs.ts`
+- Modify: `$WORKSPACE/neurolink-fork/fix/documentation-issues/src/cli/parser.ts` (add import + .command() call)
 
 **Step 1: Create docs.ts command**
 
@@ -1418,7 +1418,7 @@ Add command registration (after the ragCommand line, around line 208):
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && npx tsc --noEmit --project tsconfig.cli.json 2>&1 | head -20
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && npx tsc --noEmit --project tsconfig.cli.json 2>&1 | head -20
 ```
 
 Expected: No errors related to docs.ts
@@ -1426,7 +1426,7 @@ Expected: No errors related to docs.ts
 **Step 4: Commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add src/cli/commands/docs.ts src/cli/parser.ts && git commit -m "feat(cli): add 'neurolink docs' command for MCP docs server"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add src/cli/commands/docs.ts src/cli/parser.ts && git commit -m "feat(cli): add 'neurolink docs' command for MCP docs server"
 ```
 
 ---
@@ -1438,7 +1438,7 @@ cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues &&
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues/docs-site && pnpm build 2>&1 | tail -5
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues/docs-site && pnpm build 2>&1 | tail -5
 ```
 
 Expected: Build succeeds, `[search-index]` log lines appear if debug=true
@@ -1465,7 +1465,7 @@ Expected: Shows document count (180+), sections list, sample document title
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && npx tsx -e "
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && npx tsx -e "
 import { DocsSearch } from './docs-site/mcp-server/search.js';
 import indexData from './docs-site/static/search-index.json' with { type: 'json' };
 
@@ -1498,7 +1498,7 @@ Expected: Search returns relevant results, getPage finds the installation page, 
 **Step 4: Commit test results (if search-index.json should be tracked)**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && echo "docs-site/static/search-index.json" >> .gitignore && git add .gitignore && git commit -m "chore: gitignore generated search-index.json"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && echo "docs-site/static/search-index.json" >> .gitignore && git add .gitignore && git commit -m "chore: gitignore generated search-index.json"
 ```
 
 Note: The search index is generated at build time and should not be committed.
@@ -1514,7 +1514,7 @@ The MCP stdio protocol uses JSON-RPC over stdin/stdout. We can test by sending a
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | npx tsx docs-site/mcp-server/index.ts 2>/dev/null | head -1
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | npx tsx docs-site/mcp-server/index.ts 2>/dev/null | head -1
 ```
 
 Expected: JSON-RPC response with server capabilities, including `tools` capability
@@ -1524,7 +1524,7 @@ Expected: JSON-RPC response with server capabilities, including `tools` capabili
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | npx tsx docs-site/mcp-server/index.ts 2>/dev/null
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","method":"notifications/initialized"}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | npx tsx docs-site/mcp-server/index.ts 2>/dev/null
 ```
 
 Expected: Response includes all 6 tools: search_docs, get_page, list_sections, get_api_reference, get_examples, get_changelog
@@ -1532,7 +1532,7 @@ Expected: Response includes all 6 tools: search_docs, get_page, list_sections, g
 **Step 3: Final commit**
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/fix/documentation-issues && git add -A && git commit -m "feat: complete dynamic OG images + MCP docs server implementation"
+cd $WORKSPACE/neurolink-fork/fix/documentation-issues && git add -A && git commit -m "feat: complete dynamic OG images + MCP docs server implementation"
 ```
 
 ---

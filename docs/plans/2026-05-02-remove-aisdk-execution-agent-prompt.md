@@ -44,7 +44,7 @@ users should not notice a behavior change."
 Audited on 2026-05-03 in:
 
 ```bash
-/Users/sachinsharma/Developer/temp/neurolink-fork/feat/remove-ai-sdk-google
+$WORKSPACE/neurolink-fork/feat/remove-ai-sdk-google
 ```
 
 Branch shown by `git status --short --branch`:
@@ -81,7 +81,7 @@ Current output:
 ```text
 Legend: production dependency, optional only, dev only
 
-@juspay/neurolink@9.61.0 /Users/sachinsharma/Developer/temp/neurolink-fork/feat/remove-ai-sdk-google
+@juspay/neurolink@9.61.0 $WORKSPACE/neurolink-fork/feat/remove-ai-sdk-google
 
 dependencies:
 @juspay/hippocampus 0.1.4

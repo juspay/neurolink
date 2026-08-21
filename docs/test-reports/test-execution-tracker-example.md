@@ -53,9 +53,9 @@ Phase 4:  ████████████████████ 100.0%
 
 ## 📁 **TEST EXECUTION FILES**
 
-**Input Files**: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/test-executions/comprehensive-parallel/inputs/`
-**Output Files**: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/test-executions/comprehensive-parallel/outputs/`
-**Log Files**: `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink/test-executions/comprehensive-parallel/logs/`
+**Input Files**: `$WORKSPACE/neurolink-fork/neurolink/test-executions/comprehensive-parallel/inputs/`
+**Output Files**: `$WORKSPACE/neurolink-fork/neurolink/test-executions/comprehensive-parallel/outputs/`
+**Log Files**: `$WORKSPACE/neurolink-fork/neurolink/test-executions/comprehensive-parallel/logs/`
 
 ---
 
