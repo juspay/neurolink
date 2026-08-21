@@ -376,6 +376,44 @@ jobs:
           echo "🔒 Running security checks..."
           pnpm run validate:security
 
+      # `pnpm run validate:security` above only audits the repo root
+      # (scripts/security-check.ts runs `pnpm audit` from process.cwd()).
+      # landing/ and docs-site/ each maintain their own independent
+      # pnpm-lock.yaml and were getting zero audit coverage — exactly how two
+      # critical advisories sat there unnoticed. This step gives them one.
+      #
+      # Deliberately non-blocking for now (continue-on-error): both trees
+      # currently carry several more high/moderate advisories beyond their
+      # one critical each, so a hard-failing gate here would red-line every
+      # PR immediately. The two criticals are being fixed on a separate
+      # branch (fix/subpackage-critical-advisories) not yet merged, so this
+      # step is still expected to report findings today — that's the point,
+      # visibility without blocking.
+      #
+      # To promote this to a real (required) gate once that groundwork is
+      # done: (1) let fix/subpackage-critical-advisories land, (2) triage or
+      # override the remaining high/moderate findings in each tree so a
+      # clean run is achievable, then (3) drop `continue-on-error` and add
+      # `--audit-level=critical` (or higher) to each `pnpm audit` call below
+      # so it fails only on genuinely new criticals, not on the long tail.
+      - name: 🔒 Subpackage Dependency Audit (landing/, docs-site/)
+        continue-on-error: true
+        run: |
+          set +e
+          echo "🔍 Auditing landing/ dependencies..."
+          (cd landing && pnpm audit)
+          landing_status=$?
+          echo ""
+          echo "🔍 Auditing docs-site/ dependencies..."
+          (cd docs-site && pnpm audit)
+          docs_status=$?
+          echo ""
+          if [ "$landing_status" -ne 0 ] || [ "$docs_status" -ne 0 ]; then
+            echo "⚠️ Subpackage audit(s) reported findings — non-blocking for now, see step notes in ci.yml."
+            exit 1
+          fi
+          echo "✅ No subpackage audit findings."
+
       - name: 📊 ESLint Quality Report
         run: |
           echo "📊 Generating ESLint quality report..."

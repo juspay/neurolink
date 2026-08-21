@@ -23,6 +23,54 @@ updates:
     # Ignore patterns for known false positives or handled elsewhere
     ignore: []
 
+  # landing/ maintains its own independent pnpm-lock.yaml and was getting
+  # zero automated update coverage from the root-only entry above — exactly
+  # how a critical advisory sat there unnoticed. "npm" is the correct
+  # ecosystem value here: Dependabot has no separate "pnpm" ecosystem, and
+  # npm-ecosystem support already reads pnpm-lock.yaml natively.
+  - package-ecosystem: "npm"
+    directory: "/landing"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "landing"
+    commit-message:
+      prefix: "deps(landing)"
+      include: "scope"
+    groups:
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore: []
+
+  # docs-site/ has the same gap as landing/ above, for the same reason.
+  - package-ecosystem: "npm"
+    directory: "/docs-site"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "docs-site"
+    commit-message:
+      prefix: "deps(docs-site)"
+      include: "scope"
+    groups:
+      development-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore: []
+
   # Keep GitHub Actions updated
   - package-ecosystem: "github-actions"
     directory: "/"
