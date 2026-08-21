@@ -120,7 +120,7 @@ export function needsVisionTranscode(mimeType: string): boolean {
  * JPEG 2000 are not compiled in at all. Those fall through to ffmpeg below.
  */
 async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
-  const sharpModule = await tryImport<{ default: typeof import("sharp") }>(
+  const sharpModule = await tryImport<typeof import("sharp")>(
     "sharp",
     "Image format conversion for vision providers",
   );
