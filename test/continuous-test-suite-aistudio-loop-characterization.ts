@@ -667,4 +667,95 @@ await test("the generate loop runs an identical repeated call only once", async 
   );
 });
 
+section("abort between tool executions");
+
+await test("an abort mid-step stops the loop from dispatching the rest of the batch", async () => {
+  // A step can carry several tool calls. When the turn is aborted — caller
+  // cancel, turn deadline, stall watchdog — the remaining calls in that batch
+  // must not be started: each one costs up to a full tool timeout, so a wide
+  // batch keeps running long past the moment the turn was cancelled.
+  //
+  // The abort is raised from inside the FIRST tool, which is the realistic
+  // shape (a deadline trips while a tool is running) and makes the test
+  // deterministic without any timing assumptions.
+  const server = await startStandIn(() =>
+    sse(
+      [
+        { functionCall: { name: "first", args: {} } },
+        { functionCall: { name: "second", args: {} } },
+      ],
+      "STOP",
+    ),
+  );
+  const restore = withAiStudioEnv();
+  const controller = new AbortController();
+  let firstCalls = 0;
+  let secondCalls = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call both tools" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      abortSignal: controller.signal,
+      credentials: credentialsFor(server.port),
+      tools: {
+        first: {
+          description: "aborts the turn",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: true,
+          },
+          execute: async () => {
+            firstCalls++;
+            controller.abort();
+            return { ok: true };
+          },
+        },
+        second: {
+          description: "must not run once the turn is aborted",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: true,
+          },
+          execute: async () => {
+            secondCalls++;
+            return { ok: true };
+          },
+        },
+      },
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // An aborted turn may surface as a throw; the dispatch counts are pinned.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] aistudio abort-mid-batch: first=${firstCalls} second=${secondCalls} calls=${server.calls.length}`,
+  );
+  assert(firstCalls === 1, "the first tool did not run exactly once");
+  assert(
+    secondCalls === 0,
+    "the rest of the batch was dispatched after the turn was aborted",
+  );
+  // And the turn stopped rather than issuing another request: a partial
+  // tool-result turn must never be written back, since an unanswered tool
+  // call in history is rejected outright by Anthropic and carried forward by
+  // Gemini.
+  assert(
+    server.calls.length === 1,
+    `the loop issued ${server.calls.length} requests, so it continued past the abort`,
+  );
+});
+
 await runSuite();
