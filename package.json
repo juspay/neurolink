@@ -457,7 +457,7 @@
     "pdf-parse": "^2.4.5",
     "pdf-to-img": "^5.0.0",
     "pptxgenjs": "^4.0.1",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@actions/core": "^3.0.0",
