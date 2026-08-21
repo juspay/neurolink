@@ -46,6 +46,9 @@ import type {
   DocumentLoader,
 } from "../../types/index.js";
 import { MDocument } from "./MDocument.js";
+// pdf-parse is an optional dependency; only its types are imported here
+// (erased at compile time), the runtime module is loaded dynamically below.
+import type { PDFParse as PDFParseCtor } from "pdf-parse";
 
 /**
  * Text file loader
@@ -308,39 +311,12 @@ export class PDFLoader implements DocumentLoader {
       pageRange: options?.pageRange,
     });
 
+    let PDFParse: typeof PDFParseCtor;
     try {
-      // Try to use pdf-parse if available
-      const pdfParse = await this.loadPdfParser();
-      const buffer = await readFile(source);
-      const data = await pdfParse(buffer);
-
-      const text = data.text;
-
-      // Handle page range if specified
-      if (options?.pageRange) {
-        const _pages = this.parsePageRange(options.pageRange, data.numpages);
-        // Note: pdf-parse doesn't support page selection directly
-        // This is a placeholder for more sophisticated page handling
-        logger.debug(
-          "[PDFLoader] Page range requested but not fully supported",
-          {
-            pageRange: options.pageRange,
-            totalPages: data.numpages,
-          },
-        );
-      }
-
-      return new MDocument(text, {
-        type: "pdf",
-        metadata: {
-          source: basename(source),
-          pageCount: data.numpages,
-          info: data.info,
-          ...options?.metadata,
-        },
-      });
+      PDFParse = await this.loadPdfParser();
     } catch (error) {
-      // Fallback: Return placeholder document
+      // pdf-parse genuinely isn't installed / doesn't expose a usable
+      // export — degrade gracefully rather than throwing.
       logger.warn("[PDFLoader] pdf-parse not available, using fallback", {
         error: error instanceof Error ? error.message : String(error),
       });
@@ -357,6 +333,62 @@ export class PDFLoader implements DocumentLoader {
         },
       );
     }
+
+    const buffer = await readFile(source);
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const data = await parser.getText();
+      const text = data.text;
+
+      // Handle page range if specified
+      if (options?.pageRange) {
+        const _pages = this.parsePageRange(options.pageRange, data.total);
+        // Note: pdf-parse doesn't support page selection directly
+        // This is a placeholder for more sophisticated page handling
+        logger.debug(
+          "[PDFLoader] Page range requested but not fully supported",
+          {
+            pageRange: options.pageRange,
+            totalPages: data.total,
+          },
+        );
+      }
+
+      return new MDocument(text, {
+        type: "pdf",
+        metadata: {
+          source: basename(source),
+          pageCount: data.total,
+          ...options?.metadata,
+        },
+      });
+    } catch (error) {
+      // pdf-parse IS installed and loaded fine, but failed on this
+      // specific file (corrupt PDF, password-protected, unsupported
+      // structure, etc.). Keep this distinct from the "not installed"
+      // fallback above — both surface as a placeholder document, but the
+      // message, parseError value, and log level differ so a genuine
+      // parse failure is never mistaken for a missing dependency.
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error("[PDFLoader] pdf-parse failed to parse PDF", {
+        source,
+        error: message,
+      });
+
+      return new MDocument(
+        `[PDF Document: ${basename(source)}]\n\nNote: PDF parsing failed for this file: ${message}`,
+        {
+          type: "pdf",
+          metadata: {
+            source: basename(source),
+            parseError: `pdf-parse failed: ${message}`,
+            ...options?.metadata,
+          },
+        },
+      );
+    } finally {
+      await parser.destroy();
+    }
   }
 
   canHandle(source: string): boolean {
@@ -364,16 +396,11 @@ export class PDFLoader implements DocumentLoader {
     return ext === ".pdf";
   }
 
-  private async loadPdfParser(): Promise<
-    (buffer: Buffer) => Promise<{
-      text: string;
-      numpages: number;
-      info: Record<string, unknown>;
-    }>
-  > {
-    // pdf-parse is an optional dependency — resolve it dynamically and
-    // validate at runtime that it exposes a callable parser (either the
-    // module itself or its default export) instead of blindly asserting.
+  private async loadPdfParser(): Promise<typeof PDFParseCtor> {
+    // pdf-parse v2 exports a `PDFParse` class (`new PDFParse({ data }).getText()`)
+    // instead of v1's bare callable — resolve it dynamically and validate at
+    // runtime that the export shape is actually present instead of blindly
+    // asserting.
     let pdfParseModule: unknown;
     try {
       pdfParseModule = await import("pdf-parse");
@@ -381,21 +408,17 @@ export class PDFLoader implements DocumentLoader {
       throw new Error("pdf-parse module not available");
     }
     const candidate: unknown =
-      (typeof pdfParseModule === "object" &&
+      typeof pdfParseModule === "object" &&
       pdfParseModule !== null &&
-      "default" in pdfParseModule
-        ? pdfParseModule.default
-        : undefined) || pdfParseModule;
+      "PDFParse" in pdfParseModule
+        ? (pdfParseModule as { PDFParse: unknown }).PDFParse
+        : undefined;
     if (typeof candidate !== "function") {
       // Outside the try/catch so this message isn't swallowed by the
       // module-not-available rethrow.
-      throw new Error("pdf-parse module does not export a parse function");
+      throw new Error("pdf-parse module does not export a PDFParse class");
     }
-    return candidate as (buffer: Buffer) => Promise<{
-      text: string;
-      numpages: number;
-      info: Record<string, unknown>;
-    }>;
+    return candidate as typeof PDFParseCtor;
   }
 
   private parsePageRange(range: string, totalPages: number): number[] {
