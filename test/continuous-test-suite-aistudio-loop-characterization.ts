@@ -500,4 +500,51 @@ await test("a turn that hits the step cap still delivers text to the consumer", 
   );
 });
 
+await test("the generate path hitting the step cap still returns the last step's text", async () => {
+  // The generate loop's step-cap behaviour had no coverage. It routes through
+  // the same handleMaxStepsTermination as the streaming twin, but returns the
+  // text in the result rather than pushing it to a channel — so the failure
+  // mode is an empty `content`, which nothing else would notice.
+  const server = await startStandIn(() =>
+    sse(
+      [
+        { text: "partial progress" },
+        { functionCall: { name: "lookup", args: {} } },
+      ],
+      "STOP",
+    ),
+  );
+  const restore = withAiStudioEnv();
+  const counter = { calls: 0 };
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.generate({
+      input: { text: "keep going" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 2,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    console.log(
+      `    [diagnostic] generate step-cap: calls=${server.calls.length} content=${JSON.stringify(result?.content ?? "").slice(0, 60)}`,
+    );
+    assert(
+      server.calls.length === 2,
+      `a maxSteps=2 turn made ${server.calls.length} calls, not the 2 this loop performs`,
+    );
+    assert(
+      typeof result?.content === "string" &&
+        result.content.includes("partial progress"),
+      "the last step's text was not returned when the cap was reached",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
 await runSuite();
