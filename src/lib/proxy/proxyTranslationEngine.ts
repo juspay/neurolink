@@ -345,6 +345,17 @@ export async function handleTranslatedStreamRequest(args: {
   let translatedModel: string | undefined;
   /** Provider that actually served the successful attempt, for costing. */
   let translatedProvider: string | undefined;
+  /**
+   * Whether the substitution has already been reported to the tracer.
+   *
+   * The success path records it before the tracer prices anything, and the
+   * finally block keeps its own call as a net for any future path that sets
+   * translatedModel without reaching that point. Both guards are otherwise
+   * identical and translatedModel is assigned in exactly one place, so without
+   * this flag every substituted stream reports twice and
+   * proxy_model_substitution_total reads exactly double the real count.
+   */
+  let substitutionRecorded = false;
   let finalStreamError = "No translation providers succeeded";
   let upstreamIterator: AsyncIterator<unknown> | undefined;
   let lastAttemptLabel = "translation";
@@ -467,14 +478,17 @@ export async function handleTranslatedStreamRequest(args: {
             // bills the model the client ASKED for — which is exactly what
             // ProxyTracer.setModelSubstitution() documents as wrong, since a
             // claude-* alias served by another provider would be charged at
-            // Claude rates. The finally block below still calls it, harmlessly,
-            // for paths that never reach here.
+            // Claude rates. The finally block below keeps its own call as a
+            // net for any future path that sets translatedModel without
+            // reaching here; substitutionRecorded stops the two from
+            // double-counting proxy_model_substitution_total.
             if (tracer && translatedModel && translatedModel !== requestModel) {
               tracer.setModelSubstitution(
                 requestModel,
                 translatedModel,
                 translatedProvider,
               );
+              substitutionRecorded = true;
             }
 
             // Track usage and metrics
@@ -532,12 +546,18 @@ export async function handleTranslatedStreamRequest(args: {
         if (!cancelled) {
           controller.close();
         }
-        if (tracer && translatedModel && translatedModel !== requestModel) {
+        if (
+          !substitutionRecorded &&
+          tracer &&
+          translatedModel &&
+          translatedModel !== requestModel
+        ) {
           tracer.setModelSubstitution(
             requestModel,
             translatedModel,
             translatedProvider,
           );
+          substitutionRecorded = true;
         }
         const terminalStatus = cancelled
           ? 499

@@ -658,6 +658,11 @@ function createAllRoutes(
 type CreateRoutesOptions = {
   enableSwagger?: boolean;
   getRoutes?: () => RouteDefinition[];
+  /** Enables both the Claude and OpenAI-compatible proxy surfaces. */
+  proxy?: boolean;
+  /** Legacy per-format flags, still honoured. */
+  claudeProxy?: boolean;
+  openaiProxy?: boolean;
 };
 ```
 
@@ -685,6 +690,24 @@ function registerAllRoutes(
 | `createOpenApiRoutes(basePath?, getRoutes?)` | `/docs`   | `GET /docs/openapi.json` -- OpenAPI spec (JSON)<br />`GET /docs/openapi.yaml` -- OpenAPI spec (YAML)                                                                                                                                                                                        |
 
 All route factories accept a `basePath` parameter (default: `"/api"`).
+
+### Proxy Route Factories
+
+These are only included by `createAllRoutes` when a proxy flag is set, and they
+take their own dependencies rather than just a `basePath`.
+
+| Factory                                                                                                   | Included when            | Endpoints                                                                                                                                                                                                                                                   |
+| --------------------------------------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createClaudeProxyRoutes(modelRouter?, basePath?, strategy?, passthrough?, primaryAccountKey?, options?)` | `proxy` or `claudeProxy` | `POST /v1/messages` — Anthropic Messages passthrough with account pooling<br />`GET /limits` — per-account quota (`?snapshot=true` for stored state)<br />`GET /accounts` — one row per account joining status, quota and per-account token totals and cost |
+| `createOpenAIProxyRoutes(modelRouter?, basePath?, loopbackPort?, runtimeConfigProvider?)`                 | `proxy` or `openaiProxy` | `POST /v1/chat/completions` — OpenAI-compatible surface; Anthropic-targeted models loop back through `/v1/messages`                                                                                                                                         |
+| `createCodexProxyRoutes(basePath?)`                                                                       | **never — CLI only**     | `POST /backend-api/codex/responses` — Codex (ChatGPT) pool engine                                                                                                                                                                                           |
+
+> **`createCodexProxyRoutes` is not wired into `createAllRoutes`.** The CLI proxy
+> assembles it by hand, so an SDK consumer embedding the proxy gets the Claude
+> and OpenAI surfaces but not Codex. Adding a new proxy surface means editing
+> both `src/cli/commands/proxy.ts` and `src/lib/server/routes/index.ts` — they
+> are separate hand-maintained lists, which is exactly why Codex is in one and
+> not the other.
 
 ---
 
