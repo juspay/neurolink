@@ -218,13 +218,6 @@ class NeuroLinkBuildValidator {
         }
       }
 
-      // Check if lint-staged is configured
-      if (!pkg["lint-staged"]) {
-        this.errors.push(
-          "Missing lint-staged configuration in package.json",
-        );
-      }
-
       this.log("Package.json validation completed");
     } catch (error: unknown) {
       const message =

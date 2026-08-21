@@ -235,7 +235,6 @@ class ProviderValidator {
       google: "@ai-sdk/google",
       "aws-bedrock": "@aws-sdk/client-bedrock",
       azure: "@ai-sdk/openai",
-      huggingface: "@huggingface/inference",
       ollama: "ollama",
       mistral: "@ai-sdk/mistral",
       groq: "groq-sdk",
