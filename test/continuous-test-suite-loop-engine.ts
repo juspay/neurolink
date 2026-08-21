@@ -1122,4 +1122,64 @@ await test("the engine's breaker dispatches an always-failing tool exactly twice
   );
 });
 
+await test("the Gemini adapter uses a supplied collectStep instead of the shared collector", async () => {
+  // Task 10 prerequisite. Vertex drains its stream itself — folding cumulative
+  // usage counts as deltas and capturing thought signatures its own way — and
+  // that behaviour is characterized, so migrating it must not silently swap in
+  // the shared collector. This proves the hook is honoured rather than
+  // decorative.
+  const { createGeminiLoopAdapter } =
+    await import("../src/lib/core/geminiLoopAdapter.js");
+  // Two steps, not one. A single-step turn would pass even if the adapter
+  // consulted the hook once and then fell back to the shared collector, so
+  // the first step asks for a tool and the second ends the turn.
+  let called = 0;
+  const adapter = createGeminiLoopAdapter({
+    providerLabel: "probe",
+    maxSteps: 3,
+    liveTools: {},
+    buildRequest: () => ({}),
+    sendStep: async () => ({}) as never,
+    collectStep: async () => {
+      called++;
+      if (called === 1) {
+        return {
+          rawResponseParts: [{ text: "step one" }],
+          stepFunctionCalls: [{ name: "probe_tool", args: {} }],
+          inputTokens: 4,
+          outputTokens: 1,
+          finishReason: "STOP",
+        };
+      }
+      return {
+        rawResponseParts: [{ text: "from the custom collector" }],
+        stepFunctionCalls: [],
+        inputTokens: 7,
+        outputTokens: 3,
+        finishReason: "STOP",
+      };
+    },
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], {
+    tools: {
+      probe_tool: { execute: async () => ({ ok: true }) },
+    },
+  });
+  const result = await resultPromise;
+  assertEqual(called, 2, "the supplied collector was not used on every step");
+  // The SUM of both steps (4 + 7). The engine accumulates usage across a
+  // turn, so this asserts every step's counts came from the supplied
+  // collector — a single-step expectation would have passed while the second
+  // step silently used the shared one.
+  assertEqual(
+    result.usage.inputTokens,
+    11,
+    "usage did not come from the supplied collector on every step",
+  );
+  assert(
+    result.text.includes("from the custom collector"),
+    "text did not come from the supplied collector",
+  );
+});
+
 await runSuite();

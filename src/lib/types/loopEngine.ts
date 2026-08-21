@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Tool } from "./tools.js";
 import type {
+  CollectedChunkResult,
   NativeFunctionCall,
   NativeToolDeclarationsResult,
 } from "./providers.js";
@@ -305,6 +306,23 @@ export type GeminiLoopAdapterCoreConfig = {
    * step with that step's real token counts.
    */
   noteUsage?: (inputTokens: number, outputTokens: number) => void;
+  /**
+   * Fold one step's raw stream into the shape the adapter reports.
+   *
+   * Defaults to `collectStreamChunksIncremental`, which is what AI Studio and
+   * any provider sharing the googleNativeGemini3 helpers want. Vertex does
+   * NOT share them: its loop drains the stream itself, folding cumulative
+   * usage counts as deltas and capturing thought signatures in its own way,
+   * and that behaviour is characterized rather than incidental.
+   *
+   * So the collector is a hook rather than a hard-coded call. A provider
+   * whose drain differs supplies its own and keeps its measured behaviour;
+   * one that matches the shared helper passes nothing.
+   */
+  collectStep?: (
+    stream: unknown,
+    channel: { push(chunk: AgenticLoopChunk): void },
+  ) => Promise<CollectedChunkResult>;
 };
 
 /**

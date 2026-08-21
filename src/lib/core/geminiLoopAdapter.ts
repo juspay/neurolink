@@ -141,13 +141,19 @@ export function createGeminiLoopAdapter(
     ): Promise<AgenticLoopStepResult<GeminiStepRaw>> {
       const rawStream = await config.sendStep(request.raw, signal);
 
-      // `collectStreamChunksIncremental` wants a StreamChannel but only ever
-      // calls `.push`, so the engine's push-only channel satisfies it. The
-      // helper is reused rather than reimplemented precisely because it also
-      // owns usage extraction and thought-signature preservation.
-      const collected = await collectStreamChunksIncremental(rawStream, {
-        push: (chunk: { content: string }) => channel.push(chunk),
-      } as Parameters<typeof collectStreamChunksIncremental>[1]);
+      // The shared helper by default: it owns usage extraction and
+      // thought-signature preservation, and it wants a StreamChannel but only
+      // ever calls `.push`, so the engine's push-only channel satisfies it.
+      //
+      // A provider whose drain genuinely differs supplies `collectStep`
+      // instead. Vertex does: it folds cumulative usage counts as deltas in
+      // its own loop, and that behaviour is characterized, so it keeps its
+      // collector rather than being quietly switched to this one.
+      const collected = config.collectStep
+        ? await config.collectStep(rawStream, channel)
+        : await collectStreamChunksIncremental(rawStream, {
+            push: (chunk: { content: string }) => channel.push(chunk),
+          } as Parameters<typeof collectStreamChunksIncremental>[1]);
 
       // The provider's context guard calibrates from real per-step counts;
       // `inputTokens` is this step's full prompt size, which is what it
