@@ -8,6 +8,7 @@ import type {
 import {
   BedrockRuntimeClient,
   ImageFormat,
+  InvokeModelCommand,
 } from "@aws-sdk/client-bedrock-runtime";
 import type { DocumentType } from "@smithy/types";
 import path from "path";
@@ -1507,9 +1508,6 @@ export class AmazonBedrockProvider extends BaseProvider {
     });
 
     try {
-      const { InvokeModelCommand } =
-        await import("@aws-sdk/client-bedrock-runtime");
-
       // Titan Embed models expect a specific input format
       const requestBody = JSON.stringify({
         inputText: text,

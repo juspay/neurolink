@@ -230,7 +230,7 @@ const PROXY_STUB_JS = `
 const handler={get(t,p){if(p==='__esModule')return true;if(p==='default')return new Proxy({},{get:handler.get});return new Proxy(function(...a){return new Proxy({},{get:handler.get})},{get:handler.get,apply(t,th,a){return new Proxy({},{get:handler.get})},construct(t,a){return new Proxy({},{get:handler.get})}})}};
 const mod=new Proxy({},handler);
 export default mod;
-export const {BedrockClient,ListFoundationModelsCommand,BedrockRuntimeClient,ConverseCommand,ConverseStreamCommand,ImageFormat}=mod;
+export const {BedrockClient,ListFoundationModelsCommand,BedrockRuntimeClient,ConverseCommand,ConverseStreamCommand,ImageFormat,InvokeModelCommand}=mod;
 export const {SageMakerRuntimeClient,InvokeEndpointCommand,InvokeEndpointWithResponseStreamCommand}=mod;
 export const {GoogleAuth,VertexAI,TextToSpeechClient}=mod;
 export const {Webhook}=mod;

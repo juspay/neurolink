@@ -60,7 +60,9 @@ export class FastifyServerAdapter extends BaseServerAdapter {
     }
 
     // Dynamic import to avoid loading if not used
-    const fastifyModule = await import("fastify");
+    const fastifyModule = await this.importFrameworkDependency<
+      typeof import("fastify")
+    >("fastify", "Fastify");
     const Fastify = fastifyModule.default;
 
     this.app = Fastify({
@@ -76,7 +78,9 @@ export class FastifyServerAdapter extends BaseServerAdapter {
 
     // Register CORS plugin if enabled
     if (this.config.cors.enabled) {
-      const corsModule = await import("@fastify/cors");
+      const corsModule = await this.importFrameworkDependency<
+        typeof import("@fastify/cors")
+      >("@fastify/cors", "Fastify");
       await this.app.register(corsModule.default, {
         origin: this.config.cors.origins,
         methods: this.config.cors.methods,
@@ -88,7 +92,9 @@ export class FastifyServerAdapter extends BaseServerAdapter {
 
     // Register rate limiting plugin if enabled
     if (this.config.rateLimit.enabled) {
-      const rateLimitModule = await import("@fastify/rate-limit");
+      const rateLimitModule = await this.importFrameworkDependency<
+        typeof import("@fastify/rate-limit")
+      >("@fastify/rate-limit", "Fastify");
       const windowMs = this.config.rateLimit.windowMs;
       await this.app.register(rateLimitModule.default, {
         max: this.config.rateLimit.maxRequests,
@@ -225,8 +231,17 @@ export class FastifyServerAdapter extends BaseServerAdapter {
    * Override initialize to ensure async framework setup
    */
   public async initialize(): Promise<void> {
-    // Initialize Fastify asynchronously first
-    await this.initializeFrameworkAsync();
+    // Initialize Fastify asynchronously first. This runs before
+    // super.initialize()'s try/catch even starts, so a failure here (e.g. the
+    // "fastify" package is not installed) must be caught here too — otherwise
+    // it propagates with lifecycleState left at "uninitialized" instead of
+    // "error".
+    try {
+      await this.initializeFrameworkAsync();
+    } catch (error) {
+      this.lifecycleState = "error";
+      throw error;
+    }
 
     // Then call base class initialize
     await super.initialize();
