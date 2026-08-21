@@ -1032,6 +1032,13 @@ export type BedrockPendingContentBlock = BedrockContentBlock & {
   _inputBuffer?: string;
 };
 
+/** A tool_use block being assembled across Anthropic `input_json_delta` events. */
+export type AnthropicPendingToolUse = {
+  id: string;
+  name: string;
+  inputJson: string;
+};
+
 /**
  * Bedrock message structure
  */
