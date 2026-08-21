@@ -195,6 +195,10 @@ function credentialsFor(port: number) {
   };
 }
 
+function nl() {
+  return new NeuroLink();
+}
+
 function customTool(counter: { calls: number }) {
   return {
     lookup: {
@@ -209,6 +213,62 @@ function customTool(counter: { calls: number }) {
         return { found: true };
       },
     },
+  };
+}
+
+/**
+ * A stand-in that answers the request headers and then never sends a body,
+ * reproducing a provider that accepts a stream and wedges.
+ */
+async function startSilentStandIn(): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const server: Server = createServer((req, res) => {
+    calls.push({ body: {}, path: String(req.url ?? "").split("?")[0] });
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    // Deliberately no write and no end: the turn clock is what must react.
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+/**
+ * A stand-in that keeps the stream alive with periodic events.
+ *
+ * Progress resets the stall clock, so a turn against this server can only be
+ * ended by the wall-clock deadline — which is what separates the two limits.
+ */
+async function startDribblingStandIn(): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const timers: NodeJS.Timeout[] = [];
+  const server: Server = createServer((req, res) => {
+    calls.push({ body: {}, path: String(req.url ?? "").split("?")[0] });
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    const t = setInterval(() => {
+      res.write(sse([{ text: "." }]));
+    }, 300);
+    timers.push(t);
+    res.on("close", () => clearInterval(t));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        timers.forEach(clearInterval);
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
   };
 }
 
@@ -473,6 +533,173 @@ await test("a tool that always throws is dispatched a bounded number of times", 
   assert(
     attempts === 2,
     `the failing tool was dispatched ${attempts} times, not the 2 this loop performs`,
+  );
+});
+
+section("turn clock");
+
+await test("a stream that stops making progress ends the turn as stalled", async () => {
+  // The turn clock is the part of this loop a migration is most likely to
+  // drop, because nothing about it shows up in a normal turn: it only acts
+  // when a stream goes quiet. `stallTimeoutMs` is a public option threaded
+  // straight into createTurnClock, so the behaviour IS reachable
+  // deterministically — a stand-in that opens a response and then says
+  // nothing reproduces a wedged provider exactly.
+  //
+  // Pinned before the Vertex loops move onto runAgenticLoop, because the
+  // engine has no turn clock of its own: the fields that once advertised one
+  // on the adapter were removed for being inert, so the clock has to stay on
+  // this side, composed into the abort signal.
+  const server = await startSilentStandIn();
+  const restore = withVertexEnv();
+  let stopReason: string | undefined;
+  let outcome: string;
+  let thrown: unknown;
+  try {
+    // The ENTIRE turn is bounded, not just the drain. Removing the stall
+    // clock does not make this case fail — it makes it HANG, and it hangs
+    // inside stream() before any drain begins, so a race around the drain
+    // alone would never fire. A hung suite is a worse CI signal than a red
+    // one, and this bound is what turns the regression into a clean failure.
+    const turn = (async () => {
+      const result = await nl().stream({
+        input: { text: "hi" },
+        provider: "vertex",
+        model: MODEL,
+        maxTokens: 32,
+        disableInternalFallback: true,
+        stallTimeoutMs: 1500,
+        credentials: credentialsFor(server.port),
+      });
+      for await (const chunk of result.stream) {
+        void chunk;
+      }
+      // metadata.stopReason, not the top-level field: for these
+      // background-loop streams the top-level one is a late-resolving getter
+      // and reading it early yields undefined however the turn ended. That is
+      // documented on StreamResult and is not a defect — the first version of
+      // this case read the wrong field and reported a working turn clock as
+      // broken.
+      stopReason = (result as { metadata?: { stopReason?: string } }).metadata
+        ?.stopReason;
+      return "ended";
+    })();
+    outcome = await Promise.race([
+      // The rejection is RETAINED, not converted into a pass. Mapping every
+      // error to a passing outcome would let any unrelated failure — a
+      // connection refused, a misconfigured credential — satisfy a test whose
+      // whole subject is the turn clock. Both of these turns end cleanly
+      // today, so a throw is a real signal and is reported as one.
+      turn.catch((error: unknown) => {
+        thrown = error;
+        return "threw";
+      }),
+      new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("never-ended"), 20_000);
+        t.unref?.();
+      }),
+    ]);
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] stall turn: outcome=${outcome} stopReason=${String(stopReason)}`,
+  );
+  assert(
+    outcome !== "never-ended",
+    "a wedged turn was never ended by the turn clock within the bound",
+  );
+  if (outcome === "threw") {
+    // Printed, never interpolated into an assertion: the harness downgrades a
+    // failure whose text matches isExpectedProviderError() to a SKIP, so
+    // provider wording must not reach an assert.
+    console.log(
+      `    [diagnostic] stall turn threw: ${String((thrown as Error)?.message).slice(0, 160)}`,
+    );
+  }
+  assert(
+    outcome === "ended",
+    "the wedged turn failed instead of being ended by the turn clock",
+  );
+  assert(
+    stopReason === "stalled",
+    "a wedged turn ended without being reported as a stall",
+  );
+});
+
+await test("a turn that outlives turnTimeoutMs ends on the wall-clock deadline", async () => {
+  // The stall clock and the wall-clock deadline are separate limits with
+  // separate stop reasons, and a turn can hit either. This one is reachable
+  // with a stand-in that DOES make progress — it keeps dribbling events, so
+  // the stall clock is continually reset and only turnTimeoutMs can end the
+  // turn. Without that distinction a single fixture would prove one limit
+  // works and say nothing about the other.
+  const server = await startDribblingStandIn();
+  const restore = withVertexEnv();
+  let stopReason: string | undefined;
+  let outcome: string;
+  let thrown: unknown;
+  try {
+    const turn = (async () => {
+      const result = await nl().stream({
+        input: { text: "hi" },
+        provider: "vertex",
+        model: MODEL,
+        maxTokens: 32,
+        maxSteps: 20,
+        disableInternalFallback: true,
+        turnTimeoutMs: 2500,
+        // Deliberately far above the deadline so a stall cannot be what ends
+        // this turn.
+        stallTimeoutMs: 60_000,
+        credentials: credentialsFor(server.port),
+      });
+      for await (const chunk of result.stream) {
+        void chunk;
+      }
+      stopReason = (result as { metadata?: { stopReason?: string } }).metadata
+        ?.stopReason;
+      return "ended";
+    })();
+    outcome = await Promise.race([
+      // The rejection is RETAINED, not converted into a pass. Mapping every
+      // error to a passing outcome would let any unrelated failure — a
+      // connection refused, a misconfigured credential — satisfy a test whose
+      // whole subject is the turn clock. Both of these turns end cleanly
+      // today, so a throw is a real signal and is reported as one.
+      turn.catch((error: unknown) => {
+        thrown = error;
+        return "threw";
+      }),
+      new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("never-ended"), 25_000);
+        t.unref?.();
+      }),
+    ]);
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] time-limit turn: outcome=${outcome} stopReason=${String(stopReason)}`,
+  );
+  assert(
+    outcome !== "never-ended",
+    "a turn past its wall-clock deadline was never ended within the bound",
+  );
+  if (outcome === "threw") {
+    console.log(
+      `    [diagnostic] time-limit turn threw: ${String((thrown as Error)?.message).slice(0, 160)}`,
+    );
+  }
+  assert(
+    outcome === "ended",
+    "the turn failed instead of being ended by its wall-clock deadline",
+  );
+  assert(
+    stopReason === "time-limit",
+    "a turn past its wall-clock deadline was not reported against that deadline",
   );
 });
 

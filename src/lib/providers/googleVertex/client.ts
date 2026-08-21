@@ -29,7 +29,7 @@ import {
   stringifyContentSafe,
 } from "../../utils/logSanitize.js";
 import type { NeuroLink } from "../../neurolink.js";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { warnGoogleSdkIgnoresProxy } from "../../proxy/proxyFetch.js";
 import type {
   UnknownRecord,
   ZodUnknownSchema,
@@ -1147,6 +1147,8 @@ export class GoogleVertexProvider extends BaseProvider {
   private async createVertexGenAIClient(
     regionOverride?: string,
   ): Promise<GenAIClient> {
+    warnGoogleSdkIgnoresProxy("GoogleVertex");
+
     const expressApiKey = this.resolveExpressApiKey();
     // Resolved only on the ADC path: getVertexProjectId() throws when no
     // project is configured, which an Express request legitimately has none of.
@@ -1170,8 +1172,10 @@ export class GoogleVertexProvider extends BaseProvider {
 
     const baseUrl = this.resolveBaseURL();
     const httpOptions = {
-      // Proxy fetch for corporate network support.
-      fetch: createProxyFetch(),
+      // The endpoint override and nothing else. This object used to also pass
+      // a proxy fetch, which the SDK silently ignored — see
+      // warnGoogleSdkIgnoresProxy for why that is not fixable here.
+      //
       // Only set when resolved: the SDK falls back to its own default
       // whenever httpOptions.baseUrl is undefined, so omitting the key and
       // passing undefined behave identically.

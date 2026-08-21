@@ -82,7 +82,7 @@ import {
 } from "../googleNativeGemini3/index.js";
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
-import { createProxyFetch } from "../../proxy/proxyFetch.js";
+import { warnGoogleSdkIgnoresProxy } from "../../proxy/proxyFetch.js";
 import type { LanguageModel, Schema } from "../../types/index.js";
 
 // Google AI Live API types now imported from ../types/providerSpecific.js
@@ -107,16 +107,20 @@ async function createGoogleGenAIClient(
     });
   }
   const Ctor = ctor as GoogleGenAIClass;
-  // Include httpOptions with proxy fetch for corporate network support.
+  // httpOptions carries the endpoint override and nothing else. It used to
+  // also pass a proxy fetch, which the SDK silently ignored — see
+  // warnGoogleSdkIgnoresProxy for why that is not fixable here.
+  //
   // baseUrl is only included when resolved — verified against
   // @google/genai's ApiClient (dist/node/index.cjs) that it falls back to
   // its own default whenever httpOptions.baseUrl is undefined, so omitting
   // the key and passing `baseUrl: undefined` behave identically; the key is
   // still omitted outright for a cleaner outbound config object.
+  warnGoogleSdkIgnoresProxy("GoogleAIStudio");
+
   return new Ctor({
     apiKey,
     httpOptions: {
-      fetch: createProxyFetch(),
       ...(baseURL ? { baseUrl: baseURL } : {}),
     },
   });
