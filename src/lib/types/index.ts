@@ -48,6 +48,7 @@ export * from "./ppt.js";
 export * from "./processor.js";
 export * from "./providers.js";
 export * from "./proxy.js";
+export * from "./proxyClient.js";
 export * from "./rag.js";
 export * from "./scorer.js";
 export * from "./sdk.js";
