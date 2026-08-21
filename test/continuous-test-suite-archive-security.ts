@@ -7,6 +7,36 @@
  * inflating; this suite is what fails if that limit is ever tightened into
  * refusing legitimate input.
  *
+ * ## Attack coverage
+ *
+ * Two real attacks are covered end-to-end, both without live provider
+ * credentials — a local loopback HTTP stand-in (`mockChatServer.ts`) plays
+ * the model, so these run unconditionally instead of behind `requireLive()`:
+ *
+ *   - **zip-slip / path traversal**: `ArchiveProcessor.hasPathTraversal()`
+ *     skips an entry named e.g. `../../../../tmp/evil.txt` rather than
+ *     failing the whole archive. The test proves the sibling entry still
+ *     reaches the outbound request while the traversal entry's content never
+ *     does — by inspecting the request body the mock server actually
+ *     received, not by trusting a model to report back correctly.
+ *   - **decompression-ratio bomb**: a single entry with honest headers whose
+ *     declared ratio exceeds `ARCHIVE_SECURITY.MAX_COMPRESSION_RATIO`.
+ *     Empirically (see the test body) `ArchiveProcessor` does **not** throw
+ *     here — `FileDetector.formatInformativePlaceholder` turns the failed
+ *     processor result into an inert "Could not extract content" placeholder
+ *     that still reaches the model, the same degrade-gracefully path used for
+ *     every other processor failure. The invariant that actually matters —
+ *     the bomb's inflated bytes are never serialized into the outbound
+ *     request — is what the test asserts, via a distinguishing marker that
+ *     must not appear in the captured request body.
+ *
+ * Not covered here: the declared-size-lie bypass (`writeZeroDeclaredZip` —
+ * entry claims size 0, real inflate is huge). It is defended in depth by
+ * `readZipEntryWithinLimit`'s own `maxOutputLength` bound
+ * (`src/lib/processors/archive/zipEntryReader.ts`), but proving that bound
+ * requires measuring peak RSS while importing the processor directly, which
+ * rule 15 (end-to-end only) excludes from this suite.
+ *
  * ## What used to be here
  *
  * This suite also asserted the *bounds* themselves — that a zip entry declaring
@@ -30,7 +60,15 @@ import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { defineSuite, assert, tempDir, Skip } from "./helpers/harness.js";
-import { writeNormalGz } from "./helpers/archiveBombFixtures.js";
+import {
+  writeNormalGz,
+  writeZipSlipZip,
+  writeRatioBombZip,
+} from "./helpers/archiveBombFixtures.js";
+import {
+  startMockChatServer,
+  mockOpenAICredentials,
+} from "./helpers/mockChatServer.js";
 import { NeuroLink } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite("Archive delivery");
@@ -112,6 +150,197 @@ await test("an ordinary archive still reaches the model through stream()", async
     acc.includes(TOKEN),
     "the archive's contents reached the model over the streaming path",
   );
+});
+
+const SAFE_MARKER = "SAFE_SIBLING_ENTRY_CONTENT";
+const SLIP_MARKER = "SECRET_SLIPPED_ENTRY_CONTENT";
+
+await test("a zip-slip entry is stripped before the request leaves — generate()", async () => {
+  const outside = path.join(dir, "..", "juspay-zip-slip-canary.txt");
+  const fixture = writeZipSlipZip(path.join(dir, "zip-slip-generate.zip"), [
+    { name: "readme.txt", content: SAFE_MARKER },
+    {
+      name: "../../../../../../tmp/juspay-zip-slip-canary.txt",
+      content: SLIP_MARKER,
+    },
+  ]);
+  const server = await startMockChatServer();
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: {
+        text: "Summarize the attached file.",
+        files: [fixture],
+      },
+      provider: "openai",
+      credentials: mockOpenAICredentials(server),
+      maxTokens: 64,
+      timeout: 30_000,
+    });
+    const body = server.getLastRequestBody() ?? "";
+    assert(
+      body.includes(SAFE_MARKER),
+      "the sibling entry's content should have reached the outbound request body",
+    );
+    assert(
+      !body.includes(SLIP_MARKER),
+      "the path-traversal entry's content must never reach the outbound request body",
+    );
+    assert(
+      !fs.existsSync(outside),
+      "the path-traversal entry must never be written outside the archive's own directory",
+    );
+  } finally {
+    await server.close();
+    try {
+      fs.rmSync(outside, { force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+});
+
+await test("a zip-slip entry is stripped before the request leaves — stream()", async () => {
+  const outside = path.join(dir, "..", "juspay-zip-slip-canary-stream.txt");
+  const fixture = writeZipSlipZip(path.join(dir, "zip-slip-stream.zip"), [
+    { name: "readme.txt", content: SAFE_MARKER },
+    {
+      name: "../../../../../../tmp/juspay-zip-slip-canary-stream.txt",
+      content: SLIP_MARKER,
+    },
+  ]);
+  const server = await startMockChatServer();
+  try {
+    const nl = new NeuroLink();
+    const streamed = await nl.stream({
+      input: {
+        text: "Summarize the attached file.",
+        files: [fixture],
+      },
+      provider: "openai",
+      credentials: mockOpenAICredentials(server),
+      maxTokens: 64,
+      timeout: 30_000,
+    });
+    for await (const _chunk of streamed.stream as AsyncIterable<unknown>) {
+      // Draining is enough — the assertion is about the request already sent.
+    }
+    const body = server.getLastRequestBody() ?? "";
+    assert(
+      body.includes(SAFE_MARKER),
+      "the sibling entry's content should have reached the outbound request body",
+    );
+    assert(
+      !body.includes(SLIP_MARKER),
+      "the path-traversal entry's content must never reach the outbound request body",
+    );
+    assert(
+      !fs.existsSync(outside),
+      "the path-traversal entry must never be written outside the archive's own directory",
+    );
+  } finally {
+    await server.close();
+    try {
+      fs.rmSync(outside, { force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+});
+
+const BOMB_MARKER = "ZIPBOMBMARKER_";
+
+await test("a decompression-ratio bomb never reaches the request as inflated content — generate()", async () => {
+  const fixture = writeRatioBombZip(
+    path.join(dir, "ratio-bomb-generate.zip"),
+    2,
+    BOMB_MARKER,
+  );
+  const server = await startMockChatServer();
+  try {
+    const nl = new NeuroLink();
+    let threw = false;
+    try {
+      await nl.generate({
+        input: {
+          text: "Summarize the attached file.",
+          files: [fixture],
+        },
+        provider: "openai",
+        credentials: mockOpenAICredentials(server),
+        maxTokens: 64,
+        timeout: 30_000,
+      });
+    } catch {
+      threw = true;
+    }
+    if (threw) {
+      assert(
+        !server.wasCalled(),
+        "if the bomb is rejected outright, no request should have reached the mock server",
+      );
+    } else {
+      const body = server.getLastRequestBody() ?? "";
+      assert(
+        !body.includes(BOMB_MARKER),
+        "the bomb's inflated marker must never be serialized into the outbound request body",
+      );
+      assert(
+        body.length < 200_000,
+        "the outbound request body must stay far below the bomb's declared inflated size",
+      );
+    }
+  } finally {
+    await server.close();
+  }
+});
+
+await test("a decompression-ratio bomb never reaches the request as inflated content — stream()", async () => {
+  const fixture = writeRatioBombZip(
+    path.join(dir, "ratio-bomb-stream.zip"),
+    2,
+    BOMB_MARKER,
+  );
+  const server = await startMockChatServer();
+  try {
+    const nl = new NeuroLink();
+    let threw = false;
+    try {
+      const streamed = await nl.stream({
+        input: {
+          text: "Summarize the attached file.",
+          files: [fixture],
+        },
+        provider: "openai",
+        credentials: mockOpenAICredentials(server),
+        maxTokens: 64,
+        timeout: 30_000,
+      });
+      for await (const _chunk of streamed.stream as AsyncIterable<unknown>) {
+        // Draining is enough — the assertion is about the request already sent.
+      }
+    } catch {
+      threw = true;
+    }
+    if (threw) {
+      assert(
+        !server.wasCalled(),
+        "if the bomb is rejected outright, no request should have reached the mock server",
+      );
+    } else {
+      const body = server.getLastRequestBody() ?? "";
+      assert(
+        !body.includes(BOMB_MARKER),
+        "the bomb's inflated marker must never be serialized into the outbound request body",
+      );
+      assert(
+        body.length < 200_000,
+        "the outbound request body must stay far below the bomb's declared inflated size",
+      );
+    }
+  } finally {
+    await server.close();
+  }
 });
 
 try {

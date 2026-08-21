@@ -104,6 +104,44 @@ export async function makeXlsx(
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
+/**
+ * Build a .docx whose `word/document.xml` is the given raw XML string,
+ * byte-for-byte — no escaping.
+ *
+ * `makeDocx()` escapes its input because it exists to carry ordinary text; an
+ * XXE/billion-laughs payload needs a literal `<!DOCTYPE …>`/`<!ENTITY …>`
+ * prologue ahead of `<w:document>`, which escaping would turn into inert text.
+ * The surrounding parts ([Content_Types].xml, _rels/.rels) are the same
+ * well-formed shell `makeDocx()` uses — only the main part is attacker
+ * controlled, matching a real attachment where everything except the
+ * document body is boilerplate.
+ */
+export function makeDocxRaw(documentXml: string): Buffer {
+  const zip = new AdmZip();
+  zip.addFile("[Content_Types].xml", Buffer.from(CONTENT_TYPES, "utf8"));
+  zip.addFile("_rels/.rels", Buffer.from(ROOT_RELS, "utf8"));
+  zip.addFile("word/document.xml", Buffer.from(documentXml, "utf8"));
+  return zip.toBuffer();
+}
+
+/**
+ * Build a real, structurally valid .xlsx via exceljs (correct
+ * `[Content_Types].xml`, `xl/workbook.xml`, relationships, styles, …), then
+ * overwrite `xl/worksheets/sheet1.xml` with a raw, attacker-controlled XML
+ * string.
+ *
+ * exceljs's own writer escapes anything written through its row/cell API, so
+ * it cannot be used to embed a literal `<!DOCTYPE …>` — the injection has to
+ * happen by patching the zip entry after the fact, which is also what a real
+ * attacker modifying a legitimate spreadsheet would do.
+ */
+export async function makeXlsxRaw(sheetXml: string): Promise<Buffer> {
+  const base = await makeXlsx({ Sheet1: [["placeholder"]] });
+  const zip = new AdmZip(base);
+  zip.updateFile("xl/worksheets/sheet1.xml", Buffer.from(sheetXml, "utf8"));
+  return zip.toBuffer();
+}
+
 function escapeXml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
