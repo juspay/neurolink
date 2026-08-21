@@ -1,7 +1,5 @@
 import type { CommandModule } from "yargs";
 import type { VoiceServerArgs } from "../../lib/types/index.js";
-import { startVoiceServer } from "../../lib/server/voice/voiceServerApp.js";
-import { configureVoiceServerEnvironment } from "../../lib/server/voice/voiceWebSocketHandler.js";
 
 /**
  * @deprecated Use `neurolink serve voice` instead. This top-level alias is
@@ -25,6 +23,14 @@ export const voiceServerCommand: CommandModule<object, VoiceServerArgs> = {
     console.warn(
       "[deprecation] 'neurolink voice-server' is deprecated. Use 'neurolink serve voice' instead. This alias will be removed in a future release.",
     );
+    // Loaded lazily: voiceServerApp statically imports `express`, an
+    // optionalDependency. A top-level import here puts it on the CLI's
+    // always-loaded path, so `neurolink --help` crashes when optional
+    // dependencies are absent. Mirrors `serve voice` in serve.ts.
+    const { configureVoiceServerEnvironment } =
+      await import("../../lib/server/voice/voiceWebSocketHandler.js");
+    const { startVoiceServer } =
+      await import("../../lib/server/voice/voiceServerApp.js");
     configureVoiceServerEnvironment();
     await startVoiceServer(argv.port);
   },
