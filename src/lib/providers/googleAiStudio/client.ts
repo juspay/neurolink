@@ -48,6 +48,9 @@ import {
 } from "../../types/index.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
+import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
+import { runAgenticLoop } from "../../core/loopEngine.js";
+import { DEFAULT_TOOL_MAX_RETRIES } from "../../core/constants.js";
 import { isToolsSchemaExclusionInForce } from "../../core/modules/structuredOutputPolicy.js";
 import {
   GEMINI_ELISION_NOTE,
@@ -71,7 +74,6 @@ import {
   buildGeminiResponseSchema,
   buildNativeConfig,
   collectStreamChunks,
-  collectStreamChunksIncremental,
   computeMaxSteps,
   createContextGuard,
   buildUserPartsWithMultimodal,
@@ -911,8 +913,6 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Convert tools
           let toolsConfig: NativeToolsConfig | undefined;
-          let executeMap: Map<string, Tool["execute"]> = new DedupExecuteMap();
-          let originalNameMap = new Map<string, string>();
           let declarationsResult: NativeToolDeclarationsResult | undefined;
 
           if (
@@ -926,8 +926,6 @@ export class GoogleAIStudioProvider extends BaseProvider {
             );
             declarationsResult = result;
             toolsConfig = result.toolsConfig;
-            executeMap = result.executeMap;
-            originalNameMap = result.originalNameMap;
 
             logger.debug("[GoogleAIStudio] Converted tools for native SDK", {
               toolCount: toolsConfig[0].functionDeclarations.length,
@@ -1012,11 +1010,6 @@ export class GoogleAIStudioProvider extends BaseProvider {
             let totalCacheReadTokens = 0;
             let totalReasoningTokens = 0;
             let step = 0;
-            let completedWithFinalAnswer = false;
-            const failedTools = new Map<
-              string,
-              { count: number; lastError: string }
-            >();
             // Cheap trigger for the in-turn reclaim, mirroring the Vertex twin.
             // Planning serializes the WHOLE accumulated history to estimate it,
             // so running it unconditionally charges that once per step for the
@@ -1029,145 +1022,109 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
             try {
               // Agentic loop for tool calling
-              while (step < maxSteps) {
-                // In-turn context guard: this loop appends a model turn plus a
-                // tool turn every step with nothing bounding growth. No-op
-                // while the request still fits, so a loop that fits never pays
-                // a cache invalidation. Step 0 still plans unconditionally —
-                // the guard has no usage to go on yet, and the incoming history
-                // can already be oversized before the first call.
-                if (step === 0 || contextGuard.shouldStop()) {
+              // The turn itself now runs on the shared engine: the step cap,
+              // tool dispatch, the failure breaker and usage accumulation are
+              // engine-owned. Everything below is the provider half — building
+              // one request, and the per-step side effects the old loop
+              // performed inline.
+              const baseAdapter = createGeminiLoopAdapter({
+                providerLabel: "GoogleAIStudio",
+                maxSteps,
+                // Same threshold the hand-rolled dispatcher used, which is
+                // what makes an always-failing tool dispatch exactly twice.
+                toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES },
+                liveTools: options.tools ?? {},
+                ...(declarationsResult
+                  ? { declarations: declarationsResult }
+                  : {}),
+                buildRequest: (contents) => ({
+                  model: modelName,
+                  contents,
+                  config,
+                  ...(composedSignal
+                    ? { httpOptions: { signal: composedSignal } }
+                    : {}),
+                }),
+                sendStep: async (request) =>
+                  client.models.generateContentStream(
+                    request as Parameters<
+                      typeof client.models.generateContentStream
+                    >[0],
+                  ),
+                noteUsage: (inputTokens, outputTokens) => {
+                  contextGuard.noteUsage(inputTokens, outputTokens);
+                },
+                // Pure: the engine assigns what this returns. The old loop
+                // reclaimed in place because it owned `currentContents`.
+                planReclaim: (contents, stepIndex) => {
+                  if (stepIndex !== 0 && !contextGuard.shouldStop()) {
+                    return undefined;
+                  }
+                  const working = [...contents];
                   if (
-                    reclaimAiStudioContext(
-                      currentContents,
+                    !reclaimAiStudioContext(
+                      working,
                       modelName,
                       contextGuard.projectedNextPromptTokens,
                     )
                   ) {
-                    contextGuard.resetAfterReclaim();
+                    return undefined;
                   }
-                }
-                if (composedSignal?.aborted) {
-                  throw composedSignal.reason instanceof Error
-                    ? composedSignal.reason
-                    : new Error("Request aborted");
-                }
-                step++;
-                // Mid-turn discovery sync: advertise tools hydrated into the
-                // live record by search_tools during the previous step.
-                if (declarationsResult) {
-                  refreshNativeToolDeclarations(
-                    options.tools,
-                    declarationsResult,
-                  );
-                }
-                logger.debug(
-                  `[GoogleAIStudio] Native SDK step ${step}/${maxSteps}`,
-                );
+                  contextGuard.resetAfterReclaim();
+                  return working;
+                },
+              });
 
-                try {
-                  const rawStream = await client.models.generateContentStream({
-                    model: modelName,
-                    contents: currentContents,
-                    config,
-                    ...(composedSignal
-                      ? { httpOptions: { signal: composedSignal } }
-                      : {}),
-                  });
-
-                  // For every step, use incremental collection so text parts
-                  // are pushed to the channel as they arrive.  For intermediate
-                  // steps (those that produce function calls) we still need the
-                  // complete rawResponseParts for pushModelResponseToHistory,
-                  // which collectStreamChunksIncremental provides at stream end.
-                  const chunkResult = await collectStreamChunksIncremental(
-                    rawStream,
-                    channel,
-                  );
-                  totalInputTokens += chunkResult.inputTokens;
-                  totalOutputTokens += chunkResult.outputTokens;
-                  totalCacheReadTokens += chunkResult.cacheReadTokens ?? 0;
-                  totalReasoningTokens += chunkResult.reasoningTokens ?? 0;
-                  // `inputTokens` is this step's promptTokenCount — the FULL
-                  // prompt size for the request just made, which is what the
-                  // guard projects the next request from.
-                  contextGuard.noteUsage(
-                    chunkResult.inputTokens,
-                    chunkResult.outputTokens,
-                  );
-
-                  const stepText = extractTextFromParts(
-                    chunkResult.rawResponseParts,
-                  );
-
-                  // If no function calls, this was the final step — channel
-                  // already received all text parts incrementally.
-                  if (chunkResult.stepFunctionCalls.length === 0) {
-                    completedWithFinalAnswer = true;
-                    break;
-                  }
-
-                  lastStepText = stepText;
-
-                  // Record tool call events on the span
-                  for (const fc of chunkResult.stepFunctionCalls) {
+              // Wrapped because these fire once PER STEP in the loop this
+              // replaces, and buildToolResultMessages is the only hook that
+              // runs per step with exactly that step's results. Reading them
+              // off the turn's final result would batch every step into one
+              // late write and lose the per-step thought signature.
+              const adapter: typeof baseAdapter = {
+                ...baseAdapter,
+                buildToolResultMessages: (
+                  contents,
+                  stepResult,
+                  toolResults,
+                ) => {
+                  step++;
+                  for (const call of stepResult.toolCalls) {
                     span.addEvent("gen_ai.tool_call", {
-                      "tool.name": fc.name as string,
+                      "tool.name": call.name,
                       "tool.step": step,
                     });
                   }
-
-                  logger.debug(
-                    `[GoogleAIStudio] Executing ${chunkResult.stepFunctionCalls.length} function calls`,
-                  );
-
-                  // Add model response with ALL parts (including thoughtSignature) to history
-                  pushModelResponseToHistory(
-                    currentContents,
-                    chunkResult.rawResponseParts,
-                    chunkResult.stepFunctionCalls,
-                  );
-
-                  const toolCallsBefore = allToolCalls.length;
-                  const toolExecsBefore = toolExecutions.length;
-                  const functionResponses = await executeNativeToolCalls(
-                    "[GoogleAIStudio]",
-                    chunkResult.stepFunctionCalls,
-                    executeMap,
-                    failedTools,
-                    allToolCalls,
-                    {
-                      abortSignal: composedSignal,
-                      originalNameMap,
-                      toolExecutions,
-                      liveTools: options.tools,
-                      declarations: declarationsResult,
-                    },
-                  );
-
-                  // Persist this step's tool calls/results into conversation
-                  // memory. Without this, tool_call / tool_result rows never
-                  // reach Redis and the chat-history UI loses every tool
-                  // invocation.
-                  const stepToolCalls = allToolCalls.slice(toolCallsBefore);
-                  const stepToolExecs = toolExecutions.slice(toolExecsBefore);
-                  if (stepToolCalls.length > 0 || stepToolExecs.length > 0) {
+                  lastStepText = stepResult.text || lastStepText;
+                  for (const call of stepResult.toolCalls) {
+                    allToolCalls.push({
+                      toolName: call.name,
+                      args: call.args,
+                    });
+                  }
+                  for (const result of toolResults) {
+                    toolExecutions.push({
+                      name: result.name,
+                      input: result.args,
+                      output: result.output,
+                    });
+                  }
+                  if (toolResults.length > 0) {
                     const stepThoughtSig = extractThoughtSignature(
-                      chunkResult.rawResponseParts,
+                      stepResult.raw.rawResponseParts,
                     );
                     withTimeout(
                       this.handleToolExecutionStorage(
-                        stepToolCalls.map((tc, i) => ({
-                          toolName: tc.toolName,
-                          args: tc.args,
+                        stepResult.toolCalls.map((call, i) => ({
+                          toolName: call.name,
+                          args: call.args,
                           ...(i === 0 && stepThoughtSig
                             ? { thoughtSignature: stepThoughtSig }
                             : {}),
                           stepIndex: step,
                         })),
-                        stepToolExecs.map((te) => ({
-                          toolName: te.name,
-                          output: te.output,
+                        toolResults.map((result) => ({
+                          toolName: result.name,
+                          output: result.output,
                           stepIndex: step,
                         })),
                         options,
@@ -1187,29 +1144,82 @@ export class GoogleAIStudioProvider extends BaseProvider {
                       );
                     });
                   }
-
-                  // Add function responses to history — the @google/genai SDK
-                  // only accepts "user" and "model" as valid roles in contents.
-                  // Function/tool responses must use role: "user" (matching the
-                  // SDK's own automaticFunctionCalling implementation).
-                  currentContents.push({
-                    role: "user",
-                    parts: functionResponses as unknown[],
-                  });
+                  const next = baseAdapter.buildToolResultMessages(
+                    contents,
+                    stepResult,
+                    toolResults,
+                  );
                   // Project this step's growth: the appended tool results ride
                   // the next prompt, which the provider has not reported on yet.
                   try {
+                    const appended = next[next.length - 1];
                     contextGuard.noteAppendedChars(
-                      JSON.stringify(functionResponses).length,
+                      JSON.stringify(appended?.parts ?? []).length,
                     );
                   } catch {
                     /* estimation is best-effort — never break the loop */
                   }
-                } catch (error) {
-                  logger.error("[GoogleAIStudio] Native SDK error", error);
-                  throw this.handleProviderError(error);
+                  return next;
+                },
+              };
+
+              const engineTools: Record<
+                string,
+                {
+                  execute: (
+                    args: Record<string, unknown>,
+                    opts: unknown,
+                  ) => Promise<unknown>;
                 }
+              > = {};
+              for (const [name, tool] of Object.entries(options.tools ?? {})) {
+                const execute = tool?.execute;
+                if (!execute) {
+                  continue;
+                }
+                engineTools[name] = {
+                  execute: async (
+                    args: Record<string, unknown>,
+                    opts: unknown,
+                  ) => execute(args, opts as Parameters<typeof execute>[1]),
+                };
               }
+
+              const { stream: engineStream, resultPromise } = runAgenticLoop(
+                adapter,
+                currentContents,
+                {
+                  tools: engineTools,
+                  ...(composedSignal ? { abortSignal: composedSignal } : {}),
+                },
+              );
+
+              const pump = (async () => {
+                for await (const chunk of engineStream) {
+                  channel.push(chunk);
+                }
+              })();
+
+              let engineResult;
+              try {
+                engineResult = await resultPromise;
+              } catch (error) {
+                await pump.catch(() => {});
+                logger.error("[GoogleAIStudio] Native SDK error", error);
+                throw this.handleProviderError(error);
+              }
+              await pump;
+
+              totalInputTokens += engineResult.usage.inputTokens;
+              totalOutputTokens += engineResult.usage.outputTokens;
+              totalCacheReadTokens += engineResult.usage.cacheReadTokens ?? 0;
+              totalReasoningTokens += engineResult.usage.reasoningTokens ?? 0;
+              // The turn produced a final answer when the model stopped
+              // calling tools of its own accord, rather than being cut off at
+              // the cap.
+              const completedWithFinalAnswer =
+                engineResult.toolCalls.length === 0 ||
+                engineResult.finishReason !== "tool-calls";
 
               // Handle max-steps termination: if the model was still calling
               // tools when we hit the limit, push a synthetic final message.
