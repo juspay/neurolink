@@ -137,7 +137,16 @@ async function loadMediaBunny() {
 let sharpLoadWarned = false;
 async function loadSharp() {
   try {
-    const mod = await tryImport<{ default: typeof import("sharp") }>(
+    // `typeof import("sharp")` is the MODULE namespace, and sharp 0.35 puts
+    // the callable factory on its `default` export. Typing the import as
+    // `{ default: typeof import("sharp") }` wrapped that namespace a second
+    // time, so `mod.default` came back as a namespace rather than a factory
+    // and every call site failed with "no call signatures".
+    //
+    // imageFormatSupport.ts already reads `sharpModule.default(...)` for the
+    // same reason; this loader is now the one place that normalizes it, so
+    // callers keep calling the returned value directly.
+    const mod = await tryImport<typeof import("sharp")>(
       "sharp",
       "Video keyframe resizing",
     );
