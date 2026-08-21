@@ -168,8 +168,10 @@ quality-metrics.json
 *.key
 *.pem
 test-output/
-# Generated docs search index
+# Generated docs search index — tracked and shipped in the npm tarball (package.json
+# "files"); do not ignore it, ignoring a tracked file only hides it from packers.
 docs-site/static/search-index.json
+!docs-site/static/search-index.json
 .type-consolidation/
 .tmp-tests/
 .proof-of-work/

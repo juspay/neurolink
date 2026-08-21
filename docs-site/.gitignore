@@ -7,5 +7,7 @@ docs/
 static/llms.txt
 static/llms-full.txt
 
-# Generated search index (built by docusaurus-plugin-docs-search-index)
+# Generated search index (built by docusaurus-plugin-docs-search-index) — tracked
+# and shipped in the npm tarball; do not ignore it, that only hides it from packers.
 static/search-index.json
+!static/search-index.json
