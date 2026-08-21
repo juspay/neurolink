@@ -41,7 +41,14 @@ const CRITICAL_SECURITY_RULES = [
 const IGNORED_VULNERABLE_PACKAGES = [
   "jsondiffpatch", // XSS in ai dependency - tracked separately
   "ai", // File upload bypass - planned upgrade
-  // undici/lodash/lodash-es removed: now patched via pnpm.overrides.
+  // lodash/lodash-es removed: now patched via pnpm.overrides.
+  "undici", // 5.29.0 only reachable via the same @juspay/hippocampus -> stale
+  // @juspay/neurolink@9.37.0 dev-only peer artifact documented below for
+  // @opentelemetry/*; not fixable by an override (5.29.0 was undici's last
+  // 5.x release, a same-major floor cannot cross into 6.x/7.x). Does not
+  // ship to consumers of the published package. The pnpm.overrides windows
+  // targeting undici 6.x/7.x/8.x resolutions elsewhere in the tree do patch
+  // those instances; this entry covers only the unfixable 5.29.0 one.
   // The @opentelemetry/* advisories below come ONLY from a stale @juspay/neurolink@9.37.0
   // that pnpm auto-installs to satisfy @juspay/hippocampus's neurolink peer. That old
   // neurolink directly depends on the vulnerable OTEL; the latest published neurolink
