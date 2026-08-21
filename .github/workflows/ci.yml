@@ -246,8 +246,23 @@ jobs:
       - name: Install dependencies (full, for the build)
         run: pnpm install --frozen-lockfile
 
-      - name: Build CLI
-        run: pnpm run build:cli
+      # The FULL build, not `build:cli`. `build:cli` alone is a
+      # developer-iteration shortcut that assumes a `vite build` output is
+      # already sitting in dist/: it runs tsc plus
+      # scripts/collapse-cli-lib-duplicate.mjs, and that script rewrites
+      # dist/cli's "../../lib/x.js" specifiers to "../../x.js" and then
+      # verifies each one resolves. On a clean CI checkout the vite half of
+      # dist/ does not exist, so every rewritten specifier dangles and the
+      # script exits 1 by design — "the build is broken and must fail loudly
+      # instead of shipping a CLI with dangling imports".
+      #
+      # That is exactly what happened here: this job failed at Build CLI on
+      # every run since it was added, so the three smoke steps below had
+      # never once executed. `pnpm run build` runs `vite build` and then
+      # prepack, which itself runs build:cli — both halves, in the order the
+      # collapse script requires.
+      - name: Build (full — the CLI's collapse step needs the SDK output)
+        run: pnpm run build
 
       # dist/ survives this: it lives outside node_modules, so the CLI below
       # is the artifact built above, now running against a pruned tree.
