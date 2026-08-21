@@ -105,9 +105,21 @@ export type AgenticLoopToolFailureBreaker = {
 export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
   readonly providerLabel: string;
   readonly maxSteps: number;
-  /** Pre-existing per-family flat timeout, used as createTurnClock's deadline default. */
-  readonly defaultTurnTimeoutMs?: number;
-  readonly stallTimeoutMs?: number;
+  //
+  // NOTE — turn deadlines and stall detection are deliberately NOT adapter
+  // fields.
+  //
+  // `defaultTurnTimeoutMs` and `stallTimeoutMs` used to be declared here and
+  // were read by nothing: `runAgenticLoop` has no turn clock, and no adapter
+  // ever set them. Leaving them in place was worse than omitting them,
+  // because the natural move when migrating a provider that HAS a turn clock
+  // (Vertex) is to set them and assume the engine honours it — which would
+  // silently drop the deadline and the stall detection from that turn.
+  //
+  // Both belong to the caller, which already owns the clock and can compose
+  // its abort into the `abortSignal` it passes, and can reset a stall timer
+  // as it drains the engine's stream. That keeps one implementation of the
+  // behaviour rather than a second, weaker one inside the engine.
   /** Set only for adapter instances whose client has the TOOL_NOT_FOUND strike breaker today: both Gemini adapters (AI Studio, Vertex+Gemini) AND the Vertex+Claude call to createAnthropicLoopAdapter — NOT the native-Anthropic call to that same factory, and not Bedrock. See Verified Fact 4. */
   readonly toolFailureBreaker?: AgenticLoopToolFailureBreaker;
   /**
