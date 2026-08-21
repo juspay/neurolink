@@ -22,6 +22,7 @@ import type {
   GenerateStopReason,
   ZodUnknownSchema,
   ThinkingConfig,
+  AgenticLoopOptions,
   ChatMessage,
   CollectedChunkResult,
   MinimalChatMessage,
@@ -614,6 +615,57 @@ export function buildNativeToolDeclarations(
  * TOOL_NOT_FOUND. Mutates the snapshot in place — the request config holds
  * `toolsConfig` by reference — and returns true when anything was added.
  */
+/**
+ * Build the tool record handed to `runAgenticLoop`, routed through the turn's
+ * DedupExecuteMap.
+ *
+ * The engine looks tools up by the name the adapter reports, which is the
+ * ORIGINAL caller-facing name; `executeMap` is keyed by the SANITIZED wire
+ * name Google actually declares. `originalNameMap` is the bridge, and it
+ * carries an entry for every converted tool (identity mappings included), so
+ * iterating it yields exactly the declared, executable set.
+ *
+ * Going through `executeMap.get()` rather than the raw `tool.execute` is the
+ * entire point: `.get()` returns the dedup wrapper, so an identical
+ * {name, args} repeated within one turn is answered from the per-turn cache
+ * instead of running the tool again (BZ-3327). Passing the raw executor looks
+ * identical in every test that calls a tool once, and silently reintroduces
+ * duplicate side effects the moment the model repeats itself.
+ */
+export function buildDedupedEngineTools(
+  declarations: NativeToolDeclarationsResult | undefined,
+  tools: Record<string, Tool> | undefined,
+): NonNullable<AgenticLoopOptions["tools"]> {
+  const engineTools: NonNullable<AgenticLoopOptions["tools"]> = {};
+  if (declarations) {
+    for (const [safeName, originalName] of declarations.originalNameMap) {
+      const execute = declarations.executeMap.get(safeName);
+      if (!execute) {
+        continue;
+      }
+      engineTools[originalName] = {
+        execute: async (args: Record<string, unknown>, opts: unknown) =>
+          execute(args, opts as Parameters<typeof execute>[1]),
+      };
+    }
+    return engineTools;
+  }
+  // No declarations were built (no tools, or a path that skips the snapshot).
+  // Fall back to the caller's own executors so this helper can never REMOVE a
+  // tool that would otherwise have been callable.
+  for (const [name, tool] of Object.entries(tools ?? {})) {
+    const execute = tool?.execute;
+    if (!execute) {
+      continue;
+    }
+    engineTools[name] = {
+      execute: async (args: Record<string, unknown>, opts: unknown) =>
+        execute(args, opts as Parameters<typeof execute>[1]),
+    };
+  }
+  return engineTools;
+}
+
 export function refreshNativeToolDeclarations(
   liveTools: Record<string, Tool> | undefined,
   current: NativeToolDeclarationsResult,

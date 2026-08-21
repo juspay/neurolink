@@ -71,6 +71,7 @@ import { estimateTokens } from "../../utils/tokenEstimation.js";
 import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
 import {
+  buildDedupedEngineTools,
   buildGeminiResponseSchema,
   buildNativeConfig,
   computeMaxSteps,
@@ -1161,27 +1162,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 },
               };
 
-              const engineTools: Record<
-                string,
-                {
-                  execute: (
-                    args: Record<string, unknown>,
-                    opts: unknown,
-                  ) => Promise<unknown>;
-                }
-              > = {};
-              for (const [name, tool] of Object.entries(options.tools ?? {})) {
-                const execute = tool?.execute;
-                if (!execute) {
-                  continue;
-                }
-                engineTools[name] = {
-                  execute: async (
-                    args: Record<string, unknown>,
-                    opts: unknown,
-                  ) => execute(args, opts as Parameters<typeof execute>[1]),
-                };
-              }
+              // Through the turn's DedupExecuteMap, NOT the raw executors:
+              // `.get()` returns the dedup wrapper that answers an identical
+              // repeated {name, args} from the per-turn cache (BZ-3327).
+              const engineTools = buildDedupedEngineTools(
+                declarationsResult,
+                options.tools,
+              );
 
               const { stream: engineStream, resultPromise } = runAgenticLoop(
                 adapter,
@@ -1624,25 +1611,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
             },
           };
 
-          const engineTools: Record<
-            string,
-            {
-              execute: (
-                args: Record<string, unknown>,
-                opts: unknown,
-              ) => Promise<unknown>;
-            }
-          > = {};
-          for (const [name, tool] of Object.entries(options.tools ?? {})) {
-            const execute = tool?.execute;
-            if (!execute) {
-              continue;
-            }
-            engineTools[name] = {
-              execute: async (args: Record<string, unknown>, opts: unknown) =>
-                execute(args, opts as Parameters<typeof execute>[1]),
-            };
-          }
+          // Same dedup routing as the streaming twin above.
+          const engineTools = buildDedupedEngineTools(
+            declarationsResult,
+            options.tools,
+          );
 
           const { stream: engineStream, resultPromise } = runAgenticLoop(
             adapter,
