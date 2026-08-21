@@ -84,6 +84,7 @@ import type {
 } from "../../types/index.js";
 import { calculateCost } from "../../utils/pricing.js";
 import { resolveDeferredTool } from "../../tools/toolDiscovery.js";
+import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import {
   createAnthropicConfig,
   getProviderModel,
@@ -306,32 +307,6 @@ const detectAuthMethod = (
 // ───────────────────────────────────────────────────────────────────────────
 // Native Messages-API conversion helpers (NeuroLink/V3 shapes → Anthropic)
 // ───────────────────────────────────────────────────────────────────────────
-
-/** Serialize a tool-result `output` into text for a tool_result block. */
-const stringifyAnthropicToolOutput = (output: unknown): string => {
-  if (output === null || output === undefined) {
-    return "";
-  }
-  if (typeof output === "string") {
-    return output;
-  }
-  const o = output as { type?: string; value?: unknown };
-  if (o.type === "text" && typeof o.value === "string") {
-    return o.value;
-  }
-  if (o.type === "json" || o.type === "error-json") {
-    try {
-      return JSON.stringify(o.value);
-    } catch {
-      return String(o.value);
-    }
-  }
-  try {
-    return JSON.stringify(output);
-  } catch {
-    return String(output);
-  }
-};
 
 /**
  * Convert NeuroLink/V3-shaped messages (the shape produced by

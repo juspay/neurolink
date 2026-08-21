@@ -1,3 +1,6 @@
+import type Anthropic from "@anthropic-ai/sdk";
+import type { Tool } from "./tools.js";
+
 /**
  * One chunk on the engine's stream.
  *
@@ -148,6 +151,63 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
   /** Optional: Vertex+Gemini-only single-retry-on-malformed-call. */
   isMalformedStep?(stepResult: AgenticLoopStepResult<TRaw>): boolean;
   buildMalformedRetryNote?(conversation: TConversation): TConversation;
+};
+
+/**
+ * Construction input for `createAnthropicLoopAdapter`, shared by direct
+ * Anthropic and Vertex+Claude.
+ *
+ * `toolFailureBreaker` is the one field the two call sites must differ on:
+ * Vertex+Claude ports the Gemini loops' failure-strike breaker, native
+ * Anthropic has never had one, and setting it for both would change native
+ * Anthropic's behaviour under the guise of a shared refactor.
+ */
+export type AnthropicLoopAdapterConfig = {
+  client: Pick<Anthropic, "messages">;
+  maxSteps: number;
+  /**
+   * Build one step's request. A closure so the per-turn work the caller
+   * already does — system prompt, tool declarations, sampling, thinking
+   * config, cache breakpoints — stays where it is rather than moving here.
+   */
+  buildParams: (
+    conversation: Anthropic.Messages.MessageParam[],
+    step: number,
+  ) => Anthropic.Messages.MessageCreateParams;
+  /** The turn's live tool record, used for deferred-catalog resolution. */
+  toolsRecord: Record<string, Tool>;
+  /**
+   * Name of the terminal structured-output tool when one is in play. A call
+   * to it ends the turn: its arguments ARE the answer, so it is reported as
+   * text and omitted from `toolCalls`, which routes it through the engine's
+   * ordinary zero-tool-calls exit.
+   */
+  finalResultToolName?: string;
+  toolFailureBreaker?: AgenticLoopToolFailureBreaker;
+  /**
+   * In-turn context reclaim, run once per step before the request is built.
+   * Returns the rebuilt conversation when it reclaimed, undefined while the
+   * request still fits — leaving history byte-identical in the common case so
+   * the rolling prompt-cache prefix stays valid.
+   *
+   * Provider-supplied because the guard decides and the caller mutates in its
+   * own concrete types: dropping an assistant tool_use message together with
+   * its paired user tool_result is what keeps blocks paired. The loop appends
+   * both every step with nothing else bounding growth, so a migration that
+   * drops this overflows the window mid-turn.
+   */
+  planReclaim?: (
+    conversation: Anthropic.Messages.MessageParam[],
+    step: number,
+  ) => Anthropic.Messages.MessageParam[] | undefined;
+  /**
+   * Calibration feedback for the provider's reclaim guard: the FULL prompt
+   * size for the step just made — uncached input plus both cache tiers.
+   * Passing input_tokens alone reads a cache-hit step as tiny and lets the
+   * guard drift far under the real cost.
+   */
+  noteObservedPromptTokens?: (promptTokens: number) => void;
+  abortSignal?: AbortSignal;
 };
 
 export type AgenticLoopOptions = {
