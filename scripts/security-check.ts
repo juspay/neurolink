@@ -74,13 +74,15 @@ const ACCEPTED_RISK_ADVISORY_IDS: Record<string, string> = {
   // body-parser — transitive via express, low severity.
   "1123976":
     "body-parser size-limit bypass (low severity) — transitive via express",
-  // fast-uri — three advisories, all through modelcontextprotocol/sdk's ajv.
+  // fast-uri — four advisories, all through modelcontextprotocol/sdk's ajv.
   "1124064":
     "fast-uri host confusion — transitive via @modelcontextprotocol/sdk's ajv dependency",
   "1130720":
     "fast-uri host confusion (backslash variant) — same @modelcontextprotocol/sdk>ajv chain as 1124064",
   "1145555":
     "fast-uri host confusion (IDN variant) — same @modelcontextprotocol/sdk>ajv chain as 1124064",
+  "1145636":
+    "fast-uri host confusion (failed IDN canonicalization) — same @modelcontextprotocol/sdk>ajv chain as 1124064",
   // sharp — optional dependency for the image-processing feature only.
   "1124066":
     "sharp libvips CVEs — optionalDependency for image handling, not required at runtime for most consumers",

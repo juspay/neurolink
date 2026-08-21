@@ -935,6 +935,20 @@ const LINK_MAPPINGS: Record<string, string> = {
   "claude-proxy-config-reference.md": "/features/claude-proxy-config-reference",
   "claude-proxy-troubleshooting": "/features/claude-proxy-troubleshooting",
   "claude-proxy-troubleshooting.md": "/features/claude-proxy-troubleshooting",
+  // The rest of the proxy family. Without an entry the rewriter drops the
+  // `features/` segment and emits /docs/<name>, which is not a page — a
+  // relative link from features/index.md then fails the Docusaurus broken-link
+  // check even though the doc is copied and reachable.
+  "proxy-accounts-endpoint": "/features/proxy-accounts-endpoint",
+  "proxy-accounts-endpoint.md": "/features/proxy-accounts-endpoint",
+  "proxy-cli-onboarding": "/features/proxy-cli-onboarding",
+  "proxy-cli-onboarding.md": "/features/proxy-cli-onboarding",
+  "codex-proxy-support": "/features/codex-proxy-support",
+  "codex-proxy-support.md": "/features/codex-proxy-support",
+  "opencode-proxy-support": "/features/opencode-proxy-support",
+  "opencode-proxy-support.md": "/features/opencode-proxy-support",
+  "claude-proxy-observability": "/features/claude-proxy-observability",
+  "claude-proxy-observability.md": "/features/claude-proxy-observability",
 
   // Provider guides -> getting-started/providers
   "ollama-setup": "/getting-started/providers/ollama",

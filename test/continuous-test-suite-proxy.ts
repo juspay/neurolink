@@ -2985,6 +2985,67 @@ async function testAccountsRowsAreClassifiedByKind(): Promise<boolean> {
 }
 
 /**
+ * The configured primary account must be identifiable in the row set.
+ *
+ * Both row loops hardcoded `isPrimary: false`, so the field was always false
+ * and a dashboard could never mark the account the pool actually prefers —
+ * while `CliAccountsRow` still advertised it as meaningful. The key is
+ * available in the handler's own closure, and account keys compare through
+ * anthropicAccountKeysEqual, which normalises a bare label to its full key.
+ */
+async function testAccountsMarksThePrimaryAccount(): Promise<boolean> {
+  const { createClaudeProxyRoutes } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const stats = await import("../src/lib/proxy/usageStats.js");
+  await stats.resetUsageStatsForTests();
+
+  stats.recordAttempt("primary@example.com", "oauth");
+  stats.recordFinalSuccess("primary@example.com", "oauth");
+  stats.recordAttempt("other@example.com", "oauth");
+  stats.recordFinalSuccess("other@example.com", "oauth");
+
+  const route = createClaudeProxyRoutes(
+    undefined,
+    "",
+    "fill-first",
+    false,
+    // Full pool key; the rows carry the bare label, so the comparison has to
+    // normalise rather than match on string identity.
+    "anthropic:primary@example.com",
+  ).routes.find((r) => r.path.endsWith("/accounts"));
+  if (!route) {
+    log("GET /accounts is not registered", "red");
+    return false;
+  }
+
+  const body = (await route.handler({
+    query: {},
+    headers: {},
+    method: "GET",
+    path: "/accounts",
+    requestId: "suite",
+  } as never)) as {
+    accounts?: { label?: string; isPrimary?: boolean }[];
+  };
+  const rows = body.accounts ?? [];
+  if (rows.length < 2) {
+    log("accounts did not report the seeded rows", "red");
+    return false;
+  }
+  const byLabel = new Map(rows.map((r) => [r.label, r]));
+  if (byLabel.get("primary@example.com")?.isPrimary !== true) {
+    log("the configured primary account was not marked as primary", "red");
+    return false;
+  }
+  if (byLabel.get("other@example.com")?.isPrimary !== false) {
+    log("a non-primary account was marked as primary", "red");
+    return false;
+  }
+  await stats.resetUsageStatsForTests();
+  return true;
+}
+
+/**
  * Quota windows must reach consumers already normalised.
  *
  * Asserted directly rather than through the route: a window only appears on a
@@ -5314,6 +5375,11 @@ const tests: TestFunction[] = [
   {
     name: "Accounts: every row is classified by kind",
     fn: testAccountsRowsAreClassifiedByKind,
+    category: "proxy-config",
+  },
+  {
+    name: "Accounts: the configured primary account is marked",
+    fn: testAccountsMarksThePrimaryAccount,
     category: "proxy-config",
   },
   {

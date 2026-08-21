@@ -531,8 +531,8 @@ equivalent, so that state must be persisted to disk.
 
 ## 8. Defects
 
-Eleven filed on `juspay/neurolink`. Eight are fixed on this branch (local, not
-released); three remain open.
+Eleven filed on `juspay/neurolink`. Eight are fixed and released (v11.13.0 and
+v11.14.0, via #1399-#1402); three remain open.
 
 | #   | Defect                                                                                      | Location                                     | Issue                                                    | Status                                |
 | --- | ------------------------------------------------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------- | ------------------------------------- |
