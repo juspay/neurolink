@@ -914,4 +914,55 @@ await test("text is replayed after the turn completes, not streamed live", async
   );
 });
 
+section("generate path");
+
+await test("the generate path declares and executes a caller's tools", async () => {
+  // executeNativeGemini3Generate is a SECOND hand-rolled loop with its own
+  // stream drain, and nothing in this suite reached it — every other case
+  // drives nl.stream(). Task 10 migrates both loops, so the generate one needs
+  // its own baseline or a change there would be invisible here.
+  const server = await startStandIn((i) =>
+    i === 0
+      ? sse([{ functionCall: { name: "lookup", args: {} } }], "STOP")
+      : sse([{ text: "generated answer" }], "STOP"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  try {
+    const result = await nl().generate({
+      input: { text: "look something up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    console.log(
+      `    [diagnostic] vertex generate: calls=${server.calls.length} tools=${counter.calls} content=${JSON.stringify(String(result?.content ?? "").slice(0, 40))}`,
+    );
+    assert(
+      declaredToolNames(server.calls[0]).includes("lookup"),
+      "the generate path did not declare the caller's tool",
+    );
+    assert(counter.calls === 1, "the caller's tool did not execute once");
+    assert(
+      functionResponsePayloads(server.calls[1]).some(
+        (entry) => entry.name === "lookup",
+      ),
+      "the tool result was not carried back to the model",
+    );
+    assert(
+      typeof result?.content === "string" &&
+        result.content.includes("generated answer"),
+      "the final turn's text was not returned",
+    );
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
 await runSuite();
