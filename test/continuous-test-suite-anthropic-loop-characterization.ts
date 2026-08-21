@@ -569,7 +569,7 @@ await test("a native loop turn records the provider attempt count on the active 
     .getFinishedSpans()
     .filter((span: ReadableSpan) => span.attributes[ATTR] !== undefined);
   console.log(
-    `    [diagnostic] anthropic retry telemetry: toolCalls=${counter.calls} spansWithAttr=${carrying.length} values=${carrying
+    `    [diagnostic] anthropic retry telemetry: toolCalls=${counter.calls} spansWithAttr=${carrying.length} names=${carrying.map((s2: ReadableSpan) => s2.name).join("|")} values=${carrying
       .map((span: ReadableSpan) => String(span.attributes[ATTR]))
       .join(",")}`,
   );
@@ -581,9 +581,24 @@ await test("a native loop turn records the provider attempt count on the active 
     carrying.length > 0,
     "no span carries the provider attempt count, so the loop is not passing one",
   );
+  // Named, not merely present. The attribute lands on the turn's own
+  // `neurolink.stream` span — the one the SDK opens around the request, which
+  // is what `trace.getActiveSpan()` resolves to when the client hands its span
+  // to the loop. Pinning the name is what stops this passing on an attribute
+  // some unrelated provider path wrote on a different span.
+  //
+  // It cannot be pinned by wrapping this call in the test's own
+  // `startActiveSpan` and asserting on that wrapper: the SDK opens
+  // `neurolink.stream` beneath it, so the attribute lands on the child and the
+  // wrapper stays bare. Verified by printing the carrying span's name rather
+  // than assumed.
+  assert(
+    carrying.every((span: ReadableSpan) => span.name === "neurolink.stream"),
+    "the attempt count was recorded on some span other than the turn's own",
+  );
   // Every step of a clean turn succeeds first try, so each recorded count is 1.
-  // Asserting the VALUE and not merely the key's presence is what keeps this
-  // from passing on an attribute written by some unrelated code path.
+  // Asserting the VALUE and not merely the key's presence keeps a broken
+  // attempt counter from passing.
   assert(
     carrying.every((span: ReadableSpan) => span.attributes[ATTR] === 1),
     "a step reported an attempt count other than the single attempt it made",
