@@ -14,6 +14,15 @@
  *
  * Uses `adm-zip` (already a project dependency) for ZIP extraction.
  *
+ * **XML-entity attacks are not applicable here.** Unlike `WordProcessor`
+ * (mammoth/@xmldom/xmldom) and `ExcelProcessor` (exceljs/saxes), this
+ * processor never hands slide XML to a DOM or SAX parser at all — extraction
+ * is a single regex (`TEXT_ELEMENT_REGEX`, below) run over the raw decoded
+ * bytes. There is no DOCTYPE/ENTITY resolution path for a payload to reach,
+ * so there is nothing for a `.pptx`-specific XXE or billion-laughs test to
+ * falsify; one is deliberately not written (see
+ * `test/continuous-test-suite-office-security.ts`'s header).
+ *
  * @module processors/document/PptxProcessor
  *
  * @example

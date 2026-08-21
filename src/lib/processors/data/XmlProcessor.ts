@@ -15,6 +15,20 @@
  * 2. **Mitigation**: We reject XML files containing DOCTYPE or ENTITY declarations
  *    and disable entity processing in the parser.
  *
+ * ⚠️ **Reachability**: this guard is not currently wired into the
+ * `generate()`/`stream()` attachment pipeline for a standalone `.xml` file.
+ * `src/lib/processors/config/fileTypeRegistry.ts` has no `"xml"` entry,
+ * `src/lib/utils/mimeTypeHints.ts` maps `application/xml`/`text/xml` to the
+ * generic `"text"` file type, and `messageBuilder.ts`'s `allowedTypes`
+ * whitelist has no `"xml"` entry either — so a `.xml` attachment is always
+ * routed to inert generic-text handling, and `checkXxeVectors()` /
+ * `parseXmlSecurely()` below are never invoked from that path. The
+ * `ProcessorRegistry` subsystem that does own this file has no importer
+ * outside `src/lib/processors/` itself. The guard is correct; it is simply
+ * orphaned. See `test/continuous-test-suite-office-security.ts`'s header for
+ * the test-coverage consequence — no e2e test exercises this file today,
+ * because there is no public surface that reaches it (CLAUDE.md rule 15).
+ *
  * References:
  * - https://owasp.org/www-community/vulnerabilities/XML_External_Entity_(XXE)_Processing
  * - https://cwe.mitre.org/data/definitions/611.html (XXE)
