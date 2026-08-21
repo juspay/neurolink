@@ -409,6 +409,13 @@ export type GenerateOptions = {
    * with `stopReason: "stalled"`. Catches wedged tools and hung model calls
    * that a whole-turn deadline would let run to the bitter end.
    * Unset = disabled.
+   *
+   * Enforced by the native Vertex loops (Gemini + Claude) ONLY. Unlike
+   * `turnTimeoutMs`, the AI-SDK loop path does not implement stall detection,
+   * so setting this on any other provider has no effect — the turn runs until
+   * it finishes, times out some other way, or the caller aborts. The narrower
+   * scope is stated here because the option itself is accepted everywhere:
+   * without this note a caller would reasonably read silence as coverage.
    */
   stallTimeoutMs?: number;
   /**
