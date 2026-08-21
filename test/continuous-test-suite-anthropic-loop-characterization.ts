@@ -40,6 +40,7 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
+import { z } from "zod";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -436,6 +437,76 @@ await test("a model that never stops calling tools is bounded by maxSteps", asyn
       `    [diagnostic] step-cap turn: calls=${server.calls.length} threw=${failed}`,
     );
     assert(!failed, "reaching the step cap should not fail the turn");
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+section("structured output");
+
+await test("a truncated final_result payload survives verbatim instead of collapsing to an empty object", async () => {
+  // Load-bearing, and the reason it is pinned here: the loop extracts the
+  // terminal structured-output call with `stringifyFinalResultInput`, which
+  // returns the RAW accumulated input_json when it does not parse. A payload
+  // cut off by the token cap therefore reaches the caller's coercion layer
+  // intact and can be repaired into a partial object.
+  //
+  // The obvious-looking alternative — parse the arguments, then re-stringify
+  // them — turns exactly this case into "{}" and loses the whole answer,
+  // because a truncated JSON string parses to nothing. Anything that migrates
+  // this loop must keep the verbatim path.
+  const truncated = '{"title":"a very long answer that was cut off mid-str';
+  const server = await startStandIn(() => [
+    sse("message_start", {
+      message: { id: "msg_1", usage: { input_tokens: 5, output_tokens: 0 } },
+    }),
+    sse("content_block_start", {
+      index: 0,
+      content_block: {
+        type: "tool_use",
+        id: "toolu_f",
+        name: "final_result",
+        input: {},
+      },
+    }),
+    sse("content_block_delta", {
+      index: 0,
+      delta: { type: "input_json_delta", partial_json: truncated },
+    }),
+    sse("content_block_stop", { index: 0 }),
+    sse("message_delta", {
+      delta: { stop_reason: "max_tokens" },
+      usage: { output_tokens: 64 },
+    }),
+    sse("message_stop", {}),
+  ]);
+  const restore = withAnthropicEnv(server.port);
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "answer in json" },
+      provider: "anthropic",
+      disableInternalFallback: true,
+      model: MODEL,
+      maxTokens: 32,
+      schema: z.object({ title: z.string() }),
+    });
+    let text = "";
+    for await (const chunk of result.stream) {
+      text += chunk?.content ?? "";
+    }
+    console.log(
+      `    [diagnostic] structured stream produced: ${text.slice(0, 120)}`,
+    );
+    assert(
+      text.includes("a very long answer that was cut off"),
+      "the truncated structured payload did not survive to the consumer",
+    );
+    assert(
+      text.trim() !== "{}",
+      "the truncated structured payload collapsed to an empty object",
+    );
   } finally {
     restore();
     await server.close();
