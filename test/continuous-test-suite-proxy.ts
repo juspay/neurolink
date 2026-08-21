@@ -22,6 +22,14 @@
  * thing an end-to-end run cannot: asserting what the writer does when the
  * target CLI is *absent*, which is the case that silently regressed.
  *
+ * The `Proxy clients:` cases extend that same exception to the configurator
+ * registry (`src/cli/proxy-clients/`). They import the configurators directly
+ * because `detect()`/`apply()`/`restore()` resolve paths from HOME, and the
+ * behaviours worth pinning — refusing to write for an absent CLI, refusing to
+ * restore without a snapshot — are precisely the ones a live `proxy start`
+ * never exercises.
+
+ *
  * Tests the proxy server end-to-end:
  * - Starts the proxy
  * - Sends real requests through it
@@ -1386,7 +1394,8 @@ async function testProxyShutdown(): Promise<boolean | null> {
  * Mac.
  */
 async function testOpenCodeConfigDirIsXdgOnAllPlatforms(): Promise<boolean> {
-  const { __openCodeTestHooks } = await import("../src/cli/commands/proxy.js");
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
   const prevXdg = process.env.XDG_CONFIG_HOME;
   try {
     process.env.XDG_CONFIG_HOME = "/tmp/neurolink-xdg-probe";
@@ -1424,7 +1433,8 @@ async function testOpenCodeConfigDirIsXdgOnAllPlatforms(): Promise<boolean> {
  * absent and nothing had been written.
  */
 async function testOpenCodeWriterReportsWhetherItWrote(): Promise<boolean> {
-  const { __openCodeTestHooks } = await import("../src/cli/commands/proxy.js");
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
   const prevXdg = process.env.XDG_CONFIG_HOME;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-opencode-"));
   try {
@@ -1479,7 +1489,8 @@ async function testOpenCodeWriterReportsWhetherItWrote(): Promise<boolean> {
 
 /** A user's pre-existing provider.neurolink must survive set() then clear(). */
 async function testOpenCodeClearRestoresUserConfig(): Promise<boolean> {
-  const { __openCodeTestHooks } = await import("../src/cli/commands/proxy.js");
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
   const prevXdg = process.env.XDG_CONFIG_HOME;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-opencode-"));
   try {
@@ -1517,6 +1528,421 @@ async function testOpenCodeClearRestoresUserConfig(): Promise<boolean> {
   }
 }
 
+/**
+ * Task 1 of the ClientConfigurator refactor: the registry must export an
+ * array of configurators, each with a unique id and the full contract
+ * (displayName, detect, apply, restore). This asserts the contract only —
+ * not the final roster, which lands in a later task.
+ */
+async function testProxyClientRegistryShape(): Promise<boolean> {
+  const { PROXY_CLIENT_CONFIGURATORS } =
+    await import("../src/cli/proxy-clients/registry.js");
+  if (!Array.isArray(PROXY_CLIENT_CONFIGURATORS)) {
+    log("registry does not export an array of configurators", "red");
+    return false;
+  }
+  const ids = new Set<string>();
+  for (const configurator of PROXY_CLIENT_CONFIGURATORS) {
+    if (ids.has(configurator.id)) {
+      log("registry contains a duplicate configurator id", "red");
+      return false;
+    }
+    ids.add(configurator.id);
+    if (
+      typeof configurator.displayName !== "string" ||
+      typeof configurator.detect !== "function" ||
+      typeof configurator.apply !== "function" ||
+      typeof configurator.restore !== "function"
+    ) {
+      log(
+        `configurator ${configurator.id} is missing a required member`,
+        "red",
+      );
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Claude was the only writer with no installed-check: it created
+ * ~/.claude/settings.json even when Claude Code had never been installed.
+ */
+async function testClaudeConfiguratorDetectsInstall(): Promise<boolean> {
+  const { claudeCodeConfigurator } =
+    await import("../src/cli/proxy-clients/claudeCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-claude-"));
+  try {
+    process.env.HOME = path.join(root, "absent");
+    if (await claudeCodeConfigurator.detect()) {
+      log("Claude configurator reported installed with no ~/.claude", "red");
+      return false;
+    }
+    const present = path.join(root, "present");
+    fs.mkdirSync(path.join(present, ".claude"), { recursive: true });
+    process.env.HOME = present;
+    if (!(await claudeCodeConfigurator.detect())) {
+      log("Claude configurator did not detect an existing ~/.claude", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testCodexConfiguratorDetectsInstall(): Promise<boolean> {
+  const { codexConfigurator } =
+    await import("../src/cli/proxy-clients/codex.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-codex-"));
+  try {
+    process.env.HOME = path.join(root, "absent");
+    if (await codexConfigurator.detect()) {
+      log("Codex configurator reported installed with no config.toml", "red");
+      return false;
+    }
+    const present = path.join(root, "present");
+    fs.mkdirSync(path.join(present, ".codex"), { recursive: true });
+    fs.writeFileSync(
+      path.join(present, ".codex", "config.toml"),
+      'model = "x"\n',
+    );
+    process.env.HOME = present;
+    if (!(await codexConfigurator.detect())) {
+      log("Codex configurator did not detect an existing config.toml", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+async function testProxyClientRoster(): Promise<boolean> {
+  const { PROXY_CLIENT_CONFIGURATORS } =
+    await import("../src/cli/proxy-clients/registry.js");
+  const ids = PROXY_CLIENT_CONFIGURATORS.map((c) => c.id).join(",");
+  if (ids !== "claude-code,opencode,codex,qwen-code,copilot") {
+    log(
+      "configurator roster or order changed — apply order is behaviour",
+      "red",
+    );
+    return false;
+  }
+  return true;
+}
+
+async function testApplyAllReportsPerClient(): Promise<boolean> {
+  const { applyAllClients, restoreAllClients } =
+    await import("../src/cli/proxy-clients/registry.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-clients-"));
+  try {
+    // Only OpenCode is "installed": its config dir exists, the other two do not.
+    process.env.HOME = root;
+    process.env.XDG_CONFIG_HOME = path.join(root, ".config");
+    fs.mkdirSync(path.join(root, ".config", "opencode"), { recursive: true });
+
+    const applied = await applyAllClients("http://127.0.0.1:55669");
+    if (
+      applied.map((r) => r.id).join(",") !==
+      "claude-code,opencode,codex,qwen-code,copilot"
+    ) {
+      log("applyAllClients returned results out of registry order", "red");
+      return false;
+    }
+    const byId = new Map(applied.map((r) => [r.id, r]));
+    if (byId.get("opencode")?.applied !== true) {
+      log("installed client was not reported as applied", "red");
+      return false;
+    }
+    if (byId.get("codex")?.applied !== false) {
+      log("absent client was reported as applied", "red");
+      return false;
+    }
+    if (byId.get("claude-code")?.applied !== false) {
+      log("absent Claude Code was reported as applied", "red");
+      return false;
+    }
+    // The gate must be detect(), not the configurator's own internal guard:
+    // an absent client must be skipped cleanly, never attempted and caught.
+    for (const id of ["claude-code", "codex", "qwen-code", "copilot"]) {
+      if (byId.get(id)?.error !== undefined) {
+        log("an absent client was attempted instead of being skipped", "red");
+        return false;
+      }
+    }
+
+    const restored = await restoreAllClients("http://127.0.0.1:55669");
+    if (restored.length !== 5) {
+      log("restoreAllClients did not report every client", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Qwen Code stores its provider under `security.auth` and speaks OpenAI Chat
+ * Completions. Shape verified against a real ~/.qwen/settings.json ($version 2).
+ */
+async function testQwenConfiguratorRoundTrip(): Promise<boolean> {
+  const { qwenCodeConfigurator } =
+    await import("../src/cli/proxy-clients/qwenCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-qwen-"));
+  try {
+    process.env.HOME = path.join(root, "absent");
+    if (await qwenCodeConfigurator.detect()) {
+      log("Qwen configurator reported installed with no ~/.qwen", "red");
+      return false;
+    }
+
+    const present = path.join(root, "present");
+    fs.mkdirSync(path.join(present, ".qwen"), { recursive: true });
+    const settingsPath = path.join(present, ".qwen", "settings.json");
+    const original = {
+      security: {
+        auth: {
+          selectedType: "openai",
+          apiKey: "user-own-key",
+          baseUrl: "https://user.example.invalid",
+        },
+      },
+      model: { name: "claude-sonnet-4-5" },
+      $version: 2,
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(original, null, 2));
+    process.env.HOME = present;
+
+    if (!(await qwenCodeConfigurator.detect())) {
+      log("Qwen configurator did not detect an existing ~/.qwen", "red");
+      return false;
+    }
+    if (!(await qwenCodeConfigurator.apply("http://127.0.0.1:55669"))) {
+      log("Qwen configurator did not report a successful write", "red");
+      return false;
+    }
+
+    const applied = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      security?: { auth?: { baseUrl?: string; selectedType?: string } };
+      model?: { name?: string };
+    };
+    if (applied.security?.auth?.baseUrl !== "http://127.0.0.1:55669/v1") {
+      log("Qwen configurator did not record the proxy base URL", "red");
+      return false;
+    }
+    if (applied.security?.auth?.selectedType !== "openai") {
+      log("Qwen configurator did not select the openai auth type", "red");
+      return false;
+    }
+    if (applied.model?.name !== "claude-sonnet-4-5") {
+      log("Qwen configurator disturbed an unrelated setting", "red");
+      return false;
+    }
+
+    if (!(await qwenCodeConfigurator.restore("http://127.0.0.1:55669"))) {
+      log("Qwen configurator did not report a successful restore", "red");
+      return false;
+    }
+    const restored = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      security?: { auth?: { baseUrl?: string; apiKey?: string } };
+    };
+    if (
+      restored.security?.auth?.baseUrl !== "https://user.example.invalid" ||
+      restored.security?.auth?.apiKey !== "user-own-key"
+    ) {
+      log("Qwen restore did not put the user's own auth block back", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Copilot CLI reads its provider config from the environment only — there is
+ * no config file to write — so the configurator emits a sourceable script
+ * inside the proxy's own directory rather than editing a shell profile.
+ */
+async function testCopilotConfiguratorWritesEnvFile(): Promise<boolean> {
+  const { copilotConfigurator, __copilotTestHooks } =
+    await import("../src/cli/proxy-clients/copilot.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-copilot-"));
+  try {
+    process.env.HOME = path.join(root, "absent");
+    if (await copilotConfigurator.detect()) {
+      log("Copilot configurator reported installed with no ~/.copilot", "red");
+      return false;
+    }
+
+    const present = path.join(root, "present");
+    fs.mkdirSync(path.join(present, ".copilot"), { recursive: true });
+    process.env.HOME = present;
+    if (!(await copilotConfigurator.detect())) {
+      log("Copilot configurator did not detect an existing ~/.copilot", "red");
+      return false;
+    }
+    if (!(await copilotConfigurator.apply("http://127.0.0.1:55669"))) {
+      log("Copilot configurator did not report a successful write", "red");
+      return false;
+    }
+
+    const envPath = __copilotTestHooks.getCopilotEnvPath();
+    if (!fs.existsSync(envPath)) {
+      log("Copilot configurator did not write its env script", "red");
+      return false;
+    }
+    const script = fs.readFileSync(envPath, "utf8");
+    for (const needle of [
+      "COPILOT_PROVIDER_TYPE",
+      "COPILOT_PROVIDER_BASE_URL",
+      "COPILOT_PROVIDER_API_KEY",
+      "http://127.0.0.1:55669/v1",
+    ]) {
+      if (!script.includes(needle)) {
+        log("Copilot env script is missing a required export", "red");
+        return false;
+      }
+    }
+
+    if (!(await copilotConfigurator.restore("http://127.0.0.1:55669"))) {
+      log("Copilot configurator did not report a successful restore", "red");
+      return false;
+    }
+    if (fs.existsSync(envPath)) {
+      log("Copilot env script survived restore", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Regression: with no `__proxy_original_env` snapshot, the Claude restore path
+ * used to treat every managed key as "did not exist before" and delete it,
+ * wiping a real user value. OpenCode and Qwen both refuse in that case; this
+ * asserts Claude does too.
+ */
+async function testClaudeRestoreRefusesWithoutSnapshot(): Promise<boolean> {
+  const { __claudeCodeTestHooks } =
+    await import("../src/cli/proxy-clients/claudeCode.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-claude-snap-"));
+  try {
+    fs.mkdirSync(path.join(root, ".claude"), { recursive: true });
+    const settingsPath = path.join(root, ".claude", "settings.json");
+    // A user-owned config the proxy never touched: no snapshot key present.
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          env: {
+            ANTHROPIC_BASE_URL: "https://user-own-gateway.example.invalid",
+            ENABLE_TOOL_SEARCH: "true",
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    process.env.HOME = root;
+
+    // Called with no expectedBaseUrl, the way a defensive shutdown path might.
+    const result = await __claudeCodeTestHooks.clearClaudeProxySettings();
+    if (result !== false) {
+      log("Claude restore claimed success with no snapshot to restore", "red");
+      return false;
+    }
+
+    const after = JSON.parse(fs.readFileSync(settingsPath, "utf8")) as {
+      env?: { ANTHROPIC_BASE_URL?: string; ENABLE_TOOL_SEARCH?: string };
+    };
+    if (
+      after.env?.ANTHROPIC_BASE_URL !==
+      "https://user-own-gateway.example.invalid"
+    ) {
+      log("Claude restore destroyed a user value it did not own", "red");
+      return false;
+    }
+    if (after.env?.ENABLE_TOOL_SEARCH !== "true") {
+      log("Claude restore removed a user-set managed key", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Regression: `isExactPricingMatch` used to re-implement the table lookup
+ * instead of reusing `findRates`, so it missed Bedrock's vendor-prefix strip
+ * and Vertex's fallback to the Google table. Both are exact hits that were
+ * reported to the operator as guessed rates.
+ */
+// ============================================================================
+// Tests: GET /accounts and the per-account usage ledger
+// ============================================================================
+
+/**
+ * A request can be logged twice — once on response headers, once when a
+ * streamed body finishes and its token counts arrive. Summing raw lines would
+ * double count it.
+ */
+/**
+ * A later record for the same requestId can carry NO token fields — a terminal
+ * error logged after a successful response, for instance. A naive spread merge
+ * lets its zeros overwrite real usage, silently erasing the request's tokens.
+ */
+/**
+ * The request log is shared with the Codex engine, and an operator can use the
+ * same email for both. Codex tokens must not land on the Anthropic row.
+ */
 // ============================================================================
 // Tests: Primary account selection (in-process unit-style)
 // ============================================================================
@@ -3667,6 +4093,46 @@ const tests: TestFunction[] = [
   {
     name: "OpenCode: clear restores the user's own config",
     fn: testOpenCodeClearRestoresUserConfig,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Claude restore refuses without a snapshot",
+    fn: testClaudeRestoreRefusesWithoutSnapshot,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Claude configurator probes before writing",
+    fn: testClaudeConfiguratorDetectsInstall,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Codex configurator probes before writing",
+    fn: testCodexConfiguratorDetectsInstall,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Qwen apply/restore round-trips a real settings file",
+    fn: testQwenConfiguratorRoundTrip,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Copilot emits a sourceable env script",
+    fn: testCopilotConfiguratorWritesEnvFile,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: roster and apply order are pinned",
+    fn: testProxyClientRoster,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: applyAll reports each client independently",
+    fn: testApplyAllReportsPerClient,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: registry exposes the full configurator contract",
+    fn: testProxyClientRegistryShape,
     category: "proxy-config",
   },
   {

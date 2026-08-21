@@ -28,6 +28,10 @@ import {
 } from "../../lib/proxy/proxyHealth.js";
 import { logger } from "../../lib/utils/logger.js";
 import {
+  applyAllClients,
+  restoreAllClients,
+} from "../proxy-clients/registry.js";
+import {
   redactUrlsInText,
   sanitizeForLog,
 } from "../../lib/utils/logSanitize.js";
@@ -244,8 +248,6 @@ function loadProxySupervisorState(): ProxySupervisorState | null {
 function clearProxySupervisorState(): void {
   proxySupervisorStateManager.clear();
 }
-
-const CLAUDE_SETTINGS_PATH = join(homedir(), ".claude", "settings.json");
 
 const PLIST_LABEL = "com.neurolink.proxy";
 const PLIST_DIR = join(homedir(), "Library", "LaunchAgents");
@@ -617,494 +619,6 @@ function isProxyAutoUpdateEnabled(
   value = process.env.NEUROLINK_PROXY_AUTO_UPDATE,
 ): boolean {
   return !["0", "off", "false"].includes((value ?? "").trim().toLowerCase());
-}
-
-/** Keys we manage in Claude Code's settings.env */
-const PROXY_MANAGED_KEYS = ["ANTHROPIC_BASE_URL", "ENABLE_TOOL_SEARCH"];
-
-async function setClaudeProxySettings(baseUrl: string): Promise<void> {
-  const fs = await import("fs");
-  let settings: Record<string, unknown> = {};
-  try {
-    settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf8"));
-  } catch {
-    // file missing/invalid — create fresh settings object
-  }
-
-  const env = (settings.env ?? {}) as Record<string, string>;
-
-  // Preserve original values so clearClaudeProxySettings can restore them.
-  // Only snapshot once — subsequent calls should not overwrite the snapshot.
-  const originals = ((settings as Record<string, unknown>)
-    .__proxy_original_env ?? {}) as Record<string, string | null>;
-  for (const key of PROXY_MANAGED_KEYS) {
-    if (!(key in originals)) {
-      originals[key] = key in env ? env[key] : null;
-    }
-  }
-  (settings as Record<string, unknown>).__proxy_original_env = originals;
-
-  env.ANTHROPIC_BASE_URL = baseUrl;
-  env.ENABLE_TOOL_SEARCH = "true";
-  settings.env = env;
-
-  fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
-}
-
-async function clearClaudeProxySettings(
-  expectedBaseUrl?: string,
-): Promise<boolean> {
-  const fs = await import("fs");
-  let settings: Record<string, unknown>;
-  try {
-    settings = JSON.parse(fs.readFileSync(CLAUDE_SETTINGS_PATH, "utf8"));
-  } catch {
-    return false;
-  }
-
-  const env = settings.env as Record<string, string> | undefined;
-  if (!env) {
-    return false;
-  }
-
-  if (
-    expectedBaseUrl &&
-    typeof env.ANTHROPIC_BASE_URL === "string" &&
-    env.ANTHROPIC_BASE_URL !== expectedBaseUrl
-  ) {
-    // User switched to a different proxy URL; do not clobber.
-    return false;
-  }
-
-  const hadBaseUrl = typeof env.ANTHROPIC_BASE_URL === "string";
-  const hadToolSearch = env.ENABLE_TOOL_SEARCH === "true";
-
-  // Restore original values if they were saved, otherwise delete the keys
-  const originals = ((settings as Record<string, unknown>)
-    .__proxy_original_env ?? {}) as Record<string, string | null>;
-  for (const key of PROXY_MANAGED_KEYS) {
-    const original = originals[key];
-    if (original !== undefined && original !== null) {
-      // Restore the value that existed before the proxy was started
-      env[key] = original;
-    } else {
-      // Key did not exist before — remove it
-      delete env[key];
-    }
-  }
-  delete (settings as Record<string, unknown>).__proxy_original_env;
-
-  if (Object.keys(env).length === 0) {
-    delete settings.env;
-  } else {
-    settings.env = env;
-  }
-
-  fs.writeFileSync(CLAUDE_SETTINGS_PATH, JSON.stringify(settings, null, 2));
-  return hadBaseUrl || hadToolSearch;
-}
-
-// =============================================================================
-// OPENCODE AUTO-CONFIGURATION
-// =============================================================================
-
-function getOpenCodeConfigDir(): string {
-  // OpenCode resolves this with the unmodified `xdg-basedir` package —
-  // `XDG_CONFIG_HOME || ~/.config` — on every platform, macOS included. There
-  // is deliberately no darwin branch here: `~/Library/Application Support/
-  // opencode` is not a path OpenCode reads. (The similar-looking literal in
-  // OpenCode's binary is `systemManagedConfigDir()`, an MDM policy directory
-  // at the filesystem root with no $HOME prefix.)
-  return join(
-    process.env.XDG_CONFIG_HOME || join(homedir(), ".config"),
-    "opencode",
-  );
-}
-
-function getOpenCodeConfigPath(): string {
-  return join(getOpenCodeConfigDir(), "opencode.json");
-}
-
-/**
- * Key under which we persist the snapshot of the user's pre-existing
- * `provider.neurolink` config inside `opencode.json` itself. Persisting (rather
- * than relying on in-process state) means restoration still works even if the
- * proxy crashes or shutdown handlers run in a different process.
- *
- * Mirrors the Claude pattern (`__proxy_original_env` inside Claude's settings).
- */
-const OPENCODE_ORIGINAL_KEY = "__proxy_original_neurolink";
-
-async function setOpenCodeProxySettings(
-  baseUrl: string,
-  proxyKey?: string,
-): Promise<boolean> {
-  const fs = await import("fs");
-
-  const configDir = getOpenCodeConfigDir();
-  try {
-    fs.accessSync(configDir);
-  } catch {
-    // OpenCode not installed — config directory does not exist. Report the
-    // skip so the caller does not print a success message for work that did
-    // not happen.
-    return false;
-  }
-
-  let config: Record<string, unknown>;
-  try {
-    config = JSON.parse(fs.readFileSync(getOpenCodeConfigPath(), "utf8"));
-  } catch {
-    // file missing/invalid — create fresh config object
-    config = { provider: {} };
-  }
-
-  const provider = (config.provider ?? {}) as Record<string, unknown>;
-
-  // Persist a snapshot of the user's pre-existing provider.neurolink — but
-  // only the first time we touch the file. Subsequent set() calls must NOT
-  // overwrite the snapshot (otherwise after the proxy writes its own block,
-  // the next set() would store the proxy's block as the "original" and
-  // permanently lose the user's real config on the next clear()).
-  if (!(OPENCODE_ORIGINAL_KEY in config)) {
-    (config as Record<string, unknown>)[OPENCODE_ORIGINAL_KEY] =
-      "neurolink" in provider
-        ? JSON.parse(JSON.stringify(provider.neurolink))
-        : null;
-  }
-
-  provider.neurolink = {
-    id: "neurolink",
-    name: "NeuroLink Proxy",
-    npm: "@ai-sdk/openai-compatible",
-    env: [],
-    models: {},
-    options: {
-      baseURL: baseUrl,
-      apiKey: proxyKey || "neurolink-proxy",
-    },
-  };
-
-  config.provider = provider;
-  fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
-  return true;
-}
-
-async function clearOpenCodeProxySettings(
-  expectedBaseUrl?: string,
-): Promise<boolean> {
-  const fs = await import("fs");
-  let config: Record<string, unknown>;
-  try {
-    config = JSON.parse(fs.readFileSync(getOpenCodeConfigPath(), "utf8"));
-  } catch {
-    return false;
-  }
-
-  const provider = config.provider as Record<string, unknown> | undefined;
-  if (!provider || !("neurolink" in provider)) {
-    return false;
-  }
-
-  // Check if our proxy URL matches before removing
-  const existing = provider.neurolink as Record<string, unknown> | undefined;
-  if (expectedBaseUrl && existing) {
-    const options = existing.options as Record<string, unknown> | undefined;
-    if (options && typeof options.baseURL === "string") {
-      if (options.baseURL !== expectedBaseUrl) {
-        // User configured a different URL; do not clobber
-        return false;
-      }
-    }
-  }
-
-  const hadNeurolink = "neurolink" in provider;
-
-  // Restore from the snapshot persisted at first set(), regardless of process
-  // identity. Only delete provider.neurolink when the snapshot says the user
-  // explicitly had no entry before — never on an "undefined" snapshot, since
-  // that would mean the snapshot was lost and we cannot prove the entry is ours.
-  if (OPENCODE_ORIGINAL_KEY in config) {
-    const snapshot = (config as Record<string, unknown>)[OPENCODE_ORIGINAL_KEY];
-    if (snapshot === null) {
-      // User had no provider.neurolink before the proxy started — safe to remove.
-      delete provider.neurolink;
-    } else {
-      provider.neurolink = snapshot;
-    }
-    delete (config as Record<string, unknown>)[OPENCODE_ORIGINAL_KEY];
-  } else {
-    // No snapshot present — refuse to delete to avoid destroying a config
-    // the proxy may not own (e.g. a user wrote their own `neurolink` block
-    // before the snapshot key was introduced, or this is being cleared from
-    // a process that never ran set()).
-    logger.debug(
-      "[proxy] OpenCode clear: no original-provider snapshot found, leaving provider.neurolink intact",
-    );
-    return false;
-  }
-
-  config.provider = provider;
-  fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
-  return hadNeurolink;
-}
-
-/**
- * Test-only export (CLAUDE.md rule 15 determinism exception). The OpenCode
- * client writers resolve paths from the environment and are only reachable
- * from `proxy start` / `proxy setup`, neither of which can be driven against a
- * throwaway HOME without starting a real server. Consumed by
- * test/continuous-test-suite-proxy.ts.
- */
-export const __openCodeTestHooks = {
-  getOpenCodeConfigDir,
-  getOpenCodeConfigPath,
-  setOpenCodeProxySettings,
-  clearOpenCodeProxySettings,
-};
-
-// =============================================================================
-// CODEX (ChatGPT) AUTO-CONFIGURATION
-// =============================================================================
-//
-// Points the Codex CLI at the proxy by managing `~/.codex/config.toml`:
-//   - appends a marker-delimited `[model_providers.neurolink]` table
-//   - flips the top-level `model_provider` to "neurolink"
-// The original `model_provider` value is snapshotted to a sidecar JSON so the
-// restore works even across process crashes. All edits are guarded and wrapped
-// so a failure never aborts proxy start/stop. Codex talks the Responses API to
-// the proxy's /backend-api/codex path.
-
-const CODEX_CONFIG_PATH = join(homedir(), ".codex", "config.toml");
-const CODEX_SNAPSHOT_PATH = join(
-  homedir(),
-  ".neurolink",
-  "codex-proxy-snapshot.json",
-);
-const CODEX_BLOCK_BEGIN = "# >>> neurolink-proxy (managed) >>>";
-const CODEX_BLOCK_END = "# <<< neurolink-proxy (managed) <<<";
-const CODEX_PROVIDER_LINE_RE = /^[ \t]*model_provider[ \t]*=.*$/m;
-const CODEX_MODEL_LINE_RE = /^[ \t]*model[ \t]*=.*$/m;
-
-/** Strip any previously-managed block + our injected provider line. */
-function stripCodexManagedConfig(text: string): string {
-  const blockRe = new RegExp(
-    `\\n?${escapeRegExp(CODEX_BLOCK_BEGIN)}[\\s\\S]*?${escapeRegExp(
-      CODEX_BLOCK_END,
-    )}\\n?`,
-    "g",
-  );
-  let out = text.replace(blockRe, "\n");
-  // Remove our injected selector line (only the exact "neurolink" one).
-  out = out.replace(
-    /^[ \t]*model_provider[ \t]*=[ \t]*"neurolink"[ \t]*$\n?/m,
-    "",
-  );
-  return out;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Apply a top-level TOML key edit, confined to the document preamble.
- *
- * In TOML every key after a `[table]` header belongs to that table. A
- * document-wide regex therefore happily rewrites `model_provider` inside
- * `[model_providers.foo]`, which sets a table key instead of the top-level
- * selector: Codex keeps using its original provider while the command reports
- * success. Only the text before the first header can hold top-level keys.
- */
-function editTomlPreamble(
-  text: string,
-  edit: (preamble: string) => string | null,
-): string {
-  const headerMatch = /^[ \t]*\[/m.exec(text);
-  const boundary = headerMatch ? headerMatch.index : text.length;
-  const preamble = text.slice(0, boundary);
-  const edited = edit(preamble);
-  return edited === null ? text : edited + text.slice(boundary);
-}
-
-function buildCodexProviderBlock(baseUrl: string): string {
-  return [
-    CODEX_BLOCK_BEGIN,
-    "[model_providers.neurolink]",
-    'name = "NeuroLink Proxy"',
-    `base_url = "${baseUrl}/backend-api/codex"`,
-    'wire_api = "responses"',
-    "requires_openai_auth = true",
-    CODEX_BLOCK_END,
-    "",
-  ].join("\n");
-}
-
-async function setCodexProxySettings(baseUrl: string): Promise<boolean> {
-  try {
-    const fs = await import("fs");
-    if (!fs.existsSync(CODEX_CONFIG_PATH)) {
-      // Codex not installed / never configured — skip silently.
-      return false;
-    }
-    const original = fs.readFileSync(CODEX_CONFIG_PATH, "utf8");
-
-    // Snapshot the user's original selector once (survives crashes/restarts).
-    if (!fs.existsSync(CODEX_SNAPSHOT_PATH)) {
-      // Same preamble boundary the edit paths use. Matching document-wide would
-      // capture a `model_provider` belonging to a table — a legacy
-      // `[profiles.<name>]` block, say — and the restore would then write that
-      // profile's provider back as the top-level selector.
-      let providerMatch: RegExpMatchArray | null = null;
-      editTomlPreamble(original, (preamble) => {
-        providerMatch = preamble.match(CODEX_PROVIDER_LINE_RE);
-        return null;
-      });
-      // Ignore a stale managed selector line if present in the original.
-      const originalProviderLine =
-        providerMatch && !/"neurolink"/.test(providerMatch[0])
-          ? providerMatch[0]
-          : null;
-      fs.mkdirSync(join(homedir(), ".neurolink"), { recursive: true });
-      fs.writeFileSync(
-        CODEX_SNAPSHOT_PATH,
-        JSON.stringify({ originalProviderLine }, null, 2),
-        { mode: 0o600 },
-      );
-    }
-
-    let text = stripCodexManagedConfig(original);
-    // Set the selector: replace an existing top-level model_provider or insert
-    // one right after the top-level `model = ...` line (stays before any table).
-    let selectorPlaced = false;
-    text = editTomlPreamble(text, (preamble) => {
-      if (CODEX_PROVIDER_LINE_RE.test(preamble)) {
-        selectorPlaced = true;
-        return preamble.replace(
-          CODEX_PROVIDER_LINE_RE,
-          'model_provider = "neurolink"',
-        );
-      }
-      if (CODEX_MODEL_LINE_RE.test(preamble)) {
-        selectorPlaced = true;
-        return preamble.replace(
-          CODEX_MODEL_LINE_RE,
-          (line) => `${line}\nmodel_provider = "neurolink"`,
-        );
-      }
-      return null;
-    });
-    if (!selectorPlaced) {
-      text = `model_provider = "neurolink"\n${text}`;
-    }
-
-    const trimmed = text.replace(/\s*$/, "\n");
-    fs.writeFileSync(
-      CODEX_CONFIG_PATH,
-      `${trimmed}\n${buildCodexProviderBlock(baseUrl)}`,
-    );
-    return true;
-  } catch (error) {
-    logger.debug(
-      `[proxy] Codex client config not updated: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-    return false;
-  }
-}
-
-async function clearCodexProxySettings(
-  expectedBaseUrl?: string,
-): Promise<boolean> {
-  try {
-    const fs = await import("fs");
-    if (!fs.existsSync(CODEX_CONFIG_PATH)) {
-      return false;
-    }
-    const original = fs.readFileSync(CODEX_CONFIG_PATH, "utf8");
-
-    // The managed block records its owner in `base_url`. Without this check a
-    // second proxy shutting down on another port would strip the block that the
-    // still-running proxy installed, and restore the snapshot selector on top —
-    // silently taking Codex off the live proxy. Mirrors the Claude and OpenCode
-    // clear paths.
-    if (expectedBaseUrl) {
-      const ownerMatch = original.match(
-        new RegExp(
-          `${escapeRegExp(CODEX_BLOCK_BEGIN)}[\\s\\S]*?base_url\\s*=\\s*"([^"]*)"`,
-        ),
-      );
-      if (
-        ownerMatch &&
-        ownerMatch[1] !== `${expectedBaseUrl}/backend-api/codex`
-      ) {
-        return false;
-      }
-    }
-
-    let text = stripCodexManagedConfig(original);
-
-    // Restore the user's original selector line if we snapshotted one.
-    let restored: string | null = null;
-    if (fs.existsSync(CODEX_SNAPSHOT_PATH)) {
-      try {
-        const snap = JSON.parse(
-          fs.readFileSync(CODEX_SNAPSHOT_PATH, "utf8"),
-        ) as { originalProviderLine?: string | null };
-        restored = snap.originalProviderLine ?? null;
-      } catch {
-        restored = null;
-      }
-    }
-    if (restored) {
-      const restoredLine = restored;
-      let restorePlaced = false;
-      text = editTomlPreamble(text, (preamble) => {
-        if (CODEX_PROVIDER_LINE_RE.test(preamble)) {
-          restorePlaced = true;
-          return preamble.replace(CODEX_PROVIDER_LINE_RE, restoredLine);
-        }
-        if (CODEX_MODEL_LINE_RE.test(preamble)) {
-          restorePlaced = true;
-          return preamble.replace(
-            CODEX_MODEL_LINE_RE,
-            (line) => `${line}\n${restoredLine}`,
-          );
-        }
-        return null;
-      });
-      if (!restorePlaced) {
-        text = `${restoredLine}\n${text}`;
-      }
-    }
-
-    if (text === original) {
-      // Nothing managed remains, so the snapshot can no longer describe the
-      // user's current selector. Keeping it would let a later clear restore a
-      // value the user has since changed by hand.
-      try {
-        fs.rmSync(CODEX_SNAPSHOT_PATH, { force: true });
-      } catch {
-        // best-effort
-      }
-      return false;
-    }
-    fs.writeFileSync(CODEX_CONFIG_PATH, text.replace(/\s*$/, "\n"));
-    try {
-      fs.rmSync(CODEX_SNAPSHOT_PATH, { force: true });
-    } catch {
-      // best-effort
-    }
-    return true;
-  } catch (error) {
-    logger.debug(
-      `[proxy] Codex client config not cleared: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-    return false;
-  }
 }
 
 export async function probeProxyHealth(
@@ -3196,26 +2710,11 @@ function registerProxyShutdownHandlers(params: {
     }
 
     if (signal === "SIGINT" && !params.isDev) {
-      try {
-        const shutdownHost =
-          params.host === "0.0.0.0" ? "localhost" : params.host;
-        await clearClaudeProxySettings(`http://${shutdownHost}:${params.port}`);
-      } catch {
-        // non-fatal
-      }
       const shutdownHost =
         params.host === "0.0.0.0" ? "localhost" : params.host;
-      const shutdownBaseUrl = `http://${shutdownHost}:${params.port}`;
-      try {
-        await clearOpenCodeProxySettings(`${shutdownBaseUrl}/v1`);
-      } catch {
-        // non-fatal
-      }
-      try {
-        await clearCodexProxySettings(shutdownBaseUrl);
-      } catch {
-        // non-fatal
-      }
+      // restoreAllClients wraps each client, so one failure cannot stop the
+      // others and none can abort shutdown.
+      await restoreAllClients(`http://${shutdownHost}:${params.port}`);
     }
 
     try {
@@ -3495,43 +2994,30 @@ async function startProxyRuntime(params: {
   }
 
   if (!isDev) {
-    try {
-      await setClaudeProxySettings(url);
-      logger.always(chalk.green("  ✓ Auto-configured Claude Code settings"));
-      logger.always(
-        chalk.dim("    Restart Claude Code to connect through proxy"),
-      );
-    } catch (error) {
-      logger.debug(
-        "[proxy] Failed to auto-configure Claude Code: " +
-          (error instanceof Error ? error.message : String(error)),
-      );
-    }
-
-    try {
-      if (await setOpenCodeProxySettings(`${url}/v1`)) {
-        logger.always(chalk.green("  ✓ Auto-configured OpenCode settings"));
+    for (const result of await applyAllClients(url)) {
+      if (result.error) {
+        // Visible, not debug-level. A client whose config could not be written
+        // will keep talking to its own upstream, which looks like the proxy
+        // silently not being used — the failure has to be actionable at the
+        // level the user actually reads. The setup wizard already reported
+        // this failure loudly; these two paths used to disagree.
         logger.always(
-          chalk.dim("    Restart OpenCode to connect through proxy"),
+          chalk.yellow(
+            `  ⚠ Could not auto-configure ${result.displayName}: ${result.error.message}`,
+          ),
+        );
+        continue;
+      }
+      if (result.applied) {
+        logger.always(
+          chalk.green(`  ✓ Auto-configured ${result.displayName} settings`),
+        );
+        logger.always(
+          chalk.dim(
+            `    Restart ${result.displayName} to connect through proxy`,
+          ),
         );
       }
-    } catch (error) {
-      logger.debug(
-        "[proxy] Failed to auto-configure OpenCode: " +
-          (error instanceof Error ? error.message : String(error)),
-      );
-    }
-
-    try {
-      if (await setCodexProxySettings(url)) {
-        logger.always(chalk.green("  ✓ Auto-configured Codex settings"));
-        logger.always(chalk.dim("    Restart Codex to connect through proxy"));
-      }
-    } catch (error) {
-      logger.debug(
-        "[proxy] Failed to auto-configure Codex: " +
-          (error instanceof Error ? error.message : String(error)),
-      );
     }
   } else {
     logger.always(
@@ -5266,17 +4752,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
     // The parent is confirmed gone and no replacement is healthy. Foreground
     // guards are cleanup-only; they never restart or signal proxy processes.
-    const cleared = await clearClaudeProxySettings(expectedBaseUrl);
-    try {
-      await clearOpenCodeProxySettings(`${expectedBaseUrl}/v1`);
-    } catch {
-      // non-fatal
-    }
-    try {
-      await clearCodexProxySettings(expectedBaseUrl);
-    } catch {
-      // non-fatal
-    }
+    const restored = await restoreAllClients(expectedBaseUrl);
+    // Downstream logic keys off whether Claude Code specifically was restored.
+    const cleared =
+      restored.find((r) => r.id === "claude-code")?.restored ?? false;
 
     const state = loadProxyState();
     if (
@@ -5412,38 +4891,25 @@ export const proxySetupCommand: CommandModule = {
         chalk.blue(`\nStep ${nextStep}:`) + " Configuring Claude Code...",
       );
       const url = `http://127.0.0.1:${port}`;
-      try {
-        await setClaudeProxySettings(url);
-        console.info(chalk.green("  ✓ Claude Code configured"));
-      } catch (e) {
-        console.info(
-          chalk.yellow(
-            `  ⚠ Could not auto-configure Claude Code: ${e instanceof Error ? e.message : String(e)}`,
-          ),
-        );
-        console.info(chalk.yellow(`  Set manually: ANTHROPIC_BASE_URL=${url}`));
-      }
-      try {
-        if (await setOpenCodeProxySettings(`${url}/v1`)) {
-          console.info(chalk.green("  ✓ OpenCode configured"));
+      for (const result of await applyAllClients(url)) {
+        if (result.error) {
+          console.info(
+            chalk.yellow(
+              `  ⚠ Could not auto-configure ${result.displayName}: ${result.error.message}`,
+            ),
+          );
+          // Claude Code is the one client whose manual fallback is a single
+          // env var, so it is worth spelling out.
+          if (result.id === "claude-code") {
+            console.info(
+              chalk.yellow(`  Set manually: ANTHROPIC_BASE_URL=${url}`),
+            );
+          }
+          continue;
         }
-      } catch (e) {
-        console.info(
-          chalk.yellow(
-            `  ⚠ Could not auto-configure OpenCode: ${e instanceof Error ? e.message : String(e)}`,
-          ),
-        );
-      }
-      try {
-        if (await setCodexProxySettings(url)) {
-          console.info(chalk.green("  ✓ Codex configured"));
+        if (result.applied) {
+          console.info(chalk.green(`  ✓ ${result.displayName} configured`));
         }
-      } catch (e) {
-        console.info(
-          chalk.yellow(
-            `  ⚠ Could not auto-configure Codex: ${e instanceof Error ? e.message : String(e)}`,
-          ),
-        );
       }
 
       // Done!
