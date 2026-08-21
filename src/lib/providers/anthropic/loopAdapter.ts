@@ -34,6 +34,7 @@ import type {
 } from "../../types/index.js";
 import { resolveDeferredTool } from "../../tools/toolDiscovery.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
+import { stringifyFinalResultInput } from "./structuredOutput.js";
 
 /** Map Anthropic's stop_reason onto the unified finish reason. */
 function mapAnthropicFinishReason(
@@ -320,10 +321,21 @@ export function createAnthropicLoopAdapter(
       // never dispatched, never counted against the breaker, and never shows
       // up as a tool execution.
       const terminal = config.finalResultToolName
-        ? allCalls.find((call) => call.name === config.finalResultToolName)
+        ? [...toolByIndex.values()].find(
+            (pending) => pending.name === config.finalResultToolName,
+          )
         : undefined;
       const toolCalls = terminal ? [] : allCalls;
-      const finalText = terminal ? JSON.stringify(terminal.args) : text;
+      // The RAW accumulated input_json, never the parsed-then-restringified
+      // args. `parseArgs` yields {} for a payload the token cap cut off
+      // mid-string, so re-stringifying would turn a truncated answer into
+      // "{}" and lose it outright. `stringifyFinalResultInput` canonicalizes
+      // when the JSON parses and returns it verbatim when it does not, which
+      // is what lets the caller's coercion layer repair a partial payload
+      // into a partial object instead of nothing.
+      const finalText = terminal
+        ? stringifyFinalResultInput(terminal.inputJson)
+        : text;
 
       return {
         text: finalText,
