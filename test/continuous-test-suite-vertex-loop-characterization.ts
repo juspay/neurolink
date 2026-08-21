@@ -838,4 +838,80 @@ await test("a turn pressing against the context window stops and still answers",
   );
 });
 
+section("stream timing");
+
+await test("text is replayed after the turn completes, not streamed live", async () => {
+  // Vertex does NOT stream text as it arrives. The loop preserves each text
+  // part in `incrementalTextChunks` and `createTextStream()` replays them
+  // once the whole turn is done — the code says as much at client.ts:2642,
+  // "we just preserved them ... instead of collapsing into finalText".
+  //
+  // Nothing pinned that, and it is exactly what a migration onto the engine's
+  // per-chunk push model would change: the consumer would start receiving
+  // text mid-turn instead of at the end. That may well be an improvement, but
+  // it is a user-visible timing change and must be a decision rather than a
+  // side effect. This case makes it one.
+  //
+  // A two-step turn separates the two models cleanly: under live streaming
+  // the first chunk arrives BEFORE the second provider call; under replay it
+  // cannot.
+  let secondCallAt = 0;
+  const server = await startStandIn((i) => {
+    if (i === 1) {
+      secondCallAt = Date.now();
+    }
+    return i === 0
+      ? sse(
+          [{ text: "first" }, { functionCall: { name: "lookup", args: {} } }],
+          "STOP",
+        )
+      : sse([{ text: "second" }], "STOP");
+  });
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let firstChunkAt = 0;
+  try {
+    const result = await nl().stream({
+      input: { text: "go" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      if (!firstChunkAt && (chunk?.content ?? "").length > 0) {
+        firstChunkAt = Date.now();
+      }
+    }
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] stream timing: calls=${server.calls.length} firstChunkAfterSecondCall=${firstChunkAt >= secondCallAt}`,
+  );
+  assert(
+    server.calls.length === 2,
+    `expected a two-step turn, got ${server.calls.length} calls`,
+  );
+  assert(firstChunkAt > 0, "the consumer received no text at all");
+  // Guards against a vacuous comparison: if the second call never happened,
+  // `firstChunkAt >= secondCallAt` would hold trivially against zero and the
+  // case would pass while proving nothing about ordering.
+  assert(
+    secondCallAt > 0,
+    "the second provider call never happened, so the ordering assertion below would be vacuous",
+  );
+  // The pinned behaviour: replay, not live. If a migration makes this live,
+  // this assertion is the one that should be consciously inverted.
+  assert(
+    firstChunkAt >= secondCallAt,
+    "text reached the consumer before the turn finished — streaming became live",
+  );
+});
+
 await runSuite();
