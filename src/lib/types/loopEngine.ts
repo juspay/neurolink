@@ -226,10 +226,24 @@ export type AgenticLoopOptions = {
 export type AgenticLoopResult<TConversation> = {
   text: string;
   toolCalls: AgenticLoopToolCall[];
+  /**
+   * Every tool dispatch the loop performed, in order, including the ones that
+   * failed.
+   *
+   * `id` and `error` are carried because providers persist tool activity as
+   * paired call/result records keyed by the provider's own tool-call id, and
+   * a result that failed is stored differently from one that succeeded. A
+   * shape with only name/input/output cannot reconstruct either, so a
+   * provider migrating its hand-rolled loop onto this engine would have to
+   * silently drop both from its history — which is a behaviour change, not a
+   * refactor.
+   */
   toolExecutions: Array<{
+    id: string;
     name: string;
     input: Record<string, unknown>;
     output: unknown;
+    error?: string;
   }>;
   usage: AgenticLoopUsage;
   finishReason: string;

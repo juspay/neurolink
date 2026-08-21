@@ -999,4 +999,82 @@ await test("a reasoning delta pushed by an adapter reaches the consumer", async 
   );
 });
 
+await test("a successful execution records the call id and no error", async () => {
+  const adapter = makeHydrationAdapter({
+    toolCallsByStep: [
+      [{ id: "call_abc", name: "ok_tool", args: { q: 1 } }],
+      [],
+    ],
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], {
+    tools: {
+      ok_tool: {
+        execute: async () => ({ ok: true }),
+      },
+    },
+  });
+  const result = await resultPromise;
+  const record = result.toolExecutions.find((e) => e.name === "ok_tool");
+  assertEqual(
+    record?.id,
+    "call_abc",
+    "a successful execution must carry the provider's tool-call id",
+  );
+  assertEqual(
+    record?.error,
+    undefined,
+    "a successful execution must not be recorded with an error",
+  );
+});
+
+await test("a throwing tool records the call id and its error message", async () => {
+  // Providers store a failed tool result differently from a successful one,
+  // so the engine has to say which it was. Without `error` a migrated loop
+  // would persist every failure as if it had succeeded.
+  const adapter = makeHydrationAdapter({
+    toolCallsByStep: [[{ id: "call_bad", name: "bad_tool", args: {} }], []],
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], {
+    tools: {
+      bad_tool: {
+        execute: async () => {
+          throw new Error("upstream unavailable");
+        },
+      },
+    },
+  });
+  const result = await resultPromise;
+  const record = result.toolExecutions.find((e) => e.name === "bad_tool");
+  assertEqual(
+    record?.id,
+    "call_bad",
+    "a failed execution must still carry the tool-call id",
+  );
+  assert(
+    typeof record?.error === "string" && record.error.length > 0,
+    "a failed execution must be recorded with an error message",
+  );
+});
+
+await test("an unresolvable tool name is recorded with an id and an error", async () => {
+  const adapter = makeHydrationAdapter({
+    toolCallsByStep: [
+      [{ id: "call_missing", name: "nowhere_tool", args: {} }],
+      [],
+    ],
+  });
+  const { resultPromise } = runAgenticLoop(adapter, [], { tools: {} });
+  const result = await resultPromise;
+  const record = result.toolExecutions.find((e) => e.name === "nowhere_tool");
+  assertEqual(
+    record?.id,
+    "call_missing",
+    "an unresolved call must still carry the tool-call id",
+  );
+  assert(
+    typeof record?.error === "string" && record.error.length > 0,
+    "an unresolved call must be recorded with an error message",
+  );
+});
+
 await runSuite();
