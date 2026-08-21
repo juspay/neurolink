@@ -203,9 +203,10 @@ export type ProcessResult = {
 export function runCommand(
   command: string,
   args: string[] = [],
-  options: SpawnOptions & { timeoutMs?: number } = {},
+  options: SpawnOptions & { timeoutMs?: number; stopWhen?: RegExp } = {},
 ): Promise<ProcessResult> {
   const timeoutMs = options.timeoutMs ?? 30_000;
+  const stopWhen = options.stopWhen;
   return new Promise((resolve, reject) => {
     let isResolved = false;
     let proc: ReturnType<typeof spawn>;
@@ -221,11 +222,28 @@ export function runCommand(
 
     let stdout = "";
     let stderr = "";
+    let hasExited = false;
+
+    // A server-style command never exits on its own, so waiting for `close`
+    // means waiting out the whole timeout. `stopWhen` lets a caller name the
+    // output that means "done", and we terminate as soon as it appears.
+    const checkStopWhen = (): void => {
+      if (!stopWhen || isResolved) {
+        return;
+      }
+      if (stopWhen.test(stdout + stderr)) {
+        terminate();
+        settle({ stdout, stderr, exitCode: 0 });
+      }
+    };
+
     proc.stdout?.on("data", (d: Buffer) => {
       stdout += d.toString();
+      checkStopWhen();
     });
     proc.stderr?.on("data", (d: Buffer) => {
       stderr += d.toString();
+      checkStopWhen();
     });
 
     const settle = (result: ProcessResult): void => {
@@ -236,17 +254,25 @@ export function runCommand(
       }
     };
 
-    const timeoutId = setTimeout(() => {
+    // `proc.killed` only records that a signal was delivered — it says nothing
+    // about whether the child actually exited, so it cannot gate the SIGKILL
+    // escalation. Track the real exit instead: a child that ignores SIGTERM
+    // leaves `hasExited` false and gets SIGKILL a second later.
+    const terminate = (): void => {
       try {
         proc.kill("SIGTERM");
         setTimeout(() => {
-          if (!proc.killed) {
+          if (!hasExited) {
             proc.kill("SIGKILL");
           }
-        }, 1_000);
+        }, 1_000).unref();
       } catch {
         /* swallow */
       }
+    };
+
+    const timeoutId = setTimeout(() => {
+      terminate();
       settle({
         stdout,
         stderr: stderr + `\n[harness] command timed out after ${timeoutMs}ms`,
@@ -254,7 +280,11 @@ export function runCommand(
       });
     }, timeoutMs);
 
+    proc.on("exit", () => {
+      hasExited = true;
+    });
     proc.on("close", (code) => {
+      hasExited = true;
       settle({ stdout, stderr, exitCode: code ?? -1 });
     });
     proc.on("error", (err) => {
@@ -270,11 +300,16 @@ export function runCommand(
 /** Run the built CLI: `node dist/cli/index.js <args>` with merged env. */
 export function runCLI(
   args: string[],
-  options: { env?: Record<string, string>; timeoutMs?: number } = {},
+  options: {
+    env?: Record<string, string>;
+    timeoutMs?: number;
+    stopWhen?: RegExp;
+  } = {},
 ): Promise<ProcessResult> {
   return runCommand("node", ["dist/cli/index.js", ...args], {
     env: { ...process.env, ...(options.env ?? {}) } as NodeJS.ProcessEnv,
     timeoutMs: options.timeoutMs,
+    stopWhen: options.stopWhen,
   });
 }
 

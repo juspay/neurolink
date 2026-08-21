@@ -173,6 +173,9 @@ importers:
       jsonrepair:
         specifier: ^3.14.0
         version: 3.14.0
+      minisearch:
+        specifier: ^7.2.0
+        version: 7.2.0
       nanoid:
         specifier: ^5.1.16
         version: 5.1.16

@@ -139,7 +139,7 @@
     "// CI tier — fast, no live AI calls, safe for every commit (test:unit; also see the separate provider-safety-net CI job, which runs build + test:providers-mocked + test:provider-structure + test:error-classifier-contract on every PR)": "",
     "test:tool-routing": "npx tsx test/continuous-test-suite-tool-routing.ts",
     "test:tool-routing-semantic": "npx tsx test/continuous-test-suite-tool-routing-semantic.ts",
-    "test:unit": "pnpm run test:bugfixes && pnpm run test:mcp:infra && pnpm run test:mcp:spans && pnpm run test:tool-routing && pnpm run test:tool-routing-cli && pnpm run test:tool-dedup && pnpm run test:model-pool && pnpm run test:tool-routing-semantic && pnpm run test:mcp-result-cache && pnpm run test:model-not-found-retryable && pnpm run test:archive:security && pnpm run test:office:security && pnpm run test:vector-chroma && pnpm run test:vector-pgvector && pnpm run test:vector-pinecone && pnpm run test:provider-wiring",
+    "test:unit": "pnpm run test:bugfixes && pnpm run test:mcp:infra && pnpm run test:mcp:spans && pnpm run test:tool-routing && pnpm run test:tool-routing-cli && pnpm run test:tool-dedup && pnpm run test:model-pool && pnpm run test:tool-routing-semantic && pnpm run test:mcp-result-cache && pnpm run test:model-not-found-retryable && pnpm run test:archive:security && pnpm run test:office:security && pnpm run test:vector-chroma && pnpm run test:vector-pgvector && pnpm run test:vector-pinecone && pnpm run test:provider-wiring && pnpm run test:docs-mcp",
     "// CI tier — live providers, runs only when API keys are present (test:credentials and test:dynamic make real provider calls when keys are set, so they live here, not in test:unit; test:matrix, a different suite covering the full provider capability matrix, runs nightly via .github/workflows/live-matrix.yml — test:providers itself is still only wired into test:live, not any GitHub Actions workflow)": "",
     "test:live": "pnpm run test:providers && pnpm run test:mcp:http && pnpm run test:mcp:sdk && pnpm run test:mcp:cli && pnpm run test:observability && pnpm run test:context && pnpm run test:memory && pnpm run test:tool-reliability && pnpm run test:evaluation && pnpm run test:autoresearch && pnpm run test:credentials && pnpm run test:dynamic",
     "// CI tier — product output (image/video/TTS/PPT) — costs $$ per run (not wired into any GitHub Actions workflow as of this comment; run manually or add to live-matrix.yml if nightly coverage is needed)": "",
@@ -210,7 +210,8 @@
     "test:bedrock-loop-characterization": "tsx test/continuous-test-suite-bedrock-loop-characterization.ts",
     "test:sagemaker-streaming": "tsx test/continuous-test-suite-sagemaker-streaming.ts",
     "test:anthropic-loop-characterization": "tsx test/continuous-test-suite-anthropic-loop-characterization.ts",
-    "test:aistudio-loop-characterization": "tsx test/continuous-test-suite-aistudio-loop-characterization.ts"
+    "test:aistudio-loop-characterization": "tsx test/continuous-test-suite-aistudio-loop-characterization.ts",
+    "test:docs-mcp": "npx tsx test/continuous-test-suite-docs-mcp.ts"
   },
   "files": [
     "dist",
@@ -377,6 +378,7 @@
     "js-yaml": "^4.3.1",
     "json-schema-to-zod": "^2.7.0",
     "jsonrepair": "^3.14.0",
+    "minisearch": "^7.2.0",
     "nanoid": "^5.1.16",
     "ora": "^9.3.0",
     "p-limit": "^7.3.0",
