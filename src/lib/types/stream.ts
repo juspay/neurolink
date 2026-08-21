@@ -421,7 +421,7 @@ export type StreamOptions = {
   timeout?: number | string;
   /** Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs. */
   turnTimeoutMs?: number;
-  /** Max time with no progress before the turn ends as "stalled" (ms). See GenerateOptions.stallTimeoutMs. */
+  /** Max time with no progress before the turn ends as "stalled" (ms). Native Vertex loops only — see GenerateOptions.stallTimeoutMs. */
   stallTimeoutMs?: number;
   /** Remaining-time threshold that triggers the wrap-up nudge (ms). See GenerateOptions.wrapupTimeLeadMs. */
   wrapupTimeLeadMs?: number;
