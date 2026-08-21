@@ -190,6 +190,58 @@ jobs:
 
   #         echo "✅ Action smoke test passed!"
 
+  # Installs with optionalDependencies omitted, then runs the built CLI.
+  # optionalDependencies (express, the AWS SDK bedrock/sagemaker clients,
+  # fastify, koa, etc.) are exactly the packages npm/pnpm silently skip on a
+  # failed native build or a --no-optional install, so "it built" here proves
+  # nothing about whether the CLI still runs without them.
+  #
+  # continue-on-error: true — deliberately non-blocking on day one. Today
+  # `voiceServerApp.js` statically imports `express` (an optionalDependency)
+  # at module load, so `node dist/cli/index.js --help` crashes with
+  # ERR_MODULE_NOT_FOUND as soon as that module is reachable from the CLI
+  # entrypoint. The fix lives on fix/cli-express-optional-crash, not yet
+  # merged to release. Promote this job to a required check (add it to the
+  # required-status-checks list and drop continue-on-error) once that branch
+  # lands. Note @aws-sdk/client-bedrock-runtime is also statically imported
+  # from an optionalDependency (amazonBedrock/client.ts,
+  # amazonBedrock/loopAdapter.ts), so this job may keep surfacing a second,
+  # separate failure even after the express fix — that is expected and is a
+  # second bug for a follow-up branch, not a reason to loosen this check.
+  optional-deps-omitted-smoke-test:
+    name: CLI Smoke Test (optional deps omitted)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies (optionalDependencies omitted)
+        run: pnpm install --no-optional
+
+      - name: Build CLI
+        run: pnpm run build:cli
+
+      - name: CLI smoke test — --help
+        run: node dist/cli/index.js --help
+
+      - name: CLI smoke test — --version
+        run: node dist/cli/index.js --version
+
+      - name: CLI smoke test — generate --help
+        run: node dist/cli/index.js generate --help
+
   build-check:
     runs-on: ubuntu-latest
     steps:
