@@ -187,6 +187,18 @@ export type AnthropicLoopAdapterConfig = {
    * ordinary zero-tool-calls exit.
    */
   finalResultToolName?: string;
+  /**
+   * Called with the terminal tool's payload when one was actually detected.
+   *
+   * The caller cannot infer this from the turn's result. A structured turn
+   * ends with the payload in `text` when the model called the terminal tool,
+   * and with ordinary prose in `text` when it ignored the instruction and
+   * answered directly — the two are indistinguishable downstream, yet they
+   * are handled differently: the payload is delivered as the answer, while
+   * prose is delivered from the caller's own buffer. Comparing strings to
+   * tell them apart would be guesswork, so the adapter says which happened.
+   */
+  onTerminalResult?: (text: string) => void;
   toolFailureBreaker?: AgenticLoopToolFailureBreaker;
   /**
    * In-turn context reclaim, run once per step before the request is built.
