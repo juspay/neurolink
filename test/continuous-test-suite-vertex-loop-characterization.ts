@@ -965,4 +965,270 @@ await test("the generate path declares and executes a caller's tools", async () 
   }
 });
 
+section("tool dispatch safety");
+
+// The four cases below pin behaviours the SHARED LOOP ENGINE DOES NOT HAVE.
+// runAgenticLoop calls tool.execute bare, strikes its breaker only from a
+// catch, never clears a strike, and has no result dedup at all. A migration
+// that simply hands these tools to the engine would lose all four — quietly,
+// since each one only shows up on a repeat or a failure path.
+//
+// Every case varies the tool arguments per step. That is not incidental: the
+// executeMap is a DedupExecuteMap, so identical {name, args} inside one turn
+// is served from a per-turn result cache and the tool never runs again. With
+// constant arguments these cases measure the dedup layer instead of the thing
+// they name — which is exactly what the first draft of them did.
+
+await test("a tool that never returns costs a bounded step, not the whole turn", async () => {
+  // `toolTimeoutMs` is a public option threaded straight into the withTimeout()
+  // that wraps execute, so the bound is reachable deterministically: a tool
+  // that never resolves reproduces a wedged MCP server exactly. Without that
+  // wrapper the turn hangs on DEFAULT_TOOL_EXECUTION_TIMEOUT_MS — five
+  // minutes — or until the stream deadline.
+  const server = await startStandIn((i) => toolTurn("wedged", { n: i }));
+  const restore = withVertexEnv();
+  let dispatched = 0;
+  const started = Date.now();
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call the wedged tool" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 4,
+      disableTools: false,
+      disableInternalFallback: true,
+      toolTimeoutMs: 250,
+      tools: {
+        wedged: {
+          description: "never returns",
+          inputSchema: {
+            type: "object",
+            properties: { n: { type: "number" } },
+            additionalProperties: true,
+          },
+          execute: () => {
+            dispatched++;
+            return new Promise(() => {});
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The outcome is not what is pinned; the bound and the count are.
+  } finally {
+    restore();
+    await server.close();
+  }
+  // Reaching this line is itself the proof that the turn settled: a tool that
+  // is never bounded leaves the await pending and the suite dies on its own
+  // timeout instead of getting here.
+  const elapsed = Date.now() - started;
+  console.log(
+    `    [diagnostic] vertex wedged-tool: dispatched=${dispatched} elapsedMs=${elapsed}`,
+  );
+  // Each timeout is a strike, so the breaker stops dispatching after two.
+  assert(
+    dispatched === 2,
+    `the wedged tool was dispatched ${dispatched} times, not the 2 this loop performs`,
+  );
+  // The turn ended on the TOOL bound, not on the default one. The margin is
+  // wide on purpose and still discriminates: the default is 300_000ms.
+  assert(
+    elapsed < 20_000,
+    "the turn outlived the configured per-tool bound by a wide margin",
+  );
+});
+
+await test("a tool that reports failure without throwing still trips the breaker", async () => {
+  // extractToolFailureText treats { error: "..." } and MCP isError payloads as
+  // failures even though execute() resolved. A proxy-blocked tool fails
+  // exactly this way, and counting only thrown errors — which is all the
+  // engine does — lets the model grind on it for the entire step budget.
+  const server = await startStandIn((i) => toolTurn("blocked", { n: i }));
+  const restore = withVertexEnv();
+  let dispatched = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "keep calling the blocked tool" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        blocked: {
+          description: "resolves with an error payload",
+          inputSchema: {
+            type: "object",
+            properties: { n: { type: "number" } },
+            additionalProperties: true,
+          },
+          execute: async () => {
+            dispatched++;
+            return { error: "blocked by policy" };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The dispatch count is what is pinned, not the turn's outcome.
+  } finally {
+    restore();
+    await server.close();
+  }
+  const finalPayloads = functionResponsePayloads(
+    server.calls[server.calls.length - 1],
+  ).map((entry) => Object.keys(entry.response ?? {}).join("+"));
+  console.log(
+    `    [diagnostic] vertex error-shaped-success: dispatched=${dispatched} payloads=${finalPayloads.join(",")}`,
+  );
+  // Same DEFAULT_TOOL_MAX_RETRIES threshold as the throwing case above.
+  assert(
+    dispatched === 2,
+    `the non-throwing failure was dispatched ${dispatched} times, not the 2 this loop performs`,
+  );
+  // And the breaker actually reported the tool as burnt out. Under a
+  // throw-only rule no such payload exists and all five steps carry results,
+  // so this is what separates the two rules rather than the count alone.
+  assert(
+    finalPayloads.filter((keys) => keys.includes("do_not_retry")).length === 3,
+    "the breaker never reported the non-throwing tool as permanently failed",
+  );
+});
+
+await test("a success between failures clears the strike count", async () => {
+  // The strikes this loop counts are CONSECUTIVE: a clean result deletes the
+  // entry. That is what keeps an argument-dependent soft error — file-not-found
+  // on one path, fine on the next — from permanently disabling a working tool.
+  // The engine accumulates instead, and under that rule the alternating tool
+  // below is shut off after its second failure and never reaches step five.
+  const server = await startStandIn((i) => toolTurn("alternating", { n: i }));
+  const restore = withVertexEnv();
+  let dispatched = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call the alternating tool" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        alternating: {
+          description: "fails on odd dispatches, succeeds on even ones",
+          inputSchema: {
+            type: "object",
+            properties: { n: { type: "number" } },
+            additionalProperties: true,
+          },
+          execute: async () => {
+            dispatched++;
+            if (dispatched % 2 === 1) {
+              throw new Error("synthetic alternating failure");
+            }
+            return { ok: true };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The dispatch count is what is pinned, not the turn's outcome.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex alternating-tool: dispatched=${dispatched}`,
+  );
+  // Never two failures in a row, so the breaker never trips and every step
+  // dispatches. Under accumulate-forever the third failure would be blocked
+  // and the count would stop short — which is what makes this discriminate.
+  assert(
+    dispatched === 5,
+    `the alternating tool was dispatched ${dispatched} times, so a non-consecutive strike rule shut it off early`,
+  );
+});
+
+await test("the same tool call with the same arguments runs once per turn", async () => {
+  // DedupExecuteMap (BZ-3327): Gemini re-emits a tool call with identical
+  // arguments across steps even though the prior result is already in the
+  // history. Re-executing means duplicate side effects and duplicate reports,
+  // so the per-turn result cache answers the repeat instead.
+  //
+  // Constant arguments here, unlike every case above — this is the one case
+  // that is ABOUT the dedup rather than obstructed by it.
+  const server = await startStandIn(() => toolTurn("repeatable", {}));
+  const restore = withVertexEnv();
+  let dispatched = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "call the same tool repeatedly" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        repeatable: {
+          description: "records how often it really ran",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: true,
+          },
+          execute: async () => {
+            dispatched++;
+            return { ran: dispatched };
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The dispatch count is what is pinned, not the turn's outcome.
+  } finally {
+    restore();
+    await server.close();
+  }
+  const responses = functionResponsePayloads(
+    server.calls[server.calls.length - 1],
+  );
+  console.log(
+    `    [diagnostic] vertex dedup: dispatched=${dispatched} responses=${responses.length}`,
+  );
+  // Called on every step, executed exactly once. Both halves matter: the
+  // dispatch count alone would also be 1 if the loop had simply stopped.
+  assert(
+    dispatched === 1,
+    `the repeated identical call executed ${dispatched} times instead of being served from the per-turn cache`,
+  );
+  assert(
+    responses.length === 5,
+    `the model was answered ${responses.length} times, so the turn did not keep running on cached results`,
+  );
+});
+
 await runSuite();
