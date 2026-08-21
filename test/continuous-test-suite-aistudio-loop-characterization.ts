@@ -330,4 +330,142 @@ await test("the generate path declares and executes a caller's tools", async () 
   }
 });
 
+section("repeatedly failing tool");
+
+await test("a tool that always throws is reported to the model and does not run unbounded", async () => {
+  // Pins the failure-breaker behaviour before Task 9 moves this loop onto
+  // runAgenticLoop. The two dispatchers differ in one respect that is easy to
+  // lose: executeNativeToolCalls clears a tool's accrued strikes whenever it
+  // resolves that tool live (utils.ts `failedTools.delete`), while the engine
+  // only ever increments them. Whatever the observable consequence is, it is
+  // recorded here so the migration has to reproduce it or justify changing it.
+  const server = await startStandIn(() => toolTurn("flaky", {}));
+  const restore = withAiStudioEnv();
+  let attempts = 0;
+  try {
+    const nl = new NeuroLink();
+    await nl
+      .stream({
+        input: { text: "keep trying" },
+        provider: "google-ai",
+        model: MODEL,
+        maxTokens: 32,
+        maxSteps: 4,
+        disableTools: false,
+        disableInternalFallback: true,
+        tools: {
+          flaky: {
+            description: "always fails",
+            inputSchema: {
+              type: "object",
+              properties: {},
+              additionalProperties: true,
+            },
+            execute: async () => {
+              attempts++;
+              throw new Error("synthetic tool failure");
+            },
+          },
+        },
+        credentials: credentialsFor(server.port),
+      })
+      .then(async (result) => {
+        for await (const chunk of result.stream) {
+          void chunk;
+        }
+      });
+  } catch {
+    // The turn's outcome is not what is being pinned; the dispatch count and
+    // what the model was told are.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] failing-tool turn: attempts=${attempts} calls=${server.calls.length}`,
+  );
+  // The observed numbers, pinned exactly rather than loosely: the breaker
+  // stops DISPATCHING after two failures while the turn keeps running to its
+  // step cap. A loose `attempts > 0` would still pass if the migration made
+  // the breaker stop tripping and dispatched all four times, which is the
+  // regression most worth catching here.
+  assert(
+    attempts === 2,
+    `the failing tool was dispatched ${attempts} times, not the 2 this loop performs`,
+  );
+  assert(
+    server.calls.length === 4,
+    `a maxSteps=4 turn made ${server.calls.length} calls, not the 4 this loop performs`,
+  );
+  const responses = JSON.stringify(server.calls.slice(1).map((c) => c.body));
+  assert(
+    responses.includes("flaky"),
+    "the failed dispatch was never reported back to the model",
+  );
+});
+
+section("step cap without a final answer");
+
+await test("a turn that hits the step cap still delivers text to the consumer", async () => {
+  // The loop does NOT end silently when the model never stops calling tools.
+  // handleMaxStepsTermination substitutes the last step's accumulated text,
+  // or a built cap message when there was none, and that string is pushed to
+  // the consumer. A migration that simply lets the engine return at the cap
+  // would deliver an empty stream instead — the failure mode is silence, so
+  // nothing else would notice.
+  //
+  // The model emits text alongside its tool call here so the substituted
+  // "text from the last step" branch is the one exercised.
+  const server = await startStandIn(() =>
+    sse(
+      [
+        { text: "still working on it" },
+        { functionCall: { name: "lookup", args: {} } },
+      ],
+      "STOP",
+    ),
+  );
+  const restore = withAiStudioEnv();
+  const counter = { calls: 0 };
+  let streamed = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "keep going" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 2,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      streamed += chunk?.content ?? "";
+    }
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] step-cap turn: calls=${server.calls.length} chars=${streamed.length}`,
+  );
+  assert(
+    server.calls.length === 2,
+    `a maxSteps=2 turn made ${server.calls.length} calls, not the 2 this loop performs`,
+  );
+  // Counted, not merely present. Each step streams its own text live, so
+  // `streamed.includes(...)` is true whether or not the cap fallback fires —
+  // that assertion was written first and mutation-testing showed it passing
+  // with the fallback deleted. The fallback's observable effect is that the
+  // last step's text is delivered ONE MORE TIME as the turn's answer, so two
+  // steps plus the fallback is three occurrences.
+  const occurrences = streamed.split("still working on it").length - 1;
+  assert(
+    occurrences === 3,
+    `the last step's text appeared ${occurrences} times, not the 3 this loop produces`,
+  );
+});
+
 await runSuite();
