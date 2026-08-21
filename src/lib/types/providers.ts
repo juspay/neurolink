@@ -2015,6 +2015,15 @@ export type NativeFunctionResponse = {
 };
 
 /** Result from collectStreamChunks. */
+/**
+ * Which turn-level counter a per-chunk Vertex usage delta belongs to.
+ *
+ * Vertex updates its turn totals incrementally so they stay correct mid-stream
+ * — a step killed by an abort, the turn deadline or the stall watchdog still
+ * bills the tokens it already reported.
+ */
+export type VertexUsageCounter = "input" | "output" | "cacheRead" | "reasoning";
+
 export type CollectedChunkResult = {
   rawResponseParts: unknown[];
   stepFunctionCalls: NativeFunctionCall[];

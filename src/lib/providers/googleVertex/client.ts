@@ -159,6 +159,9 @@ import type {
   Schema,
   LanguageModel,
   ImageWithAltText,
+  CollectedChunkResult,
+  NativeFunctionCall,
+  VertexUsageCounter,
 } from "../../types/index.js";
 
 // Import proper types for multimodal message handling
@@ -794,6 +797,152 @@ function reclaimVertexAnthropicContext(
   messages.length = 0;
   messages.push(...rebuilt);
   return true;
+}
+
+/**
+ * Fold one Vertex Gemini step's stream into the shape the loop engine reports.
+ *
+ * Lifted from the inline drain in executeNativeGemini3Stream so the loop can
+ * later be handed to createGeminiLoopAdapter as `collectStep`. Vertex does not
+ * share googleNativeGemini3's collector: it reads parts straight off each
+ * candidate — avoiding the SDK warning that `chunk.text` raises when
+ * thoughtSignature or functionCall parts are present — and that behaviour is
+ * characterized.
+ *
+ * `onUsageDelta` fires PER CHUNK and is not an optimisation to fold away. The
+ * drain updates the turn totals incrementally so they are correct at every
+ * point mid-stream: a step killed by an abort, the turn deadline or the stall
+ * watchdog still bills the tokens it already reported. Returning a step total
+ * for the caller to add would be arithmetically identical and operationally
+ * wrong, because a killed step never returns.
+ */
+async function collectVertexStreamChunks(
+  stream: AsyncIterable<{
+    functionCalls?: NativeFunctionCall[];
+    [key: string]: unknown;
+  }>,
+  channel: { push(chunk: { content: string }): void },
+  hooks: {
+    onProgress?: () => void;
+    onUsage?: (inputTokens: number, outputTokens: number) => void;
+    onUsageDelta?: (counter: VertexUsageCounter, delta: number) => void;
+  } = {},
+): Promise<CollectedChunkResult> {
+  const rawResponseParts: unknown[] = [];
+  const stepFunctionCalls: NativeFunctionCall[] = [];
+  let lastFinishReason: string | undefined;
+  let stepInputTokens = 0;
+  let stepOutputTokens = 0;
+  let stepCacheReadTokens = 0;
+  let stepReasoningTokens = 0;
+
+  for await (const chunk of stream) {
+    hooks.onProgress?.();
+    // Extract raw parts from candidates FIRST
+    // This avoids using chunk.text which triggers SDK warning when
+    // non-text parts (thoughtSignature, functionCall) are present
+    const chunkRecord = chunk as Record<string, unknown>;
+    const candidates = chunkRecord.candidates as
+      | Array<Record<string, unknown>>
+      | undefined;
+    const firstCandidate = candidates?.[0];
+    // Capture the SDK finish reason (Bug 2: previously dropped). Last
+    // non-empty value across chunks wins.
+    const chunkFinishReason = firstCandidate?.finishReason;
+    if (typeof chunkFinishReason === "string" && chunkFinishReason) {
+      lastFinishReason = chunkFinishReason;
+    }
+    const chunkContent = firstCandidate?.content as
+      | Record<string, unknown>
+      | undefined;
+    if (chunkContent && Array.isArray(chunkContent.parts)) {
+      for (const part of chunkContent.parts as Array<Record<string, unknown>>) {
+        rawResponseParts.push(part);
+        if (typeof part.text === "string" && part.text.length > 0) {
+          channel.push({ content: part.text });
+        }
+      }
+    }
+    if (chunk.functionCalls) {
+      stepFunctionCalls.push(...chunk.functionCalls);
+    }
+
+    // Extract usage metadata from chunk
+    // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
+    const usageMetadata = chunkRecord.usageMetadata as
+      | {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          cachedContentTokenCount?: number;
+          thoughtsTokenCount?: number;
+          totalTokenCount?: number;
+        }
+      | undefined;
+    if (usageMetadata) {
+      // Take the latest promptTokenCount (usually only in final chunk)
+      if (
+        usageMetadata.promptTokenCount !== undefined &&
+        usageMetadata.promptTokenCount > 0
+      ) {
+        hooks.onUsageDelta?.(
+          "input",
+          usageMetadata.promptTokenCount - stepInputTokens,
+        );
+        stepInputTokens = usageMetadata.promptTokenCount;
+        // Feed the context guard the REAL prompt size of this call.
+        hooks.onUsage?.(
+          usageMetadata.promptTokenCount,
+          usageMetadata.candidatesTokenCount ?? 0,
+        );
+        // cachedContentTokenCount is OVERLAPPING (a subset already inside
+        // promptTokenCount). Clamp to the prompt count so an uncached
+        // step reports 0 instead of a stale cached value.
+        const chunkCacheReadTokens = Math.min(
+          usageMetadata.cachedContentTokenCount ?? 0,
+          usageMetadata.promptTokenCount,
+        );
+        hooks.onUsageDelta?.(
+          "cacheRead",
+          chunkCacheReadTokens - stepCacheReadTokens,
+        );
+        stepCacheReadTokens = chunkCacheReadTokens;
+      }
+      // Take the latest candidatesTokenCount (accumulates through chunks)
+      if (
+        usageMetadata.candidatesTokenCount !== undefined &&
+        usageMetadata.candidatesTokenCount > 0
+      ) {
+        hooks.onUsageDelta?.(
+          "output",
+          usageMetadata.candidatesTokenCount - stepOutputTokens,
+        );
+        stepOutputTokens = usageMetadata.candidatesTokenCount;
+      }
+      // thoughtsTokenCount (thinking tokens, billed at the output
+      // rate) is NOT part of candidatesTokenCount — Gemini reports
+      // totalTokenCount = prompt + candidates + thoughts.
+      if (
+        usageMetadata.thoughtsTokenCount !== undefined &&
+        usageMetadata.thoughtsTokenCount > 0
+      ) {
+        hooks.onUsageDelta?.(
+          "reasoning",
+          usageMetadata.thoughtsTokenCount - stepReasoningTokens,
+        );
+        stepReasoningTokens = usageMetadata.thoughtsTokenCount;
+      }
+    }
+  }
+
+  return {
+    rawResponseParts,
+    stepFunctionCalls,
+    ...(lastFinishReason ? { finishReason: lastFinishReason } : {}),
+    inputTokens: stepInputTokens,
+    outputTokens: stepOutputTokens,
+    ...(stepCacheReadTokens ? { cacheReadTokens: stepCacheReadTokens } : {}),
+    ...(stepReasoningTokens ? { reasoningTokens: stepReasoningTokens } : {}),
+  };
 }
 
 export class GoogleVertexProvider extends BaseProvider {
@@ -2013,102 +2162,41 @@ export class GoogleVertexProvider extends BaseProvider {
           // are therefore correct at every point mid-drain — a step killed
           // mid-stream (abort / turn deadline / stall watchdog) still counts
           // the billed tokens it already reported.
-          let stepInputTokens = 0;
-          let stepOutputTokens = 0;
-          let stepCacheReadTokens = 0;
-          let stepReasoningTokens = 0;
 
-          for await (const chunk of stream) {
-            turnClock.noteProgress();
-            // Extract raw parts from candidates FIRST
-            // This avoids using chunk.text which triggers SDK warning when
-            // non-text parts (thoughtSignature, functionCall) are present
-            const chunkRecord = chunk as Record<string, unknown>;
-            const candidates = chunkRecord.candidates as
-              | Array<Record<string, unknown>>
-              | undefined;
-            const firstCandidate = candidates?.[0];
-            // Capture the SDK finish reason (Bug 2: previously dropped). Last
-            // non-empty value across chunks wins.
-            const chunkFinishReason = firstCandidate?.finishReason;
-            if (typeof chunkFinishReason === "string" && chunkFinishReason) {
-              lastFinishReason = chunkFinishReason;
-              stepFinishReason = chunkFinishReason;
-            }
-            const chunkContent = firstCandidate?.content as
-              | Record<string, unknown>
-              | undefined;
-            if (chunkContent && Array.isArray(chunkContent.parts)) {
-              for (const part of chunkContent.parts as Array<
-                Record<string, unknown>
-              >) {
-                rawResponseParts.push(part);
-                if (typeof part.text === "string" && part.text.length > 0) {
-                  incrementalTextChunks.push(part.text);
+          // The drain now lives in collectVertexStreamChunks. The hooks below
+          // are the two couplings it had to this loop, plus the per-chunk
+          // usage deltas — those must stay per-chunk so a step killed
+          // mid-stream still bills what it reported.
+          const collected = await collectVertexStreamChunks(
+            stream,
+            {
+              push: (chunk) => {
+                if (chunk.content) {
+                  incrementalTextChunks.push(chunk.content);
                 }
-              }
-            }
-            if (chunk.functionCalls) {
-              stepFunctionCalls.push(...chunk.functionCalls);
-            }
-
-            // Extract usage metadata from chunk
-            // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
-            const usageMetadata = chunkRecord.usageMetadata as
-              | {
-                  promptTokenCount?: number;
-                  candidatesTokenCount?: number;
-                  cachedContentTokenCount?: number;
-                  thoughtsTokenCount?: number;
-                  totalTokenCount?: number;
+              },
+            },
+            {
+              onProgress: () => turnClock.noteProgress(),
+              onUsage: (input, output) => contextGuard.noteUsage(input, output),
+              onUsageDelta: (counter, delta) => {
+                if (counter === "input") {
+                  totalInputTokens += delta;
+                } else if (counter === "output") {
+                  totalOutputTokens += delta;
+                } else if (counter === "cacheRead") {
+                  totalCacheReadTokens += delta;
+                } else {
+                  totalReasoningTokens += delta;
                 }
-              | undefined;
-            if (usageMetadata) {
-              // Take the latest promptTokenCount (usually only in final chunk)
-              if (
-                usageMetadata.promptTokenCount !== undefined &&
-                usageMetadata.promptTokenCount > 0
-              ) {
-                totalInputTokens +=
-                  usageMetadata.promptTokenCount - stepInputTokens;
-                stepInputTokens = usageMetadata.promptTokenCount;
-                // Feed the context guard the REAL prompt size of this call.
-                contextGuard.noteUsage(
-                  usageMetadata.promptTokenCount,
-                  usageMetadata.candidatesTokenCount ?? 0,
-                );
-                // cachedContentTokenCount is OVERLAPPING (a subset already inside
-                // promptTokenCount). Clamp to the prompt count so an uncached
-                // step reports 0 instead of a stale cached value.
-                const chunkCacheReadTokens = Math.min(
-                  usageMetadata.cachedContentTokenCount ?? 0,
-                  usageMetadata.promptTokenCount,
-                );
-                totalCacheReadTokens +=
-                  chunkCacheReadTokens - stepCacheReadTokens;
-                stepCacheReadTokens = chunkCacheReadTokens;
-              }
-              // Take the latest candidatesTokenCount (accumulates through chunks)
-              if (
-                usageMetadata.candidatesTokenCount !== undefined &&
-                usageMetadata.candidatesTokenCount > 0
-              ) {
-                totalOutputTokens +=
-                  usageMetadata.candidatesTokenCount - stepOutputTokens;
-                stepOutputTokens = usageMetadata.candidatesTokenCount;
-              }
-              // thoughtsTokenCount (thinking tokens, billed at the output
-              // rate) is NOT part of candidatesTokenCount — Gemini reports
-              // totalTokenCount = prompt + candidates + thoughts.
-              if (
-                usageMetadata.thoughtsTokenCount !== undefined &&
-                usageMetadata.thoughtsTokenCount > 0
-              ) {
-                totalReasoningTokens +=
-                  usageMetadata.thoughtsTokenCount - stepReasoningTokens;
-                stepReasoningTokens = usageMetadata.thoughtsTokenCount;
-              }
-            }
+              },
+            },
+          );
+          rawResponseParts.push(...collected.rawResponseParts);
+          stepFunctionCalls.push(...collected.stepFunctionCalls);
+          if (collected.finishReason) {
+            stepFinishReason = collected.finishReason;
+            lastFinishReason = collected.finishReason;
           }
 
           // Extract text from raw parts after stream completes
@@ -3294,96 +3382,36 @@ export class GoogleVertexProvider extends BaseProvider {
           // are therefore correct at every point mid-drain — a step killed
           // mid-stream (abort / turn deadline / stall watchdog) still counts
           // the billed tokens it already reported.
-          let stepInputTokens = 0;
-          let stepOutputTokens = 0;
-          let stepCacheReadTokens = 0;
-          let stepReasoningTokens = 0;
-
-          // Collect all chunks from stream
-          for await (const chunk of stream) {
-            turnClock.noteProgress();
-            // Extract raw parts from candidates FIRST
-            // This avoids using chunk.text which triggers SDK warning when
-            // non-text parts (thoughtSignature, functionCall) are present
-            const chunkRecord = chunk as Record<string, unknown>;
-            const candidates = chunkRecord.candidates as
-              | Array<Record<string, unknown>>
-              | undefined;
-            const firstCandidate = candidates?.[0];
-            // Capture the SDK finish reason (Bug 2: previously dropped). Last
-            // non-empty value across chunks wins.
-            const chunkFinishReason = firstCandidate?.finishReason;
-            if (typeof chunkFinishReason === "string" && chunkFinishReason) {
-              lastFinishReason = chunkFinishReason;
-              stepFinishReason = chunkFinishReason;
-            }
-            const chunkContent = firstCandidate?.content as
-              | Record<string, unknown>
-              | undefined;
-            if (chunkContent && Array.isArray(chunkContent.parts)) {
-              rawResponseParts.push(...chunkContent.parts);
-            }
-            if (chunk.functionCalls) {
-              stepFunctionCalls.push(...chunk.functionCalls);
-            }
-
-            // Extract usage metadata from chunk
-            // promptTokenCount is typically in the final chunk, candidatesTokenCount accumulates
-            const usageMetadata = chunkRecord.usageMetadata as
-              | {
-                  promptTokenCount?: number;
-                  candidatesTokenCount?: number;
-                  cachedContentTokenCount?: number;
-                  thoughtsTokenCount?: number;
-                  totalTokenCount?: number;
+          // Same collector as the streaming twin. generate() returns one
+          // result rather than streaming, so the channel is a no-op — the
+          // stream loop uses it to fill incrementalTextChunks for replay, and
+          // there is nothing to replay here. Everything else is identical,
+          // including the per-chunk usage deltas that keep the turn totals
+          // correct for a step killed mid-stream.
+          const collected = await collectVertexStreamChunks(
+            stream,
+            { push: () => {} },
+            {
+              onProgress: () => turnClock.noteProgress(),
+              onUsage: (input, output) => contextGuard.noteUsage(input, output),
+              onUsageDelta: (counter, delta) => {
+                if (counter === "input") {
+                  totalInputTokens += delta;
+                } else if (counter === "output") {
+                  totalOutputTokens += delta;
+                } else if (counter === "cacheRead") {
+                  totalCacheReadTokens += delta;
+                } else {
+                  totalReasoningTokens += delta;
                 }
-              | undefined;
-            if (usageMetadata) {
-              // Take the latest promptTokenCount (usually only in final chunk)
-              if (
-                usageMetadata.promptTokenCount !== undefined &&
-                usageMetadata.promptTokenCount > 0
-              ) {
-                totalInputTokens +=
-                  usageMetadata.promptTokenCount - stepInputTokens;
-                stepInputTokens = usageMetadata.promptTokenCount;
-                // Feed the context guard the REAL prompt size of this call.
-                contextGuard.noteUsage(
-                  usageMetadata.promptTokenCount,
-                  usageMetadata.candidatesTokenCount ?? 0,
-                );
-                // cachedContentTokenCount is OVERLAPPING (a subset already inside
-                // promptTokenCount). Clamp to the prompt count so an uncached
-                // step reports 0 instead of a stale cached value.
-                const chunkCacheReadTokens = Math.min(
-                  usageMetadata.cachedContentTokenCount ?? 0,
-                  usageMetadata.promptTokenCount,
-                );
-                totalCacheReadTokens +=
-                  chunkCacheReadTokens - stepCacheReadTokens;
-                stepCacheReadTokens = chunkCacheReadTokens;
-              }
-              // Take the latest candidatesTokenCount (accumulates through chunks)
-              if (
-                usageMetadata.candidatesTokenCount !== undefined &&
-                usageMetadata.candidatesTokenCount > 0
-              ) {
-                totalOutputTokens +=
-                  usageMetadata.candidatesTokenCount - stepOutputTokens;
-                stepOutputTokens = usageMetadata.candidatesTokenCount;
-              }
-              // thoughtsTokenCount (thinking tokens, billed at the output
-              // rate) is NOT part of candidatesTokenCount — Gemini reports
-              // totalTokenCount = prompt + candidates + thoughts.
-              if (
-                usageMetadata.thoughtsTokenCount !== undefined &&
-                usageMetadata.thoughtsTokenCount > 0
-              ) {
-                totalReasoningTokens +=
-                  usageMetadata.thoughtsTokenCount - stepReasoningTokens;
-                stepReasoningTokens = usageMetadata.thoughtsTokenCount;
-              }
-            }
+              },
+            },
+          );
+          rawResponseParts.push(...collected.rawResponseParts);
+          stepFunctionCalls.push(...collected.stepFunctionCalls);
+          if (collected.finishReason) {
+            stepFinishReason = collected.finishReason;
+            lastFinishReason = collected.finishReason;
           }
 
           // Extract text from raw parts after stream completes
