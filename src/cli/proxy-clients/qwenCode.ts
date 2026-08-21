@@ -25,6 +25,11 @@ import type {
   CliProxyClientConfigurator,
   CliQwenSettings,
 } from "../../lib/types/index.js";
+import {
+  cloneForSnapshot,
+  isProxyOwnedValue,
+  shouldCaptureSnapshot,
+} from "./snapshot.js";
 
 /**
  * Resolved per call rather than at module load so `detect()` and `apply()`
@@ -45,6 +50,13 @@ function getQwenSettingsPath(): string {
  * the same approach the Claude and OpenCode writers take.
  */
 const QWEN_ORIGINAL_KEY = "__proxy_original_qwen_auth";
+
+/**
+ * The auth block this writer last wrote. Lets apply() tell its own block from
+ * one the user substituted while the proxy was not running — which for Qwen
+ * carries a real API key.
+ */
+const QWEN_WRITTEN_KEY = "__proxy_written_qwen_auth";
 
 function readQwenSettings(fs: typeof import("fs")): CliQwenSettings | null {
   try {
@@ -76,12 +88,20 @@ export async function setQwenProxySettings(
   const security = (settings.security ?? {}) as Record<string, unknown>;
   const auth = (security.auth ?? {}) as Record<string, unknown>;
 
-  // Snapshot only on first touch. A second apply() must not overwrite the
-  // snapshot with our own block, which would lose the user's real config on
-  // the next restore.
-  if (!(QWEN_ORIGINAL_KEY in settings)) {
+  // A repeat apply() must not overwrite the snapshot with our own block, which
+  // would lose the user's real config on the next restore — but a block the
+  // user wrote while the proxy was gone must replace it. See
+  // shouldCaptureSnapshot.
+  const currentAuth = "auth" in security ? security.auth : undefined;
+  if (
+    shouldCaptureSnapshot({
+      hasSnapshot: QWEN_ORIGINAL_KEY in settings,
+      written: settings[QWEN_WRITTEN_KEY],
+      current: currentAuth,
+    })
+  ) {
     settings[QWEN_ORIGINAL_KEY] =
-      "auth" in security ? JSON.parse(JSON.stringify(auth)) : null;
+      currentAuth === undefined ? null : cloneForSnapshot(currentAuth);
   }
 
   auth.selectedType = "openai";
@@ -89,6 +109,7 @@ export async function setQwenProxySettings(
   auth.apiKey = proxyKey || "neurolink-proxy";
   security.auth = auth;
   settings.security = security;
+  settings[QWEN_WRITTEN_KEY] = cloneForSnapshot(auth);
 
   fs.writeFileSync(getQwenSettingsPath(), JSON.stringify(settings, null, 2));
   return true;
@@ -128,13 +149,26 @@ export async function clearQwenProxySettings(
     return false;
   }
 
-  const snapshot = settings[QWEN_ORIGINAL_KEY];
-  if (snapshot === null) {
-    delete security.auth;
+  // Only restore what we can prove is ours. The base-URL check above lets
+  // through a block still pointing at the proxy whose key the user rotated
+  // beside it — overwriting that would destroy a live credential. Our
+  // bookkeeping keys go either way, so a stale sentinel cannot outlive us.
+  if (
+    isProxyOwnedValue({ written: settings[QWEN_WRITTEN_KEY], current: auth })
+  ) {
+    const snapshot = settings[QWEN_ORIGINAL_KEY];
+    if (snapshot === null) {
+      delete security.auth;
+    } else {
+      security.auth = snapshot;
+    }
   } else {
-    security.auth = snapshot;
+    logger.debug(
+      "[proxy] Qwen clear: security.auth was edited after the proxy wrote it, leaving it intact",
+    );
   }
   delete settings[QWEN_ORIGINAL_KEY];
+  delete settings[QWEN_WRITTEN_KEY];
   settings.security = security;
 
   fs.writeFileSync(getQwenSettingsPath(), JSON.stringify(settings, null, 2));

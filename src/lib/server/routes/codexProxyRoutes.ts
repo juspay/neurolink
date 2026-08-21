@@ -37,6 +37,7 @@ import {
   loadAccountQuotas,
   saveAccountQuota,
 } from "../../proxy/accountQuota.js";
+import { createCodexUsageTap } from "../../proxy/codexUsage.js";
 import {
   CODEX_ACCOUNT_PREFIX,
   parseCodexRateLimitHeaders,
@@ -49,6 +50,7 @@ import type {
   CodexRuntimeAccount,
   RouteGroup,
   ServerContext,
+  RequestLogEntry,
 } from "../../types/index.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
@@ -322,7 +324,18 @@ async function handleCodexResponsesRequest(
   const writeLog = (
     account: string,
     responseStatus: number,
-    extra: { errorType?: string; errorMessage?: string } = {},
+    extra: Partial<
+      Pick<
+        RequestLogEntry,
+        | "errorType"
+        | "errorMessage"
+        | "provider"
+        | "inputTokens"
+        | "outputTokens"
+        | "cacheReadTokens"
+        | "cacheCreationTokens"
+      >
+    > = {},
   ): Promise<void> =>
     logRequest({
       timestamp: new Date().toISOString(),
@@ -446,7 +459,36 @@ async function handleCodexResponsesRequest(
           connection: "keep-alive",
           ...(ctx.responseHeaders ?? {}),
         };
-        return new Response(upstream.body, {
+
+        // Tap the relay for token usage. The log above is written first and
+        // unconditionally so a request is never lost when a client hangs up
+        // mid-stream; this emits a second record for the same requestId
+        // carrying the counts, which proxyAnalysis merges. If the stream shape
+        // is not recognised, usage resolves null and nothing extra is written —
+        // i.e. exactly the previous behaviour.
+        if (!upstream.body) {
+          return new Response(upstream.body, {
+            status: upstream.status,
+            headers,
+          });
+        }
+        const { stream: usageTap, usage: usageSeen } = createCodexUsageTap();
+        usageSeen
+          .then((usage) => {
+            if (!usage) {
+              return;
+            }
+            return writeLog(account.label, upstream.status, {
+              provider: "openai",
+              inputTokens: usage.inputTokens,
+              outputTokens: usage.outputTokens,
+              cacheReadTokens: usage.cacheReadTokens,
+              cacheCreationTokens: usage.cacheCreationTokens,
+            });
+          })
+          .catch(() => undefined);
+
+        return new Response(upstream.body.pipeThrough(usageTap), {
           status: upstream.status,
           headers,
         });

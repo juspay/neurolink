@@ -245,7 +245,18 @@ class ProxyTracer {
   private readonly proxyTracer = getTracer("neurolink.proxy");
   private readonly bridge = new OtelBridge();
   private readonly requestId: string;
-  private readonly model: string;
+  /**
+   * Model used for costing. Starts as the model the client asked for and is
+   * updated by setModelSubstitution(), so cost follows the model that actually
+   * served the request rather than the one that was requested.
+   */
+  private model: string;
+  /**
+   * Provider used for costing. See ProxyRequestContext.provider. Mutable for
+   * the same reason `model` is: a fallback can serve the request from a
+   * different provider, and pricing has to follow it.
+   */
+  private billingProvider: string;
   private readonly startTime: number;
   private readonly isStream: boolean;
 
@@ -258,10 +269,12 @@ class ProxyTracer {
     requestId: string,
     model: string,
     stream: boolean,
+    billingProvider: string,
   ) {
     this.rootSpan = rootSpan;
     this.requestId = requestId;
     this.model = model;
+    this.billingProvider = billingProvider;
     this.startTime = Date.now();
     this.isStream = stream;
   }
@@ -341,6 +354,7 @@ class ProxyTracer {
       ctx.requestId,
       ctx.model,
       ctx.stream,
+      ctx.provider ?? "anthropic",
     );
 
     // Set Langfuse context (fire-and-forget — non-blocking)
@@ -494,7 +508,7 @@ class ProxyTracer {
     });
 
     // Cost calculation via pricing.ts
-    const cost = calculateCost("anthropic", this.model, {
+    const cost = calculateCost(this.billingProvider, this.model, {
       input: ctx.inputTokens,
       output: ctx.outputTokens,
       total: totalTokens,
@@ -575,12 +589,26 @@ class ProxyTracer {
    * Record that the proxy substituted a different model than was requested.
    * Sets span attributes and increments the substitution metric counter.
    */
-  setModelSubstitution(requestedModel: string, actualModel: string): void {
+  setModelSubstitution(
+    requestedModel: string,
+    actualModel: string,
+    actualProvider?: string,
+  ): void {
+    // Cost must follow the model that served the request, not the alias the
+    // client typed — otherwise a claude-* alias routed to another provider is
+    // billed at Claude rates. The provider has to move with it: leaving it at
+    // the tracer's default means the substituted model is looked up in the
+    // wrong pricing table, which yields no rate and so no charge at all.
+    this.model = actualModel;
+    if (actualProvider) {
+      this.billingProvider = actualProvider;
+    }
     this.rootSpan.setAttributes({
       "proxy.model_substituted": true,
       "proxy.original_model": requestedModel,
       "proxy.actual_model": actualModel,
       "gen_ai.response.model": actualModel,
+      ...(actualProvider ? { "proxy.actual_provider": actualProvider } : {}),
     });
     const m = getProxyMetrics();
     m.modelSubstitutionTotal.add(1, {
@@ -823,7 +851,7 @@ class ProxyTracer {
         this.usage.cacheReadTokens +
         (this.usage.reasoningTokens ?? 0);
 
-      const cost = calculateCost("anthropic", this.model, {
+      const cost = calculateCost(this.billingProvider, this.model, {
         input: this.usage.inputTokens,
         output: this.usage.outputTokens,
         total: totalTokens,
@@ -871,7 +899,7 @@ class ProxyTracer {
 
     const durationMs = Date.now() - this.startTime;
 
-    const cost = calculateCost("anthropic", this.model, {
+    const cost = calculateCost(this.billingProvider, this.model, {
       input: this.usage.inputTokens,
       output: this.usage.outputTokens,
       total: totalTokens,
@@ -880,7 +908,7 @@ class ProxyTracer {
     });
 
     TelemetryService.getInstance().recordAIRequest(
-      "anthropic",
+      this.billingProvider,
       this.model,
       totalTokens,
       durationMs,

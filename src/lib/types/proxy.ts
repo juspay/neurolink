@@ -683,6 +683,12 @@ export type RequestLogEntry = {
   outputTokens?: number;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /**
+   * Provider that actually served the request, for costing. Absent on records
+   * written before this field existed; `proxyAnalysis` then falls back to a
+   * cross-provider model lookup rather than assuming Anthropic.
+   */
+  provider?: string;
   /** OTel trace ID for correlation with distributed traces */
   traceId?: string;
   /** OTel span ID for correlation with distributed traces */
@@ -1617,6 +1623,13 @@ export type ProxyRequestContext = {
   sessionId?: string;
   userAgent?: string;
   clientApp?: string;
+  /**
+   * Provider that will serve the request, used for costing. Defaults to
+   * "anthropic" when omitted, which is correct for the /v1/messages engine;
+   * the OpenAI-compatible engine must pass whatever ModelRouter resolved, or
+   * every non-Anthropic model prices to $0.
+   */
+  provider?: string;
 };
 
 /** Response-side details parsed from the upstream reply (model, finish, tools). */
@@ -1948,7 +1961,27 @@ export type ProxyAnalysisReport = {
     cacheReadTokens: number;
     cacheCreationTokens: number;
     inputTokens: number;
+    outputTokens: number;
     requestHitRate: number | null;
+    /**
+     * Summed per-request cost in USD. Records that carry no model, or whose
+     * model matches no pricing table, contribute 0 — so this is a floor, not
+     * an exact bill. `requestsPriced` says how many records actually priced.
+     */
+    estimatedCostUsd: number;
+    requestsPriced: number;
+    /**
+     * Requests whose cost came from a longest-prefix fallback rather than an
+     * exact pricing row — the rate is inherited from a similarly-named model
+     * and may be wrong. Adding the real row makes these exact.
+     */
+    requestsPricedByPrefix: number;
+    /** Distinct models priced by prefix fallback, for the operator to chase. */
+    modelsPricedByPrefix: string[];
+    /** Requests carrying usage whose model matched no pricing row at all. */
+    requestsUnpriced: number;
+    /** Distinct models with no pricing row at all. */
+    unpricedModels: string[];
   };
   routing: {
     modes: Record<string, number>;
@@ -1987,12 +2020,46 @@ export type ProxyAnalysisFinalRequestRecord = {
   durationMs: number | null;
   account: string;
   accountType: string;
+  model: string | null;
+  provider: string | null;
   inputTokens: number | null;
+  outputTokens: number | null;
   cacheReadTokens: number | null;
   cacheCreationTokens: number | null;
   errorType: string | null;
   errorCode: string | null;
   routingDecision: ProxyAccountRoutingDecision | null;
+};
+
+/**
+ * A stream transformer that also handles cancellation.
+ *
+ * The Streams standard gives `Transformer` a `cancel()` callback — invoked when
+ * the stream is aborted rather than closed cleanly — and Node implements it,
+ * but TypeScript's bundled lib does not declare it yet. Without it there is no
+ * way to observe a client hanging up mid-response.
+ */
+export type ProxyCancellableTransformer<I, O> = Transformer<I, O> & {
+  cancel?: (reason?: unknown) => void;
+};
+
+/**
+ * Token usage scraped from a Codex (OpenAI Responses) SSE stream.
+ *
+ * Verified against real traffic: captured from a live `codex exec` run through
+ * the proxy on 2026-08-21 (`test/fixtures/codex-response-usage.sse`). The
+ * shape is `response.completed` → `response.usage`, carrying `input_tokens`,
+ * `output_tokens`, and an `input_tokens_details` object with `cached_tokens`
+ * and `cache_write_tokens`. The parser also accepts the common variants. Treat
+ * a null result as "not observed", never as "zero tokens".
+ */
+export type CodexStreamUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  /** Cache writes, which bill at a premium over both reads and plain input. */
+  cacheCreationTokens: number;
+  reasoningTokens: number;
 };
 
 /** Validated account-routing evidence joined to a final request log. */

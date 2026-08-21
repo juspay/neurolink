@@ -9,6 +9,11 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../lib/utils/logger.js";
 import type { CliProxyClientConfigurator } from "../../lib/types/index.js";
+import {
+  cloneForSnapshot,
+  isProxyOwnedValue,
+  shouldCaptureSnapshot,
+} from "./snapshot.js";
 
 function getOpenCodeConfigDir(): string {
   // OpenCode resolves this with the unmodified `xdg-basedir` package —
@@ -37,6 +42,12 @@ function getOpenCodeConfigPath(): string {
  */
 const OPENCODE_ORIGINAL_KEY = "__proxy_original_neurolink";
 
+/**
+ * What this writer last wrote into provider.neurolink. Lets apply() tell its
+ * own block from one the user substituted while the proxy was not running.
+ */
+const OPENCODE_WRITTEN_KEY = "__proxy_written_neurolink";
+
 export async function setOpenCodeProxySettings(
   baseUrl: string,
   proxyKey?: string,
@@ -63,19 +74,23 @@ export async function setOpenCodeProxySettings(
 
   const provider = (config.provider ?? {}) as Record<string, unknown>;
 
-  // Persist a snapshot of the user's pre-existing provider.neurolink — but
-  // only the first time we touch the file. Subsequent set() calls must NOT
-  // overwrite the snapshot (otherwise after the proxy writes its own block,
-  // the next set() would store the proxy's block as the "original" and
-  // permanently lose the user's real config on the next clear()).
-  if (!(OPENCODE_ORIGINAL_KEY in config)) {
-    (config as Record<string, unknown>)[OPENCODE_ORIGINAL_KEY] =
-      "neurolink" in provider
-        ? JSON.parse(JSON.stringify(provider.neurolink))
-        : null;
+  // Persist a snapshot of the user's pre-existing provider.neurolink. Repeat
+  // apply() calls must not overwrite it with the proxy's own block — but a
+  // block the user wrote while the proxy was gone must replace it. See
+  // shouldCaptureSnapshot.
+  const currentBlock = "neurolink" in provider ? provider.neurolink : undefined;
+  if (
+    shouldCaptureSnapshot({
+      hasSnapshot: OPENCODE_ORIGINAL_KEY in config,
+      written: config[OPENCODE_WRITTEN_KEY],
+      current: currentBlock,
+    })
+  ) {
+    config[OPENCODE_ORIGINAL_KEY] =
+      currentBlock === undefined ? null : cloneForSnapshot(currentBlock);
   }
 
-  provider.neurolink = {
+  const block = {
     id: "neurolink",
     name: "NeuroLink Proxy",
     npm: "@ai-sdk/openai-compatible",
@@ -86,6 +101,8 @@ export async function setOpenCodeProxySettings(
       apiKey: proxyKey || "neurolink-proxy",
     },
   };
+  provider.neurolink = block;
+  config[OPENCODE_WRITTEN_KEY] = cloneForSnapshot(block);
 
   config.provider = provider;
   fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
@@ -127,14 +144,31 @@ export async function clearOpenCodeProxySettings(
   // explicitly had no entry before — never on an "undefined" snapshot, since
   // that would mean the snapshot was lost and we cannot prove the entry is ours.
   if (OPENCODE_ORIGINAL_KEY in config) {
-    const snapshot = (config as Record<string, unknown>)[OPENCODE_ORIGINAL_KEY];
-    if (snapshot === null) {
-      // User had no provider.neurolink before the proxy started — safe to remove.
-      delete provider.neurolink;
+    // Only restore what we can prove is ours. The base-URL check above lets
+    // through a block still pointing at the proxy that the user has edited
+    // beside the URL; reverting that discards a deliberate change.
+    if (
+      isProxyOwnedValue({
+        written: config[OPENCODE_WRITTEN_KEY],
+        current: existing,
+      })
+    ) {
+      const snapshot = (config as Record<string, unknown>)[
+        OPENCODE_ORIGINAL_KEY
+      ];
+      if (snapshot === null) {
+        // User had no provider.neurolink before the proxy started — safe to remove.
+        delete provider.neurolink;
+      } else {
+        provider.neurolink = snapshot;
+      }
     } else {
-      provider.neurolink = snapshot;
+      logger.debug(
+        "[proxy] OpenCode clear: provider.neurolink was edited after the proxy wrote it, leaving it intact",
+      );
     }
     delete (config as Record<string, unknown>)[OPENCODE_ORIGINAL_KEY];
+    delete (config as Record<string, unknown>)[OPENCODE_WRITTEN_KEY];
   } else {
     // No snapshot present — refuse to delete to avoid destroying a config
     // the proxy may not own (e.g. a user wrote their own `neurolink` block

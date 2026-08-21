@@ -22,6 +22,11 @@ import {
   PROXY_ACCOUNT_ROUTING_REASONS,
   PROXY_ACCOUNT_ROUTING_STRATEGIES,
 } from "./routingEvidence.js";
+import {
+  calculateCost,
+  hasPricing,
+  isExactPricingMatch,
+} from "../utils/pricing.js";
 
 const LIFECYCLE_FILE_PATTERN = /^proxy-lifecycle-\d{4}-\d{2}-\d{2}\.jsonl$/;
 const REQUEST_FILE_PATTERN = /^proxy-\d{4}-\d{2}-\d{2}\.jsonl$/;
@@ -450,6 +455,13 @@ function summarizeFinalRequests(
   let cacheReadTokens = 0;
   let cacheCreationTokens = 0;
   let inputTokens = 0;
+  let outputTokens = 0;
+  let estimatedCostUsd = 0;
+  let requestsPriced = 0;
+  let requestsPricedByPrefix = 0;
+  let requestsUnpriced = 0;
+  const modelsPricedByPrefix = new Set<string>();
+  const unpricedModels = new Set<string>();
   const finalRequestLatency: number[] = [];
   const singleAttemptDelta: number[] = [];
   const errorTypes: Record<string, number> = {};
@@ -498,14 +510,64 @@ function summarizeFinalRequests(
     }
     if (
       request.inputTokens !== null ||
+      request.outputTokens !== null ||
       request.cacheReadTokens !== null ||
       request.cacheCreationTokens !== null
     ) {
       requestsWithUsage += 1;
       inputTokens += request.inputTokens ?? 0;
+      outputTokens += request.outputTokens ?? 0;
       cacheReadTokens += request.cacheReadTokens ?? 0;
       cacheCreationTokens += request.cacheCreationTokens ?? 0;
       requestsWithCacheRead += (request.cacheReadTokens ?? 0) > 0 ? 1 : 0;
+
+      if (request.model) {
+        // Records written before `provider` existed carry only a model name.
+        // "openai-compatible" resolves to the cross-provider table search in
+        // pricing.ts, which finds the model wherever it lives — a far better
+        // guess than assuming Anthropic and pricing a GPT model at $0.
+        const cost = calculateCost(
+          request.provider ?? "openai-compatible",
+          request.model,
+          {
+            input: request.inputTokens ?? 0,
+            output: request.outputTokens ?? 0,
+            total:
+              (request.inputTokens ?? 0) +
+              (request.outputTokens ?? 0) +
+              (request.cacheCreationTokens ?? 0) +
+              (request.cacheReadTokens ?? 0),
+            cacheCreationTokens: request.cacheCreationTokens ?? 0,
+            cacheReadTokens: request.cacheReadTokens ?? 0,
+          },
+        );
+        // Ask the table directly rather than inferring from cost > 0: a real
+        // request with trivial usage can round to $0.000000 and is priced, not
+        // unpriced.
+        const priced = hasPricing(
+          request.provider ?? "openai-compatible",
+          request.model,
+        );
+        if (priced) {
+          estimatedCostUsd += cost;
+          requestsPriced += 1;
+          // A prefix fallback means the rate was inherited from a
+          // similarly-named model, not quoted for this one. Surface it rather
+          // than presenting a guess as a figure.
+          if (
+            !isExactPricingMatch(
+              request.provider ?? "openai-compatible",
+              request.model,
+            )
+          ) {
+            requestsPricedByPrefix += 1;
+            modelsPricedByPrefix.add(request.model);
+          }
+        } else {
+          requestsUnpriced += 1;
+          unpricedModels.add(request.model);
+        }
+      }
     }
   }
 
@@ -525,6 +587,13 @@ function summarizeFinalRequests(
       cacheReadTokens,
       cacheCreationTokens,
       inputTokens,
+      outputTokens,
+      estimatedCostUsd: Number(estimatedCostUsd.toFixed(6)),
+      requestsPriced,
+      requestsPricedByPrefix,
+      modelsPricedByPrefix: [...modelsPricedByPrefix].sort(),
+      requestsUnpriced,
+      unpricedModels: [...unpricedModels].sort(),
       requestHitRate:
         requestsWithUsage > 0
           ? Number((requestsWithCacheRead / requestsWithUsage).toFixed(4))
@@ -862,11 +931,25 @@ export async function analyzeProxyLogs(
       filePath,
       (record) => {
         const timestamp = observeTimestamp("requests", record);
-        if (timestamp === null || timestamp < sinceMs || timestamp > untilMs) {
+        if (timestamp === null) {
           return;
         }
         const requestId = stringValue(record.requestId);
         if (!requestId) {
+          return;
+        }
+        // A streamed request is logged twice — once when the response headers
+        // are known, again when the body finishes and its token counts arrive
+        // — and those two writes can straddle the window edge. A Codex turn
+        // whose headers land at 23:59:50 and whose stream ends at 00:00:05 has
+        // every token it spent in the second record. Filtering that record out
+        // by its own timestamp would leave the request counted as completed
+        // but contributing nothing to tokens or cost, with nothing in the
+        // report to say so. A request the window already admitted therefore
+        // keeps accepting its own later records.
+        const alreadyAdmitted =
+          finalRequests.has(requestId) || terminalStreamErrors.has(requestId);
+        if (!alreadyAdmitted && (timestamp < sinceMs || timestamp > untilMs)) {
           return;
         }
         if (finiteNumber(record.terminalStatus) !== null) {
@@ -891,19 +974,45 @@ export async function analyzeProxyLogs(
         } else {
           absentRoutingDecisions += 1;
         }
-        finalRequests.set(requestId, {
+        const parsed: ProxyAnalysisFinalRequestRecord = {
           timestamp: new Date(timestamp).toISOString(),
           status,
           durationMs: finiteNumber(record.responseTimeMs),
           account: stringValue(record.account) ?? "unknown",
           accountType: stringValue(record.accountType) ?? "unknown",
+          model: stringValue(record.model),
+          provider: stringValue(record.provider),
           inputTokens: finiteNumber(record.inputTokens),
+          outputTokens: finiteNumber(record.outputTokens),
           cacheReadTokens: finiteNumber(record.cacheReadTokens),
           cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
           errorType: stringValue(record.errorType),
           errorCode: stringValue(record.errorCode),
           routingDecision,
-        });
+        };
+        // A request may be logged twice: once when the response headers are
+        // known, and again when a streamed body finishes and its token counts
+        // become available (the Codex engine does this). Merge rather than
+        // replace, so the later usage-bearing record cannot drop an errorType
+        // the first one carried, and vice versa.
+        const previous = finalRequests.get(requestId);
+        finalRequests.set(
+          requestId,
+          previous
+            ? {
+                ...previous,
+                ...Object.fromEntries(
+                  Object.entries(parsed).filter(
+                    ([, value]) => value !== null && value !== undefined,
+                  ),
+                ),
+                // Attribute the request to when it was first seen. A late
+                // completion record must not move it out of the window that
+                // admitted it.
+                timestamp: previous.timestamp,
+              }
+            : parsed,
+        );
       },
       () => {
         malformedLines += 1;

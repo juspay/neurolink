@@ -128,8 +128,27 @@ function printAnalysis(
       `    Usage records: ${report.cache.requestsWithUsage}, cache-read requests: ${report.cache.requestsWithCacheRead}, hit rate: ${report.cache.requestHitRate === null ? "-" : `${(report.cache.requestHitRate * 100).toFixed(1)}%`}`,
     );
     logger.always(
-      `    Tokens: ${report.cache.cacheReadTokens} read, ${report.cache.cacheCreationTokens} created, ${report.cache.inputTokens} input`,
+      `    Tokens: ${report.cache.cacheReadTokens} read, ${report.cache.cacheCreationTokens} created, ${report.cache.inputTokens} input, ${report.cache.outputTokens} output`,
     );
+    logger.always(
+      report.cache.requestsPriced > 0
+        ? `    Estimated cost: $${report.cache.estimatedCostUsd.toFixed(4)} across ${report.cache.requestsPriced} priced request(s)`
+        : "    Estimated cost: unavailable (no request carried a priceable model)",
+    );
+    if (report.cache.requestsPricedByPrefix > 0) {
+      logger.always(
+        chalk.yellow(
+          `    ⚠ ${report.cache.requestsPricedByPrefix} request(s) priced by name-prefix fallback, not an exact rate: ${report.cache.modelsPricedByPrefix.join(", ")}`,
+        ),
+      );
+    }
+    if (report.cache.requestsUnpriced > 0) {
+      logger.always(
+        chalk.yellow(
+          `    ⚠ ${report.cache.requestsUnpriced} request(s) had usage but no pricing row: ${report.cache.unpricedModels.join(", ")}`,
+        ),
+      );
+    }
   } else {
     logger.always(chalk.yellow("    Cache usage: unavailable"));
   }

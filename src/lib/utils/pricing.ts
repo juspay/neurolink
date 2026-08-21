@@ -24,6 +24,47 @@ const PRICING: Record<
 > = {
   // Anthropic (direct API) — updated March 2026
   anthropic: {
+    // Claude 5 family. Rates from platform.claude.com/docs/en/about-claude/pricing
+    // (checked 2026-08-21). Cache multipliers are the documented ones: a 5-minute
+    // cache write is 1.25x base input, a cache hit 0.1x.
+    "claude-fable-5": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 1.0 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-mythos-5": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 1.0 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-opus-5": {
+      input: 5.0 / 1_000_000,
+      output: 25.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+      cacheCreation: 6.25 / 1_000_000,
+    },
+    "claude-opus-4-8": {
+      input: 5.0 / 1_000_000,
+      output: 25.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+      cacheCreation: 6.25 / 1_000_000,
+    },
+    "claude-opus-4-7": {
+      input: 5.0 / 1_000_000,
+      output: 25.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+      cacheCreation: 6.25 / 1_000_000,
+    },
+    // Sonnet 5's $2/$10 launch pricing became the standard price; the
+    // previously scheduled 2026-09-01 rise to $3/$15 was cancelled.
+    "claude-sonnet-5": {
+      input: 2.0 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 2.5 / 1_000_000,
+    },
     // Claude 4.6 family
     "claude-opus-4-6": {
       input: 5.0 / 1_000_000,
@@ -44,6 +85,17 @@ const PRICING: Record<
       cacheRead: 0.3 / 1_000_000,
       cacheCreation: 3.75 / 1_000_000,
     },
+    // Undated aliases for the same models. Clients report the bare name far
+    // more often than the dated one, and without these the longest-prefix
+    // match lands on the previous generation ("claude-sonnet-4"), which both
+    // reports as an inferred rate and would silently drift if the two
+    // generations ever diverge in price.
+    "claude-sonnet-4-5": {
+      input: 3.0 / 1_000_000,
+      output: 15.0 / 1_000_000,
+      cacheRead: 0.3 / 1_000_000,
+      cacheCreation: 3.75 / 1_000_000,
+    },
     "claude-opus-4-5": {
       input: 5.0 / 1_000_000,
       output: 25.0 / 1_000_000,
@@ -51,6 +103,12 @@ const PRICING: Record<
       cacheCreation: 6.25 / 1_000_000,
     },
     "claude-haiku-4-5-20251001": {
+      input: 1.0 / 1_000_000,
+      output: 5.0 / 1_000_000,
+      cacheRead: 0.1 / 1_000_000,
+      cacheCreation: 1.25 / 1_000_000,
+    },
+    "claude-haiku-4-5": {
       input: 1.0 / 1_000_000,
       output: 5.0 / 1_000_000,
       cacheRead: 0.1 / 1_000_000,
@@ -160,6 +218,35 @@ const PRICING: Record<
   },
   // OpenAI — updated March 2026
   openai: {
+    // GPT-5.6 family (Sol/Terra/Luna). Rates reflect OpenAI's 2026-07-30 cut,
+    // which reduced Luna by 80% and Terra by 20%; Sol was unchanged. Many
+    // third-party tables still carry the pre-cut numbers.
+    // List rates. Note that some resellers advertise sol at 50% off
+    // ($2.50/$15.00/$0.25); those are promotional and expire, so the table
+    // carries list price and cache read stays the documented 0.1x of input.
+    "gpt-5.6-sol": {
+      input: 5.0 / 1_000_000,
+      output: 30.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+      cacheCreation: 6.25 / 1_000_000,
+    },
+    "gpt-5.6-terra": {
+      input: 2.0 / 1_000_000,
+      output: 12.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 2.5 / 1_000_000,
+    },
+    "gpt-5.6-luna": {
+      input: 0.2 / 1_000_000,
+      output: 1.2 / 1_000_000,
+      cacheRead: 0.02 / 1_000_000,
+      cacheCreation: 0.25 / 1_000_000,
+    },
+    "gpt-5.5": {
+      input: 5.0 / 1_000_000,
+      output: 30.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+    },
     // GPT-5.x family
     // cacheRead = 0.25x input (cached input tokens; no separate cacheCreation).
     "gpt-5.4": {
@@ -640,9 +727,35 @@ const PROVIDER_ALIASES: Record<string, string> = {
  *
  * @returns The rate entry, or undefined when the combination is unknown.
  */
+/**
+ * Whether the tail left over after a longest-prefix match is only a version or
+ * date stamp — e.g. "claude-sonnet-4-5-20250929-v1:0" against the table key
+ * "claude-sonnet-4-5". That is the *same* model carrying a release suffix, so
+ * its rate is quoted, not inferred.
+ *
+ * Deliberately narrow: "gpt-5.6-sol" against "gpt-5" leaves ".6-sol", which is
+ * a different model generation and stays flagged as inferred.
+ */
+const VERSION_SUFFIX_RE =
+  /^[-@](\d{8}|v\d+(:\d+)?|latest)([-@:](\d{8}|v\d+(:\d+)?))*$/;
+
+function isVersionOnlySuffix(model: string, key: string): boolean {
+  if (!model.startsWith(key) || model === key) {
+    return false;
+  }
+  return VERSION_SUFFIX_RE.test(model.slice(key.length));
+}
+
 function findRates(
   provider: string,
   model: string,
+  /**
+   * Set to true when the rates came from a literal table key rather than a
+   * prefix/fallback match. Threaded as an out-param so there is exactly one
+   * lookup implementation — a second hand-written copy drifted from this one
+   * and mislabelled every Bedrock and Vertex-Gemini hit.
+   */
+  matchKind?: { exact: boolean },
 ):
   | {
       input: number;
@@ -659,6 +772,9 @@ function findRates(
     for (const providerPricing of Object.values(PRICING)) {
       // Exact match
       if (providerPricing[model]) {
+        if (matchKind) {
+          matchKind.exact = true;
+        }
         return providerPricing[model];
       }
       const sortedKeys = Object.keys(providerPricing).sort(
@@ -699,6 +815,9 @@ function findRates(
 
   // Exact match
   if (providerPricing[modelKey]) {
+    if (matchKind) {
+      matchKind.exact = true;
+    }
     return providerPricing[modelKey];
   }
 
@@ -708,6 +827,9 @@ function findRates(
     .sort((a, b) => b.length - a.length);
   const key = sortedKeys.find((k) => modelKey.startsWith(k));
   if (key) {
+    if (matchKind && isVersionOnlySuffix(modelKey, key)) {
+      matchKind.exact = true;
+    }
     return providerPricing[key];
   }
 
@@ -720,6 +842,9 @@ function findRates(
     const googlePricing = PRICING["google"];
     if (googlePricing) {
       if (googlePricing[model]) {
+        if (matchKind) {
+          matchKind.exact = true;
+        }
         return googlePricing[model];
       }
       const googleKeys = Object.keys(googlePricing).sort(
@@ -788,6 +913,20 @@ export function calculateCost(
  * USD price, and any caller gated by `hasPricing()` should treat them as
  * non-billable rather than zero-cost-billable.
  */
+/**
+ * Whether a model's rates came from an exact table entry or were inferred.
+ *
+ * `findRates` falls back to a longest-prefix match, so an unlisted model can
+ * silently inherit a listed one's rates — e.g. "gpt-5.6-sol" matches the
+ * "gpt-5" entry and is billed at its price. That is a guess, not a quote, and
+ * a caller reporting spend needs to be able to say which it had.
+ */
+export function isExactPricingMatch(provider: string, model: string): boolean {
+  const matchKind = { exact: false };
+  const rates = findRates(provider, model, matchKind);
+  return rates !== undefined && matchKind.exact;
+}
+
 export function hasPricing(provider: string, model: string): boolean {
   const rates = findRates(provider, model);
   if (!rates) {

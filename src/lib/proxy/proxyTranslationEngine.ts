@@ -343,6 +343,8 @@ export async function handleTranslatedStreamRequest(args: {
   let succeeded = false;
   let streamInterruptedAfterOutput = false;
   let translatedModel: string | undefined;
+  /** Provider that actually served the successful attempt, for costing. */
+  let translatedProvider: string | undefined;
   let finalStreamError = "No translation providers succeeded";
   let upstreamIterator: AsyncIterator<unknown> | undefined;
   let lastAttemptLabel = "translation";
@@ -456,6 +458,25 @@ export async function handleTranslatedStreamRequest(args: {
               }
             }
 
+            translatedModel = streamResult.model;
+            translatedProvider = attempt.provider;
+
+            // Substitution BEFORE usage: setUsage() and recordMetrics() price
+            // the request immediately, against the tracer's current model and
+            // billing provider. Recording first and substituting afterwards
+            // bills the model the client ASKED for — which is exactly what
+            // ProxyTracer.setModelSubstitution() documents as wrong, since a
+            // claude-* alias served by another provider would be charged at
+            // Claude rates. The finally block below still calls it, harmlessly,
+            // for paths that never reach here.
+            if (tracer && translatedModel && translatedModel !== requestModel) {
+              tracer.setModelSubstitution(
+                requestModel,
+                translatedModel,
+                translatedProvider,
+              );
+            }
+
             // Track usage and metrics
             const resolvedUsageForTracer = extractUsageFromStreamResult(
               streamResult.usage,
@@ -467,8 +488,6 @@ export async function handleTranslatedStreamRequest(args: {
               cacheReadTokens: 0,
             });
             tracer?.recordMetrics();
-
-            translatedModel = streamResult.model;
             succeeded = true;
             return;
           } catch (streamErr) {
@@ -514,7 +533,11 @@ export async function handleTranslatedStreamRequest(args: {
           controller.close();
         }
         if (tracer && translatedModel && translatedModel !== requestModel) {
-          tracer.setModelSubstitution(requestModel, translatedModel);
+          tracer.setModelSubstitution(
+            requestModel,
+            translatedModel,
+            translatedProvider,
+          );
         }
         const terminalStatus = cancelled
           ? 499
@@ -679,6 +702,17 @@ export async function handleTranslatedJsonRequest(args: {
         toolCalls: streamResult.toolCalls as InternalResult["toolCalls"],
       };
 
+      // Substitution BEFORE usage — see the streaming path for why: pricing
+      // happens inside setUsage()/recordMetrics(), so substituting afterwards
+      // bills the requested model instead of the one that served.
+      if (tracer && streamResult.model && streamResult.model !== requestModel) {
+        tracer.setModelSubstitution(
+          requestModel,
+          streamResult.model,
+          attempt.provider,
+        );
+      }
+
       // Track usage and metrics
       const resolvedUsage = extractUsageFromStreamResult(streamResult.usage);
       tracer?.setUsage({
@@ -688,10 +722,6 @@ export async function handleTranslatedJsonRequest(args: {
         cacheReadTokens: 0,
       });
       tracer?.recordMetrics();
-
-      if (tracer && streamResult.model && streamResult.model !== requestModel) {
-        tracer.setModelSubstitution(requestModel, streamResult.model);
-      }
       tracer?.end(200, Date.now() - requestStartTime);
 
       recordFinalSuccess(lastAttemptLabel, "translation");
