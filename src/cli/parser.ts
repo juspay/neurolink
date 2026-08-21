@@ -1,4 +1,12 @@
 import chalk from "chalk";
+// `@types/yargs` is pinned to the v17 line while the runtime `yargs` dependency
+// is v18 — a real, currently unfixable skew. DefinitelyTyped has no v18 types
+// package, and yargs 18's package.json `exports` map gives the main entry no
+// `types` condition, so there is no way to get types straight from the
+// runtime package either. `@types/yargs` therefore stays load-bearing here
+// until DefinitelyTyped (or yargs itself) ships v18-compatible types. This
+// file is the canonical place for that note, not the only import site —
+// yargs is imported across roughly two dozen files in this codebase.
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import packageJson from "../../package.json" with { type: "json" };
