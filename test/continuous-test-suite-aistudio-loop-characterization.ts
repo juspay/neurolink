@@ -133,6 +133,19 @@ function functionResponses(call: StandInCall | undefined): string[] {
     .filter((n): n is string => typeof n === "string");
 }
 
+/** functionResponse parts with their payloads, for a given request. */
+function functionResponsePayloads(
+  call: StandInCall | undefined,
+): Array<{ name?: string; response?: unknown }> {
+  const contents = (call?.body?.contents ?? []) as Array<{
+    parts?: Array<{ functionResponse?: { name?: string; response?: unknown } }>;
+  }>;
+  return contents
+    .flatMap((c) => c.parts ?? [])
+    .map((p) => p.functionResponse)
+    .filter((r): r is { name?: string; response?: unknown } => r !== undefined);
+}
+
 async function startStandIn(
   reply: (callIndex: number) => string,
 ): Promise<StandIn> {
@@ -397,10 +410,29 @@ await test("a tool that always throws is reported to the model and does not run 
     server.calls.length === 4,
     `a maxSteps=4 turn made ${server.calls.length} calls, not the 4 this loop performs`,
   );
-  const responses = JSON.stringify(server.calls.slice(1).map((c) => c.body));
+  // Structural, not a substring scan of the whole request body.
+  //
+  // The first version of this assertion searched the serialized body for the
+  // tool's name, which can never fail: the name is in the function
+  // DECLARATIONS on every single request, whether or not any result came
+  // back. Mutation-testing proved it — replacing every functionResponse with
+  // a stub broke two other cases in this file and left this one green.
+  //
+  // What actually matters is that each failed dispatch is answered: a
+  // functionResponse under the tool's own name, carrying a failure rather
+  // than a result.
+  const failureResponses = functionResponsePayloads(server.calls[3]).filter(
+    (entry) => entry.name === "flaky",
+  );
   assert(
-    responses.includes("flaky"),
-    "the failed dispatch was never reported back to the model",
+    failureResponses.length > 0,
+    "the failed dispatch was never answered back to the model",
+  );
+  assert(
+    failureResponses.every((entry) =>
+      JSON.stringify(entry.response ?? {}).includes("error"),
+    ),
+    "the dispatch was answered, but not as a failure",
   );
 });
 
