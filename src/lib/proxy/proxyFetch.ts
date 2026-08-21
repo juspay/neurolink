@@ -853,3 +853,36 @@ export function getProxyStatus() {
     ],
   };
 }
+
+/**
+ * One-time warning that the @google/genai SDK cannot honour a configured
+ * proxy.
+ *
+ * Both Google providers passed `httpOptions: { fetch: createProxyFetch() }`,
+ * which does nothing. `HttpOptions` in @google/genai 1.46.0 declares only
+ * baseUrl, baseUrlResourceScope, apiVersion, headers, timeout, extraBody and
+ * retryOptions — there is no `fetch` on it. That property belongs to a
+ * different interface (`ClientOptions`), which `GoogleGenAIOptions` does not
+ * accept, and the SDK's request path calls global `fetch`. The option was
+ * silently dropped and requests went direct.
+ *
+ * It type-checked only because those constructors are reached through a
+ * loosely-typed local alias, which turns off excess-property checking.
+ *
+ * This SDK version offers no supported injection point, so rather than keep a
+ * line that reads like working proxy support, the situation is reported once
+ * per process — and only to someone who actually configured a proxy. Silent
+ * bypass is the worst outcome available: a corporate user believes their
+ * traffic is proxied when it is not.
+ */
+let proxyUnsupportedWarned = false;
+
+export function warnGoogleSdkIgnoresProxy(providerLabel: string): void {
+  if (proxyUnsupportedWarned || !getProxyStatus().enabled) {
+    return;
+  }
+  proxyUnsupportedWarned = true;
+  logger.warn(
+    `[${providerLabel}] A proxy is configured, but the @google/genai SDK provides no way to route its requests through it (HttpOptions has no 'fetch', and GoogleGenAIOptions accepts none). Requests from this provider go direct.`,
+  );
+}
