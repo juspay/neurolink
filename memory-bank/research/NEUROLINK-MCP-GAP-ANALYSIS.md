@@ -209,7 +209,7 @@ export class NeuroLinkMCPClient {
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/Users/sachinsharma/Developer"],
+      "args": ["@modelcontextprotocol/server-filesystem", "$WORKSPACE"],
       "transport": "stdio"
     },
     "github": {

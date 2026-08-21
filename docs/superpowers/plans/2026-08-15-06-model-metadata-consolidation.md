@@ -10,9 +10,9 @@
 
 **Spec:**
 
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap2-model-metadata-subsystem-model-registry-modelresol.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/06-message-building-multimodal-adaptation-how-user-in.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap2-model-metadata-subsystem-model-registry-modelresol.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/06-message-building-multimodal-adaptation-how-user-in.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
 
 ## Global Constraints
 

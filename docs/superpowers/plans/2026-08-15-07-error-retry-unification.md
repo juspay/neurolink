@@ -10,10 +10,10 @@
 
 **Spec:**
 
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/03-native-sdk-provider-family-anthropic-openai-google.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/09-cross-cutting-provider-concerns-tools-mcp-injectio.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap1-ci-cd-automated-testing-coverage-for-ai-provider-c.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/03-native-sdk-provider-family-anthropic-openai-google.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/09-cross-cutting-provider-concerns-tools-mcp-injectio.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap1-ci-cd-automated-testing-coverage-for-ai-provider-c.md`
 
 ## Global Constraints
 

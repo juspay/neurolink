@@ -8,7 +8,7 @@ This guide provides hands-on examples to experience all RAG features locally.
 
 ```bash
 # Make sure you're in the neurolink directory
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/rag-processing
+cd $WORKSPACE/neurolink-fork/feat/rag-processing
 
 # Ensure CLI is built and linked
 pnpm run build:cli

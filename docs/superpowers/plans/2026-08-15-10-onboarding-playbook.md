@@ -10,10 +10,10 @@
 
 **Spec:**
 
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap1-ci-cd-automated-testing-coverage-for-ai-provider-c.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/00-provider-registration-instantiation-chain.md`
-- `/private/tmp/claude-501/-Users-sachinsharma-Developer-temp-neurolink-fork-feat-proider-redesign/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/10-openai-compat-family.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/gap1-ci-cd-automated-testing-coverage-for-ai-provider-c.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/00-provider-registration-instantiation-chain.md`
+- `$SCRATCH/47d64fa8-f94f-404c-b134-3e117deddba3/scratchpad/areas/11-types-models-config.md`
 
 ## Global Constraints
 
@@ -55,7 +55,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Create the ADR directory and index.
 
   ```bash
-  mkdir -p /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign/docs/provider-integration/adr
+  mkdir -p $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/adr
   ```
 
 - [ ] Write `docs/provider-integration/adr/README.md`:
@@ -271,9 +271,9 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify the ADRs render as expected Markdown (no broken relative links) and commit.
 
   ```bash
-  grep -rl "^# ADR-000" /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign/docs/provider-integration/adr/
+  grep -rl "^# ADR-000" $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/adr/
   # Expected: all three 000N files listed
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign && pnpm run format
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign && pnpm run format
   git add docs/provider-integration/adr/
   git commit -m "docs(provider-integration): add ADRs for descriptor/catalog/mocked-gate decisions"
   ```
@@ -295,7 +295,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Create the tiers directory and write the overview.
 
   ```bash
-  mkdir -p /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign/docs/provider-integration/tiers
+  mkdir -p $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/tiers
   ```
 
   `docs/provider-integration/tiers/README.md`:
@@ -415,7 +415,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify both files exist and the overview's internal links resolve to files that exist.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   test -f docs/provider-integration/tiers/README.md && \
   test -f docs/provider-integration/tiers/tier-1-aggregator-passthrough.md && \
   echo "OK: both files present"
@@ -633,7 +633,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify the file was created and contains all six numbered steps.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   grep -c "^## Step" docs/provider-integration/tiers/tier-2-catalog-entry.md
   # Expected: 6
   ```
@@ -774,7 +774,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify the file exists and the file-list table has exactly 9 rows.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   grep -c "^| [1-9] " docs/provider-integration/tiers/tier-3-adapter-native.md
   # Expected: 9
   ```
@@ -892,7 +892,7 @@ This is a docs-only task; there is no code to test, so the verification step is 
 - [ ] Verify the file exists and mentions `tier4Justification` (the field Task 9's tool checks for).
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   grep -c "tier4Justification" docs/provider-integration/tiers/tier-4-full-custom.md
   # Expected: a number >= 2 (mentioned in prose and in the JSON example)
   ```
@@ -928,7 +928,7 @@ with a real provider's manifest filename (`<provider>.json`) and so
 - [ ] Create the manifests directory and write the README.
 
   ```bash
-  mkdir -p /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign/docs/provider-integration/manifests
+  mkdir -p $WORKSPACE/neurolink-fork/feat/proider-redesign/docs/provider-integration/manifests
   ```
 
   `docs/provider-integration/manifests/README.md`:
@@ -1050,7 +1050,7 @@ with a real provider's manifest filename (`<provider>.json`) and so
 - [ ] Verify both fixtures are valid JSON.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   node -e 'JSON.parse(require("fs").readFileSync("docs/provider-integration/manifests/_example-tier2-catalog.json", "utf8")); JSON.parse(require("fs").readFileSync("docs/provider-integration/manifests/_example-tier3-adapter.json", "utf8")); console.log("OK: both valid JSON")'
   # Expected: OK: both valid JSON
   ```
@@ -1206,7 +1206,7 @@ with a real provider's manifest filename (`<provider>.json`) and so
       removed `ALL_PROVIDERS` array or the stale 12-file checklist framing.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   grep -rn "add to \`ALL_PROVIDERS\`\|The relevant section is the \`ALL_PROVIDERS\` array" docs/provider-integration/ || echo "CLEAN"
   # Expected: CLEAN
   ```
@@ -1547,7 +1547,7 @@ This is a template-string generator with no external dependencies — no unit-te
       expected files.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   pnpm run scaffold:provider -- --name=cerebras --tier=2 \
     --baseURL=https://api.cerebras.ai/v1 --envVar=CEREBRAS_API_KEY \
     --defaultModel=llama3.1-70b --aliases=cerebras-ai \
@@ -1920,7 +1920,7 @@ This tool is source-only — it imports `PROVIDER_DESCRIPTORS`/`OPENAI_COMPAT_CA
       member is in `LEGACY_PROVIDERS`).
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   pnpm run verify:provider-onboarding
   # Expected: "No new (post-legacy) providers to check." and exit code 0
   echo "exit: $?"
@@ -1988,7 +1988,7 @@ This tool is source-only — it imports `PROVIDER_DESCRIPTORS`/`OPENAI_COMPAT_CA
       new section.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   node -e 'require("js-yaml")' 2>/dev/null && node -e 'const yaml=require("js-yaml"); yaml.load(require("fs").readFileSync(".github/workflows/ci.yml","utf8")); console.log("YAML OK")' || python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); print('YAML OK')"
   # Expected: "YAML OK" from whichever parser is available
   grep -q "New Provider Onboarding" .github/PULL_REQUEST_TEMPLATE.md && echo "OK: PR template updated"
@@ -2087,7 +2087,7 @@ interface, `AIProviderName` enum |``) and add rows for the new
       remains.
 
   ```bash
-  cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/proider-redesign
+  cd $WORKSPACE/neurolink-fork/feat/proider-redesign
   grep -n "AIProviderName.*enum.*src/lib/types/providers.ts\|src/lib/types/providers.ts.*AIProviderName" CLAUDE.md || echo "CLEAN: no stale location reference"
   # Expected: CLEAN: no stale location reference
   grep -q "tiers/README.md" CLAUDE.md && echo "OK: tiered flow referenced"

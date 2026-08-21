@@ -7,7 +7,14 @@ echo "🎬 Creating CLI recordings for three new providers..."
 RECORDINGS_DIR="docs/cli-recordings/three-providers"
 mkdir -p "$RECORDINGS_DIR"
 
-cd /Users/sachinsharma/Developer/Official/neurolink
+# Resolve the repo root from THIS script's location, not the caller's cwd, and
+# fail loudly rather than recording from whatever directory happens to be
+# current. These scripts used to `cd` to one contributor's absolute path.
+REPO_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)" || {
+  echo "error: not inside a git worktree; cannot locate the repository root" >&2
+  exit 1
+}
+cd "$REPO_ROOT"
 
 # 1. Record Hugging Face demo
 echo "📹 Recording Hugging Face CLI usage..."

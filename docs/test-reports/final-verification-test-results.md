@@ -13,7 +13,7 @@
 
 ## Test Environment
 
-- **Working Directory:** `/Users/sachinsharma/Developer/temp/neurolink-fork/neurolink`
+- **Working Directory:** `$WORKSPACE/neurolink-fork/neurolink`
 - **Branch:** release
 - **Build Status:** CLI compiled successfully
 - **MCP Config:** 2 external servers configured (filesystem, github)

@@ -60,7 +60,7 @@ Plus a correctness fix to the SDK's public `extractJsonStringFromText` (replace 
 Run:
 
 ```bash
-cd /Users/sachinsharma/Developer/temp/neurolink-fork/feat/json-fix
+cd $WORKSPACE/neurolink-fork/feat/json-fix
 git fetch origin release
 git status --short            # expect: empty
 git log --oneline origin/release..HEAD   # expect: empty (0 commits ahead)
