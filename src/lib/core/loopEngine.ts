@@ -193,9 +193,11 @@ export function runAgenticLoop<TConversation>(
               permanentlyFailed: true,
             });
             allToolExecutions.push({
+              id: call.id,
               name: call.name,
               input: call.args,
               output,
+              error: output.error,
             });
             continue;
           }
@@ -224,9 +226,11 @@ export function runAgenticLoop<TConversation>(
               permanentlyFailed: !!breaker,
             });
             allToolExecutions.push({
+              id: call.id,
               name: call.name,
               input: call.args,
               output,
+              error: output.error,
             });
             continue;
           }
@@ -237,6 +241,7 @@ export function runAgenticLoop<TConversation>(
             });
             toolResults.push({ ...call, output });
             allToolExecutions.push({
+              id: call.id,
               name: call.name,
               input: call.args,
               output,
@@ -255,9 +260,11 @@ export function runAgenticLoop<TConversation>(
             const output = { error: message, status: "failed" };
             toolResults.push({ ...call, output, error: message });
             allToolExecutions.push({
+              id: call.id,
               name: call.name,
               input: call.args,
               output,
+              error: message,
             });
           }
         }
