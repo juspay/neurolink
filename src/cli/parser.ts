@@ -11,6 +11,7 @@ import { AuthCommandFactory } from "./factories/authCommandFactory.js";
 import { ServerCommandFactory } from "./commands/server.js";
 import { ServeCommandFactory } from "./commands/serve.js";
 import { ragCommand } from "./commands/rag.js";
+import { DocsCommandFactory } from "./commands/docs.js";
 import { ObservabilityCommandFactory } from "./commands/observability.js";
 import { TelemetryCommandFactory } from "./commands/telemetry.js";
 import {
@@ -239,6 +240,9 @@ export function initializeCliParser() {
 
       // RAG Document Processing Commands
       .command(ragCommand)
+
+      // Docs MCP Server Command
+      .command(DocsCommandFactory.createDocsCommand())
 
       // Observability Commands
       .command(ObservabilityCommandFactory.createObservabilityCommands())
