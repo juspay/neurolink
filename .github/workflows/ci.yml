@@ -251,20 +251,20 @@ jobs:
       # test:model-not-found-retryable is deliberately absent: it is the one
       # member of test:unit that skips entirely without credentials, so running
       # it here would add a step that can only ever no-op.
-      # test:bugfixes is deliberately NOT here yet. Adding it surfaced four
-      # failures that only occur on a CI runner — three undici "invalid onError
-      # method" errors and one oversized-URL assertion, all in the FileDetector
-      # URL tests. They pass locally on Node 24 (280/0) and do not reproduce on
-      # Node 20 either (279/1, and a different failure), so the cause is not
-      # simply the Node version and is not yet understood.
+      # test:bugfixes was held out of CI until now. Its four FileDetector
+      # failures were not flaky and not environmental: getGlobalDispatcher()
+      # returns Node's BUILT-IN undici, whose major tracks the runtime, and the
+      # composed result was passed to npm undici 7's request(). On Node 22
+      # (built-in undici 6) that throws "invalid onError method"; on Node 24
+      # (built-in 7) it does not. Node 22 is this package's engines floor, so
+      # consumers hit it too — see src/lib/utils/redirectDispatcher.ts.
       #
-      # Those are real pre-existing failures that no one could see before,
-      # because nothing ran this suite. They deserve their own investigation
-      # rather than blocking the other twelve suites from ever running — and
-      # since a failing step aborts the rest, leaving it in would keep the
-      # other 636 assertions from executing at all.
+      # Kept here as a note because the runner is where it will resurface: if
+      # this step starts failing on FileDetector again after a Node or undici
+      # bump, that dispatcher-major check is the first place to look.
       - name: Credential-free suites (the rest of test:unit)
         run: |
+          pnpm run test:bugfixes
           pnpm run test:mcp:infra
           pnpm run test:mcp:spans
           pnpm run test:tool-routing

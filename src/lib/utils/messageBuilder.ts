@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, statSync } from "fs";
 import { readFile as readFileAsync, stat as statAsync } from "fs/promises";
-import { getGlobalDispatcher, interceptors, request } from "undici";
+import { request } from "undici";
+import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
 import {
   MultimodalLogger,
   ProviderImageAdapter,
@@ -2142,9 +2143,7 @@ async function downloadImageFromUrl(url: string): Promise<string> {
 
   try {
     const response = await request(url, {
-      dispatcher: getGlobalDispatcher().compose(
-        interceptors.redirect({ maxRedirections: 5 }),
-      ),
+      dispatcher: redirectFollowingDispatcher(5),
       method: "GET",
       headersTimeout: 10000, // 10 second timeout for headers
       bodyTimeout: 30000, // 30 second timeout for body,
