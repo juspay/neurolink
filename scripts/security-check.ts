@@ -329,6 +329,38 @@ class SecurityValidator {
       });
     }
 
+    // An accepted-risk entry whose package no longer has any live advisory is
+    // dead weight: it makes the accepted list look larger than the real
+    // exposure, and it hides the fact that something was fixed upstream. Report
+    // it as a warning rather than an error — a stale acceptance is tidy-up, not
+    // a vulnerability, and failing the build for it would break unrelated work
+    // the moment a dependency gets patched.
+    //
+    // This is the safeguard the previous advisory-id list never had. That list
+    // could only grow: ids were added by hand whenever the build broke, and
+    // nothing ever told anyone when one stopped mattering.
+    //
+    // Computed BEFORE the unaccepted-advisory return below. A run that fails on
+    // a real advisory is exactly a run someone is about to read carefully, so
+    // it is the worst moment to withhold the rest of what the scan noticed.
+    //
+    // The threshold is named explicitly: `actionable` drops low-severity
+    // advisories, so a package whose only open advisory is low would otherwise
+    // be described as having none at all.
+    const packagesWithLiveAdvisories = new Set(
+      actionable.map((a) => a.module_name),
+    );
+    const staleAcceptances = Object.keys(ACCEPTED_RISK_PACKAGES).filter(
+      (pkg) => !packagesWithLiveAdvisories.has(pkg),
+    );
+    if (staleAcceptances.length > 0) {
+      this.addIssue(
+        "warning",
+        "dependencies",
+        `Accepted-risk entries with no live moderate-or-higher advisory (safe to remove from ACCEPTED_RISK_PACKAGES): ${staleAcceptances.join(", ")}`,
+      );
+    }
+
     if (unaccepted.length > 0) {
       unaccepted.forEach((a) => {
         const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
