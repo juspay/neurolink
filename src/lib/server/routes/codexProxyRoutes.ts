@@ -43,6 +43,7 @@ import {
   CODEX_ACCOUNT_PREFIX,
   parseCodexRateLimitHeaders,
 } from "../../proxy/codexAccountUsage.js";
+import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { logRequest } from "../../proxy/requestLogger.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
 import type {
@@ -350,6 +351,7 @@ async function handleCodexResponsesRequest(
         : 0,
       account,
       accountType: "codex-oauth",
+      ...buildClientAttribution(ctx.headers),
       responseStatus,
       responseTimeMs: Date.now() - requestStartTime,
       ...extra,

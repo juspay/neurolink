@@ -77,6 +77,23 @@ export type CliAccountUsageTotals = {
   unpricedRequests: number;
   /** Distinct models with no pricing row, so an operator can chase them. */
   unpricedModels: string[];
+  /**
+   * Same totals split by calling CLI, keyed by the derived client name.
+   *
+   * Empty for traffic logged before attribution existed — those rows carry no
+   * User-Agent, and guessing one retroactively would invent history.
+   */
+  byClient: Record<string, CliClientUsageTotals>;
+};
+
+/** Per-CLI slice of an account's usage. See CliAccountUsageTotals.byClient. */
+export type CliClientUsageTotals = {
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
+  costUsd: number;
 };
 
 /** One row of GET /accounts. */
@@ -125,6 +142,8 @@ export type CliAccountsResponse = {
 /** One request as recorded in the proxy request log, reduced to what costing needs. */
 export type ProxyLedgerEntry = {
   account: string;
+  /** Derived calling CLI; see CliAccountUsageTotals.byClient. */
+  clientApp: string;
   accountType: string;
   model: string;
   provider?: string;

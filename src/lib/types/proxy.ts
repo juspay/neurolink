@@ -689,6 +689,18 @@ export type RequestLogEntry = {
    * cross-provider model lookup rather than assuming Anthropic.
    */
   provider?: string;
+  /**
+   * Which CLI made the request, derived from User-Agent, and the raw header it
+   * was derived from.
+   *
+   * Both are stored. The derived name is what a dashboard groups on, but the
+   * classifier only knows the clients it has seen — keeping the raw header
+   * means a client it does not recognise is still attributable rather than
+   * collapsing into "unknown" with everything else.
+   */
+  clientApp?: string;
+  /** Raw User-Agent, truncated. See clientApp. */
+  userAgent?: string;
   /** OTel trace ID for correlation with distributed traces */
   traceId?: string;
   /** OTel span ID for correlation with distributed traces */

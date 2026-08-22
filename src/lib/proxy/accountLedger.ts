@@ -166,6 +166,7 @@ async function advanceCursor(
       outputTokens: finiteNumber(record.outputTokens),
       cacheReadTokens: finiteNumber(record.cacheReadTokens),
       cacheCreationTokens: finiteNumber(record.cacheCreationTokens),
+      clientApp: resolveClientApp(record),
     };
     // A later record for the same request enriches the earlier one — it must
     // replace it, never add to it. But token fields take the MAX rather than
@@ -255,6 +256,28 @@ function resolveSlotKey(
   return slot;
 }
 
+/**
+ * Which CLI a log row came from.
+ *
+ * Prefers the derived name the proxy recorded. Falls back to the raw
+ * User-Agent's leading token so an unclassified client is still attributable
+ * instead of collapsing into one bucket with everything else. Rows written
+ * before attribution existed carry neither and are reported as "unattributed"
+ * — distinct from "unknown", which means a client we saw but could not name.
+ */
+function resolveClientApp(record: Record<string, unknown>): string {
+  if (typeof record.clientApp === "string" && record.clientApp) {
+    return record.clientApp;
+  }
+  if (typeof record.userAgent === "string" && record.userAgent) {
+    const token = record.userAgent.trim().split(/[\s/]/)[0];
+    if (token) {
+      return token;
+    }
+  }
+  return "unattributed";
+}
+
 /** UTC date stamp of the log file the totals cover. */
 export function currentUsageDate(now = new Date()): string {
   return now.toISOString().slice(0, 10);
@@ -270,6 +293,7 @@ function emptyTotals(): CliAccountUsageTotals {
     costUsd: 0,
     unpricedRequests: 0,
     unpricedModels: [],
+    byClient: {},
   };
 }
 
@@ -317,16 +341,32 @@ export async function readAccountUsage(
     row.cacheReadTokens += entry.cacheReadTokens;
     row.cacheCreationTokens += entry.cacheCreationTokens;
 
+    const client = (row.byClient[entry.clientApp] ??= {
+      requests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+      costUsd: 0,
+    });
+    client.requests += 1;
+    client.inputTokens += entry.inputTokens;
+    client.outputTokens += entry.outputTokens;
+    client.cacheReadTokens += entry.cacheReadTokens;
+    client.cacheCreationTokens += entry.cacheCreationTokens;
+
     const provider = resolveProvider(entry);
     if (entry.model && entry.model !== "-") {
       if (hasPricing(provider, entry.model)) {
-        row.costUsd += calculateCost(provider, entry.model, {
+        const cost = calculateCost(provider, entry.model, {
           input: entry.inputTokens,
           output: entry.outputTokens,
           total: entry.inputTokens + entry.outputTokens,
           cacheReadTokens: entry.cacheReadTokens,
           cacheCreationTokens: entry.cacheCreationTokens,
         });
+        row.costUsd += cost;
+        client.costUsd += cost;
       } else {
         row.unpricedRequests += 1;
         const seen = unpriced.get(entry.account) ?? new Set<string>();
@@ -339,6 +379,9 @@ export async function readAccountUsage(
 
   for (const [account, row] of totals) {
     row.costUsd = Number(row.costUsd.toFixed(6));
+    for (const slice of Object.values(row.byClient)) {
+      slice.costUsd = Number(slice.costUsd.toFixed(6));
+    }
     row.unpricedModels = [...(unpriced.get(account) ?? [])].sort();
   }
   return totals;
