@@ -14,6 +14,15 @@
   // tools/ tree has ~109 pre-existing errors and is a separate cleanup — the
   // point here is to cover the surface that CI trusts, not to boil the ocean.
   //
+  // test/helpers/** is included for the same reason. It is shared test
+  // infrastructure that every suite imports, and test/ is excluded from the
+  // root tsconfig as well, so nothing typechecks it. Both of the test bugs
+  // found while auditing this repo lived in exactly these files: harness.ts
+  // (a SIGKILL escalation gated on proc.killed, which reports signal delivery
+  // rather than exit) and distFreshness.ts (imported relatively by a script run
+  // from a mkdtemp directory, so a test silently never ran for two weeks).
+  // It costs nothing today: all 18 files typecheck clean.
+  //
   // Add a file here whenever a workflow starts depending on a new one.
   "extends": "./tsconfig.json",
   "compilerOptions": { "noEmit": true },
@@ -26,7 +35,8 @@
     "tools/testing/proxyLifecycleBenchmark.ts",
     "tools/testing/proxyRollingHandoffBenchmark.ts",
     "tools/testing/proxyTransportBenchmark.ts",
-    "tools/testing/proxyUsageStatsBenchmark.ts"
+    "tools/testing/proxyUsageStatsBenchmark.ts",
+    "test/helpers/**/*.ts"
   ],
   "exclude": []
 }
