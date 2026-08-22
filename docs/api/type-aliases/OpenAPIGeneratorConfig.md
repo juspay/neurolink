@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAPIGeneratorConfig** = `object`
 
-Defined in: [types/server.ts:1361](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1361)
+Defined in: [types/server.ts:1361](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1361)
 
 Configuration passed to the OpenAPI spec generator.
 
@@ -18,7 +18,7 @@ Configuration passed to the OpenAPI spec generator.
 
 > `optional` **info?**: `object`
 
-Defined in: [types/server.ts:1362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1362)
+Defined in: [types/server.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1362)
 
 #### title?
 
@@ -38,7 +38,7 @@ Defined in: [types/server.ts:1362](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **servers?**: `object`[]
 
-Defined in: [types/server.ts:1367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1367)
+Defined in: [types/server.ts:1367](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1367)
 
 #### url
 
@@ -54,7 +54,7 @@ Defined in: [types/server.ts:1367](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **includeSecurity?**: `boolean`
 
-Defined in: [types/server.ts:1371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1371)
+Defined in: [types/server.ts:1371](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1371)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/server.ts:1371](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **basePath?**: `string`
 
-Defined in: [types/server.ts:1372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1372)
+Defined in: [types/server.ts:1372](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1372)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/server.ts:1372](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **additionalTags?**: `object`[]
 
-Defined in: [types/server.ts:1373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1373)
+Defined in: [types/server.ts:1373](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1373)
 
 #### name
 
@@ -86,7 +86,7 @@ Defined in: [types/server.ts:1373](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **customSchemas?**: `Record`\<`string`, [`JsonObject`](JsonObject.md)\>
 
-Defined in: [types/server.ts:1377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1377)
+Defined in: [types/server.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1377)
 
 ---
 
@@ -94,4 +94,4 @@ Defined in: [types/server.ts:1377](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **routes?**: [`RouteDefinition`](RouteDefinition.md)[]
 
-Defined in: [types/server.ts:1378](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1378)
+Defined in: [types/server.ts:1378](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1378)

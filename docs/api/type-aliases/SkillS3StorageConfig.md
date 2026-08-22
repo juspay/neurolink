@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SkillS3StorageConfig** = `object`
 
-Defined in: [types/skills.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L147)
+Defined in: [types/skills.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L147)
 
 S3-backed store. Layout: `<prefix>skills/<id>.json` per skill plus a
 `<prefix>index.json` document that is upserted on writes and rebuilt
@@ -24,7 +24,7 @@ Credentials default to the standard AWS provider chain when omitted.
 
 > **type**: `"s3"`
 
-Defined in: [types/skills.ts:148](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L148)
+Defined in: [types/skills.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L148)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/skills.ts:148](https://github.com/juspay/neurolink/blob/49032
 
 > **bucket**: `string`
 
-Defined in: [types/skills.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L149)
+Defined in: [types/skills.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L149)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/skills.ts:149](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **prefix?**: `string`
 
-Defined in: [types/skills.ts:151](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L151)
+Defined in: [types/skills.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L151)
 
 Key prefix inside the bucket. Default: "neurolink-skills/".
 
@@ -50,7 +50,7 @@ Key prefix inside the bucket. Default: "neurolink-skills/".
 
 > `optional` **region?**: `string`
 
-Defined in: [types/skills.ts:152](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L152)
+Defined in: [types/skills.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L152)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/skills.ts:152](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/skills.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L154)
+Defined in: [types/skills.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L154)
 
 Custom endpoint (MinIO, LocalStack, …).
 
@@ -68,7 +68,7 @@ Custom endpoint (MinIO, LocalStack, …).
 
 > `optional` **forcePathStyle?**: `boolean`
 
-Defined in: [types/skills.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L156)
+Defined in: [types/skills.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L156)
 
 Use path-style addressing (required by most S3-compatible stores).
 
@@ -78,7 +78,7 @@ Use path-style addressing (required by most S3-compatible stores).
 
 > `optional` **credentials?**: `object`
 
-Defined in: [types/skills.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L157)
+Defined in: [types/skills.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L157)
 
 #### accessKeyId
 

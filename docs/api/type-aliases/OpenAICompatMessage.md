@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAICompatMessage** = `object`
 
-Defined in: [types/openaiCompatible.ts:248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L248)
+Defined in: [types/openaiCompatible.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L248)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:248](https://github.com/juspay/neurolink/
 
 > **role**: `"system"` \| `"user"` \| `"assistant"` \| `"tool"`
 
-Defined in: [types/openaiCompatible.ts:249](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L249)
+Defined in: [types/openaiCompatible.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L249)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:249](https://github.com/juspay/neurolink/
 
 > **content**: `unknown`
 
-Defined in: [types/openaiCompatible.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L250)
+Defined in: [types/openaiCompatible.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L250)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/openaiCompatible.ts:250](https://github.com/juspay/neurolink/
 
 > `optional` **toolCallId?**: `string`
 
-Defined in: [types/openaiCompatible.ts:251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L251)
+Defined in: [types/openaiCompatible.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L251)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/openaiCompatible.ts:251](https://github.com/juspay/neurolink/
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/openaiCompatible.ts:252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L252)
+Defined in: [types/openaiCompatible.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L252)

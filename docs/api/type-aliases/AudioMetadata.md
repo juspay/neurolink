@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AudioMetadata** = `object`
 
-Defined in: [types/voice.ts:396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L396)
+Defined in: [types/voice.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L396)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/voice.ts:396](https://github.com/juspay/neurolink/blob/49032f
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/voice.ts:397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L397)
+Defined in: [types/voice.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L397)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/voice.ts:397](https://github.com/juspay/neurolink/blob/49032f
 
 > **duration**: `number`
 
-Defined in: [types/voice.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L398)
+Defined in: [types/voice.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L398)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/voice.ts:398](https://github.com/juspay/neurolink/blob/49032f
 
 > **sampleRate**: `number`
 
-Defined in: [types/voice.ts:399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L399)
+Defined in: [types/voice.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L399)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/voice.ts:399](https://github.com/juspay/neurolink/blob/49032f
 
 > **channels**: `number`
 
-Defined in: [types/voice.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L400)
+Defined in: [types/voice.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L400)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/voice.ts:400](https://github.com/juspay/neurolink/blob/49032f
 
 > **bitDepth**: `number`
 
-Defined in: [types/voice.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L401)
+Defined in: [types/voice.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L401)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/voice.ts:401](https://github.com/juspay/neurolink/blob/49032f
 
 > **samples**: `number`
 
-Defined in: [types/voice.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L402)
+Defined in: [types/voice.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L402)
 
 ---
 
@@ -64,4 +64,4 @@ Defined in: [types/voice.ts:402](https://github.com/juspay/neurolink/blob/49032f
 
 > **size**: `number`
 
-Defined in: [types/voice.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L403)
+Defined in: [types/voice.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L403)

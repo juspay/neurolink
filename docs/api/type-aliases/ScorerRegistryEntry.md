@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScorerRegistryEntry** = `object`
 
-Defined in: [types/scorer.ts:241](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L241)
+Defined in: [types/scorer.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L241)
 
 Scorer registry entry
 
@@ -18,7 +18,7 @@ Scorer registry entry
 
 > **metadata**: [`ScorerMetadata`](ScorerMetadata.md)
 
-Defined in: [types/scorer.ts:243](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L243)
+Defined in: [types/scorer.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L243)
 
 Scorer metadata
 
@@ -28,7 +28,7 @@ Scorer metadata
 
 > **factory**: [`ScorerFactory`](ScorerFactory.md)
 
-Defined in: [types/scorer.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L245)
+Defined in: [types/scorer.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L245)
 
 Factory function for creating scorer instances
 
@@ -38,7 +38,7 @@ Factory function for creating scorer instances
 
 > **defaultConfig**: [`ScorerConfig`](ScorerConfig.md)
 
-Defined in: [types/scorer.ts:247](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L247)
+Defined in: [types/scorer.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L247)
 
 Default configuration
 
@@ -48,6 +48,6 @@ Default configuration
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/scorer.ts:249](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L249)
+Defined in: [types/scorer.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L249)
 
 Aliases for this scorer

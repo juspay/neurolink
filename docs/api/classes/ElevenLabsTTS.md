@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ElevenLabsTTS
 
-Defined in: [voice/providers/ElevenLabsTTS.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/ElevenLabsTTS.ts#L29)
+Defined in: [voice/providers/ElevenLabsTTS.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/ElevenLabsTTS.ts#L29)
 
 ElevenLabs Text-to-Speech Handler
 
@@ -26,7 +26,7 @@ https://elevenlabs.io/docs/api-reference
 
 > **new ElevenLabsTTS**(`apiKey?`): `ElevenLabsTTS`
 
-Defined in: [voice/providers/ElevenLabsTTS.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/ElevenLabsTTS.ts#L40)
+Defined in: [voice/providers/ElevenLabsTTS.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/ElevenLabsTTS.ts#L40)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [voice/providers/ElevenLabsTTS.ts:40](https://github.com/juspay/neur
 
 > `readonly` **maxTextLength**: `5000` = `5000`
 
-Defined in: [voice/providers/ElevenLabsTTS.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/ElevenLabsTTS.ts#L38)
+Defined in: [voice/providers/ElevenLabsTTS.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/ElevenLabsTTS.ts#L38)
 
 Maximum text length (5000 characters)
 
@@ -58,7 +58,7 @@ Maximum text length (5000 characters)
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/ElevenLabsTTS.ts:45](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/ElevenLabsTTS.ts#L45)
+Defined in: [voice/providers/ElevenLabsTTS.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/ElevenLabsTTS.ts#L45)
 
 Validate that the provider is properly configured
 
@@ -78,7 +78,7 @@ True if provider can generate TTS
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
 
-Defined in: [voice/providers/ElevenLabsTTS.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/ElevenLabsTTS.ts#L49)
+Defined in: [voice/providers/ElevenLabsTTS.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/ElevenLabsTTS.ts#L49)
 
 Get available voices for the provider
 
@@ -106,7 +106,7 @@ List of available voices
 
 > **synthesize**(`text`, `options?`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [voice/providers/ElevenLabsTTS.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/ElevenLabsTTS.ts#L165)
+Defined in: [voice/providers/ElevenLabsTTS.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/ElevenLabsTTS.ts#L165)
 
 Generate audio from text using provider-specific TTS API
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WorkerInstanceOptions** = `object`
 
-Defined in: [types/isolatedAgent.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L51)
+Defined in: [types/isolatedAgent.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L51)
 
 Options for `NeuroLink.createWorkerInstance()`.
 
@@ -24,7 +24,7 @@ exports), and an internal log bridge attached with a caller-supplied tag.
 
 > `optional` **logTag?**: `string`
 
-Defined in: [types/isolatedAgent.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L53)
+Defined in: [types/isolatedAgent.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L53)
 
 Tag stamped on every forwarded log event (default "worker").
 
@@ -34,7 +34,7 @@ Tag stamped on every forwarded log event (default "worker").
 
 > `optional` **onLog?**: (`event`) => `void`
 
-Defined in: [types/isolatedAgent.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L66)
+Defined in: [types/isolatedAgent.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L66)
 
 Log bridge sink. Fire-and-forget: listener errors never disrupt the
 worker.
@@ -63,7 +63,7 @@ tracked as follow-up work in the RFC.
 
 > `optional` **shareToolRegistry?**: `boolean`
 
-Defined in: [types/isolatedAgent.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L72)
+Defined in: [types/isolatedAgent.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L72)
 
 Share the creating instance's tool registry (custom tools + in-memory
 MCP servers) so the worker calls tools through the host's existing
@@ -75,7 +75,7 @@ connections. Default: true.
 
 > `optional` **config?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/isolatedAgent.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L78)
+Defined in: [types/isolatedAgent.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L78)
 
 Extra constructor config merged into the worker (e.g. `credentials`,
 `tools`, `modelPool`). Worker-mode fields (memory off, orchestration

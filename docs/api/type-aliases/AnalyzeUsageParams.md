@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnalyzeUsageParams** = `object`
 
-Defined in: [types/mcp.ts:2652](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2652)
+Defined in: [types/mcp.ts:2652](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2652)
 
 Parsed input for the analyze-ai-usage MCP tool.
 
@@ -18,7 +18,7 @@ Parsed input for the analyze-ai-usage MCP tool.
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/mcp.ts:2653](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2653)
+Defined in: [types/mcp.ts:2653](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2653)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2653](https://github.com/juspay/neurolink/blob/49032fc
 
 > **timeRange**: `"1h"` \| `"24h"` \| `"7d"` \| `"30d"`
 
-Defined in: [types/mcp.ts:2654](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2654)
+Defined in: [types/mcp.ts:2654](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2654)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2654](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **provider?**: [`AiAnalysisProvider`](AiAnalysisProvider.md)
 
-Defined in: [types/mcp.ts:2655](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2655)
+Defined in: [types/mcp.ts:2655](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2655)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2655](https://github.com/juspay/neurolink/blob/49032fc
 
 > **includeTokenBreakdown**: `boolean`
 
-Defined in: [types/mcp.ts:2656](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2656)
+Defined in: [types/mcp.ts:2656](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2656)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:2656](https://github.com/juspay/neurolink/blob/49032fc
 
 > **includeCostEstimation**: `boolean`
 
-Defined in: [types/mcp.ts:2657](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2657)
+Defined in: [types/mcp.ts:2657](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2657)

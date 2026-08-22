@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StructuredRecoveryCandidate** = `object`
 
-Defined in: [types/isolatedAgent.ts:366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L366)
+Defined in: [types/isolatedAgent.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L366)
 
 One recovery candidate: source label + parsed (uncoerced) value.
 
@@ -18,7 +18,7 @@ One recovery candidate: source label + parsed (uncoerced) value.
 
 > **source**: [`StructuredRecoverySource`](StructuredRecoverySource.md)
 
-Defined in: [types/isolatedAgent.ts:367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L367)
+Defined in: [types/isolatedAgent.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L367)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/isolatedAgent.ts:367](https://github.com/juspay/neurolink/blo
 
 > **value**: `unknown`
 
-Defined in: [types/isolatedAgent.ts:368](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L368)
+Defined in: [types/isolatedAgent.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L368)

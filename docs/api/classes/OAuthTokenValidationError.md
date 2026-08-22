@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuthTokenValidationError
 
-Defined in: [types/errors.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L168)
+Defined in: [types/errors.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L168)
 
 Thrown when token validation fails
 
@@ -20,7 +20,7 @@ Thrown when token validation fails
 
 > **new OAuthTokenValidationError**(`message`): `OAuthTokenValidationError`
 
-Defined in: [types/errors.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L169)
+Defined in: [types/errors.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L169)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [types/errors.ts:169](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **code?**: `string`
 
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L122)
+Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SupabaseConfig** = `object`
 
-Defined in: [types/auth.ts:711](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L711)
+Defined in: [types/auth.ts:711](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L711)
 
 Supabase provider configuration
 
@@ -18,7 +18,7 @@ Supabase provider configuration
 
 > **url**: `string`
 
-Defined in: [types/auth.ts:713](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L713)
+Defined in: [types/auth.ts:713](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L713)
 
 Supabase project URL
 
@@ -28,7 +28,7 @@ Supabase project URL
 
 > **anonKey**: `string`
 
-Defined in: [types/auth.ts:715](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L715)
+Defined in: [types/auth.ts:715](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L715)
 
 Supabase anon key
 
@@ -38,7 +38,7 @@ Supabase anon key
 
 > `optional` **serviceRoleKey?**: `string`
 
-Defined in: [types/auth.ts:717](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L717)
+Defined in: [types/auth.ts:717](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L717)
 
 Supabase service role key (for backend operations)
 
@@ -48,6 +48,6 @@ Supabase service role key (for backend operations)
 
 > `optional` **jwtSecret?**: `string`
 
-Defined in: [types/auth.ts:719](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L719)
+Defined in: [types/auth.ts:719](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L719)
 
 JWT secret for custom token verification

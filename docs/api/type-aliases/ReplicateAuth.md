@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ReplicateAuth** = `object`
 
-Defined in: [types/replicate.ts:13](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L13)
+Defined in: [types/replicate.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L13)
 
 Replicate auth payload — bearer token + optional base URL.
 
@@ -18,7 +18,7 @@ Replicate auth payload — bearer token + optional base URL.
 
 > **apiToken**: `string`
 
-Defined in: [types/replicate.ts:14](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L14)
+Defined in: [types/replicate.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L14)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/replicate.ts:14](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **baseUrl?**: `string`
 
-Defined in: [types/replicate.ts:15](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L15)
+Defined in: [types/replicate.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L15)

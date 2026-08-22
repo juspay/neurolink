@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClassifierModelRef** = `object`
 
-Defined in: [types/classifierRouter.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L107)
+Defined in: [types/classifierRouter.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L107)
 
 Provider/model the LLM classifier strategy itself runs on.
 
@@ -18,7 +18,7 @@ Provider/model the LLM classifier strategy itself runs on.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/classifierRouter.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L108)
+Defined in: [types/classifierRouter.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L108)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/classifierRouter.ts:108](https://github.com/juspay/neurolink/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/classifierRouter.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L109)
+Defined in: [types/classifierRouter.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L109)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/classifierRouter.ts:109](https://github.com/juspay/neurolink/
 
 > `optional` **region?**: `string`
 
-Defined in: [types/classifierRouter.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L110)
+Defined in: [types/classifierRouter.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L110)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/classifierRouter.ts:110](https://github.com/juspay/neurolink/
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/classifierRouter.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L111)
+Defined in: [types/classifierRouter.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L111)

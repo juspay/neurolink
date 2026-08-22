@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LoggingConfig** = `object`
 
-Defined in: [types/server.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L181)
+Defined in: [types/server.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L181)
 
 Logging configuration
 
@@ -18,7 +18,7 @@ Logging configuration
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/server.ts:183](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L183)
+Defined in: [types/server.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L183)
 
 Enable request logging (default: true)
 
@@ -28,7 +28,7 @@ Enable request logging (default: true)
 
 > `optional` **level?**: `"debug"` \| `"info"` \| `"warn"` \| `"error"`
 
-Defined in: [types/server.ts:186](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L186)
+Defined in: [types/server.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L186)
 
 Log level
 
@@ -38,7 +38,7 @@ Log level
 
 > `optional` **includeBody?**: `boolean`
 
-Defined in: [types/server.ts:189](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L189)
+Defined in: [types/server.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L189)
 
 Include request body in logs
 
@@ -48,6 +48,6 @@ Include request body in logs
 
 > `optional` **includeResponse?**: `boolean`
 
-Defined in: [types/server.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L192)
+Defined in: [types/server.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L192)
 
 Include response body in logs

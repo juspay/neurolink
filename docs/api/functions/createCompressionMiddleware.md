@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **createCompressionMiddleware**(`options?`): [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)
 
-Defined in: [server/middleware/common.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/common.ts#L398)
+Defined in: [server/middleware/common.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/common.ts#L398)
 
 Create compression preference middleware
 Signals compression preference to adapters

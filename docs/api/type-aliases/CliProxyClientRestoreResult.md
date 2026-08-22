@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliProxyClientRestoreResult** = `object`
 
-Defined in: [types/proxyClient.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxyClient.ts#L46)
+Defined in: [types/proxyClient.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L46)
 
 Outcome of restoring one configurator.
 
@@ -18,7 +18,7 @@ Outcome of restoring one configurator.
 
 > **id**: `string`
 
-Defined in: [types/proxyClient.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxyClient.ts#L47)
+Defined in: [types/proxyClient.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L47)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxyClient.ts:47](https://github.com/juspay/neurolink/blob/4
 
 > **displayName**: `string`
 
-Defined in: [types/proxyClient.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxyClient.ts#L48)
+Defined in: [types/proxyClient.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L48)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxyClient.ts:48](https://github.com/juspay/neurolink/blob/4
 
 > **restored**: `boolean`
 
-Defined in: [types/proxyClient.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxyClient.ts#L50)
+Defined in: [types/proxyClient.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L50)
 
 True only when a previous configuration was actually restored.
 
@@ -44,4 +44,4 @@ True only when a previous configuration was actually restored.
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/proxyClient.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxyClient.ts#L51)
+Defined in: [types/proxyClient.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L51)

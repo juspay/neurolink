@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopToolFailureBreaker** = `object`
 
-Defined in: [types/loopEngine.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L106)
+Defined in: [types/loopEngine.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L106)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/loopEngine.ts:106](https://github.com/juspay/neurolink/blob/4
 
 > **maxRetries**: `number`
 
-Defined in: [types/loopEngine.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L107)
+Defined in: [types/loopEngine.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L107)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/loopEngine.ts:107](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **consecutive?**: `boolean`
 
-Defined in: [types/loopEngine.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L118)
+Defined in: [types/loopEngine.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L118)
 
 Count CONSECUTIVE failures rather than lifetime ones: a clean result
 clears the strike count for that tool.
@@ -41,7 +41,7 @@ tool for the rest of the turn.
 
 > `optional` **classifyResultFailure?**: (`output`) => `string` \| `undefined`
 
-Defined in: [types/loopEngine.ts:131](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L131)
+Defined in: [types/loopEngine.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L131)
 
 Decide whether a RESOLVED tool result is really a failure.
 

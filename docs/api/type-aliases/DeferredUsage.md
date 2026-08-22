@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DeferredUsage** = `object`
 
-Defined in: [types/common.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L390)
+Defined in: [types/common.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L390)
 
 Aggregated usage resolved by a provider's deferred-analytics pair after a
 multi-step stream loop ends. The cache fields are optional — only providers
@@ -20,7 +20,7 @@ with prompt caching (Anthropic) populate them.
 
 > **promptTokens**: `number`
 
-Defined in: [types/common.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L391)
+Defined in: [types/common.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L391)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/common.ts:391](https://github.com/juspay/neurolink/blob/49032
 
 > **completionTokens**: `number`
 
-Defined in: [types/common.ts:392](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L392)
+Defined in: [types/common.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L392)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/common.ts:392](https://github.com/juspay/neurolink/blob/49032
 
 > **totalTokens**: `number`
 
-Defined in: [types/common.ts:393](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L393)
+Defined in: [types/common.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L393)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/common.ts:393](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cacheReadTokens?**: `number`
 
-Defined in: [types/common.ts:394](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L394)
+Defined in: [types/common.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L394)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/common.ts:394](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cacheCreationTokens?**: `number`
 
-Defined in: [types/common.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L395)
+Defined in: [types/common.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L395)
 
 ---
 
@@ -60,6 +60,6 @@ Defined in: [types/common.ts:395](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **reasoningTokens?**: `number`
 
-Defined in: [types/common.ts:397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L397)
+Defined in: [types/common.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L397)
 
 Reasoning/thinking tokens — a SUBSET already included in completionTokens.

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ReadyResponse** = `object`
 
-Defined in: [types/server.ts:773](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L773)
+Defined in: [types/server.ts:773](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L773)
 
 Ready check response
 
@@ -18,7 +18,7 @@ Ready check response
 
 > **ready**: `boolean`
 
-Defined in: [types/server.ts:775](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L775)
+Defined in: [types/server.ts:775](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L775)
 
 Ready status
 
@@ -28,7 +28,7 @@ Ready status
 
 > **timestamp**: `string`
 
-Defined in: [types/server.ts:778](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L778)
+Defined in: [types/server.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L778)
 
 Timestamp
 
@@ -38,7 +38,7 @@ Timestamp
 
 > **services**: `object`
 
-Defined in: [types/server.ts:781](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L781)
+Defined in: [types/server.ts:781](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L781)
 
 Service status
 

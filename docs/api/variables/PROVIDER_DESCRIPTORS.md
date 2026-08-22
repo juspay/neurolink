@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > `const` **PROVIDER_DESCRIPTORS**: readonly [`ProviderDescriptor`](../type-aliases/ProviderDescriptor.md)[]
 
-Defined in: [factories/providerDescriptors.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerDescriptors.ts#L38)
+Defined in: [factories/providerDescriptors.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L38)
 
 Single source of truth for provider identity, credentials, defaults, and
 runtime behavior classification. Pure data — no provider-class imports,

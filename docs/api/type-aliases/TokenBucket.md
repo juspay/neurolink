@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenBucket** = `object`
 
-Defined in: [types/auth.ts:1343](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1343)
+Defined in: [types/auth.ts:1343](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1343)
 
 Token bucket state for a single user.
 
@@ -18,7 +18,7 @@ Token bucket state for a single user.
 
 > **tokens**: `number`
 
-Defined in: [types/auth.ts:1344](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1344)
+Defined in: [types/auth.ts:1344](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1344)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/auth.ts:1344](https://github.com/juspay/neurolink/blob/49032f
 
 > **lastRefill**: `number`
 
-Defined in: [types/auth.ts:1345](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1345)
+Defined in: [types/auth.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1345)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/auth.ts:1345](https://github.com/juspay/neurolink/blob/49032f
 
 > **userId**: `string`
 
-Defined in: [types/auth.ts:1346](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1346)
+Defined in: [types/auth.ts:1346](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1346)

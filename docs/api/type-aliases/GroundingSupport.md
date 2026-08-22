@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GroundingSupport** = `object`
 
-Defined in: [types/grounding.ts:190](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L190)
+Defined in: [types/grounding.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L190)
 
 Represents grounding support information from raw provider responses.
 Contains segment information and links to the grounding chunks that
@@ -35,7 +35,7 @@ const support: GroundingSupport = {
 
 > `optional` **segment?**: `object`
 
-Defined in: [types/grounding.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L192)
+Defined in: [types/grounding.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L192)
 
 The text segment that is being grounded
 
@@ -69,7 +69,7 @@ Index of the response part this segment belongs to
 
 > `optional` **groundingChunkIndices?**: `number`[]
 
-Defined in: [types/grounding.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L203)
+Defined in: [types/grounding.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L203)
 
 Indices into the groundingChunks array that support this segment
 
@@ -79,6 +79,6 @@ Indices into the groundingChunks array that support this segment
 
 > `optional` **confidenceScores?**: `number`[]
 
-Defined in: [types/grounding.ts:205](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L205)
+Defined in: [types/grounding.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L205)
 
 Confidence scores corresponding to each grounding chunk index

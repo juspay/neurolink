@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyTerminalErrorDetails** = `object`
 
-Defined in: [types/proxy.ts:1051](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1051)
+Defined in: [types/proxy.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1051)
 
 Optional terminal context supplied when a final request error is recorded.
 
@@ -18,7 +18,7 @@ Optional terminal context supplied when a final request error is recorded.
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/proxy.ts:1052](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1052)
+Defined in: [types/proxy.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1052)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1052](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **errorType?**: `string`
 
-Defined in: [types/proxy.ts:1053](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1053)
+Defined in: [types/proxy.ts:1053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1053)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1053](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **errorCode?**: `string`
 
-Defined in: [types/proxy.ts:1054](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1054)
+Defined in: [types/proxy.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1054)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:1054](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **terminalOutcome?**: `string`
 
-Defined in: [types/proxy.ts:1055](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1055)
+Defined in: [types/proxy.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1055)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:1055](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **message?**: `string`
 
-Defined in: [types/proxy.ts:1056](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1056)
+Defined in: [types/proxy.ts:1056](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1056)

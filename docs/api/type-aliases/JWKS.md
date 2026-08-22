@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **JWKS** = `object`
 
-Defined in: [types/auth.ts:253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L253)
+Defined in: [types/auth.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L253)
 
 ## Properties
 
@@ -16,4 +16,4 @@ Defined in: [types/auth.ts:253](https://github.com/juspay/neurolink/blob/49032fc
 
 > **keys**: [`JWK`](JWK.md)[]
 
-Defined in: [types/auth.ts:254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L254)
+Defined in: [types/auth.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L254)

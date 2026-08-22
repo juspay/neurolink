@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OAuthTokenExchangeError
 
-Defined in: [types/errors.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L142)
+Defined in: [types/errors.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L142)
 
 Thrown when authorization code exchange fails
 
@@ -20,7 +20,7 @@ Thrown when authorization code exchange fails
 
 > **new OAuthTokenExchangeError**(`message`, `statusCode?`): `OAuthTokenExchangeError`
 
-Defined in: [types/errors.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L143)
+Defined in: [types/errors.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L143)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:143](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **code?**: `string`
 
-Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L122)
+Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L122)
 
 #### Inherited from
 
@@ -58,4 +58,4 @@ Defined in: [types/errors.ts:122](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **statusCode?**: `number`
 
-Defined in: [types/errors.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L145)
+Defined in: [types/errors.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L145)

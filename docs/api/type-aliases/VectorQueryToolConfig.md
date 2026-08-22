@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VectorQueryToolConfig** = `object`
 
-Defined in: [types/rag.ts:1235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1235)
+Defined in: [types/rag.ts:1235](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1235)
 
 Vector query tool configuration
 
@@ -18,7 +18,7 @@ Vector query tool configuration
 
 > `optional` **id?**: `string`
 
-Defined in: [types/rag.ts:1237](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1237)
+Defined in: [types/rag.ts:1237](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1237)
 
 Tool identifier
 
@@ -28,7 +28,7 @@ Tool identifier
 
 > `optional` **description?**: `string`
 
-Defined in: [types/rag.ts:1239](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1239)
+Defined in: [types/rag.ts:1239](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1239)
 
 Tool description for AI agents
 
@@ -38,7 +38,7 @@ Tool description for AI agents
 
 > **indexName**: `string`
 
-Defined in: [types/rag.ts:1241](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1241)
+Defined in: [types/rag.ts:1241](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1241)
 
 Index name within the vector store
 
@@ -48,7 +48,7 @@ Index name within the vector store
 
 > **embeddingModel**: `object`
 
-Defined in: [types/rag.ts:1243](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1243)
+Defined in: [types/rag.ts:1243](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1243)
 
 Embedding model specification
 
@@ -66,7 +66,7 @@ Embedding model specification
 
 > `optional` **enableFilter?**: `boolean`
 
-Defined in: [types/rag.ts:1248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1248)
+Defined in: [types/rag.ts:1248](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1248)
 
 Enable metadata filtering
 
@@ -76,7 +76,7 @@ Enable metadata filtering
 
 > `optional` **includeVectors?**: `boolean`
 
-Defined in: [types/rag.ts:1250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1250)
+Defined in: [types/rag.ts:1250](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1250)
 
 Include embedding vectors in results
 
@@ -86,7 +86,7 @@ Include embedding vectors in results
 
 > `optional` **includeSources?**: `boolean`
 
-Defined in: [types/rag.ts:1252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1252)
+Defined in: [types/rag.ts:1252](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1252)
 
 Include full source objects in results
 
@@ -96,7 +96,7 @@ Include full source objects in results
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1254)
+Defined in: [types/rag.ts:1254](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1254)
 
 Number of results to return
 
@@ -106,7 +106,7 @@ Number of results to return
 
 > `optional` **reranker?**: [`RerankerConfig`](RerankerConfig.md)
 
-Defined in: [types/rag.ts:1256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1256)
+Defined in: [types/rag.ts:1256](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1256)
 
 Reranker configuration
 
@@ -116,6 +116,6 @@ Reranker configuration
 
 > `optional` **providerOptions?**: [`VectorProviderOptions`](VectorProviderOptions.md)
 
-Defined in: [types/rag.ts:1258](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1258)
+Defined in: [types/rag.ts:1258](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1258)
 
 Provider-specific options

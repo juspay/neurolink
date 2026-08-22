@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ImageGenService
 
-Defined in: [image-gen/ImageGenService.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L68)
+Defined in: [image-gen/ImageGenService.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L68)
 
 Image generation service for AI-powered image creation
 
@@ -40,7 +40,7 @@ const service = new ImageGenService({
 
 > **new ImageGenService**(`config?`): `ImageGenService`
 
-Defined in: [image-gen/ImageGenService.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L78)
+Defined in: [image-gen/ImageGenService.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L78)
 
 Create a new ImageGenService instance
 
@@ -62,7 +62,7 @@ Optional configuration overrides
 
 > **generate**(`options`): `Promise`\<[`ImageGenResult`](../type-aliases/ImageGenResult.md)\>
 
-Defined in: [image-gen/ImageGenService.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L127)
+Defined in: [image-gen/ImageGenService.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L127)
 
 Generate an image from a text prompt
 
@@ -103,7 +103,7 @@ const result = await service.generate({
 
 > **isEnabled**(): `boolean`
 
-Defined in: [image-gen/ImageGenService.ts:344](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L344)
+Defined in: [image-gen/ImageGenService.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L344)
 
 Check if image generation is enabled
 
@@ -117,7 +117,7 @@ Check if image generation is enabled
 
 > **getModel**(): `string`
 
-Defined in: [image-gen/ImageGenService.ts:351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L351)
+Defined in: [image-gen/ImageGenService.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L351)
 
 Get the default model
 
@@ -131,7 +131,7 @@ Get the default model
 
 > **getProvider**(): `string`
 
-Defined in: [image-gen/ImageGenService.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L358)
+Defined in: [image-gen/ImageGenService.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L358)
 
 Get the default provider
 
@@ -145,7 +145,7 @@ Get the default provider
 
 > **getConfig**(): `Readonly`\<[`ImageGenConfig`](../type-aliases/ImageGenConfig.md)\>
 
-Defined in: [image-gen/ImageGenService.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L365)
+Defined in: [image-gen/ImageGenService.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L365)
 
 Get the service configuration
 
@@ -159,7 +159,7 @@ Get the service configuration
 
 > **getInstanceId**(): `string`
 
-Defined in: [image-gen/ImageGenService.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L372)
+Defined in: [image-gen/ImageGenService.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L372)
 
 Get the service instance ID (for debugging)
 
@@ -173,7 +173,7 @@ Get the service instance ID (for debugging)
 
 > **updateConfig**(`config`): `void`
 
-Defined in: [image-gen/ImageGenService.ts:381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L381)
+Defined in: [image-gen/ImageGenService.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L381)
 
 Update service configuration
 
@@ -195,7 +195,7 @@ Partial configuration to merge
 
 > **enable**(): `void`
 
-Defined in: [image-gen/ImageGenService.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L391)
+Defined in: [image-gen/ImageGenService.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L391)
 
 Enable image generation
 
@@ -209,7 +209,7 @@ Enable image generation
 
 > **disable**(): `void`
 
-Defined in: [image-gen/ImageGenService.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/image-gen/ImageGenService.ts#L398)
+Defined in: [image-gen/ImageGenService.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/image-gen/ImageGenService.ts#L398)
 
 Disable image generation
 

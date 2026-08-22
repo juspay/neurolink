@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **createRetryInterceptor**(`options`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/interceptors.ts:255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/interceptors.ts#L255)
+Defined in: [client/interceptors.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/client/interceptors.ts#L255)
 
 Retry interceptor with exponential backoff
 

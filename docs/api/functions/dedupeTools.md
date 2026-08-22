@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **dedupeTools**\<`T`\>(`tools`, `options`): [`ToolDedupResult`](../type-aliases/ToolDedupResult.md)\<`Record`\<`string`, `T`\>\>
 
-Defined in: [core/toolDedup.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/toolDedup.ts#L157)
+Defined in: [core/toolDedup.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolDedup.ts#L157)
 
 Collapse near-duplicate tools in a name→Tool record.
 

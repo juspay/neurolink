@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SessionRestoreResult** = `object`
 
-Defined in: [types/cli.ts:570](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L570)
+Defined in: [types/cli.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L570)
 
 Session restore result
 
@@ -18,7 +18,7 @@ Session restore result
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:571](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L571)
+Defined in: [types/cli.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L571)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:571](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **sessionId**: `string`
 
-Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L572)
+Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L572)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **messageCount**: `number`
 
-Defined in: [types/cli.ts:573](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L573)
+Defined in: [types/cli.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L573)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:573](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:574](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L574)
+Defined in: [types/cli.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L574)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/cli.ts:574](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **lastActivity?**: `string`
 
-Defined in: [types/cli.ts:575](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L575)
+Defined in: [types/cli.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L575)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ProviderFactory
 
-Defined in: [factories/providerFactory.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L48)
+Defined in: [factories/providerFactory.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L48)
 
 True Factory Pattern implementation for AI Providers
 Uses registration-based approach to eliminate switch statements
@@ -28,7 +28,7 @@ and enable dynamic provider registration
 
 > `static` **registerProvider**(`name`, `constructor`, `defaultModel?`, `aliases?`, `descriptor?`): `void`
 
-Defined in: [factories/providerFactory.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L55)
+Defined in: [factories/providerFactory.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L55)
 
 Register a provider with the factory
 
@@ -64,7 +64,7 @@ Register a provider with the factory
 
 > `static` **createProvider**(`providerName?`, `modelName?`, `sdk?`, `region?`, `credentials?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [factories/providerFactory.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L86)
+Defined in: [factories/providerFactory.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L86)
 
 Create a provider instance
 
@@ -104,7 +104,7 @@ Model name (optional, uses provider-specific env var or registry default)
 
 > `static` **hasProvider**(`providerName`): `boolean`
 
-Defined in: [factories/providerFactory.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L167)
+Defined in: [factories/providerFactory.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L167)
 
 Check if a provider is registered
 
@@ -124,7 +124,7 @@ Check if a provider is registered
 
 > `static` **getAvailableProviders**(): `string`[]
 
-Defined in: [factories/providerFactory.ts:173](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L173)
+Defined in: [factories/providerFactory.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L173)
 
 Get list of available providers
 
@@ -138,7 +138,7 @@ Get list of available providers
 
 > `static` **getProviderInfo**(`providerName`): [`ProviderRegistration`](../type-aliases/ProviderRegistration.md) \| `undefined`
 
-Defined in: [factories/providerFactory.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L182)
+Defined in: [factories/providerFactory.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L182)
 
 Get provider registration info
 
@@ -158,7 +158,7 @@ Get provider registration info
 
 > `static` **getDescriptor**(`name`): [`ProviderDescriptor`](../type-aliases/ProviderDescriptor.md) \| `undefined`
 
-Defined in: [factories/providerFactory.ts:195](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L195)
+Defined in: [factories/providerFactory.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L195)
 
 Look up a provider's static descriptor. Checks the built-in
 PROVIDER_DESCRIPTORS first (works even before registerAllProviders()
@@ -182,7 +182,7 @@ registerProvider()'s 5th parameter.
 
 > `static` **getAllDescriptors**(): readonly [`ProviderDescriptor`](../type-aliases/ProviderDescriptor.md)[]
 
-Defined in: [factories/providerFactory.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L208)
+Defined in: [factories/providerFactory.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L208)
 
 All built-in provider descriptors (does not include custom-registered providers that lack a descriptor).
 
@@ -196,7 +196,7 @@ readonly [`ProviderDescriptor`](../type-aliases/ProviderDescriptor.md)[]
 
 > `static` **normalizeProviderName**(`providerName`): `string` \| `null`
 
-Defined in: [factories/providerFactory.ts:215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L215)
+Defined in: [factories/providerFactory.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L215)
 
 Normalize provider names using aliases (PHASE 1: Factory Pattern)
 
@@ -216,7 +216,7 @@ Normalize provider names using aliases (PHASE 1: Factory Pattern)
 
 > `static` **clearRegistrations**(): `void`
 
-Defined in: [factories/providerFactory.ts:237](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L237)
+Defined in: [factories/providerFactory.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L237)
 
 Clear all registrations (mainly for testing)
 
@@ -230,7 +230,7 @@ Clear all registrations (mainly for testing)
 
 > `static` **createBestProvider**(`providerName`, `modelName?`, `enableMCP?`, `sdk?`, `credentials?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [factories/providerFactory.ts:267](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/factories/providerFactory.ts#L267)
+Defined in: [factories/providerFactory.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerFactory.ts#L267)
 
 Create the best available provider for the given name
 Used by NeuroLink SDK for streaming and generation

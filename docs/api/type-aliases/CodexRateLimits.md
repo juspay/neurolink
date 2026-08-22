@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CodexRateLimits** = `object`
 
-Defined in: [types/codex.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L70)
+Defined in: [types/codex.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L70)
 
 Codex rate-limit block: a primary (short) and secondary (long) window.
 
@@ -18,7 +18,7 @@ Codex rate-limit block: a primary (short) and secondary (long) window.
 
 > `optional` **primary?**: [`CodexRateLimitWindow`](CodexRateLimitWindow.md) \| `null`
 
-Defined in: [types/codex.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L71)
+Defined in: [types/codex.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L71)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/codex.ts:71](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **secondary?**: [`CodexRateLimitWindow`](CodexRateLimitWindow.md) \| `null`
 
-Defined in: [types/codex.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L72)
+Defined in: [types/codex.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L72)

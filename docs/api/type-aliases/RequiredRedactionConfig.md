@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RequiredRedactionConfig** = `object`
 
-Defined in: [types/server.ts:239](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L239)
+Defined in: [types/server.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L239)
 
 Required redaction configuration (with defaults applied)
 
@@ -18,7 +18,7 @@ Required redaction configuration (with defaults applied)
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:240](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L240)
+Defined in: [types/server.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L240)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:240](https://github.com/juspay/neurolink/blob/49032
 
 > **additionalFields**: `string`[]
 
-Defined in: [types/server.ts:241](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L241)
+Defined in: [types/server.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L241)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:241](https://github.com/juspay/neurolink/blob/49032
 
 > **preserveFields**: `string`[]
 
-Defined in: [types/server.ts:242](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L242)
+Defined in: [types/server.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L242)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:242](https://github.com/juspay/neurolink/blob/49032
 
 > **redactToolArgs**: `boolean`
 
-Defined in: [types/server.ts:243](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L243)
+Defined in: [types/server.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L243)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:243](https://github.com/juspay/neurolink/blob/49032
 
 > **redactToolResults**: `boolean`
 
-Defined in: [types/server.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L244)
+Defined in: [types/server.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L244)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/server.ts:244](https://github.com/juspay/neurolink/blob/49032
 
 > **placeholder**: `string`
 
-Defined in: [types/server.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L245)
+Defined in: [types/server.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L245)

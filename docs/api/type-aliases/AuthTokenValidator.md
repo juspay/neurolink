@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthTokenValidator** = `object`
 
-Defined in: [types/auth.ts:1071](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1071)
+Defined in: [types/auth.ts:1071](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1071)
 
 Token operations: validate, extract, refresh, revoke.
 
@@ -18,7 +18,7 @@ Token operations: validate, extract, refresh, revoke.
 
 > **authenticateToken**(`token`, `context?`): `Promise`\<[`TokenValidationResult`](TokenValidationResult.md)\>
 
-Defined in: [types/auth.ts:1073](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1073)
+Defined in: [types/auth.ts:1073](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1073)
 
 Validate and decode an authentication token
 
@@ -42,7 +42,7 @@ Validate and decode an authentication token
 
 > **extractToken**(`context`): `string` \| `Promise`\<`string` \| `null`\> \| `null`
 
-Defined in: [types/auth.ts:1079](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1079)
+Defined in: [types/auth.ts:1079](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1079)
 
 Extract token from request context
 
@@ -62,7 +62,7 @@ Extract token from request context
 
 > `optional` **refreshToken**(`refreshToken`): `Promise`\<[`TokenRefreshResult`](TokenRefreshResult.md)\>
 
-Defined in: [types/auth.ts:1084](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1084)
+Defined in: [types/auth.ts:1084](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1084)
 
 Refresh an authentication token (optional)
 
@@ -82,7 +82,7 @@ Refresh an authentication token (optional)
 
 > `optional` **revokeToken**(`token`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1087](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1087)
+Defined in: [types/auth.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1087)
 
 Revoke a token / logout (optional)
 

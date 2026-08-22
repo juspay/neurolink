@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliProcessingResult** = `object`
 
-Defined in: [types/processor.ts:990](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L990)
+Defined in: [types/processor.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L990)
 
 Result of CLI file processing
 
@@ -18,7 +18,7 @@ Result of CLI file processing
 
 > **success**: `boolean`
 
-Defined in: [types/processor.ts:992](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L992)
+Defined in: [types/processor.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L992)
 
 Whether processing succeeded
 
@@ -28,7 +28,7 @@ Whether processing succeeded
 
 > **processorUsed**: `string` \| `null`
 
-Defined in: [types/processor.ts:994](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L994)
+Defined in: [types/processor.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L994)
 
 Name of the processor that was used
 
@@ -38,7 +38,7 @@ Name of the processor that was used
 
 > **output**: `string`
 
-Defined in: [types/processor.ts:996](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L996)
+Defined in: [types/processor.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L996)
 
 Formatted output string
 
@@ -48,6 +48,6 @@ Formatted output string
 
 > `optional` **error?**: `string`
 
-Defined in: [types/processor.ts:998](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L998)
+Defined in: [types/processor.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L998)
 
 Error message if processing failed

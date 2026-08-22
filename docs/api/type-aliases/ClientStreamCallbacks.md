@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientStreamCallbacks** = `object`
 
-Defined in: [types/client.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L182)
+Defined in: [types/client.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L182)
 
 Streaming callback handlers
 
@@ -18,7 +18,7 @@ Streaming callback handlers
 
 > `optional` **onText?**: (`text`) => `void`
 
-Defined in: [types/client.ts:184](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L184)
+Defined in: [types/client.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L184)
 
 Called for each text chunk
 
@@ -38,7 +38,7 @@ Called for each text chunk
 
 > `optional` **onToolCall?**: (`toolCall`) => `void`
 
-Defined in: [types/client.ts:186](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L186)
+Defined in: [types/client.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L186)
 
 Called for each tool call
 
@@ -58,7 +58,7 @@ Called for each tool call
 
 > `optional` **onToolResult?**: (`toolResult`) => `void`
 
-Defined in: [types/client.ts:188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L188)
+Defined in: [types/client.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L188)
 
 Called for each tool result
 
@@ -78,7 +78,7 @@ Called for each tool result
 
 > `optional` **onError?**: (`error`) => `void`
 
-Defined in: [types/client.ts:190](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L190)
+Defined in: [types/client.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L190)
 
 Called on stream error
 
@@ -98,7 +98,7 @@ Called on stream error
 
 > `optional` **onDone?**: (`result`) => `void`
 
-Defined in: [types/client.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L192)
+Defined in: [types/client.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L192)
 
 Called when stream completes
 
@@ -118,7 +118,7 @@ Called when stream completes
 
 > `optional` **onMetadata?**: (`metadata`) => `void`
 
-Defined in: [types/client.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L194)
+Defined in: [types/client.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L194)
 
 Called for metadata updates
 
@@ -138,7 +138,7 @@ Called for metadata updates
 
 > `optional` **onAudio?**: (`audio`) => `void`
 
-Defined in: [types/client.ts:196](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L196)
+Defined in: [types/client.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L196)
 
 Called for audio chunks
 
@@ -164,7 +164,7 @@ Called for audio chunks
 
 > `optional` **onThinking?**: (`thinking`) => `void`
 
-Defined in: [types/client.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L198)
+Defined in: [types/client.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L198)
 
 Called for thinking/reasoning output
 

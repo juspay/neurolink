@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ClassifierRouter
 
-Defined in: [routing/classifierRouter.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/classifierRouter.ts#L53)
+Defined in: [routing/classifierRouter.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L53)
 
 ModelPool and RequestRouter — opt-in multi-provider failover with
 error-class-aware cooldown, and a pluggable pre-call provider/model router.
@@ -42,7 +42,7 @@ const router = createDefaultRequestRouter({
 
 > **new ClassifierRouter**(`config`, `deps?`): `ClassifierRouter`
 
-Defined in: [routing/classifierRouter.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/classifierRouter.ts#L56)
+Defined in: [routing/classifierRouter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L56)
 
 #### Parameters
 
@@ -64,7 +64,7 @@ Defined in: [routing/classifierRouter.ts:56](https://github.com/juspay/neurolink
 
 > **route**(`input`): `Promise`\<[`ClassifierRouterDecision`](../type-aliases/ClassifierRouterDecision.md) \| `null`\>
 
-Defined in: [routing/classifierRouter.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/classifierRouter.ts#L65)
+Defined in: [routing/classifierRouter.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L65)
 
 Classify the request and produce a combined model + tool decision, or
 `null` when nothing should change. Never throws (fails open).

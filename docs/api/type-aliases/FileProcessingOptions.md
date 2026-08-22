@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileProcessingOptions** = [`ProcessOptions`](ProcessOptions.md) & `object`
 
-Defined in: [types/processor.ts:1059](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1059)
+Defined in: [types/processor.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1059)
 
 Options for processing files through the registry.
 Extends base ProcessOptions with registry-specific options.

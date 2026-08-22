@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SentryScope** = `object`
 
-Defined in: [types/observability.ts:544](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L544)
+Defined in: [types/observability.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L544)
 
 Sentry scope surface used by SentryExporter.withScope callbacks.
 
@@ -18,7 +18,7 @@ Sentry scope surface used by SentryExporter.withScope callbacks.
 
 > **setTags**: (`tags`) => `void`
 
-Defined in: [types/observability.ts:545](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L545)
+Defined in: [types/observability.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L545)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/observability.ts:545](https://github.com/juspay/neurolink/blo
 
 > **setContext**: (`name`, `context`) => `void`
 
-Defined in: [types/observability.ts:546](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L546)
+Defined in: [types/observability.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L546)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [types/observability.ts:546](https://github.com/juspay/neurolink/blo
 
 > **setUser**: (`user`) => `void`
 
-Defined in: [types/observability.ts:547](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L547)
+Defined in: [types/observability.ts:547](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L547)
 
 #### Parameters
 

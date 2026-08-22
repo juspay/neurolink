@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ActionThinkingConfig** = `object`
 
-Defined in: [types/action.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L56)
+Defined in: [types/action.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L56)
 
 Extended thinking configuration
 
@@ -18,7 +18,7 @@ Extended thinking configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/action.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L57)
+Defined in: [types/action.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L57)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/action.ts:57](https://github.com/juspay/neurolink/blob/49032f
 
 > **level**: `"minimal"` \| `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/action.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L58)
+Defined in: [types/action.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L58)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/action.ts:58](https://github.com/juspay/neurolink/blob/49032f
 
 > **budget**: `number`
 
-Defined in: [types/action.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L59)
+Defined in: [types/action.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L59)

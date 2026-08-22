@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentRunBudget** = `object`
 
-Defined in: [types/isolatedAgent.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L295)
+Defined in: [types/isolatedAgent.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L295)
 
 Cumulative budget accounting for leashed runs.
 
@@ -18,7 +18,7 @@ Cumulative budget accounting for leashed runs.
 
 > **spentMs**: `number`
 
-Defined in: [types/isolatedAgent.ts:297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L297)
+Defined in: [types/isolatedAgent.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L297)
 
 Total wall-clock spent across legs (ms).
 
@@ -28,7 +28,7 @@ Total wall-clock spent across legs (ms).
 
 > **remainingMs**: `number`
 
-Defined in: [types/isolatedAgent.ts:299](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L299)
+Defined in: [types/isolatedAgent.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L299)
 
 Remaining wall-clock vs the leg budget (ms; 0 when exhausted).
 
@@ -38,6 +38,6 @@ Remaining wall-clock vs the leg budget (ms; 0 when exhausted).
 
 > **spentToolCalls**: `number`
 
-Defined in: [types/isolatedAgent.ts:301](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L301)
+Defined in: [types/isolatedAgent.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L301)
 
 Total tool calls across legs.

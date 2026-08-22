@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkStreamChunkBase** = `object`
 
-Defined in: [types/agentNetwork.ts:723](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L723)
+Defined in: [types/agentNetwork.ts:723](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L723)
 
 Base streaming chunk with common fields
 
@@ -18,7 +18,7 @@ Base streaming chunk with common fields
 
 > **type**: [`NetworkStreamChunkType`](NetworkStreamChunkType.md)
 
-Defined in: [types/agentNetwork.ts:725](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L725)
+Defined in: [types/agentNetwork.ts:725](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L725)
 
 Chunk type
 
@@ -28,7 +28,7 @@ Chunk type
 
 > **timestamp**: `number`
 
-Defined in: [types/agentNetwork.ts:728](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L728)
+Defined in: [types/agentNetwork.ts:728](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L728)
 
 Timestamp
 
@@ -38,7 +38,7 @@ Timestamp
 
 > **traceId**: `string`
 
-Defined in: [types/agentNetwork.ts:731](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L731)
+Defined in: [types/agentNetwork.ts:731](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L731)
 
 Trace ID
 
@@ -48,6 +48,6 @@ Trace ID
 
 > `optional` **stepIndex?**: `number`
 
-Defined in: [types/agentNetwork.ts:734](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L734)
+Defined in: [types/agentNetwork.ts:734](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L734)
 
 Current step index

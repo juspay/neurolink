@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ErrorResponse** = `object`
 
-Defined in: [types/server.ts:1182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1182)
+Defined in: [types/server.ts:1182](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1182)
 
 Standardized error response format
 
@@ -18,7 +18,7 @@ Standardized error response format
 
 > **error**: `object`
 
-Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1183)
+Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1183)
 
 #### code
 
@@ -38,7 +38,7 @@ Defined in: [types/server.ts:1183](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1188)
+Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1188)
 
 #### timestamp
 
@@ -54,4 +54,4 @@ Defined in: [types/server.ts:1188](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **httpStatus?**: `number`
 
-Defined in: [types/server.ts:1192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1192)
+Defined in: [types/server.ts:1192](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1192)

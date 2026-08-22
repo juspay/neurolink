@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentDefinition** = `object`
 
-Defined in: [types/agentNetwork.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L20)
+Defined in: [types/agentNetwork.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L20)
 
 Agent definition for creating agents in the network
 
@@ -18,7 +18,7 @@ Agent definition for creating agents in the network
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L22)
+Defined in: [types/agentNetwork.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L22)
 
 Unique identifier for the agent
 
@@ -28,7 +28,7 @@ Unique identifier for the agent
 
 > **name**: `string`
 
-Defined in: [types/agentNetwork.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L25)
+Defined in: [types/agentNetwork.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L25)
 
 Human-readable name
 
@@ -38,7 +38,7 @@ Human-readable name
 
 > **description**: `string`
 
-Defined in: [types/agentNetwork.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L28)
+Defined in: [types/agentNetwork.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L28)
 
 Description of the agent's capabilities (critical for routing)
 
@@ -48,7 +48,7 @@ Description of the agent's capabilities (critical for routing)
 
 > **instructions**: `string`
 
-Defined in: [types/agentNetwork.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L31)
+Defined in: [types/agentNetwork.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L31)
 
 System instructions for the agent
 
@@ -58,7 +58,7 @@ System instructions for the agent
 
 > `optional` **provider?**: [`AIProviderName`](../enumerations/AIProviderName.md) \| `string`
 
-Defined in: [types/agentNetwork.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L34)
+Defined in: [types/agentNetwork.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L34)
 
 Provider to use for this agent
 
@@ -68,7 +68,7 @@ Provider to use for this agent
 
 > `optional` **model?**: `string`
 
-Defined in: [types/agentNetwork.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L37)
+Defined in: [types/agentNetwork.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L37)
 
 Model to use for this agent
 
@@ -78,7 +78,7 @@ Model to use for this agent
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/agentNetwork.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L40)
+Defined in: [types/agentNetwork.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L40)
 
 Tools available to this agent (tool names)
 
@@ -88,7 +88,7 @@ Tools available to this agent (tool names)
 
 > `optional` **inputSchema?**: `z.ZodSchema`
 
-Defined in: [types/agentNetwork.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L43)
+Defined in: [types/agentNetwork.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L43)
 
 Input schema for structured agent input
 
@@ -98,7 +98,7 @@ Input schema for structured agent input
 
 > `optional` **outputSchema?**: `z.ZodSchema`
 
-Defined in: [types/agentNetwork.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L46)
+Defined in: [types/agentNetwork.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L46)
 
 Output schema for structured agent output
 
@@ -108,7 +108,7 @@ Output schema for structured agent output
 
 > `optional` **maxSteps?**: `number`
 
-Defined in: [types/agentNetwork.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L49)
+Defined in: [types/agentNetwork.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L49)
 
 Maximum number of steps this agent can take (default: 10)
 
@@ -118,7 +118,7 @@ Maximum number of steps this agent can take (default: 10)
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/agentNetwork.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L52)
+Defined in: [types/agentNetwork.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L52)
 
 Temperature for generation (default: 0.7)
 
@@ -128,7 +128,7 @@ Temperature for generation (default: 0.7)
 
 > `optional` **canDelegate?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L55)
+Defined in: [types/agentNetwork.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L55)
 
 Whether this agent can delegate to other agents (default: false)
 
@@ -138,7 +138,7 @@ Whether this agent can delegate to other agents (default: false)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L58)
+Defined in: [types/agentNetwork.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L58)
 
 Custom metadata for routing decisions
 
@@ -148,6 +148,6 @@ Custom metadata for routing decisions
 
 > `optional` **credentials?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L61)
+Defined in: [types/agentNetwork.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L61)
 
 Per-agent credentials override

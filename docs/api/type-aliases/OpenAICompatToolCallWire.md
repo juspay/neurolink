@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAICompatToolCallWire** = `object`
 
-Defined in: [types/openaiCompatible.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L30)
+Defined in: [types/openaiCompatible.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L30)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:30](https://github.com/juspay/neurolink/b
 
 > **id**: `string`
 
-Defined in: [types/openaiCompatible.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L31)
+Defined in: [types/openaiCompatible.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L31)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:31](https://github.com/juspay/neurolink/b
 
 > **type**: `"function"`
 
-Defined in: [types/openaiCompatible.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L32)
+Defined in: [types/openaiCompatible.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L32)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/openaiCompatible.ts:32](https://github.com/juspay/neurolink/b
 
 > **function**: `object`
 
-Defined in: [types/openaiCompatible.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L33)
+Defined in: [types/openaiCompatible.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L33)
 
 #### name
 

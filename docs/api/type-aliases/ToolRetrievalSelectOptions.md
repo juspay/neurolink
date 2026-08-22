@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolRetrievalSelectOptions** = `object`
 
-Defined in: [types/toolRouting.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolRouting.ts#L385)
+Defined in: [types/toolRouting.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L385)
 
 Options passed to `selectRelevantToolNames()` — the high-level convenience
 wrapper around `ToolEmbeddingIndex`.
@@ -19,7 +19,7 @@ wrapper around `ToolEmbeddingIndex`.
 
 > **topK**: `number`
 
-Defined in: [types/toolRouting.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolRouting.ts#L387)
+Defined in: [types/toolRouting.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L387)
 
 Maximum number of tool names to return.
 
@@ -29,7 +29,7 @@ Maximum number of tool names to return.
 
 > `optional` **weights?**: [`ToolRetrievalWeights`](ToolRetrievalWeights.md)
 
-Defined in: [types/toolRouting.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolRouting.ts#L389)
+Defined in: [types/toolRouting.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L389)
 
 Optional weight override (defaults to `{ cosine: 0.8, bm25: 0.2 }`).
 
@@ -39,7 +39,7 @@ Optional weight override (defaults to `{ cosine: 0.8, bm25: 0.2 }`).
 
 > **embedFn**: (`texts`) => `Promise`\<`number`[][]\>
 
-Defined in: [types/toolRouting.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolRouting.ts#L395)
+Defined in: [types/toolRouting.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L395)
 
 Async function that converts an array of text strings into embedding
 vectors. Must return one vector per input text in the same order.
@@ -61,7 +61,7 @@ Errors thrown here propagate to the caller (so it can fail open).
 
 > `optional` **vectorCache?**: `Map`\<`string`, `number`[]\>
 
-Defined in: [types/toolRouting.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolRouting.ts#L403)
+Defined in: [types/toolRouting.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L403)
 
 Optional shared vector cache (keyed by text string). When supplied the
 underlying `ToolEmbeddingIndex` reads from and writes to this Map so that
@@ -75,6 +75,6 @@ should pass the same Map instance each time.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/toolRouting.ts:407](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolRouting.ts#L407)
+Defined in: [types/toolRouting.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L407)
 
 Timeout for each embedding provider call in milliseconds. Default: 10000.

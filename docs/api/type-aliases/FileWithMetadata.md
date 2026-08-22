@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileWithMetadata** = `object`
 
-Defined in: [types/file.ts:123](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L123)
+Defined in: [types/file.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L123)
 
 File with metadata — allows callers to pass filename alongside a Buffer.
 
@@ -34,7 +34,7 @@ files: [
 
 > **buffer**: `Buffer`
 
-Defined in: [types/file.ts:124](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L124)
+Defined in: [types/file.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L124)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:124](https://github.com/juspay/neurolink/blob/49032fc
 
 > **filename**: `string`
 
-Defined in: [types/file.ts:125](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L125)
+Defined in: [types/file.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L125)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/file.ts:125](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **mimetype?**: `string`
 
-Defined in: [types/file.ts:126](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L126)
+Defined in: [types/file.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L126)

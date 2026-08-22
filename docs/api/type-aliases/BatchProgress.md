@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchProgress** = `object`
 
-Defined in: [types/evaluation.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L389)
+Defined in: [types/evaluation.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L389)
 
 Superset batch progress. `pending` is canonical; `remaining` in the
 pipeline's batchStrategy was renamed during consolidation (same value).
@@ -19,7 +19,7 @@ pipeline's batchStrategy was renamed during consolidation (same value).
 
 > **total**: `number`
 
-Defined in: [types/evaluation.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L390)
+Defined in: [types/evaluation.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L390)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/evaluation.ts:390](https://github.com/juspay/neurolink/blob/4
 
 > **completed**: `number`
 
-Defined in: [types/evaluation.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L391)
+Defined in: [types/evaluation.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L391)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/evaluation.ts:391](https://github.com/juspay/neurolink/blob/4
 
 > **failed**: `number`
 
-Defined in: [types/evaluation.ts:392](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L392)
+Defined in: [types/evaluation.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L392)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/evaluation.ts:392](https://github.com/juspay/neurolink/blob/4
 
 > **pending**: `number`
 
-Defined in: [types/evaluation.ts:393](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L393)
+Defined in: [types/evaluation.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L393)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/evaluation.ts:393](https://github.com/juspay/neurolink/blob/4
 
 > **percentComplete**: `number`
 
-Defined in: [types/evaluation.ts:394](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L394)
+Defined in: [types/evaluation.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L394)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/evaluation.ts:394](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **succeeded?**: `number`
 
-Defined in: [types/evaluation.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L395)
+Defined in: [types/evaluation.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L395)
 
 ---
 
@@ -67,4 +67,4 @@ Defined in: [types/evaluation.ts:395](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **estimatedTimeRemaining?**: `number`
 
-Defined in: [types/evaluation.ts:396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L396)
+Defined in: [types/evaluation.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L396)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OnceSchedule** = `object`
 
-Defined in: [types/task.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L68)
+Defined in: [types/task.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L68)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/task.ts:68](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **type**: `"once"`
 
-Defined in: [types/task.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L69)
+Defined in: [types/task.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L69)
 
 ---
 
@@ -24,6 +24,6 @@ Defined in: [types/task.ts:69](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **at**: `Date` \| `string`
 
-Defined in: [types/task.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L71)
+Defined in: [types/task.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L71)
 
 ISO 8601 timestamp or Date object

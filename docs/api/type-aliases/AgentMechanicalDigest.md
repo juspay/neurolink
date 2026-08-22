@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentMechanicalDigest** = `object`
 
-Defined in: [types/isolatedAgent.ts:433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L433)
+Defined in: [types/isolatedAgent.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L433)
 
 Mechanical digest shape (delivery-guarantee fallback payload).
 
@@ -18,7 +18,7 @@ Mechanical digest shape (delivery-guarantee fallback payload).
 
 > **kind**: `"mechanical-digest"`
 
-Defined in: [types/isolatedAgent.ts:434](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L434)
+Defined in: [types/isolatedAgent.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L434)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/isolatedAgent.ts:434](https://github.com/juspay/neurolink/blo
 
 > **toolsRun**: `Record`\<`string`, \{ `calls`: `number`; `ok`: `number`; `failed`: `number`; \}\>
 
-Defined in: [types/isolatedAgent.ts:435](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L435)
+Defined in: [types/isolatedAgent.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L435)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/isolatedAgent.ts:435](https://github.com/juspay/neurolink/blo
 
 > **excerpts**: `object`[]
 
-Defined in: [types/isolatedAgent.ts:436](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L436)
+Defined in: [types/isolatedAgent.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L436)
 
 #### toolName
 

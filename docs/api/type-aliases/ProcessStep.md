@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessStep** = `object`
 
-Defined in: [types/ppt.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L371)
+Defined in: [types/ppt.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L371)
 
 Process step for process-flow slides
 Maps to: addShape (boxes/arrows) + addText
@@ -19,7 +19,7 @@ Maps to: addShape (boxes/arrows) + addText
 
 > **step**: `number`
 
-Defined in: [types/ppt.ts:373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L373)
+Defined in: [types/ppt.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L373)
 
 Step number
 
@@ -29,7 +29,7 @@ Step number
 
 > **title**: `string`
 
-Defined in: [types/ppt.ts:375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L375)
+Defined in: [types/ppt.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L375)
 
 Step title
 
@@ -39,7 +39,7 @@ Step title
 
 > `optional` **description?**: `string`
 
-Defined in: [types/ppt.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L377)
+Defined in: [types/ppt.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L377)
 
 Step description
 
@@ -49,6 +49,6 @@ Step description
 
 > `optional` **icon?**: `string`
 
-Defined in: [types/ppt.ts:379](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L379)
+Defined in: [types/ppt.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L379)
 
 Icon code (Unicode)

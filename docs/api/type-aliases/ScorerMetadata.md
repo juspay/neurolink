@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScorerMetadata** = `object`
 
-Defined in: [types/scorer.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L141)
+Defined in: [types/scorer.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L141)
 
 Scorer metadata for registration
 
@@ -18,7 +18,7 @@ Scorer metadata for registration
 
 > **id**: `string`
 
-Defined in: [types/scorer.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L143)
+Defined in: [types/scorer.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L143)
 
 Unique scorer identifier
 
@@ -28,7 +28,7 @@ Unique scorer identifier
 
 > **name**: `string`
 
-Defined in: [types/scorer.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L145)
+Defined in: [types/scorer.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L145)
 
 Human-readable name
 
@@ -38,7 +38,7 @@ Human-readable name
 
 > **description**: `string`
 
-Defined in: [types/scorer.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L147)
+Defined in: [types/scorer.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L147)
 
 Description of what the scorer evaluates
 
@@ -48,7 +48,7 @@ Description of what the scorer evaluates
 
 > **type**: [`ScorerType`](ScorerType.md)
 
-Defined in: [types/scorer.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L149)
+Defined in: [types/scorer.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L149)
 
 Scorer type (llm, rule, hybrid)
 
@@ -58,7 +58,7 @@ Scorer type (llm, rule, hybrid)
 
 > **category**: [`ScorerCategory`](ScorerCategory.md)
 
-Defined in: [types/scorer.ts:151](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L151)
+Defined in: [types/scorer.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L151)
 
 Category for grouping
 
@@ -68,7 +68,7 @@ Category for grouping
 
 > **version**: `string`
 
-Defined in: [types/scorer.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L153)
+Defined in: [types/scorer.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L153)
 
 Version string
 
@@ -78,7 +78,7 @@ Version string
 
 > **defaultConfig**: [`ScorerConfig`](ScorerConfig.md)
 
-Defined in: [types/scorer.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L155)
+Defined in: [types/scorer.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L155)
 
 Default configuration
 
@@ -88,7 +88,7 @@ Default configuration
 
 > **requiredInputs**: keyof [`ScorerInput`](ScorerInput.md)[]
 
-Defined in: [types/scorer.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L157)
+Defined in: [types/scorer.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L157)
 
 Required input fields
 
@@ -98,6 +98,6 @@ Required input fields
 
 > **optionalInputs**: keyof [`ScorerInput`](ScorerInput.md)[]
 
-Defined in: [types/scorer.ts:159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L159)
+Defined in: [types/scorer.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L159)
 
 Optional input fields

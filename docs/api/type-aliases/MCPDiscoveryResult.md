@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPDiscoveryResult** = `object`
 
-Defined in: [types/cli.ts:1885](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1885)
+Defined in: [types/cli.ts:1885](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1885)
 
 Per-server discovery result produced by `neurolink mcp discover`.
 
@@ -18,7 +18,7 @@ Per-server discovery result produced by `neurolink mcp discover`.
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1886](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1886)
+Defined in: [types/cli.ts:1886](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1886)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1886](https://github.com/juspay/neurolink/blob/49032fc
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1887](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1887)
+Defined in: [types/cli.ts:1887](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1887)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1887](https://github.com/juspay/neurolink/blob/49032fc
 
 > **toolCount**: `number`
 
-Defined in: [types/cli.ts:1888](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1888)
+Defined in: [types/cli.ts:1888](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1888)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1888](https://github.com/juspay/neurolink/blob/49032fc
 
 > **tools**: `object`[]
 
-Defined in: [types/cli.ts:1889](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1889)
+Defined in: [types/cli.ts:1889](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1889)
 
 #### name
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerAdapterErrorContext** = `object`
 
-Defined in: [types/server.ts:1153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1153)
+Defined in: [types/server.ts:1153](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1153)
 
 Error context for server adapter errors
 
@@ -18,7 +18,7 @@ Error context for server adapter errors
 
 > **category**: [`ErrorCategoryType`](ErrorCategoryType.md)
 
-Defined in: [types/server.ts:1154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1154)
+Defined in: [types/server.ts:1154](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1154)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1154](https://github.com/juspay/neurolink/blob/4903
 
 > **severity**: [`ErrorSeverityType`](ErrorSeverityType.md)
 
-Defined in: [types/server.ts:1155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1155)
+Defined in: [types/server.ts:1155](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1155)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1155](https://github.com/juspay/neurolink/blob/4903
 
 > **retryable**: `boolean`
 
-Defined in: [types/server.ts:1156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1156)
+Defined in: [types/server.ts:1156](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1156)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:1156](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **retryAfterMs?**: `number`
 
-Defined in: [types/server.ts:1157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1157)
+Defined in: [types/server.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1157)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:1157](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/server.ts:1158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1158)
+Defined in: [types/server.ts:1158](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1158)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/server.ts:1158](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **path?**: `string`
 
-Defined in: [types/server.ts:1159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1159)
+Defined in: [types/server.ts:1159](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1159)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/server.ts:1159](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **method?**: `string`
 
-Defined in: [types/server.ts:1160](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1160)
+Defined in: [types/server.ts:1160](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1160)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/server.ts:1160](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/server.ts:1161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1161)
+Defined in: [types/server.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1161)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/server.ts:1161](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **cause?**: `Error`
 
-Defined in: [types/server.ts:1162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1162)
+Defined in: [types/server.ts:1162](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1162)

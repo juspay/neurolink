@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PruneConfig** = `object`
 
-Defined in: [types/context.ts:988](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L988)
+Defined in: [types/context.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L988)
 
 Configuration for tool output pruning (Stage 1).
 
@@ -18,7 +18,7 @@ Configuration for tool output pruning (Stage 1).
 
 > `optional` **protectTokens?**: `number`
 
-Defined in: [types/context.ts:989](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L989)
+Defined in: [types/context.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L989)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:989](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **minimumSavings?**: `number`
 
-Defined in: [types/context.ts:990](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L990)
+Defined in: [types/context.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L990)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:990](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **protectedTools?**: `string`[]
 
-Defined in: [types/context.ts:991](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L991)
+Defined in: [types/context.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L991)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/context.ts:991](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:992](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L992)
+Defined in: [types/context.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L992)

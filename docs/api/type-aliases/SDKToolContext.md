@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SDKToolContext** = [`ToolContext`](ToolContext.md) & `object`
 
-Defined in: [types/tools.ts:257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L257)
+Defined in: [types/tools.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L257)
 
 SDK-specific tool context with additional fields for SDK usage
 Extends the base ToolContext with session management, provider info, and logging

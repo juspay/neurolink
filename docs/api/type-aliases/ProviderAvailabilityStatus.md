@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderAvailabilityStatus** = `object`
 
-Defined in: [types/evaluationProviders.ts:84](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L84)
+Defined in: [types/evaluationProviders.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L84)
 
 Provider availability status
 
@@ -18,7 +18,7 @@ Provider availability status
 
 > **provider**: `string`
 
-Defined in: [types/evaluationProviders.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L85)
+Defined in: [types/evaluationProviders.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L85)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluationProviders.ts:85](https://github.com/juspay/neurolin
 
 > **available**: `boolean`
 
-Defined in: [types/evaluationProviders.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L86)
+Defined in: [types/evaluationProviders.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L86)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluationProviders.ts:86](https://github.com/juspay/neurolin
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/evaluationProviders.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L87)
+Defined in: [types/evaluationProviders.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L87)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/evaluationProviders.ts:87](https://github.com/juspay/neurolin
 
 > **lastChecked**: `Date`
 
-Defined in: [types/evaluationProviders.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L88)
+Defined in: [types/evaluationProviders.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L88)

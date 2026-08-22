@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenExtractionStrategy** = `object`
 
-Defined in: [types/auth.ts:479](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L479)
+Defined in: [types/auth.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L479)
 
 Token extraction configuration (simple strategy)
 
@@ -18,7 +18,7 @@ Token extraction configuration (simple strategy)
 
 > `optional` **fromHeader?**: `object`
 
-Defined in: [types/auth.ts:481](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L481)
+Defined in: [types/auth.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L481)
 
 Extract from Authorization header
 
@@ -36,7 +36,7 @@ Extract from Authorization header
 
 > `optional` **fromCookie?**: `object`
 
-Defined in: [types/auth.ts:486](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L486)
+Defined in: [types/auth.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L486)
 
 Extract from cookie
 
@@ -50,7 +50,7 @@ Extract from cookie
 
 > `optional` **fromQuery?**: `object`
 
-Defined in: [types/auth.ts:490](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L490)
+Defined in: [types/auth.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L490)
 
 Extract from query parameter
 
@@ -64,7 +64,7 @@ Extract from query parameter
 
 > `optional` **custom?**: (`context`) => `string` \| `null` \| `Promise`\<`string` \| `null`\>
 
-Defined in: [types/auth.ts:494](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L494)
+Defined in: [types/auth.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L494)
 
 Custom extraction function (may be sync or async)
 

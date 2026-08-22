@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: CSVLoader
 
-Defined in: [rag/document/loaders.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L154)
+Defined in: [rag/document/loaders.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L154)
 
 CSV file loader
 
@@ -34,7 +34,7 @@ CSV file loader
 
 > `protected` **loadContent**(`source`, `encoding?`): `Promise`\<`string`\>
 
-Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L70)
+Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L70)
 
 #### Parameters
 
@@ -60,7 +60,7 @@ Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blo
 
 > `protected` **getSourceName**(`source`): `string`
 
-Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L81)
+Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L81)
 
 #### Parameters
 
@@ -82,7 +82,7 @@ Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blo
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L155)
+Defined in: [rag/document/loaders.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L155)
 
 Load document from source
 
@@ -116,7 +116,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L245)
+Defined in: [rag/document/loaders.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L245)
 
 Check if loader can handle the source
 

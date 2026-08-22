@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RAGASEvaluator
 
-Defined in: [evaluation/ragasEvaluator.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/ragasEvaluator.ts#L22)
+Defined in: [evaluation/ragasEvaluator.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/ragasEvaluator.ts#L22)
 
 Implements a RAGAS-style evaluator that uses a "judge" LLM to score the
 quality of an AI response based on rich, contextual information.
@@ -17,7 +17,7 @@ quality of an AI response based on rich, contextual information.
 
 > **new RAGASEvaluator**(`evaluationModel?`, `providerName?`, `threshold?`, `promptGenerator?`): `RAGASEvaluator`
 
-Defined in: [evaluation/ragasEvaluator.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/ragasEvaluator.ts#L29)
+Defined in: [evaluation/ragasEvaluator.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/ragasEvaluator.ts#L29)
 
 #### Parameters
 
@@ -47,7 +47,7 @@ Defined in: [evaluation/ragasEvaluator.ts:29](https://github.com/juspay/neurolin
 
 > **evaluate**(`context`): `Promise`\<[`EvaluationResult`](../type-aliases/EvaluationResult.md)\>
 
-Defined in: [evaluation/ragasEvaluator.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/ragasEvaluator.ts#L55)
+Defined in: [evaluation/ragasEvaluator.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/ragasEvaluator.ts#L55)
 
 Evaluates an AI-generated response using a model-based approach.
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **parseAllowedModels**(`message`): `string`[] \| `undefined`
 
-Defined in: [types/errors.ts:294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L294)
+Defined in: [types/errors.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L294)
 
 Parse the `allowed_models` array out of a provider error message body.
 Currently targets the LiteLLM team-whitelist response shape:

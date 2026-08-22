@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BeatovenTaskStatus** = `object`
 
-Defined in: [types/music.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L169)
+Defined in: [types/music.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L169)
 
 Beatoven.ai task status response.
 
@@ -20,7 +20,7 @@ Used by `BeatovenMusic` handler to type-check polling responses.
 
 > **status**: `"composing"` \| `"running"` \| `"composed"` \| `"failed"`
 
-Defined in: [types/music.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L170)
+Defined in: [types/music.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L170)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/music.ts:170](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **meta?**: `object`
 
-Defined in: [types/music.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L171)
+Defined in: [types/music.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L171)
 
 #### track_url?
 
@@ -52,4 +52,4 @@ Defined in: [types/music.ts:171](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **message?**: `string`
 
-Defined in: [types/music.ts:177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L177)
+Defined in: [types/music.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L177)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClassifierRouterDecision** = `object`
 
-Defined in: [types/classifierRouter.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L145)
+Defined in: [types/classifierRouter.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L145)
 
 The router's combined decision: a provider/model/region override plus an
 optional tool narrowing. Any undefined field means "keep what the caller
@@ -20,7 +20,7 @@ already configured". Returning `null` from the router is a valid no-op.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/classifierRouter.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L146)
+Defined in: [types/classifierRouter.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L146)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/classifierRouter.ts:146](https://github.com/juspay/neurolink/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/classifierRouter.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L147)
+Defined in: [types/classifierRouter.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L147)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/classifierRouter.ts:147](https://github.com/juspay/neurolink/
 
 > `optional` **region?**: `string`
 
-Defined in: [types/classifierRouter.ts:148](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L148)
+Defined in: [types/classifierRouter.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L148)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/classifierRouter.ts:148](https://github.com/juspay/neurolink/
 
 > `optional` **toolFilter?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:150](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L150)
+Defined in: [types/classifierRouter.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L150)
 
 Allowlist applied to `options.toolFilter`.
 
@@ -54,7 +54,7 @@ Allowlist applied to `options.toolFilter`.
 
 > `optional` **excludeTools?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:152](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L152)
+Defined in: [types/classifierRouter.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L152)
 
 Denylist appended to `options.excludeTools`.
 
@@ -64,7 +64,7 @@ Denylist appended to `options.excludeTools`.
 
 > `optional` **difficulty?**: [`ClassifierDifficulty`](ClassifierDifficulty.md)
 
-Defined in: [types/classifierRouter.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L154)
+Defined in: [types/classifierRouter.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L154)
 
 The difficulty this decision was made for (debug/telemetry).
 
@@ -74,7 +74,7 @@ The difficulty this decision was made for (debug/telemetry).
 
 > `optional` **modelFallbacks?**: [`ClassifierRouterPoolMember`](ClassifierRouterPoolMember.md)[]
 
-Defined in: [types/classifierRouter.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L156)
+Defined in: [types/classifierRouter.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L156)
 
 Remaining ranked candidates, best-first, for downstream failover.
 
@@ -84,6 +84,6 @@ Remaining ranked candidates, best-first, for downstream failover.
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/classifierRouter.ts:158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L158)
+Defined in: [types/classifierRouter.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L158)
 
 Human-readable explanation, emitted at debug level.

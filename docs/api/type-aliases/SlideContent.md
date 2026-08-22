@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SlideContent** = `object`
 
-Defined in: [types/ppt.ts:424](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L424)
+Defined in: [types/ppt.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L424)
 
 Content structure for a slide - varies by slide type
 This is the main content payload that the slide generator uses
@@ -19,7 +19,7 @@ This is the main content payload that the slide generator uses
 
 > `optional` **bullets?**: [`BulletPoint`](BulletPoint.md)[]
 
-Defined in: [types/ppt.ts:427](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L427)
+Defined in: [types/ppt.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L427)
 
 Main bullet points (for content/bullets/agenda slides)
 
@@ -29,7 +29,7 @@ Main bullet points (for content/bullets/agenda slides)
 
 > `optional` **subtitle?**: `string`
 
-Defined in: [types/ppt.ts:429](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L429)
+Defined in: [types/ppt.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L429)
 
 Subtitle (for title/section-header slides)
 
@@ -39,7 +39,7 @@ Subtitle (for title/section-header slides)
 
 > `optional` **body?**: `string`
 
-Defined in: [types/ppt.ts:431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L431)
+Defined in: [types/ppt.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L431)
 
 Body text (for simple text content)
 
@@ -49,7 +49,7 @@ Body text (for simple text content)
 
 > `optional` **sectionNumber?**: `number`
 
-Defined in: [types/ppt.ts:433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L433)
+Defined in: [types/ppt.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L433)
 
 Section number (for section-header slides)
 
@@ -59,7 +59,7 @@ Section number (for section-header slides)
 
 > `optional` **quote?**: `string`
 
-Defined in: [types/ppt.ts:437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L437)
+Defined in: [types/ppt.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L437)
 
 Quote text (for quote slides)
 
@@ -69,7 +69,7 @@ Quote text (for quote slides)
 
 > `optional` **quoteAuthor?**: `string`
 
-Defined in: [types/ppt.ts:439](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L439)
+Defined in: [types/ppt.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L439)
 
 Quote author/attribution
 
@@ -79,7 +79,7 @@ Quote author/attribution
 
 > `optional` **quoteAuthorTitle?**: `string`
 
-Defined in: [types/ppt.ts:441](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L441)
+Defined in: [types/ppt.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L441)
 
 Author title/role
 
@@ -89,7 +89,7 @@ Author title/role
 
 > `optional` **leftColumn?**: `object`
 
-Defined in: [types/ppt.ts:445](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L445)
+Defined in: [types/ppt.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L445)
 
 Left column content (for two-column/comparison)
 
@@ -111,7 +111,7 @@ Left column content (for two-column/comparison)
 
 > `optional` **rightColumn?**: `object`
 
-Defined in: [types/ppt.ts:451](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L451)
+Defined in: [types/ppt.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L451)
 
 Right column content (for two-column/comparison)
 
@@ -133,7 +133,7 @@ Right column content (for two-column/comparison)
 
 > `optional` **centerColumn?**: `object`
 
-Defined in: [types/ppt.ts:457](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L457)
+Defined in: [types/ppt.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L457)
 
 Center column (for three-column layouts)
 
@@ -155,7 +155,7 @@ Center column (for three-column layouts)
 
 > `optional` **caption?**: `string`
 
-Defined in: [types/ppt.ts:465](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L465)
+Defined in: [types/ppt.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L465)
 
 Caption for image-focused slides
 
@@ -165,7 +165,7 @@ Caption for image-focused slides
 
 > `optional` **galleryImages?**: `object`[]
 
-Defined in: [types/ppt.ts:467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L467)
+Defined in: [types/ppt.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L467)
 
 Multiple images for gallery slides
 
@@ -183,7 +183,7 @@ Multiple images for gallery slides
 
 > `optional` **tableData?**: `object`
 
-Defined in: [types/ppt.ts:474](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L474)
+Defined in: [types/ppt.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L474)
 
 Table data for table slides
 
@@ -213,7 +213,7 @@ Caption below table
 
 > `optional` **chartData?**: `object`
 
-Defined in: [types/ppt.ts:485](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L485)
+Defined in: [types/ppt.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L485)
 
 Chart configuration for chart slides
 
@@ -265,7 +265,7 @@ Show category axis
 
 > `optional` **statistics?**: [`Statistic`](Statistic.md)[]
 
-Defined in: [types/ppt.ts:504](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L504)
+Defined in: [types/ppt.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L504)
 
 Statistics/metrics for statistics slides
 
@@ -275,7 +275,7 @@ Statistics/metrics for statistics slides
 
 > `optional` **timeline?**: `object`
 
-Defined in: [types/ppt.ts:508](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L508)
+Defined in: [types/ppt.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L508)
 
 Timeline items for timeline slides
 
@@ -295,7 +295,7 @@ Horizontal or vertical layout
 
 > `optional` **processSteps?**: [`ProcessStep`](ProcessStep.md)[]
 
-Defined in: [types/ppt.ts:516](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L516)
+Defined in: [types/ppt.ts:516](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L516)
 
 Process steps for process-flow slides
 
@@ -305,7 +305,7 @@ Process steps for process-flow slides
 
 > `optional` **teamMembers?**: [`TeamMember`](TeamMember.md)[]
 
-Defined in: [types/ppt.ts:520](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L520)
+Defined in: [types/ppt.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L520)
 
 Team members for team slides
 
@@ -315,7 +315,7 @@ Team members for team slides
 
 > `optional` **features?**: [`FeatureItem`](FeatureItem.md)[]
 
-Defined in: [types/ppt.ts:524](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L524)
+Defined in: [types/ppt.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L524)
 
 Feature items for features slides
 
@@ -325,7 +325,7 @@ Feature items for features slides
 
 > `optional` **comparison?**: `object`
 
-Defined in: [types/ppt.ts:528](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L528)
+Defined in: [types/ppt.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L528)
 
 Comparison data for comparison slides
 
@@ -345,7 +345,7 @@ Comparison title (e.g., "Basic vs Pro")
 
 > `optional` **cta?**: `string`
 
-Defined in: [types/ppt.ts:536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L536)
+Defined in: [types/ppt.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L536)
 
 Call-to-action text
 
@@ -355,7 +355,7 @@ Call-to-action text
 
 > `optional` **ctaButton?**: `string`
 
-Defined in: [types/ppt.ts:538](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L538)
+Defined in: [types/ppt.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L538)
 
 CTA button text
 
@@ -365,7 +365,7 @@ CTA button text
 
 > `optional` **contactInfo?**: `object`
 
-Defined in: [types/ppt.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L540)
+Defined in: [types/ppt.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L540)
 
 Contact information (for thank-you/closing slides)
 
@@ -395,7 +395,7 @@ Contact information (for thank-you/closing slides)
 
 > `optional` **nextSteps?**: `string`[]
 
-Defined in: [types/ppt.ts:551](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L551)
+Defined in: [types/ppt.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L551)
 
 Next steps list (for closing slides)
 
@@ -405,7 +405,7 @@ Next steps list (for closing slides)
 
 > `optional` **icons?**: `object`[]
 
-Defined in: [types/ppt.ts:555](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L555)
+Defined in: [types/ppt.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L555)
 
 Icon items for icon-grid slides
 
@@ -427,7 +427,7 @@ Icon items for icon-grid slides
 
 > `optional` **layoutOptions?**: `object`
 
-Defined in: [types/ppt.ts:563](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L563)
+Defined in: [types/ppt.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L563)
 
 Custom layout overrides - AI can specify positions/sizes
 
@@ -741,7 +741,7 @@ Timeline/Process flow
 
 > `optional` **dashboard?**: `object`
 
-Defined in: [types/ppt.ts:662](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L662)
+Defined in: [types/ppt.ts:662](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L662)
 
 Dashboard configuration for composite slides with multiple content zones
 

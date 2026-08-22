@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TraceView** = `object`
 
-Defined in: [types/observability.ts:255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L255)
+Defined in: [types/observability.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L255)
 
 Hierarchical trace view grouping related spans
 
@@ -18,7 +18,7 @@ Hierarchical trace view grouping related spans
 
 > **traceId**: `string`
 
-Defined in: [types/observability.ts:257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L257)
+Defined in: [types/observability.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L257)
 
 Trace identifier shared by all spans in this trace
 
@@ -28,7 +28,7 @@ Trace identifier shared by all spans in this trace
 
 > **rootSpan**: [`SpanData`](SpanData.md)
 
-Defined in: [types/observability.ts:259](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L259)
+Defined in: [types/observability.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L259)
 
 The root/parent span of this trace
 
@@ -38,7 +38,7 @@ The root/parent span of this trace
 
 > **childSpans**: [`SpanData`](SpanData.md)[]
 
-Defined in: [types/observability.ts:261](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L261)
+Defined in: [types/observability.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L261)
 
 Child spans linked to the root
 
@@ -48,7 +48,7 @@ Child spans linked to the root
 
 > **totalDurationMs**: `number`
 
-Defined in: [types/observability.ts:263](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L263)
+Defined in: [types/observability.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L263)
 
 Total duration from first to last span
 
@@ -58,7 +58,7 @@ Total duration from first to last span
 
 > **spanCount**: `number`
 
-Defined in: [types/observability.ts:265](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L265)
+Defined in: [types/observability.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L265)
 
 Total number of spans in this trace
 
@@ -68,6 +68,6 @@ Total number of spans in this trace
 
 > **status**: `"ok"` \| `"error"` \| `"partial"`
 
-Defined in: [types/observability.ts:267](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L267)
+Defined in: [types/observability.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L267)
 
 Overall trace status

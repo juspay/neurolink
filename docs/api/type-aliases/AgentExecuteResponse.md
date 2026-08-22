@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentExecuteResponse** = `object`
 
-Defined in: [types/server.ts:586](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L586)
+Defined in: [types/server.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L586)
 
 Agent execution response
 
@@ -18,7 +18,7 @@ Agent execution response
 
 > **content**: `string`
 
-Defined in: [types/server.ts:588](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L588)
+Defined in: [types/server.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L588)
 
 Generated content
 
@@ -28,7 +28,7 @@ Generated content
 
 > **provider**: `string`
 
-Defined in: [types/server.ts:591](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L591)
+Defined in: [types/server.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L591)
 
 Provider used
 
@@ -38,7 +38,7 @@ Provider used
 
 > **model**: `string`
 
-Defined in: [types/server.ts:594](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L594)
+Defined in: [types/server.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L594)
 
 Model used
 
@@ -48,7 +48,7 @@ Model used
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/server.ts:597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L597)
+Defined in: [types/server.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L597)
 
 Token usage
 
@@ -100,7 +100,7 @@ Cache savings percentage
 
 > `optional` **toolCalls?**: `object`[]
 
-Defined in: [types/server.ts:615](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L615)
+Defined in: [types/server.ts:615](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L615)
 
 Tool calls made
 
@@ -122,7 +122,7 @@ Tool calls made
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/server.ts:622](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L622)
+Defined in: [types/server.ts:622](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L622)
 
 Finish reason
 
@@ -132,6 +132,6 @@ Finish reason
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/server.ts:625](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L625)
+Defined in: [types/server.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L625)
 
 Response metadata

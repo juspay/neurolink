@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VertexUsageCounter** = `"input"` \| `"output"` \| `"cacheRead"` \| `"reasoning"`
 
-Defined in: [types/providers.ts:2054](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2054)
+Defined in: [types/providers.ts:2054](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2054)
 
 Which turn-level counter a per-chunk Vertex usage delta belongs to.
 

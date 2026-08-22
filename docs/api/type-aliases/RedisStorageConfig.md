@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RedisStorageConfig** = `object`
 
-Defined in: [types/conversation.ts:718](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L718)
+Defined in: [types/conversation.ts:718](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L718)
 
 Redis storage configuration
 
@@ -18,7 +18,7 @@ Redis storage configuration
 
 > `optional` **url?**: `string`
 
-Defined in: [types/conversation.ts:720](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L720)
+Defined in: [types/conversation.ts:720](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L720)
 
 Redis connection URL (e.g., 'rediss://host:6379' for TLS)
 
@@ -28,7 +28,7 @@ Redis connection URL (e.g., 'rediss://host:6379' for TLS)
 
 > `optional` **username?**: `string`
 
-Defined in: [types/conversation.ts:723](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L723)
+Defined in: [types/conversation.ts:723](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L723)
 
 Redis username for ACL authentication (optional)
 
@@ -38,7 +38,7 @@ Redis username for ACL authentication (optional)
 
 > `optional` **host?**: `string`
 
-Defined in: [types/conversation.ts:726](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L726)
+Defined in: [types/conversation.ts:726](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L726)
 
 Redis host (default: 'localhost')
 
@@ -48,7 +48,7 @@ Redis host (default: 'localhost')
 
 > `optional` **port?**: `number`
 
-Defined in: [types/conversation.ts:729](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L729)
+Defined in: [types/conversation.ts:729](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L729)
 
 Redis port (default: 6379)
 
@@ -58,7 +58,7 @@ Redis port (default: 6379)
 
 > `optional` **password?**: `string`
 
-Defined in: [types/conversation.ts:732](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L732)
+Defined in: [types/conversation.ts:732](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L732)
 
 Redis password (optional)
 
@@ -68,7 +68,7 @@ Redis password (optional)
 
 > `optional` **db?**: `number`
 
-Defined in: [types/conversation.ts:735](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L735)
+Defined in: [types/conversation.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L735)
 
 Redis database number (default: 0)
 
@@ -78,7 +78,7 @@ Redis database number (default: 0)
 
 > `optional` **keyPrefix?**: `string`
 
-Defined in: [types/conversation.ts:738](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L738)
+Defined in: [types/conversation.ts:738](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L738)
 
 Key prefix for Redis keys (default: 'neurolink:conversation:')
 
@@ -88,7 +88,7 @@ Key prefix for Redis keys (default: 'neurolink:conversation:')
 
 > `optional` **userSessionsKeyPrefix?**: `string`
 
-Defined in: [types/conversation.ts:741](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L741)
+Defined in: [types/conversation.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L741)
 
 Key prefix for user sessions mapping (default: derived from keyPrefix)
 
@@ -98,7 +98,7 @@ Key prefix for user sessions mapping (default: derived from keyPrefix)
 
 > `optional` **ttl?**: `number`
 
-Defined in: [types/conversation.ts:744](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L744)
+Defined in: [types/conversation.ts:744](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L744)
 
 Time-to-live in seconds (default: 86400, 24 hours)
 
@@ -108,7 +108,7 @@ Time-to-live in seconds (default: 86400, 24 hours)
 
 > `optional` **connectionOptions?**: `object`
 
-Defined in: [types/conversation.ts:747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L747)
+Defined in: [types/conversation.ts:747](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L747)
 
 Additional Redis connection options
 

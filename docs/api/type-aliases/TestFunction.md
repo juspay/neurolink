@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TestFunction** = `object`
 
-Defined in: [types/common.ts:277](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L277)
+Defined in: [types/common.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L277)
 
 A named test function with an optional category.
 
@@ -18,7 +18,7 @@ A named test function with an optional category.
 
 > **name**: `string`
 
-Defined in: [types/common.ts:279](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L279)
+Defined in: [types/common.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L279)
 
 Display name of the test
 
@@ -28,7 +28,7 @@ Display name of the test
 
 > **fn**: () => `Promise`\<`boolean`\>
 
-Defined in: [types/common.ts:281](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L281)
+Defined in: [types/common.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L281)
 
 Async function that returns true on pass, false on fail
 
@@ -42,6 +42,6 @@ Async function that returns true on pass, false on fail
 
 > `optional` **category?**: `string`
 
-Defined in: [types/common.ts:283](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L283)
+Defined in: [types/common.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L283)
 
 Optional grouping category

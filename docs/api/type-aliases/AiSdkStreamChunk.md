@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AiSdkStreamChunk** = `object`
 
-Defined in: [types/client.ts:1617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1617)
+Defined in: [types/client.ts:1617](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1617)
 
 Internal stream chunk format used by the AI-SDK adapter's push/pull queue.
 Distinct from the public NeuroLink `StreamChunk` (stream.ts) — this one
@@ -20,7 +20,7 @@ mirrors the underlying `ai` package event shape (text-delta / finish).
 
 > **type**: `"text-delta"` \| `"finish"`
 
-Defined in: [types/client.ts:1618](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1618)
+Defined in: [types/client.ts:1618](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1618)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/client.ts:1618](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **textDelta?**: `string`
 
-Defined in: [types/client.ts:1619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1619)
+Defined in: [types/client.ts:1619](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1619)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/client.ts:1619](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/client.ts:1620](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1620)
+Defined in: [types/client.ts:1620](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1620)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/client.ts:1620](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/client.ts:1621](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1621)
+Defined in: [types/client.ts:1621](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1621)
 
 #### promptTokens
 

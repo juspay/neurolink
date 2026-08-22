@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeEventBridgeParams** = `object`
 
-Defined in: [types/livekit.ts:531](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L531)
+Defined in: [types/livekit.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L531)
 
 Inputs to `attachRealtimeEventBridge`.
 
@@ -18,7 +18,7 @@ Inputs to `attachRealtimeEventBridge`.
 
 > **room**: [`LiveKitBridgeRoom`](LiveKitBridgeRoom.md)
 
-Defined in: [types/livekit.ts:533](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L533)
+Defined in: [types/livekit.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L533)
 
 The LiveKit room for this call (from the job context).
 
@@ -28,7 +28,7 @@ The LiveKit room for this call (from the job context).
 
 > `optional` **hitlTimeoutMs?**: `number`
 
-Defined in: [types/livekit.ts:535](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L535)
+Defined in: [types/livekit.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L535)
 
 HITL confirmation timeout in ms before a request is auto-declined.
 
@@ -38,7 +38,7 @@ HITL confirmation timeout in ms before a request is auto-declined.
 
 > `optional` **eventsTopic?**: `string`
 
-Defined in: [types/livekit.ts:537](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L537)
+Defined in: [types/livekit.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L537)
 
 Outbound events topic (default "ai-events").
 
@@ -48,7 +48,7 @@ Outbound events topic (default "ai-events").
 
 > `optional` **controlTopic?**: `string`
 
-Defined in: [types/livekit.ts:539](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L539)
+Defined in: [types/livekit.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L539)
 
 Inbound control topic (default "ai-control").
 
@@ -58,6 +58,6 @@ Inbound control topic (default "ai-control").
 
 > `optional` **maxInlineBytes?**: `number`
 
-Defined in: [types/livekit.ts:541](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L541)
+Defined in: [types/livekit.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L541)
 
 Payloads larger than this are sent via the chunked text stream (default 12000).

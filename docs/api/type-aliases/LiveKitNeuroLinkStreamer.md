@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitNeuroLinkStreamer** = `object`
 
-Defined in: [types/livekit.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L27)
+Defined in: [types/livekit.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L27)
 
 Minimal structural shape of the NeuroLink instance the brain depends on.
 
@@ -26,7 +26,7 @@ to forward tool/text/HITL events to the browser.
 
 > **stream**: (`options`) => `Promise`\<[`StreamResult`](StreamResult.md)\>
 
-Defined in: [types/livekit.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L28)
+Defined in: [types/livekit.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L28)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [types/livekit.ts:28](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **getEventEmitter?**: () => `TypedEventEmitter`\<[`NeuroLinkEvents`](NeuroLinkEvents.md)\>
 
-Defined in: [types/livekit.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L29)
+Defined in: [types/livekit.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L29)
 
 #### Returns
 

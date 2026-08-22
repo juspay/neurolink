@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentRunEvent** = `object`
 
-Defined in: [types/isolatedAgent.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L207)
+Defined in: [types/isolatedAgent.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L207)
 
 Lifecycle event for `AgentRunOptions.onEvent`. Fire-and-forget — listener
 errors never break the run.
@@ -24,7 +24,7 @@ live started/finished signals.
 
 > **type**: [`AgentRunEventType`](AgentRunEventType.md)
 
-Defined in: [types/isolatedAgent.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L208)
+Defined in: [types/isolatedAgent.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L208)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/isolatedAgent.ts:208](https://github.com/juspay/neurolink/blo
 
 > **runId**: `string`
 
-Defined in: [types/isolatedAgent.ts:210](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L210)
+Defined in: [types/isolatedAgent.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L210)
 
 Run id (also the default tool-context sessionId).
 
@@ -42,7 +42,7 @@ Run id (also the default tool-context sessionId).
 
 > **agentId**: `string`
 
-Defined in: [types/isolatedAgent.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L212)
+Defined in: [types/isolatedAgent.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L212)
 
 Agent definition id.
 
@@ -52,7 +52,7 @@ Agent definition id.
 
 > **timestamp**: `number`
 
-Defined in: [types/isolatedAgent.ts:214](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L214)
+Defined in: [types/isolatedAgent.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L214)
 
 Epoch milliseconds.
 
@@ -62,7 +62,7 @@ Epoch milliseconds.
 
 > `optional` **phase?**: `"research"` \| `"extraction"`
 
-Defined in: [types/isolatedAgent.ts:216](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L216)
+Defined in: [types/isolatedAgent.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L216)
 
 Current phase, on `phase` events.
 
@@ -72,7 +72,7 @@ Current phase, on `phase` events.
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/isolatedAgent.ts:218](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L218)
+Defined in: [types/isolatedAgent.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L218)
 
 Tool name, on tool_call/tool_result events.
 
@@ -82,7 +82,7 @@ Tool name, on tool_call/tool_result events.
 
 > `optional` **params?**: `unknown`
 
-Defined in: [types/isolatedAgent.ts:220](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L220)
+Defined in: [types/isolatedAgent.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L220)
 
 Tool params, on tool_call events.
 
@@ -92,7 +92,7 @@ Tool params, on tool_call events.
 
 > `optional` **resultSummary?**: `string`
 
-Defined in: [types/isolatedAgent.ts:222](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L222)
+Defined in: [types/isolatedAgent.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L222)
 
 Bounded result summary, on tool_result events.
 
@@ -102,7 +102,7 @@ Bounded result summary, on tool_result events.
 
 > `optional` **isError?**: `boolean`
 
-Defined in: [types/isolatedAgent.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L224)
+Defined in: [types/isolatedAgent.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L224)
 
 Whether the tool result was an error, on tool_result events.
 
@@ -112,7 +112,7 @@ Whether the tool result was an error, on tool_result events.
 
 > `optional` **legIndex?**: `number`
 
-Defined in: [types/isolatedAgent.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L226)
+Defined in: [types/isolatedAgent.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L226)
 
 Leg index, on leg_end events (leashed mode).
 
@@ -122,7 +122,7 @@ Leg index, on leg_end events (leashed mode).
 
 > `optional` **wasteSignals?**: `string`[]
 
-Defined in: [types/isolatedAgent.ts:228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L228)
+Defined in: [types/isolatedAgent.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L228)
 
 Tripped waste signatures, on waste events.
 
@@ -132,7 +132,7 @@ Tripped waste signatures, on waste events.
 
 > `optional` **error?**: `string`
 
-Defined in: [types/isolatedAgent.ts:230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L230)
+Defined in: [types/isolatedAgent.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L230)
 
 Error message, on error events.
 
@@ -142,6 +142,6 @@ Error message, on error events.
 
 > `optional` **status?**: [`AgentRunStatus`](AgentRunStatus.md)
 
-Defined in: [types/isolatedAgent.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L232)
+Defined in: [types/isolatedAgent.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L232)
 
 Final status, on complete events.

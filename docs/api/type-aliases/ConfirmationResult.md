@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConfirmationResult** = `object`
 
-Defined in: [types/hitl.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L88)
+Defined in: [types/hitl.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L88)
 
 Result of a confirmation request
 Contains user decision and potentially modified arguments
@@ -19,7 +19,7 @@ Contains user decision and potentially modified arguments
 
 > **approved**: `boolean`
 
-Defined in: [types/hitl.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L90)
+Defined in: [types/hitl.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L90)
 
 Whether the user approved the tool execution
 
@@ -29,7 +29,7 @@ Whether the user approved the tool execution
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/hitl.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L93)
+Defined in: [types/hitl.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L93)
 
 Optional reason for rejection (if approved is false)
 
@@ -39,7 +39,7 @@ Optional reason for rejection (if approved is false)
 
 > `optional` **modifiedArguments?**: `unknown`
 
-Defined in: [types/hitl.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L96)
+Defined in: [types/hitl.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L96)
 
 User-modified arguments (if allowArgumentModification is enabled)
 
@@ -49,6 +49,6 @@ User-modified arguments (if allowArgumentModification is enabled)
 
 > **responseTime**: `number`
 
-Defined in: [types/hitl.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L99)
+Defined in: [types/hitl.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L99)
 
 Time taken for user to respond in milliseconds

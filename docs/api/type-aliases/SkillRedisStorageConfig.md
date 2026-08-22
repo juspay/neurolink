@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SkillRedisStorageConfig** = `object`
 
-Defined in: [types/skills.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L170)
+Defined in: [types/skills.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L170)
 
 Redis-backed store using NeuroLink's pooled Redis client (`redis` v5,
 already a core dependency). One JSON value per skill under
@@ -21,7 +21,7 @@ persistent — no TTL is applied.
 
 > **type**: `"redis"`
 
-Defined in: [types/skills.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L171)
+Defined in: [types/skills.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L171)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/skills.ts:171](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **url?**: `string`
 
-Defined in: [types/skills.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L172)
+Defined in: [types/skills.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L172)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/skills.ts:172](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **host?**: `string`
 
-Defined in: [types/skills.ts:173](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L173)
+Defined in: [types/skills.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L173)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/skills.ts:173](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **port?**: `number`
 
-Defined in: [types/skills.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L174)
+Defined in: [types/skills.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L174)
 
 ---
 
@@ -53,7 +53,7 @@ Defined in: [types/skills.ts:174](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **username?**: `string`
 
-Defined in: [types/skills.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L175)
+Defined in: [types/skills.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L175)
 
 ---
 
@@ -61,7 +61,7 @@ Defined in: [types/skills.ts:175](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **password?**: `string`
 
-Defined in: [types/skills.ts:176](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L176)
+Defined in: [types/skills.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L176)
 
 ---
 
@@ -69,7 +69,7 @@ Defined in: [types/skills.ts:176](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **db?**: `number`
 
-Defined in: [types/skills.ts:177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L177)
+Defined in: [types/skills.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L177)
 
 ---
 
@@ -77,6 +77,6 @@ Defined in: [types/skills.ts:177](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **keyPrefix?**: `string`
 
-Defined in: [types/skills.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L179)
+Defined in: [types/skills.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L179)
 
 Key prefix. Default: "neurolink:skills:".

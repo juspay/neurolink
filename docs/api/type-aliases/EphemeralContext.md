@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EphemeralContext** = `object`
 
-Defined in: [types/knowledge.ts:367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L367)
+Defined in: [types/knowledge.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L367)
 
 A block of context assembled for a single generation call without becoming
 durable conversation. The NeuroLink call boundary injects its content into
@@ -20,7 +20,7 @@ the effective system prompt and never persists it as a user message.
 
 > **content**: `string`
 
-Defined in: [types/knowledge.ts:368](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L368)
+Defined in: [types/knowledge.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L368)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/knowledge.ts:368](https://github.com/juspay/neurolink/blob/49
 
 > **kind**: `"knowledge"`
 
-Defined in: [types/knowledge.ts:369](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L369)
+Defined in: [types/knowledge.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L369)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/knowledge.ts:369](https://github.com/juspay/neurolink/blob/49
 
 > **trusted**: `boolean`
 
-Defined in: [types/knowledge.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L371)
+Defined in: [types/knowledge.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L371)
 
 Host-supplied reviewed content is trusted reference data.
 
@@ -46,7 +46,7 @@ Host-supplied reviewed content is trusted reference data.
 
 > `optional` **citations?**: [`KnowledgeCitation`](KnowledgeCitation.md)[]
 
-Defined in: [types/knowledge.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L372)
+Defined in: [types/knowledge.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L372)
 
 ---
 
@@ -54,4 +54,4 @@ Defined in: [types/knowledge.ts:372](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/knowledge.ts:373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L373)
+Defined in: [types/knowledge.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L373)

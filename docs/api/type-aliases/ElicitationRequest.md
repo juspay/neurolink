@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ElicitationRequest** = `object`
 
-Defined in: [types/elicitation.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L28)
+Defined in: [types/elicitation.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L28)
 
 Base elicitation request
 
@@ -18,7 +18,7 @@ Base elicitation request
 
 > **id**: `string`
 
-Defined in: [types/elicitation.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L32)
+Defined in: [types/elicitation.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L32)
 
 Unique request identifier
 
@@ -28,7 +28,7 @@ Unique request identifier
 
 > **type**: [`ElicitationType`](ElicitationType.md)
 
-Defined in: [types/elicitation.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L37)
+Defined in: [types/elicitation.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L37)
 
 Type of elicitation
 
@@ -38,7 +38,7 @@ Type of elicitation
 
 > **message**: `string`
 
-Defined in: [types/elicitation.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L42)
+Defined in: [types/elicitation.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L42)
 
 Message to display to user
 
@@ -48,7 +48,7 @@ Message to display to user
 
 > **toolName**: `string`
 
-Defined in: [types/elicitation.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L47)
+Defined in: [types/elicitation.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L47)
 
 Tool requesting the elicitation
 
@@ -58,7 +58,7 @@ Tool requesting the elicitation
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/elicitation.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L52)
+Defined in: [types/elicitation.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L52)
 
 Server ID of the requesting tool
 
@@ -68,7 +68,7 @@ Server ID of the requesting tool
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/elicitation.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L57)
+Defined in: [types/elicitation.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L57)
 
 Request timeout in milliseconds
 
@@ -78,7 +78,7 @@ Request timeout in milliseconds
 
 > `optional` **optional?**: `boolean`
 
-Defined in: [types/elicitation.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L62)
+Defined in: [types/elicitation.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L62)
 
 Whether the request can be skipped
 
@@ -88,7 +88,7 @@ Whether the request can be skipped
 
 > `optional` **defaultValue?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/elicitation.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L67)
+Defined in: [types/elicitation.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L67)
 
 Default value if skipped or timed out
 
@@ -98,6 +98,6 @@ Default value if skipped or timed out
 
 > `optional` **context?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/elicitation.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L72)
+Defined in: [types/elicitation.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L72)
 
 Additional context for the request

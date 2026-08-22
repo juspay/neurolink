@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServiceHealth** = `object`
 
-Defined in: [types/service.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L51)
+Defined in: [types/service.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L51)
 
 Service health information
 
@@ -18,7 +18,7 @@ Service health information
 
 > **status**: [`ServiceStatus`](ServiceStatus.md)
 
-Defined in: [types/service.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L52)
+Defined in: [types/service.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L52)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/service.ts:52](https://github.com/juspay/neurolink/blob/49032
 
 > **lastChecked**: `Date`
 
-Defined in: [types/service.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L53)
+Defined in: [types/service.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L53)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/service.ts:53](https://github.com/juspay/neurolink/blob/49032
 
 > **uptime**: `number`
 
-Defined in: [types/service.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L54)
+Defined in: [types/service.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L54)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/service.ts:54](https://github.com/juspay/neurolink/blob/49032
 
 > **errorCount**: `number`
 
-Defined in: [types/service.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L55)
+Defined in: [types/service.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L55)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/service.ts:55](https://github.com/juspay/neurolink/blob/49032
 
 > **dependencies**: [`ServiceDependencyHealth`](ServiceDependencyHealth.md)[]
 
-Defined in: [types/service.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L56)
+Defined in: [types/service.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L56)

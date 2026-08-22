@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FrameworkFieldsConfig** = `object`
 
-Defined in: [types/context.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L82)
+Defined in: [types/context.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L82)
 
 Configuration for framework fields exclusion
 Can be customized per application or environment
@@ -19,7 +19,7 @@ Can be customized per application or environment
 
 > **defaultFields**: `string`[]
 
-Defined in: [types/context.ts:84](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L84)
+Defined in: [types/context.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L84)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/context.ts:84](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **additionalFields?**: `string`[]
 
-Defined in: [types/context.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L87)
+Defined in: [types/context.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L87)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/context.ts:87](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **overrideFields?**: `string`[]
 
-Defined in: [types/context.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L90)
+Defined in: [types/context.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L90)
 
 ---
 
@@ -43,4 +43,4 @@ Defined in: [types/context.ts:90](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **includeFields?**: `string`[]
 
-Defined in: [types/context.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L93)
+Defined in: [types/context.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L93)

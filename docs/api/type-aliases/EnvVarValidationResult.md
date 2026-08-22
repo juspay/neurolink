@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnvVarValidationResult** = `object`
 
-Defined in: [types/utilities.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L224)
+Defined in: [types/utilities.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L224)
 
 Validation results for environment variables
 
@@ -18,7 +18,7 @@ Validation results for environment variables
 
 > **isValid**: `boolean`
 
-Defined in: [types/utilities.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L225)
+Defined in: [types/utilities.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L225)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/utilities.ts:225](https://github.com/juspay/neurolink/blob/49
 
 > **missingVars**: `string`[]
 
-Defined in: [types/utilities.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L226)
+Defined in: [types/utilities.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L226)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/utilities.ts:226](https://github.com/juspay/neurolink/blob/49
 
 > **invalidVars**: `string`[]
 
-Defined in: [types/utilities.ts:227](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L227)
+Defined in: [types/utilities.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L227)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/utilities.ts:227](https://github.com/juspay/neurolink/blob/49
 
 > **warnings**: `string`[]
 
-Defined in: [types/utilities.ts:228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L228)
+Defined in: [types/utilities.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L228)

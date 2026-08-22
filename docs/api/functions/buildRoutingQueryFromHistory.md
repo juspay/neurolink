@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **buildRoutingQueryFromHistory**(`recentMessages`, `currentQuery`, `maxChars?`, `maxMessages?`): `string`
 
-Defined in: [core/toolRouting.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/toolRouting.ts#L109)
+Defined in: [core/toolRouting.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRouting.ts#L109)
 
 Folds a bounded window of recent conversation turns together with the current
 user query into a single transcript string for the router.

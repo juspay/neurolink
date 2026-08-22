@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TestResult** = `object`
 
-Defined in: [types/common.ts:289](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L289)
+Defined in: [types/common.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L289)
 
 Result of a single test execution.
 
@@ -18,7 +18,7 @@ Result of a single test execution.
 
 > **name**: `string`
 
-Defined in: [types/common.ts:291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L291)
+Defined in: [types/common.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L291)
 
 Display name of the test
 
@@ -28,7 +28,7 @@ Display name of the test
 
 > **result**: `boolean`
 
-Defined in: [types/common.ts:293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L293)
+Defined in: [types/common.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L293)
 
 Whether the test passed
 
@@ -38,7 +38,7 @@ Whether the test passed
 
 > **error**: `string` \| `null`
 
-Defined in: [types/common.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L295)
+Defined in: [types/common.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L295)
 
 Error message if the test failed, null otherwise
 
@@ -48,7 +48,7 @@ Error message if the test failed, null otherwise
 
 > `optional` **category?**: `string`
 
-Defined in: [types/common.ts:297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L297)
+Defined in: [types/common.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L297)
 
 Optional grouping category
 
@@ -58,6 +58,6 @@ Optional grouping category
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/common.ts:299](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L299)
+Defined in: [types/common.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L299)
 
 Optional execution duration in milliseconds

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ChromaVectorStore
 
-Defined in: [rag/stores/chroma.ts:255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/chroma.ts#L255)
+Defined in: [rag/stores/chroma.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L255)
 
 RAG (Retrieval-Augmented Generation) Document Processing
 
@@ -47,7 +47,7 @@ console.log(response.answer);
 
 > **new ChromaVectorStore**(`client`, `options?`): `ChromaVectorStore`
 
-Defined in: [rag/stores/chroma.ts:262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/chroma.ts#L262)
+Defined in: [rag/stores/chroma.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L262)
 
 #### Parameters
 
@@ -69,7 +69,7 @@ Defined in: [rag/stores/chroma.ts:262](https://github.com/juspay/neurolink/blob/
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/chroma.ts:281](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/chroma.ts#L281)
+Defined in: [rag/stores/chroma.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L281)
 
 Add or update vectors in an index (Chroma collection).
 
@@ -93,7 +93,7 @@ Add or update vectors in an index (Chroma collection).
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
 
-Defined in: [rag/stores/chroma.ts:303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/chroma.ts#L303)
+Defined in: [rag/stores/chroma.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L303)
 
 Query vectors by similarity.
 
@@ -135,7 +135,7 @@ Query vectors by similarity.
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/chroma.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/chroma.ts#L358)
+Defined in: [rag/stores/chroma.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/chroma.ts#L358)
 
 Delete vectors from an index (Chroma collection) by id.
 

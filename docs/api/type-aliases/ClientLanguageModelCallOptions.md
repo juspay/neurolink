@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientLanguageModelCallOptions** = `object`
 
-Defined in: [types/client.ts:854](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L854)
+Defined in: [types/client.ts:854](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L854)
 
 Language model call options
 
@@ -18,7 +18,7 @@ Language model call options
 
 > **prompt**: `string`
 
-Defined in: [types/client.ts:856](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L856)
+Defined in: [types/client.ts:856](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L856)
 
 Input prompt
 
@@ -28,7 +28,7 @@ Input prompt
 
 > `optional` **system?**: `string`
 
-Defined in: [types/client.ts:858](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L858)
+Defined in: [types/client.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L858)
 
 System prompt
 
@@ -38,7 +38,7 @@ System prompt
 
 > `optional` **messages?**: `object`[]
 
-Defined in: [types/client.ts:860](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L860)
+Defined in: [types/client.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L860)
 
 Messages for conversation
 
@@ -56,7 +56,7 @@ Messages for conversation
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/client.ts:865](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L865)
+Defined in: [types/client.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L865)
 
 Temperature
 
@@ -66,7 +66,7 @@ Temperature
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/client.ts:867](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L867)
+Defined in: [types/client.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L867)
 
 Maximum tokens
 
@@ -76,7 +76,7 @@ Maximum tokens
 
 > `optional` **stopSequences?**: `string`[]
 
-Defined in: [types/client.ts:869](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L869)
+Defined in: [types/client.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L869)
 
 Stop sequences
 
@@ -86,6 +86,6 @@ Stop sequences
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/client.ts:871](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L871)
+Defined in: [types/client.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L871)
 
 Abort signal

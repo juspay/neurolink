@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseVoiceReturn** = `object`
 
-Defined in: [types/client.ts:746](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L746)
+Defined in: [types/client.ts:746](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L746)
 
 useVoice hook return type
 
@@ -18,7 +18,7 @@ useVoice hook return type
 
 > **startListening**: () => `void`
 
-Defined in: [types/client.ts:748](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L748)
+Defined in: [types/client.ts:748](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L748)
 
 Start listening for voice input
 
@@ -32,7 +32,7 @@ Start listening for voice input
 
 > **stopListening**: () => `void`
 
-Defined in: [types/client.ts:750](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L750)
+Defined in: [types/client.ts:750](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L750)
 
 Stop listening
 
@@ -46,7 +46,7 @@ Stop listening
 
 > **speak**: (`text`) => `Promise`\<`void`\>
 
-Defined in: [types/client.ts:752](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L752)
+Defined in: [types/client.ts:752](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L752)
 
 Speak text
 
@@ -66,7 +66,7 @@ Speak text
 
 > **stopSpeaking**: () => `void`
 
-Defined in: [types/client.ts:754](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L754)
+Defined in: [types/client.ts:754](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L754)
 
 Stop speaking
 
@@ -80,7 +80,7 @@ Stop speaking
 
 > **submit**: (`text`) => `Promise`\<`string`\>
 
-Defined in: [types/client.ts:756](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L756)
+Defined in: [types/client.ts:756](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L756)
 
 Submit voice input
 
@@ -100,7 +100,7 @@ Submit voice input
 
 > **isListening**: `boolean`
 
-Defined in: [types/client.ts:758](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L758)
+Defined in: [types/client.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L758)
 
 Whether currently listening
 
@@ -110,7 +110,7 @@ Whether currently listening
 
 > **isSpeaking**: `boolean`
 
-Defined in: [types/client.ts:760](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L760)
+Defined in: [types/client.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L760)
 
 Whether currently speaking
 
@@ -120,7 +120,7 @@ Whether currently speaking
 
 > **isProcessing**: `boolean`
 
-Defined in: [types/client.ts:762](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L762)
+Defined in: [types/client.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L762)
 
 Whether processing
 
@@ -130,7 +130,7 @@ Whether processing
 
 > **transcript**: `string`
 
-Defined in: [types/client.ts:764](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L764)
+Defined in: [types/client.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L764)
 
 Current transcript
 
@@ -140,7 +140,7 @@ Current transcript
 
 > **response**: `string` \| `null`
 
-Defined in: [types/client.ts:766](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L766)
+Defined in: [types/client.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L766)
 
 Last response
 
@@ -150,7 +150,7 @@ Last response
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
 
-Defined in: [types/client.ts:768](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L768)
+Defined in: [types/client.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L768)
 
 Error state
 
@@ -160,6 +160,6 @@ Error state
 
 > **isSupported**: `boolean`
 
-Defined in: [types/client.ts:770](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L770)
+Defined in: [types/client.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L770)
 
 Supported by browser

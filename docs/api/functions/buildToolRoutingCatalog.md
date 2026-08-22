@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **buildToolRoutingCatalog**(`servers`, `registeredToolNames`): [`ToolRoutingCatalogEntry`](../type-aliases/ToolRoutingCatalogEntry.md)[]
 
-Defined in: [core/toolRouting.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/toolRouting.ts#L77)
+Defined in: [core/toolRouting.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRouting.ts#L77)
 
 Builds the routing catalog by pairing each declared server with the
 registered tool names that belong to it (`${serverId}_${toolName}`).

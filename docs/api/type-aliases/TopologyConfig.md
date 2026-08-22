@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TopologyConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:1603](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1603)
+Defined in: [types/agentNetwork.ts:1603](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1603)
 
 Topology configuration
 
@@ -18,7 +18,7 @@ Topology configuration
 
 > **type**: [`TopologyType`](TopologyType.md)
 
-Defined in: [types/agentNetwork.ts:1605](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1605)
+Defined in: [types/agentNetwork.ts:1605](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1605)
 
 Topology type
 
@@ -28,7 +28,7 @@ Topology type
 
 > `optional` **coordinatorId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1608](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1608)
+Defined in: [types/agentNetwork.ts:1608](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1608)
 
 Coordinator agent ID (for star topology)
 
@@ -38,7 +38,7 @@ Coordinator agent ID (for star topology)
 
 > `optional` **rootId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1611](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1611)
+Defined in: [types/agentNetwork.ts:1611](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1611)
 
 Root agent ID (for hierarchical topology)
 
@@ -48,7 +48,7 @@ Root agent ID (for hierarchical topology)
 
 > `optional` **maxChildren?**: `number`
 
-Defined in: [types/agentNetwork.ts:1614](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1614)
+Defined in: [types/agentNetwork.ts:1614](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1614)
 
 Maximum children per node (for hierarchical)
 
@@ -58,7 +58,7 @@ Maximum children per node (for hierarchical)
 
 > `optional` **customEdges?**: `object`[]
 
-Defined in: [types/agentNetwork.ts:1617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1617)
+Defined in: [types/agentNetwork.ts:1617](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1617)
 
 Custom edges (for custom topology)
 

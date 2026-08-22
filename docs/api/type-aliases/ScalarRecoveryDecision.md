@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScalarRecoveryDecision** = \{ `kind`: `"empty"`; \} \| \{ `kind`: `"accepted"`; `value`: `unknown`; \} \| \{ `kind`: `"rejected"`; `value`: `unknown`; \} \| \{ `kind`: `"nullish"`; \} \| \{ `kind`: `"not-json"`; \}
 
-Defined in: [types/utilities.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L354)
+Defined in: [types/utilities.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L354)
 
 Decision returned by `recoverScalarRoot`. Each caller applies it to its own
 result shape and logger prefix, preserving its existing warning behaviour:

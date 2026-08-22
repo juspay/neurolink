@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitBridgeRoom** = `object`
 
-Defined in: [types/livekit.ts:364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L364)
+Defined in: [types/livekit.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L364)
 
 Minimal structural view of the LiveKit room the bridge needs: a local
 participant to publish on, and event (un)subscription. Declared structurally
@@ -21,7 +21,7 @@ so `src/lib/types` carries no dependency on `@livekit/rtc-node`; the real
 
 > `optional` **localParticipant?**: `object`
 
-Defined in: [types/livekit.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L365)
+Defined in: [types/livekit.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L365)
 
 #### publishData()
 
@@ -73,7 +73,7 @@ Defined in: [types/livekit.ts:365](https://github.com/juspay/neurolink/blob/4903
 
 > **on**(`event`, `listener`): `unknown`
 
-Defined in: [types/livekit.ts:375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L375)
+Defined in: [types/livekit.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L375)
 
 #### Parameters
 
@@ -95,7 +95,7 @@ Defined in: [types/livekit.ts:375](https://github.com/juspay/neurolink/blob/4903
 
 > **off**(`event`, `listener`): `unknown`
 
-Defined in: [types/livekit.ts:376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L376)
+Defined in: [types/livekit.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L376)
 
 #### Parameters
 

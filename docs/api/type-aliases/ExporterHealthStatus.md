@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExporterHealthStatus** = `object`
 
-Defined in: [types/exporter.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L51)
+Defined in: [types/exporter.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L51)
 
 Exporter health status
 
@@ -18,7 +18,7 @@ Exporter health status
 
 > **healthy**: `boolean`
 
-Defined in: [types/exporter.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L52)
+Defined in: [types/exporter.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L52)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/exporter.ts:52](https://github.com/juspay/neurolink/blob/4903
 
 > **name**: `string`
 
-Defined in: [types/exporter.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L53)
+Defined in: [types/exporter.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L53)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/exporter.ts:53](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **latencyMs?**: `number`
 
-Defined in: [types/exporter.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L54)
+Defined in: [types/exporter.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L54)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/exporter.ts:54](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **lastExportTime?**: `number`
 
-Defined in: [types/exporter.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L55)
+Defined in: [types/exporter.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L55)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/exporter.ts:55](https://github.com/juspay/neurolink/blob/4903
 
 > **pendingSpans**: `number`
 
-Defined in: [types/exporter.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L56)
+Defined in: [types/exporter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L56)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/exporter.ts:56](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **errors?**: `string`[]
 
-Defined in: [types/exporter.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L57)
+Defined in: [types/exporter.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L57)

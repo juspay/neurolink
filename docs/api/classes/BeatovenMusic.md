@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: BeatovenMusic
 
-Defined in: [music/providers/BeatovenMusic.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L37)
+Defined in: [music/providers/BeatovenMusic.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L37)
 
 Beatoven.ai Music Generation Handler.
 
@@ -24,7 +24,7 @@ asynchronously: submit a prompt, poll the task, then download.
 
 > **new BeatovenMusic**(`apiKey?`): `BeatovenMusic`
 
-Defined in: [music/providers/BeatovenMusic.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L58)
+Defined in: [music/providers/BeatovenMusic.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L58)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [music/providers/BeatovenMusic.ts:58](https://github.com/juspay/neur
 
 > `readonly` **maxDurationSeconds**: `300` = `300`
 
-Defined in: [music/providers/BeatovenMusic.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L38)
+Defined in: [music/providers/BeatovenMusic.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L38)
 
 Maximum supported track duration in seconds (provider-specific).
 
@@ -56,7 +56,7 @@ Maximum supported track duration in seconds (provider-specific).
 
 > `readonly` **supportedFormats**: readonly [`MusicAudioFormat`](../type-aliases/MusicAudioFormat.md)[]
 
-Defined in: [music/providers/BeatovenMusic.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L39)
+Defined in: [music/providers/BeatovenMusic.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L39)
 
 Output formats supported by this handler.
 
@@ -70,7 +70,7 @@ Output formats supported by this handler.
 
 > `readonly` **supportedGenres**: readonly `string`[]
 
-Defined in: [music/providers/BeatovenMusic.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L43)
+Defined in: [music/providers/BeatovenMusic.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L43)
 
 Genres / styles the upstream advertises (informational).
 
@@ -84,7 +84,7 @@ Genres / styles the upstream advertises (informational).
 
 > **isConfigured**(): `boolean`
 
-Defined in: [music/providers/BeatovenMusic.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L67)
+Defined in: [music/providers/BeatovenMusic.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L67)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -102,7 +102,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`options`): `Promise`\<[`MusicResult`](../type-aliases/MusicResult.md)\>
 
-Defined in: [music/providers/BeatovenMusic.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/BeatovenMusic.ts#L71)
+Defined in: [music/providers/BeatovenMusic.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/BeatovenMusic.ts#L71)
 
 Generate a music track from prompt + options.
 

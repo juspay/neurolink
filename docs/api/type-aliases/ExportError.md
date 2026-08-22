@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExportError** = `object`
 
-Defined in: [types/exporter.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L31)
+Defined in: [types/exporter.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L31)
 
 Export error details
 
@@ -18,7 +18,7 @@ Export error details
 
 > **spanId**: `string`
 
-Defined in: [types/exporter.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L32)
+Defined in: [types/exporter.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L32)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/exporter.ts:32](https://github.com/juspay/neurolink/blob/4903
 
 > **error**: `string`
 
-Defined in: [types/exporter.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L33)
+Defined in: [types/exporter.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L33)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/exporter.ts:33](https://github.com/juspay/neurolink/blob/4903
 
 > **retryable**: `boolean`
 
-Defined in: [types/exporter.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L34)
+Defined in: [types/exporter.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L34)

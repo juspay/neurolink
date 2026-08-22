@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CostAnalysisResult** = `object`
 
-Defined in: [types/analytics.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L208)
+Defined in: [types/analytics.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L208)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/analytics.ts:208](https://github.com/juspay/neurolink/blob/49
 
 > **totalCost**: `number`
 
-Defined in: [types/analytics.ts:209](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L209)
+Defined in: [types/analytics.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L209)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/analytics.ts:209](https://github.com/juspay/neurolink/blob/49
 
 > **totalTokens**: `number`
 
-Defined in: [types/analytics.ts:210](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L210)
+Defined in: [types/analytics.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L210)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/analytics.ts:210](https://github.com/juspay/neurolink/blob/49
 
 > **inputTokens**: `number`
 
-Defined in: [types/analytics.ts:211](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L211)
+Defined in: [types/analytics.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L211)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/analytics.ts:211](https://github.com/juspay/neurolink/blob/49
 
 > **outputTokens**: `number`
 
-Defined in: [types/analytics.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L212)
+Defined in: [types/analytics.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L212)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/analytics.ts:212](https://github.com/juspay/neurolink/blob/49
 
 > **requestCount**: `number`
 
-Defined in: [types/analytics.ts:213](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L213)
+Defined in: [types/analytics.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L213)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/analytics.ts:213](https://github.com/juspay/neurolink/blob/49
 
 > **groups**: `Record`\<`string`, [`CostGroupItem`](CostGroupItem.md)\>
 
-Defined in: [types/analytics.ts:214](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L214)
+Defined in: [types/analytics.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L214)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/analytics.ts:214](https://github.com/juspay/neurolink/blob/49
 
 > **providers**: [`CostGroupItem`](CostGroupItem.md)[]
 
-Defined in: [types/analytics.ts:215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L215)
+Defined in: [types/analytics.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L215)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/analytics.ts:215](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **projections?**: `object`
 
-Defined in: [types/analytics.ts:216](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L216)
+Defined in: [types/analytics.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L216)
 
 #### nextMonth
 

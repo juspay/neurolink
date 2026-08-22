@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientApiResponse**\<`T`\> = `object`
 
-Defined in: [types/client.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L82)
+Defined in: [types/client.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L82)
 
 Response wrapper with metadata for all API responses
 
@@ -24,7 +24,7 @@ Response wrapper with metadata for all API responses
 
 > **data**: `T`
 
-Defined in: [types/client.ts:84](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L84)
+Defined in: [types/client.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L84)
 
 Response data
 
@@ -34,7 +34,7 @@ Response data
 
 > **status**: `number`
 
-Defined in: [types/client.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L86)
+Defined in: [types/client.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L86)
 
 HTTP status code
 
@@ -44,7 +44,7 @@ HTTP status code
 
 > **headers**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L88)
+Defined in: [types/client.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L88)
 
 Response headers
 
@@ -54,7 +54,7 @@ Response headers
 
 > **duration**: `number`
 
-Defined in: [types/client.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L90)
+Defined in: [types/client.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L90)
 
 Request duration in milliseconds
 
@@ -64,6 +64,6 @@ Request duration in milliseconds
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/client.ts:92](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L92)
+Defined in: [types/client.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L92)
 
 Request ID for tracing

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: VideoProcessor
 
-Defined in: [utils/videoProcessor.ts:45](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L45)
+Defined in: [utils/videoProcessor.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L45)
 
 Static processor managing the video handler registry.
 
@@ -30,7 +30,7 @@ O(1) on a normalised lower-case provider key.
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [utils/videoProcessor.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L53)
+Defined in: [utils/videoProcessor.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L53)
 
 Register a video handler for a specific provider.
 
@@ -54,7 +54,7 @@ Register a video handler for a specific provider.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/videoProcessor.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L62)
+Defined in: [utils/videoProcessor.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L62)
 
 Check if a provider has a registered video handler.
 
@@ -74,7 +74,7 @@ Check if a provider has a registered video handler.
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/videoProcessor.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L69)
+Defined in: [utils/videoProcessor.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L69)
 
 List the names of all registered providers.
 
@@ -88,7 +88,7 @@ List the names of all registered providers.
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [utils/videoProcessor.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L80)
+Defined in: [utils/videoProcessor.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L80)
 
 Clear all registered handlers (for testing).
 
@@ -102,7 +102,7 @@ Clear all registered handlers (for testing).
 
 > `static` **generate**(`provider`, `image`, `prompt`, `options`, `region?`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
 
-Defined in: [utils/videoProcessor.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L109)
+Defined in: [utils/videoProcessor.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L109)
 
 Generate a single video clip via the registered handler.
 
@@ -153,7 +153,7 @@ generation failure
 
 > `static` **generateTransition**(`provider`, `firstFrame`, `lastFrame`, `prompt`, `options?`, `region?`): `Promise`\<`Buffer`\<`ArrayBufferLike`\>\>
 
-Defined in: [utils/videoProcessor.ts:190](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/videoProcessor.ts#L190)
+Defined in: [utils/videoProcessor.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L190)
 
 Generate a transition clip via the registered handler (Director Mode).
 

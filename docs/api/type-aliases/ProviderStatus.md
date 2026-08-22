@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderStatus** = `object`
 
-Defined in: [types/providers.ts:104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L104)
+Defined in: [types/providers.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L104)
 
 Provider status information
 
@@ -18,7 +18,7 @@ Provider status information
 
 > **provider**: `string`
 
-Defined in: [types/providers.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L105)
+Defined in: [types/providers.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L105)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:105](https://github.com/juspay/neurolink/blob/49
 
 > **status**: `"working"` \| `"failed"` \| `"not-configured"`
 
-Defined in: [types/providers.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L106)
+Defined in: [types/providers.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L106)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:106](https://github.com/juspay/neurolink/blob/49
 
 > **configured**: `boolean`
 
-Defined in: [types/providers.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L107)
+Defined in: [types/providers.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L107)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:107](https://github.com/juspay/neurolink/blob/49
 
 > **authenticated**: `boolean`
 
-Defined in: [types/providers.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L108)
+Defined in: [types/providers.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L108)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:108](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L109)
+Defined in: [types/providers.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L109)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:109](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **responseTime?**: `number`
 
-Defined in: [types/providers.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L110)
+Defined in: [types/providers.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L110)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/providers.ts:110](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **model?**: `string`
 
-Defined in: [types/providers.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L111)
+Defined in: [types/providers.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L111)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/providers.ts:111](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **subscription?**: [`SubscriptionInfo`](SubscriptionInfo.md)
 
-Defined in: [types/providers.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L116)
+Defined in: [types/providers.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L116)
 
 Subscription information for providers that support subscription tiers
 (e.g., Anthropic Claude with Pro/Max/Team/Enterprise subscriptions)
@@ -85,6 +85,6 @@ Subscription information for providers that support subscription tiers
 
 > `optional` **authMethod?**: [`AnthropicAuthMethod`](AnthropicAuthMethod.md)
 
-Defined in: [types/providers.ts:120](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L120)
+Defined in: [types/providers.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L120)
 
 The authentication method currently in use for this provider

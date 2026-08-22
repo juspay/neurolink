@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NvidiaNimExtraBody** = `object`
 
-Defined in: [types/providers.ts:304](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L304)
+Defined in: [types/providers.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L304)
 
 NVIDIA NIM extra request body parameters passed via `providerOptions.openai.body`.
 Lives here (not in providers/nvidiaNim.ts) per CLAUDE.md rule 2.
@@ -19,7 +19,7 @@ Lives here (not in providers/nvidiaNim.ts) per CLAUDE.md rule 2.
 
 > `optional` **top_k?**: `number`
 
-Defined in: [types/providers.ts:305](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L305)
+Defined in: [types/providers.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L305)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/providers.ts:305](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **min_p?**: `number`
 
-Defined in: [types/providers.ts:306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L306)
+Defined in: [types/providers.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L306)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/providers.ts:306](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **repetition_penalty?**: `number`
 
-Defined in: [types/providers.ts:307](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L307)
+Defined in: [types/providers.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L307)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/providers.ts:307](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **min_tokens?**: `number`
 
-Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L308)
+Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L308)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/providers.ts:308](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **chat_template?**: `string`
 
-Defined in: [types/providers.ts:309](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L309)
+Defined in: [types/providers.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L309)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/providers.ts:309](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **request_id?**: `string`
 
-Defined in: [types/providers.ts:310](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L310)
+Defined in: [types/providers.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L310)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/providers.ts:310](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **ignore_eos?**: `boolean`
 
-Defined in: [types/providers.ts:311](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L311)
+Defined in: [types/providers.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L311)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/providers.ts:311](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **chat_template_kwargs?**: `object`
 
-Defined in: [types/providers.ts:312](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L312)
+Defined in: [types/providers.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L312)
 
 #### thinking?
 

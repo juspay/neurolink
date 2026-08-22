@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VisionCapability** = `object`
 
-Defined in: [types/multimodal.ts:562](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L562)
+Defined in: [types/multimodal.ts:562](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L562)
 
 Vision capability information for providers
 
@@ -18,7 +18,7 @@ Vision capability information for providers
 
 > **provider**: `string`
 
-Defined in: [types/multimodal.ts:563](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L563)
+Defined in: [types/multimodal.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L563)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:563](https://github.com/juspay/neurolink/blob/4
 
 > **supportedModels**: `string`[]
 
-Defined in: [types/multimodal.ts:564](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L564)
+Defined in: [types/multimodal.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L564)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:564](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **maxImageSize?**: `number`
 
-Defined in: [types/multimodal.ts:565](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L565)
+Defined in: [types/multimodal.ts:565](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L565)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/multimodal.ts:565](https://github.com/juspay/neurolink/blob/4
 
 > **supportedFormats**: `string`[]
 
-Defined in: [types/multimodal.ts:566](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L566)
+Defined in: [types/multimodal.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L566)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/multimodal.ts:566](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **maxImagesPerRequest?**: `number`
 
-Defined in: [types/multimodal.ts:567](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L567)
+Defined in: [types/multimodal.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L567)

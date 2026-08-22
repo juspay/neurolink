@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationRequest** = `object`
 
-Defined in: [types/evaluation.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L143)
+Defined in: [types/evaluation.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L143)
 
 Evaluation request type as specified in core module refactoring
 
@@ -18,7 +18,7 @@ Evaluation request type as specified in core module refactoring
 
 > **content**: `string`
 
-Defined in: [types/evaluation.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L144)
+Defined in: [types/evaluation.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L144)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:144](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **context?**: `string`
 
-Defined in: [types/evaluation.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L145)
+Defined in: [types/evaluation.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L145)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:145](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **domain?**: `string`
 
-Defined in: [types/evaluation.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L146)
+Defined in: [types/evaluation.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L146)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/evaluation.ts:146](https://github.com/juspay/neurolink/blob/4
 
 > **criteria**: [`EvaluationCriteria`](EvaluationCriteria.md)
 
-Defined in: [types/evaluation.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L147)
+Defined in: [types/evaluation.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L147)

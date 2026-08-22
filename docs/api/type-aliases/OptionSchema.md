@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OptionSchema** = `object`
 
-Defined in: [types/cli.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L37)
+Defined in: [types/cli.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L37)
 
 Defines the schema for a session variable or a generation option.
 
@@ -18,7 +18,7 @@ Defines the schema for a session variable or a generation option.
 
 > **type**: `"string"` \| `"boolean"` \| `"number"`
 
-Defined in: [types/cli.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L38)
+Defined in: [types/cli.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L38)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L39)
+Defined in: [types/cli.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L39)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b
 
 > `optional` **allowedValues?**: `string`[]
 
-Defined in: [types/cli.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L40)
+Defined in: [types/cli.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L40)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: GeminiLive
 
-Defined in: [voice/providers/GeminiLive.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L29)
+Defined in: [voice/providers/GeminiLive.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L29)
 
 Google Gemini Live Voice API Handler
 
@@ -26,7 +26,7 @@ https://ai.google.dev/gemini-api/docs/live
 
 > **new GeminiLive**(`apiKey?`): `GeminiLive`
 
-Defined in: [voice/providers/GeminiLive.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L37)
+Defined in: [voice/providers/GeminiLive.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L37)
 
 #### Parameters
 
@@ -48,7 +48,7 @@ Defined in: [voice/providers/GeminiLive.ts:37](https://github.com/juspay/neuroli
 
 > `protected` **session**: [`RealtimeSession`](../type-aliases/RealtimeSession.md) \| `null` = `null`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:432](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L432)
+Defined in: [voice/RealtimeVoiceAPI.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L432)
 
 #### Inherited from
 
@@ -60,7 +60,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:432](https://github.com/juspay/neurolink/
 
 > `protected` **eventHandlers**: [`RealtimeEventHandlers`](../type-aliases/RealtimeEventHandlers.md) \| `null` = `null`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L433)
+Defined in: [voice/RealtimeVoiceAPI.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L433)
 
 #### Inherited from
 
@@ -72,7 +72,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:433](https://github.com/juspay/neurolink/
 
 > `protected` **state**: [`RealtimeSessionState`](../type-aliases/RealtimeSessionState.md) = `"disconnected"`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:434](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L434)
+Defined in: [voice/RealtimeVoiceAPI.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L434)
 
 #### Inherited from
 
@@ -84,7 +84,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:434](https://github.com/juspay/neurolink/
 
 > `readonly` **name**: `"gemini-live"` = `"gemini-live"`
 
-Defined in: [voice/providers/GeminiLive.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L30)
+Defined in: [voice/providers/GeminiLive.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L30)
 
 #### Overrides
 
@@ -96,7 +96,7 @@ Defined in: [voice/providers/GeminiLive.ts:30](https://github.com/juspay/neuroli
 
 > **isConnected**(): `boolean`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:442](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L442)
+Defined in: [voice/RealtimeVoiceAPI.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L442)
 
 #### Returns
 
@@ -112,7 +112,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:442](https://github.com/juspay/neurolink/
 
 > **getSession**(): [`RealtimeSession`](../type-aliases/RealtimeSession.md) \| `null`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:446](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L446)
+Defined in: [voice/RealtimeVoiceAPI.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L446)
 
 #### Returns
 
@@ -128,7 +128,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:446](https://github.com/juspay/neurolink/
 
 > **on**(`handlers`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:450](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L450)
+Defined in: [voice/RealtimeVoiceAPI.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L450)
 
 #### Parameters
 
@@ -150,7 +150,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:450](https://github.com/juspay/neurolink/
 
 > **off**(): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L454)
+Defined in: [voice/RealtimeVoiceAPI.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L454)
 
 #### Returns
 
@@ -166,7 +166,7 @@ Defined in: [voice/RealtimeVoiceAPI.ts:454](https://github.com/juspay/neurolink/
 
 > `protected` **emitStateChange**(`newState`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:461](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L461)
+Defined in: [voice/RealtimeVoiceAPI.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L461)
 
 Emit state change event
 
@@ -190,7 +190,7 @@ Emit state change event
 
 > `protected` **emitAudio**(`chunk`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:473](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L473)
+Defined in: [voice/RealtimeVoiceAPI.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L473)
 
 Emit audio event
 
@@ -214,7 +214,7 @@ Emit audio event
 
 > `protected` **emitTranscript**(`text`, `isFinal`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:480](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L480)
+Defined in: [voice/RealtimeVoiceAPI.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L480)
 
 Emit transcript event
 
@@ -242,7 +242,7 @@ Emit transcript event
 
 > `protected` **emitText**(`text`, `isFinal`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:487](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L487)
+Defined in: [voice/RealtimeVoiceAPI.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L487)
 
 Emit text event
 
@@ -270,7 +270,7 @@ Emit text event
 
 > `protected` **emitFunctionCall**(`name`, `args`): `Promise`\<`unknown`\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:494](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L494)
+Defined in: [voice/RealtimeVoiceAPI.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L494)
 
 Emit function call event
 
@@ -298,7 +298,7 @@ Emit function call event
 
 > `protected` **emitError**(`error`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:507](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L507)
+Defined in: [voice/RealtimeVoiceAPI.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L507)
 
 Emit error event
 
@@ -322,7 +322,7 @@ Emit error event
 
 > `protected` **emitTurnStart**(): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:514](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L514)
+Defined in: [voice/RealtimeVoiceAPI.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L514)
 
 Emit turn start event
 
@@ -340,7 +340,7 @@ Emit turn start event
 
 > `protected` **emitTurnEnd**(): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:521](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L521)
+Defined in: [voice/RealtimeVoiceAPI.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L521)
 
 Emit turn end event
 
@@ -358,7 +358,7 @@ Emit turn end event
 
 > `protected` **createSession**(`id`, `config`): [`RealtimeSession`](../type-aliases/RealtimeSession.md)
 
-Defined in: [voice/RealtimeVoiceAPI.ts:528](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L528)
+Defined in: [voice/RealtimeVoiceAPI.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L528)
 
 Create a session object
 
@@ -386,7 +386,7 @@ Create a session object
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/GeminiLive.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L52)
+Defined in: [voice/providers/GeminiLive.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L52)
 
 #### Returns
 
@@ -402,7 +402,7 @@ Defined in: [voice/providers/GeminiLive.ts:52](https://github.com/juspay/neuroli
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
 
-Defined in: [voice/providers/GeminiLive.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L56)
+Defined in: [voice/providers/GeminiLive.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L56)
 
 #### Returns
 
@@ -418,7 +418,7 @@ Defined in: [voice/providers/GeminiLive.ts:56](https://github.com/juspay/neuroli
 
 > **connect**(`config`): `Promise`\<[`RealtimeSession`](../type-aliases/RealtimeSession.md)\>
 
-Defined in: [voice/providers/GeminiLive.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L60)
+Defined in: [voice/providers/GeminiLive.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L60)
 
 #### Parameters
 
@@ -440,7 +440,7 @@ Defined in: [voice/providers/GeminiLive.ts:60](https://github.com/juspay/neuroli
 
 > **disconnect**(): `Promise`\<`void`\>
 
-Defined in: [voice/providers/GeminiLive.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L163)
+Defined in: [voice/providers/GeminiLive.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L163)
 
 #### Returns
 
@@ -456,7 +456,7 @@ Defined in: [voice/providers/GeminiLive.ts:163](https://github.com/juspay/neurol
 
 > **sendAudio**(`audio`): `Promise`\<`void`\>
 
-Defined in: [voice/providers/GeminiLive.ts:189](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L189)
+Defined in: [voice/providers/GeminiLive.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L189)
 
 #### Parameters
 
@@ -478,7 +478,7 @@ Defined in: [voice/providers/GeminiLive.ts:189](https://github.com/juspay/neurol
 
 > **sendText**(`text`): `Promise`\<`void`\>
 
-Defined in: [voice/providers/GeminiLive.ts:211](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L211)
+Defined in: [voice/providers/GeminiLive.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L211)
 
 #### Parameters
 
@@ -496,7 +496,7 @@ Defined in: [voice/providers/GeminiLive.ts:211](https://github.com/juspay/neurol
 
 > **triggerResponse**(): `Promise`\<`void`\>
 
-Defined in: [voice/providers/GeminiLive.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L232)
+Defined in: [voice/providers/GeminiLive.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L232)
 
 #### Returns
 
@@ -508,7 +508,7 @@ Defined in: [voice/providers/GeminiLive.ts:232](https://github.com/juspay/neurol
 
 > **cancelResponse**(): `Promise`\<`void`\>
 
-Defined in: [voice/providers/GeminiLive.ts:237](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GeminiLive.ts#L237)
+Defined in: [voice/providers/GeminiLive.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GeminiLive.ts#L237)
 
 #### Returns
 

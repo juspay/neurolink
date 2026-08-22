@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ChunkMetadata** = `object`
 
-Defined in: [types/rag.ts:770](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L770)
+Defined in: [types/rag.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L770)
 
 Chunk metadata for tracking source and position
 
@@ -18,7 +18,7 @@ Chunk metadata for tracking source and position
 
 > **documentId**: `string`
 
-Defined in: [types/rag.ts:772](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L772)
+Defined in: [types/rag.ts:772](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L772)
 
 Source document identifier
 
@@ -28,7 +28,7 @@ Source document identifier
 
 > `optional` **source?**: `string`
 
-Defined in: [types/rag.ts:774](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L774)
+Defined in: [types/rag.ts:774](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L774)
 
 Original document filename or URL
 
@@ -38,7 +38,7 @@ Original document filename or URL
 
 > **chunkIndex**: `number`
 
-Defined in: [types/rag.ts:776](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L776)
+Defined in: [types/rag.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L776)
 
 Position in the original document (0-indexed)
 
@@ -48,7 +48,7 @@ Position in the original document (0-indexed)
 
 > `optional` **totalChunks?**: `number`
 
-Defined in: [types/rag.ts:778](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L778)
+Defined in: [types/rag.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L778)
 
 Total number of chunks from the document
 
@@ -58,7 +58,7 @@ Total number of chunks from the document
 
 > `optional` **startPosition?**: `number`
 
-Defined in: [types/rag.ts:780](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L780)
+Defined in: [types/rag.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L780)
 
 Start character position in original text
 
@@ -68,7 +68,7 @@ Start character position in original text
 
 > `optional` **endPosition?**: `number`
 
-Defined in: [types/rag.ts:782](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L782)
+Defined in: [types/rag.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L782)
 
 End character position in original text
 
@@ -78,7 +78,7 @@ End character position in original text
 
 > `optional` **documentType?**: [`DocumentType`](DocumentType.md)
 
-Defined in: [types/rag.ts:784](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L784)
+Defined in: [types/rag.ts:784](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L784)
 
 Document type (markdown, html, json, etc.)
 
@@ -88,7 +88,7 @@ Document type (markdown, html, json, etc.)
 
 > `optional` **custom?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:786](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L786)
+Defined in: [types/rag.ts:786](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L786)
 
 Custom metadata from extraction
 
@@ -98,7 +98,7 @@ Custom metadata from extraction
 
 > `optional` **title?**: `string`
 
-Defined in: [types/rag.ts:788](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L788)
+Defined in: [types/rag.ts:788](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L788)
 
 Extracted title (from metadata extraction)
 
@@ -108,7 +108,7 @@ Extracted title (from metadata extraction)
 
 > `optional` **summary?**: `string`
 
-Defined in: [types/rag.ts:790](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L790)
+Defined in: [types/rag.ts:790](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L790)
 
 Extracted summary (from metadata extraction)
 
@@ -118,7 +118,7 @@ Extracted summary (from metadata extraction)
 
 > `optional` **keywords?**: `string`[]
 
-Defined in: [types/rag.ts:792](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L792)
+Defined in: [types/rag.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L792)
 
 Extracted keywords (from metadata extraction)
 
@@ -128,7 +128,7 @@ Extracted keywords (from metadata extraction)
 
 > `optional` **headerLevel?**: `number`
 
-Defined in: [types/rag.ts:794](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L794)
+Defined in: [types/rag.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L794)
 
 Header level for markdown/html chunks
 
@@ -138,7 +138,7 @@ Header level for markdown/html chunks
 
 > `optional` **header?**: `string`
 
-Defined in: [types/rag.ts:796](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L796)
+Defined in: [types/rag.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L796)
 
 Header text for structured documents
 
@@ -148,7 +148,7 @@ Header text for structured documents
 
 > `optional` **jsonPath?**: `string`
 
-Defined in: [types/rag.ts:798](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L798)
+Defined in: [types/rag.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L798)
 
 JSON path for JSON chunks
 
@@ -158,6 +158,6 @@ JSON path for JSON chunks
 
 > `optional` **latexEnvironment?**: `string`
 
-Defined in: [types/rag.ts:800](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L800)
+Defined in: [types/rag.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L800)
 
 LaTeX environment name

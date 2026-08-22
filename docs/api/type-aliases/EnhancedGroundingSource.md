@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedGroundingSource** = `object`
 
-Defined in: [types/grounding.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L27)
+Defined in: [types/grounding.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L27)
 
 Represents a grounding source with enhanced metadata for search results.
 Used when grounding responses with web search or retrieval results to
@@ -33,7 +33,7 @@ const source: EnhancedGroundingSource = {
 
 > **uri**: `string`
 
-Defined in: [types/grounding.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L29)
+Defined in: [types/grounding.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L29)
 
 The full URI/URL of the source document
 
@@ -43,7 +43,7 @@ The full URI/URL of the source document
 
 > **title**: `string`
 
-Defined in: [types/grounding.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L31)
+Defined in: [types/grounding.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L31)
 
 The title of the source document or web page
 
@@ -53,7 +53,7 @@ The title of the source document or web page
 
 > **domain**: `string`
 
-Defined in: [types/grounding.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L33)
+Defined in: [types/grounding.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L33)
 
 The domain name extracted from the URI (e.g., "example.com")
 
@@ -63,7 +63,7 @@ The domain name extracted from the URI (e.g., "example.com")
 
 > `optional` **confidenceScore?**: `number`
 
-Defined in: [types/grounding.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L35)
+Defined in: [types/grounding.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L35)
 
 Confidence score (0-1) indicating how well this source supports the response
 
@@ -73,7 +73,7 @@ Confidence score (0-1) indicating how well this source supports the response
 
 > `optional` **isPrimary?**: `boolean`
 
-Defined in: [types/grounding.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L37)
+Defined in: [types/grounding.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L37)
 
 Whether this is a primary source for the grounded response
 
@@ -83,6 +83,6 @@ Whether this is a primary source for the grounded response
 
 > `optional` **chunkIndex?**: `number`
 
-Defined in: [types/grounding.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L39)
+Defined in: [types/grounding.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L39)
 
 Index of the chunk within the source document that was used

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: WebSocketConnectionError
 
-Defined in: [server/errors.ts:370](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L370)
+Defined in: [server/errors.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L370)
 
 WebSocket connection failed error
 
@@ -20,7 +20,7 @@ WebSocket connection failed error
 
 > **new WebSocketConnectionError**(`message?`, `cause?`): `WebSocketConnectionError`
 
-Defined in: [server/errors.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L371)
+Defined in: [server/errors.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L371)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [server/errors.ts:371](https://github.com/juspay/neurolink/blob/4903
 
 > `readonly` **code**: [`ServerAdapterErrorCodeType`](../type-aliases/ServerAdapterErrorCodeType.md)
 
-Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L21)
+Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L21)
 
 #### Inherited from
 
@@ -58,7 +58,7 @@ Defined in: [server/errors.ts:21](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` **category**: [`ErrorCategoryType`](../type-aliases/ErrorCategoryType.md)
 
-Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L22)
+Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L22)
 
 #### Inherited from
 
@@ -70,7 +70,7 @@ Defined in: [server/errors.ts:22](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` **severity**: [`ErrorSeverityType`](../type-aliases/ErrorSeverityType.md)
 
-Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L23)
+Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L23)
 
 #### Inherited from
 
@@ -82,7 +82,7 @@ Defined in: [server/errors.ts:23](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L24)
+Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L24)
 
 #### Inherited from
 
@@ -94,7 +94,7 @@ Defined in: [server/errors.ts:24](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` `optional` **retryAfterMs?**: `number`
 
-Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L25)
+Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L25)
 
 #### Inherited from
 
@@ -106,7 +106,7 @@ Defined in: [server/errors.ts:25](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L26)
+Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L26)
 
 #### Inherited from
 
@@ -118,7 +118,7 @@ Defined in: [server/errors.ts:26](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` `optional` **path?**: `string`
 
-Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L27)
+Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L27)
 
 #### Inherited from
 
@@ -130,7 +130,7 @@ Defined in: [server/errors.ts:27](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` `optional` **method?**: `string`
 
-Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L28)
+Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L28)
 
 #### Inherited from
 
@@ -142,7 +142,7 @@ Defined in: [server/errors.ts:28](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L29)
+Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L29)
 
 #### Inherited from
 
@@ -154,7 +154,7 @@ Defined in: [server/errors.ts:29](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` `optional` **cause?**: `Error`
 
-Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L30)
+Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L30)
 
 #### Inherited from
 
@@ -166,7 +166,7 @@ Defined in: [server/errors.ts:30](https://github.com/juspay/neurolink/blob/49032
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [server/errors.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L59)
+Defined in: [server/errors.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L59)
 
 Convert to JSON for API responses
 
@@ -184,7 +184,7 @@ Convert to JSON for API responses
 
 > **getHttpStatus**(): `number`
 
-Defined in: [server/errors.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/errors.ts#L77)
+Defined in: [server/errors.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/server/errors.ts#L77)
 
 Get HTTP status code for this error
 

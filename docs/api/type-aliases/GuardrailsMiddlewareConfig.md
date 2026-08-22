@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GuardrailsMiddlewareConfig** = `object`
 
-Defined in: [types/guardrails.ts:113](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L113)
+Defined in: [types/guardrails.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L113)
 
 Configuration for the Guardrails middleware
 
@@ -18,7 +18,7 @@ Configuration for the Guardrails middleware
 
 > `optional` **badWords?**: [`BadWordsConfig`](BadWordsConfig.md)
 
-Defined in: [types/guardrails.ts:114](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L114)
+Defined in: [types/guardrails.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L114)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/guardrails.ts:114](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **modelFilter?**: [`ModelFilterConfig`](ModelFilterConfig.md)
 
-Defined in: [types/guardrails.ts:115](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L115)
+Defined in: [types/guardrails.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L115)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/guardrails.ts:115](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **precallEvaluation?**: [`PrecallEvaluationConfig`](PrecallEvaluationConfig.md)
 
-Defined in: [types/guardrails.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L116)
+Defined in: [types/guardrails.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L116)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BulletStyle** = `"disc"` \| `"number"` \| `"checkmark"` \| `"arrow"` \| `"dash"` \| `"none"`
 
-Defined in: [types/ppt.ts:253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L253)
+Defined in: [types/ppt.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L253)
 
 Bullet style options for formatting
 

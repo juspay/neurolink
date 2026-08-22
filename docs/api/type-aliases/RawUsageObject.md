@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RawUsageObject** = `object`
 
-Defined in: [types/common.ts:339](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L339)
+Defined in: [types/common.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L339)
 
 Raw usage object that may come from various AI providers.
 Supports multiple naming conventions and nested structures.
@@ -19,7 +19,7 @@ Supports multiple naming conventions and nested structures.
 
 > `optional` **input?**: `number`
 
-Defined in: [types/common.ts:341](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L341)
+Defined in: [types/common.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L341)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/common.ts:341](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **output?**: `number`
 
-Defined in: [types/common.ts:342](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L342)
+Defined in: [types/common.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L342)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/common.ts:342](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **total?**: `number`
 
-Defined in: [types/common.ts:343](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L343)
+Defined in: [types/common.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L343)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/common.ts:343](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **inputTokens?**: `number`
 
-Defined in: [types/common.ts:346](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L346)
+Defined in: [types/common.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L346)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/common.ts:346](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **outputTokens?**: `number`
 
-Defined in: [types/common.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L347)
+Defined in: [types/common.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L347)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/common.ts:347](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **totalTokens?**: `number`
 
-Defined in: [types/common.ts:348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L348)
+Defined in: [types/common.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L348)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/common.ts:348](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **promptTokens?**: `number`
 
-Defined in: [types/common.ts:351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L351)
+Defined in: [types/common.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L351)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/common.ts:351](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **completionTokens?**: `number`
 
-Defined in: [types/common.ts:352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L352)
+Defined in: [types/common.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L352)
 
 ---
 
@@ -83,7 +83,7 @@ Defined in: [types/common.ts:352](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cacheCreationInputTokens?**: `number`
 
-Defined in: [types/common.ts:355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L355)
+Defined in: [types/common.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L355)
 
 ---
 
@@ -91,7 +91,7 @@ Defined in: [types/common.ts:355](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cacheReadInputTokens?**: `number`
 
-Defined in: [types/common.ts:356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L356)
+Defined in: [types/common.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L356)
 
 ---
 
@@ -99,7 +99,7 @@ Defined in: [types/common.ts:356](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cacheCreationTokens?**: `number`
 
-Defined in: [types/common.ts:357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L357)
+Defined in: [types/common.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L357)
 
 ---
 
@@ -107,7 +107,7 @@ Defined in: [types/common.ts:357](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cacheReadTokens?**: `number`
 
-Defined in: [types/common.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L358)
+Defined in: [types/common.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L358)
 
 ---
 
@@ -115,7 +115,7 @@ Defined in: [types/common.ts:358](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **cachedInputTokens?**: `number`
 
-Defined in: [types/common.ts:364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L364)
+Defined in: [types/common.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L364)
 
 ---
 
@@ -123,7 +123,7 @@ Defined in: [types/common.ts:364](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **inputTokenDetails?**: `object`
 
-Defined in: [types/common.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L365)
+Defined in: [types/common.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L365)
 
 #### noCacheTokens?
 
@@ -143,7 +143,7 @@ Defined in: [types/common.ts:365](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **prompt_tokens_details?**: `object`
 
-Defined in: [types/common.ts:373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L373)
+Defined in: [types/common.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L373)
 
 #### cached_tokens?
 
@@ -155,7 +155,7 @@ Defined in: [types/common.ts:373](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **reasoningTokens?**: `number`
 
-Defined in: [types/common.ts:376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L376)
+Defined in: [types/common.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L376)
 
 ---
 
@@ -163,7 +163,7 @@ Defined in: [types/common.ts:376](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **reasoning?**: `number`
 
-Defined in: [types/common.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L377)
+Defined in: [types/common.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L377)
 
 ---
 
@@ -171,7 +171,7 @@ Defined in: [types/common.ts:377](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **reasoning_tokens?**: `number`
 
-Defined in: [types/common.ts:378](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L378)
+Defined in: [types/common.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L378)
 
 ---
 
@@ -179,7 +179,7 @@ Defined in: [types/common.ts:378](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **thinkingTokens?**: `number`
 
-Defined in: [types/common.ts:379](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L379)
+Defined in: [types/common.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L379)
 
 ---
 
@@ -187,4 +187,4 @@ Defined in: [types/common.ts:379](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **usage?**: `RawUsageObject`
 
-Defined in: [types/common.ts:382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L382)
+Defined in: [types/common.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L382)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TopologyEdge** = `object`
 
-Defined in: [types/agentNetwork.ts:1580](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1580)
+Defined in: [types/agentNetwork.ts:1580](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1580)
 
 Edge in the topology
 
@@ -18,7 +18,7 @@ Edge in the topology
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:1582](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1582)
+Defined in: [types/agentNetwork.ts:1582](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1582)
 
 Unique edge ID
 
@@ -28,7 +28,7 @@ Unique edge ID
 
 > **sourceId**: `string`
 
-Defined in: [types/agentNetwork.ts:1585](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1585)
+Defined in: [types/agentNetwork.ts:1585](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1585)
 
 Source node ID
 
@@ -38,7 +38,7 @@ Source node ID
 
 > **targetId**: `string`
 
-Defined in: [types/agentNetwork.ts:1588](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1588)
+Defined in: [types/agentNetwork.ts:1588](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1588)
 
 Target node ID
 
@@ -48,7 +48,7 @@ Target node ID
 
 > **type**: `"bidirectional"` \| `"unidirectional"`
 
-Defined in: [types/agentNetwork.ts:1591](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1591)
+Defined in: [types/agentNetwork.ts:1591](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1591)
 
 Edge type
 
@@ -58,7 +58,7 @@ Edge type
 
 > **weight**: `number`
 
-Defined in: [types/agentNetwork.ts:1594](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1594)
+Defined in: [types/agentNetwork.ts:1594](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1594)
 
 Communication weight (for routing optimization)
 
@@ -68,6 +68,6 @@ Communication weight (for routing optimization)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:1597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1597)
+Defined in: [types/agentNetwork.ts:1597](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1597)
 
 Edge metadata

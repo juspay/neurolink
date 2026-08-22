@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Scorer** = `object`
 
-Defined in: [types/scorer.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L260)
+Defined in: [types/scorer.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L260)
 
 Core Scorer interface - all scorers must implement this
 
@@ -18,7 +18,7 @@ Core Scorer interface - all scorers must implement this
 
 > `readonly` **metadata**: [`ScorerMetadata`](ScorerMetadata.md)
 
-Defined in: [types/scorer.ts:262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L262)
+Defined in: [types/scorer.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L262)
 
 Scorer metadata
 
@@ -28,7 +28,7 @@ Scorer metadata
 
 > `readonly` **config**: [`ScorerConfig`](ScorerConfig.md)
 
-Defined in: [types/scorer.ts:265](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L265)
+Defined in: [types/scorer.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L265)
 
 Current configuration
 
@@ -38,7 +38,7 @@ Current configuration
 
 > **score**(`input`): `Promise`\<[`ScoreResult`](ScoreResult.md)\>
 
-Defined in: [types/scorer.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L272)
+Defined in: [types/scorer.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L272)
 
 Execute the scorer and return a score result
 
@@ -62,7 +62,7 @@ Score result
 
 > **validateInput**(`input`): `object`
 
-Defined in: [types/scorer.ts:279](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L279)
+Defined in: [types/scorer.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L279)
 
 Validate that required inputs are present
 
@@ -94,7 +94,7 @@ Validation result
 
 > **configure**(`config`): `void`
 
-Defined in: [types/scorer.ts:285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L285)
+Defined in: [types/scorer.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L285)
 
 Update scorer configuration
 

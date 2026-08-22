@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolDedupRemoved** = `object`
 
-Defined in: [types/toolDedup.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L34)
+Defined in: [types/toolDedup.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L34)
 
 Record produced for each tool collapsed by the dedup pass.
 
@@ -18,7 +18,7 @@ Record produced for each tool collapsed by the dedup pass.
 
 > **name**: `string`
 
-Defined in: [types/toolDedup.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L36)
+Defined in: [types/toolDedup.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L36)
 
 Name of the tool that was collapsed.
 
@@ -28,7 +28,7 @@ Name of the tool that was collapsed.
 
 > **duplicateOf**: `string`
 
-Defined in: [types/toolDedup.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L38)
+Defined in: [types/toolDedup.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L38)
 
 Name of the representative tool that this one was collapsed into.
 
@@ -38,6 +38,6 @@ Name of the representative tool that this one was collapsed into.
 
 > **similarity**: `number`
 
-Defined in: [types/toolDedup.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L40)
+Defined in: [types/toolDedup.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L40)
 
 Similarity score that triggered the collapse (in [0, 1]).

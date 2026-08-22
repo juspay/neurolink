@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopToolCall** = `object`
 
-Defined in: [types/loopEngine.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L25)
+Defined in: [types/loopEngine.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L25)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/loopEngine.ts:25](https://github.com/juspay/neurolink/blob/49
 
 > **id**: `string`
 
-Defined in: [types/loopEngine.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L26)
+Defined in: [types/loopEngine.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L26)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/loopEngine.ts:26](https://github.com/juspay/neurolink/blob/49
 
 > **name**: `string`
 
-Defined in: [types/loopEngine.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L27)
+Defined in: [types/loopEngine.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L27)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/loopEngine.ts:27](https://github.com/juspay/neurolink/blob/49
 
 > **args**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/loopEngine.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L28)
+Defined in: [types/loopEngine.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L28)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AgentExposureManager
 
-Defined in: [mcp/agentExposure.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L387)
+Defined in: [mcp/agentExposure.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L387)
 
 Agent Exposure Manager
 
@@ -19,7 +19,7 @@ providing registration, lookup, and invocation capabilities.
 
 > **new AgentExposureManager**(`options?`): `AgentExposureManager`
 
-Defined in: [mcp/agentExposure.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L391)
+Defined in: [mcp/agentExposure.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L391)
 
 #### Parameters
 
@@ -37,7 +37,7 @@ Defined in: [mcp/agentExposure.ts:391](https://github.com/juspay/neurolink/blob/
 
 > **exposeAgent**(`agent`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/agentExposure.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L398)
+Defined in: [mcp/agentExposure.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L398)
 
 Expose an agent and register it
 
@@ -57,7 +57,7 @@ Expose an agent and register it
 
 > **exposeWorkflow**(`workflow`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/agentExposure.ts:407](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L407)
+Defined in: [mcp/agentExposure.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L407)
 
 Expose a workflow and register it
 
@@ -77,7 +77,7 @@ Expose a workflow and register it
 
 > **getExposedTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/agentExposure.ts:416](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L416)
+Defined in: [mcp/agentExposure.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L416)
 
 Get all exposed tools
 
@@ -91,7 +91,7 @@ Get all exposed tools
 
 > **getExposedTool**(`toolName`): [`MCPServerTool`](../type-aliases/MCPServerTool.md) \| `undefined`
 
-Defined in: [mcp/agentExposure.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L423)
+Defined in: [mcp/agentExposure.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L423)
 
 Get exposed tool by name
 
@@ -111,7 +111,7 @@ Get exposed tool by name
 
 > **getExposureResult**(`toolName`): [`ExposureResult`](../type-aliases/ExposureResult.md) \| `undefined`
 
-Defined in: [mcp/agentExposure.ts:430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L430)
+Defined in: [mcp/agentExposure.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L430)
 
 Get exposure result by tool name
 
@@ -131,7 +131,7 @@ Get exposure result by tool name
 
 > **getToolsBySourceType**(`sourceType`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/agentExposure.ts:437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L437)
+Defined in: [mcp/agentExposure.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L437)
 
 Get tools by source type
 
@@ -151,7 +151,7 @@ Get tools by source type
 
 > **unexpose**(`toolName`): `boolean`
 
-Defined in: [mcp/agentExposure.ts:446](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L446)
+Defined in: [mcp/agentExposure.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L446)
 
 Remove exposed tool
 
@@ -171,7 +171,7 @@ Remove exposed tool
 
 > **clear**(): `void`
 
-Defined in: [mcp/agentExposure.ts:453](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L453)
+Defined in: [mcp/agentExposure.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L453)
 
 Clear all exposed tools
 
@@ -185,7 +185,7 @@ Clear all exposed tools
 
 > **getStatistics**(): `object`
 
-Defined in: [mcp/agentExposure.ts:460](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/agentExposure.ts#L460)
+Defined in: [mcp/agentExposure.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/agentExposure.ts#L460)
 
 Get statistics
 

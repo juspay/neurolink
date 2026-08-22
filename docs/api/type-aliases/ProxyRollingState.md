@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyRollingState** = `object`
 
-Defined in: [types/cli.ts:979](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L979)
+Defined in: [types/cli.ts:979](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L979)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:979](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **generation**: `number`
 
-Defined in: [types/cli.ts:980](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L980)
+Defined in: [types/cli.ts:980](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L980)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:980](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **active**: \{ `pid`: `number`; `version`: `string`; `generation`: `number`; \} \| `null`
 
-Defined in: [types/cli.ts:981](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L981)
+Defined in: [types/cli.ts:981](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L981)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:981](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **candidate**: \{ `pid`: `number`; `expectedVersion`: `string`; `generation`: `number`; \} \| `null`
 
-Defined in: [types/cli.ts:982](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L982)
+Defined in: [types/cli.ts:982](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L982)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:982](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **draining**: `object`[]
 
-Defined in: [types/cli.ts:987](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L987)
+Defined in: [types/cli.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L987)
 
 #### pid
 
@@ -60,7 +60,7 @@ Defined in: [types/cli.ts:987](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **queuedSockets**: `number`
 
-Defined in: [types/cli.ts:988](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L988)
+Defined in: [types/cli.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L988)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/cli.ts:988](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **rejectedSockets**: `number`
 
-Defined in: [types/cli.ts:989](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L989)
+Defined in: [types/cli.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L989)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/cli.ts:989](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **failedTransfers**: `number`
 
-Defined in: [types/cli.ts:990](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L990)
+Defined in: [types/cli.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L990)
 
 ---
 
@@ -84,4 +84,4 @@ Defined in: [types/cli.ts:990](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **lastFailure**: \{ `at`: `string`; `generation`: `number`; `version`: `string`; `phase`: `"startup"` \| `"activation"` \| `"runtime"` \| `"transfer"`; `message`: `string`; `workerPid?`: `number`; `workerExitCode?`: `number` \| `null`; `workerExitSignal?`: `string` \| `null`; `supervisorAction?`: `"none"` \| `"sigkill_after_transfer_failure"`; \} \| `null`
 
-Defined in: [types/cli.ts:991](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L991)
+Defined in: [types/cli.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L991)

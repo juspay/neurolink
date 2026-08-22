@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MCPToolRegistry
 
-Defined in: [mcp/toolRegistry.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L32)
+Defined in: [mcp/toolRegistry.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L32)
 
 MCP (Model Context Protocol) Plugin Ecosystem
 
@@ -39,7 +39,7 @@ await writeFile("output.txt", "Hello from MCP!");
 
 > **new MCPToolRegistry**(): `MCPToolRegistry`
 
-Defined in: [mcp/toolRegistry.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L42)
+Defined in: [mcp/toolRegistry.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L42)
 
 #### Returns
 
@@ -55,7 +55,7 @@ Defined in: [mcp/toolRegistry.ts:42](https://github.com/juspay/neurolink/blob/49
 
 > **plugins**: `Map`\<`string`, [`DiscoveredMcp`](../type-aliases/DiscoveredMcp.md)\>
 
-Defined in: [mcp/registry.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L20)
+Defined in: [mcp/registry.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L20)
 
 #### Inherited from
 
@@ -67,7 +67,7 @@ Defined in: [mcp/registry.ts:20](https://github.com/juspay/neurolink/blob/49032f
 
 > **register**(`plugin`): `void`
 
-Defined in: [mcp/registry.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L25)
+Defined in: [mcp/registry.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L25)
 
 Register a plugin
 
@@ -91,7 +91,7 @@ Register a plugin
 
 > **unregister**(`name`): `boolean`
 
-Defined in: [mcp/registry.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L33)
+Defined in: [mcp/registry.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L33)
 
 Unregister a plugin
 
@@ -115,7 +115,7 @@ Unregister a plugin
 
 > **get**(`name`): [`DiscoveredMcp`](../type-aliases/DiscoveredMcp.md) \| `undefined`
 
-Defined in: [mcp/registry.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L44)
+Defined in: [mcp/registry.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L44)
 
 Get a plugin
 
@@ -139,7 +139,7 @@ Get a plugin
 
 > **list**(): [`DiscoveredMcp`](../type-aliases/DiscoveredMcp.md)[]
 
-Defined in: [mcp/registry.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L51)
+Defined in: [mcp/registry.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L51)
 
 List all plugins
 
@@ -157,7 +157,7 @@ List all plugins
 
 > **has**(`name`): `boolean`
 
-Defined in: [mcp/registry.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L58)
+Defined in: [mcp/registry.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L58)
 
 Check if plugin exists
 
@@ -181,7 +181,7 @@ Check if plugin exists
 
 > **clear**(): `void`
 
-Defined in: [mcp/registry.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L65)
+Defined in: [mcp/registry.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L65)
 
 Clear all plugins
 
@@ -199,7 +199,7 @@ Clear all plugins
 
 > **registerServerSync**(`plugin`): `void`
 
-Defined in: [mcp/registry.ts:130](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L130)
+Defined in: [mcp/registry.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L130)
 
 Register a server (legacy sync version)
 
@@ -223,7 +223,7 @@ Register a server (legacy sync version)
 
 > **executeToolSync**(`toolName`, `args?`): [`UnknownRecord`](../type-aliases/UnknownRecord.md)
 
-Defined in: [mcp/registry.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L137)
+Defined in: [mcp/registry.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L137)
 
 Execute a tool (legacy sync version)
 
@@ -251,7 +251,7 @@ Execute a tool (legacy sync version)
 
 > **listToolsSync**(): `object`[]
 
-Defined in: [mcp/registry.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L145)
+Defined in: [mcp/registry.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L145)
 
 List all tools (legacy sync version)
 
@@ -269,7 +269,7 @@ List all tools (legacy sync version)
 
 > **listServers**(): `string`[]
 
-Defined in: [mcp/registry.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/registry.ts#L174)
+Defined in: [mcp/registry.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/registry.ts#L174)
 
 List all registered server IDs
 
@@ -309,7 +309,7 @@ const tools = await registry.listTools(); // [{ name: 'tool1', serverId: 'server
 
 > **setHITLManager**(`hitlManager?`): `void`
 
-Defined in: [mcp/toolRegistry.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L53)
+Defined in: [mcp/toolRegistry.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L53)
 
 Set HITL manager for human-in-the-loop safety mechanisms
 
@@ -331,7 +331,7 @@ HITL manager instance (optional, can be undefined to disable)
 
 > **getHITLManager**(): `HITLManager` \| `undefined`
 
-Defined in: [mcp/toolRegistry.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L65)
+Defined in: [mcp/toolRegistry.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L65)
 
 Get current HITL manager
 
@@ -347,7 +347,7 @@ Get current HITL manager
 
 > **registerServer**(`serverInfo`, `context?`): `Promise`\<`void`\>
 
-Defined in: [mcp/toolRegistry.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L154)
+Defined in: [mcp/toolRegistry.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L154)
 
 Register a server with its tools - ONLY accepts MCPServerInfo (zero conversions)
 
@@ -373,7 +373,7 @@ Register a server with its tools - ONLY accepts MCPServerInfo (zero conversions)
 
 > **registerServer**(`serverId`, `serverConfig?`, `context?`): `Promise`\<`void`\>
 
-Defined in: [mcp/toolRegistry.ts:158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L158)
+Defined in: [mcp/toolRegistry.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L158)
 
 Register a server with its tools - ONLY accepts MCPServerInfo (zero conversions)
 
@@ -405,7 +405,7 @@ Register a server with its tools - ONLY accepts MCPServerInfo (zero conversions)
 
 > **executeTool**\<`T`\>(`toolName`, `args?`, `context?`): `Promise`\<`T`\>
 
-Defined in: [mcp/toolRegistry.ts:318](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L318)
+Defined in: [mcp/toolRegistry.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L318)
 
 Execute a tool with enhanced context and automatic result wrapping
 
@@ -479,7 +479,7 @@ const result = await toolRegistry.executeTool("complexTool", { input: "test" });
 
 > **listTools**(): `Promise`\<[`ToolInfo`](../type-aliases/ToolInfo.md)[]\>
 
-Defined in: [mcp/toolRegistry.ts:608](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L608)
+Defined in: [mcp/toolRegistry.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L608)
 
 List all available tools (updated signature with filtering)
 
@@ -495,7 +495,7 @@ List all available tools (updated signature with filtering)
 
 > **listTools**(`context`): `Promise`\<[`ToolInfo`](../type-aliases/ToolInfo.md)[]\>
 
-Defined in: [mcp/toolRegistry.ts:609](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L609)
+Defined in: [mcp/toolRegistry.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L609)
 
 List all available tools (updated signature with filtering)
 
@@ -517,7 +517,7 @@ List all available tools (updated signature with filtering)
 
 > **listTools**(`filter`): `Promise`\<[`ToolInfo`](../type-aliases/ToolInfo.md)[]\>
 
-Defined in: [mcp/toolRegistry.ts:610](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L610)
+Defined in: [mcp/toolRegistry.ts:610](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L610)
 
 List all available tools (updated signature with filtering)
 
@@ -559,7 +559,7 @@ List all available tools (updated signature with filtering)
 
 > **getToolInfo**(`toolName`): \{ `tool`: [`ToolInfo`](../type-aliases/ToolInfo.md); `server`: \{ `id`: `string`; \}; \} \| `undefined`
 
-Defined in: [mcp/toolRegistry.ts:747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L747)
+Defined in: [mcp/toolRegistry.ts:747](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L747)
 
 Get tool information with server details
 
@@ -579,7 +579,7 @@ Get tool information with server details
 
 > **getExecutionStats**(): `Record`\<`string`, \{ `count`: `number`; `averageTime`: `number`; `totalTime`: `number`; \}\>
 
-Defined in: [mcp/toolRegistry.ts:792](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L792)
+Defined in: [mcp/toolRegistry.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L792)
 
 Get execution statistics
 
@@ -593,7 +593,7 @@ Get execution statistics
 
 > **clearStats**(): `void`
 
-Defined in: [mcp/toolRegistry.ts:815](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L815)
+Defined in: [mcp/toolRegistry.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L815)
 
 Clear execution statistics
 
@@ -607,7 +607,7 @@ Clear execution statistics
 
 > **getBuiltInServerInfos**(): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)[]
 
-Defined in: [mcp/toolRegistry.ts:823](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L823)
+Defined in: [mcp/toolRegistry.ts:823](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L823)
 
 Get built-in servers
 
@@ -623,7 +623,7 @@ Array of MCPServerInfo for built-in tools
 
 > **getToolsByCategory**(`category`): [`ToolInfo`](../type-aliases/ToolInfo.md)[]
 
-Defined in: [mcp/toolRegistry.ts:830](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L830)
+Defined in: [mcp/toolRegistry.ts:830](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L830)
 
 Get tools by category
 
@@ -643,7 +643,7 @@ Get tools by category
 
 > **getAvailableTools**(`circuitBreakers`): `object`
 
-Defined in: [mcp/toolRegistry.ts:845](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L845)
+Defined in: [mcp/toolRegistry.ts:845](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L845)
 
 NL-001: Get available tools, filtering out those with OPEN circuit breakers.
 Returns both the filtered tools and the list of unavailable tool names.
@@ -672,7 +672,7 @@ Returns both the filtered tools and the list of unavailable tool names.
 
 > **hasTool**(`toolName`): `boolean`
 
-Defined in: [mcp/toolRegistry.ts:871](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L871)
+Defined in: [mcp/toolRegistry.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L871)
 
 Check if tool exists
 
@@ -692,7 +692,7 @@ Check if tool exists
 
 > **registerTool**(`toolId`, `toolInfo`, `toolImpl`): `Promise`\<`void`\>
 
-Defined in: [mcp/toolRegistry.ts:888](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L888)
+Defined in: [mcp/toolRegistry.ts:888](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L888)
 
 Register a tool with implementation directly
 This is used for external MCP server tools
@@ -721,7 +721,7 @@ This is used for external MCP server tools
 
 > **removeTool**(`toolName`): `boolean`
 
-Defined in: [mcp/toolRegistry.ts:930](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L930)
+Defined in: [mcp/toolRegistry.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L930)
 
 Remove a tool
 
@@ -741,7 +741,7 @@ Remove a tool
 
 > **getToolCount**(): `number`
 
-Defined in: [mcp/toolRegistry.ts:957](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L957)
+Defined in: [mcp/toolRegistry.ts:957](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L957)
 
 Get tool count
 
@@ -755,7 +755,7 @@ Get tool count
 
 > **getStats**(): `object`
 
-Defined in: [mcp/toolRegistry.ts:964](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L964)
+Defined in: [mcp/toolRegistry.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L964)
 
 Get comprehensive statistics
 
@@ -789,7 +789,7 @@ Get comprehensive statistics
 
 > **unregisterServer**(`serverId`): `boolean`
 
-Defined in: [mcp/toolRegistry.ts:1004](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolRegistry.ts#L1004)
+Defined in: [mcp/toolRegistry.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolRegistry.ts#L1004)
 
 Unregister a server
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelChoice** = `object`
 
-Defined in: [types/common.ts:425](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L425)
+Defined in: [types/common.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L425)
 
 Model choice for CLI prompts (inquirer format)
 
@@ -18,7 +18,7 @@ Model choice for CLI prompts (inquirer format)
 
 > **name**: `string`
 
-Defined in: [types/common.ts:426](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L426)
+Defined in: [types/common.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L426)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/common.ts:426](https://github.com/juspay/neurolink/blob/49032
 
 > **value**: `string`
 
-Defined in: [types/common.ts:427](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L427)
+Defined in: [types/common.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L427)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/common.ts:427](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **description?**: `string`
 
-Defined in: [types/common.ts:428](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L428)
+Defined in: [types/common.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L428)

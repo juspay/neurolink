@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PresentationGenerationOptions** = `object`
 
-Defined in: [types/ppt.ts:1380](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1380)
+Defined in: [types/ppt.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1380)
 
 Options for presentation generation
 
@@ -18,7 +18,7 @@ Options for presentation generation
 
 > **context**: [`PPTGenerationContext`](PPTGenerationContext.md)
 
-Defined in: [types/ppt.ts:1382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1382)
+Defined in: [types/ppt.ts:1382](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1382)
 
 PPT generation context (validated)
 
@@ -28,7 +28,7 @@ PPT generation context (validated)
 
 > **provider**: [`AIProvider`](AIProvider.md)
 
-Defined in: [types/ppt.ts:1384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1384)
+Defined in: [types/ppt.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1384)
 
 AI provider for content planning
 
@@ -38,7 +38,7 @@ AI provider for content planning
 
 > **providerName**: `string`
 
-Defined in: [types/ppt.ts:1386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1386)
+Defined in: [types/ppt.ts:1386](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1386)
 
 Provider name (for result reporting)
 
@@ -48,7 +48,7 @@ Provider name (for result reporting)
 
 > **modelName**: `string`
 
-Defined in: [types/ppt.ts:1388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1388)
+Defined in: [types/ppt.ts:1388](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1388)
 
 Model name (for result reporting)
 
@@ -58,7 +58,7 @@ Model name (for result reporting)
 
 > `optional` **neurolink?**: [`NeuroLink`](../classes/NeuroLink.md)
 
-Defined in: [types/ppt.ts:1390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1390)
+Defined in: [types/ppt.ts:1390](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1390)
 
 NeuroLink instance for image generation
 
@@ -68,7 +68,7 @@ NeuroLink instance for image generation
 
 > `optional` **imageProvider?**: `string`
 
-Defined in: [types/ppt.ts:1392](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1392)
+Defined in: [types/ppt.ts:1392](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1392)
 
 Provider name for image generation
 
@@ -78,6 +78,6 @@ Provider name for image generation
 
 > `optional` **imageModel?**: `string`
 
-Defined in: [types/ppt.ts:1394](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1394)
+Defined in: [types/ppt.ts:1394](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1394)
 
 Model for image generation

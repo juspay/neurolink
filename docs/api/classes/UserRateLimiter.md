@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: UserRateLimiter
 
-Defined in: [auth/middleware/rateLimitByUser.ts:293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L293)
+Defined in: [auth/middleware/rateLimitByUser.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L293)
 
 Token bucket rate limiter implementation
 
@@ -20,7 +20,7 @@ the bucket at a fixed rate, and each request consumes one token.
 
 > **new UserRateLimiter**(`config`, `storage?`): `UserRateLimiter`
 
-Defined in: [auth/middleware/rateLimitByUser.ts:297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L297)
+Defined in: [auth/middleware/rateLimitByUser.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L297)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [auth/middleware/rateLimitByUser.ts:297](https://github.com/juspay/n
 
 > **consume**(`user`): `Promise`\<[`RateLimitResult`](../type-aliases/RateLimitResult.md)\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L355)
+Defined in: [auth/middleware/rateLimitByUser.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L355)
 
 Consume a token from the user's bucket
 Returns the rate limit result
@@ -68,7 +68,7 @@ token count and both succeed.
 
 > **getStatus**(`user`): `Promise`\<[`RateLimitResult`](../type-aliases/RateLimitResult.md)\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:462](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L462)
+Defined in: [auth/middleware/rateLimitByUser.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L462)
 
 Get current rate limit status for a user without consuming a token
 
@@ -88,7 +88,7 @@ Get current rate limit status for a user without consuming a token
 
 > **resetUser**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:504](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L504)
+Defined in: [auth/middleware/rateLimitByUser.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L504)
 
 Reset rate limit for a user (admin action)
 
@@ -108,7 +108,7 @@ Reset rate limit for a user (admin action)
 
 > **healthCheck**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:512](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L512)
+Defined in: [auth/middleware/rateLimitByUser.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L512)
 
 Check storage health
 
@@ -122,7 +122,7 @@ Check storage health
 
 > **cleanup**(): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:519](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L519)
+Defined in: [auth/middleware/rateLimitByUser.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/auth/middleware/rateLimitByUser.ts#L519)
 
 Cleanup resources
 

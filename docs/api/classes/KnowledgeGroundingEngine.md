@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: KnowledgeGroundingEngine
 
-Defined in: [knowledge/engine.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/engine.ts#L73)
+Defined in: [knowledge/engine.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/engine.ts#L73)
 
 ## Constructors
 
@@ -14,7 +14,7 @@ Defined in: [knowledge/engine.ts:73](https://github.com/juspay/neurolink/blob/49
 
 > **new KnowledgeGroundingEngine**(`config`, `now?`): `KnowledgeGroundingEngine`
 
-Defined in: [knowledge/engine.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/engine.ts#L82)
+Defined in: [knowledge/engine.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/engine.ts#L82)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [knowledge/engine.ts:82](https://github.com/juspay/neurolink/blob/49
 
 > **isEnabled**(): `boolean`
 
-Defined in: [knowledge/engine.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/engine.ts#L96)
+Defined in: [knowledge/engine.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/engine.ts#L96)
 
 #### Returns
 
@@ -48,7 +48,7 @@ Defined in: [knowledge/engine.ts:96](https://github.com/juspay/neurolink/blob/49
 
 > **ready**(): `Promise`\<`void`\>
 
-Defined in: [knowledge/engine.ts:101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/engine.ts#L101)
+Defined in: [knowledge/engine.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/engine.ts#L101)
 
 Resolve once the one-time build settles. Safe to call before every turn.
 
@@ -62,7 +62,7 @@ Resolve once the one-time build settles. Safe to call before every turn.
 
 > **getStatus**(): [`KnowledgeEngineStatus`](../type-aliases/KnowledgeEngineStatus.md)
 
-Defined in: [knowledge/engine.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/engine.ts#L107)
+Defined in: [knowledge/engine.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/engine.ts#L107)
 
 #### Returns
 
@@ -74,7 +74,7 @@ Defined in: [knowledge/engine.ts:107](https://github.com/juspay/neurolink/blob/4
 
 > **ground**(`input`): `Promise`\<[`KnowledgeGroundingOutcome`](../type-aliases/KnowledgeGroundingOutcome.md)\>
 
-Defined in: [knowledge/engine.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/engine.ts#L153)
+Defined in: [knowledge/engine.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/engine.ts#L153)
 
 Retrieve + assemble for one turn. Returns the ephemeral context to inject
 (or null), aggregate metadata, and the full retrieval. Never throws.

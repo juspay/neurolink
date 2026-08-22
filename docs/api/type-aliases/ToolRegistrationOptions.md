@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolRegistrationOptions** = `object`
 
-Defined in: [types/tools.ts:195](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L195)
+Defined in: [types/tools.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L195)
 
 Options for tool registration via registerTool()
 
@@ -32,7 +32,7 @@ sdk.registerTool("myTool", tool);
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/tools.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L198)
+Defined in: [types/tools.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L198)
 
 Per-tool execution timeout in milliseconds. Only applied when explicitly set.
 When omitted, the SDK's global default (30s) is used.
@@ -43,7 +43,7 @@ When omitted, the SDK's global default (30s) is used.
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/tools.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L202)
+Defined in: [types/tools.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L202)
 
 Maximum retry attempts on failure. Only applied when explicitly set.
 When omitted, the SDK's global default (2 retries) is used.

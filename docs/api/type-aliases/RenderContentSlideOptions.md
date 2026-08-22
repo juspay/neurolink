@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RenderContentSlideOptions** = `object`
 
-Defined in: [types/ppt.ts:1290](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1290)
+Defined in: [types/ppt.ts:1290](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1290)
 
 Options for renderContentSlide
 
@@ -18,7 +18,7 @@ Options for renderContentSlide
 
 > **slide**: [`PptxSlide`](PptxSlide.md)
 
-Defined in: [types/ppt.ts:1291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1291)
+Defined in: [types/ppt.ts:1291](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1291)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1291](https://github.com/juspay/neurolink/blob/49032fc
 
 > **title**: `string`
 
-Defined in: [types/ppt.ts:1292](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1292)
+Defined in: [types/ppt.ts:1292](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1292)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1292](https://github.com/juspay/neurolink/blob/49032fc
 
 > **content**: [`SlideContent`](SlideContent.md)
 
-Defined in: [types/ppt.ts:1293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1293)
+Defined in: [types/ppt.ts:1293](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1293)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/ppt.ts:1293](https://github.com/juspay/neurolink/blob/49032fc
 
 > **layout**: [`SlideLayout`](SlideLayout.md)
 
-Defined in: [types/ppt.ts:1294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1294)
+Defined in: [types/ppt.ts:1294](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1294)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/ppt.ts:1294](https://github.com/juspay/neurolink/blob/49032fc
 
 > **theme**: [`PresentationTheme`](PresentationTheme.md)
 
-Defined in: [types/ppt.ts:1295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1295)
+Defined in: [types/ppt.ts:1295](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1295)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/ppt.ts:1295](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **imageBuffer?**: `Buffer`
 
-Defined in: [types/ppt.ts:1296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1296)
+Defined in: [types/ppt.ts:1296](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1296)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/ppt.ts:1296](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **slideType?**: [`SlideType`](SlideType.md)
 
-Defined in: [types/ppt.ts:1297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1297)
+Defined in: [types/ppt.ts:1297](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1297)

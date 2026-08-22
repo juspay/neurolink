@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BashToolResult** = `object`
 
-Defined in: [types/tools.ts:642](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L642)
+Defined in: [types/tools.ts:642](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L642)
 
 Result shape returned by the built-in `bashTool` execute function in
 `src/lib/agent/directTools.ts`. Centralised here per CLAUDE.md rule 2
@@ -21,7 +21,7 @@ local re-shaping of the runtime contract.
 
 > **success**: `boolean`
 
-Defined in: [types/tools.ts:643](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L643)
+Defined in: [types/tools.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L643)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/tools.ts:643](https://github.com/juspay/neurolink/blob/49032f
 
 > **code**: `number`
 
-Defined in: [types/tools.ts:644](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L644)
+Defined in: [types/tools.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L644)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/tools.ts:644](https://github.com/juspay/neurolink/blob/49032f
 
 > **stdout**: `string`
 
-Defined in: [types/tools.ts:645](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L645)
+Defined in: [types/tools.ts:645](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L645)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/tools.ts:645](https://github.com/juspay/neurolink/blob/49032f
 
 > **stderr**: `string`
 
-Defined in: [types/tools.ts:646](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L646)
+Defined in: [types/tools.ts:646](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L646)
 
 ---
 
@@ -53,4 +53,4 @@ Defined in: [types/tools.ts:646](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **error?**: `string`
 
-Defined in: [types/tools.ts:647](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L647)
+Defined in: [types/tools.ts:647](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L647)

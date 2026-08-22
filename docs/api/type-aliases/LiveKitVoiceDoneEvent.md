@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitVoiceDoneEvent** = `object`
 
-Defined in: [types/livekit.ts:305](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L305)
+Defined in: [types/livekit.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L305)
 
 The current turn has finished.
 
@@ -18,7 +18,7 @@ The current turn has finished.
 
 > **type**: `"done"`
 
-Defined in: [types/livekit.ts:306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L306)
+Defined in: [types/livekit.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L306)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/livekit.ts:306](https://github.com/juspay/neurolink/blob/4903
 
 > **data**: `object`
 
-Defined in: [types/livekit.ts:307](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L307)
+Defined in: [types/livekit.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L307)
 
 #### reason?
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderModelManifestEntry** = `object`
 
-Defined in: [types/model.ts:285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L285)
+Defined in: [types/model.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L285)
 
 A single model's metadata inside a provider's manifest. This is the one
 canonical shape every model-metadata consumer (context windows, pricing,
@@ -28,7 +28,7 @@ need to distinguish "free" from "unknown" already have `hasPricing()`
 
 > **aliases**: `string`[]
 
-Defined in: [types/model.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L287)
+Defined in: [types/model.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L287)
 
 Alternate identifiers that resolve to this canonical model id.
 
@@ -38,7 +38,7 @@ Alternate identifiers that resolve to this canonical model id.
 
 > `optional` **displayName?**: `string`
 
-Defined in: [types/model.ts:289](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L289)
+Defined in: [types/model.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L289)
 
 Human-readable name. Falls back to a mechanical id-derived name when absent.
 
@@ -48,7 +48,7 @@ Human-readable name. Falls back to a mechanical id-derived name when absent.
 
 > **contextWindow**: `number`
 
-Defined in: [types/model.ts:290](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L290)
+Defined in: [types/model.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L290)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/model.ts:290](https://github.com/juspay/neurolink/blob/49032f
 
 > **maxOutputTokens**: `number`
 
-Defined in: [types/model.ts:291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L291)
+Defined in: [types/model.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L291)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/model.ts:291](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **pricingPerMTok?**: `object`
 
-Defined in: [types/model.ts:292](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L292)
+Defined in: [types/model.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L292)
 
 #### input
 
@@ -88,7 +88,7 @@ Defined in: [types/model.ts:292](https://github.com/juspay/neurolink/blob/49032f
 
 > **vision**: `boolean`
 
-Defined in: [types/model.ts:298](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L298)
+Defined in: [types/model.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L298)
 
 ---
 
@@ -96,7 +96,7 @@ Defined in: [types/model.ts:298](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **nativeAudio?**: `boolean`
 
-Defined in: [types/model.ts:299](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L299)
+Defined in: [types/model.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L299)
 
 ---
 
@@ -104,7 +104,7 @@ Defined in: [types/model.ts:299](https://github.com/juspay/neurolink/blob/49032f
 
 > **functionCalling**: `boolean`
 
-Defined in: [types/model.ts:300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L300)
+Defined in: [types/model.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L300)
 
 ---
 
@@ -112,7 +112,7 @@ Defined in: [types/model.ts:300](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **reasoning?**: `boolean`
 
-Defined in: [types/model.ts:301](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L301)
+Defined in: [types/model.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L301)
 
 ---
 
@@ -120,7 +120,7 @@ Defined in: [types/model.ts:301](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **jsonMode?**: `boolean`
 
-Defined in: [types/model.ts:302](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L302)
+Defined in: [types/model.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L302)
 
 ---
 
@@ -128,7 +128,7 @@ Defined in: [types/model.ts:302](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **samplingParams?**: `boolean`
 
-Defined in: [types/model.ts:308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L308)
+Defined in: [types/model.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L308)
 
 Whether the model accepts classic sampling parameters (temperature/topP).
 Mirrors ModelCapabilities.samplingParams (src/lib/types/model.ts:131) —
@@ -140,7 +140,7 @@ unset means supported.
 
 > `optional` **curated?**: `object`
 
-Defined in: [types/model.ts:318](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L318)
+Defined in: [types/model.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L318)
 
 Hand-tuned ModelInfo.performance/useCases/category values, carried
 forward verbatim for the ids that already had a MODEL_REGISTRY entry

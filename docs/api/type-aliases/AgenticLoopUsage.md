@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopUsage** = `object`
 
-Defined in: [types/loopEngine.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L31)
+Defined in: [types/loopEngine.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L31)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/loopEngine.ts:31](https://github.com/juspay/neurolink/blob/49
 
 > **inputTokens**: `number`
 
-Defined in: [types/loopEngine.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L32)
+Defined in: [types/loopEngine.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L32)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/loopEngine.ts:32](https://github.com/juspay/neurolink/blob/49
 
 > **outputTokens**: `number`
 
-Defined in: [types/loopEngine.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L33)
+Defined in: [types/loopEngine.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L33)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/loopEngine.ts:33](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **cacheReadTokens?**: `number`
 
-Defined in: [types/loopEngine.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L34)
+Defined in: [types/loopEngine.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L34)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/loopEngine.ts:34](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **cacheWriteTokens?**: `number`
 
-Defined in: [types/loopEngine.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L35)
+Defined in: [types/loopEngine.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L35)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/loopEngine.ts:35](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **reasoningTokens?**: `number`
 
-Defined in: [types/loopEngine.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L36)
+Defined in: [types/loopEngine.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L36)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/loopEngine.ts:36](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **cacheWrite5mTokens?**: `number`
 
-Defined in: [types/loopEngine.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L48)
+Defined in: [types/loopEngine.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L48)
 
 Cache writes split by time-to-live, which Anthropic reports separately
 from the total under `cache_creation.ephemeral_5m_input_tokens` and
@@ -74,4 +74,4 @@ Undefined for providers that never report the split.
 
 > `optional` **cacheWrite1hTokens?**: `number`
 
-Defined in: [types/loopEngine.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L49)
+Defined in: [types/loopEngine.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L49)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderHealthCheckOptions** = `object`
 
-Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1887)
+Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1887)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:1888](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1888)
+Defined in: [types/providers.ts:1888](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1888)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providers.ts:1888](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **includeConnectivityTest?**: `boolean`
 
-Defined in: [types/providers.ts:1889](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1889)
+Defined in: [types/providers.ts:1889](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1889)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providers.ts:1889](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **includeModelValidation?**: `boolean`
 
-Defined in: [types/providers.ts:1890](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1890)
+Defined in: [types/providers.ts:1890](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1890)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/providers.ts:1890](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **cacheResults?**: `boolean`
 
-Defined in: [types/providers.ts:1891](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1891)
+Defined in: [types/providers.ts:1891](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1891)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/providers.ts:1891](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **maxCacheAge?**: `number`
 
-Defined in: [types/providers.ts:1892](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1892)
+Defined in: [types/providers.ts:1892](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1892)

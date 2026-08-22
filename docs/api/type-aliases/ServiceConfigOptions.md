@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServiceConfigOptions** = `object`
 
-Defined in: [types/service.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L72)
+Defined in: [types/service.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L72)
 
 Service configuration options
 
@@ -18,7 +18,7 @@ Service configuration options
 
 > `optional` **singleton?**: `boolean`
 
-Defined in: [types/service.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L73)
+Defined in: [types/service.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L73)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/service.ts:73](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **lazy?**: `boolean`
 
-Defined in: [types/service.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L74)
+Defined in: [types/service.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L74)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/service.ts:74](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/service.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L75)
+Defined in: [types/service.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L75)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/service.ts:75](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **retries?**: `number`
 
-Defined in: [types/service.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L76)
+Defined in: [types/service.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L76)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/service.ts:76](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **dependencies?**: `string`[]
 
-Defined in: [types/service.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/service.ts#L77)
+Defined in: [types/service.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/service.ts#L77)

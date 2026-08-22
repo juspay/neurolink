@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolConfig** = `object`
 
-Defined in: [types/config.ts:384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L384)
+Defined in: [types/config.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L384)
 
 Instance-level tool configuration (`new NeuroLink({ tools: {...} })`).
 
@@ -23,7 +23,7 @@ merged with this config by `resolveToolPolicy()`.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L390)
+Defined in: [types/config.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L390)
 
 Master switch. `false` disables all tools for every call from this
 instance (equivalent to passing `disableTools: true` on each call).
@@ -35,7 +35,7 @@ Default: true.
 
 > `optional` **include?**: `string`[]
 
-Defined in: [types/config.ts:397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L397)
+Defined in: [types/config.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L397)
 
 Allowlist of tool names. Supports `*` globs (e.g. `"github*"`).
 Undefined = all tools; an EMPTY array means no tools (fail-closed).
@@ -48,7 +48,7 @@ narrow it further but never widen past it).
 
 > `optional` **exclude?**: `string`[]
 
-Defined in: [types/config.ts:399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L399)
+Defined in: [types/config.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L399)
 
 Denylist of tool names (supports `*` globs). Applied after `include`.
 
@@ -58,7 +58,7 @@ Denylist of tool names (supports `*` globs). Applied after `include`.
 
 > `optional` **discovery?**: `boolean`
 
-Defined in: [types/config.ts:411](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L411)
+Defined in: [types/config.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L411)
 
 Defer external MCP tool schemas behind a `search_tools` meta-tool: the
 model sees a compact name+summary catalog instead of full schemas and
@@ -76,7 +76,7 @@ Default: false.
 
 > `optional` **disableBuiltinTools?**: `boolean`
 
-Defined in: [types/config.ts:413](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L413)
+Defined in: [types/config.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L413)
 
 Whether built-in tools should be disabled (equivalent to excluding all direct tools)
 
@@ -86,7 +86,7 @@ Whether built-in tools should be disabled (equivalent to excluding all direct to
 
 > `optional` **allowCustomTools?**: `boolean`
 
-Defined in: [types/config.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L415)
+Defined in: [types/config.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L415)
 
 Whether custom tools are allowed
 
@@ -96,7 +96,7 @@ Whether custom tools are allowed
 
 > `optional` **maxToolsPerProvider?**: `number`
 
-Defined in: [types/config.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L419)
+Defined in: [types/config.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L419)
 
 #### Deprecated
 
@@ -108,7 +108,7 @@ Never enforced; retained for compile compatibility only.
 
 > `optional` **enableMCPTools?**: `boolean`
 
-Defined in: [types/config.ts:421](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L421)
+Defined in: [types/config.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L421)
 
 Whether MCP tools should be enabled
 
@@ -118,6 +118,6 @@ Whether MCP tools should be enabled
 
 > `optional` **enableBashTool?**: `boolean`
 
-Defined in: [types/config.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L423)
+Defined in: [types/config.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L423)
 
 Whether the bash command execution tool should be enabled (opt-in, defaults to false)

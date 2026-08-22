@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GlobalInstallerProbe** = `object`
 
-Defined in: [types/proxy.ts:2489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2489)
+Defined in: [types/proxy.ts:2489](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2489)
 
 Result of probing one global package-manager executable.
 
@@ -18,7 +18,7 @@ Result of probing one global package-manager executable.
 
 > **kind**: [`GlobalInstallerKind`](GlobalInstallerKind.md)
 
-Defined in: [types/proxy.ts:2490](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2490)
+Defined in: [types/proxy.ts:2490](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2490)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2490](https://github.com/juspay/neurolink/blob/49032
 
 > **bin**: `string`
 
-Defined in: [types/proxy.ts:2491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2491)
+Defined in: [types/proxy.ts:2491](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2491)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2491](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **version?**: `string`
 
-Defined in: [types/proxy.ts:2492](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2492)
+Defined in: [types/proxy.ts:2492](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2492)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2492](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **globalRoot?**: `string`
 
-Defined in: [types/proxy.ts:2493](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2493)
+Defined in: [types/proxy.ts:2493](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2493)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2493](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **globalBinDir?**: `string`
 
-Defined in: [types/proxy.ts:2494](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2494)
+Defined in: [types/proxy.ts:2494](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2494)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2494](https://github.com/juspay/neurolink/blob/49032
 
 > **working**: `boolean`
 
-Defined in: [types/proxy.ts:2495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2495)
+Defined in: [types/proxy.ts:2495](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2495)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:2495](https://github.com/juspay/neurolink/blob/49032
 
 > **installable**: `boolean`
 
-Defined in: [types/proxy.ts:2496](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2496)
+Defined in: [types/proxy.ts:2496](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2496)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:2496](https://github.com/juspay/neurolink/blob/49032
 
 > **matchesCurrentInstall**: `boolean`
 
-Defined in: [types/proxy.ts:2497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2497)
+Defined in: [types/proxy.ts:2497](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2497)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/proxy.ts:2497](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/proxy.ts:2498](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2498)
+Defined in: [types/proxy.ts:2498](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2498)

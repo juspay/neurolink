@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessedAudio** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:810](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L810)
+Defined in: [types/processor.ts:810](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L810)
 
 Processed audio file result.
 Extends ProcessedFileBase with audio-specific metadata, tags, and transcript info.

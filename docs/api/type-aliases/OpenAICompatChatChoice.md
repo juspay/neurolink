@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAICompatChatChoice** = `object`
 
-Defined in: [types/openaiCompatible.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L127)
+Defined in: [types/openaiCompatible.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L127)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:127](https://github.com/juspay/neurolink/
 
 > **index**: `number`
 
-Defined in: [types/openaiCompatible.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L128)
+Defined in: [types/openaiCompatible.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L128)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:128](https://github.com/juspay/neurolink/
 
 > **message**: [`OpenAICompatChatChoiceMessage`](OpenAICompatChatChoiceMessage.md)
 
-Defined in: [types/openaiCompatible.ts:129](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L129)
+Defined in: [types/openaiCompatible.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L129)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/openaiCompatible.ts:129](https://github.com/juspay/neurolink/
 
 > **finish_reason**: `"stop"` \| `"length"` \| `"tool_calls"` \| `"function_call"` \| `"content_filter"` \| `null`
 
-Defined in: [types/openaiCompatible.ts:130](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L130)
+Defined in: [types/openaiCompatible.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L130)

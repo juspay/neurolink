@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GoogleWordInfo** = `object`
 
-Defined in: [types/stt.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L495)
+Defined in: [types/stt.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L495)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:495](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **startTime**: `string`
 
-Defined in: [types/stt.ts:496](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L496)
+Defined in: [types/stt.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L496)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:496](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **endTime**: `string`
 
-Defined in: [types/stt.ts:497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L497)
+Defined in: [types/stt.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L497)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:497](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **word**: `string`
 
-Defined in: [types/stt.ts:498](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L498)
+Defined in: [types/stt.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L498)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:498](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **confidence?**: `number`
 
-Defined in: [types/stt.ts:499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L499)
+Defined in: [types/stt.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L499)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/stt.ts:499](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **speakerTag?**: `number`
 
-Defined in: [types/stt.ts:500](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L500)
+Defined in: [types/stt.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L500)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchEvaluationConfig** = [`EvaluationConfig`](EvaluationConfig.md) & `object`
 
-Defined in: [types/evaluation.ts:434](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L434)
+Defined in: [types/evaluation.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L434)
 
 Superset batch evaluation config. Union of pre-consolidation types
 (BatchEvaluationConfig in BatchEvaluator, BatchConfig in batchStrategy).

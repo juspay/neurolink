@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OrchestrationState** = `object`
 
-Defined in: [types/ppt.ts:1400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1400)
+Defined in: [types/ppt.ts:1400](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1400)
 
 Internal orchestration state
 
@@ -18,7 +18,7 @@ Internal orchestration state
 
 > **startTime**: `number`
 
-Defined in: [types/ppt.ts:1401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1401)
+Defined in: [types/ppt.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1401)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1401](https://github.com/juspay/neurolink/blob/49032fc
 
 > **contentPlan**: [`ContentPlan`](ContentPlan.md) \| `null`
 
-Defined in: [types/ppt.ts:1402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1402)
+Defined in: [types/ppt.ts:1402](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1402)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1402](https://github.com/juspay/neurolink/blob/49032fc
 
 > **slides**: [`CompleteSlide`](CompleteSlide.md)[] \| `null`
 
-Defined in: [types/ppt.ts:1403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1403)
+Defined in: [types/ppt.ts:1403](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1403)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/ppt.ts:1403](https://github.com/juspay/neurolink/blob/49032fc
 
 > **outputPath**: `string` \| `null`
 
-Defined in: [types/ppt.ts:1404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1404)
+Defined in: [types/ppt.ts:1404](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1404)

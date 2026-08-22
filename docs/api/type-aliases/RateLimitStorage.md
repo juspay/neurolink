@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RateLimitStorage** = `object`
 
-Defined in: [types/auth.ts:1375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1375)
+Defined in: [types/auth.ts:1375](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1375)
 
 Storage contract for rate-limit buckets (memory or Redis).
 
@@ -18,7 +18,7 @@ Storage contract for rate-limit buckets (memory or Redis).
 
 > **getBucket**(`userId`): `Promise`\<[`TokenBucket`](TokenBucket.md) \| `null`\>
 
-Defined in: [types/auth.ts:1376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1376)
+Defined in: [types/auth.ts:1376](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1376)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/auth.ts:1376](https://github.com/juspay/neurolink/blob/49032f
 
 > **setBucket**(`userId`, `bucket`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1377)
+Defined in: [types/auth.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1377)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [types/auth.ts:1377](https://github.com/juspay/neurolink/blob/49032f
 
 > **deleteBucket**(`userId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1378](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1378)
+Defined in: [types/auth.ts:1378](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1378)
 
 #### Parameters
 
@@ -76,7 +76,7 @@ Defined in: [types/auth.ts:1378](https://github.com/juspay/neurolink/blob/49032f
 
 > **healthCheck**(): `Promise`\<`boolean`\>
 
-Defined in: [types/auth.ts:1379](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1379)
+Defined in: [types/auth.ts:1379](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1379)
 
 #### Returns
 
@@ -88,7 +88,7 @@ Defined in: [types/auth.ts:1379](https://github.com/juspay/neurolink/blob/49032f
 
 > **cleanup**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1380](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1380)
+Defined in: [types/auth.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1380)
 
 #### Returns
 
@@ -100,7 +100,7 @@ Defined in: [types/auth.ts:1380](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **atomicConsume**(`userId`, `limit`, `windowMs`, `nowMs`): `Promise`\<[`AtomicConsumeResult`](AtomicConsumeResult.md) \| `null`\>
 
-Defined in: [types/auth.ts:1381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1381)
+Defined in: [types/auth.ts:1381](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1381)
 
 #### Parameters
 

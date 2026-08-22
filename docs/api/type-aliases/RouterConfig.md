@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RouterConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:305](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L305)
+Defined in: [types/agentNetwork.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L305)
 
 Router configuration
 
@@ -18,7 +18,7 @@ Router configuration
 
 > `optional` **provider?**: [`AIProviderName`](../enumerations/AIProviderName.md) \| `string`
 
-Defined in: [types/agentNetwork.ts:307](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L307)
+Defined in: [types/agentNetwork.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L307)
 
 Provider for the routing agent
 
@@ -28,7 +28,7 @@ Provider for the routing agent
 
 > `optional` **model?**: `string`
 
-Defined in: [types/agentNetwork.ts:310](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L310)
+Defined in: [types/agentNetwork.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L310)
 
 Model for the routing agent
 
@@ -38,7 +38,7 @@ Model for the routing agent
 
 > `optional` **instructions?**: `string`
 
-Defined in: [types/agentNetwork.ts:313](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L313)
+Defined in: [types/agentNetwork.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L313)
 
 Custom routing instructions
 
@@ -48,7 +48,7 @@ Custom routing instructions
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/agentNetwork.ts:316](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L316)
+Defined in: [types/agentNetwork.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L316)
 
 Maximum routing attempts before fallback
 
@@ -58,6 +58,6 @@ Maximum routing attempts before fallback
 
 > `optional` **confidenceThreshold?**: `number`
 
-Defined in: [types/agentNetwork.ts:319](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L319)
+Defined in: [types/agentNetwork.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L319)
 
 Confidence threshold for routing (0-1)

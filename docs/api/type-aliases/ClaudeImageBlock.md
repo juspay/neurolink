@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeImageBlock** = `object`
 
-Defined in: [types/proxy.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L62)
+Defined in: [types/proxy.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L62)
 
 A single image block in a Claude content array.
 
@@ -18,7 +18,7 @@ A single image block in a Claude content array.
 
 > **type**: `"image"`
 
-Defined in: [types/proxy.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L63)
+Defined in: [types/proxy.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L63)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:63](https://github.com/juspay/neurolink/blob/49032fc
 
 > **source**: `object`
 
-Defined in: [types/proxy.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L64)
+Defined in: [types/proxy.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L64)
 
 #### type
 

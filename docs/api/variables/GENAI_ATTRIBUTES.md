@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > `const` **GENAI_ATTRIBUTES**: `object`
 
-Defined in: [types/span.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/span.ts#L63)
+Defined in: [types/span.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L63)
 
 OpenTelemetry GenAI semantic conventions
 

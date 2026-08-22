@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **cosineSimilarity**(`a`, `b`): `number`
 
-Defined in: [core/toolRoutingEmbedding.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/toolRoutingEmbedding.ts#L72)
+Defined in: [core/toolRoutingEmbedding.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRoutingEmbedding.ts#L72)
 
 Cosine similarity between two vectors.
 

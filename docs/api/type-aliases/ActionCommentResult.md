@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ActionCommentResult** = `object`
 
-Defined in: [types/action.ts:223](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L223)
+Defined in: [types/action.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L223)
 
 GitHub comment posting result
 
@@ -18,7 +18,7 @@ GitHub comment posting result
 
 > **success**: `boolean`
 
-Defined in: [types/action.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L224)
+Defined in: [types/action.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L224)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/action.ts:224](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **commentId?**: `number`
 
-Defined in: [types/action.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L225)
+Defined in: [types/action.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L225)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/action.ts:225](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **commentUrl?**: `string`
 
-Defined in: [types/action.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L226)
+Defined in: [types/action.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L226)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/action.ts:226](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **error?**: `string`
 
-Defined in: [types/action.ts:227](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L227)
+Defined in: [types/action.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/action.ts#L227)

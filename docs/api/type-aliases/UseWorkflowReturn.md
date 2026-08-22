@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseWorkflowReturn** = `object`
 
-Defined in: [types/client.ts:692](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L692)
+Defined in: [types/client.ts:692](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L692)
 
 useWorkflow hook return type
 
@@ -18,7 +18,7 @@ useWorkflow hook return type
 
 > **execute**: (`input`, `options?`) => `Promise`\<[`ClientWorkflowExecuteResult`](ClientWorkflowExecuteResult.md)\>
 
-Defined in: [types/client.ts:694](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L694)
+Defined in: [types/client.ts:694](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L694)
 
 Execute the workflow
 
@@ -42,7 +42,7 @@ Execute the workflow
 
 > **resume**: (`resumeToken`, `resumeData?`) => `Promise`\<[`ClientWorkflowExecuteResult`](ClientWorkflowExecuteResult.md)\>
 
-Defined in: [types/client.ts:699](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L699)
+Defined in: [types/client.ts:699](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L699)
 
 Resume a suspended workflow
 
@@ -66,7 +66,7 @@ Resume a suspended workflow
 
 > **getStatus**: (`runId`) => `Promise`\<[`ClientWorkflowExecuteResult`](ClientWorkflowExecuteResult.md)\>
 
-Defined in: [types/client.ts:704](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L704)
+Defined in: [types/client.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L704)
 
 Get workflow status
 
@@ -86,7 +86,7 @@ Get workflow status
 
 > **cancel**: (`runId`) => `Promise`\<`void`\>
 
-Defined in: [types/client.ts:706](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L706)
+Defined in: [types/client.ts:706](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L706)
 
 Cancel workflow execution
 
@@ -106,7 +106,7 @@ Cancel workflow execution
 
 > **runId**: `string` \| `null`
 
-Defined in: [types/client.ts:708](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L708)
+Defined in: [types/client.ts:708](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L708)
 
 Current run ID
 
@@ -116,7 +116,7 @@ Current run ID
 
 > **status**: [`ClientWorkflowExecuteResult`](ClientWorkflowExecuteResult.md)\[`"status"`\] \| `null`
 
-Defined in: [types/client.ts:710](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L710)
+Defined in: [types/client.ts:710](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L710)
 
 Execution status
 
@@ -126,7 +126,7 @@ Execution status
 
 > **isLoading**: `boolean`
 
-Defined in: [types/client.ts:712](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L712)
+Defined in: [types/client.ts:712](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L712)
 
 Loading state
 
@@ -136,7 +136,7 @@ Loading state
 
 > **result**: [`ClientWorkflowExecuteResult`](ClientWorkflowExecuteResult.md) \| `null`
 
-Defined in: [types/client.ts:714](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L714)
+Defined in: [types/client.ts:714](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L714)
 
 Last result
 
@@ -146,7 +146,7 @@ Last result
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
 
-Defined in: [types/client.ts:716](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L716)
+Defined in: [types/client.ts:716](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L716)
 
 Error state
 
@@ -156,7 +156,7 @@ Error state
 
 > **clearError**: () => `void`
 
-Defined in: [types/client.ts:718](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L718)
+Defined in: [types/client.ts:718](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L718)
 
 Clear error
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: LyriaMusic
 
-Defined in: [music/providers/LyriaMusic.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L34)
+Defined in: [music/providers/LyriaMusic.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L34)
 
 Google Lyria 3 Pro Music Handler.
 
@@ -24,7 +24,7 @@ Generative Language endpoints today).
 
 > **new LyriaMusic**(`apiKey?`): `LyriaMusic`
 
-Defined in: [music/providers/LyriaMusic.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L54)
+Defined in: [music/providers/LyriaMusic.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L54)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [music/providers/LyriaMusic.ts:54](https://github.com/juspay/neuroli
 
 > `readonly` **maxDurationSeconds**: `30` = `30`
 
-Defined in: [music/providers/LyriaMusic.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L35)
+Defined in: [music/providers/LyriaMusic.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L35)
 
 Maximum supported track duration in seconds (provider-specific).
 
@@ -56,7 +56,7 @@ Maximum supported track duration in seconds (provider-specific).
 
 > `readonly` **supportedFormats**: readonly [`MusicAudioFormat`](../type-aliases/MusicAudioFormat.md)[]
 
-Defined in: [music/providers/LyriaMusic.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L36)
+Defined in: [music/providers/LyriaMusic.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L36)
 
 Output formats supported by this handler.
 
@@ -70,7 +70,7 @@ Output formats supported by this handler.
 
 > `readonly` **supportedGenres**: readonly `string`[]
 
-Defined in: [music/providers/LyriaMusic.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L37)
+Defined in: [music/providers/LyriaMusic.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L37)
 
 Genres / styles the upstream advertises (informational).
 
@@ -84,7 +84,7 @@ Genres / styles the upstream advertises (informational).
 
 > **isConfigured**(): `boolean`
 
-Defined in: [music/providers/LyriaMusic.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L71)
+Defined in: [music/providers/LyriaMusic.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L71)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -102,7 +102,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`options`): `Promise`\<[`MusicResult`](../type-aliases/MusicResult.md)\>
 
-Defined in: [music/providers/LyriaMusic.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/LyriaMusic.ts#L75)
+Defined in: [music/providers/LyriaMusic.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/LyriaMusic.ts#L75)
 
 Generate a music track from prompt + options.
 

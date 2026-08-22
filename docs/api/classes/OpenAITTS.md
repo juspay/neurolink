@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: OpenAITTS
 
-Defined in: [voice/providers/OpenAITTS.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/OpenAITTS.ts#L30)
+Defined in: [voice/providers/OpenAITTS.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L30)
 
 OpenAI Text-to-Speech Handler
 
@@ -26,7 +26,7 @@ https://platform.openai.com/docs/api-reference/audio/createSpeech
 
 > **new OpenAITTS**(`apiKey?`): `OpenAITTS`
 
-Defined in: [voice/providers/OpenAITTS.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/OpenAITTS.ts#L93)
+Defined in: [voice/providers/OpenAITTS.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L93)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [voice/providers/OpenAITTS.ts:93](https://github.com/juspay/neurolin
 
 > `readonly` **maxTextLength**: `4096` = `4096`
 
-Defined in: [voice/providers/OpenAITTS.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/OpenAITTS.ts#L37)
+Defined in: [voice/providers/OpenAITTS.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L37)
 
 Maximum text length (4096 characters)
 
@@ -58,7 +58,7 @@ Maximum text length (4096 characters)
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/OpenAITTS.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/OpenAITTS.ts#L98)
+Defined in: [voice/providers/OpenAITTS.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L98)
 
 Validate that the provider is properly configured
 
@@ -78,7 +78,7 @@ True if provider can generate TTS
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
 
-Defined in: [voice/providers/OpenAITTS.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/OpenAITTS.ts#L102)
+Defined in: [voice/providers/OpenAITTS.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L102)
 
 Get available voices for the provider
 
@@ -106,7 +106,7 @@ List of available voices
 
 > **synthesize**(`text`, `options?`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [voice/providers/OpenAITTS.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/OpenAITTS.ts#L111)
+Defined in: [voice/providers/OpenAITTS.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/OpenAITTS.ts#L111)
 
 Generate audio from text using provider-specific TTS API
 

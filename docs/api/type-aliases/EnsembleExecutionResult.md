@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnsembleExecutionResult** = `object`
 
-Defined in: [types/workflow.ts:548](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L548)
+Defined in: [types/workflow.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L548)
 
 Result of ensemble execution
 
@@ -18,7 +18,7 @@ Result of ensemble execution
 
 > **responses**: [`EnsembleResponse`](EnsembleResponse.md)[]
 
-Defined in: [types/workflow.ts:549](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L549)
+Defined in: [types/workflow.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L549)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:549](https://github.com/juspay/neurolink/blob/490
 
 > **totalTime**: `number`
 
-Defined in: [types/workflow.ts:550](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L550)
+Defined in: [types/workflow.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L550)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:550](https://github.com/juspay/neurolink/blob/490
 
 > **successCount**: `number`
 
-Defined in: [types/workflow.ts:551](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L551)
+Defined in: [types/workflow.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L551)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:551](https://github.com/juspay/neurolink/blob/490
 
 > **failureCount**: `number`
 
-Defined in: [types/workflow.ts:552](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L552)
+Defined in: [types/workflow.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L552)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/workflow.ts:552](https://github.com/juspay/neurolink/blob/490
 
 > **errors**: [`WorkflowError`](../classes/WorkflowError.md)[]
 
-Defined in: [types/workflow.ts:553](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L553)
+Defined in: [types/workflow.ts:553](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L553)

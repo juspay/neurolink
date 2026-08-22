@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DistributableTask** = `object`
 
-Defined in: [types/agentNetwork.ts:1354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1354)
+Defined in: [types/agentNetwork.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1354)
 
 Task definition for distribution
 
@@ -18,7 +18,7 @@ Task definition for distribution
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:1356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1356)
+Defined in: [types/agentNetwork.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1356)
 
 Unique task ID
 
@@ -28,7 +28,7 @@ Unique task ID
 
 > **input**: `string`
 
-Defined in: [types/agentNetwork.ts:1359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1359)
+Defined in: [types/agentNetwork.ts:1359](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1359)
 
 Task description/input
 
@@ -38,7 +38,7 @@ Task description/input
 
 > **priority**: [`TaskPriority`](TaskPriority.md)
 
-Defined in: [types/agentNetwork.ts:1362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1362)
+Defined in: [types/agentNetwork.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1362)
 
 Task priority
 
@@ -48,7 +48,7 @@ Task priority
 
 > `optional` **requiredSkills?**: `string`[]
 
-Defined in: [types/agentNetwork.ts:1365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1365)
+Defined in: [types/agentNetwork.ts:1365](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1365)
 
 Required skills/capabilities
 
@@ -58,7 +58,7 @@ Required skills/capabilities
 
 > `optional` **preferredAgent?**: `string`
 
-Defined in: [types/agentNetwork.ts:1368](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1368)
+Defined in: [types/agentNetwork.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1368)
 
 Preferred agent (for affinity)
 
@@ -68,7 +68,7 @@ Preferred agent (for affinity)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:1371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1371)
+Defined in: [types/agentNetwork.ts:1371](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1371)
 
 Task metadata
 
@@ -78,7 +78,7 @@ Task metadata
 
 > `optional` **deadline?**: `number`
 
-Defined in: [types/agentNetwork.ts:1374](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1374)
+Defined in: [types/agentNetwork.ts:1374](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1374)
 
 Deadline timestamp
 
@@ -88,7 +88,7 @@ Deadline timestamp
 
 > `optional` **parentTaskId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1377)
+Defined in: [types/agentNetwork.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1377)
 
 Parent task ID (for subtasks)
 
@@ -98,6 +98,6 @@ Parent task ID (for subtasks)
 
 > `optional` **dependencies?**: `string`[]
 
-Defined in: [types/agentNetwork.ts:1380](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1380)
+Defined in: [types/agentNetwork.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1380)
 
 Dependencies (task IDs)

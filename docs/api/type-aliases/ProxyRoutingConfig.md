@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyRoutingConfig** = `object`
 
-Defined in: [types/subscription.ts:1197](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1197)
+Defined in: [types/subscription.ts:1197](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1197)
 
 Full proxy routing config
 
@@ -18,7 +18,7 @@ Full proxy routing config
 
 > **strategy**: `"round-robin"` \| `"fill-first"`
 
-Defined in: [types/subscription.ts:1198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1198)
+Defined in: [types/subscription.ts:1198](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1198)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1198](https://github.com/juspay/neurolink/blo
 
 > **modelMappings**: [`ModelMapping`](ModelMapping.md)[]
 
-Defined in: [types/subscription.ts:1199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1199)
+Defined in: [types/subscription.ts:1199](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1199)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/subscription.ts:1199](https://github.com/juspay/neurolink/blo
 
 > **fallbackChain**: [`FallbackEntry`](FallbackEntry.md)[]
 
-Defined in: [types/subscription.ts:1200](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1200)
+Defined in: [types/subscription.ts:1200](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1200)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/subscription.ts:1200](https://github.com/juspay/neurolink/blo
 
 > `optional` **autoFallback?**: `boolean`
 
-Defined in: [types/subscription.ts:1202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1202)
+Defined in: [types/subscription.ts:1202](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1202)
 
 Permit a last-resort provider chosen by the translation layer. Disabled by default.
 
@@ -52,7 +52,7 @@ Permit a last-resort provider chosen by the translation layer. Disabled by defau
 
 > `optional` **maxInflightPerAccount?**: `number`
 
-Defined in: [types/subscription.ts:1210](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1210)
+Defined in: [types/subscription.ts:1210](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1210)
 
 Optional in-flight upstream request cap per OAuth account.
 
@@ -66,7 +66,7 @@ the accepted range — a non-integer, or anything below 1 or above 20 — since
 
 > `optional` **passthroughModels?**: `string`[]
 
-Defined in: [types/subscription.ts:1211](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1211)
+Defined in: [types/subscription.ts:1211](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1211)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/subscription.ts:1211](https://github.com/juspay/neurolink/blo
 
 > `optional` **quotaRouting?**: `boolean`
 
-Defined in: [types/subscription.ts:1213](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1213)
+Defined in: [types/subscription.ts:1213](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1213)
 
 Enable quota-aware fill-first account ordering. Defaults to true.
 
@@ -84,7 +84,7 @@ Enable quota-aware fill-first account ordering. Defaults to true.
 
 > `optional` **useOverage?**: `"auto"` \| `"always"` \| `"never"`
 
-Defined in: [types/subscription.ts:1226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1226)
+Defined in: [types/subscription.ts:1226](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1226)
 
 Whether an account may keep serving on paid extra usage once its
 subscription window is spent.
@@ -103,7 +103,7 @@ that Anthropic has disabled (e.g. `org_level_disabled`).
 
 > `optional` **sessionSoftLimit?**: `number`
 
-Defined in: [types/subscription.ts:1228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1228)
+Defined in: [types/subscription.ts:1228](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1228)
 
 Session utilization threshold used to proactively demote an account.
 
@@ -113,7 +113,7 @@ Session utilization threshold used to proactively demote an account.
 
 > `optional` **sessionResetToleranceMs?**: `number`
 
-Defined in: [types/subscription.ts:1230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1230)
+Defined in: [types/subscription.ts:1230](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1230)
 
 Reset-time bucket width used when ordering quota windows.
 
@@ -123,7 +123,7 @@ Reset-time bucket width used when ordering quota windows.
 
 > `optional` **primaryAccount?**: `string`
 
-Defined in: [types/subscription.ts:1235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1235)
+Defined in: [types/subscription.ts:1235](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1235)
 
 Email/label of the Anthropic account that should be tried first
 ("home"). When absent, falls back to insertion-order index 0.
@@ -136,7 +136,7 @@ encode an index.
 
 > `optional` **accountAllowlist?**: `string`[]
 
-Defined in: [types/subscription.ts:1240](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1240)
+Defined in: [types/subscription.ts:1240](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1240)
 
 Anthropic account emails/labels that may be loaded by the proxy. When
 present, every token-store, legacy, and environment credential outside

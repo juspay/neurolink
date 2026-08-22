@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolDedupConfig** = `object`
 
-Defined in: [types/toolDedup.ts:15](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L15)
+Defined in: [types/toolDedup.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L15)
 
 Configuration for the opt-in tool-signature deduplication pass.
 
@@ -18,7 +18,7 @@ Configuration for the opt-in tool-signature deduplication pass.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/toolDedup.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L20)
+Defined in: [types/toolDedup.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L20)
 
 Master switch. Dedup runs only when `true`.
 Default: `false` (disabled — no change in behaviour).
@@ -29,7 +29,7 @@ Default: `false` (disabled — no change in behaviour).
 
 > `optional` **threshold?**: `number`
 
-Defined in: [types/toolDedup.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolDedup.ts#L30)
+Defined in: [types/toolDedup.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolDedup.ts#L30)
 
 Jaccard similarity threshold in [0, 1]. Pairs of tools whose token-set
 Jaccard similarity over their canonical signatures meets or exceeds this

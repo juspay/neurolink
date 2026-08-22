@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KnowledgeGroundingMetadata** = `object`
 
-Defined in: [types/knowledge.ts:380](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L380)
+Defined in: [types/knowledge.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L380)
 
 Aggregate, content-free diagnostics attached to a generation/stream result
 so the host can evaluate retrieval without the SDK exposing entry bodies.
@@ -19,7 +19,7 @@ so the host can evaluate retrieval without the SDK exposing entry bodies.
 
 > **retrievalMode**: [`KnowledgeRetrievalMode`](KnowledgeRetrievalMode.md)
 
-Defined in: [types/knowledge.ts:381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L381)
+Defined in: [types/knowledge.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L381)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/knowledge.ts:381](https://github.com/juspay/neurolink/blob/49
 
 > **selectedIds**: `string`[]
 
-Defined in: [types/knowledge.ts:382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L382)
+Defined in: [types/knowledge.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L382)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/knowledge.ts:382](https://github.com/juspay/neurolink/blob/49
 
 > **expandedIds**: `string`[]
 
-Defined in: [types/knowledge.ts:383](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L383)
+Defined in: [types/knowledge.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L383)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/knowledge.ts:383](https://github.com/juspay/neurolink/blob/49
 
 > **candidateCount**: `number`
 
-Defined in: [types/knowledge.ts:384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L384)
+Defined in: [types/knowledge.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L384)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/knowledge.ts:384](https://github.com/juspay/neurolink/blob/49
 
 > **contextTokens**: `number`
 
-Defined in: [types/knowledge.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L385)
+Defined in: [types/knowledge.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L385)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/knowledge.ts:385](https://github.com/juspay/neurolink/blob/49
 
 > **truncated**: `boolean`
 
-Defined in: [types/knowledge.ts:386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L386)
+Defined in: [types/knowledge.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L386)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/knowledge.ts:386](https://github.com/juspay/neurolink/blob/49
 
 > **durationMs**: `number`
 
-Defined in: [types/knowledge.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L387)
+Defined in: [types/knowledge.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L387)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/knowledge.ts:387](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **confidence?**: [`KnowledgeRetrievalConfidence`](KnowledgeRetrievalConfidence.md)
 
-Defined in: [types/knowledge.ts:388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L388)
+Defined in: [types/knowledge.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L388)
 
 ---
 
@@ -83,6 +83,6 @@ Defined in: [types/knowledge.ts:388](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **failureReason?**: `string`
 
-Defined in: [types/knowledge.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L390)
+Defined in: [types/knowledge.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L390)
 
 Present when grounding failed open; names the failure class.

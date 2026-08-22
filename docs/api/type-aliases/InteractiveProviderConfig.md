@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **InteractiveProviderConfig** = `object`
 
-Defined in: [types/cli.ts:1727](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1727)
+Defined in: [types/cli.ts:1727](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1727)
 
 Provider config row used by the interactive setup wizard.
 
@@ -18,7 +18,7 @@ Provider config row used by the interactive setup wizard.
 
 > **id**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/cli.ts:1728](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1728)
+Defined in: [types/cli.ts:1728](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1728)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1728](https://github.com/juspay/neurolink/blob/49032fc
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:1729](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1729)
+Defined in: [types/cli.ts:1729](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1729)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1729](https://github.com/juspay/neurolink/blob/49032fc
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1730](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1730)
+Defined in: [types/cli.ts:1730](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1730)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1730](https://github.com/juspay/neurolink/blob/49032fc
 
 > **envVars**: `object`[]
 
-Defined in: [types/cli.ts:1731](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1731)
+Defined in: [types/cli.ts:1731](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1731)
 
 #### key
 

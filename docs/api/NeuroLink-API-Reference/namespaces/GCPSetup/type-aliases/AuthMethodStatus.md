@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../../../../README.md)
+[**NeuroLink API Reference**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthMethodStatus** = `object`
 
-Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L877)
+Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L877)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **hasServiceAccount**: `boolean`
 
-Defined in: [types/cli.ts:878](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L878)
+Defined in: [types/cli.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L878)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:878](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **hasGcloudAuth**: `boolean`
 
-Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L879)
+Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L879)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **hasApplicationDefault**: `boolean`
 
-Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L880)
+Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L880)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **preferredMethod?**: `"service-account"` \| `"gcloud"` \| `"adc"`
 
-Defined in: [types/cli.ts:881](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L881)
+Defined in: [types/cli.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L881)

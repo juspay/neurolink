@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SageMakerStreamingToolCall** = `object`
 
-Defined in: [types/providers.ts:1583](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1583)
+Defined in: [types/providers.ts:1583](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1583)
 
 Streaming tool call information (Phase 2.3)
 
@@ -18,7 +18,7 @@ Streaming tool call information (Phase 2.3)
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:1585](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1585)
+Defined in: [types/providers.ts:1585](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1585)
 
 Tool call identifier
 
@@ -28,7 +28,7 @@ Tool call identifier
 
 > `optional` **name?**: `string`
 
-Defined in: [types/providers.ts:1587](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1587)
+Defined in: [types/providers.ts:1587](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1587)
 
 Tool/function name
 
@@ -38,7 +38,7 @@ Tool/function name
 
 > `optional` **arguments?**: `string`
 
-Defined in: [types/providers.ts:1589](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1589)
+Defined in: [types/providers.ts:1589](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1589)
 
 Partial or complete arguments as JSON string
 
@@ -48,7 +48,7 @@ Partial or complete arguments as JSON string
 
 > **type**: `"function"`
 
-Defined in: [types/providers.ts:1591](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1591)
+Defined in: [types/providers.ts:1591](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1591)
 
 Tool call type
 
@@ -58,7 +58,7 @@ Tool call type
 
 > `optional` **complete?**: `boolean`
 
-Defined in: [types/providers.ts:1593](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1593)
+Defined in: [types/providers.ts:1593](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1593)
 
 Indicates if this tool call is complete
 
@@ -68,6 +68,6 @@ Indicates if this tool call is complete
 
 > `optional` **argumentsDelta?**: `string`
 
-Defined in: [types/providers.ts:1595](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1595)
+Defined in: [types/providers.ts:1595](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1595)
 
 Delta text for incremental argument building

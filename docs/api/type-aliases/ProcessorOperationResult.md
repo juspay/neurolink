@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessorOperationResult**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:125](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L125)
+Defined in: [types/processor.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L125)
 
 Generic result type for internal operations.
 Used for validation and download operations that don't return ProcessedFileBase.
@@ -25,7 +25,7 @@ Used for validation and download operations that don't return ProcessedFileBase.
 
 > **success**: `boolean`
 
-Defined in: [types/processor.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L127)
+Defined in: [types/processor.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L127)
 
 Whether the operation was successful
 
@@ -35,7 +35,7 @@ Whether the operation was successful
 
 > `optional` **data?**: `T`
 
-Defined in: [types/processor.ts:129](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L129)
+Defined in: [types/processor.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L129)
 
 Operation result data (present when success is true)
 
@@ -45,6 +45,6 @@ Operation result data (present when success is true)
 
 > `optional` **error?**: [`FileProcessingError`](FileProcessingError.md)
 
-Defined in: [types/processor.ts:131](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L131)
+Defined in: [types/processor.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L131)
 
 Error information (present when success is false)

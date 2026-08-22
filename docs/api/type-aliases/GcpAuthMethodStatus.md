@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GcpAuthMethodStatus** = `object`
 
-Defined in: [types/cli.ts:1628](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1628)
+Defined in: [types/cli.ts:1628](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1628)
 
 Status of each GCP auth method tried by setup-gcp.
 
@@ -18,7 +18,7 @@ Status of each GCP auth method tried by setup-gcp.
 
 > **method1**: `object`
 
-Defined in: [types/cli.ts:1629](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1629)
+Defined in: [types/cli.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1629)
 
 #### complete
 
@@ -38,7 +38,7 @@ Defined in: [types/cli.ts:1629](https://github.com/juspay/neurolink/blob/49032fc
 
 > **method2**: `object`
 
-Defined in: [types/cli.ts:1634](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1634)
+Defined in: [types/cli.ts:1634](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1634)
 
 #### complete
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1634](https://github.com/juspay/neurolink/blob/49032fc
 
 > **method3**: `object`
 
-Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1639)
+Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1639)
 
 #### complete
 
@@ -82,7 +82,7 @@ Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/49032fc
 
 > **common**: `object`
 
-Defined in: [types/cli.ts:1645](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1645)
+Defined in: [types/cli.ts:1645](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1645)
 
 #### hasProject
 

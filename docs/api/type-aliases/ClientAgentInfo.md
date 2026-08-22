@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientAgentInfo** = `object`
 
-Defined in: [types/client.ts:350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L350)
+Defined in: [types/client.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L350)
 
 Agent information
 
@@ -18,7 +18,7 @@ Agent information
 
 > **id**: `string`
 
-Defined in: [types/client.ts:352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L352)
+Defined in: [types/client.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L352)
 
 Agent ID
 
@@ -28,7 +28,7 @@ Agent ID
 
 > **name**: `string`
 
-Defined in: [types/client.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L354)
+Defined in: [types/client.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L354)
 
 Agent name
 
@@ -38,7 +38,7 @@ Agent name
 
 > **description**: `string`
 
-Defined in: [types/client.ts:356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L356)
+Defined in: [types/client.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L356)
 
 Agent description
 
@@ -48,7 +48,7 @@ Agent description
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/client.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L358)
+Defined in: [types/client.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L358)
 
 Available tools for this agent
 
@@ -58,7 +58,7 @@ Available tools for this agent
 
 > `optional` **capabilities?**: `object`
 
-Defined in: [types/client.ts:360](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L360)
+Defined in: [types/client.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L360)
 
 Agent capabilities
 

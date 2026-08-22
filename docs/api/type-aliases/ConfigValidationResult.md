@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConfigValidationResult** = `object`
 
-Defined in: [types/config.ts:452](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L452)
+Defined in: [types/config.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L452)
 
 Configuration validation result
 
@@ -18,7 +18,7 @@ Configuration validation result
 
 > **valid**: `boolean`
 
-Defined in: [types/config.ts:453](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L453)
+Defined in: [types/config.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L453)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:453](https://github.com/juspay/neurolink/blob/49032
 
 > **errors**: `string`[]
 
-Defined in: [types/config.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L454)
+Defined in: [types/config.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L454)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:454](https://github.com/juspay/neurolink/blob/49032
 
 > **warnings**: `string`[]
 
-Defined in: [types/config.ts:455](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L455)
+Defined in: [types/config.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L455)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/config.ts:455](https://github.com/juspay/neurolink/blob/49032
 
 > **suggestions**: `string`[]
 
-Defined in: [types/config.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L456)
+Defined in: [types/config.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L456)

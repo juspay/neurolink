@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **IConversationMemoryManager** = `object`
 
-Defined in: [types/conversationMemoryInterface.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L20)
+Defined in: [types/conversationMemoryInterface.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L20)
 
 Common type for all conversation memory manager implementations.
 Provides a consistent API for storing, retrieving, and managing conversation history.
@@ -19,7 +19,7 @@ Provides a consistent API for storing, retrieving, and managing conversation his
 
 > **config**: [`ConversationMemoryConfig`](ConversationMemoryConfig.md)
 
-Defined in: [types/conversationMemoryInterface.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L21)
+Defined in: [types/conversationMemoryInterface.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L21)
 
 ## Methods
 
@@ -27,7 +27,7 @@ Defined in: [types/conversationMemoryInterface.ts:21](https://github.com/juspay/
 
 > **initialize**(): `void` \| `Promise`\<`void`\>
 
-Defined in: [types/conversationMemoryInterface.ts:24](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L24)
+Defined in: [types/conversationMemoryInterface.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L24)
 
 Initialize the memory manager
 
@@ -41,7 +41,7 @@ Initialize the memory manager
 
 > **storeConversationTurn**(`options`): `Promise`\<`void`\>
 
-Defined in: [types/conversationMemoryInterface.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L27)
+Defined in: [types/conversationMemoryInterface.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L27)
 
 Store a conversation turn
 
@@ -61,7 +61,7 @@ Store a conversation turn
 
 > **getSession**(`sessionId`, `userId?`): [`SessionMemory`](SessionMemory.md) \| `Promise`\<[`SessionMemory`](SessionMemory.md) \| `undefined`\> \| `undefined`
 
-Defined in: [types/conversationMemoryInterface.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L30)
+Defined in: [types/conversationMemoryInterface.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L30)
 
 Get session by ID
 
@@ -85,7 +85,7 @@ Get session by ID
 
 > **buildContextMessages**(`sessionId`, `userId?`, `enableSummarization?`, `requestId?`): [`ChatMessage`](ChatMessage.md)[] \| `Promise`\<[`ChatMessage`](ChatMessage.md)[]\>
 
-Defined in: [types/conversationMemoryInterface.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L36)
+Defined in: [types/conversationMemoryInterface.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L36)
 
 Build context messages for AI prompt injection
 
@@ -117,7 +117,7 @@ Build context messages for AI prompt injection
 
 > **clearSession**(`sessionId`, `userId?`): `boolean` \| `Promise`\<`boolean`\>
 
-Defined in: [types/conversationMemoryInterface.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L44)
+Defined in: [types/conversationMemoryInterface.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L44)
 
 Clear a specific session
 
@@ -141,7 +141,7 @@ Clear a specific session
 
 > **clearAllSessions**(): `void` \| `Promise`\<`void`\>
 
-Defined in: [types/conversationMemoryInterface.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L47)
+Defined in: [types/conversationMemoryInterface.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L47)
 
 Clear all sessions
 
@@ -155,7 +155,7 @@ Clear all sessions
 
 > **getStats**(): [`ConversationMemoryStats`](ConversationMemoryStats.md) \| `Promise`\<[`ConversationMemoryStats`](ConversationMemoryStats.md)\>
 
-Defined in: [types/conversationMemoryInterface.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L50)
+Defined in: [types/conversationMemoryInterface.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L50)
 
 Get memory statistics
 
@@ -171,7 +171,7 @@ Get memory statistics
 
 > `optional` **listSessions**(`userId?`): `Promise`\<[`SessionListItem`](SessionListItem.md)[]\>
 
-Defined in: [types/conversationMemoryInterface.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L53)
+Defined in: [types/conversationMemoryInterface.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L53)
 
 List all sessions with metadata (optional - for session management)
 
@@ -189,7 +189,7 @@ List all sessions with metadata (optional - for session management)
 
 > `optional` **listSessions**(`userId?`): `Promise`\<[`SessionListItem`](SessionListItem.md)[]\>
 
-Defined in: [types/conversationMemoryInterface.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L56)
+Defined in: [types/conversationMemoryInterface.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L56)
 
 List all sessions with metadata (optional - for session management)
 
@@ -209,7 +209,7 @@ List all sessions with metadata (optional - for session management)
 
 > **getSessionMessages**(`sessionId`, `userId?`): `Promise`\<[`ChatMessage`](ChatMessage.md)[]\>
 
-Defined in: [types/conversationMemoryInterface.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L58)
+Defined in: [types/conversationMemoryInterface.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L58)
 
 Get raw messages array for a session (no context filtering or summarization)
 
@@ -233,7 +233,7 @@ Get raw messages array for a session (no context filtering or summarization)
 
 > **setSessionMessages**(`sessionId`, `messages`, `userId?`): `Promise`\<`void`\>
 
-Defined in: [types/conversationMemoryInterface.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L64)
+Defined in: [types/conversationMemoryInterface.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L64)
 
 Replace the entire messages array for a session
 
@@ -261,7 +261,7 @@ Replace the entire messages array for a session
 
 > `optional` **storeToolExecution**(`sessionId`, `userId`, `toolCalls`, `toolResults`, `currentTime?`): `Promise`\<`void`\>
 
-Defined in: [types/conversationMemoryInterface.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L80)
+Defined in: [types/conversationMemoryInterface.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L80)
 
 Persist a step's tool calls and results as `tool_call` / `tool_result`
 messages on the session.
@@ -304,7 +304,7 @@ depending on `STORAGE_TYPE`.
 
 > `optional` **close**(): `Promise`\<`void`\>
 
-Defined in: [types/conversationMemoryInterface.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversationMemoryInterface.ts#L100)
+Defined in: [types/conversationMemoryInterface.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversationMemoryInterface.ts#L100)
 
 Close/shutdown the memory manager and release resources (e.g., Redis connections)
 

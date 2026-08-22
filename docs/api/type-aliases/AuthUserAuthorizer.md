@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthUserAuthorizer** = `object`
 
-Defined in: [types/auth.ts:1093](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1093)
+Defined in: [types/auth.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1093)
 
 Authorization: check roles and permissions.
 
@@ -18,7 +18,7 @@ Authorization: check roles and permissions.
 
 > **authorizeUser**(`user`, `permission`): `Promise`\<[`AuthorizationResult`](AuthorizationResult.md)\>
 
-Defined in: [types/auth.ts:1095](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1095)
+Defined in: [types/auth.ts:1095](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1095)
 
 Check if a user is authorized to perform an action
 
@@ -42,7 +42,7 @@ Check if a user is authorized to perform an action
 
 > **authorizeRoles**(`user`, `roles`): `Promise`\<[`AuthorizationResult`](AuthorizationResult.md)\>
 
-Defined in: [types/auth.ts:1101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1101)
+Defined in: [types/auth.ts:1101](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1101)
 
 Check if user has specific roles
 
@@ -66,7 +66,7 @@ Check if user has specific roles
 
 > **authorizePermissions**(`user`, `permissions`): `Promise`\<[`AuthorizationResult`](AuthorizationResult.md)\>
 
-Defined in: [types/auth.ts:1104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1104)
+Defined in: [types/auth.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1104)
 
 Check if user has all specified permissions
 

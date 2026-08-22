@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthRateLimitConfig** = `object`
 
-Defined in: [types/auth.ts:1350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1350)
+Defined in: [types/auth.ts:1350](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1350)
 
 Rate limit configuration per user or role.
 
@@ -18,7 +18,7 @@ Rate limit configuration per user or role.
 
 > **maxRequests**: `number`
 
-Defined in: [types/auth.ts:1351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1351)
+Defined in: [types/auth.ts:1351](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1351)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/auth.ts:1351](https://github.com/juspay/neurolink/blob/49032f
 
 > **windowMs**: `number`
 
-Defined in: [types/auth.ts:1352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1352)
+Defined in: [types/auth.ts:1352](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1352)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/auth.ts:1352](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **roleLimits?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/auth.ts:1353](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1353)
+Defined in: [types/auth.ts:1353](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1353)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/auth.ts:1353](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **userLimits?**: `Record`\<`string`, `number`\>
 
-Defined in: [types/auth.ts:1354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1354)
+Defined in: [types/auth.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1354)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/auth.ts:1354](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **skipRoles?**: `string`[]
 
-Defined in: [types/auth.ts:1355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1355)
+Defined in: [types/auth.ts:1355](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1355)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/auth.ts:1355](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **message?**: `string`
 
-Defined in: [types/auth.ts:1356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1356)
+Defined in: [types/auth.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1356)

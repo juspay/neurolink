@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelDetectionResult** = `object`
 
-Defined in: [types/providers.ts:2232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2232)
+Defined in: [types/providers.ts:2232](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2232)
 
 Model type detection result.
 
@@ -18,7 +18,7 @@ Model type detection result.
 
 > **type**: [`StreamingCapability`](StreamingCapability.md)\[`"modelType"`\]
 
-Defined in: [types/providers.ts:2233](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2233)
+Defined in: [types/providers.ts:2233](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2233)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2233](https://github.com/juspay/neurolink/blob/4
 
 > **confidence**: `number`
 
-Defined in: [types/providers.ts:2234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2234)
+Defined in: [types/providers.ts:2234](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2234)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2234](https://github.com/juspay/neurolink/blob/4
 
 > **evidence**: `string`[]
 
-Defined in: [types/providers.ts:2235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2235)
+Defined in: [types/providers.ts:2235](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2235)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:2235](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **suggestedConfig?**: `Partial`\<[`SageMakerModelConfig`](SageMakerModelConfig.md)\>
 
-Defined in: [types/providers.ts:2236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2236)
+Defined in: [types/providers.ts:2236](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2236)

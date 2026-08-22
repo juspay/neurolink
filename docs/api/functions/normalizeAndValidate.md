@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **normalizeAndValidate**(`sources`, `options`): `Promise`\<`KnowledgeNormalizeResult`\>
 
-Defined in: [knowledge/resolve.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/knowledge/resolve.ts#L105)
+Defined in: [knowledge/resolve.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/resolve.ts#L105)
 
 Resolve and validate every source into normalized entries. `validation.ok`
 is false when any error-level issue was found; the caller (index builder)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerWeight** = `object`
 
-Defined in: [types/mcp.ts:1763](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1763)
+Defined in: [types/mcp.ts:1763](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1763)
 
 Server weight for weighted load balancing
 
@@ -18,7 +18,7 @@ Server weight for weighted load balancing
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:1764](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1764)
+Defined in: [types/mcp.ts:1764](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1764)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1764](https://github.com/juspay/neurolink/blob/49032fc
 
 > **weight**: `number`
 
-Defined in: [types/mcp.ts:1765](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1765)
+Defined in: [types/mcp.ts:1765](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1765)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:1765](https://github.com/juspay/neurolink/blob/49032fc
 
 > **priority**: `number`
 
-Defined in: [types/mcp.ts:1766](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1766)
+Defined in: [types/mcp.ts:1766](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1766)

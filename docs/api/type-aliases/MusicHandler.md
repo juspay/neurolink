@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MusicHandler** = `object`
 
-Defined in: [types/music.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L127)
+Defined in: [types/music.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L127)
 
 Handler contract for music-generation providers.
 
@@ -23,7 +23,7 @@ Implementations enforce their own timeouts. Recommended:
 
 > `readonly` `optional` **maxDurationSeconds?**: `number`
 
-Defined in: [types/music.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L141)
+Defined in: [types/music.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L141)
 
 Maximum supported track duration in seconds (provider-specific).
 
@@ -33,7 +33,7 @@ Maximum supported track duration in seconds (provider-specific).
 
 > `readonly` `optional` **supportedFormats?**: readonly [`MusicAudioFormat`](MusicAudioFormat.md)[]
 
-Defined in: [types/music.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L144)
+Defined in: [types/music.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L144)
 
 Output formats supported by this handler.
 
@@ -43,7 +43,7 @@ Output formats supported by this handler.
 
 > `readonly` `optional` **supportedGenres?**: readonly `string`[]
 
-Defined in: [types/music.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L147)
+Defined in: [types/music.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L147)
 
 Genres / styles the upstream advertises (informational).
 
@@ -53,7 +53,7 @@ Genres / styles the upstream advertises (informational).
 
 > **generate**(`options`): `Promise`\<[`MusicResult`](MusicResult.md)\>
 
-Defined in: [types/music.ts:133](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L133)
+Defined in: [types/music.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L133)
 
 Generate a music track from prompt + options.
 
@@ -75,7 +75,7 @@ prompt, duration, format, genre, mood, etc.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/music.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L138)
+Defined in: [types/music.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L138)
 
 Validate the provider is configured (auth, base URL, etc.).
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: InvalidModelError
 
-Defined in: [types/errors.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L69)
+Defined in: [types/errors.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L69)
 
 Thrown when a specified model is not found or is invalid for the provider.
 
@@ -20,7 +20,7 @@ Thrown when a specified model is not found or is invalid for the provider.
 
 > **new InvalidModelError**(`message`, `provider?`): `InvalidModelError`
 
-Defined in: [types/errors.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L70)
+Defined in: [types/errors.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L70)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:70](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L18)
+Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitBrainTurn** = `object`
 
-Defined in: [types/livekit.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L57)
+Defined in: [types/livekit.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L57)
 
 A single user turn handed to the brain.
 
@@ -18,7 +18,7 @@ A single user turn handed to the brain.
 
 > **transcript**: `string`
 
-Defined in: [types/livekit.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L59)
+Defined in: [types/livekit.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L59)
 
 Final transcript of the user's utterance.
 
@@ -28,7 +28,7 @@ Final transcript of the user's utterance.
 
 > **conversationId**: `string`
 
-Defined in: [types/livekit.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L61)
+Defined in: [types/livekit.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L61)
 
 Stable conversation id keying NeuroLink memory for this session.
 
@@ -38,6 +38,6 @@ Stable conversation id keying NeuroLink memory for this session.
 
 > `optional` **signal?**: `AbortSignal`
 
-Defined in: [types/livekit.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L63)
+Defined in: [types/livekit.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L63)
 
 Cancellation signal; aborting stops the in-flight LLM and tool calls.

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitServerCredentials** = `object`
 
-Defined in: [types/livekit.ts:412](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L412)
+Defined in: [types/livekit.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L412)
 
 Credentials for LiveKit server-side REST calls (room create, agent dispatch).
 `url` accepts `ws(s)://` or `http(s)://`; helpers convert it to https.
@@ -19,7 +19,7 @@ Credentials for LiveKit server-side REST calls (room create, agent dispatch).
 
 > **url**: `string`
 
-Defined in: [types/livekit.ts:413](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L413)
+Defined in: [types/livekit.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L413)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/livekit.ts:413](https://github.com/juspay/neurolink/blob/4903
 
 > **apiKey**: `string`
 
-Defined in: [types/livekit.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L414)
+Defined in: [types/livekit.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L414)
 
 ---
 
@@ -35,4 +35,4 @@ Defined in: [types/livekit.ts:414](https://github.com/juspay/neurolink/blob/4903
 
 > **apiSecret**: `string`
 
-Defined in: [types/livekit.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L415)
+Defined in: [types/livekit.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L415)

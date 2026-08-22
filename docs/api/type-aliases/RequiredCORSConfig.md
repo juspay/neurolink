@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RequiredCORSConfig** = `object`
 
-Defined in: [types/server.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L107)
+Defined in: [types/server.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L107)
 
 Required CORS configuration
 
@@ -18,7 +18,7 @@ Required CORS configuration
 
 > **enabled**: `boolean`
 
-Defined in: [types/server.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L108)
+Defined in: [types/server.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L108)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:108](https://github.com/juspay/neurolink/blob/49032
 
 > **origins**: `string`[]
 
-Defined in: [types/server.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L109)
+Defined in: [types/server.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L109)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:109](https://github.com/juspay/neurolink/blob/49032
 
 > **methods**: `string`[]
 
-Defined in: [types/server.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L110)
+Defined in: [types/server.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L110)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:110](https://github.com/juspay/neurolink/blob/49032
 
 > **headers**: `string`[]
 
-Defined in: [types/server.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L111)
+Defined in: [types/server.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L111)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:111](https://github.com/juspay/neurolink/blob/49032
 
 > **credentials**: `boolean`
 
-Defined in: [types/server.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L112)
+Defined in: [types/server.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L112)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/server.ts:112](https://github.com/juspay/neurolink/blob/49032
 
 > **maxAge**: `number`
 
-Defined in: [types/server.ts:113](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L113)
+Defined in: [types/server.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L113)

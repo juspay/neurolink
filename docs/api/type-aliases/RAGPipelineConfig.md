@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RAGPipelineConfig** = `object`
 
-Defined in: [types/rag.ts:249](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L249)
+Defined in: [types/rag.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L249)
 
 RAG pipeline configuration
 
@@ -18,7 +18,7 @@ RAG pipeline configuration
 
 > `optional` **id?**: `string`
 
-Defined in: [types/rag.ts:251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L251)
+Defined in: [types/rag.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L251)
 
 Pipeline identifier
 
@@ -28,7 +28,7 @@ Pipeline identifier
 
 > `optional` **vectorStore?**: [`VectorStore`](VectorStore.md)
 
-Defined in: [types/rag.ts:253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L253)
+Defined in: [types/rag.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L253)
 
 Vector store instance (defaults to in-memory)
 
@@ -38,7 +38,7 @@ Vector store instance (defaults to in-memory)
 
 > `optional` **bm25Index?**: [`BM25Index`](BM25Index.md)
 
-Defined in: [types/rag.ts:255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L255)
+Defined in: [types/rag.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L255)
 
 BM25 index for hybrid search (defaults to in-memory)
 
@@ -48,7 +48,7 @@ BM25 index for hybrid search (defaults to in-memory)
 
 > `optional` **indexName?**: `string`
 
-Defined in: [types/rag.ts:257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L257)
+Defined in: [types/rag.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L257)
 
 Index name for vector store
 
@@ -58,7 +58,7 @@ Index name for vector store
 
 > **embeddingModel**: [`EmbeddingModelConfig`](EmbeddingModelConfig.md)
 
-Defined in: [types/rag.ts:259](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L259)
+Defined in: [types/rag.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L259)
 
 Embedding model configuration
 
@@ -68,7 +68,7 @@ Embedding model configuration
 
 > `optional` **generationModel?**: [`GenerationModelConfig`](GenerationModelConfig.md)
 
-Defined in: [types/rag.ts:261](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L261)
+Defined in: [types/rag.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L261)
 
 Generation model configuration (for RAG responses)
 
@@ -78,7 +78,7 @@ Generation model configuration (for RAG responses)
 
 > `optional` **defaultChunkingStrategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:263](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L263)
+Defined in: [types/rag.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L263)
 
 Default chunking strategy
 
@@ -88,7 +88,7 @@ Default chunking strategy
 
 > `optional` **defaultChunkSize?**: `number`
 
-Defined in: [types/rag.ts:265](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L265)
+Defined in: [types/rag.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L265)
 
 Default chunk size
 
@@ -98,7 +98,7 @@ Default chunk size
 
 > `optional` **defaultChunkOverlap?**: `number`
 
-Defined in: [types/rag.ts:267](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L267)
+Defined in: [types/rag.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L267)
 
 Default chunk overlap
 
@@ -108,7 +108,7 @@ Default chunk overlap
 
 > `optional` **enableHybridSearch?**: `boolean`
 
-Defined in: [types/rag.ts:269](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L269)
+Defined in: [types/rag.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L269)
 
 Enable hybrid search (vector + BM25)
 
@@ -118,7 +118,7 @@ Enable hybrid search (vector + BM25)
 
 > `optional` **enableGraphRAG?**: `boolean`
 
-Defined in: [types/rag.ts:271](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L271)
+Defined in: [types/rag.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L271)
 
 Enable Graph RAG
 
@@ -128,7 +128,7 @@ Enable Graph RAG
 
 > `optional` **graphThreshold?**: `number`
 
-Defined in: [types/rag.ts:273](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L273)
+Defined in: [types/rag.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L273)
 
 Graph RAG similarity threshold
 
@@ -138,7 +138,7 @@ Graph RAG similarity threshold
 
 > `optional` **defaultTopK?**: `number`
 
-Defined in: [types/rag.ts:275](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L275)
+Defined in: [types/rag.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L275)
 
 Default number of results to retrieve
 
@@ -148,7 +148,7 @@ Default number of results to retrieve
 
 > `optional` **enableReranking?**: `boolean`
 
-Defined in: [types/rag.ts:277](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L277)
+Defined in: [types/rag.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L277)
 
 Enable reranking
 
@@ -158,6 +158,6 @@ Enable reranking
 
 > `optional` **rerankingModel?**: [`EmbeddingModelConfig`](EmbeddingModelConfig.md)
 
-Defined in: [types/rag.ts:279](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L279)
+Defined in: [types/rag.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L279)
 
 Reranking model configuration

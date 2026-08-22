@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VoiceProviderConfig** = `object`
 
-Defined in: [types/voice.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L68)
+Defined in: [types/voice.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L68)
 
 Base voice provider configuration
 
@@ -18,7 +18,7 @@ Base voice provider configuration
 
 > **name**: `string`
 
-Defined in: [types/voice.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L70)
+Defined in: [types/voice.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L70)
 
 Provider identifier
 
@@ -28,7 +28,7 @@ Provider identifier
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/voice.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L72)
+Defined in: [types/voice.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L72)
 
 API key or credentials
 
@@ -38,7 +38,7 @@ API key or credentials
 
 > `optional` **baseUrl?**: `string`
 
-Defined in: [types/voice.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L74)
+Defined in: [types/voice.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L74)
 
 Custom endpoint URL
 
@@ -48,7 +48,7 @@ Custom endpoint URL
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/voice.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L76)
+Defined in: [types/voice.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L76)
 
 Request timeout in milliseconds
 
@@ -58,7 +58,7 @@ Request timeout in milliseconds
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/voice.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L78)
+Defined in: [types/voice.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L78)
 
 Maximum retries for failed requests
 
@@ -68,6 +68,6 @@ Maximum retries for failed requests
 
 > `optional` **options?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/voice.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L80)
+Defined in: [types/voice.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L80)
 
 Provider-specific options

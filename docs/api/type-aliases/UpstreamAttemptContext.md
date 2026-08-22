@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UpstreamAttemptContext** = `object`
 
-Defined in: [types/proxy.ts:1668](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1668)
+Defined in: [types/proxy.ts:1668](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1668)
 
 Context for a single upstream attempt (one per retry).
 
@@ -18,7 +18,7 @@ Context for a single upstream attempt (one per retry).
 
 > **attempt**: `number`
 
-Defined in: [types/proxy.ts:1669](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1669)
+Defined in: [types/proxy.ts:1669](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1669)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1669](https://github.com/juspay/neurolink/blob/49032
 
 > **account**: `string`
 
-Defined in: [types/proxy.ts:1670](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1670)
+Defined in: [types/proxy.ts:1670](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1670)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1670](https://github.com/juspay/neurolink/blob/49032
 
 > **polyfillHeaders**: `boolean`
 
-Defined in: [types/proxy.ts:1671](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1671)
+Defined in: [types/proxy.ts:1671](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1671)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:1671](https://github.com/juspay/neurolink/blob/49032
 
 > **polyfillBody**: `boolean`
 
-Defined in: [types/proxy.ts:1672](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1672)
+Defined in: [types/proxy.ts:1672](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1672)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:1672](https://github.com/juspay/neurolink/blob/49032
 
 > **upstreamUrl**: `string`
 
-Defined in: [types/proxy.ts:1673](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1673)
+Defined in: [types/proxy.ts:1673](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1673)

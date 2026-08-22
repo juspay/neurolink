@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamEventSequence** = `object`
 
-Defined in: [types/conversation.ts:230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L230)
+Defined in: [types/conversation.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L230)
 
 Stream event for event sequence tracking
 Used to reconstruct exact flow of streaming responses with proper ordering
@@ -29,7 +29,7 @@ Event-specific data
 
 > **type**: `string`
 
-Defined in: [types/conversation.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L232)
+Defined in: [types/conversation.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L232)
 
 Event type (text-chunk, ui-component, tool:start, tool:end, hitl:confirmation-request, etc.)
 
@@ -39,7 +39,7 @@ Event type (text-chunk, ui-component, tool:start, tool:end, hitl:confirmation-re
 
 > **seq**: `number`
 
-Defined in: [types/conversation.ts:234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L234)
+Defined in: [types/conversation.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L234)
 
 Sequence number for ordering events
 
@@ -49,6 +49,6 @@ Sequence number for ordering events
 
 > **timestamp**: `number`
 
-Defined in: [types/conversation.ts:236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L236)
+Defined in: [types/conversation.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L236)
 
 Timestamp when event occurred

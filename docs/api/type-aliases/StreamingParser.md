@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingParser** = `object`
 
-Defined in: [types/common.ts:597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L597)
+Defined in: [types/common.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L597)
 
 Base interface for streaming response parsers
 
@@ -18,7 +18,7 @@ Base interface for streaming response parsers
 
 > **parse**(`chunk`): [`SageMakerStreamChunk`](SageMakerStreamChunk.md)[]
 
-Defined in: [types/common.ts:599](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L599)
+Defined in: [types/common.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L599)
 
 Parse a chunk of streaming data
 
@@ -38,7 +38,7 @@ Parse a chunk of streaming data
 
 > **isComplete**(`chunk`): `boolean`
 
-Defined in: [types/common.ts:602](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L602)
+Defined in: [types/common.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L602)
 
 Check if a chunk indicates completion
 
@@ -58,7 +58,7 @@ Check if a chunk indicates completion
 
 > **extractUsage**(`finalChunk`): [`SageMakerUsage`](SageMakerUsage.md) \| `undefined`
 
-Defined in: [types/common.ts:605](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L605)
+Defined in: [types/common.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L605)
 
 Extract final usage information
 
@@ -78,7 +78,7 @@ Extract final usage information
 
 > **getName**(): `string`
 
-Defined in: [types/common.ts:608](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L608)
+Defined in: [types/common.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L608)
 
 Get parser name for debugging
 
@@ -92,7 +92,7 @@ Get parser name for debugging
 
 > **reset**(): `void`
 
-Defined in: [types/common.ts:611](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L611)
+Defined in: [types/common.ts:611](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L611)
 
 Reset parser state for new stream
 

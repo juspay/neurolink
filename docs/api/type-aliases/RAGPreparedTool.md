@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RAGPreparedTool** = `object`
 
-Defined in: [types/rag.ts:661](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L661)
+Defined in: [types/rag.ts:661](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L661)
 
 Prepared RAG tool ready for injection into generate/stream.
 
@@ -18,7 +18,7 @@ Prepared RAG tool ready for injection into generate/stream.
 
 > **tool**: `Tool`
 
-Defined in: [types/rag.ts:663](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L663)
+Defined in: [types/rag.ts:663](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L663)
 
 The tool to inject into the tools Record
 
@@ -28,7 +28,7 @@ The tool to inject into the tools Record
 
 > **toolName**: `string`
 
-Defined in: [types/rag.ts:665](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L665)
+Defined in: [types/rag.ts:665](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L665)
 
 Tool name (key for the tools Record)
 
@@ -38,7 +38,7 @@ Tool name (key for the tools Record)
 
 > **chunksIndexed**: `number`
 
-Defined in: [types/rag.ts:667](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L667)
+Defined in: [types/rag.ts:667](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L667)
 
 Number of chunks indexed
 
@@ -48,6 +48,6 @@ Number of chunks indexed
 
 > **filesLoaded**: `number`
 
-Defined in: [types/rag.ts:669](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L669)
+Defined in: [types/rag.ts:669](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L669)
 
 Number of files loaded

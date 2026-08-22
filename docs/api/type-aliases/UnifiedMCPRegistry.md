@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UnifiedMCPRegistry** = `object`
 
-Defined in: [types/mcp.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L402)
+Defined in: [types/mcp.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L402)
 
 Unified MCP Registry type
 
@@ -18,7 +18,7 @@ Unified MCP Registry type
 
 > **registerInMemoryServer**(`serverId`, `serverInfo`): `Promise`\<`void`\>
 
-Defined in: [types/mcp.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L406)
+Defined in: [types/mcp.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L406)
 
 Register an in-memory server
 
@@ -42,7 +42,7 @@ Register an in-memory server
 
 > **getAllTools**(): `Promise`\<[`MCPToolInfo`](MCPToolInfo.md)[]\>
 
-Defined in: [types/mcp.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L414)
+Defined in: [types/mcp.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L414)
 
 Get all available tools
 
@@ -56,7 +56,7 @@ Get all available tools
 
 > **executeTool**(`toolName`, `params`, `context`): `Promise`\<`unknown`\>
 
-Defined in: [types/mcp.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L419)
+Defined in: [types/mcp.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L419)
 
 Execute a tool
 
@@ -84,7 +84,7 @@ Execute a tool
 
 > **isConnected**(`serverId`): `boolean`
 
-Defined in: [types/mcp.ts:428](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L428)
+Defined in: [types/mcp.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L428)
 
 Check if connected to a server
 

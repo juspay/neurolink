@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ServerCapabilitiesManager
 
-Defined in: [mcp/serverCapabilities.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L68)
+Defined in: [mcp/serverCapabilities.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L68)
 
 Server Capabilities Manager
 
@@ -58,7 +58,7 @@ capabilities.registerPrompt({
 
 > **new ServerCapabilitiesManager**(`config?`): `ServerCapabilitiesManager`
 
-Defined in: [mcp/serverCapabilities.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L76)
+Defined in: [mcp/serverCapabilities.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L76)
 
 #### Parameters
 
@@ -80,7 +80,7 @@ Defined in: [mcp/serverCapabilities.ts:76](https://github.com/juspay/neurolink/b
 
 > **registerResource**(`resource`): `this`
 
-Defined in: [mcp/serverCapabilities.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L93)
+Defined in: [mcp/serverCapabilities.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L93)
 
 Register a resource
 
@@ -100,7 +100,7 @@ Register a resource
 
 > **registerResourceTemplate**(`pattern`, `template`): `this`
 
-Defined in: [mcp/serverCapabilities.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L118)
+Defined in: [mcp/serverCapabilities.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L118)
 
 Register a resource template (with URI pattern)
 
@@ -124,7 +124,7 @@ Register a resource template (with URI pattern)
 
 > **unregisterResource**(`uri`): `boolean`
 
-Defined in: [mcp/serverCapabilities.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L145)
+Defined in: [mcp/serverCapabilities.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L145)
 
 Unregister a resource
 
@@ -144,7 +144,7 @@ Unregister a resource
 
 > **listResources**(): [`MCPResource`](../type-aliases/MCPResource.md)[]
 
-Defined in: [mcp/serverCapabilities.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L164)
+Defined in: [mcp/serverCapabilities.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L164)
 
 List all resources
 
@@ -158,7 +158,7 @@ List all resources
 
 > **readResource**(`uri`, `context?`): `Promise`\<[`ResourceContent`](../type-aliases/ResourceContent.md)\>
 
-Defined in: [mcp/serverCapabilities.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L179)
+Defined in: [mcp/serverCapabilities.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L179)
 
 Read a resource
 
@@ -182,7 +182,7 @@ Read a resource
 
 > **subscribeToResource**(`uri`, `callback`): () => `void`
 
-Defined in: [mcp/serverCapabilities.ts:235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L235)
+Defined in: [mcp/serverCapabilities.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L235)
 
 Subscribe to resource changes
 
@@ -206,7 +206,7 @@ Subscribe to resource changes
 
 > **notifyResourceChanged**(`uri`): `Promise`\<`void`\>
 
-Defined in: [mcp/serverCapabilities.ts:280](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L280)
+Defined in: [mcp/serverCapabilities.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L280)
 
 Notify subscribers of resource change
 
@@ -226,7 +226,7 @@ Notify subscribers of resource change
 
 > **getResource**(`uri`): [`RegisteredResource`](../type-aliases/RegisteredResource.md) \| `undefined`
 
-Defined in: [mcp/serverCapabilities.ts:325](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L325)
+Defined in: [mcp/serverCapabilities.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L325)
 
 Get resource by URI
 
@@ -246,7 +246,7 @@ Get resource by URI
 
 > **registerPrompt**(`prompt`): `this`
 
-Defined in: [mcp/serverCapabilities.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L390)
+Defined in: [mcp/serverCapabilities.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L390)
 
 Register a prompt
 
@@ -266,7 +266,7 @@ Register a prompt
 
 > **unregisterPrompt**(`name`): `boolean`
 
-Defined in: [mcp/serverCapabilities.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L414)
+Defined in: [mcp/serverCapabilities.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L414)
 
 Unregister a prompt
 
@@ -286,7 +286,7 @@ Unregister a prompt
 
 > **listPrompts**(): [`MCPPrompt`](../type-aliases/MCPPrompt.md)[]
 
-Defined in: [mcp/serverCapabilities.ts:430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L430)
+Defined in: [mcp/serverCapabilities.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L430)
 
 List all prompts
 
@@ -300,7 +300,7 @@ List all prompts
 
 > **getPrompt**(`name`, `args?`, `context?`): `Promise`\<[`PromptResult`](../type-aliases/PromptResult.md)\>
 
-Defined in: [mcp/serverCapabilities.ts:441](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L441)
+Defined in: [mcp/serverCapabilities.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L441)
 
 Get a prompt
 
@@ -328,7 +328,7 @@ Get a prompt
 
 > **getPromptDefinition**(`name`): [`RegisteredPrompt`](../type-aliases/RegisteredPrompt.md) \| `undefined`
 
-Defined in: [mcp/serverCapabilities.ts:503](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L503)
+Defined in: [mcp/serverCapabilities.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L503)
 
 Get prompt by name
 
@@ -348,7 +348,7 @@ Get prompt by name
 
 > **getCapabilities**(): `object`
 
-Defined in: [mcp/serverCapabilities.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L540)
+Defined in: [mcp/serverCapabilities.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L540)
 
 Get capabilities object for MCP protocol
 
@@ -382,7 +382,7 @@ Get capabilities object for MCP protocol
 
 > **getStatistics**(): `object`
 
-Defined in: [mcp/serverCapabilities.ts:568](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L568)
+Defined in: [mcp/serverCapabilities.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L568)
 
 Get statistics
 
@@ -412,7 +412,7 @@ Get statistics
 
 > **clear**(): `void`
 
-Defined in: [mcp/serverCapabilities.ts:590](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/serverCapabilities.ts#L590)
+Defined in: [mcp/serverCapabilities.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/serverCapabilities.ts#L590)
 
 Clear all resources and prompts
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeConfig** = `object`
 
-Defined in: [types/realtime.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L34)
+Defined in: [types/realtime.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L34)
 
 Realtime voice configuration
 
@@ -18,7 +18,7 @@ Realtime voice configuration
 
 > **provider**: `"openai-realtime"` \| `"gemini-live"`
 
-Defined in: [types/realtime.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L42)
+Defined in: [types/realtime.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L42)
 
 Provider to use. Must match the handler key registered with
 `RealtimeProcessor.registerHandler()` — currently `"openai-realtime"`
@@ -32,7 +32,7 @@ not here.
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/realtime.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L44)
+Defined in: [types/realtime.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L44)
 
 API key
 
@@ -42,7 +42,7 @@ API key
 
 > `optional` **model?**: `string`
 
-Defined in: [types/realtime.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L46)
+Defined in: [types/realtime.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L46)
 
 Model to use
 
@@ -52,7 +52,7 @@ Model to use
 
 > `optional` **voice?**: `string`
 
-Defined in: [types/realtime.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L48)
+Defined in: [types/realtime.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L48)
 
 Voice for TTS output
 
@@ -62,7 +62,7 @@ Voice for TTS output
 
 > `optional` **inputLanguage?**: `string`
 
-Defined in: [types/realtime.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L50)
+Defined in: [types/realtime.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L50)
 
 Input language
 
@@ -72,7 +72,7 @@ Input language
 
 > `optional` **outputLanguage?**: `string`
 
-Defined in: [types/realtime.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L52)
+Defined in: [types/realtime.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L52)
 
 Output language
 
@@ -82,7 +82,7 @@ Output language
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/realtime.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L54)
+Defined in: [types/realtime.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L54)
 
 System prompt for the AI
 
@@ -92,7 +92,7 @@ System prompt for the AI
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/realtime.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L56)
+Defined in: [types/realtime.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L56)
 
 Session timeout in milliseconds
 
@@ -102,7 +102,7 @@ Session timeout in milliseconds
 
 > `optional` **inputFormat?**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/realtime.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L58)
+Defined in: [types/realtime.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L58)
 
 Audio input format
 
@@ -112,7 +112,7 @@ Audio input format
 
 > `optional` **outputFormat?**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/realtime.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L60)
+Defined in: [types/realtime.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L60)
 
 Audio output format
 
@@ -122,7 +122,7 @@ Audio output format
 
 > `optional` **inputSampleRate?**: `number`
 
-Defined in: [types/realtime.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L62)
+Defined in: [types/realtime.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L62)
 
 Input sample rate
 
@@ -132,7 +132,7 @@ Input sample rate
 
 > `optional` **outputSampleRate?**: `number`
 
-Defined in: [types/realtime.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L64)
+Defined in: [types/realtime.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L64)
 
 Output sample rate
 
@@ -142,7 +142,7 @@ Output sample rate
 
 > `optional` **vadEnabled?**: `boolean`
 
-Defined in: [types/realtime.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L66)
+Defined in: [types/realtime.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L66)
 
 Enable voice activity detection
 
@@ -152,7 +152,7 @@ Enable voice activity detection
 
 > `optional` **vadThreshold?**: `number`
 
-Defined in: [types/realtime.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L68)
+Defined in: [types/realtime.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L68)
 
 VAD threshold (0-1)
 
@@ -162,7 +162,7 @@ VAD threshold (0-1)
 
 > `optional` **turnDetection?**: `"server_vad"` \| `"manual"`
 
-Defined in: [types/realtime.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L70)
+Defined in: [types/realtime.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L70)
 
 Turn detection mode
 
@@ -172,7 +172,7 @@ Turn detection mode
 
 > `optional` **instructions?**: `string`
 
-Defined in: [types/realtime.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L72)
+Defined in: [types/realtime.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L72)
 
 Instructions/system prompt for the session
 
@@ -182,7 +182,7 @@ Instructions/system prompt for the session
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/realtime.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L74)
+Defined in: [types/realtime.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L74)
 
 Temperature for AI responses
 
@@ -192,6 +192,6 @@ Temperature for AI responses
 
 > `optional` **tools?**: [`RealtimeTool`](RealtimeTool.md)[]
 
-Defined in: [types/realtime.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L76)
+Defined in: [types/realtime.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/realtime.ts#L76)
 
 Tools/functions available to the model

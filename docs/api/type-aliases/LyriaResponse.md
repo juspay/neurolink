@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LyriaResponse** = `object`
 
-Defined in: [types/music.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L194)
+Defined in: [types/music.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L194)
 
 Google Lyria 3 Pro :generateContent response shape.
 
@@ -21,7 +21,7 @@ where `data` is base64-encoded WAV.
 
 > `optional` **candidates?**: `object`[]
 
-Defined in: [types/music.ts:195](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L195)
+Defined in: [types/music.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L195)
 
 #### content?
 
@@ -45,7 +45,7 @@ Defined in: [types/music.ts:195](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **usageMetadata?**: `object`
 
-Defined in: [types/music.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L208)
+Defined in: [types/music.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L208)
 
 #### promptTokenCount?
 

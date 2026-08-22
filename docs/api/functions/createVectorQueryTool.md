@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **createVectorQueryTool**(`config`, `vectorStore`): `object`
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/retrieval/vectorQueryTool.ts#L32)
+Defined in: [rag/retrieval/vectorQueryTool.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/rag/retrieval/vectorQueryTool.ts#L32)
 
 Creates a vector query tool for semantic search
 Follows NeuroLink's factory pattern

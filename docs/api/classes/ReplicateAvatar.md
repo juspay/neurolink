@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ReplicateAvatar
 
-Defined in: [avatar/providers/ReplicateAvatar.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/ReplicateAvatar.ts#L46)
+Defined in: [avatar/providers/ReplicateAvatar.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/ReplicateAvatar.ts#L46)
 
 Replicate Avatar Handler.
 
@@ -33,7 +33,7 @@ supported here (use D-ID for that, or chain TTS + this handler).
 
 > `readonly` **maxAudioDurationSeconds**: `60` = `60`
 
-Defined in: [avatar/providers/ReplicateAvatar.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/ReplicateAvatar.ts#L47)
+Defined in: [avatar/providers/ReplicateAvatar.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/ReplicateAvatar.ts#L47)
 
 Maximum supported audio length in seconds (provider-specific).
 
@@ -47,7 +47,7 @@ Maximum supported audio length in seconds (provider-specific).
 
 > `readonly` **supportedFormats**: readonly [`AvatarVideoFormat`](../type-aliases/AvatarVideoFormat.md)[]
 
-Defined in: [avatar/providers/ReplicateAvatar.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/ReplicateAvatar.ts#L48)
+Defined in: [avatar/providers/ReplicateAvatar.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/ReplicateAvatar.ts#L48)
 
 Output formats supported by this handler.
 
@@ -61,7 +61,7 @@ Output formats supported by this handler.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [avatar/providers/ReplicateAvatar.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/ReplicateAvatar.ts#L50)
+Defined in: [avatar/providers/ReplicateAvatar.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/ReplicateAvatar.ts#L50)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -79,7 +79,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`options`): `Promise`\<[`AvatarResult`](../type-aliases/AvatarResult.md)\>
 
-Defined in: [avatar/providers/ReplicateAvatar.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/ReplicateAvatar.ts#L54)
+Defined in: [avatar/providers/ReplicateAvatar.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/ReplicateAvatar.ts#L54)
 
 Generate a talking-head video from an image + audio (or pre-rendered text).
 

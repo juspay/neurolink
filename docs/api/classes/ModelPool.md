@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ModelPool
 
-Defined in: [routing/modelPool.ts:173](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L173)
+Defined in: [routing/modelPool.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L173)
 
 Multi-provider pool with per-member cooldown and strategy-based selection.
 
@@ -19,7 +19,7 @@ Thread safety is not required — Node.js is single-threaded for async work.
 
 > **new ModelPool**(`config`, `injectors?`): `ModelPool`
 
-Defined in: [routing/modelPool.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L181)
+Defined in: [routing/modelPool.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L181)
 
 #### Parameters
 
@@ -45,7 +45,7 @@ Defined in: [routing/modelPool.ts:181](https://github.com/juspay/neurolink/blob/
 
 > **get** **maxAttempts**(): `number`
 
-Defined in: [routing/modelPool.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L194)
+Defined in: [routing/modelPool.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L194)
 
 The maximum number of attempts per call (pool config value or member count).
 Used by callers that drive the retry loop externally.
@@ -60,7 +60,7 @@ Used by callers that drive the retry loop externally.
 
 > **memberKey**(`member`): `string`
 
-Defined in: [routing/modelPool.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L202)
+Defined in: [routing/modelPool.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L202)
 
 Returns a stable string key for a pool member.
 Format: `${provider}:${model ?? "*"}:${region ?? "*"}`
@@ -81,7 +81,7 @@ Format: `${provider}:${model ?? "*"}:${region ?? "*"}`
 
 > **availableMembers**(): [`ModelPoolMember`](../type-aliases/ModelPoolMember.md)[]
 
-Defined in: [routing/modelPool.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L207)
+Defined in: [routing/modelPool.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L207)
 
 Returns members whose cooldown has expired (or were never cooled).
 
@@ -95,7 +95,7 @@ Returns members whose cooldown has expired (or were never cooled).
 
 > **selectNext**(`excludedKeys?`): [`ModelPoolMember`](../type-aliases/ModelPoolMember.md) \| `undefined`
 
-Defined in: [routing/modelPool.ts:221](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L221)
+Defined in: [routing/modelPool.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L221)
 
 Selects the next member to try according to the configured strategy.
 
@@ -119,7 +119,7 @@ the chosen member, or undefined when all members are exhausted.
 
 > **recordFailure**(`member`, `errorClass`): `void`
 
-Defined in: [routing/modelPool.ts:289](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L289)
+Defined in: [routing/modelPool.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L289)
 
 Records a provider failure, setting a cooldown appropriate for the error class.
 
@@ -150,7 +150,7 @@ Records a provider failure, setting a cooldown appropriate for the error class.
 
 > **recordSuccess**(`member`): `void`
 
-Defined in: [routing/modelPool.ts:301](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/routing/modelPool.ts#L301)
+Defined in: [routing/modelPool.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/routing/modelPool.ts#L301)
 
 Records a successful response, clearing any existing cooldown for this member
 so it remains fully available.

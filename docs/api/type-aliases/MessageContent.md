@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MessageContent** = `object`
 
-Defined in: [types/multimodal.ts:500](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L500)
+Defined in: [types/multimodal.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L500)
 
 Content format for multimodal messages (used internally).
 
@@ -26,7 +26,7 @@ unrelated keys through unchecked.
 
 > **type**: `string`
 
-Defined in: [types/multimodal.ts:501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L501)
+Defined in: [types/multimodal.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L501)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:501](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **text?**: `string`
 
-Defined in: [types/multimodal.ts:503](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L503)
+Defined in: [types/multimodal.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L503)
 
 Text content (`type: "text"`).
 
@@ -44,7 +44,7 @@ Text content (`type: "text"`).
 
 > `optional` **image?**: `string`
 
-Defined in: [types/multimodal.ts:505](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L505)
+Defined in: [types/multimodal.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L505)
 
 Base64 / data-URI image (`type: "image"`).
 
@@ -54,7 +54,7 @@ Base64 / data-URI image (`type: "image"`).
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/multimodal.ts:507](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L507)
+Defined in: [types/multimodal.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L507)
 
 MIME type for image/file parts.
 
@@ -64,7 +64,7 @@ MIME type for image/file parts.
 
 > `optional` **data?**: `string` \| `Buffer`
 
-Defined in: [types/multimodal.ts:509](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L509)
+Defined in: [types/multimodal.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L509)
 
 Raw file bytes or base64 (`type: "file"`/document parts).
 
@@ -74,7 +74,7 @@ Raw file bytes or base64 (`type: "file"`/document parts).
 
 > `optional` **name?**: `string`
 
-Defined in: [types/multimodal.ts:511](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L511)
+Defined in: [types/multimodal.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L511)
 
 File name for document/file parts.
 
@@ -84,7 +84,7 @@ File name for document/file parts.
 
 > `optional` **filename?**: `string`
 
-Defined in: [types/multimodal.ts:513](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L513)
+Defined in: [types/multimodal.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L513)
 
 File name (alias used by some file parts).
 
@@ -94,7 +94,7 @@ File name (alias used by some file parts).
 
 > `optional` **toolCallId?**: `string`
 
-Defined in: [types/multimodal.ts:515](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L515)
+Defined in: [types/multimodal.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L515)
 
 Tool-call identifier (`type: "tool-call"`/`"tool-result"`).
 
@@ -104,7 +104,7 @@ Tool-call identifier (`type: "tool-call"`/`"tool-result"`).
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/multimodal.ts:517](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L517)
+Defined in: [types/multimodal.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L517)
 
 Tool name (`type: "tool-call"`/`"tool-result"`).
 
@@ -114,7 +114,7 @@ Tool name (`type: "tool-call"`/`"tool-result"`).
 
 > `optional` **args?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/multimodal.ts:519](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L519)
+Defined in: [types/multimodal.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L519)
 
 Tool-call arguments (`type: "tool-call"`).
 
@@ -124,7 +124,7 @@ Tool-call arguments (`type: "tool-call"`).
 
 > `optional` **result?**: `unknown`
 
-Defined in: [types/multimodal.ts:521](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L521)
+Defined in: [types/multimodal.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L521)
 
 Tool-result payload (`type: "tool-result"`).
 
@@ -134,7 +134,7 @@ Tool-result payload (`type: "tool-result"`).
 
 > `optional` **isError?**: `boolean`
 
-Defined in: [types/multimodal.ts:523](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L523)
+Defined in: [types/multimodal.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L523)
 
 Whether a tool-result represents an error (`type: "tool-result"`).
 
@@ -144,7 +144,7 @@ Whether a tool-result represents an error (`type: "tool-result"`).
 
 > `optional` **providerOptions?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/multimodal.ts:529](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L529)
+Defined in: [types/multimodal.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L529)
 
 Provider-specific per-block options (e.g. Anthropic cache_control).
 Read as `item.providerOptions` when converting `MessageContent[]` to

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Task** = `object`
 
-Defined in: [types/task.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L142)
+Defined in: [types/task.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L142)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/task.ts:142](https://github.com/juspay/neurolink/blob/49032fc
 
 > **id**: `string`
 
-Defined in: [types/task.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L143)
+Defined in: [types/task.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L143)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/task.ts:143](https://github.com/juspay/neurolink/blob/49032fc
 
 > **name**: `string`
 
-Defined in: [types/task.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L144)
+Defined in: [types/task.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L144)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/task.ts:144](https://github.com/juspay/neurolink/blob/49032fc
 
 > **prompt**: `string`
 
-Defined in: [types/task.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L145)
+Defined in: [types/task.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L145)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/task.ts:145](https://github.com/juspay/neurolink/blob/49032fc
 
 > **schedule**: [`TaskSchedule`](TaskSchedule.md)
 
-Defined in: [types/task.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L146)
+Defined in: [types/task.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L146)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/task.ts:146](https://github.com/juspay/neurolink/blob/49032fc
 
 > **mode**: [`TaskExecutionMode`](TaskExecutionMode.md)
 
-Defined in: [types/task.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L147)
+Defined in: [types/task.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L147)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/task.ts:147](https://github.com/juspay/neurolink/blob/49032fc
 
 > **type**: [`ScheduledTaskType`](ScheduledTaskType.md)
 
-Defined in: [types/task.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L149)
+Defined in: [types/task.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L149)
 
 Task type discriminator. Default: "standard"
 
@@ -66,7 +66,7 @@ Task type discriminator. Default: "standard"
 
 > **status**: [`TaskStatus`](TaskStatus.md)
 
-Defined in: [types/task.ts:150](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L150)
+Defined in: [types/task.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L150)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/task.ts:150](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **autoresearch?**: [`AutoresearchTaskConfig`](AutoresearchTaskConfig.md)
 
-Defined in: [types/task.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L153)
+Defined in: [types/task.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L153)
 
 Autoresearch config (present when type === "autoresearch")
 
@@ -84,7 +84,7 @@ Autoresearch config (present when type === "autoresearch")
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/task.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L156)
+Defined in: [types/task.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L156)
 
 ---
 
@@ -92,7 +92,7 @@ Defined in: [types/task.ts:156](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **model?**: `string`
 
-Defined in: [types/task.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L157)
+Defined in: [types/task.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L157)
 
 ---
 
@@ -100,7 +100,7 @@ Defined in: [types/task.ts:157](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/task.ts:158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L158)
+Defined in: [types/task.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L158)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/task.ts:158](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/task.ts:159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L159)
+Defined in: [types/task.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L159)
 
 ---
 
@@ -116,7 +116,7 @@ Defined in: [types/task.ts:159](https://github.com/juspay/neurolink/blob/49032fc
 
 > **tools**: `boolean`
 
-Defined in: [types/task.ts:160](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L160)
+Defined in: [types/task.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L160)
 
 ---
 
@@ -124,7 +124,7 @@ Defined in: [types/task.ts:160](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/task.ts:161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L161)
+Defined in: [types/task.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L161)
 
 ---
 
@@ -132,7 +132,7 @@ Defined in: [types/task.ts:161](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/task.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L162)
+Defined in: [types/task.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L162)
 
 ---
 
@@ -140,7 +140,7 @@ Defined in: [types/task.ts:162](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **maxRuns?**: `number`
 
-Defined in: [types/task.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L165)
+Defined in: [types/task.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L165)
 
 ---
 
@@ -148,7 +148,7 @@ Defined in: [types/task.ts:165](https://github.com/juspay/neurolink/blob/49032fc
 
 > **timeout**: `number`
 
-Defined in: [types/task.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L166)
+Defined in: [types/task.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L166)
 
 ---
 
@@ -156,7 +156,7 @@ Defined in: [types/task.ts:166](https://github.com/juspay/neurolink/blob/49032fc
 
 > **retry**: `object`
 
-Defined in: [types/task.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L167)
+Defined in: [types/task.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L167)
 
 #### maxAttempts
 
@@ -172,7 +172,7 @@ Defined in: [types/task.ts:167](https://github.com/juspay/neurolink/blob/49032fc
 
 > **runCount**: `number`
 
-Defined in: [types/task.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L170)
+Defined in: [types/task.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L170)
 
 ---
 
@@ -180,7 +180,7 @@ Defined in: [types/task.ts:170](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **lastRunAt?**: `string`
 
-Defined in: [types/task.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L171)
+Defined in: [types/task.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L171)
 
 ---
 
@@ -188,7 +188,7 @@ Defined in: [types/task.ts:171](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **nextRunAt?**: `string`
 
-Defined in: [types/task.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L172)
+Defined in: [types/task.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L172)
 
 ---
 
@@ -196,7 +196,7 @@ Defined in: [types/task.ts:172](https://github.com/juspay/neurolink/blob/49032fc
 
 > **createdAt**: `string`
 
-Defined in: [types/task.ts:173](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L173)
+Defined in: [types/task.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L173)
 
 ---
 
@@ -204,7 +204,7 @@ Defined in: [types/task.ts:173](https://github.com/juspay/neurolink/blob/49032fc
 
 > **updatedAt**: `string`
 
-Defined in: [types/task.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L174)
+Defined in: [types/task.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L174)
 
 ---
 
@@ -212,7 +212,7 @@ Defined in: [types/task.ts:174](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/task.ts:177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L177)
+Defined in: [types/task.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L177)
 
 Conversation session ID for continuation mode
 
@@ -222,4 +222,4 @@ Conversation session ID for continuation mode
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/task.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L179)
+Defined in: [types/task.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L179)

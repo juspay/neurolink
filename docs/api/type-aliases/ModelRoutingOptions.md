@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelRoutingOptions** = `object`
 
-Defined in: [types/model.ts:261](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L261)
+Defined in: [types/model.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L261)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/model.ts:261](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **forceTaskType?**: [`TaskType`](TaskType.md)
 
-Defined in: [types/model.ts:263](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L263)
+Defined in: [types/model.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L263)
 
 Override the task classification
 
@@ -26,7 +26,7 @@ Override the task classification
 
 > `optional` **requireFast?**: `boolean`
 
-Defined in: [types/model.ts:265](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L265)
+Defined in: [types/model.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L265)
 
 Require specific performance characteristics
 
@@ -36,7 +36,7 @@ Require specific performance characteristics
 
 > `optional` **requireCapability?**: `string`
 
-Defined in: [types/model.ts:267](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L267)
+Defined in: [types/model.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L267)
 
 Require specific capability (reasoning, creativity, etc.)
 
@@ -46,6 +46,6 @@ Require specific capability (reasoning, creativity, etc.)
 
 > `optional` **fallbackStrategy?**: `"fast"` \| `"reasoning"` \| `"auto"`
 
-Defined in: [types/model.ts:269](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L269)
+Defined in: [types/model.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L269)
 
 Fallback strategy if primary choice fails

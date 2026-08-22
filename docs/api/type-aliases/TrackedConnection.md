@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TrackedConnection** = `object`
 
-Defined in: [types/server.ts:1049](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1049)
+Defined in: [types/server.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1049)
 
 Tracked connection for graceful shutdown
 
@@ -18,7 +18,7 @@ Tracked connection for graceful shutdown
 
 > **id**: `string`
 
-Defined in: [types/server.ts:1051](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1051)
+Defined in: [types/server.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1051)
 
 Unique connection identifier
 
@@ -28,7 +28,7 @@ Unique connection identifier
 
 > **createdAt**: `number`
 
-Defined in: [types/server.ts:1054](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1054)
+Defined in: [types/server.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1054)
 
 Timestamp when connection was created
 
@@ -38,7 +38,7 @@ Timestamp when connection was created
 
 > `optional` **socket?**: `unknown`
 
-Defined in: [types/server.ts:1057](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1057)
+Defined in: [types/server.ts:1057](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1057)
 
 Underlying socket or connection object
 
@@ -48,7 +48,7 @@ Underlying socket or connection object
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/server.ts:1060](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1060)
+Defined in: [types/server.ts:1060](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1060)
 
 Request ID if associated with a request
 
@@ -58,6 +58,6 @@ Request ID if associated with a request
 
 > `optional` **isActive?**: `boolean`
 
-Defined in: [types/server.ts:1063](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1063)
+Defined in: [types/server.ts:1063](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1063)
 
 Whether the connection is currently processing a request

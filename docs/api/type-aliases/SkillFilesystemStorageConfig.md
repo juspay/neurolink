@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SkillFilesystemStorageConfig** = `object`
 
-Defined in: [types/skills.ts:126](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L126)
+Defined in: [types/skills.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L126)
 
 Directory-backed store. Reads three layouts:
 
@@ -23,7 +23,7 @@ Directory-backed store. Reads three layouts:
 
 > **type**: `"filesystem"`
 
-Defined in: [types/skills.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L127)
+Defined in: [types/skills.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L127)
 
 ---
 
@@ -31,6 +31,6 @@ Defined in: [types/skills.ts:127](https://github.com/juspay/neurolink/blob/49032
 
 > **path**: `string`
 
-Defined in: [types/skills.ts:129](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L129)
+Defined in: [types/skills.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L129)
 
 Directory containing skill files. Created on first write if absent.

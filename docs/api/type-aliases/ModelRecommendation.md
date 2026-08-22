@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelRecommendation** = `object`
 
-Defined in: [types/model.ts:234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L234)
+Defined in: [types/model.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L234)
 
 Model recommendation result
 
@@ -18,7 +18,7 @@ Model recommendation result
 
 > **model**: [`ModelInfo`](ModelInfo.md)
 
-Defined in: [types/model.ts:235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L235)
+Defined in: [types/model.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L235)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:235](https://github.com/juspay/neurolink/blob/49032f
 
 > **score**: `number`
 
-Defined in: [types/model.ts:236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L236)
+Defined in: [types/model.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L236)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/model.ts:236](https://github.com/juspay/neurolink/blob/49032f
 
 > **reasoning**: `string`[]
 
-Defined in: [types/model.ts:237](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L237)
+Defined in: [types/model.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L237)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/model.ts:237](https://github.com/juspay/neurolink/blob/49032f
 
 > **alternatives**: [`ModelInfo`](ModelInfo.md)[]
 
-Defined in: [types/model.ts:238](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L238)
+Defined in: [types/model.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L238)

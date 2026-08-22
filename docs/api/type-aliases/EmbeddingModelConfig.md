@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EmbeddingModelConfig** = `object`
 
-Defined in: [types/rag.ts:231](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L231)
+Defined in: [types/rag.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L231)
 
 Embedding model configuration
 
@@ -18,7 +18,7 @@ Embedding model configuration
 
 > **provider**: `string`
 
-Defined in: [types/rag.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L232)
+Defined in: [types/rag.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L232)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/rag.ts:232](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **modelName**: `string`
 
-Defined in: [types/rag.ts:233](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L233)
+Defined in: [types/rag.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L233)

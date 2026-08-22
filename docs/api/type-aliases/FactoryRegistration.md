@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FactoryRegistration**\<`TInstance`, `TConfig`\> = `object`
 
-Defined in: [types/common.ts:441](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L441)
+Defined in: [types/common.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L441)
 
 Factory registration entry.
 
@@ -28,7 +28,7 @@ Factory registration entry.
 
 > **factory**: [`FactoryFunction`](FactoryFunction.md)\<`TInstance`, `TConfig`\>
 
-Defined in: [types/common.ts:442](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L442)
+Defined in: [types/common.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L442)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/common.ts:442](https://github.com/juspay/neurolink/blob/49032
 
 > **aliases**: `string`[]
 
-Defined in: [types/common.ts:443](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L443)
+Defined in: [types/common.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L443)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/common.ts:443](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/common.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L444)
+Defined in: [types/common.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L444)

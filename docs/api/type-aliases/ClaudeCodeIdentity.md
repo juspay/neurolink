@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeCodeIdentity** = `object`
 
-Defined in: [types/auth.ts:1281](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1281)
+Defined in: [types/auth.ts:1281](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1281)
 
 Synthetic Claude Code client identity used for quota + identification.
 
@@ -18,7 +18,7 @@ Synthetic Claude Code client identity used for quota + identification.
 
 > **deviceId**: `string`
 
-Defined in: [types/auth.ts:1282](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1282)
+Defined in: [types/auth.ts:1282](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1282)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/auth.ts:1282](https://github.com/juspay/neurolink/blob/49032f
 
 > **accountUuid**: `string`
 
-Defined in: [types/auth.ts:1283](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1283)
+Defined in: [types/auth.ts:1283](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1283)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/auth.ts:1283](https://github.com/juspay/neurolink/blob/49032f
 
 > **sessionId**: `string`
 
-Defined in: [types/auth.ts:1284](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1284)
+Defined in: [types/auth.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1284)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/auth.ts:1284](https://github.com/juspay/neurolink/blob/49032f
 
 > **metadataUserId**: `string`
 
-Defined in: [types/auth.ts:1285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1285)
+Defined in: [types/auth.ts:1285](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1285)

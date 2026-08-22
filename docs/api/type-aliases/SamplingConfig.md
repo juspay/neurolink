@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SamplingConfig** = `object`
 
-Defined in: [types/scorer.ts:375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L375)
+Defined in: [types/scorer.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L375)
 
 Sampling configuration for cost-efficient evaluation
 
@@ -18,7 +18,7 @@ Sampling configuration for cost-efficient evaluation
 
 > **rate**: `number`
 
-Defined in: [types/scorer.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L377)
+Defined in: [types/scorer.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L377)
 
 Sampling rate (0-1)
 
@@ -28,7 +28,7 @@ Sampling rate (0-1)
 
 > `optional` **alwaysEvaluate?**: `object`
 
-Defined in: [types/scorer.ts:379](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L379)
+Defined in: [types/scorer.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L379)
 
 Always evaluate certain conditions
 
@@ -56,7 +56,7 @@ Always evaluate certain tags
 
 > `optional` **adaptive?**: `object`
 
-Defined in: [types/scorer.ts:388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L388)
+Defined in: [types/scorer.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L388)
 
 Adaptive sampling configuration
 

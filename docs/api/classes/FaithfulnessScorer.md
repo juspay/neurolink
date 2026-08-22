@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: FaithfulnessScorer
 
-Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L56)
+Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L56)
 
 Evaluation System Exports
 
@@ -50,7 +50,7 @@ const result = await pipeline.evaluate({
 
 > **new FaithfulnessScorer**(`config?`): `FaithfulnessScorer`
 
-Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L57)
+Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L57)
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:57](https://github.com
 
 > `protected` **\_config**: [`ScorerConfig`](../type-aliases/ScorerConfig.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L43)
+Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L43)
 
 #### Inherited from
 
@@ -84,7 +84,7 @@ Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neur
 
 > `protected` **\_metadata**: [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L44)
+Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L44)
 
 #### Inherited from
 
@@ -96,7 +96,7 @@ Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neur
 
 > `protected` **\_llmConfig**: [`LLMScorerConfig`](../type-aliases/LLMScorerConfig.md)
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L36)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L36)
 
 #### Inherited from
 
@@ -108,7 +108,7 @@ Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:36](https://github.com/jusp
 
 > `protected` `optional` **provider?**: [`AIProvider`](../type-aliases/AIProvider.md)
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L37)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L37)
 
 #### Inherited from
 
@@ -122,7 +122,7 @@ Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:37](https://github.com/jusp
 
 > **get** **metadata**(): [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L58)
+Defined in: [evaluation/scorers/baseScorer.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L58)
 
 Get scorer metadata
 
@@ -142,7 +142,7 @@ Get scorer metadata
 
 > **get** **config**(): [`ScorerConfig`](../type-aliases/ScorerConfig.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L65)
+Defined in: [evaluation/scorers/baseScorer.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L65)
 
 Get current configuration
 
@@ -162,7 +162,7 @@ Get current configuration
 
 > **get** **llmConfig**(): [`LLMScorerConfig`](../type-aliases/LLMScorerConfig.md)
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L52)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L52)
 
 Get LLM-specific configuration
 
@@ -180,7 +180,7 @@ Get LLM-specific configuration
 
 > **validateInput**(`input`): `object`
 
-Defined in: [evaluation/scorers/baseScorer.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L77)
+Defined in: [evaluation/scorers/baseScorer.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L77)
 
 Validate input has required fields
 
@@ -212,7 +212,7 @@ Validate input has required fields
 
 > **configure**(`config`): `void`
 
-Defined in: [evaluation/scorers/baseScorer.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L122)
+Defined in: [evaluation/scorers/baseScorer.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L122)
 
 Update configuration
 
@@ -236,7 +236,7 @@ Update configuration
 
 > `protected` **normalizeScore**(`score`, `scale?`): `number`
 
-Defined in: [evaluation/scorers/baseScorer.ts:135](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L135)
+Defined in: [evaluation/scorers/baseScorer.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L135)
 
 Normalize a score to 0-1 scale
 
@@ -264,7 +264,7 @@ Normalize a score to 0-1 scale
 
 > `protected` **denormalizeScore**(`normalizedScore`, `scale?`): `number`
 
-Defined in: [evaluation/scorers/baseScorer.ts:161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L161)
+Defined in: [evaluation/scorers/baseScorer.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L161)
 
 Convert normalized score back to scale
 
@@ -292,7 +292,7 @@ Convert normalized score back to scale
 
 > `protected` **checkThreshold**(`normalizedScore`): `boolean`
 
-Defined in: [evaluation/scorers/baseScorer.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L172)
+Defined in: [evaluation/scorers/baseScorer.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L172)
 
 Check if score passes threshold
 
@@ -316,7 +316,7 @@ Check if score passes threshold
 
 > `protected` **createScoreResult**(`score`, `reasoning`, `options?`): [`ScoreResult`](../type-aliases/ScoreResult.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L180)
+Defined in: [evaluation/scorers/baseScorer.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L180)
 
 Create a standardized score result
 
@@ -362,7 +362,7 @@ Create a standardized score result
 
 > `protected` **createErrorResult**(`error`): [`ScoreResult`](../type-aliases/ScoreResult.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L225)
+Defined in: [evaluation/scorers/baseScorer.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L225)
 
 Create an error score result
 
@@ -386,7 +386,7 @@ Create an error score result
 
 > `protected` **executeWithTiming**(`scoringFn`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L244)
+Defined in: [evaluation/scorers/baseScorer.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L244)
 
 Execute scoring with timing and error handling
 
@@ -410,7 +410,7 @@ Execute scoring with timing and error handling
 
 > `protected` **executeWithTimeout**\<`T`\>(`fn`, `timeoutMs`, `operationName`): `Promise`\<`T`\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L272)
+Defined in: [evaluation/scorers/baseScorer.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L272)
 
 Execute scoring with timeout
 
@@ -448,7 +448,7 @@ Execute scoring with timeout
 
 > `protected` **executeWithRetry**\<`T`\>(`operation`, `retries?`): `Promise`\<`T`\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L287)
+Defined in: [evaluation/scorers/baseScorer.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L287)
 
 Execute with retry logic
 
@@ -482,7 +482,7 @@ Execute with retry logic
 
 > **score**(`input`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L72)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L72)
 
 Main scoring method
 
@@ -506,7 +506,7 @@ Main scoring method
 
 > `protected` **initializeProvider**(): `Promise`\<`void`\>
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L118)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L118)
 
 Initialize the AI provider
 
@@ -524,7 +524,7 @@ Initialize the AI provider
 
 > `protected` **callLLM**(`prompt`): `Promise`\<`string`\>
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L172)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L172)
 
 Call the LLM with the given prompt
 
@@ -548,7 +548,7 @@ Call the LLM with the given prompt
 
 > `protected` **extractJSON**(`response`): [`JsonObject`](../type-aliases/JsonObject.md) \| `null`
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L202)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L202)
 
 Extract JSON from LLM response
 Handles various formats including markdown code blocks
@@ -573,7 +573,7 @@ Handles various formats including markdown code blocks
 
 > `protected` **substituteTemplate**(`template`, `variables`): `string`
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L254)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L254)
 
 Simple template substitution for prompts
 
@@ -601,7 +601,7 @@ Simple template substitution for prompts
 
 > `protected` **processConditionals**(`template`, `conditions`): `string`
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L308)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L308)
 
 Handle conditional template blocks
 
@@ -629,7 +629,7 @@ Handle conditional template blocks
 
 > `protected` **extractNumericScore**(`text`): `number` \| `null`
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:334](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L334)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L334)
 
 Extract a numeric score from text response
 Safe numeric extraction without ReDoS-prone regex
@@ -654,7 +654,7 @@ Safe numeric extraction without ReDoS-prone regex
 
 > `protected` **extractScoreFromText**(`text`, `min?`, `max?`): `number`
 
-Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:361](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L361)
+Defined in: [evaluation/scorers/llm/baseLLMScorer.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/baseLLMScorer.ts#L361)
 
 Extract a numeric score from text response with fallback
 
@@ -686,7 +686,7 @@ Extract a numeric score from text response with fallback
 
 > **generatePrompt**(`input`): `string`
 
-Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L81)
+Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L81)
 
 Generate the prompt for LLM scoring - must be implemented by subclasses
 
@@ -710,7 +710,7 @@ Generate the prompt for LLM scoring - must be implemented by subclasses
 
 > **parseResponse**(`response`, `_input`): `Partial`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L104)
+Defined in: [evaluation/scorers/llm/faithfulnessScorer.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/faithfulnessScorer.ts#L104)
 
 Parse LLM response into score result - must be implemented by subclasses
 

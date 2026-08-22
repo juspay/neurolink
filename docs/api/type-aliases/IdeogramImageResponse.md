@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **IdeogramImageResponse** = `object`
 
-Defined in: [types/providers.ts:280](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L280)
+Defined in: [types/providers.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L280)
 
 Ideogram /api/v1/ideogram-v3/generate response shape.
 
@@ -18,7 +18,7 @@ Ideogram /api/v1/ideogram-v3/generate response shape.
 
 > `optional` **created?**: `string`
 
-Defined in: [types/providers.ts:281](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L281)
+Defined in: [types/providers.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L281)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:281](https://github.com/juspay/neurolink/blob/49
 
 > **data**: `object`[]
 
-Defined in: [types/providers.ts:282](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L282)
+Defined in: [types/providers.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L282)
 
 #### prompt?
 

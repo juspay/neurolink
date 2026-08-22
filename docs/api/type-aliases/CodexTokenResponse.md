@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CodexTokenResponse** = `object`
 
-Defined in: [types/codex.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L49)
+Defined in: [types/codex.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L49)
 
 Raw OpenAI OAuth token endpoint response.
 
@@ -18,7 +18,7 @@ Raw OpenAI OAuth token endpoint response.
 
 > `optional` **access_token?**: `string`
 
-Defined in: [types/codex.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L50)
+Defined in: [types/codex.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L50)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:50](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **refresh_token?**: `string`
 
-Defined in: [types/codex.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L51)
+Defined in: [types/codex.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L51)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:51](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **id_token?**: `string`
 
-Defined in: [types/codex.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L52)
+Defined in: [types/codex.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L52)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/codex.ts:52](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **token_type?**: `string`
 
-Defined in: [types/codex.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L53)
+Defined in: [types/codex.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L53)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/codex.ts:53](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **expires_in?**: `number`
 
-Defined in: [types/codex.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/codex.ts#L54)
+Defined in: [types/codex.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L54)

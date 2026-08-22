@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedEvaluationContext** = `object`
 
-Defined in: [types/evaluation.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L198)
+Defined in: [types/evaluation.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L198)
 
 Contains all the rich context needed for a thorough, RAGAS-style evaluation.
 This object is constructed by the `ContextBuilder` and used by the `RAGASEvaluator`.
@@ -19,7 +19,7 @@ This object is constructed by the `ContextBuilder` and used by the `RAGASEvaluat
 
 > **userQuery**: `string`
 
-Defined in: [types/evaluation.ts:200](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L200)
+Defined in: [types/evaluation.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L200)
 
 The original user query.
 
@@ -29,7 +29,7 @@ The original user query.
 
 > **queryAnalysis**: [`QueryIntentAnalysis`](QueryIntentAnalysis.md)
 
-Defined in: [types/evaluation.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L202)
+Defined in: [types/evaluation.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L202)
 
 An analysis of the user's query intent.
 
@@ -39,7 +39,7 @@ An analysis of the user's query intent.
 
 > **aiResponse**: `string`
 
-Defined in: [types/evaluation.ts:205](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L205)
+Defined in: [types/evaluation.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L205)
 
 The AI's response that is being evaluated.
 
@@ -49,7 +49,7 @@ The AI's response that is being evaluated.
 
 > **provider**: `string`
 
-Defined in: [types/evaluation.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L207)
+Defined in: [types/evaluation.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L207)
 
 The AI provider that generated the response.
 
@@ -59,7 +59,7 @@ The AI provider that generated the response.
 
 > **model**: `string`
 
-Defined in: [types/evaluation.ts:209](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L209)
+Defined in: [types/evaluation.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L209)
 
 The specific model that generated the response.
 
@@ -69,7 +69,7 @@ The specific model that generated the response.
 
 > **generationParams**: `object`
 
-Defined in: [types/evaluation.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L212)
+Defined in: [types/evaluation.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L212)
 
 The parameters used for the generation call.
 
@@ -91,7 +91,7 @@ The parameters used for the generation call.
 
 > **toolExecutions**: [`ToolExecution`](ToolExecution.md)[]
 
-Defined in: [types/evaluation.ts:219](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L219)
+Defined in: [types/evaluation.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L219)
 
 A list of tools that were executed.
 
@@ -101,7 +101,7 @@ A list of tools that were executed.
 
 > **conversationHistory**: [`EnhancedConversationTurn`](EnhancedConversationTurn.md)[]
 
-Defined in: [types/evaluation.ts:222](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L222)
+Defined in: [types/evaluation.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L222)
 
 The history of the conversation leading up to this turn.
 
@@ -111,7 +111,7 @@ The history of the conversation leading up to this turn.
 
 > **responseTime**: `number`
 
-Defined in: [types/evaluation.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L225)
+Defined in: [types/evaluation.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L225)
 
 The response time of the AI in milliseconds.
 
@@ -121,7 +121,7 @@ The response time of the AI in milliseconds.
 
 > **tokenUsage**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/evaluation.ts:227](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L227)
+Defined in: [types/evaluation.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L227)
 
 The token usage for the generation.
 
@@ -131,7 +131,7 @@ The token usage for the generation.
 
 > `optional` **previousEvaluations?**: [`EvaluationResult`](EvaluationResult.md)[]
 
-Defined in: [types/evaluation.ts:230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L230)
+Defined in: [types/evaluation.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L230)
 
 The results of any previous evaluation attempts for this response.
 
@@ -141,6 +141,6 @@ The results of any previous evaluation attempts for this response.
 
 > **attemptNumber**: `number`
 
-Defined in: [types/evaluation.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L232)
+Defined in: [types/evaluation.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L232)
 
 The current attempt number for this evaluation (1-based).

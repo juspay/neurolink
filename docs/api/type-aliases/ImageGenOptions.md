@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageGenOptions** = `object`
 
-Defined in: [types/imageGen.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L47)
+Defined in: [types/imageGen.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L47)
 
 Options for image generation requests
 
@@ -18,7 +18,7 @@ Options for image generation requests
 
 > **prompt**: `string`
 
-Defined in: [types/imageGen.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L52)
+Defined in: [types/imageGen.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L52)
 
 Text prompt describing the image to generate
 Should be detailed and specific for best results
@@ -29,7 +29,7 @@ Should be detailed and specific for best results
 
 > `optional` **images?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/imageGen.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L59)
+Defined in: [types/imageGen.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L59)
 
 Reference images for style/content guidance (optional)
 Can be Buffer (raw data) or string (base64 encoded)
@@ -41,7 +41,7 @@ Max 5 images recommended
 
 > `optional` **pdfFiles?**: `Buffer`[]
 
-Defined in: [types/imageGen.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L66)
+Defined in: [types/imageGen.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L66)
 
 Reference PDF files for context (optional)
 Used for generating images based on document content
@@ -53,7 +53,7 @@ Max 1 PDF recommended
 
 > `optional` **model?**: `string`
 
-Defined in: [types/imageGen.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L72)
+Defined in: [types/imageGen.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L72)
 
 Override default model
 e.g., "imagen-3.0-generate-001", "dall-e-3"
@@ -64,7 +64,7 @@ e.g., "imagen-3.0-generate-001", "dall-e-3"
 
 > `optional` **provider?**: [`ImageGenProvider`](ImageGenProvider.md) \| `string`
 
-Defined in: [types/imageGen.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L78)
+Defined in: [types/imageGen.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L78)
 
 Override default provider
 e.g., "vertex", "openai"
@@ -75,7 +75,7 @@ e.g., "vertex", "openai"
 
 > `optional` **region?**: `string`
 
-Defined in: [types/imageGen.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L83)
+Defined in: [types/imageGen.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L83)
 
 Region for provider (e.g., for Vertex AI)
 
@@ -85,7 +85,7 @@ Region for provider (e.g., for Vertex AI)
 
 > `optional` **negativePrompt?**: `string`
 
-Defined in: [types/imageGen.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L89)
+Defined in: [types/imageGen.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L89)
 
 What to avoid in the generated image (optional)
 e.g., "blurry, low quality, text overlays"
@@ -96,7 +96,7 @@ e.g., "blurry, low quality, text overlays"
 
 > `optional` **aspectRatio?**: [`AspectRatio`](AspectRatio.md) \| `string`
 
-Defined in: [types/imageGen.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L95)
+Defined in: [types/imageGen.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L95)
 
 Aspect ratio for the generated image
 e.g., "16:9", "1:1", "4:3", "9:16"
@@ -107,7 +107,7 @@ e.g., "16:9", "1:1", "4:3", "9:16"
 
 > `optional` **style?**: [`StylePreset`](StylePreset.md) \| `string`
 
-Defined in: [types/imageGen.ts:101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L101)
+Defined in: [types/imageGen.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L101)
 
 Style preset for the image
 e.g., "realistic", "artistic", "cartoon", "watercolor", "photorealistic"
@@ -118,7 +118,7 @@ e.g., "realistic", "artistic", "cartoon", "watercolor", "photorealistic"
 
 > `optional` **numberOfImages?**: `number`
 
-Defined in: [types/imageGen.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L106)
+Defined in: [types/imageGen.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L106)
 
 Number of images to generate (default: 1)
 
@@ -128,7 +128,7 @@ Number of images to generate (default: 1)
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/imageGen.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L112)
+Defined in: [types/imageGen.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L112)
 
 Sampling temperature for generation (0-1)
 Higher values = more creative/random

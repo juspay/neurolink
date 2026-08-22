@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ReplicateVideoHandler
 
-Defined in: [adapters/video/replicateVideoHandler.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L37)
+Defined in: [adapters/video/replicateVideoHandler.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L37)
 
 Replicate Video Handler.
 
@@ -24,7 +24,7 @@ resolution; up to 10s typical for Wan-Alpha).
 
 > **new ReplicateVideoHandler**(`credentials?`): `ReplicateVideoHandler`
 
-Defined in: [adapters/video/replicateVideoHandler.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L50)
+Defined in: [adapters/video/replicateVideoHandler.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L50)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [adapters/video/replicateVideoHandler.ts:50](https://github.com/jusp
 
 > `readonly` **maxDurationSeconds**: `10` = `10`
 
-Defined in: [adapters/video/replicateVideoHandler.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L38)
+Defined in: [adapters/video/replicateVideoHandler.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L38)
 
 Maximum video duration in seconds supported by this provider.
 
@@ -70,7 +70,7 @@ Maximum video duration in seconds supported by this provider.
 
 > `readonly` **supportedAspectRatios**: readonly (`"9:16"` \| `"16:9"` \| `"1:1"`)[]
 
-Defined in: [adapters/video/replicateVideoHandler.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L39)
+Defined in: [adapters/video/replicateVideoHandler.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L39)
 
 Supported aspect ratios.
 
@@ -84,7 +84,7 @@ Supported aspect ratios.
 
 > `readonly` **supportedResolutions**: readonly (`"720p"` \| `"1080p"`)[]
 
-Defined in: [adapters/video/replicateVideoHandler.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L41)
+Defined in: [adapters/video/replicateVideoHandler.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L41)
 
 Supported output resolutions.
 
@@ -98,7 +98,7 @@ Supported output resolutions.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [adapters/video/replicateVideoHandler.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L54)
+Defined in: [adapters/video/replicateVideoHandler.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L54)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -116,7 +116,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`image`, `prompt`, `options`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
 
-Defined in: [adapters/video/replicateVideoHandler.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/replicateVideoHandler.ts#L58)
+Defined in: [adapters/video/replicateVideoHandler.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/replicateVideoHandler.ts#L58)
 
 Generate a single video clip from an input image and prompt.
 

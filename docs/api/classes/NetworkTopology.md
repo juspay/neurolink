@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NetworkTopology
 
-Defined in: [agent/orchestration/topology.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L26)
+Defined in: [agent/orchestration/topology.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L26)
 
 Network Topology - Manages agent network structure
 
@@ -16,7 +16,7 @@ Network Topology - Manages agent network structure
 
 > **new NetworkTopology**(`config`): `NetworkTopology`
 
-Defined in: [agent/orchestration/topology.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L32)
+Defined in: [agent/orchestration/topology.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L32)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [agent/orchestration/topology.ts:32](https://github.com/juspay/neuro
 
 > **buildFromAgents**(`agents`): `void`
 
-Defined in: [agent/orchestration/topology.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L42)
+Defined in: [agent/orchestration/topology.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L42)
 
 Build topology from agents
 
@@ -54,7 +54,7 @@ Build topology from agents
 
 > **addNode**(`agent`, `role?`): [`TopologyNode`](../type-aliases/TopologyNode.md)
 
-Defined in: [agent/orchestration/topology.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L80)
+Defined in: [agent/orchestration/topology.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L80)
 
 Add a node to the topology
 
@@ -78,7 +78,7 @@ Add a node to the topology
 
 > **removeNode**(`nodeId`): `boolean`
 
-Defined in: [agent/orchestration/topology.ts:97](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L97)
+Defined in: [agent/orchestration/topology.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L97)
 
 Remove a node from the topology
 
@@ -98,7 +98,7 @@ Remove a node from the topology
 
 > **addEdge**(`sourceId`, `targetId`, `type?`, `weight?`): [`TopologyEdge`](../type-aliases/TopologyEdge.md) \| `undefined`
 
-Defined in: [agent/orchestration/topology.ts:129](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L129)
+Defined in: [agent/orchestration/topology.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L129)
 
 Add an edge between nodes
 
@@ -130,7 +130,7 @@ Add an edge between nodes
 
 > **removeEdge**(`edgeId`): `boolean`
 
-Defined in: [agent/orchestration/topology.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L171)
+Defined in: [agent/orchestration/topology.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L171)
 
 Remove an edge
 
@@ -150,7 +150,7 @@ Remove an edge
 
 > **getNode**(`nodeId`): [`TopologyNode`](../type-aliases/TopologyNode.md) \| `undefined`
 
-Defined in: [agent/orchestration/topology.ts:356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L356)
+Defined in: [agent/orchestration/topology.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L356)
 
 Get node by ID
 
@@ -170,7 +170,7 @@ Get node by ID
 
 > **getNodeByAgentId**(`agentId`): [`TopologyNode`](../type-aliases/TopologyNode.md) \| `undefined`
 
-Defined in: [agent/orchestration/topology.ts:363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L363)
+Defined in: [agent/orchestration/topology.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L363)
 
 Get node by agent ID
 
@@ -190,7 +190,7 @@ Get node by agent ID
 
 > **getAllNodes**(): [`TopologyNode`](../type-aliases/TopologyNode.md)[]
 
-Defined in: [agent/orchestration/topology.ts:375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L375)
+Defined in: [agent/orchestration/topology.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L375)
 
 Get all nodes
 
@@ -204,7 +204,7 @@ Get all nodes
 
 > **getAllEdges**(): [`TopologyEdge`](../type-aliases/TopologyEdge.md)[]
 
-Defined in: [agent/orchestration/topology.ts:382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L382)
+Defined in: [agent/orchestration/topology.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L382)
 
 Get all edges
 
@@ -218,7 +218,7 @@ Get all edges
 
 > **getConnectedNodes**(`nodeId`): [`TopologyNode`](../type-aliases/TopologyNode.md)[]
 
-Defined in: [agent/orchestration/topology.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L389)
+Defined in: [agent/orchestration/topology.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L389)
 
 Get connected nodes
 
@@ -238,7 +238,7 @@ Get connected nodes
 
 > **findShortestPath**(`sourceId`, `targetId`): `string`[] \| `undefined`
 
-Defined in: [agent/orchestration/topology.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L403)
+Defined in: [agent/orchestration/topology.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L403)
 
 Find shortest path between two nodes (BFS)
 
@@ -262,7 +262,7 @@ Find shortest path between two nodes (BFS)
 
 > **areConnected**(`sourceId`, `targetId`): `boolean`
 
-Defined in: [agent/orchestration/topology.ts:442](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L442)
+Defined in: [agent/orchestration/topology.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L442)
 
 Check if two nodes are connected (directly or indirectly)
 
@@ -286,7 +286,7 @@ Check if two nodes are connected (directly or indirectly)
 
 > **getNodesByRole**(`role`): [`TopologyNode`](../type-aliases/TopologyNode.md)[]
 
-Defined in: [agent/orchestration/topology.ts:449](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L449)
+Defined in: [agent/orchestration/topology.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L449)
 
 Get nodes by role
 
@@ -306,7 +306,7 @@ Get nodes by role
 
 > **getCoordinator**(): [`TopologyNode`](../type-aliases/TopologyNode.md) \| `undefined`
 
-Defined in: [agent/orchestration/topology.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L456)
+Defined in: [agent/orchestration/topology.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L456)
 
 Get coordinator/root node
 
@@ -320,7 +320,7 @@ Get coordinator/root node
 
 > **getStats**(): [`TopologyStats`](../type-aliases/TopologyStats.md)
 
-Defined in: [agent/orchestration/topology.ts:468](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L468)
+Defined in: [agent/orchestration/topology.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L468)
 
 Calculate topology statistics
 
@@ -334,7 +334,7 @@ Calculate topology statistics
 
 > **toJSON**(): `object`
 
-Defined in: [agent/orchestration/topology.ts:522](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L522)
+Defined in: [agent/orchestration/topology.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L522)
 
 Export topology as JSON
 
@@ -364,7 +364,7 @@ Export topology as JSON
 
 > **fromJSON**(`data`): `void`
 
-Defined in: [agent/orchestration/topology.ts:539](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L539)
+Defined in: [agent/orchestration/topology.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L539)
 
 Import topology from JSON
 
@@ -398,7 +398,7 @@ Import topology from JSON
 
 > **getType**(): [`TopologyType`](../type-aliases/TopologyType.md)
 
-Defined in: [agent/orchestration/topology.ts:566](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L566)
+Defined in: [agent/orchestration/topology.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L566)
 
 Get topology type
 
@@ -412,7 +412,7 @@ Get topology type
 
 > **getId**(): `string`
 
-Defined in: [agent/orchestration/topology.ts:573](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L573)
+Defined in: [agent/orchestration/topology.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L573)
 
 Get topology ID
 

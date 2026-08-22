@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ContentFilteringResult** = `object`
 
-Defined in: [types/guardrails.ts:133](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L133)
+Defined in: [types/guardrails.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L133)
 
 Result from content filtering operation
 
@@ -18,7 +18,7 @@ Result from content filtering operation
 
 > **filteredText**: `string`
 
-Defined in: [types/guardrails.ts:134](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L134)
+Defined in: [types/guardrails.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L134)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/guardrails.ts:134](https://github.com/juspay/neurolink/blob/4
 
 > **hasChanges**: `boolean`
 
-Defined in: [types/guardrails.ts:135](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L135)
+Defined in: [types/guardrails.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L135)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/guardrails.ts:135](https://github.com/juspay/neurolink/blob/4
 
 > **appliedFilters**: `string`[]
 
-Defined in: [types/guardrails.ts:136](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L136)
+Defined in: [types/guardrails.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L136)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/guardrails.ts:136](https://github.com/juspay/neurolink/blob/4
 
 > **filteringStats**: `object`
 
-Defined in: [types/guardrails.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L137)
+Defined in: [types/guardrails.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L137)
 
 #### regexPatternsApplied
 

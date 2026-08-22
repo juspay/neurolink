@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VideoGenerationResult** = `object`
 
-Defined in: [types/multimodal.ts:294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L294)
+Defined in: [types/multimodal.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L294)
 
 Result type for generated video content
 
@@ -37,7 +37,7 @@ if (result.video) {
 
 > **data**: `Buffer`
 
-Defined in: [types/multimodal.ts:296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L296)
+Defined in: [types/multimodal.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L296)
 
 Raw video data as Buffer
 
@@ -47,7 +47,7 @@ Raw video data as Buffer
 
 > **mediaType**: `"video/mp4"` \| `"video/webm"`
 
-Defined in: [types/multimodal.ts:298](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L298)
+Defined in: [types/multimodal.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L298)
 
 Video media type
 
@@ -57,7 +57,7 @@ Video media type
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/multimodal.ts:300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L300)
+Defined in: [types/multimodal.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L300)
 
 Video metadata
 

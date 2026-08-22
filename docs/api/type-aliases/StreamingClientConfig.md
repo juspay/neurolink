@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingClientConfig** = `object`
 
-Defined in: [types/client.ts:1549](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1549)
+Defined in: [types/client.ts:1549](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1549)
 
 Streaming client configuration
 
@@ -18,7 +18,7 @@ Streaming client configuration
 
 > **baseUrl**: `string`
 
-Defined in: [types/client.ts:1551](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1551)
+Defined in: [types/client.ts:1551](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1551)
 
 Base URL for the API
 
@@ -28,7 +28,7 @@ Base URL for the API
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/client.ts:1553](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1553)
+Defined in: [types/client.ts:1553](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1553)
 
 API key
 
@@ -38,7 +38,7 @@ API key
 
 > `optional` **token?**: `string`
 
-Defined in: [types/client.ts:1555](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1555)
+Defined in: [types/client.ts:1555](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1555)
 
 Bearer token
 
@@ -48,7 +48,7 @@ Bearer token
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:1557](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1557)
+Defined in: [types/client.ts:1557](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1557)
 
 Default headers
 
@@ -58,6 +58,6 @@ Default headers
 
 > `optional` **transport?**: `"sse"` \| `"websocket"`
 
-Defined in: [types/client.ts:1559](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1559)
+Defined in: [types/client.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1559)
 
 Preferred transport: 'sse' or 'websocket'

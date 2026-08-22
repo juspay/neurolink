@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliRedisClient** = `object`
 
-Defined in: [types/cli.ts:1354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1354)
+Defined in: [types/cli.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1354)
 
 Redis client type (awaited return of createRedisClient).
 
@@ -22,7 +22,7 @@ Redis client type (awaited return of createRedisClient).
 
 > **get**: (`key`) => `Promise`\<`string` \| `null`\>
 
-Defined in: [types/cli.ts:1355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1355)
+Defined in: [types/cli.ts:1355](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1355)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:1355](https://github.com/juspay/neurolink/blob/49032fc
 
 > **set**: (`key`, `value`, `options?`) => `Promise`\<`unknown`\>
 
-Defined in: [types/cli.ts:1356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1356)
+Defined in: [types/cli.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1356)
 
 #### Parameters
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1356](https://github.com/juspay/neurolink/blob/49032fc
 
 > **del**: (`key`) => `Promise`\<`number`\>
 
-Defined in: [types/cli.ts:1357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1357)
+Defined in: [types/cli.ts:1357](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1357)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [types/cli.ts:1357](https://github.com/juspay/neurolink/blob/49032fc
 
 > **keys**: (`pattern`) => `Promise`\<`string`[]\>
 
-Defined in: [types/cli.ts:1358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1358)
+Defined in: [types/cli.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1358)
 
 #### Parameters
 
@@ -102,7 +102,7 @@ Defined in: [types/cli.ts:1358](https://github.com/juspay/neurolink/blob/49032fc
 
 > **quit**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1359)
+Defined in: [types/cli.ts:1359](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1359)
 
 #### Returns
 

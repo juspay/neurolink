@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopOptions** = `object`
 
-Defined in: [types/loopEngine.ts:548](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L548)
+Defined in: [types/loopEngine.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L548)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/loopEngine.ts:548](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **tools?**: `Record`\<`string`, \{ `execute?`: (`args`, `opts`) => `Promise`\<`unknown`\>; \}\>
 
-Defined in: [types/loopEngine.ts:549](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L549)
+Defined in: [types/loopEngine.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L549)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/loopEngine.ts:549](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/loopEngine.ts:558](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L558)
+Defined in: [types/loopEngine.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L558)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/loopEngine.ts:558](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **span?**: `Span`
 
-Defined in: [types/loopEngine.ts:571](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L571)
+Defined in: [types/loopEngine.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L571)
 
 Span the per-step provider retry annotates, via
 `withProviderRetry(..., span, ...)` — it records

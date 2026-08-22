@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpeechGrammarList** = `object`
 
-Defined in: [types/client.ts:1211](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1211)
+Defined in: [types/client.ts:1211](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1211)
 
 Speech grammar list interface
 
@@ -22,7 +22,7 @@ Speech grammar list interface
 
 > `readonly` **length**: `number`
 
-Defined in: [types/client.ts:1212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1212)
+Defined in: [types/client.ts:1212](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1212)
 
 ## Methods
 
@@ -30,7 +30,7 @@ Defined in: [types/client.ts:1212](https://github.com/juspay/neurolink/blob/4903
 
 > **addFromString**(`string`, `weight?`): `void`
 
-Defined in: [types/client.ts:1213](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1213)
+Defined in: [types/client.ts:1213](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1213)
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: [types/client.ts:1213](https://github.com/juspay/neurolink/blob/4903
 
 > **addFromURI**(`src`, `weight?`): `void`
 
-Defined in: [types/client.ts:1214](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1214)
+Defined in: [types/client.ts:1214](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1214)
 
 #### Parameters
 
@@ -74,7 +74,7 @@ Defined in: [types/client.ts:1214](https://github.com/juspay/neurolink/blob/4903
 
 > **item**(`index`): [`SpeechGrammar`](SpeechGrammar.md)
 
-Defined in: [types/client.ts:1215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1215)
+Defined in: [types/client.ts:1215](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1215)
 
 #### Parameters
 

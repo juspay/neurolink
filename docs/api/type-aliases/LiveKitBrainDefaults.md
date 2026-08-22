@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitBrainDefaults** = `object`
 
-Defined in: [types/livekit.ts:211](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L211)
+Defined in: [types/livekit.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L211)
 
 LLM defaults resolved from the environment for the brain.
 
@@ -18,7 +18,7 @@ LLM defaults resolved from the environment for the brain.
 
 > **provider**: `string`
 
-Defined in: [types/livekit.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L212)
+Defined in: [types/livekit.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L212)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/livekit.ts:212](https://github.com/juspay/neurolink/blob/4903
 
 > **model**: `string`
 
-Defined in: [types/livekit.ts:213](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L213)
+Defined in: [types/livekit.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L213)

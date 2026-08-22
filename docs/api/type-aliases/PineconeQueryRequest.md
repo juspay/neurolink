@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PineconeQueryRequest** = `object`
 
-Defined in: [types/vectorStorePinecone.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L26)
+Defined in: [types/vectorStorePinecone.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L26)
 
 Request payload accepted by `PineconeIndexLike.query()`.
 
@@ -18,7 +18,7 @@ Request payload accepted by `PineconeIndexLike.query()`.
 
 > **vector**: `number`[]
 
-Defined in: [types/vectorStorePinecone.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L27)
+Defined in: [types/vectorStorePinecone.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L27)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/vectorStorePinecone.ts:27](https://github.com/juspay/neurolin
 
 > **topK**: `number`
 
-Defined in: [types/vectorStorePinecone.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L28)
+Defined in: [types/vectorStorePinecone.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L28)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/vectorStorePinecone.ts:28](https://github.com/juspay/neurolin
 
 > `optional` **filter?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/vectorStorePinecone.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L29)
+Defined in: [types/vectorStorePinecone.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L29)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/vectorStorePinecone.ts:29](https://github.com/juspay/neurolin
 
 > `optional` **includeMetadata?**: `boolean`
 
-Defined in: [types/vectorStorePinecone.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L30)
+Defined in: [types/vectorStorePinecone.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L30)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/vectorStorePinecone.ts:30](https://github.com/juspay/neurolin
 
 > `optional` **includeValues?**: `boolean`
 
-Defined in: [types/vectorStorePinecone.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L31)
+Defined in: [types/vectorStorePinecone.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L31)

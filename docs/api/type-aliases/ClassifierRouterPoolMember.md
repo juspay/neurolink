@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClassifierRouterPoolMember** = `object`
 
-Defined in: [types/classifierRouter.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L70)
+Defined in: [types/classifierRouter.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L70)
 
 One candidate (provider, model, region) in the available base pool, with
 optional routing metadata. When `cost`/`quality`/`capabilities` are omitted,
@@ -20,7 +20,7 @@ the router enriches them from the model registry (by `model` name/alias).
 
 > **provider**: `string`
 
-Defined in: [types/classifierRouter.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L71)
+Defined in: [types/classifierRouter.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L71)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/classifierRouter.ts:71](https://github.com/juspay/neurolink/b
 
 > `optional` **model?**: `string`
 
-Defined in: [types/classifierRouter.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L72)
+Defined in: [types/classifierRouter.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L72)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/classifierRouter.ts:72](https://github.com/juspay/neurolink/b
 
 > `optional` **region?**: `string`
 
-Defined in: [types/classifierRouter.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L73)
+Defined in: [types/classifierRouter.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L73)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/classifierRouter.ts:73](https://github.com/juspay/neurolink/b
 
 > `optional` **id?**: `string`
 
-Defined in: [types/classifierRouter.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L78)
+Defined in: [types/classifierRouter.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L78)
 
 Stable id the LLM classifier references when selecting a model directly.
 Defaults to `${provider}/${model}` (or just `provider`) when omitted.
@@ -55,7 +55,7 @@ Defaults to `${provider}/${model}` (or just `provider`) when omitted.
 
 > `optional` **description?**: `string`
 
-Defined in: [types/classifierRouter.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L85)
+Defined in: [types/classifierRouter.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L85)
 
 Plain-English description of when to use this model (e.g. "cheap & fast,
 for simple Q&A" / "powerful reasoning model for complex analysis"). Drives
@@ -68,7 +68,7 @@ are NOT in the registry (LiteLLM, OpenAI-compatible, self-hosted, …).
 
 > `optional` **tiers?**: [`ClassifierDifficulty`](ClassifierDifficulty.md)[]
 
-Defined in: [types/classifierRouter.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L87)
+Defined in: [types/classifierRouter.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L87)
 
 Difficulty tiers this member is eligible for. Omit = eligible for all.
 
@@ -78,7 +78,7 @@ Difficulty tiers this member is eligible for. Omit = eligible for all.
 
 > `optional` **cost?**: `number`
 
-Defined in: [types/classifierRouter.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L89)
+Defined in: [types/classifierRouter.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L89)
 
 Relative cost (lower = cheaper). Preferred for easy tiers.
 
@@ -88,7 +88,7 @@ Relative cost (lower = cheaper). Preferred for easy tiers.
 
 > `optional` **quality?**: `number`
 
-Defined in: [types/classifierRouter.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L91)
+Defined in: [types/classifierRouter.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L91)
 
 Relative quality/capability (higher = more capable). Preferred for hard tiers.
 
@@ -98,7 +98,7 @@ Relative quality/capability (higher = more capable). Preferred for hard tiers.
 
 > `optional` **capabilities?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L93)
+Defined in: [types/classifierRouter.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L93)
 
 Capability tags this member supports (e.g. "vision", "tools").
 
@@ -108,6 +108,6 @@ Capability tags this member supports (e.g. "vision", "tools").
 
 > `optional` **weight?**: `number`
 
-Defined in: [types/classifierRouter.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L95)
+Defined in: [types/classifierRouter.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L95)
 
 Tiebreak weight when scores are equal. Default: 1.

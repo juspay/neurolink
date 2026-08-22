@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RateLimitError
 
-Defined in: [types/errors.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L60)
+Defined in: [types/errors.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L60)
 
 Thrown when an API rate limit has been exceeded.
 
@@ -20,7 +20,7 @@ Thrown when an API rate limit has been exceeded.
 
 > **new RateLimitError**(`message`, `provider?`): `RateLimitError`
 
-Defined in: [types/errors.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L61)
+Defined in: [types/errors.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L61)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:61](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L18)
+Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

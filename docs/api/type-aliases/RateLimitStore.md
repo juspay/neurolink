@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RateLimitStore** = `object`
 
-Defined in: [types/middleware.ts:450](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L450)
+Defined in: [types/middleware.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L450)
 
 Rate-limit store contract (memory or Redis).
 
@@ -18,7 +18,7 @@ Rate-limit store contract (memory or Redis).
 
 > **get**(`key`): `Promise`\<[`RateLimitEntry`](RateLimitEntry.md) \| `undefined`\>
 
-Defined in: [types/middleware.ts:451](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L451)
+Defined in: [types/middleware.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L451)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/middleware.ts:451](https://github.com/juspay/neurolink/blob/4
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:452](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L452)
+Defined in: [types/middleware.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L452)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [types/middleware.ts:452](https://github.com/juspay/neurolink/blob/4
 
 > **increment**(`key`, `windowMs`): `Promise`\<[`RateLimitEntry`](RateLimitEntry.md)\>
 
-Defined in: [types/middleware.ts:453](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L453)
+Defined in: [types/middleware.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L453)
 
 #### Parameters
 
@@ -80,7 +80,7 @@ Defined in: [types/middleware.ts:453](https://github.com/juspay/neurolink/blob/4
 
 > **reset**(`key`): `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L454)
+Defined in: [types/middleware.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L454)
 
 #### Parameters
 

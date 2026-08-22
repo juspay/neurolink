@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **McpCacheConfig** = `object`
 
-Defined in: [types/mcp.ts:2348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2348)
+Defined in: [types/mcp.ts:2348](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2348)
 
 Cache configuration options
 
@@ -18,7 +18,7 @@ Cache configuration options
 
 > **ttl**: `number`
 
-Defined in: [types/mcp.ts:2352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2352)
+Defined in: [types/mcp.ts:2352](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2352)
 
 Time-to-live in milliseconds (default: 5 minutes)
 
@@ -28,7 +28,7 @@ Time-to-live in milliseconds (default: 5 minutes)
 
 > **maxSize**: `number`
 
-Defined in: [types/mcp.ts:2357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2357)
+Defined in: [types/mcp.ts:2357](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2357)
 
 Maximum number of entries (default: 500)
 
@@ -38,7 +38,7 @@ Maximum number of entries (default: 500)
 
 > **strategy**: [`CacheStrategy`](CacheStrategy.md)
 
-Defined in: [types/mcp.ts:2362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2362)
+Defined in: [types/mcp.ts:2362](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2362)
 
 Eviction strategy (default: 'lru')
 
@@ -48,7 +48,7 @@ Eviction strategy (default: 'lru')
 
 > `optional` **enableAutoCleanup?**: `boolean`
 
-Defined in: [types/mcp.ts:2367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2367)
+Defined in: [types/mcp.ts:2367](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2367)
 
 Enable automatic cleanup of expired entries
 
@@ -58,7 +58,7 @@ Enable automatic cleanup of expired entries
 
 > `optional` **cleanupInterval?**: `number`
 
-Defined in: [types/mcp.ts:2372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2372)
+Defined in: [types/mcp.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2372)
 
 Cleanup interval in milliseconds (default: 60 seconds)
 
@@ -68,6 +68,6 @@ Cleanup interval in milliseconds (default: 60 seconds)
 
 > `optional` **namespace?**: `string`
 
-Defined in: [types/mcp.ts:2377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2377)
+Defined in: [types/mcp.ts:2377](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2377)
 
 Namespace for cache keys (optional)

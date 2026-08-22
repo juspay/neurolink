@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WorkflowValidationWarning** = `object`
 
-Defined in: [types/workflow.ts:488](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L488)
+Defined in: [types/workflow.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L488)
 
 Validation warning
 
@@ -18,7 +18,7 @@ Validation warning
 
 > **field**: `string`
 
-Defined in: [types/workflow.ts:489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L489)
+Defined in: [types/workflow.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L489)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:489](https://github.com/juspay/neurolink/blob/490
 
 > **message**: `string`
 
-Defined in: [types/workflow.ts:490](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L490)
+Defined in: [types/workflow.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L490)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:490](https://github.com/juspay/neurolink/blob/490
 
 > **code**: `string`
 
-Defined in: [types/workflow.ts:491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L491)
+Defined in: [types/workflow.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L491)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/workflow.ts:491](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **recommendation?**: `string`
 
-Defined in: [types/workflow.ts:492](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L492)
+Defined in: [types/workflow.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L492)

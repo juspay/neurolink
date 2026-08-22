@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamChunk** = \{ `type`: `"text"`; `content`: `string`; \} \| \{ `type`: `"tts_audio"`; `audio`: [`TTSChunk`](TTSChunk.md); \}
 
-Defined in: [types/stream.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stream.ts#L207)
+Defined in: [types/stream.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L207)
 
 Stream chunk type using discriminated union for type safety
 

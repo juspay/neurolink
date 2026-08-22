@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GoogleOperationResponse** = `object`
 
-Defined in: [types/stt.ts:526](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L526)
+Defined in: [types/stt.ts:526](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L526)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:526](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **name**: `string`
 
-Defined in: [types/stt.ts:527](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L527)
+Defined in: [types/stt.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L527)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:527](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **done**: `boolean`
 
-Defined in: [types/stt.ts:528](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L528)
+Defined in: [types/stt.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L528)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:528](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/stt.ts:529](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L529)
+Defined in: [types/stt.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L529)
 
 #### progressPercent?
 
@@ -52,7 +52,7 @@ Defined in: [types/stt.ts:529](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **response?**: [`GoogleLongRunningRecognizeResponse`](GoogleLongRunningRecognizeResponse.md)
 
-Defined in: [types/stt.ts:534](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L534)
+Defined in: [types/stt.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L534)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/stt.ts:534](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **error?**: `object`
 
-Defined in: [types/stt.ts:535](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L535)
+Defined in: [types/stt.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L535)
 
 #### code
 

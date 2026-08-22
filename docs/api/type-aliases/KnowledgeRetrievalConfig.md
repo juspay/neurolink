@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KnowledgeRetrievalConfig** = `object`
 
-Defined in: [types/knowledge.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L182)
+Defined in: [types/knowledge.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L182)
 
 Lexical retrieval tuning. All fields optional; the engine supplies defaults.
 
@@ -18,7 +18,7 @@ Lexical retrieval tuning. All fields optional; the engine supplies defaults.
 
 > `optional` **mode?**: [`KnowledgeRetrievalMode`](KnowledgeRetrievalMode.md)
 
-Defined in: [types/knowledge.ts:184](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L184)
+Defined in: [types/knowledge.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L184)
 
 Retrieval mode. Default: "lexical".
 
@@ -28,7 +28,7 @@ Retrieval mode. Default: "lexical".
 
 > `optional` **candidateLimit?**: `number`
 
-Defined in: [types/knowledge.ts:186](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L186)
+Defined in: [types/knowledge.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L186)
 
 How many scored candidates enter relationship expansion. Default: 24.
 
@@ -38,7 +38,7 @@ How many scored candidates enter relationship expansion. Default: 24.
 
 > `optional` **resultLimit?**: `number`
 
-Defined in: [types/knowledge.ts:188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L188)
+Defined in: [types/knowledge.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L188)
 
 How many primary entries survive into the assembled context. Default: 8.
 
@@ -48,7 +48,7 @@ How many primary entries survive into the assembled context. Default: 8.
 
 > `optional` **relationLimit?**: `number`
 
-Defined in: [types/knowledge.ts:190](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L190)
+Defined in: [types/knowledge.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L190)
 
 Cap on relationship-expanded entries added after primary retrieval. Default: 4.
 
@@ -58,7 +58,7 @@ Cap on relationship-expanded entries added after primary retrieval. Default: 4.
 
 > `optional` **fieldWeights?**: [`KnowledgeFieldWeights`](KnowledgeFieldWeights.md)
 
-Defined in: [types/knowledge.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L192)
+Defined in: [types/knowledge.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L192)
 
 Per-field BM25 weights.
 
@@ -68,7 +68,7 @@ Per-field BM25 weights.
 
 > `optional` **exactBoost?**: `number`
 
-Defined in: [types/knowledge.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L194)
+Defined in: [types/knowledge.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L194)
 
 Additive boost for an exact entry-id / configuration-key match. Dominant. Default: 100.
 
@@ -78,6 +78,6 @@ Additive boost for an exact entry-id / configuration-key match. Dominant. Defaul
 
 > `optional` **aliasBoost?**: `number`
 
-Defined in: [types/knowledge.ts:196](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L196)
+Defined in: [types/knowledge.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L196)
 
 Additive boost for an exact reviewed-alias phrase match. Default: 60.

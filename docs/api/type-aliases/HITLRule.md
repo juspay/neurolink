@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HITLRule** = `object`
 
-Defined in: [types/hitl.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L43)
+Defined in: [types/hitl.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L43)
 
 Custom rule for advanced HITL scenarios
 Allows enterprises to define complex conditions for when tools require confirmation
@@ -19,7 +19,7 @@ Allows enterprises to define complex conditions for when tools require confirmat
 
 > **name**: `string`
 
-Defined in: [types/hitl.ts:45](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L45)
+Defined in: [types/hitl.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L45)
 
 Human-readable name for the rule
 
@@ -29,7 +29,7 @@ Human-readable name for the rule
 
 > **condition**: (`toolName`, `args`) => `boolean`
 
-Defined in: [types/hitl.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L48)
+Defined in: [types/hitl.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L48)
 
 Function that determines if a tool requires confirmation
 
@@ -53,7 +53,7 @@ Function that determines if a tool requires confirmation
 
 > **requiresConfirmation**: `boolean`
 
-Defined in: [types/hitl.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L51)
+Defined in: [types/hitl.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L51)
 
 Whether this rule requires confirmation when triggered
 
@@ -63,6 +63,6 @@ Whether this rule requires confirmation when triggered
 
 > `optional` **customMessage?**: `string`
 
-Defined in: [types/hitl.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/hitl.ts#L54)
+Defined in: [types/hitl.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L54)
 
 Custom message to show users when this rule is triggered

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > `const` **SamplingStrategies**: `object`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:266](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L266)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L266)
 
 Pre-configured sampling strategies
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HeyGenVideoStatusResponse** = `object`
 
-Defined in: [types/avatar.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L167)
+Defined in: [types/avatar.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L167)
 
 HeyGen `/v1/video_status.get` response shape.
 
@@ -18,7 +18,7 @@ HeyGen `/v1/video_status.get` response shape.
 
 > `optional` **code?**: `number`
 
-Defined in: [types/avatar.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L168)
+Defined in: [types/avatar.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L168)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/avatar.ts:168](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **data?**: `object`
 
-Defined in: [types/avatar.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L169)
+Defined in: [types/avatar.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L169)
 
 #### id?
 
@@ -70,4 +70,4 @@ Defined in: [types/avatar.ts:169](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **message?**: `string`
 
-Defined in: [types/avatar.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L181)
+Defined in: [types/avatar.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L181)

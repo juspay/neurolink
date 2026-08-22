@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderImageFormat** = `object`
 
-Defined in: [types/multimodal.ts:573](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L573)
+Defined in: [types/multimodal.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L573)
 
 Provider-specific image format requirements
 
@@ -18,7 +18,7 @@ Provider-specific image format requirements
 
 > **provider**: `string`
 
-Defined in: [types/multimodal.ts:574](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L574)
+Defined in: [types/multimodal.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L574)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:574](https://github.com/juspay/neurolink/blob/4
 
 > **format**: `"data_uri"` \| `"base64"` \| `"inline_data"` \| `"source"`
 
-Defined in: [types/multimodal.ts:575](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L575)
+Defined in: [types/multimodal.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L575)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:575](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **requiresPrefix?**: `boolean`
 
-Defined in: [types/multimodal.ts:576](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L576)
+Defined in: [types/multimodal.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L576)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/multimodal.ts:576](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **mimeTypeField?**: `string`
 
-Defined in: [types/multimodal.ts:577](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L577)
+Defined in: [types/multimodal.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L577)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/multimodal.ts:577](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **dataField?**: `string`
 
-Defined in: [types/multimodal.ts:578](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L578)
+Defined in: [types/multimodal.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L578)

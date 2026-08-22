@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: InMemoryRateLimitStore
 
-Defined in: [server/middleware/rateLimit.ts:19](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L19)
+Defined in: [server/middleware/rateLimit.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L19)
 
 In-memory rate limit store
 
@@ -20,7 +20,7 @@ In-memory rate limit store
 
 > **new InMemoryRateLimitStore**(): `InMemoryRateLimitStore`
 
-Defined in: [server/middleware/rateLimit.ts:23](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L23)
+Defined in: [server/middleware/rateLimit.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L23)
 
 #### Returns
 
@@ -32,7 +32,7 @@ Defined in: [server/middleware/rateLimit.ts:23](https://github.com/juspay/neurol
 
 > **get**(`key`): `Promise`\<[`RateLimitEntry`](../type-aliases/RateLimitEntry.md) \| `undefined`\>
 
-Defined in: [server/middleware/rateLimit.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L28)
+Defined in: [server/middleware/rateLimit.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L28)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [server/middleware/rateLimit.ts:28](https://github.com/juspay/neurol
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
 
-Defined in: [server/middleware/rateLimit.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L43)
+Defined in: [server/middleware/rateLimit.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L43)
 
 #### Parameters
 
@@ -80,7 +80,7 @@ Defined in: [server/middleware/rateLimit.ts:43](https://github.com/juspay/neurol
 
 > **increment**(`key`, `windowMs`): `Promise`\<[`RateLimitEntry`](../type-aliases/RateLimitEntry.md)\>
 
-Defined in: [server/middleware/rateLimit.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L47)
+Defined in: [server/middleware/rateLimit.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L47)
 
 #### Parameters
 
@@ -106,7 +106,7 @@ Defined in: [server/middleware/rateLimit.ts:47](https://github.com/juspay/neurol
 
 > **reset**(`key`): `Promise`\<`void`\>
 
-Defined in: [server/middleware/rateLimit.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L60)
+Defined in: [server/middleware/rateLimit.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L60)
 
 #### Parameters
 
@@ -128,7 +128,7 @@ Defined in: [server/middleware/rateLimit.ts:60](https://github.com/juspay/neurol
 
 > **destroy**(): `void`
 
-Defined in: [server/middleware/rateLimit.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/middleware/rateLimit.ts#L73)
+Defined in: [server/middleware/rateLimit.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/server/middleware/rateLimit.ts#L73)
 
 #### Returns
 

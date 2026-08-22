@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkDefaults** = `object`
 
-Defined in: [types/agentNetwork.ts:342](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L342)
+Defined in: [types/agentNetwork.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L342)
 
 Default execution options for the network
 
@@ -18,7 +18,7 @@ Default execution options for the network
 
 > `optional` **maxSteps?**: `number`
 
-Defined in: [types/agentNetwork.ts:344](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L344)
+Defined in: [types/agentNetwork.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L344)
 
 Maximum steps per execution
 
@@ -28,7 +28,7 @@ Maximum steps per execution
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/agentNetwork.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L347)
+Defined in: [types/agentNetwork.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L347)
 
 Timeout in milliseconds
 
@@ -38,6 +38,6 @@ Timeout in milliseconds
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/agentNetwork.ts:350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L350)
+Defined in: [types/agentNetwork.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L350)
 
 Default temperature

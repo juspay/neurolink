@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TTSProcessor
 
-Defined in: [utils/ttsProcessor.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L76)
+Defined in: [utils/ttsProcessor.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L76)
 
 TTS processor class for orchestrating text-to-speech operations
 
@@ -41,7 +41,7 @@ if (TTSProcessor.supports("google-ai")) {
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [utils/ttsProcessor.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L116)
+Defined in: [utils/ttsProcessor.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L116)
 
 Register a TTS handler for a specific provider
 
@@ -83,7 +83,7 @@ TTSProcessor.registerHandler('google-ai', googleHandler);
 
 > `static` **getHandler**(`providerName`): [`TTSHandler`](../type-aliases/TTSHandler.md) \| `undefined`
 
-Defined in: [utils/ttsProcessor.ts:136](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L136)
+Defined in: [utils/ttsProcessor.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L136)
 
 Get a registered TTS handler by provider name.
 
@@ -111,7 +111,7 @@ Handler instance or undefined if not registered
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/ttsProcessor.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L143)
+Defined in: [utils/ttsProcessor.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L143)
 
 List the names of all registered providers.
 
@@ -125,7 +125,7 @@ List the names of all registered providers.
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [utils/ttsProcessor.ts:151](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L151)
+Defined in: [utils/ttsProcessor.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L151)
 
 Removes every registered TTS handler. Primarily for test isolation —
 production code should not need to call this.
@@ -140,7 +140,7 @@ production code should not need to call this.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/ttsProcessor.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L168)
+Defined in: [utils/ttsProcessor.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L168)
 
 Check if a provider is supported (has a registered TTS handler)
 
@@ -172,7 +172,7 @@ if (TTSProcessor.supports("google-ai")) {
 
 > `static` **synthesize**(`text`, `provider`, `options`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [utils/ttsProcessor.ts:218](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/ttsProcessor.ts#L218)
+Defined in: [utils/ttsProcessor.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L218)
 
 Synthesize speech from text using a registered TTS provider
 

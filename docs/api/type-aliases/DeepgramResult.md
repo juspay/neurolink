@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DeepgramResult** = `object`
 
-Defined in: [types/stt.ts:474](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L474)
+Defined in: [types/stt.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L474)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:474](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **channels**: [`DeepgramChannel`](DeepgramChannel.md)[]
 
-Defined in: [types/stt.ts:475](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L475)
+Defined in: [types/stt.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L475)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/stt.ts:475](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **utterances?**: [`DeepgramUtterance`](DeepgramUtterance.md)[]
 
-Defined in: [types/stt.ts:476](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L476)
+Defined in: [types/stt.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L476)

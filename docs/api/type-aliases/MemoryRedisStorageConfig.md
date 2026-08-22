@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MemoryRedisStorageConfig** = `object`
 
-Defined in: [types/memory.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L29)
+Defined in: [types/memory.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L29)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/memory.ts:29](https://github.com/juspay/neurolink/blob/49032f
 
 > **type**: `"redis"`
 
-Defined in: [types/memory.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L30)
+Defined in: [types/memory.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L30)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/memory.ts:30](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **host?**: `string`
 
-Defined in: [types/memory.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L31)
+Defined in: [types/memory.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L31)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/memory.ts:31](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **port?**: `number`
 
-Defined in: [types/memory.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L32)
+Defined in: [types/memory.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L32)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/memory.ts:32](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **password?**: `string`
 
-Defined in: [types/memory.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L33)
+Defined in: [types/memory.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L33)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/memory.ts:33](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **db?**: `number`
 
-Defined in: [types/memory.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L34)
+Defined in: [types/memory.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L34)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/memory.ts:34](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **keyPrefix?**: `string`
 
-Defined in: [types/memory.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L35)
+Defined in: [types/memory.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L35)
 
 ---
 
@@ -64,4 +64,4 @@ Defined in: [types/memory.ts:35](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **ttl?**: `number`
 
-Defined in: [types/memory.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L36)
+Defined in: [types/memory.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L36)

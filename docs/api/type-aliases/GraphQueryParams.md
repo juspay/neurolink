@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GraphQueryParams** = `object`
 
-Defined in: [types/rag.ts:1415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1415)
+Defined in: [types/rag.ts:1415](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1415)
 
 Graph query parameters
 
@@ -18,7 +18,7 @@ Graph query parameters
 
 > **query**: `number`[]
 
-Defined in: [types/rag.ts:1417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1417)
+Defined in: [types/rag.ts:1417](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1417)
 
 Query embedding vector
 
@@ -28,7 +28,7 @@ Query embedding vector
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1419)
+Defined in: [types/rag.ts:1419](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1419)
 
 Number of results to return (default: 10)
 
@@ -38,7 +38,7 @@ Number of results to return (default: 10)
 
 > `optional` **randomWalkSteps?**: `number`
 
-Defined in: [types/rag.ts:1421](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1421)
+Defined in: [types/rag.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1421)
 
 Random walk steps (default: 100)
 
@@ -48,6 +48,6 @@ Random walk steps (default: 100)
 
 > `optional` **restartProb?**: `number`
 
-Defined in: [types/rag.ts:1423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1423)
+Defined in: [types/rag.ts:1423](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1423)
 
 Restart probability for random walk (default: 0.15)

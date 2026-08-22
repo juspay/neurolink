@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DIDTalkResponse** = `object`
 
-Defined in: [types/avatar.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L156)
+Defined in: [types/avatar.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L156)
 
 D-ID `/talks` API response shape.
 
@@ -22,7 +22,7 @@ the types barrel.
 
 > **id**: `string`
 
-Defined in: [types/avatar.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L157)
+Defined in: [types/avatar.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L157)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/avatar.ts:157](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **status?**: `string`
 
-Defined in: [types/avatar.ts:158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L158)
+Defined in: [types/avatar.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L158)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/avatar.ts:158](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **result_url?**: `string`
 
-Defined in: [types/avatar.ts:159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L159)
+Defined in: [types/avatar.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L159)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/avatar.ts:159](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **error?**: `object`
 
-Defined in: [types/avatar.ts:160](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L160)
+Defined in: [types/avatar.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L160)
 
 #### kind?
 
@@ -62,4 +62,4 @@ Defined in: [types/avatar.ts:160](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/avatar.ts:161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L161)
+Defined in: [types/avatar.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L161)

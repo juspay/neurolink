@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: SentenceChunker
 
-Defined in: [rag/chunking/sentenceChunker.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/sentenceChunker.ts#L21)
+Defined in: [rag/chunking/sentenceChunker.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/sentenceChunker.ts#L21)
 
 Sentence-aware chunker implementation
 Splits text by sentences while respecting size constraints
@@ -31,7 +31,7 @@ Splits text by sentences while respecting size constraints
 
 > `readonly` **strategy**: `"sentence"`
 
-Defined in: [rag/chunking/sentenceChunker.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/sentenceChunker.ts#L22)
+Defined in: [rag/chunking/sentenceChunker.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/sentenceChunker.ts#L22)
 
 Strategy name for identification
 
@@ -45,7 +45,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/chunking/sentenceChunker.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/sentenceChunker.ts#L26)
+Defined in: [rag/chunking/sentenceChunker.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/sentenceChunker.ts#L26)
 
 Split text into chunks
 
@@ -79,7 +79,7 @@ Array of chunks
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
 
-Defined in: [rag/chunking/sentenceChunker.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/sentenceChunker.ts#L250)
+Defined in: [rag/chunking/sentenceChunker.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/sentenceChunker.ts#L250)
 
 #### Parameters
 

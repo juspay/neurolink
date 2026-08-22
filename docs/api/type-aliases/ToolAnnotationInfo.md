@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolAnnotationInfo** = `object`
 
-Defined in: [types/cli.ts:1541](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1541)
+Defined in: [types/cli.ts:1541](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1541)
 
 Info row for an MCP tool annotation.
 
@@ -18,7 +18,7 @@ Info row for an MCP tool annotation.
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1542](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1542)
+Defined in: [types/cli.ts:1542](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1542)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1542](https://github.com/juspay/neurolink/blob/49032fc
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1543](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1543)
+Defined in: [types/cli.ts:1543](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1543)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1543](https://github.com/juspay/neurolink/blob/49032fc
 
 > **toolName**: `string`
 
-Defined in: [types/cli.ts:1544](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1544)
+Defined in: [types/cli.ts:1544](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1544)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1544](https://github.com/juspay/neurolink/blob/49032fc
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1545](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1545)
+Defined in: [types/cli.ts:1545](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1545)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/cli.ts:1545](https://github.com/juspay/neurolink/blob/49032fc
 
 > **annotations**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
 
-Defined in: [types/cli.ts:1546](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1546)
+Defined in: [types/cli.ts:1546](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1546)

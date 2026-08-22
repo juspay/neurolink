@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TextLoader
 
-Defined in: [rag/document/loaders.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L56)
+Defined in: [rag/document/loaders.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L56)
 
 Text file loader
 
@@ -37,7 +37,7 @@ Text file loader
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L57)
+Defined in: [rag/document/loaders.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L57)
 
 Load document from source
 
@@ -71,7 +71,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L65)
+Defined in: [rag/document/loaders.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L65)
 
 Check if loader can handle the source
 
@@ -99,7 +99,7 @@ True if loader can handle the source
 
 > `protected` **loadContent**(`source`, `encoding?`): `Promise`\<`string`\>
 
-Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L70)
+Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L70)
 
 #### Parameters
 
@@ -121,7 +121,7 @@ Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blo
 
 > `protected` **getSourceName**(`source`): `string`
 
-Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L81)
+Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L81)
 
 #### Parameters
 

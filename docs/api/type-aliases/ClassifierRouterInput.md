@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClassifierRouterInput** = `object`
 
-Defined in: [types/classifierRouter.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L162)
+Defined in: [types/classifierRouter.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L162)
 
 Lightweight request snapshot handed to the router.
 
@@ -18,7 +18,7 @@ Lightweight request snapshot handed to the router.
 
 > **prompt**: `string`
 
-Defined in: [types/classifierRouter.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L163)
+Defined in: [types/classifierRouter.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L163)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/classifierRouter.ts:163](https://github.com/juspay/neurolink/
 
 > `optional` **estimatedInputTokens?**: `number`
 
-Defined in: [types/classifierRouter.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L164)
+Defined in: [types/classifierRouter.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L164)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/classifierRouter.ts:164](https://github.com/juspay/neurolink/
 
 > `optional` **hasTools?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L165)
+Defined in: [types/classifierRouter.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L165)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/classifierRouter.ts:165](https://github.com/juspay/neurolink/
 
 > `optional` **requiresVision?**: `boolean`
 
-Defined in: [types/classifierRouter.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L166)
+Defined in: [types/classifierRouter.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L166)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/classifierRouter.ts:166](https://github.com/juspay/neurolink/
 
 > `optional` **thinkingLevel?**: `string`
 
-Defined in: [types/classifierRouter.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L167)
+Defined in: [types/classifierRouter.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L167)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/classifierRouter.ts:167](https://github.com/juspay/neurolink/
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/classifierRouter.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L168)
+Defined in: [types/classifierRouter.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L168)

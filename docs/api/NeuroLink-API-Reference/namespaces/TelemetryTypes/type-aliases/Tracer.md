@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../../../../README.md)
+[**NeuroLink API Reference**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Tracer** = `object`
 
-Defined in: [types/providers.ts:1944](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1944)
+Defined in: [types/providers.ts:1944](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1944)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1944](https://github.com/juspay/neurolink/blob/4
 
 > **startSpan**(`name`, `options?`): [`Span`](Span.md)
 
-Defined in: [types/providers.ts:1945](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1945)
+Defined in: [types/providers.ts:1945](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1945)
 
 #### Parameters
 

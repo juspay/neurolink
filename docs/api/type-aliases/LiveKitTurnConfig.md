@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitTurnConfig** = `object`
 
-Defined in: [types/livekit.ts:125](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L125)
+Defined in: [types/livekit.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L125)
 
 Turn-detection (end-of-utterance) tuning.
 
@@ -32,7 +32,7 @@ window in milliseconds (in VAD mode the effective end delay is
 
 > `optional` **mode?**: `"stt"` \| `"vad"` \| `"realtime_llm"` \| `"manual"`
 
-Defined in: [types/livekit.ts:126](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L126)
+Defined in: [types/livekit.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L126)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/livekit.ts:126](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **minEndpointingDelay?**: `number`
 
-Defined in: [types/livekit.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L127)
+Defined in: [types/livekit.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L127)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/livekit.ts:127](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **maxEndpointingDelay?**: `number`
 
-Defined in: [types/livekit.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L128)
+Defined in: [types/livekit.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L128)

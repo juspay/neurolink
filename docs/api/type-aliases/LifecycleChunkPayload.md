@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LifecycleChunkPayload** = `object`
 
-Defined in: [types/middleware.ts:335](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L335)
+Defined in: [types/middleware.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L335)
 
 Payload delivered to onChunk callbacks for each streaming chunk.
 
@@ -18,7 +18,7 @@ Payload delivered to onChunk callbacks for each streaming chunk.
 
 > **type**: `string`
 
-Defined in: [types/middleware.ts:337](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L337)
+Defined in: [types/middleware.ts:337](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L337)
 
 Chunk type from the AI SDK stream
 
@@ -28,7 +28,7 @@ Chunk type from the AI SDK stream
 
 > `optional` **textDelta?**: `string`
 
-Defined in: [types/middleware.ts:339](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L339)
+Defined in: [types/middleware.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L339)
 
 Text content for text-delta chunks
 
@@ -38,6 +38,6 @@ Text content for text-delta chunks
 
 > **sequenceNumber**: `number`
 
-Defined in: [types/middleware.ts:341](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L341)
+Defined in: [types/middleware.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L341)
 
 Zero-based chunk sequence number

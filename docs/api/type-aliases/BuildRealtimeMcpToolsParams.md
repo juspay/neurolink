@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BuildRealtimeMcpToolsParams** = `object`
 
-Defined in: [types/livekit.ts:545](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L545)
+Defined in: [types/livekit.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L545)
 
 Inputs to `buildRealtimeMcpTools`.
 
@@ -18,7 +18,7 @@ Inputs to `buildRealtimeMcpTools`.
 
 > **mcpUrl**: `string`
 
-Defined in: [types/livekit.ts:547](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L547)
+Defined in: [types/livekit.ts:547](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L547)
 
 Full URL of the MCP server (e.g. ".../ai/mcp/v2").
 
@@ -28,7 +28,7 @@ Full URL of the MCP server (e.g. ".../ai/mcp/v2").
 
 > **authToken**: `string`
 
-Defined in: [types/livekit.ts:549](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L549)
+Defined in: [types/livekit.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L549)
 
 Lighthouse access JWT forwarded as `x-auth-token`.
 
@@ -38,7 +38,7 @@ Lighthouse access JWT forwarded as `x-auth-token`.
 
 > **xContext**: `string`
 
-Defined in: [types/livekit.ts:551](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L551)
+Defined in: [types/livekit.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L551)
 
 base64(JSON) execution context forwarded as `x-context`.
 
@@ -48,7 +48,7 @@ base64(JSON) execution context forwarded as `x-context`.
 
 > **publishEvent**: [`RealtimeEventPublisher`](RealtimeEventPublisher.md)
 
-Defined in: [types/livekit.ts:553](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L553)
+Defined in: [types/livekit.ts:553](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L553)
 
 Publishes tool start/result events to the browser.
 
@@ -58,7 +58,7 @@ Publishes tool start/result events to the browser.
 
 > **requestConfirmation**: [`RealtimeConfirmationRequester`](RealtimeConfirmationRequester.md)
 
-Defined in: [types/livekit.ts:555](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L555)
+Defined in: [types/livekit.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L555)
 
 Opens a HITL confirmation for destructive tools and awaits the decision.
 
@@ -68,7 +68,7 @@ Opens a HITL confirmation for destructive tools and awaits the decision.
 
 > `optional` **toolTimeoutMs?**: `number`
 
-Defined in: [types/livekit.ts:564](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L564)
+Defined in: [types/livekit.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L564)
 
 Hard cap per MCP tool call, in milliseconds (default 30000).
 

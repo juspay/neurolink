@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CredentialValidationResult** = `object`
 
-Defined in: [types/providers.ts:322](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L322)
+Defined in: [types/providers.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L322)
 
 AWS Credential Validation Result
 
@@ -18,7 +18,7 @@ AWS Credential Validation Result
 
 > **isValid**: `boolean`
 
-Defined in: [types/providers.ts:323](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L323)
+Defined in: [types/providers.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L323)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:323](https://github.com/juspay/neurolink/blob/49
 
 > **credentialSource**: `string`
 
-Defined in: [types/providers.ts:324](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L324)
+Defined in: [types/providers.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L324)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:324](https://github.com/juspay/neurolink/blob/49
 
 > **region**: `string`
 
-Defined in: [types/providers.ts:325](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L325)
+Defined in: [types/providers.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L325)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:325](https://github.com/juspay/neurolink/blob/49
 
 > **hasExpiration**: `boolean`
 
-Defined in: [types/providers.ts:326](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L326)
+Defined in: [types/providers.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L326)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:326](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **expirationTime?**: `Date`
 
-Defined in: [types/providers.ts:327](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L327)
+Defined in: [types/providers.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L327)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:327](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:328](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L328)
+Defined in: [types/providers.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L328)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/providers.ts:328](https://github.com/juspay/neurolink/blob/49
 
 > **debugInfo**: `object`
 
-Defined in: [types/providers.ts:329](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L329)
+Defined in: [types/providers.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L329)
 
 #### accessKeyId
 

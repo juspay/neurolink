@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WorkflowValidationError** = `object`
 
-Defined in: [types/workflow.ts:478](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L478)
+Defined in: [types/workflow.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L478)
 
 Validation error
 
@@ -18,7 +18,7 @@ Validation error
 
 > **field**: `string`
 
-Defined in: [types/workflow.ts:479](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L479)
+Defined in: [types/workflow.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L479)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:479](https://github.com/juspay/neurolink/blob/490
 
 > **message**: `string`
 
-Defined in: [types/workflow.ts:480](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L480)
+Defined in: [types/workflow.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L480)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:480](https://github.com/juspay/neurolink/blob/490
 
 > **code**: `string`
 
-Defined in: [types/workflow.ts:481](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L481)
+Defined in: [types/workflow.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L481)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/workflow.ts:481](https://github.com/juspay/neurolink/blob/490
 
 > **severity**: `"error"` \| `"critical"`
 
-Defined in: [types/workflow.ts:482](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L482)
+Defined in: [types/workflow.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L482)

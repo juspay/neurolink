@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TopologyBuilder
 
-Defined in: [agent/orchestration/topology.ts:581](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L581)
+Defined in: [agent/orchestration/topology.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L581)
 
 Topology builder for fluent API
 
@@ -16,7 +16,7 @@ Topology builder for fluent API
 
 > **new TopologyBuilder**(`type`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:585](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L585)
+Defined in: [agent/orchestration/topology.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L585)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [agent/orchestration/topology.ts:585](https://github.com/juspay/neur
 
 > **addAgent**(`agent`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:592](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L592)
+Defined in: [agent/orchestration/topology.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L592)
 
 Add an agent
 
@@ -54,7 +54,7 @@ Add an agent
 
 > **addAgents**(`agents`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:600](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L600)
+Defined in: [agent/orchestration/topology.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L600)
 
 Add multiple agents
 
@@ -74,7 +74,7 @@ Add multiple agents
 
 > **setCoordinator**(`agentId`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:608](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L608)
+Defined in: [agent/orchestration/topology.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L608)
 
 Set coordinator (for star topology)
 
@@ -94,7 +94,7 @@ Set coordinator (for star topology)
 
 > **setRoot**(`agentId`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:616](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L616)
+Defined in: [agent/orchestration/topology.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L616)
 
 Set root (for hierarchical topology)
 
@@ -114,7 +114,7 @@ Set root (for hierarchical topology)
 
 > **setMaxChildren**(`max`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:624](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L624)
+Defined in: [agent/orchestration/topology.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L624)
 
 Set max children (for hierarchical topology)
 
@@ -134,7 +134,7 @@ Set max children (for hierarchical topology)
 
 > **addCustomEdge**(`sourceAgentId`, `targetAgentId`, `bidirectional?`): `TopologyBuilder`
 
-Defined in: [agent/orchestration/topology.ts:632](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L632)
+Defined in: [agent/orchestration/topology.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L632)
 
 Add custom edge
 
@@ -162,7 +162,7 @@ Add custom edge
 
 > **build**(): [`NetworkTopology`](NetworkTopology.md)
 
-Defined in: [agent/orchestration/topology.ts:651](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/orchestration/topology.ts#L651)
+Defined in: [agent/orchestration/topology.ts:651](https://github.com/juspay/neurolink/blob/release/src/lib/agent/orchestration/topology.ts#L651)
 
 Build the topology
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopResult**\<`TConversation`\> = `object`
 
-Defined in: [types/loopEngine.ts:574](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L574)
+Defined in: [types/loopEngine.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L574)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: [types/loopEngine.ts:574](https://github.com/juspay/neurolink/blob/4
 
 > **text**: `string`
 
-Defined in: [types/loopEngine.ts:575](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L575)
+Defined in: [types/loopEngine.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L575)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/loopEngine.ts:575](https://github.com/juspay/neurolink/blob/4
 
 > **toolCalls**: [`AgenticLoopToolCall`](AgenticLoopToolCall.md)[]
 
-Defined in: [types/loopEngine.ts:576](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L576)
+Defined in: [types/loopEngine.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L576)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/loopEngine.ts:576](https://github.com/juspay/neurolink/blob/4
 
 > **toolExecutions**: `object`[]
 
-Defined in: [types/loopEngine.ts:589](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L589)
+Defined in: [types/loopEngine.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L589)
 
 Every tool dispatch the loop performed, in order, including the ones that
 failed.
@@ -77,7 +77,7 @@ refactor.
 
 > **usage**: [`AgenticLoopUsage`](AgenticLoopUsage.md)
 
-Defined in: [types/loopEngine.ts:596](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L596)
+Defined in: [types/loopEngine.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L596)
 
 ---
 
@@ -85,7 +85,7 @@ Defined in: [types/loopEngine.ts:596](https://github.com/juspay/neurolink/blob/4
 
 > **finishReason**: `string`
 
-Defined in: [types/loopEngine.ts:597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L597)
+Defined in: [types/loopEngine.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L597)
 
 ---
 
@@ -93,7 +93,7 @@ Defined in: [types/loopEngine.ts:597](https://github.com/juspay/neurolink/blob/4
 
 > **rawStopReason**: `string` \| `undefined`
 
-Defined in: [types/loopEngine.ts:598](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L598)
+Defined in: [types/loopEngine.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L598)
 
 ---
 
@@ -101,4 +101,4 @@ Defined in: [types/loopEngine.ts:598](https://github.com/juspay/neurolink/blob/4
 
 > **conversation**: `TConversation`
 
-Defined in: [types/loopEngine.ts:599](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L599)
+Defined in: [types/loopEngine.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L599)

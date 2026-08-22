@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingEventEmitter** = `object`
 
-Defined in: [types/client.ts:1527](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1527)
+Defined in: [types/client.ts:1527](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1527)
 
 Streaming event emitter interface
 
@@ -20,7 +20,7 @@ Streaming event emitter interface
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1528](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1528)
+Defined in: [types/client.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1528)
 
 ##### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/client.ts:1528](https://github.com/juspay/neurolink/blob/4903
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1529](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1529)
+Defined in: [types/client.ts:1529](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1529)
 
 ##### Parameters
 
@@ -60,7 +60,7 @@ Defined in: [types/client.ts:1529](https://github.com/juspay/neurolink/blob/4903
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1530](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1530)
+Defined in: [types/client.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1530)
 
 ##### Parameters
 
@@ -80,7 +80,7 @@ Defined in: [types/client.ts:1530](https://github.com/juspay/neurolink/blob/4903
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1534](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1534)
+Defined in: [types/client.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1534)
 
 ##### Parameters
 
@@ -100,7 +100,7 @@ Defined in: [types/client.ts:1534](https://github.com/juspay/neurolink/blob/4903
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1535](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1535)
+Defined in: [types/client.ts:1535](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1535)
 
 ##### Parameters
 
@@ -120,7 +120,7 @@ Defined in: [types/client.ts:1535](https://github.com/juspay/neurolink/blob/4903
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1536)
+Defined in: [types/client.ts:1536](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1536)
 
 ##### Parameters
 
@@ -142,7 +142,7 @@ Defined in: [types/client.ts:1536](https://github.com/juspay/neurolink/blob/4903
 
 > **off**(`event`, `callback`): `void`
 
-Defined in: [types/client.ts:1537](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1537)
+Defined in: [types/client.ts:1537](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1537)
 
 #### Parameters
 
@@ -164,7 +164,7 @@ Defined in: [types/client.ts:1537](https://github.com/juspay/neurolink/blob/4903
 
 > **emit**(`event`, ...`args`): `void`
 
-Defined in: [types/client.ts:1538](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1538)
+Defined in: [types/client.ts:1538](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1538)
 
 #### Parameters
 

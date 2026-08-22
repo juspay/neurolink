@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: EnhancedToolDiscovery
 
-Defined in: [mcp/enhancedToolDiscovery.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L63)
+Defined in: [mcp/enhancedToolDiscovery.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L63)
 
 Enhanced Tool Discovery Service
 
@@ -45,7 +45,7 @@ const safeTools = discovery.getToolsBySafetyLevel("safe");
 
 > **new EnhancedToolDiscovery**(`multiServerManager?`): `EnhancedToolDiscovery`
 
-Defined in: [mcp/enhancedToolDiscovery.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L69)
+Defined in: [mcp/enhancedToolDiscovery.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L69)
 
 #### Parameters
 
@@ -67,7 +67,7 @@ Defined in: [mcp/enhancedToolDiscovery.ts:69](https://github.com/juspay/neurolin
 
 > **discoverToolsWithAnnotations**(`serverId`, `client`, `timeout?`): `Promise`\<[`ToolDiscoveryResult`](../type-aliases/ToolDiscoveryResult.md)\>
 
-Defined in: [mcp/enhancedToolDiscovery.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L77)
+Defined in: [mcp/enhancedToolDiscovery.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L77)
 
 Discover tools with automatic annotation inference
 
@@ -95,7 +95,7 @@ Discover tools with automatic annotation inference
 
 > **searchTools**(`criteria`): [`ToolSearchResult`](../type-aliases/ToolSearchResult.md)
 
-Defined in: [mcp/enhancedToolDiscovery.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L250)
+Defined in: [mcp/enhancedToolDiscovery.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L250)
 
 Search tools with advanced criteria
 
@@ -115,7 +115,7 @@ Search tools with advanced criteria
 
 > **getToolsBySafetyLevel**(`level`): [`EnhancedToolInfo`](../type-aliases/EnhancedToolInfo.md)[]
 
-Defined in: [mcp/enhancedToolDiscovery.ts:369](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L369)
+Defined in: [mcp/enhancedToolDiscovery.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L369)
 
 Get tools by safety level
 
@@ -135,7 +135,7 @@ Get tools by safety level
 
 > **getToolsRequiringConfirmation**(): [`EnhancedToolInfo`](../type-aliases/EnhancedToolInfo.md)[]
 
-Defined in: [mcp/enhancedToolDiscovery.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L391)
+Defined in: [mcp/enhancedToolDiscovery.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L391)
 
 Get tools requiring confirmation
 
@@ -149,7 +149,7 @@ Get tools requiring confirmation
 
 > **getReadOnlyTools**(): [`EnhancedToolInfo`](../type-aliases/EnhancedToolInfo.md)[]
 
-Defined in: [mcp/enhancedToolDiscovery.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L402)
+Defined in: [mcp/enhancedToolDiscovery.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L402)
 
 Get read-only tools
 
@@ -163,7 +163,7 @@ Get read-only tools
 
 > **getUnifiedTools**(): [`UnifiedTool`](../type-aliases/UnifiedTool.md)[]
 
-Defined in: [mcp/enhancedToolDiscovery.ts:411](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L411)
+Defined in: [mcp/enhancedToolDiscovery.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L411)
 
 Get unified tools from all servers
 
@@ -177,7 +177,7 @@ Get unified tools from all servers
 
 > **registerServer**(`server`): `void`
 
-Defined in: [mcp/enhancedToolDiscovery.ts:418](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L418)
+Defined in: [mcp/enhancedToolDiscovery.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L418)
 
 Register a server with the multi-server manager
 
@@ -197,7 +197,7 @@ Register a server with the multi-server manager
 
 > **updateToolAnnotations**(`serverId`, `toolName`, `annotations`): `boolean`
 
-Defined in: [mcp/enhancedToolDiscovery.ts:425](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L425)
+Defined in: [mcp/enhancedToolDiscovery.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L425)
 
 Update tool annotations
 
@@ -225,7 +225,7 @@ Update tool annotations
 
 > **checkCompatibility**(`toolName`, `serverId`, `targetVersion?`): [`CompatibilityCheckResult`](../type-aliases/CompatibilityCheckResult.md)
 
-Defined in: [mcp/enhancedToolDiscovery.ts:455](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L455)
+Defined in: [mcp/enhancedToolDiscovery.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L455)
 
 Check tool compatibility
 
@@ -253,7 +253,7 @@ Check tool compatibility
 
 > **getTool**(`serverId`, `toolName`): [`EnhancedToolInfo`](../type-aliases/EnhancedToolInfo.md) \| `undefined`
 
-Defined in: [mcp/enhancedToolDiscovery.ts:518](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L518)
+Defined in: [mcp/enhancedToolDiscovery.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L518)
 
 Get tool by key
 
@@ -277,7 +277,7 @@ Get tool by key
 
 > **getAllTools**(): [`EnhancedToolInfo`](../type-aliases/EnhancedToolInfo.md)[]
 
-Defined in: [mcp/enhancedToolDiscovery.ts:525](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L525)
+Defined in: [mcp/enhancedToolDiscovery.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L525)
 
 Get all tools
 
@@ -291,7 +291,7 @@ Get all tools
 
 > **getServerTools**(`serverId`): [`EnhancedToolInfo`](../type-aliases/EnhancedToolInfo.md)[]
 
-Defined in: [mcp/enhancedToolDiscovery.ts:532](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L532)
+Defined in: [mcp/enhancedToolDiscovery.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L532)
 
 Get tools for a server
 
@@ -311,7 +311,7 @@ Get tools for a server
 
 > **clearServerTools**(`serverId`): `void`
 
-Defined in: [mcp/enhancedToolDiscovery.ts:546](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L546)
+Defined in: [mcp/enhancedToolDiscovery.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L546)
 
 Clear tools for a server
 
@@ -331,7 +331,7 @@ Clear tools for a server
 
 > **getStatistics**(): `object`
 
-Defined in: [mcp/enhancedToolDiscovery.ts:567](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/enhancedToolDiscovery.ts#L567)
+Defined in: [mcp/enhancedToolDiscovery.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/enhancedToolDiscovery.ts#L567)
 
 Get statistics
 

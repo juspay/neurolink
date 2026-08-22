@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RedisSkillStore
 
-Defined in: [skills/skillStoreRedis.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L27)
+Defined in: [skills/skillStoreRedis.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L27)
 
 ## Implements
 
@@ -18,7 +18,7 @@ Defined in: [skills/skillStoreRedis.ts:27](https://github.com/juspay/neurolink/b
 
 > **new RedisSkillStore**(`config`): `RedisSkillStore`
 
-Defined in: [skills/skillStoreRedis.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L39)
+Defined in: [skills/skillStoreRedis.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L39)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [skills/skillStoreRedis.ts:39](https://github.com/juspay/neurolink/b
 
 > **getResource**(`id`, `resourcePath`): `Promise`\<`string` \| `null`\>
 
-Defined in: [skills/skillStoreRedis.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L70)
+Defined in: [skills/skillStoreRedis.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L70)
 
 Optional: fetch an auxiliary resource file bundled with a skill.
 `resourcePath` is relative to the skill (e.g. "references/forms.md").
@@ -67,7 +67,7 @@ support simply omit this method.
 
 > **get**(`id`): `Promise`\<[`SkillDefinition`](../type-aliases/SkillDefinition.md) \| `null`\>
 
-Defined in: [skills/skillStoreRedis.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L79)
+Defined in: [skills/skillStoreRedis.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L79)
 
 Fetch one skill (with instructions) by id. Null when absent.
 
@@ -91,7 +91,7 @@ Fetch one skill (with instructions) by id. Null when absent.
 
 > **put**(`skill`): `Promise`\<`void`\>
 
-Defined in: [skills/skillStoreRedis.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L85)
+Defined in: [skills/skillStoreRedis.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L85)
 
 Create or replace a skill.
 
@@ -115,7 +115,7 @@ Create or replace a skill.
 
 > **delete**(`id`): `Promise`\<`void`\>
 
-Defined in: [skills/skillStoreRedis.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L91)
+Defined in: [skills/skillStoreRedis.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L91)
 
 Hard-remove a skill from storage. (Soft deletes go through put().)
 
@@ -139,7 +139,7 @@ Hard-remove a skill from storage. (Soft deletes go through put().)
 
 > **index**(): `Promise`\<[`SkillIndexItem`](../type-aliases/SkillIndexItem.md)[]\>
 
-Defined in: [skills/skillStoreRedis.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/skills/skillStoreRedis.ts#L96)
+Defined in: [skills/skillStoreRedis.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillStoreRedis.ts#L96)
 
 List index entries (no instructions) for all stored skills.
 

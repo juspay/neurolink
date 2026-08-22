@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HybridSearchConfig** = `object`
 
-Defined in: [types/rag.ts:1300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1300)
+Defined in: [types/rag.ts:1300](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1300)
 
 Hybrid search configuration
 
@@ -18,7 +18,7 @@ Hybrid search configuration
 
 > `optional` **vectorWeight?**: `number`
 
-Defined in: [types/rag.ts:1302](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1302)
+Defined in: [types/rag.ts:1302](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1302)
 
 Weight for vector search (0-1)
 
@@ -28,7 +28,7 @@ Weight for vector search (0-1)
 
 > `optional` **bm25Weight?**: `number`
 
-Defined in: [types/rag.ts:1304](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1304)
+Defined in: [types/rag.ts:1304](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1304)
 
 Weight for BM25 search (0-1)
 
@@ -38,7 +38,7 @@ Weight for BM25 search (0-1)
 
 > `optional` **fusionMethod?**: `"rrf"` \| `"linear"`
 
-Defined in: [types/rag.ts:1306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1306)
+Defined in: [types/rag.ts:1306](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1306)
 
 Fusion method
 
@@ -48,7 +48,7 @@ Fusion method
 
 > `optional` **rrfK?**: `number`
 
-Defined in: [types/rag.ts:1308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1308)
+Defined in: [types/rag.ts:1308](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1308)
 
 RRF k parameter
 
@@ -58,7 +58,7 @@ RRF k parameter
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1310](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1310)
+Defined in: [types/rag.ts:1310](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1310)
 
 Number of results to return
 
@@ -68,7 +68,7 @@ Number of results to return
 
 > `optional` **enableReranking?**: `boolean`
 
-Defined in: [types/rag.ts:1312](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1312)
+Defined in: [types/rag.ts:1312](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1312)
 
 Enable reranking
 
@@ -78,6 +78,6 @@ Enable reranking
 
 > `optional` **reranker?**: [`RerankerConfig`](RerankerConfig.md)
 
-Defined in: [types/rag.ts:1314](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1314)
+Defined in: [types/rag.ts:1314](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1314)
 
 Reranker configuration

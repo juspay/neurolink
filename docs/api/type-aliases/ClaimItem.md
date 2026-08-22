@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaimItem** = `object`
 
-Defined in: [types/scorer.ts:659](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L659)
+Defined in: [types/scorer.ts:659](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L659)
 
 Claim row reported by the faithfulness scorer.
 
@@ -18,7 +18,7 @@ Claim row reported by the faithfulness scorer.
 
 > `optional` **claim?**: `string`
 
-Defined in: [types/scorer.ts:660](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L660)
+Defined in: [types/scorer.ts:660](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L660)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/scorer.ts:660](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **supported?**: `boolean`
 
-Defined in: [types/scorer.ts:661](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L661)
+Defined in: [types/scorer.ts:661](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L661)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/scorer.ts:661](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **evidence?**: `string`
 
-Defined in: [types/scorer.ts:662](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L662)
+Defined in: [types/scorer.ts:662](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L662)

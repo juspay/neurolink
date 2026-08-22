@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpanProcessor** = `object`
 
-Defined in: [types/observability.ts:234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L234)
+Defined in: [types/observability.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L234)
 
 Span processor type for composable span processing pipelines.
 
@@ -18,7 +18,7 @@ Span processor type for composable span processing pipelines.
 
 > `readonly` **name**: `string`
 
-Defined in: [types/observability.ts:236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L236)
+Defined in: [types/observability.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L236)
 
 Processor name for identification
 
@@ -28,7 +28,7 @@ Processor name for identification
 
 > **process**(`span`): [`SpanData`](SpanData.md) \| `null`
 
-Defined in: [types/observability.ts:239](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L239)
+Defined in: [types/observability.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L239)
 
 Process a span before export, returns null to drop the span
 
@@ -48,7 +48,7 @@ Process a span before export, returns null to drop the span
 
 > `optional` **processAsync**(`span`): `Promise`\<[`SpanData`](SpanData.md) \| `null`\>
 
-Defined in: [types/observability.ts:242](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L242)
+Defined in: [types/observability.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L242)
 
 Optional async processing (for external lookups, etc.)
 
@@ -68,7 +68,7 @@ Optional async processing (for external lookups, etc.)
 
 > `optional` **shutdown**(): `Promise`\<`void`\>
 
-Defined in: [types/observability.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L245)
+Defined in: [types/observability.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L245)
 
 Shutdown the processor (cleanup resources)
 

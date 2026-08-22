@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderModelManifest** = `object`
 
-Defined in: [types/model.ts:343](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L343)
+Defined in: [types/model.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L343)
 
 One provider's complete model manifest: every model NeuroLink knows about
 for that provider, plus the provider-wide fallback used when a caller
@@ -21,7 +21,7 @@ model, or a brand-new release the manifest hasn't been updated for yet).
 
 > **defaultContextWindow**: `number`
 
-Defined in: [types/model.ts:345](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L345)
+Defined in: [types/model.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L345)
 
 Used for `_default`-key lookups and providers with no named-model list.
 
@@ -31,7 +31,7 @@ Used for `_default`-key lookups and providers with no named-model list.
 
 > `optional` **familyRules?**: [`ManifestFamilyRule`](ManifestFamilyRule.md)[]
 
-Defined in: [types/model.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L347)
+Defined in: [types/model.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L347)
 
 Applied, in order, to the resolved entry (see manifestRegistry.ts).
 
@@ -41,6 +41,6 @@ Applied, in order, to the resolved entry (see manifestRegistry.ts).
 
 > **models**: `Record`\<`string`, [`ProviderModelManifestEntry`](ProviderModelManifestEntry.md)\>
 
-Defined in: [types/model.ts:349](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L349)
+Defined in: [types/model.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L349)
 
 Keyed by canonical model id (the same id `ModelInfo.id` / AIProvider calls use).

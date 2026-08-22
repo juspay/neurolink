@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: GoogleSTT
 
-Defined in: [voice/providers/GoogleSTT.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L33)
+Defined in: [voice/providers/GoogleSTT.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L33)
 
 Google Cloud Speech-to-Text Handler
 
@@ -26,7 +26,7 @@ https://cloud.google.com/speech-to-text/docs
 
 > **new GoogleSTT**(`apiKey?`, `credentialsPath?`): `GoogleSTT`
 
-Defined in: [voice/providers/GoogleSTT.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L50)
+Defined in: [voice/providers/GoogleSTT.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L50)
 
 #### Parameters
 
@@ -48,7 +48,7 @@ Defined in: [voice/providers/GoogleSTT.ts:50](https://github.com/juspay/neurolin
 
 > `readonly` **maxAudioDuration**: `60` = `60`
 
-Defined in: [voice/providers/GoogleSTT.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L42)
+Defined in: [voice/providers/GoogleSTT.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L42)
 
 Maximum audio duration in seconds for the synchronous recognize endpoint.
 For longer audio, use the async longrunningrecognize endpoint (not yet implemented).
@@ -63,7 +63,7 @@ For longer audio, use the async longrunningrecognize endpoint (not yet implement
 
 > `readonly` **supportsStreaming**: `false` = `false`
 
-Defined in: [voice/providers/GoogleSTT.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L48)
+Defined in: [voice/providers/GoogleSTT.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L48)
 
 True streaming requires gRPC (not yet implemented).
 transcribeStream() uses a chunk-and-batch workaround.
@@ -78,7 +78,7 @@ transcribeStream() uses a chunk-and-batch workaround.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/GoogleSTT.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L70)
+Defined in: [voice/providers/GoogleSTT.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L70)
 
 #### Returns
 
@@ -94,7 +94,7 @@ Defined in: [voice/providers/GoogleSTT.ts:70](https://github.com/juspay/neurolin
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
 
-Defined in: [voice/providers/GoogleSTT.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L74)
+Defined in: [voice/providers/GoogleSTT.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L74)
 
 #### Returns
 
@@ -110,7 +110,7 @@ Defined in: [voice/providers/GoogleSTT.ts:74](https://github.com/juspay/neurolin
 
 > **getSupportedLanguages**(): `Promise`\<[`STTLanguage`](../type-aliases/STTLanguage.md)[]\>
 
-Defined in: [voice/providers/GoogleSTT.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L78)
+Defined in: [voice/providers/GoogleSTT.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L78)
 
 #### Returns
 
@@ -126,7 +126,7 @@ Defined in: [voice/providers/GoogleSTT.ts:78](https://github.com/juspay/neurolin
 
 > **transcribe**(`audio`, `options?`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
 
-Defined in: [voice/providers/GoogleSTT.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L174)
+Defined in: [voice/providers/GoogleSTT.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L174)
 
 #### Parameters
 
@@ -152,7 +152,7 @@ Defined in: [voice/providers/GoogleSTT.ts:174](https://github.com/juspay/neuroli
 
 > **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
 
-Defined in: [voice/providers/GoogleSTT.ts:382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/GoogleSTT.ts#L382)
+Defined in: [voice/providers/GoogleSTT.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/GoogleSTT.ts#L382)
 
 Streaming transcription (placeholder - requires WebSocket/gRPC)
 

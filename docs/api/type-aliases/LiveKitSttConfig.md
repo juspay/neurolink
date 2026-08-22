@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitSttConfig** = `object`
 
-Defined in: [types/livekit.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L77)
+Defined in: [types/livekit.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L77)
 
 Speech-to-text plugin selection for the LiveKit worker.
 
@@ -18,7 +18,7 @@ Speech-to-text plugin selection for the LiveKit worker.
 
 > **provider**: `string`
 
-Defined in: [types/livekit.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L78)
+Defined in: [types/livekit.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L78)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/livekit.ts:78](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **model?**: `string`
 
-Defined in: [types/livekit.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L79)
+Defined in: [types/livekit.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L79)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/livekit.ts:79](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **language?**: `string`
 
-Defined in: [types/livekit.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L80)
+Defined in: [types/livekit.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L80)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/livekit.ts:80](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **maxEndpointDelayMs?**: `number`
 
-Defined in: [types/livekit.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L86)
+Defined in: [types/livekit.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L86)
 
 Soniox only: maximum delay (ms) between speech cessation and the STT
 endpoint. Raise it so Soniox does not finalize on short pauses — that lets

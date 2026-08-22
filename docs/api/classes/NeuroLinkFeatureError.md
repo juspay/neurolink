@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NeuroLinkFeatureError
 
-Defined in: [core/infrastructure/baseError.ts:3](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L3)
+Defined in: [core/infrastructure/baseError.ts:3](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L3)
 
 ## Extends
 
@@ -18,7 +18,7 @@ Defined in: [core/infrastructure/baseError.ts:3](https://github.com/juspay/neuro
 
 > **new NeuroLinkFeatureError**(`message`, `code`, `feature`, `options?`): `NeuroLinkFeatureError`
 
-Defined in: [core/infrastructure/baseError.ts:10](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L10)
+Defined in: [core/infrastructure/baseError.ts:10](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L10)
 
 #### Parameters
 
@@ -62,7 +62,7 @@ Defined in: [core/infrastructure/baseError.ts:10](https://github.com/juspay/neur
 
 > `readonly` **code**: `string`
 
-Defined in: [core/infrastructure/baseError.ts:4](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L4)
+Defined in: [core/infrastructure/baseError.ts:4](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L4)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [core/infrastructure/baseError.ts:4](https://github.com/juspay/neuro
 
 > `readonly` **feature**: `string`
 
-Defined in: [core/infrastructure/baseError.ts:5](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L5)
+Defined in: [core/infrastructure/baseError.ts:5](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L5)
 
 ---
 
@@ -78,7 +78,7 @@ Defined in: [core/infrastructure/baseError.ts:5](https://github.com/juspay/neuro
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [core/infrastructure/baseError.ts:6](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L6)
+Defined in: [core/infrastructure/baseError.ts:6](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L6)
 
 ---
 
@@ -86,7 +86,7 @@ Defined in: [core/infrastructure/baseError.ts:6](https://github.com/juspay/neuro
 
 > `readonly` `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [core/infrastructure/baseError.ts:7](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L7)
+Defined in: [core/infrastructure/baseError.ts:7](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L7)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [core/infrastructure/baseError.ts:7](https://github.com/juspay/neuro
 
 > `readonly` `optional` **cause?**: `Error`
 
-Defined in: [core/infrastructure/baseError.ts:8](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/baseError.ts#L8)
+Defined in: [core/infrastructure/baseError.ts:8](https://github.com/juspay/neurolink/blob/release/src/lib/core/infrastructure/baseError.ts#L8)
 
 #### Overrides
 

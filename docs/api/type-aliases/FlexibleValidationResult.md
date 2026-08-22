@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FlexibleValidationResult** = `object`
 
-Defined in: [types/mcp.ts:812](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L812)
+Defined in: [types/mcp.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L812)
 
 Flexible validation result
 Moved from src/lib/mcp/flexibleToolValidator.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/flexibleToolValidator.ts
 
 > **isValid**: `boolean`
 
-Defined in: [types/mcp.ts:814](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L814)
+Defined in: [types/mcp.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L814)
 
 Whether validation passed
 
@@ -29,7 +29,7 @@ Whether validation passed
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:817](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L817)
+Defined in: [types/mcp.ts:817](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L817)
 
 Validation error message (for simple cases)
 
@@ -39,7 +39,7 @@ Validation error message (for simple cases)
 
 > `optional` **warnings?**: `string`[]
 
-Defined in: [types/mcp.ts:820](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L820)
+Defined in: [types/mcp.ts:820](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L820)
 
 Validation warnings
 
@@ -49,7 +49,7 @@ Validation warnings
 
 > `optional` **normalizedParams?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/mcp.ts:823](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L823)
+Defined in: [types/mcp.ts:823](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L823)
 
 Normalized parameters (if valid)
 
@@ -59,7 +59,7 @@ Normalized parameters (if valid)
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/mcp.ts:826](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L826)
+Defined in: [types/mcp.ts:826](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L826)
 
 Validation metadata
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OrchestratorConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:1502](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1502)
+Defined in: [types/agentNetwork.ts:1502](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1502)
 
 Orchestrator configuration
 
@@ -18,7 +18,7 @@ Orchestrator configuration
 
 > `optional` **defaultMode?**: [`OrchestrationMode`](OrchestrationMode.md)
 
-Defined in: [types/agentNetwork.ts:1504](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1504)
+Defined in: [types/agentNetwork.ts:1504](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1504)
 
 Default orchestration mode
 
@@ -28,7 +28,7 @@ Default orchestration mode
 
 > `optional` **maxConcurrentExecutions?**: `number`
 
-Defined in: [types/agentNetwork.ts:1507](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1507)
+Defined in: [types/agentNetwork.ts:1507](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1507)
 
 Maximum concurrent network executions
 
@@ -38,7 +38,7 @@ Maximum concurrent network executions
 
 > `optional` **defaultTimeout?**: `number`
 
-Defined in: [types/agentNetwork.ts:1510](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1510)
+Defined in: [types/agentNetwork.ts:1510](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1510)
 
 Default execution timeout
 
@@ -48,7 +48,7 @@ Default execution timeout
 
 > `optional` **enableHierarchy?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1513](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1513)
+Defined in: [types/agentNetwork.ts:1513](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1513)
 
 Enable hierarchical networks
 
@@ -58,7 +58,7 @@ Enable hierarchical networks
 
 > `optional` **maxHierarchyDepth?**: `number`
 
-Defined in: [types/agentNetwork.ts:1516](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1516)
+Defined in: [types/agentNetwork.ts:1516](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1516)
 
 Maximum hierarchy depth
 
@@ -68,7 +68,7 @@ Maximum hierarchy depth
 
 > `optional` **enableSharedMessageBus?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1519](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1519)
+Defined in: [types/agentNetwork.ts:1519](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1519)
 
 Enable shared message bus
 
@@ -78,7 +78,7 @@ Enable shared message bus
 
 > `optional` **resourceLimits?**: `object`
 
-Defined in: [types/agentNetwork.ts:1522](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1522)
+Defined in: [types/agentNetwork.ts:1522](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1522)
 
 Resource limits
 
