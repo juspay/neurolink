@@ -3057,7 +3057,7 @@ export type ProxyTelemetryAction =
 // =============================================================================
 
 /** Wire format a proxy request is using. */
-export type ProxyFormat = "claude" | "openai";
+export type ProxyFormat = "claude" | "openai" | "gemini";
 
 /**
  * Common adapter interface that hides the differences between
@@ -3206,6 +3206,42 @@ export type OpenAIErrorResponse = {
 };
 
 /** Parsed OpenAI request — intermediate form for NeuroLink pipeline. */
+/**
+ * A Gemini `generateContent` request, reduced to what translation needs.
+ *
+ * Google's shape differs from both others in three ways that matter here:
+ * roles are `user`/`model` rather than `user`/`assistant`, the system prompt
+ * lives in a sibling `systemInstruction` rather than in the turn list, and
+ * generation settings are nested under `generationConfig` instead of sitting
+ * at the top level.
+ */
+/** One part of a Gemini `contents[].parts[]` entry. */
+export type ProxyGeminiPart = { text?: string; inlineData?: { data?: string } };
+
+/** One turn in a Gemini `contents[]` array. */
+export type ProxyGeminiContent = { role?: string; parts?: ProxyGeminiPart[] };
+
+export type ParsedGeminiRequest = {
+  model: string;
+  maxTokens?: number;
+  temperature?: number;
+  topP?: number;
+  systemPrompt?: string;
+  stream: boolean;
+  prompt: string;
+  images: string[];
+  conversationMessages: Array<{ role: string; content: string }>;
+  tools: Record<
+    string,
+    {
+      description?: string;
+      inputSchema: unknown;
+      execute?: (...args: unknown[]) => unknown;
+    }
+  >;
+  stopSequences?: string[];
+};
+
 export type ParsedOpenAIRequest = {
   model: string;
   maxTokens?: number;

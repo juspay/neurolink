@@ -1516,6 +1516,8 @@ export async function createProxyStartApp(params: {
     await import("../../lib/server/routes/openaiProxyRoutes.js");
   const { createCodexProxyRoutes } =
     await import("../../lib/server/routes/codexProxyRoutes.js");
+  const { createGeminiProxyRoutes } =
+    await import("../../lib/server/routes/geminiProxyRoutes.js");
   const { logBodyCapture, logRequest } =
     await import("../../lib/proxy/requestLogger.js");
   const { recordFinalError } = await import("../../lib/proxy/usageStats.js");
@@ -1674,10 +1676,17 @@ export async function createProxyStartApp(params: {
     runtimeConfigProvider,
   );
   const codexRouteGroup = createCodexProxyRoutes("");
+  const geminiRouteGroup = createGeminiProxyRoutes(
+    params.modelRouter,
+    "",
+    params.port,
+    runtimeConfigProvider,
+  );
   const allProxyRoutes = [
     ...routeGroup.routes,
     ...openaiRouteGroup.routes,
     ...codexRouteGroup.routes,
+    ...geminiRouteGroup.routes,
   ];
 
   for (const route of allProxyRoutes) {

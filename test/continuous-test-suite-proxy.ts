@@ -1495,6 +1495,161 @@ async function testOpenCodeWriterReportsWhetherItWrote(): Promise<boolean> {
   }
 }
 
+// ============================================================================
+// Tests: Gemini CLI Door (GOOGLE_GEMINI_BASE_URL round-trip)
+// ============================================================================
+
+/**
+ * The Gemini CLI (and any `@google/genai`-based client) honours
+ * `GOOGLE_GEMINI_BASE_URL` and, for a non-Vertex client, builds requests as
+ * `{baseUrl}/v1beta/models/{model}:generateContent` — traced from
+ * `getBaseUrl()` / `tModel()` / the `'{model}:generateContent'` template in
+ * `@google/genai`'s bundled client (`node_modules/@google/genai/dist/node/index.cjs`).
+ * That is also the path `src/lib/proxy/geminiFormat.ts`'s header comment says
+ * was "verified live" against this proxy before any route existed, returning
+ * a 404.
+ *
+ * The response shape asserted below matches `buildGeminiResponse()` in
+ * `src/lib/proxy/geminiFormat.ts` exactly: `candidates[0].content.parts[0].text`
+ * plus `usageMetadata.{promptTokenCount,candidatesTokenCount,totalTokenCount}`.
+ *
+ * No Google credential exists in this suite's environment — `GOOGLE_API_KEY`
+ * is deliberately stripped from `process.env` for every non-live run (see the
+ * `LIVE_PROXY_TESTS_ALLOWED` block near the top of this file), and this suite
+ * has no Google/Vertex equivalent of `hasValidCredentials()`. So this test
+ * cannot gate on "do we have creds" the way the Claude `/v1/messages` tests
+ * do — it has to tell "route missing" apart from "route reached, no account
+ * configured" purely from the live HTTP status, per the table in the design
+ * notes.
+ */
+async function testGeminiDoorGenerateContent(): Promise<boolean | null> {
+  try {
+    // --- The assertion that prevents a vacuous pass -------------------------
+    // Before trusting a 404 (or its absence) on the real path, prove the
+    // proxy's default "no route matched" behavior is actually live on this
+    // build: an unrelated, never-registered path must itself 404. If it
+    // doesn't — e.g. some catch-all started answering everything with a
+    // non-404 status — a non-404 on the real Gemini path below would prove
+    // nothing about routing, so this guard fails loudly instead of letting
+    // that happen silently.
+    const sentinel = await fetchProxy(
+      "/__gemini_door_e2e_sentinel_never_registered__",
+    );
+    if (sentinel.status !== 404) {
+      log(
+        `Baseline sentinel path returned ${sentinel.status}, not 404 — ` +
+          "cannot trust 404 as a 'route missing' signal on this build",
+        "red",
+      );
+      return false;
+    }
+
+    // --- Drive the door the way the Gemini CLI does -------------------------
+    const model = process.env.GOOGLE_GEMINI_TEST_MODEL || "gemini-2.5-flash";
+    const resp = await fetchProxy(`/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        // @google/genai always sends this once an apiKey is configured, even
+        // a throwaway one when pointed at a custom base URL. The Claude and
+        // Codex doors on this proxy never trust the client's own credential
+        // and route through server-managed accounts instead — the Gemini
+        // door is expected to do the same, so this value is inert either way.
+        "x-goog-api-key": "neurolink-proxy-e2e-placeholder",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: "Reply with exactly: PROXY_TEST_OK" }],
+          },
+        ],
+        generationConfig: { maxOutputTokens: 64, temperature: 0 },
+      }),
+    });
+
+    // A real, well-known model id is used deliberately, not a synthetic one:
+    // `buildGeminiErrorResponse` in geminiFormat.ts takes an arbitrary status,
+    // so a *wired* door could in principle answer an unrecognized model with
+    // a legitimate 404 of its own (mirroring Google's real "model not found"
+    // error). A model the door should recognize keeps a 404 here attributable
+    // to "no route" rather than "bad model" — though this isn't a 100%
+    // guarantee against that collision.
+    if (resp.status === 404) {
+      log(
+        "Gemini door returned 404 — /v1beta/models/:model:generateContent " +
+          "is not routed on this proxy build",
+        "red",
+      );
+      return false;
+    }
+
+    if (!resp.ok) {
+      // No Google account can exist in this suite's isolated TEST_HOME, and
+      // GOOGLE_API_KEY is stripped for every non-live run. Reaching the door
+      // and failing downstream (auth, "no accounts configured", upstream
+      // 5xx, ...) is the expected result without credentials — it proves the
+      // route matched, so it must not fail the test. Only a 404 above, or a
+      // 200 with the wrong body below, does that.
+      const errText = await resp.text();
+      log(
+        `Gemini door reachable but returned ${resp.status} without ` +
+          `configured Google accounts (expected): ${errText.slice(0, 200)}`,
+        "yellow",
+      );
+      return null;
+    }
+
+    // --- Route matched AND produced a real answer (live creds only) --------
+    const body = (await resp.json()) as {
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> };
+      }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+    };
+
+    const text = body.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (typeof text !== "string" || text.length === 0) {
+      log(
+        "Gemini door returned 200 but candidates[0].content.parts[0].text " +
+          `is missing/empty: ${JSON.stringify(body).slice(0, 200)}`,
+        "red",
+      );
+      return false;
+    }
+
+    const usage = body.usageMetadata;
+    if (
+      typeof usage?.promptTokenCount !== "number" ||
+      typeof usage?.candidatesTokenCount !== "number" ||
+      typeof usage?.totalTokenCount !== "number"
+    ) {
+      log(
+        "Gemini door returned 200 but usageMetadata is missing " +
+          "promptTokenCount/candidatesTokenCount/totalTokenCount",
+        "red",
+      );
+      return false;
+    }
+
+    log(
+      `Gemini door round-trip OK (model=${model}): "${text.slice(0, 60)}"`,
+      "green",
+    );
+    return true;
+  } catch (err) {
+    log(
+      `Gemini door test error: ${err instanceof Error ? err.message : String(err)}`,
+      "red",
+    );
+    return false;
+  }
+}
+
 /**
  * Codex was the one configurator with no apply/restore round-trip test.
  *
@@ -5534,6 +5689,16 @@ const tests: TestFunction[] = [
     fn: testCodexConfiguratorRoundTrip,
     category: "proxy-config",
   },
+  // Gemini CLI door: GOOGLE_GEMINI_BASE_URL round-trip through
+  // /v1beta/models/:model:generateContent (SKIPs without a Google account;
+  // FAILs only on 404 or a malformed 200)
+  {
+    name: "Gemini Door: generateContent",
+    fn: testGeminiDoorGenerateContent,
+    category: "proxy-api",
+  },
+
+  // Account Management,
   {
     name: "Proxy clients: Qwen apply/restore round-trips a real settings file",
     fn: testQwenConfiguratorRoundTrip,
