@@ -529,6 +529,64 @@ equivalent, so that state must be persisted to disk.
 
 ---
 
+## 7b. Feasibility, verified live (2026-08-22)
+
+Four rows the audit left unresolved were tested against a real proxy on this
+machine rather than reasoned about. The method is the one that refuted Cursor:
+start `neurolink proxy start --port 9911`, point the CLI's documented override
+at it, run one trivial command, and see whether anything arrives.
+
+| CLI                    | Override                 | Result                                                                          |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| **Gemini CLI** 0.53.0  | `GOOGLE_GEMINI_BASE_URL` | **Honoured — traffic arrives.** Verdict upgraded from assumed to verified.      |
+| **Amp** 0.0.1780291930 | `AMP_URL`                | **Honoured — but not a config-writer CLI.**                                     |
+| **Hermes Agent**       | —                        | Cannot be verified: not installed, no binary and no config dir on this machine. |
+| **Grok CLI**           | —                        | Cannot be verified: not installed; two rival npm packages claim the name.       |
+
+### Gemini CLI — the override is real; the door is what is missing
+
+With `GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:9911` the CLI reached the proxy
+and failed with `ModelNotFoundError: 404 Not Found` from
+`classifyGoogleError`. That is the correct answer from a proxy with no
+`generateContent` route: the redirect worked, and there was nothing to answer
+it.
+
+So the remaining work is exactly §4's new-wire-format list and nothing more —
+no vendor cooperation is needed, and the override does not have to be
+discovered or negotiated. Two operational notes for whoever builds it: the CLI
+refuses to run outside a trusted directory (`--skip-trust` or
+`GEMINI_CLI_TRUST_WORKSPACE=true` for headless testing), and it issues a
+`generateJson` call during startup, so the door has to answer more than just
+the user's turn.
+
+### Amp — override honoured, but it brings its own front door
+
+`AMP_URL` is genuinely live, unlike Cursor's inert variables: pointed at the
+proxy, Amp built its login URL against it —
+`http://127.0.0.1:9911/auth/cli-login?authToken=…` — and waited for a code.
+
+That is also the finding. Amp does not authenticate with a bearer token the way
+the five live CLIs do; it expects an OAuth-style CLI login flow at its own
+endpoint before any API traffic. Onboarding it therefore means implementing
+Amp's auth surface, not writing a config file, which puts it in the
+new-wire-format class with Gemini rather than the config-writer class. Its
+bundle vendors Google's GenAI SDK, so `generateContent` strings inside it
+describe a dependency and not Amp's own wire — worth knowing before someone
+greps for them and concludes otherwise.
+
+### Hermes and Grok — unverifiable here, and that is the finding
+
+Neither is installed: no binary on `PATH`, no `~/.hermes` or `~/.config/hermes`,
+nothing under any package root. The audit's "easy (unverified on disk)" verdict
+for Hermes remains exactly that — it was never validated, and the
+`ANTHROPIC_BASE_URL` claim comes from documentation rather than from a bundle.
+
+Recording this rather than leaving the rows ambiguous: the blocker is
+availability, not difficulty, and the first step for either is installing it —
+not writing a configurator against a guessed config surface.
+
+---
+
 ## 8. Defects
 
 Eleven filed on `juspay/neurolink`. Eight are fixed and released (v11.13.0 and
