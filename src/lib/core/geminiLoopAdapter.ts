@@ -28,10 +28,10 @@ import type {
   GeminiTurnContent,
 } from "../types/index.js";
 import type { Tool } from "../types/index.js";
+import { guardToolExecutor } from "./toolExecutionGuards.js";
 import { resolveLiveTool } from "../tools/toolDiscovery.js";
 import {
   collectStreamChunksIncremental,
-  guardToolExecutor,
   extractTextFromParts,
   mapGeminiFinishReason,
   pushModelResponseToHistory,

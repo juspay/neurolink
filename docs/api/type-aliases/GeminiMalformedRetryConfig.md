@@ -8,7 +8,7 @@
 
 > **GeminiMalformedRetryConfig** = \{ `enableMalformedRetry`: `true`; `buildMalformedRetryNote`: (`conversation`, `step`) => [`GeminiTurnContent`](GeminiTurnContent.md)[]; \} \| \{ `enableMalformedRetry?`: `false`; `buildMalformedRetryNote?`: `never`; \}
 
-Defined in: [types/loopEngine.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L527)
+Defined in: [types/loopEngine.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L541)
 
 Opt in to the single MALFORMED_FUNCTION_CALL retry.
 
