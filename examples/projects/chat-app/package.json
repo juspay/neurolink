@@ -21,14 +21,14 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
-    "@juspay/neurolink": "^8.32.0",
+    "@juspay/neurolink": "^11.15.6",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
-    "@types/node": "^20.10.0",
+    "@types/node": "^22.20.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.2"
   },
