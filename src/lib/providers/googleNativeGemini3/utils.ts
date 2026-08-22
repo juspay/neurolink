@@ -641,8 +641,12 @@ export function guardToolExecutor(
   guards: GeminiToolExecutionGuards,
 ): (args: Record<string, unknown>, opts: unknown) => Promise<unknown> {
   return async (args: Record<string, unknown>, opts: unknown) => {
-    const call = () =>
+    const invoke = () =>
       Promise.resolve(execute(args, opts as Parameters<typeof execute>[1]));
+    // The span wraps the CALL, not the guard: a timeout or an abort is a fact
+    // about this tool invocation and belongs inside its observation.
+    const wrapInSpan = guards.withToolSpan;
+    const call = wrapInSpan ? () => wrapInSpan(name, invoke) : invoke;
     guards.onProgress?.();
     try {
       const raced = guards.abortSignal

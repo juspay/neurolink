@@ -85,6 +85,7 @@ import type {
 import { calculateCost } from "../../utils/pricing.js";
 import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
+import type { AgenticLoopReclaimResult } from "../../types/index.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
 import {
   createAnthropicConfig,
@@ -1941,7 +1942,9 @@ export class AnthropicProvider extends BaseProvider {
        */
       const planReclaim = (
         conversation: Anthropic.Messages.MessageParam[],
-      ): Anthropic.Messages.MessageParam[] | undefined => {
+      ):
+        | AgenticLoopReclaimResult<Anthropic.Messages.MessageParam[]>
+        | undefined => {
         const reclaim = planAnthropicLoopReclaim({
           conversation,
           availableInputTokens: getAvailableInputTokens(
@@ -2015,12 +2018,12 @@ export class AnthropicProvider extends BaseProvider {
             content: [{ type: "text", text: ANTHROPIC_ELISION_NOTE }],
           });
         }
-        return rebuilt;
+        return { conversation: rebuilt };
       };
 
       const buildParams = (
         conversation: Anthropic.Messages.MessageParam[],
-      ): Anthropic.Messages.MessageCreateParams => {
+      ): Anthropic.Messages.MessageCreateParamsNonStreaming => {
         // Mid-turn discovery sync: search_tools (tools.discovery) hydrates
         // new tools into toolsRecord between steps; Claude only calls tools
         // declared in the request, so advertise them now.
@@ -2063,7 +2066,10 @@ export class AnthropicProvider extends BaseProvider {
           model: modelId,
           messages: cachedConversation,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxTokens),
-          stream: true,
+          // No `stream: true` here: executeStep sets it when it calls
+          // messages.create, so declaring it made the caller assert a literal
+          // the adapter immediately overwrites — and forced this whole params
+          // object into the streaming variant for a field it does not own.
           ...(payload.system ? { system: payload.system } : {}),
           ...(streamSamplingParams.temperature !== undefined
             ? { temperature: streamSamplingParams.temperature }
