@@ -353,16 +353,22 @@ export type AnthropicLoopAdapterConfig<
 };
 
 /**
- * The three things a native Gemini loop wraps around every tool call that the
- * shared engine does not do itself.
+ * The things a native loop wraps around every tool call that the shared engine
+ * does not do itself.
  *
- * All optional, and the whole object is optional, because the two Gemini
- * providers differ here: Vertex bounds tool execution and runs a stall
- * watchdog, AI Studio does neither. Passing nothing leaves an executor exactly
- * as the caller supplied it, so this cannot quietly give AI Studio behaviour
- * its hand-rolled loops never had.
+ * NOT Gemini-specific, despite where this started. Both Vertex+Claude loops
+ * apply these guards directly via `guardToolExecutor`, and the Gemini adapter
+ * applies them to hydrated tools, so the former `GeminiToolExecutionGuards`
+ * name described the first caller rather than the contract — and pointed the
+ * next reader at the wrong provider family.
+ *
+ * All optional, and the whole object is optional, because callers differ:
+ * Vertex bounds tool execution and runs a stall watchdog, AI Studio does
+ * neither. Passing nothing leaves an executor exactly as the caller supplied
+ * it, so this cannot quietly give a provider behaviour its hand-rolled loops
+ * never had.
  */
-export type GeminiToolExecutionGuards = {
+export type ToolExecutionGuards = {
   /** Upper bound on a single execute(); omit for no bound. */
   toolTimeoutMs?: number;
   /**
@@ -392,6 +398,14 @@ export type GeminiToolExecutionGuards = {
    */
   withToolSpan?: <T>(name: string, run: () => Promise<T>) => Promise<T>;
 };
+
+/**
+ * @deprecated Renamed to `ToolExecutionGuards` — the guards were never
+ * Gemini-specific. Kept because this name is re-exported from the package root
+ * via the types barrel, so removing it outright would break any consumer that
+ * imports it (CLAUDE.md rule 5). Safe to drop at the next major.
+ */
+export type GeminiToolExecutionGuards = ToolExecutionGuards;
 
 /** What one Gemini step produced, carried to `buildToolResultMessages`. */
 export type GeminiStepRaw = {
@@ -469,7 +483,7 @@ export type GeminiLoopAdapterCoreConfig = {
    * the opposite of what discovery is for — the tool the model just found is
    * the one most likely to be called repeatedly with the same arguments.
    */
-  toolGuards?: GeminiToolExecutionGuards;
+  toolGuards?: ToolExecutionGuards;
   /**
    * Name of the terminal structured-output tool when one is in play. A call
    * to it ends the turn: its arguments ARE the answer, so it is reported as

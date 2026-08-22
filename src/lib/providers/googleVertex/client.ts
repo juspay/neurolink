@@ -1,6 +1,7 @@
 /* eslint-disable max-lines-per-function */
 // Native SDK imports - no more @ai-sdk/google-vertex dependency
 import fs from "fs";
+import { guardToolExecutor } from "../../core/toolExecutionGuards.js";
 import path from "path";
 import type { ZodType } from "zod";
 import type { AnthropicVertex as AnthropicVertexType } from "@anthropic-ai/vertex-sdk";
@@ -127,7 +128,6 @@ import {
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
 import { createAnthropicLoopAdapter } from "../anthropic/loopAdapter.js";
-import { guardToolExecutor } from "../googleNativeGemini3/utils.js";
 import { extractMcpToolErrorMessage } from "../../utils/mcpErrorText.js";
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";

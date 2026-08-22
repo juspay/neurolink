@@ -8,4 +8,4 @@
 
 > **GeminiLoopAdapterConfig** = [`GeminiLoopAdapterCoreConfig`](GeminiLoopAdapterCoreConfig.md) & [`GeminiMalformedRetryConfig`](GeminiMalformedRetryConfig.md)
 
-Defined in: [types/loopEngine.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L545)
+Defined in: [types/loopEngine.ts:559](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L559)
