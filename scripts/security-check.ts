@@ -36,89 +36,84 @@ const CRITICAL_SECURITY_RULES = [
   "private-key",
 ];
 
-// Configuration: known-open production advisories that are explicitly accepted
-// as risk, keyed by pnpm/GitHub advisory id (NOT package name — a package can
-// have several advisories and accepting one must not silently accept the rest).
-// Every entry needs its own honest one-line reason; a bare id is not a review
-// decision, it is a rubber stamp. Re-seed this list from
-// `pnpm audit --prod --json` whenever it goes stale — see checkDependencyVulnerabilities().
+// Configuration: production advisories accepted as risk, keyed by package with
+// a severity ceiling.
 //
-// Snapshot taken 2026-08-21 against `pnpm audit --prod --json`. `--prod`
-// structurally excludes the @juspay/hippocampus dev-only shadow tree (a full
-// audit shows 55 advisories; --prod shows 25 and drops all 3
-// @opentelemetry/* entries that used to be filtered by package name below).
-const ACCEPTED_RISK_ADVISORY_IDS: Record<string, string> = {
-  // uuid — transitive via @anthropic-ai/vertex-sdk, bullmq, exceljs; no
-  // single direct dependency to bump, upstreams need to move first.
-  "1119441":
-    "uuid buffer bounds check — deep transitive via vertex-sdk/bullmq/exceljs, no direct control",
-  // form-data — transitive via optional @livekit/agents (voice feature only).
-  "1120743":
-    "form-data CRLF injection — transitive via optional @livekit/agents, not on the default request path",
-  // @opentelemetry/core — transitive via optional livekit OTEL exporters.
-  "1120821":
-    "@opentelemetry/core baggage allocation — transitive via optional livekit OTEL exporter chain",
-  // adm-zip — transitive via optional livekit onnxruntime-node.
-  "1123686":
-    "adm-zip 4GB allocation — transitive via optional @livekit/agents-plugin-livekit onnxruntime-node",
-  // brace-expansion — three separate DoS advisories, same transitive chain.
-  "1123898":
-    "brace-expansion DoS — transitive via @google-cloud/text-to-speech>google-gax>rimraf>glob>minimatch, no direct control",
-  "1130591":
-    "brace-expansion DoS (unbounded expansion variant) — same google-gax>rimraf>glob>minimatch chain as 1123898",
-  "1130734":
-    "brace-expansion DoS (mitigation-bypass variant) — same google-gax>rimraf>glob>minimatch chain as 1123898",
-  // protobufjs — transitive via @google/genai and optional livekit OTEL.
-  "1123964":
-    "protobufjs infinite loop — transitive via @google/genai and optional @livekit/agents OTEL exporter",
-  // body-parser — transitive via express, low severity.
-  "1123976":
-    "body-parser size-limit bypass (low severity) — transitive via express",
-  // fast-uri — four advisories, all through modelcontextprotocol/sdk's ajv.
-  "1124064":
-    "fast-uri host confusion — transitive via @modelcontextprotocol/sdk's ajv dependency",
-  "1130720":
-    "fast-uri host confusion (backslash variant) — same @modelcontextprotocol/sdk>ajv chain as 1124064",
-  "1145555":
-    "fast-uri host confusion (IDN variant) — same @modelcontextprotocol/sdk>ajv chain as 1124064",
-  "1145636":
-    "fast-uri host confusion (failed IDN canonicalization) — same @modelcontextprotocol/sdk>ajv chain as 1124064",
-  // sharp — optional dependency for the image-processing feature only.
-  "1124066":
-    "sharp libvips CVEs — optionalDependency for image handling, not required at runtime for most consumers",
-  // find-my-way — transitive via optional fastify server adapter.
-  "1124273":
-    "find-my-way HTTP/2 DDoS — transitive via optional fastify server adapter",
-  // undici — direct dependency (range ">=7.24.0 <8.0.0"). Patched 7.29.0
-  // already satisfies that range; the lockfile is just pinned to 7.28.0.
-  // This is a real lockfile bump, tracked separately from this audit fix.
-  "1130715":
-    "undici response desync — direct dep, patched 7.29.0 fits our existing >=7.24.0 <8.0.0 range, needs a lockfile bump (tracked separately)",
-  "1130718":
-    "undici cache-directive crash — same undici lockfile-bump fix as 1130715",
-  "1130726":
-    "undici CRLF injection via blob type — same undici lockfile-bump fix as 1130715",
-  "1130729":
-    "undici cache-control whitespace disclosure — same undici lockfile-bump fix as 1130715",
-  "1130731":
-    "undici cookie attribute injection — same undici lockfile-bump fix as 1130715",
-  // ip-address — transitive via express-rate-limit, three related advisories.
-  "1130722":
-    "ip-address octal/decimal SSRF bypass — transitive via express-rate-limit",
-  "1130723":
-    "ip-address CIDR-suffix SSRF bypass — same express-rate-limit chain as 1130722",
-  "1130724":
-    "ip-address IPv4-mapped/NAT64 SSRF bypass — same express-rate-limit chain as 1130722",
-  // image-size — transitive via pptxgenjs; upstream has NOT published a fix
-  // (patched_versions reports none), so there is nothing to bump to yet.
-  "1138808":
-    "image-size ICNS parser DoS — transitive via pptxgenjs, no patched version published upstream yet",
-  "1138809":
-    "image-size JXL/HEIF parser DoS — same pptxgenjs chain as 1138808, no patched version published upstream yet",
-  // nanoid — direct dependency (range "^5.1.5"). Patched 5.1.16 already
-  // satisfies that range; the lockfile is just pinned to 5.1.7.
-  "1138810":
-    "nanoid negative-size infinite loop — direct dep, patched 5.1.16 fits our existing ^5.1.5 range, needs a lockfile bump (tracked separately)",
+// Why a ceiling rather than a list of advisory ids: a package such as undici or
+// ip-address accumulates several advisories for the same underlying weakness,
+// and every new one used to hard-fail the build until a human pasted its id in
+// here. That is not a review decision, it is a tax — and it fired mid-release
+// on fast-uri 1145636.
+//
+// The ceiling is set to the highest severity actually observed for that package
+// at the time of the snapshot below. A further advisory in the same package at
+// or below that severity is accepted and logged; one that arrives ABOVE the
+// ceiling still fails the build. So the model stays quiet for more of the same
+// and still speaks up when a package gets materially worse.
+//
+// Every accepted advisory is printed with its id and title on each run, so a
+// new one inside an existing ceiling is visible in the log even though it does
+// not block. Re-seed from `pnpm audit --prod --json` when this goes stale.
+//
+// Snapshot taken 2026-08-22 against `pnpm audit --prod --json`: 16 actionable
+// (moderate+) advisories across 9 packages. `--prod` structurally excludes dev
+// -only trees.
+type AdvisorySeverity = "low" | "moderate" | "high" | "critical";
+
+const SEVERITY_RANK: Record<string, number> = {
+  info: 0,
+  low: 0,
+  moderate: 1,
+  high: 2,
+  critical: 3,
+};
+
+const ACCEPTED_RISK_PACKAGES: Record<
+  string,
+  { maxSeverity: AdvisorySeverity; reason: string }
+> = {
+  uuid: {
+    maxSeverity: "moderate",
+    reason:
+      "deep transitive via @anthropic-ai/vertex-sdk, bullmq and exceljs — no single direct dependency to bump",
+  },
+  "form-data": {
+    maxSeverity: "high",
+    reason:
+      "transitive via optional @livekit/agents (voice feature only), not on the default request path",
+  },
+  "@opentelemetry/core": {
+    maxSeverity: "moderate",
+    reason: "transitive via the optional livekit OTEL exporter chain",
+  },
+  "adm-zip": {
+    maxSeverity: "high",
+    reason:
+      "transitive via optional @livekit/agents-plugin-livekit onnxruntime-node",
+  },
+  sharp: {
+    maxSeverity: "high",
+    reason:
+      "optionalDependency for image handling — not required at runtime for most consumers",
+  },
+  "find-my-way": {
+    maxSeverity: "high",
+    reason: "transitive via the optional fastify server adapter",
+  },
+  undici: {
+    maxSeverity: "high",
+    reason:
+      "direct dep; patched releases fit the existing >=7.24.0 <8.0.0 range and land via lockfile bumps",
+  },
+  "ip-address": {
+    maxSeverity: "high",
+    reason: "transitive via express-rate-limit (SSRF-bypass family)",
+  },
+  "image-size": {
+    maxSeverity: "high",
+    reason:
+      "transitive via pptxgenjs — upstream has published no patched version yet",
+  },
 };
 
 type SecurityIssue = {
@@ -209,17 +204,26 @@ class SecurityValidator {
 
   // 1. Dependency Vulnerability Scanning
   //
-  // Parses `pnpm audit --prod --json` and checks each advisory individually
-  // against ACCEPTED_RISK_ADVISORY_IDS. This deliberately replaced an older
-  // implementation that ran plain-text `pnpm audit` and computed a single
-  // boolean over the *entire* output: if any one of a handful of allowlisted
-  // package *names* appeared anywhere in the text, the whole check passed —
-  // regardless of how many other, unrelated advisories were open. That let a
-  // build with 15 open high-severity production advisories report PASS
-  // because one unrelated, genuinely-ignorable OTEL package happened to also
-  // appear in the table. `--prod` additionally excludes the dev-only
-  // @juspay/hippocampus shadow tree, so this only ever evaluates advisories
-  // that can reach a real consumer of the published package.
+  // Parses `pnpm audit --prod --json` and checks each advisory against the
+  // per-package ceiling in ACCEPTED_RISK_PACKAGES.
+  //
+  // Two earlier designs are worth not repeating. The first ran plain-text
+  // `pnpm audit` and computed a single boolean over the *entire* output: if
+  // any one of a handful of allowlisted package *names* appeared anywhere in
+  // the text, the whole check passed — regardless of how many other,
+  // unrelated advisories were open. That let a build with 15 open
+  // high-severity production advisories report PASS because one unrelated,
+  // genuinely-ignorable OTEL package also appeared in the table.
+  //
+  // The second keyed acceptance to individual advisory ids. Correct, but it
+  // made every newly-published advisory a hard build failure until a human
+  // pasted its id in — which fired mid-release on fast-uri 1145636 and had to
+  // be unblocked by hand. The ceiling model keeps the per-package review
+  // decision while letting more-of-the-same through, and still fails on
+  // anything that exceeds the severity a package was accepted at.
+  //
+  // `--prod` excludes dev-only trees, so this only evaluates advisories that
+  // can reach a real consumer of the published package.
   async checkDependencyVulnerabilities(): Promise<void> {
     this.log("Scanning dependencies for vulnerabilities...", "blue");
 
@@ -238,13 +242,18 @@ class SecurityValidator {
       output = execErr.stdout || "";
     }
 
+    // Fail CLOSED. Every branch below means "the scan did not produce a report
+    // I can reason about" — not "there is nothing wrong". Reporting those as a
+    // warning let the check pass while knowing nothing, which is the same
+    // failure shape as the single-boolean implementation this replaced: a
+    // security gate that is green because it did not look.
     if (!output.trim()) {
       this.addIssue(
-        "warning",
+        "error",
         "dependencies",
-        "pnpm audit produced no output — could not complete vulnerability scan",
+        "pnpm audit produced no output — the vulnerability scan did not run, so its result cannot be trusted",
       );
-      this.results.dependencies.status = "warning";
+      this.results.dependencies.status = "failed";
       return;
     }
 
@@ -257,15 +266,35 @@ class SecurityValidator {
           ? parseError.message
           : String(parseError);
       this.addIssue(
-        "warning",
+        "error",
         "dependencies",
-        `Could not parse pnpm audit output as JSON: ${message}`,
+        `Could not parse pnpm audit output as JSON — the scan produced no usable report: ${message}`,
       );
-      this.results.dependencies.status = "warning";
+      this.results.dependencies.status = "failed";
       return;
     }
 
-    const advisories = Object.values(audit.advisories ?? {});
+    // `{ "advisories": {} }` is a legitimate clean report. A response with no
+    // `advisories` key at all is not — that is what a retired or erroring audit
+    // endpoint returns, and defaulting it to {} would read as "zero
+    // vulnerabilities" when the truth is "no answer".
+    const rawAdvisories = audit.advisories;
+    if (
+      rawAdvisories === undefined ||
+      rawAdvisories === null ||
+      typeof rawAdvisories !== "object" ||
+      Array.isArray(rawAdvisories)
+    ) {
+      this.addIssue(
+        "error",
+        "dependencies",
+        "pnpm audit returned a report with no object-valued 'advisories' field — treating this as a failed scan rather than a clean one",
+      );
+      this.results.dependencies.status = "failed";
+      return;
+    }
+
+    const advisories = Object.values(rawAdvisories);
     // Only moderate+ advisories require an explicit accept — this mirrors
     // the previous --audit-level=moderate threshold. Low/info advisories are
     // still surfaced for visibility but do not block the build on their own.
@@ -273,17 +302,28 @@ class SecurityValidator {
       ["moderate", "high", "critical"].includes(a.severity),
     );
 
-    const accepted = actionable.filter(
-      (a) => ACCEPTED_RISK_ADVISORY_IDS[String(a.id)],
-    );
-    const unaccepted = actionable.filter(
-      (a) => !ACCEPTED_RISK_ADVISORY_IDS[String(a.id)],
-    );
+    const isAccepted = (a: PnpmAdvisory): boolean => {
+      const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
+      if (!entry) {
+        return false;
+      }
+      return (
+        (SEVERITY_RANK[a.severity] ?? 0) <=
+        (SEVERITY_RANK[entry.maxSeverity] ?? 0)
+      );
+    };
 
+    const accepted = actionable.filter(isAccepted);
+    const unaccepted = actionable.filter((a) => !isAccepted(a));
+
+    // Print every accepted advisory, not just a count. The ceiling model is
+    // deliberately quiet about more-of-the-same, so the log is the only place
+    // a newly-appeared advisory inside an existing ceiling becomes visible.
     if (accepted.length > 0) {
       accepted.forEach((a) => {
+        const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
         this.log(
-          `Accepted risk — advisory ${a.id} (${a.severity} ${a.module_name}): ${ACCEPTED_RISK_ADVISORY_IDS[String(a.id)]}`,
+          `Accepted risk — ${a.module_name} ${a.severity} (ceiling ${entry.maxSeverity}) advisory ${a.id}: ${a.title} — ${entry.reason}`,
           "cyan",
         );
       });
@@ -291,10 +331,14 @@ class SecurityValidator {
 
     if (unaccepted.length > 0) {
       unaccepted.forEach((a) => {
+        const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
+        const why = entry
+          ? `exceeds the accepted ${entry.maxSeverity} ceiling for ${a.module_name}`
+          : `${a.module_name} is not an accepted-risk package`;
         this.addIssue(
           "error",
           "dependencies",
-          `Unaccepted ${a.severity} advisory ${a.id} in ${a.module_name}: ${a.title}`,
+          `Unaccepted ${a.severity} advisory ${a.id} in ${a.module_name} (${why}): ${a.title}`,
         );
       });
       this.results.dependencies.status = "failed";

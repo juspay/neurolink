@@ -18,10 +18,10 @@ jobs:
         with:
           version: 10.15.1
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "pnpm"
 
       # ffmpeg is deliberately NOT installed in this workflow. Nothing these
@@ -135,6 +135,62 @@ jobs:
 
       - name: 🧩 Provider Onboarding Completeness
         run: pnpm run verify:provider-onboarding
+
+  # Advisory only — deliberately NOT in the required-checks list.
+  #
+  # The archive and office security suites drive real malicious inputs (zip
+  # bombs, path traversal, XXE-shaped office documents) through the public
+  # surface. They were wired into `test:unit`, but nothing in CI has ever run
+  # `test:unit`, so they had never executed on a pull request.
+  #
+  # Running them here makes the result visible on every PR. Making them
+  # *blocking* is a separate, deliberate step: it needs the check added to the
+  # branch protection rule on `release`, which is a repository settings change
+  # and cannot be done from this file. Until someone makes that change, a red
+  # run here is information, not a gate.
+  #
+  # Both suites are credential-free by construction — they never call a model.
+  security-suites:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # This job runs on pull_request and executes code from the checkout.
+          # actions/checkout persists GITHUB_TOKEN in .git/config by default and
+          # nothing here needs authenticated git, so drop it.
+          persist-credentials: false
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 🔄 SvelteKit Sync
+        run: |
+          echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
+          pnpm exec svelte-kit sync
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Archive security suite (zip bombs, traversal — no API keys required)
+        run: pnpm run test:archive:security
+
+      - name: Office document security suite (no API keys required)
+        run: pnpm run test:office:security
+
+      - name: Docs MCP server suite (no API keys required)
+        run: pnpm run test:docs-mcp
 
   # action-smoke-test:
   #   name: GitHub Action Smoke Test

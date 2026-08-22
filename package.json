@@ -22,9 +22,8 @@
     "url": "https://github.com/sponsors/juspay"
   },
   "engines": {
-    "node": ">=20.19.0",
-    "npm": ">=10.0.0",
-    "pnpm": ">=8.0.0"
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
   },
   "scripts": {
     "dev": "vite dev",
@@ -444,7 +443,7 @@
     "koa": "^3.1.1",
     "koa-bodyparser": "^4.4.1",
     "livekit-server-sdk": "^2.15.4",
-    "mammoth": "^1.11.0",
+    "mammoth": "1.12.0",
     "mediabunny": "^1.40.1",
     "music-metadata": "^11.11.2",
     "pdf-parse": "^2.4.5",
@@ -460,9 +459,7 @@
     "@changesets/cli": "^2.29.8",
     "@electric-sql/pglite": "^0.4.6",
     "@eslint/js": "^10.0.1",
-    "@juspay/hippocampus": ">=0.1.7",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-trace-base": "^2.6.0",
     "@opentelemetry/sdk-trace-node": "^2.6.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/commit-analyzer": "^13.0.1",
@@ -481,7 +478,7 @@
     "@types/koa": "^3.0.1",
     "@types/koa-bodyparser": "^4.3.13",
     "@types/koa__cors": "^5.0.1",
-    "@types/node": "^25.3.3",
+    "@types/node": "^22.20.0",
     "@types/react": "^19.2.10",
     "@types/tar-stream": "^3.1.4",
     "@types/ws": "^8.18.1",
@@ -571,7 +568,6 @@
       "esbuild",
       "protobufjs",
       "puppeteer",
-      "sqlite3",
       "ffmpeg-static",
       "sharp"
     ],
