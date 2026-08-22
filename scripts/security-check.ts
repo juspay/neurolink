@@ -116,6 +116,204 @@ const ACCEPTED_RISK_PACKAGES: Record<
   },
 };
 
+/**
+ * Run a git command, or return undefined. Never throws, never prints.
+ *
+ * Every release comparison below is a diagnostic bolted to a build that is
+ * already failing, so a missing ref, a shallow clone or no git at all must mean
+ * no hint rather than a second failure.
+ */
+function git(command: string): string | undefined {
+  try {
+    return execSync(command, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+      timeout: 10_000,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Make `origin/release` resolvable, once per process.
+ *
+ * Without this the whole diagnostic is dead code in exactly the place it exists
+ * to help. `actions/checkout@v4` defaults to `fetch-depth: 1`, so a CI checkout
+ * has the commit under test and no other branch — `origin/release` does not
+ * resolve, every lookup below returns undefined, and the contributor sees the
+ * same bare "Unaccepted advisory" this change set out to replace.
+ *
+ * A depth-1 fetch of one branch is cheap and is skipped entirely when the ref
+ * is already present, which is the local case. Memoised so N advisories do not
+ * trigger N fetches.
+ */
+let releaseRefChecked = false;
+let releaseRefAvailable = false;
+function ensureReleaseRef(): boolean {
+  if (releaseRefChecked) {
+    return releaseRefAvailable;
+  }
+  releaseRefChecked = true;
+  releaseRefAvailable =
+    git("git rev-parse --verify --quiet origin/release") !== undefined ||
+    (git(
+      "git fetch --depth=1 origin release:refs/remotes/origin/release",
+    ) !== undefined &&
+      git("git rev-parse --verify --quiet origin/release") !== undefined);
+  return releaseRefAvailable;
+}
+
+/**
+ * Whether `release` accepts a package that the running branch does not.
+ *
+ * The accepted-risk table lives in this file, so it moves with `release` like
+ * any other source. A branch cut before an entry was added fails on an advisory
+ * that `release` has already reviewed and accepted — and the failure text says
+ * only "is not an accepted-risk package", which is true of the branch and
+ * useless to whoever is reading it. That happened to two contributor PRs in one
+ * week; both spent days looking for a fault in their own code. `fast-uri`
+ * 1145636 is the worked example, and this file's own comments already reference
+ * it.
+ *
+ * Reads the table out of `origin/release` rather than parsing it: the literal
+ * is extracted by brace matching and the package looked for as a KEY. A plain
+ * substring search would be wrong — package names appear in the prose of other
+ * entries' `reason` fields and in the comments above, `fast-uri` included.
+ *
+ * Returns undefined on any failure. This is a diagnostic attached to a build
+ * that is already failing; it must never be the reason one fails, so a missing
+ * ref, a shallow clone, or no git at all just means no hint.
+ */
+function releaseAcceptsPackage(moduleName: string): string | undefined {
+  if (!ensureReleaseRef()) {
+    return undefined;
+  }
+  try {
+    const released = git("git show origin/release:scripts/security-check.ts");
+    if (released === undefined) {
+      return undefined;
+    }
+    const start = released.indexOf("const ACCEPTED_RISK_PACKAGES");
+    if (start === -1) {
+      return undefined;
+    }
+    const open = released.indexOf("{", released.indexOf("= {", start));
+    if (open === -1) {
+      return undefined;
+    }
+    let depth = 0;
+    let end = -1;
+    for (let i = open; i < released.length; i++) {
+      if (released[i] === "{") {
+        depth++;
+      } else if (released[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    if (end === -1) {
+      return undefined;
+    }
+    const table = released.slice(open, end + 1);
+    // Key position only: start of line, optionally quoted, followed by `: {`.
+    const escaped = moduleName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const key = new RegExp(
+      `^\\s*(["']?)${escaped}\\1\\s*:\\s*\\{([\\s\\S]*?)^\\s*\\}`,
+      "m",
+    );
+    const found = table.match(key);
+    if (!found) {
+      return undefined;
+    }
+    const ceiling = found[2].match(/maxSeverity:\s*["']([a-z]+)["']/);
+    return ceiling ? ceiling[1] : "unknown";
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether `release` pins a package out of its vulnerable range via an override
+ * that this branch does not have.
+ *
+ * This is the case that actually bites, and it is NOT the accepted-risk one.
+ * `fast-uri` 1145636 broke two contributor PRs, and `fast-uri` is not in the
+ * accepted-risk table at all — `release` fixed it in `aec7f8ac` by adding a
+ * `pnpm.overrides` entry (`fast-uri@<3.1.5: ">=3.1.5 <4"`) that lifts the
+ * dependency past the advisory, so the advisory simply is not in `release`'s
+ * tree. A branch cut before that commit still resolves the vulnerable version
+ * and fails, through no fault of its own.
+ *
+ * Compares against `origin/release`'s package.json, which is a JSON parse
+ * rather than a source scrape and so is reliable. Silent on any failure, for
+ * the same reason as `releaseAcceptsPackage`.
+ */
+function releaseOverridesPackage(moduleName: string): string | undefined {
+  if (!ensureReleaseRef()) {
+    return undefined;
+  }
+  try {
+    const localPkg = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"),
+    );
+    const releasedRaw = git("git show origin/release:package.json");
+    if (releasedRaw === undefined) {
+      return undefined;
+    }
+    const releasedPkg = JSON.parse(releasedRaw);
+    const pick = (p: Record<string, unknown>): Record<string, string> => ({
+      ...((p.pnpm as { overrides?: Record<string, string> } | undefined)
+        ?.overrides ?? {}),
+      ...((p.overrides as Record<string, string> | undefined) ?? {}),
+    });
+    const localOv = pick(localPkg);
+    const releaseOv = pick(releasedPkg);
+    // Override keys carry a range suffix (`fast-uri@<3.1.5`), so match on the
+    // package name before the `@` that separates it — allowing for scoped names.
+    const nameOf = (k: string): string => {
+      const at = k.lastIndexOf("@");
+      return at > 0 ? k.slice(0, at) : k;
+    };
+    const inRelease = Object.entries(releaseOv).find(
+      ([k]) => nameOf(k) === moduleName,
+    );
+    if (!inRelease) {
+      return undefined;
+    }
+    // ANY local override counts, not just an identical one. A branch that pins
+    // this package to a different range has made a deliberate decision about
+    // it, and telling its author "release pins this and your branch does not"
+    // would be flatly untrue — the branch does pin it, differently. Staleness
+    // is only a defensible claim when the branch has no opinion at all.
+    const inLocal = Object.entries(localOv).find(
+      ([k]) => nameOf(k) === moduleName,
+    );
+    if (inLocal) {
+      return undefined;
+    }
+    return `${inRelease[0]}: ${inRelease[1]}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** How many commits `origin/release` is ahead, when that is knowable. */
+function commitsBehindRelease(): number | undefined {
+  if (!ensureReleaseRef()) {
+    return undefined;
+  }
+  const out = git("git rev-list --count HEAD..origin/release");
+  if (out === undefined) {
+    return undefined;
+  }
+  const n = Number.parseInt(out.trim(), 10);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 type SecurityIssue = {
   level: string;
   category: string;
@@ -362,15 +560,47 @@ class SecurityValidator {
     }
 
     if (unaccepted.length > 0) {
+      const behind = commitsBehindRelease();
       unaccepted.forEach((a) => {
         const entry = ACCEPTED_RISK_PACKAGES[a.module_name];
         const why = entry
           ? `exceeds the accepted ${entry.maxSeverity} ceiling for ${a.module_name}`
           : `${a.module_name} is not an accepted-risk package`;
+        // Say so when the branch, not the dependency, is the problem. Ordered
+        // most specific first, because a contributor reading a red gate needs
+        // the strongest available statement about whose fault it is.
+        //
+        // The accepted-risk check is skipped when this branch already has an
+        // entry: a local ceiling that is merely too low is a real review
+        // decision about a package that got worse, not staleness.
+        const acceptedOnRelease = entry
+          ? undefined
+          : releaseAcceptsPackage(a.module_name);
+        const overriddenOnRelease = releaseOverridesPackage(a.module_name);
+        const rebase = `Rebase onto origin/release and re-run before investigating your own changes.`;
+        let staleBase = "";
+        if (overriddenOnRelease) {
+          staleBase =
+            ` — NOTE: origin/release pins this package out of the vulnerable range ` +
+            `(override "${overriddenOnRelease}") and this branch does not` +
+            `${behind ? `, being ${behind} commit(s) behind` : ""}. ${rebase}`;
+        } else if (acceptedOnRelease) {
+          staleBase =
+            ` — NOTE: origin/release accepts ${a.module_name} at a ${acceptedOnRelease} ceiling ` +
+            `and this branch does not${behind ? `, being ${behind} commit(s) behind` : ""}. ${rebase}`;
+        } else if (behind && behind > 0) {
+          // No specific signal, but staleness alone is worth saying: advisories
+          // are routinely cleared on release by lockfile and override changes,
+          // and a contributor has no way to tell that from a real finding.
+          staleBase =
+            ` — NOTE: this branch is ${behind} commit(s) behind origin/release. ` +
+            `Dependency advisories are frequently resolved there by lockfile or ` +
+            `override changes, so this may not originate in your changes. ${rebase}`;
+        }
         this.addIssue(
           "error",
           "dependencies",
-          `Unaccepted ${a.severity} advisory ${a.id} in ${a.module_name} (${why}): ${a.title}`,
+          `Unaccepted ${a.severity} advisory ${a.id} in ${a.module_name} (${why}): ${a.title}${staleBase}`,
         );
       });
       this.results.dependencies.status = "failed";
