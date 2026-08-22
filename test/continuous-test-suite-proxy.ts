@@ -592,6 +592,72 @@ async function testProxyModelsEndpoint(): Promise<boolean | null> {
   }
 }
 
+/**
+ * Codex CLI model discovery must not 404.
+ *
+ * The Codex CLI refreshes its model list on every invocation, hitting
+ * `GET /backend-api/codex/models?client_version=<v>`. The proxy registered only
+ * the `/responses` route, so that request 404'd and the CLI printed
+ * `failed to refresh available models: unexpected status 404 Not Found` on each
+ * run before silently falling back to a default model — the user's configured
+ * model quietly ignored.
+ *
+ * Driven against the spawned proxy exactly as the CLI drives it, including the
+ * client_version query the CLI sends. Without Codex credentials the relay
+ * cannot reach upstream and answers 401/502/503; that is a correct answer from
+ * a route that exists.
+ *
+ * The tolerated set is an ALLOW-list, not a deny-list, and that distinction is
+ * the whole point. An earlier version accepted anything that was not 404 or
+ * 405 — which meant it also accepted 400, and 400 is precisely what upstream
+ * returns when `client_version` is dropped from the forwarded query. That is
+ * the bug this route was written to fix, so the test passed on the regression
+ * it existed to catch. Any status outside the allow-list now fails.
+ */
+async function testCodexModelsDiscovery(): Promise<boolean | null> {
+  // 200 with credentials; 401 unauthenticated or rejected; 502/503 when
+  // upstream is unreachable or the refresh is transiently unavailable.
+  const ACCEPTED = new Set([200, 401, 502, 503]);
+  try {
+    const resp = await fetchProxy(
+      "/backend-api/codex/models?client_version=0.147.0",
+    );
+    if (resp.status === 404) {
+      log(
+        "Codex model discovery is unroutable — the CLI cannot list models",
+        "red",
+      );
+      return false;
+    }
+    if (resp.status === 405) {
+      log("Codex model discovery rejected the CLI's GET method", "red");
+      return false;
+    }
+    if (resp.status === 400) {
+      log(
+        "Codex model discovery answered 400 — the client_version query is not reaching upstream",
+        "red",
+      );
+      return false;
+    }
+    if (!ACCEPTED.has(resp.status)) {
+      log(
+        `Codex model discovery answered an unexpected status ${resp.status}`,
+        "red",
+      );
+      return false;
+    }
+    log(`Codex /models answered with status ${resp.status}`, "green");
+    return true;
+  } catch (err) {
+    log(
+      `Codex models endpoint error: ${err instanceof Error ? err.message : String(err)}`,
+      "red",
+    );
+    return false;
+  }
+}
+
 async function testProxyCountTokens(): Promise<boolean | null> {
   try {
     const resp = await fetchProxy("/v1/messages/count_tokens", {
@@ -5427,6 +5493,11 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: OpenCode restore leaves a user-edited block",
     fn: testOpenCodeRestoreLeavesUserEditedBlock,
+    category: "proxy-config",
+  },
+  {
+    name: "Codex: model discovery route answers the CLI",
+    fn: testCodexModelsDiscovery,
     category: "proxy-config",
   },
   {

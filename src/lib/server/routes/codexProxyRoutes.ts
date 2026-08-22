@@ -21,6 +21,7 @@
 import { tokenStore } from "../../auth/tokenStore.js";
 import {
   CODEX_ORIGINATOR,
+  CODEX_MODELS_URL,
   CODEX_RESPONSES_URL,
   CODEX_USER_AGENT,
   codexTokenNeedsRefresh,
@@ -602,6 +603,139 @@ async function handleCodexResponsesRequest(
 }
 
 /**
+ * Relay Codex model discovery upstream.
+ *
+ * The CLI refreshes its model list on every invocation. Only `/responses` was
+ * registered, so that GET 404'd and the CLI printed a refresh failure before
+ * falling back to a default model — quietly ignoring the model the user had
+ * configured.
+ *
+ * This relays rather than synthesises, unlike the Claude and OpenAI `/v1/models`
+ * routes, which build their lists locally from the model router. Codex model
+ * availability is a property of the upstream account (plan tier, rollout), not
+ * of anything this proxy knows, so a synthesised list would be a guess that
+ * looks authoritative.
+ *
+ * Read-only with respect to ROUTING: no cooldown is recorded and no quota is
+ * consumed, so a discovery call cannot influence which account real traffic
+ * lands on. It is not literally side-effect free — a token refreshed below is
+ * persisted, exactly as the proactive refresh in `loadCodexProxyAccounts`
+ * persists one. What discovery deliberately never does is *penalise* an
+ * account: it cannot cool one and cannot disable one. A read-only probe must
+ * not be able to cost the user a login.
+ */
+async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
+  const accounts = await loadCodexProxyAccounts();
+  if (accounts.length === 0) {
+    return buildCodexErrorResponse(
+      401,
+      "No Codex accounts configured. Run `neurolink auth login codex`.",
+    );
+  }
+
+  const now = Date.now();
+  const ordered = orderCodexAccounts(accounts, now);
+  // A cooling account is rate-limited for completions, not barred from
+  // answering what models exist. Healthy accounts go first, but a cooling one
+  // is still a candidate rather than a reason to fail discovery outright.
+  const isCooling = (a: (typeof ordered)[number]): boolean =>
+    a.coolingUntil !== undefined && a.coolingUntil > now;
+  const candidates = [
+    ...ordered.filter((a) => !isCooling(a)),
+    ...ordered.filter(isCooling),
+  ];
+
+  // Forward the CLI's own query — it sends client_version, and upstream
+  // *requires* it: without it ChatGPT answers 400 with a pydantic
+  // "Field required" on ('query','client_version'). Rebuild from ctx.query,
+  // not ctx.path: path carries no query string, so reading it there silently
+  // dropped the parameter and produced exactly that 400.
+  const params = new URLSearchParams(ctx.query ?? {});
+  const query = params.toString();
+  const url = query ? `${CODEX_MODELS_URL}?${query}` : CODEX_MODELS_URL;
+
+  let lastErrorStatus = 502;
+  let lastErrorMessage = "Codex model discovery upstream failed";
+
+  for (const account of candidates) {
+    // One forced refresh per account, then move on. A token can be rejected
+    // upstream while still inside its local expiry window, so relaying that
+    // 401 straight back left discovery broken until the token expired locally
+    // — the CLI would fall back to a default model on every invocation in the
+    // meantime.
+    let authRetried = false;
+    for (;;) {
+      let upstream: Response;
+      try {
+        upstream = await fetch(url, {
+          method: "GET",
+          headers: buildCodexUpstreamHeaders(ctx.headers ?? {}, account),
+          // Bound the upstream call, as the responses route does. Without a
+          // signal a stalled connection holds the proxy request open with no
+          // ceiling, and the CLI blocks on model discovery at startup.
+          signal: AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+        });
+      } catch (error) {
+        lastErrorStatus = 502;
+        lastErrorMessage = `Codex model discovery upstream failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`;
+        break; // rotate to the next account
+      }
+
+      if (upstream.status === 401 || upstream.status === 403) {
+        if (!authRetried && account.refreshToken) {
+          authRetried = true;
+          try {
+            const refreshed = await refreshCodexToken(account.refreshToken);
+            account.token = refreshed.accessToken;
+            account.refreshToken =
+              refreshed.refreshToken ?? account.refreshToken;
+            account.expiresAt = refreshed.expiresAt ?? account.expiresAt;
+            account.accountId = resolveCodexAccountId(refreshed.accessToken);
+            await tokenStore.saveTokens(account.key, {
+              accessToken: account.token,
+              refreshToken: account.refreshToken,
+              expiresAt: account.expiresAt ?? Date.now() + 3_600_000,
+              tokenType: "Bearer",
+            });
+            continue; // retry this account with the fresh token
+          } catch {
+            // No cooldown and no disable, unlike the responses path: the
+            // verdict a completion draws from a failed refresh is earned by a
+            // request the user actually made. Discovery fires on every CLI
+            // invocation, so letting it disable an account would turn a
+            // background probe into a forced re-login.
+            lastErrorStatus = 401;
+            lastErrorMessage = "Codex token refresh failed; re-login required";
+            break; // rotate
+          }
+        }
+        lastErrorStatus = upstream.status;
+        lastErrorMessage = "Codex model discovery rejected upstream";
+        break; // rotate
+      }
+
+      // Every other status — including a 400 — is upstream's real answer to a
+      // well-formed request and is relayed unchanged. A 400 here means the
+      // query was not forwarded correctly, and hiding it behind a retry would
+      // bury the exact regression this route was added to fix.
+      const body = await upstream.text();
+      const contentType =
+        upstream.headers.get("content-type") ?? "application/json";
+      return new Response(body, {
+        status: upstream.status,
+        headers: { "content-type": contentType },
+      });
+    }
+  }
+
+  // A discovery failure must not look like a missing route, or the next
+  // person debugging it re-opens this same issue.
+  return buildCodexErrorResponse(lastErrorStatus, lastErrorMessage);
+}
+
+/**
  * Create Codex proxy routes.
  *
  * @param basePath - Base path prefix (default "").
@@ -616,6 +750,12 @@ export function createCodexProxyRoutes(basePath: string = ""): RouteGroup {
         path: `${basePath}/backend-api/codex/responses`,
         description: "Codex ChatGPT-backend Responses API (account pool)",
         handler: (ctx: ServerContext) => handleCodexResponsesRequest(ctx),
+      },
+      {
+        method: "GET",
+        path: `${basePath}/backend-api/codex/models`,
+        description: "Codex model discovery, relayed upstream (account pool)",
+        handler: (ctx: ServerContext) => handleCodexModelsRequest(ctx),
       },
     ],
   };
