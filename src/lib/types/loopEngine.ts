@@ -54,14 +54,68 @@ export type AgenticLoopToolCallResult = AgenticLoopToolCall & {
   permanentlyFailed?: boolean;
 };
 
-export type AgenticLoopStepRequest = { raw: unknown };
+export type AgenticLoopStepRequest = {
+  raw: unknown;
+  /**
+   * Tools that became callable while this step's request was being built —
+   * mid-turn discovery hydrating a name the model had already tried.
+   *
+   * The engine clears each one's failure strikes before dispatching, because
+   * TOOL_NOT_FOUND strikes accrued while a tool was deferred are snapshot
+   * artifacts rather than real failures. Clearing them at the miss-resolution
+   * path instead would be too late: the breaker is consulted BEFORE the
+   * lookup, so a tool already at the strike limit is refused without the
+   * resolution path ever running.
+   */
+  hydratedToolNames?: string[];
+};
 
 export type AgenticLoopReclaimResult<TConversation> = {
-  conversation: TConversation;
+  conversation?: TConversation;
+  /**
+   * End the turn now, BEFORE this step's request is issued.
+   *
+   * A context guard does two things, and only one of them is "reclaim". When
+   * dropping old exchanges buys enough room the turn continues; when it does
+   * not, the guard has to stop rather than step into a provider rejection
+   * that would lose every completed step. Nothing else can express that: the
+   * hook returns a conversation, and an adapter cannot break the engine's
+   * loop.
+   *
+   * Aborting the caller's own signal from inside this hook does NOT work as a
+   * substitute — the engine checks for an abort at the TOP of the step, above
+   * this call, so the request would still be issued and the stop would not
+   * take effect until the following step.
+   */
+  stop?: boolean;
 };
 
 export type AgenticLoopToolFailureBreaker = {
   maxRetries: number;
+  /**
+   * Count CONSECUTIVE failures rather than lifetime ones: a clean result
+   * clears the strike count for that tool.
+   *
+   * Off by default because the two behaviours diverge for a tool that fails
+   * intermittently, and the providers already on this engine accumulate. What
+   * it protects is the argument-dependent soft error — a file-not-found on one
+   * path, fine on the next — which under lifetime counting disables a working
+   * tool for the rest of the turn.
+   */
+  consecutive?: boolean;
+  /**
+   * Decide whether a RESOLVED tool result is really a failure.
+   *
+   * Some tools report failure without throwing: MCP `isError` payloads, a
+   * proxy-blocked call returning `{ error }`. Counting only thrown errors lets
+   * the model grind on one of those for the entire step budget. Returning a
+   * non-empty string strikes the breaker exactly as a throw does; returning
+   * undefined leaves the result a success.
+   *
+   * Off by default — a provider whose loop never inspected results this way
+   * must not start doing so as a side effect of migrating.
+   */
+  classifyResultFailure?: (output: unknown) => string | undefined;
 };
 
 /**
@@ -151,10 +205,19 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
     channel: { push(chunk: AgenticLoopChunk): void },
     signal: AbortSignal,
   ): Promise<AgenticLoopStepResult<TRaw>>;
+  /**
+   * `step` is the engine's own zero-based step index, not a count of times
+   * this hook ran. Adapters persist tool activity keyed by it, and the two
+   * numbers diverge: a malformed-call retry `continue`s before this hook is
+   * reached and still consumes a step, so an adapter counting its own
+   * invocations drifts by exactly the number of retries and mislabels every
+   * row after the first one.
+   */
   buildToolResultMessages(
     conversation: TConversation,
     stepResult: AgenticLoopStepResult<TRaw>,
     toolResults: AgenticLoopToolCallResult[],
+    step: number,
   ): TConversation;
   mapFinishReason(
     rawStopReason: string | undefined,
@@ -168,7 +231,10 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
   ): AgenticLoopReclaimResult<TConversation> | undefined;
   /** Optional: Vertex+Gemini-only single-retry-on-malformed-call. */
   isMalformedStep?(stepResult: AgenticLoopStepResult<TRaw>): boolean;
-  buildMalformedRetryNote?(conversation: TConversation): TConversation;
+  buildMalformedRetryNote?(
+    conversation: TConversation,
+    step: number,
+  ): TConversation;
 };
 
 /**
@@ -240,6 +306,32 @@ export type AnthropicLoopAdapterConfig = {
   abortSignal?: AbortSignal;
 };
 
+/**
+ * The three things a native Gemini loop wraps around every tool call that the
+ * shared engine does not do itself.
+ *
+ * All optional, and the whole object is optional, because the two Gemini
+ * providers differ here: Vertex bounds tool execution and runs a stall
+ * watchdog, AI Studio does neither. Passing nothing leaves an executor exactly
+ * as the caller supplied it, so this cannot quietly give AI Studio behaviour
+ * its hand-rolled loops never had.
+ */
+export type GeminiToolExecutionGuards = {
+  /** Upper bound on a single execute(); omit for no bound. */
+  toolTimeoutMs?: number;
+  /**
+   * Turn-level abort, raced against the call so a deadline or caller cancel is
+   * observed immediately instead of after the tool settles.
+   */
+  abortSignal?: AbortSignal;
+  /**
+   * Stall-watchdog ping, called either side of the await. The watchdog is a
+   * whole-turn interval measuring wall-clock since the last mark, so a
+   * legitimately slow tool reads as a stalled turn without this.
+   */
+  onProgress?: () => void;
+};
+
 /** What one Gemini step produced, carried to `buildToolResultMessages`. */
 export type GeminiStepRaw = {
   rawResponseParts: unknown[];
@@ -301,12 +393,30 @@ export type GeminiLoopAdapterCoreConfig = {
   planReclaim?: (
     conversation: GeminiTurnContent[],
     step: number,
-  ) => GeminiTurnContent[] | undefined;
+  ) => AgenticLoopReclaimResult<GeminiTurnContent[]> | undefined;
   /**
    * Usage feedback for the provider's own context guard, called after each
    * step with that step's real token counts.
    */
   noteUsage?: (inputTokens: number, outputTokens: number) => void;
+  /**
+   * Name of the terminal structured-output tool when one is in play. A call
+   * to it ends the turn: its arguments ARE the answer, so it is reported as
+   * text and omitted from `toolCalls`, which routes it through the engine's
+   * ordinary zero-tool-calls exit — never dispatched, never counted against
+   * the breaker, never recorded as a tool execution.
+   */
+  finalResultToolName?: string;
+  /**
+   * Called with the terminal tool's payload when one was actually detected.
+   *
+   * The caller cannot infer this from the turn's result: a structured turn
+   * ends with the payload in `text` when the model called the terminal tool,
+   * and with ordinary prose in `text` when it answered directly instead, and
+   * those two are indistinguishable downstream while being handled
+   * differently. Comparing strings to tell them apart would be guesswork.
+   */
+  onTerminalResult?: (text: string) => void;
   /**
    * Fold one step's raw stream into the shape the adapter reports.
    *
@@ -353,6 +463,7 @@ export type GeminiMalformedRetryConfig =
        */
       buildMalformedRetryNote: (
         conversation: GeminiTurnContent[],
+        step: number,
       ) => GeminiTurnContent[];
     }
   | {

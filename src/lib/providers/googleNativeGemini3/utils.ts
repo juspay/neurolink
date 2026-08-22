@@ -55,7 +55,12 @@ import {
 
 import { createNativeThinkingConfig } from "../../utils/thinkingConfig.js";
 import { resolveLiveTool } from "../../tools/toolDiscovery.js";
-import type { ToolExecuteFunction, Tool } from "../../types/index.js";
+import { raceWithAbort, withTimeout } from "../../utils/async/index.js";
+import type {
+  ToolExecuteFunction,
+  Tool,
+  GeminiToolExecutionGuards,
+} from "../../types/index.js";
 import {
   jsonSchema as aiJsonSchema,
   tool as createAISDKTool,
@@ -635,18 +640,60 @@ export function buildNativeToolDeclarations(
 export function buildDedupedEngineTools(
   declarations: NativeToolDeclarationsResult | undefined,
   tools: Record<string, Tool> | undefined,
+  guards?: GeminiToolExecutionGuards,
 ): NonNullable<AgenticLoopOptions["tools"]> {
   const engineTools: NonNullable<AgenticLoopOptions["tools"]> = {};
+
+  /**
+   * Everything a loop needs around a tool call that the engine does not do
+   * itself, in one place so both the declared and the fallback path get it.
+   *
+   * Order matters. `raceWithAbort` sits INSIDE `withTimeout` so a turn-level
+   * abort is observed the moment it fires rather than after the tool settles,
+   * and the timeout still bounds a tool that neither settles nor honours its
+   * signal. The progress pings bracket the await because the stall watchdog
+   * is a whole-turn interval comparing wall-clock against the last progress
+   * mark — without them a legitimately slow tool reads as a stalled turn and
+   * gets killed.
+   */
+  const guard = (
+    name: string,
+    execute: NonNullable<Tool["execute"]>,
+  ): ((args: Record<string, unknown>, opts: unknown) => Promise<unknown>) => {
+    return async (args: Record<string, unknown>, opts: unknown) => {
+      const call = () =>
+        Promise.resolve(execute(args, opts as Parameters<typeof execute>[1]));
+      if (!guards) {
+        return call();
+      }
+      guards.onProgress?.();
+      try {
+        const raced = guards.abortSignal
+          ? raceWithAbort(call(), guards.abortSignal)
+          : call();
+        return await (guards.toolTimeoutMs === undefined
+          ? raced
+          : withTimeout(
+              raced,
+              guards.toolTimeoutMs,
+              `Tool "${name}" execution timed out after ${guards.toolTimeoutMs}ms`,
+            ));
+      } finally {
+        // In `finally`, not after a successful await: a tool that times out or
+        // throws has still consumed real time, and skipping the mark there
+        // would leave the watchdog measuring from before the call.
+        guards.onProgress?.();
+      }
+    };
+  };
+
   if (declarations) {
     for (const [safeName, originalName] of declarations.originalNameMap) {
       const execute = declarations.executeMap.get(safeName);
       if (!execute) {
         continue;
       }
-      engineTools[originalName] = {
-        execute: async (args: Record<string, unknown>, opts: unknown) =>
-          execute(args, opts as Parameters<typeof execute>[1]),
-      };
+      engineTools[originalName] = { execute: guard(originalName, execute) };
     }
     return engineTools;
   }
@@ -658,10 +705,7 @@ export function buildDedupedEngineTools(
     if (!execute) {
       continue;
     }
-    engineTools[name] = {
-      execute: async (args: Record<string, unknown>, opts: unknown) =>
-        execute(args, opts as Parameters<typeof execute>[1]),
-    };
+    engineTools[name] = { execute: guard(name, execute) };
   }
   return engineTools;
 }
@@ -669,16 +713,16 @@ export function buildDedupedEngineTools(
 export function refreshNativeToolDeclarations(
   liveTools: Record<string, Tool> | undefined,
   current: NativeToolDeclarationsResult,
-): boolean {
+): string[] {
   if (!liveTools) {
-    return false;
+    return [];
   }
   const declaredOriginals = new Set(current.originalNameMap.values());
   const missing = Object.entries(liveTools).filter(
     ([name]) => !declaredOriginals.has(name),
   );
   if (missing.length === 0) {
-    return false;
+    return [];
   }
   const built = buildNativeToolDeclarations(
     Object.fromEntries(missing),
@@ -698,7 +742,12 @@ export function refreshNativeToolDeclarations(
       .map(([name]) => name)
       .join(", ")}`,
   );
-  return true;
+  // The ORIGINAL names, which is what a caller's breaker is keyed by. A tool
+  // that accrued TOOL_NOT_FOUND strikes while it was still deferred was never
+  // really failing — those strikes are snapshot artifacts, and leaving them in
+  // place disables the tool for the rest of the turn at the very moment it
+  // becomes callable.
+  return missing.map(([name]) => name);
 }
 
 /**
