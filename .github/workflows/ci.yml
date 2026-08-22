@@ -205,6 +205,46 @@ jobs:
       - name: Docs MCP server suite (no API keys required)
         run: pnpm run test:docs-mcp
 
+      # The rest of test:unit. Nothing in CI has ever invoked test:unit, so 71
+      # of the repo's 83 suite-running scripts never execute on a pull request
+      # — the archive and office suites above were two instances of that, not
+      # the whole of it.
+      #
+      # These are the credential-free ones. Measured with the entire environment
+      # stripped (no .env, empty env): 654 assertions pass, 9 skip, exit 0, in
+      # 87s total. So this is real coverage rather than a suite that goes green
+      # by skipping, which is the failure mode worth guarding against here.
+      #
+      # test:model-not-found-retryable is deliberately absent: it is the one
+      # member of test:unit that skips entirely without credentials, so running
+      # it here would add a step that can only ever no-op.
+      # test:bugfixes is deliberately NOT here yet. Adding it surfaced four
+      # failures that only occur on a CI runner — three undici "invalid onError
+      # method" errors and one oversized-URL assertion, all in the FileDetector
+      # URL tests. They pass locally on Node 24 (280/0) and do not reproduce on
+      # Node 20 either (279/1, and a different failure), so the cause is not
+      # simply the Node version and is not yet understood.
+      #
+      # Those are real pre-existing failures that no one could see before,
+      # because nothing ran this suite. They deserve their own investigation
+      # rather than blocking the other twelve suites from ever running — and
+      # since a failing step aborts the rest, leaving it in would keep the
+      # other 636 assertions from executing at all.
+      - name: Credential-free suites (the rest of test:unit)
+        run: |
+          pnpm run test:mcp:infra
+          pnpm run test:mcp:spans
+          pnpm run test:tool-routing
+          pnpm run test:tool-routing-cli
+          pnpm run test:tool-dedup
+          pnpm run test:model-pool
+          pnpm run test:tool-routing-semantic
+          pnpm run test:mcp-result-cache
+          pnpm run test:vector-chroma
+          pnpm run test:vector-pgvector
+          pnpm run test:vector-pinecone
+          pnpm run test:provider-wiring
+
   # action-smoke-test:
   #   name: GitHub Action Smoke Test
   #   runs-on: ubuntu-latest
