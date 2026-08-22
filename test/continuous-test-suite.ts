@@ -3428,6 +3428,13 @@ const REAL_HTTP_MCP_SERVERS = {
 //
 // Each test SKIPs on credential errors and FAILs on the bug signature.
 
+// A model that is not enabled for the caller's GCP project returns 404
+// NOT_FOUND, which is environmental rather than a defect in this package. The
+// suite must not report that as a failure. Kept as one pattern so the CLI and
+// the generated SDK scripts cannot drift apart.
+const MODEL_UNAVAILABLE_PATTERN =
+  /NOT_FOUND|not available in region|was not found or your project does not have access/i;
+
 async function testTextRequestOnDualModeImageModelCLI(): Promise<
   boolean | null
 > {
@@ -3469,6 +3476,22 @@ async function testTextRequestOnDualModeImageModelCLI(): Promise<
         "Text Request on Dual-Mode Image Model (CLI)",
         "SKIP",
         "Vertex credentials not configured",
+      );
+      return null;
+    }
+
+    // SKIP when the model simply is not provisioned for this project/region.
+    // Credentials can be perfectly valid and still get a 404 here: the test
+    // pins a specific preview model, and whether that model is enabled varies
+    // by GCP project. Without this the suite reports a hard FAIL for a purely
+    // environmental reason, which is a standing false alarm. Still placed
+    // AFTER the bug-signature check above, so a genuine mis-route to the
+    // image pipeline is never masked by it.
+    if (MODEL_UNAVAILABLE_PATTERN.test(combined)) {
+      logTest(
+        "Text Request on Dual-Mode Image Model (CLI)",
+        "SKIP",
+        "model not provisioned for this project/region",
       );
       return null;
     }
@@ -3545,6 +3568,12 @@ async function run() {
     }
     if (/\\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\\b/i.test(msg)) {
       console.log('SDK Text on Image Model: SKIP - credentials not configured');
+      process.exit(0);
+    }
+    // Same environmental-404 guard as the CLI path: a valid credential
+    // can still hit a model that is not enabled for this project.
+    if (/NOT_FOUND|not available in region|was not found or your project does not have access/i.test(msg)) {
+      console.log('SDK Text on Image Model: SKIP - model not provisioned for this project/region');
       process.exit(0);
     }
     console.log('SDK Text on Image Model: FAIL - ' + (msg || String(error)).slice(0, 300));
@@ -3692,6 +3721,12 @@ async function run() {
     const msg = error?.message || '';
     if (/\\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\\b/i.test(msg)) {
       console.log('Schema 3+ Images: SKIP - credentials not configured');
+      process.exit(0);
+    }
+    // Same environmental-404 guard as the CLI path: a valid credential
+    // can still hit a model that is not enabled for this project.
+    if (/NOT_FOUND|not available in region|was not found or your project does not have access/i.test(msg)) {
+      console.log('Schema 3+ Images: SKIP - model not provisioned for this project/region');
       process.exit(0);
     }
     console.log('Schema 3+ Images: FAIL - ' + (msg || String(error)).slice(0, 300));
@@ -3857,6 +3892,12 @@ async function run() {
     const msg = error?.message || '';
     if (/\\b(?:UNAUTHENTICATED|PERMISSION_DENIED|GOOGLE_APPLICATION_CREDENTIALS|invalid[_ ]?credentials|invalid[_ ]?api[_ ]?key|authentication failed)\\b/i.test(msg)) {
       console.log('JSON 3+ Images: SKIP - credentials not configured');
+      process.exit(0);
+    }
+    // Same environmental-404 guard as the CLI path: a valid credential
+    // can still hit a model that is not enabled for this project.
+    if (/NOT_FOUND|not available in region|was not found or your project does not have access/i.test(msg)) {
+      console.log('JSON 3+ Images: SKIP - model not provisioned for this project/region');
       process.exit(0);
     }
     console.log('JSON 3+ Images: FAIL - ' + (msg || String(error)).slice(0, 300));
