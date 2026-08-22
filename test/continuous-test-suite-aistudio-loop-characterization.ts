@@ -35,6 +35,12 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -43,6 +49,14 @@ assertDistFresh();
 const { test, section, runSuite } = defineSuite(
   "AI Studio loop characterization",
 );
+
+// Registered BEFORE NeuroLink is imported so its tracers bind to this
+// provider. Only the step-numbering case reads the exporter; everywhere else
+// it is an inert extra span processor.
+const spanExporter = new InMemorySpanExporter();
+new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+}).register();
 
 const { NeuroLink } = await import("../dist/index.js");
 
@@ -755,6 +769,76 @@ await test("an abort mid-step stops the loop from dispatching the rest of the ba
   assert(
     server.calls.length === 1,
     `the loop issued ${server.calls.length} requests, so it continued past the abort`,
+  );
+});
+
+section("step numbering");
+
+await test("tool activity is numbered by the turn's steps, one per step", async () => {
+  // Each step's tool activity is recorded with a step number — on the
+  // `gen_ai.tool_call` span event as `tool.step`, and on the conversation
+  // memory rows as `stepIndex`. The numbering has to come from the loop's own
+  // step, not from a count of how many times the recording hook ran: a
+  // malformed-call retry re-enters the loop without reaching that hook and
+  // still consumes a step, so a self-incrementing counter drifts by exactly
+  // the number of retries and mislabels every row after the first.
+  //
+  // AI Studio enables no such retry today, so this pins the numbering as it
+  // stands and fails if it is ever renumbered.
+  const server = await startStandIn((i) =>
+    i < 2 ? toolTurn("count", { n: i }) : textTurn("done"),
+  );
+  const restore = withAiStudioEnv();
+  spanExporter.reset();
+  let dispatched = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "use the tool twice" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 4,
+      disableTools: false,
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.port),
+      tools: {
+        count: {
+          description: "counts",
+          inputSchema: {
+            type: "object",
+            properties: { n: { type: "number" } },
+            additionalProperties: true,
+          },
+          execute: async () => {
+            dispatched++;
+            return { ok: true };
+          },
+        },
+      },
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } finally {
+    restore();
+    await server.close();
+  }
+  const steps = spanExporter
+    .getFinishedSpans()
+    .flatMap((span: ReadableSpan) => span.events)
+    .filter((event) => event.name === "gen_ai.tool_call")
+    .map((event) => event.attributes?.["tool.step"]);
+  console.log(
+    `    [diagnostic] aistudio step numbering: dispatched=${dispatched} steps=${steps.join(",")}`,
+  );
+  assert(dispatched === 2, "the tool did not run once per tool-calling step");
+  // One event per tool call, numbered from 1, in order. Asserting the exact
+  // sequence rather than the count is what catches a renumbering that still
+  // produces the right number of events.
+  assert(
+    steps.length === 2 && steps[0] === 1 && steps[1] === 2,
+    "tool activity was not numbered 1,2 across the turn's two tool steps",
   );
 });
 

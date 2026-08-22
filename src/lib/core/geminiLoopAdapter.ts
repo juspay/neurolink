@@ -76,10 +76,13 @@ export function createGeminiLoopAdapter(
       conversation: GeminiTurnContent[],
       step: number,
     ): AgenticLoopStepRequest {
-      if (config.declarations) {
-        refreshNativeToolDeclarations(config.liveTools, config.declarations);
-      }
-      return { raw: config.buildRequest(conversation, step) };
+      const hydratedToolNames = config.declarations
+        ? refreshNativeToolDeclarations(config.liveTools, config.declarations)
+        : [];
+      return {
+        raw: config.buildRequest(conversation, step),
+        ...(hydratedToolNames.length > 0 ? { hydratedToolNames } : {}),
+      };
     },
 
     /**
@@ -90,10 +93,8 @@ export function createGeminiLoopAdapter(
      */
     ...(config.planReclaim
       ? {
-          planReclaim: (conversation: GeminiTurnContent[], step: number) => {
-            const reclaimed = config.planReclaim?.(conversation, step);
-            return reclaimed ? { conversation: reclaimed } : undefined;
-          },
+          planReclaim: (conversation: GeminiTurnContent[], step: number) =>
+            config.planReclaim?.(conversation, step),
         }
       : {}),
 
@@ -163,14 +164,28 @@ export function createGeminiLoopAdapter(
       const text = extractTextFromParts(collected.rawResponseParts);
 
       // Names cross the engine boundary in their ORIGINAL form.
-      const toolCalls = collected.stepFunctionCalls.map((call, index) => ({
+      const allCalls = collected.stepFunctionCalls.map((call, index) => ({
         id: `${config.providerLabel}_${index}_${call.name}`,
         name: originalNameFor(call.name),
         args: call.args,
       }));
 
+      // A call to the terminal structured-output tool is not a tool call at
+      // all — its arguments ARE the answer. Reporting it as text and leaving
+      // it out of `toolCalls` routes it through the engine's ordinary
+      // zero-tool-calls exit, so it is never dispatched, never struck against
+      // the breaker, and never recorded as a tool execution.
+      const terminal = config.finalResultToolName
+        ? allCalls.find((call) => call.name === config.finalResultToolName)
+        : undefined;
+      const toolCalls = terminal ? [] : allCalls;
+      const finalText = terminal ? JSON.stringify(terminal.args) : text;
+      if (terminal) {
+        config.onTerminalResult?.(finalText);
+      }
+
       return {
-        text,
+        text: finalText,
         toolCalls,
         usage: {
           inputTokens: collected.inputTokens,
@@ -194,6 +209,11 @@ export function createGeminiLoopAdapter(
       conversation: GeminiTurnContent[],
       stepResult: AgenticLoopStepResult<GeminiStepRaw>,
       toolResults: AgenticLoopToolCallResult[],
+      // Declared and unused: writing history needs no step number. It is here
+      // for the provider wrappers around this adapter, which record tool
+      // activity keyed by the loop's own step and must not count their own
+      // invocations to get it.
+      _step: number,
     ): GeminiTurnContent[] {
       // Copied before `pushModelResponseToHistory` mutates it: the engine
       // treats the conversation as a value it hands in and gets back, so
@@ -211,8 +231,13 @@ export function createGeminiLoopAdapter(
           functionResponse: {
             // Back to the sanitized wire name the model actually called.
             name: sanitizedNameFor(result.name),
+            // The engine's own payload, verbatim. A blocked or burnt-out
+            // tool is reported as { error, status, do_not_retry }, and those
+            // extra fields are MODEL-VISIBLE instructions — re-wrapping just
+            // the message drops the "do not call this again" hint and the
+            // model keeps spending steps on a tool that will never work.
             response: result.error
-              ? { error: result.error }
+              ? (result.output as Record<string, unknown>)
               : { result: result.output },
           },
         })),

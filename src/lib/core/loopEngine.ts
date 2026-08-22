@@ -5,6 +5,7 @@ import type {
   AgenticLoopOptions,
   AgenticLoopResult,
   AgenticLoopStepResult,
+  AgenticLoopToolCall,
   AgenticLoopToolCallResult,
   AgenticLoopUsage,
 } from "../types/index.js";
@@ -41,6 +42,164 @@ function sumUsage(a: AgenticLoopUsage, b: AgenticLoopUsage): AgenticLoopUsage {
     reasoningTokens:
       (a.reasoningTokens ?? 0) + (b.reasoningTokens ?? 0) || undefined,
   };
+}
+
+/**
+ * Dispatch one step's tool calls.
+ *
+ * Split out of `runAgenticLoop` because it is the one part of the turn with
+ * its own decision tree — breaker, hydration, execution, failure
+ * classification — and reading the loop should not mean reading all of it.
+ * It owns no state: everything it needs arrives as arguments, and it reports
+ * what happened by returning it, so the turn's accumulators stay in one place.
+ */
+async function dispatchStepTools(params: {
+  calls: AgenticLoopToolCall[];
+  adapter: Pick<
+    AgenticLoopAdapter<unknown>,
+    "toolFailureBreaker" | "resolveToolOnMiss"
+  >;
+  tools: AgenticLoopOptions["tools"];
+  failedTools: Map<string, { count: number; lastError: string }>;
+  abortSignal: AbortSignal;
+}): Promise<{
+  toolResults: AgenticLoopToolCallResult[];
+  executions: AgenticLoopResult<unknown>["toolExecutions"];
+  dispatched: AgenticLoopToolCall[];
+  /** True when an abort cut the batch short, so the caller must NOT append a
+   *  partial tool-result turn. */
+  abortedMidBatch: boolean;
+}> {
+  const { calls, adapter, tools, failedTools, abortSignal } = params;
+  const toolResults: AgenticLoopToolCallResult[] = [];
+  const executions: AgenticLoopResult<unknown>["toolExecutions"] = [];
+  const dispatched: AgenticLoopToolCall[] = [];
+  let abortedMidBatch = false;
+  for (const call of calls) {
+    // Honour an abort BETWEEN tool executions. A step can carry several calls,
+    // and each one costs up to a full tool timeout, so without this a wide
+    // batch keeps running long past the moment the turn was cancelled — the
+    // step-top check only fires once the whole batch has drained. Passing the
+    // signal into execute() is not enough on its own: a tool that ignores it
+    // runs to completion, and every remaining call still gets STARTED.
+    if (abortSignal.aborted) {
+      abortedMidBatch = true;
+      break;
+    }
+    dispatched.push(call);
+    const breaker = adapter.toolFailureBreaker;
+    const failInfo = breaker ? failedTools.get(call.name) : undefined;
+    if (breaker && failInfo && failInfo.count >= breaker.maxRetries) {
+      const output = {
+        error: `TOOL_PERMANENTLY_FAILED: "${call.name}" has failed ${failInfo.count} times. Last error: ${failInfo.lastError}.`,
+        status: "permanently_failed",
+        do_not_retry: true,
+      };
+      toolResults.push({
+        ...call,
+        output,
+        error: output.error,
+        permanentlyFailed: true,
+      });
+      executions.push({
+        id: call.id,
+        name: call.name,
+        input: call.args,
+        output,
+        error: output.error,
+      });
+      continue;
+    }
+    // Second lookup path for adapters that discover tools mid-turn.
+    // The miss is defined as "nothing executable under this name"
+    // rather than "no key under this name", because the guard directly
+    // below already treats a present-but-unexecutable entry as absent —
+    // a deferred-catalog placeholder is exactly that shape, and it is
+    // precisely what hydration exists to resolve.
+    const declaredTool = tools?.[call.name];
+    const tool = declaredTool?.execute
+      ? declaredTool
+      : (adapter.resolveToolOnMiss?.(call.name) ?? declaredTool);
+    if (!tool?.execute) {
+      const output = breaker
+        ? {
+            error: `TOOL_NOT_FOUND: "${call.name}" does not exist.`,
+            status: "permanently_failed",
+            do_not_retry: true,
+          }
+        : { error: `Tool not found: ${call.name}` };
+      toolResults.push({
+        ...call,
+        output,
+        error: output.error,
+        permanentlyFailed: !!breaker,
+      });
+      executions.push({
+        id: call.id,
+        name: call.name,
+        input: call.args,
+        output,
+        error: output.error,
+      });
+      continue;
+    }
+    try {
+      const output = await tool.execute(call.args, {
+        toolCallId: call.id,
+        abortSignal: abortSignal,
+      });
+      // A result can report failure without throwing — an MCP isError
+      // payload, a proxy-blocked call resolving with `{ error }`. When
+      // the breaker is told how to recognise those, they strike it
+      // exactly as a throw does; otherwise the model can grind on a
+      // blocked tool for the whole step budget.
+      const resultFailure = breaker?.classifyResultFailure?.(output);
+      if (breaker) {
+        if (resultFailure) {
+          const current = failedTools.get(call.name) ?? {
+            count: 0,
+            lastError: "",
+          };
+          current.count++;
+          current.lastError = resultFailure;
+          failedTools.set(call.name, current);
+        } else if (breaker.consecutive) {
+          // Genuinely consecutive: a clean result clears the count, so
+          // an argument-dependent soft error cannot accumulate its way
+          // to disabling a tool that works.
+          failedTools.delete(call.name);
+        }
+      }
+      toolResults.push({ ...call, output });
+      executions.push({
+        id: call.id,
+        name: call.name,
+        input: call.args,
+        output,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (breaker) {
+        const current = failedTools.get(call.name) ?? {
+          count: 0,
+          lastError: "",
+        };
+        current.count++;
+        current.lastError = message;
+        failedTools.set(call.name, current);
+      }
+      const output = { error: message, status: "failed" };
+      toolResults.push({ ...call, output, error: message });
+      executions.push({
+        id: call.id,
+        name: call.name,
+        input: call.args,
+        output,
+        error: message,
+      });
+    }
+  }
+  return { toolResults, executions, dispatched, abortedMidBatch };
 }
 
 /**
@@ -100,12 +259,27 @@ export function runAgenticLoop<TConversation>(
 
         if (adapter.planReclaim) {
           const reclaimed = adapter.planReclaim(conversation, step);
-          if (reclaimed) {
+          if (reclaimed?.conversation !== undefined) {
             conversation = reclaimed.conversation;
+          }
+          // A guard that could not reclaim enough room ends the turn HERE,
+          // before the request goes out — stepping into a provider rejection
+          // would lose every completed step of the turn.
+          if (reclaimed?.stop) {
+            break;
           }
         }
 
         const request = adapter.buildStepRequest(conversation, step);
+
+        // A tool that just became callable starts clean. Its TOOL_NOT_FOUND
+        // strikes were recorded against a name that genuinely did not resolve
+        // yet, and the breaker is consulted before the lookup, so without this
+        // a deferred tool the model named twice is refused for the rest of the
+        // turn at the exact moment it becomes usable.
+        for (const name of request.hydratedToolNames ?? []) {
+          failedTools.delete(name);
+        }
 
         // Pre-first-chunk 429/5xx retry: watch whether THIS attempt of
         // THIS step pushes anything to the shared channel before it
@@ -165,7 +339,8 @@ export function runAgenticLoop<TConversation>(
             `[${adapter.providerLabel}] Malformed function call at step ${step + 1}/${adapter.maxSteps}; retrying once.`,
           );
           conversation =
-            adapter.buildMalformedRetryNote?.(conversation) ?? conversation;
+            adapter.buildMalformedRetryNote?.(conversation, step) ??
+            conversation;
           continue;
         }
 
@@ -178,111 +353,17 @@ export function runAgenticLoop<TConversation>(
           hadToolCallsAtCap = true;
         }
 
-        const toolResults: AgenticLoopToolCallResult[] = [];
-        let abortedMidBatch = false;
-        for (const call of stepResult.toolCalls) {
-          // Honour an abort BETWEEN tool executions. A step can carry several
-          // calls, and each one costs up to a full tool timeout, so without
-          // this a wide batch keeps running long past the moment the turn was
-          // cancelled — the step-top check above only fires once the whole
-          // batch has drained. Passing the signal into execute() is not
-          // enough on its own: a tool that ignores it still runs to
-          // completion, and every remaining call still gets STARTED.
-          if (internalAbort.signal.aborted) {
-            abortedMidBatch = true;
-            break;
-          }
-          allToolCalls.push(call);
-          const breaker = adapter.toolFailureBreaker;
-          const failInfo = breaker ? failedTools.get(call.name) : undefined;
-          if (breaker && failInfo && failInfo.count >= breaker.maxRetries) {
-            const output = {
-              error: `TOOL_PERMANENTLY_FAILED: "${call.name}" has failed ${failInfo.count} times. Last error: ${failInfo.lastError}.`,
-              status: "permanently_failed",
-              do_not_retry: true,
-            };
-            toolResults.push({
-              ...call,
-              output,
-              error: output.error,
-              permanentlyFailed: true,
-            });
-            allToolExecutions.push({
-              id: call.id,
-              name: call.name,
-              input: call.args,
-              output,
-              error: output.error,
-            });
-            continue;
-          }
-          // Second lookup path for adapters that discover tools mid-turn.
-          // The miss is defined as "nothing executable under this name"
-          // rather than "no key under this name", because the guard directly
-          // below already treats a present-but-unexecutable entry as absent —
-          // a deferred-catalog placeholder is exactly that shape, and it is
-          // precisely what hydration exists to resolve.
-          const declaredTool = options.tools?.[call.name];
-          const tool = declaredTool?.execute
-            ? declaredTool
-            : (adapter.resolveToolOnMiss?.(call.name) ?? declaredTool);
-          if (!tool?.execute) {
-            const output = breaker
-              ? {
-                  error: `TOOL_NOT_FOUND: "${call.name}" does not exist.`,
-                  status: "permanently_failed",
-                  do_not_retry: true,
-                }
-              : { error: `Tool not found: ${call.name}` };
-            toolResults.push({
-              ...call,
-              output,
-              error: output.error,
-              permanentlyFailed: !!breaker,
-            });
-            allToolExecutions.push({
-              id: call.id,
-              name: call.name,
-              input: call.args,
-              output,
-              error: output.error,
-            });
-            continue;
-          }
-          try {
-            const output = await tool.execute(call.args, {
-              toolCallId: call.id,
-              abortSignal: internalAbort.signal,
-            });
-            toolResults.push({ ...call, output });
-            allToolExecutions.push({
-              id: call.id,
-              name: call.name,
-              input: call.args,
-              output,
-            });
-          } catch (err) {
-            const message = err instanceof Error ? err.message : String(err);
-            if (breaker) {
-              const current = failedTools.get(call.name) ?? {
-                count: 0,
-                lastError: "",
-              };
-              current.count++;
-              current.lastError = message;
-              failedTools.set(call.name, current);
-            }
-            const output = { error: message, status: "failed" };
-            toolResults.push({ ...call, output, error: message });
-            allToolExecutions.push({
-              id: call.id,
-              name: call.name,
-              input: call.args,
-              output,
-              error: message,
-            });
-          }
-        }
+        const dispatch = await dispatchStepTools({
+          calls: stepResult.toolCalls,
+          adapter,
+          tools: options.tools,
+          failedTools,
+          abortSignal: internalAbort.signal,
+        });
+        const toolResults = dispatch.toolResults;
+        allToolCalls.push(...dispatch.dispatched);
+        allToolExecutions.push(...dispatch.executions);
+        const abortedMidBatch = dispatch.abortedMidBatch;
 
         // A batch cut short leaves some calls without results, and the
         // tool-result turn is appended as one message: writing it here would
@@ -298,6 +379,7 @@ export function runAgenticLoop<TConversation>(
           conversation,
           stepResult,
           toolResults,
+          step,
         );
       }
 

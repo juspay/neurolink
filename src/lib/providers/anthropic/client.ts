@@ -2106,7 +2106,12 @@ export class AnthropicProvider extends BaseProvider {
       // instead would batch every step's tools into one late write.
       const adapter: typeof baseAdapter = {
         ...baseAdapter,
-        buildToolResultMessages: (conversation, stepResult, toolResults) => {
+        buildToolResultMessages: (
+          conversation,
+          stepResult,
+          toolResults,
+          engineStep,
+        ) => {
           for (const result of toolResults) {
             toolsUsed.push(result.name);
           }
@@ -2157,6 +2162,7 @@ export class AnthropicProvider extends BaseProvider {
             conversation,
             stepResult,
             toolResults,
+            engineStep,
           );
         },
       };

@@ -31,6 +31,8 @@ import {
 import type { NeuroLink } from "../../neurolink.js";
 import { warnGoogleSdkIgnoresProxy } from "../../proxy/proxyFetch.js";
 import type {
+  GeminiTurnContent,
+  NativeToolDeclarationsResult,
   UnknownRecord,
   ZodUnknownSchema,
   EnhancedGenerateResult,
@@ -111,6 +113,7 @@ import {
   appendStepText,
   buildAbortedTurnMessage,
   buildContextCapMessage,
+  buildDedupedEngineTools,
   buildToolLoopCapMessage,
   buildTurnStalledMessage,
   buildTurnTimeoutMessage,
@@ -124,6 +127,8 @@ import {
   resolveTurnStopReason,
   DedupExecuteMap,
 } from "../googleNativeGemini3/index.js";
+import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
+import { runAgenticLoop } from "../../core/loopEngine.js";
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 import {
@@ -1798,6 +1803,7 @@ export class GoogleVertexProvider extends BaseProvider {
       | Array<{ functionDeclarations: VertexGenaiFunctionDeclaration[] }>
       | undefined;
     const executeMap = new DedupExecuteMap();
+    let declarations: NativeToolDeclarationsResult | undefined;
 
     if (
       options.tools &&
@@ -1808,6 +1814,11 @@ export class GoogleVertexProvider extends BaseProvider {
         options.tools,
         "functionDeclarations",
       );
+      // Kept, not discarded: the shared adapter needs originalNameMap to
+      // translate sanitized wire names back, and buildDedupedEngineTools
+      // reads executeMap through it — which is the DedupExecuteMap that makes
+      // an identical repeated call answer from cache instead of re-running.
+      declarations = declared;
       tools = declared.toolsConfig;
       for (const [name, execute] of declared.executeMap) {
         executeMap.set(name, execute);
@@ -2011,14 +2022,9 @@ export class GoogleVertexProvider extends BaseProvider {
       input: Record<string, unknown>;
       output: unknown;
     }> = [];
-    let step = 0;
 
     // Track structured output from final_result tool (when using final_result pattern)
     let finalResultStructuredOutput: Record<string, unknown> | undefined;
-
-    // Track failed tools to prevent infinite retry loops
-    // Key: tool name, Value: { count: retry attempts, lastError: error message }
-    const failedTools = new Map<string, { count: number; lastError: string }>();
 
     // In-loop context guard: stop calling tools when the accumulated
     // conversation approaches the model's context window instead of stepping
@@ -2079,103 +2085,91 @@ export class GoogleVertexProvider extends BaseProvider {
       internalAbort.abort();
     }
     let wasAborted = false;
-    // One retry per turn for MALFORMED_FUNCTION_CALL steps (see the retry
-    // block after the step drain).
-    let malformedRetryCount = 0;
 
     // Step-cap flags declared in the outer scope so the terminal block (also
     // inside the try) and the finishReason mapping (after the finally) can
     // both read them.
     let hitStepLimit = false;
     let synthesizedFinalAnswer = false;
+    // How many steps the ENGINE actually took, reported back from the per-step
+    // hook. The terminal block compares it against maxSteps, and counting hook
+    // invocations instead would drift by the number of malformed retries.
+    let stepsTaken = 0;
 
     try {
       // Agentic loop for tool calling
-      while (step < maxSteps) {
-        if (effectiveSignal.aborted) {
-          wasAborted = true;
-          break;
-        }
-        // Context guard: stop the tool loop before the accumulated
-        // conversation crosses the window threshold — synthesize from what
-        // we have instead of stepping into a provider rejection.
-        if (contextGuard.shouldStop()) {
-          // Parity upgrade: try to RECLAIM budget and keep going before
-          // falling back to the historic stop-only behaviour. Ending the turn
-          // early is safe but throws away work the model was mid-way through;
-          // dropping the oldest complete tool exchanges usually buys enough
-          // room to finish. Only when reclaiming changes nothing do we stop.
-          const reclaimed = reclaimVertexLoopContext(
-            currentContents,
-            modelName,
-            contextGuard.projectedNextPromptTokens,
-          );
-          if (reclaimed) {
-            contextGuard.resetAfterReclaim();
-          } else {
-            hitContextLimit = true;
-            logger.warn(
-              `[GoogleVertex] Gemini turn stopped by the context guard: ` +
-                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-                `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
-            );
-            break;
-          }
-        }
-        step++;
-        turnClock.noteProgress();
-        // Mid-turn discovery sync: search_tools may have hydrated new tools
-        // into the live record during the previous step — advertise them in
-        // this step's request instead of leaving them invisible until the
-        // next turn (TOOL_NOT_FOUND).
-        this.refreshGeminiToolDeclarations(
-          options.tools,
-          tools?.[0]?.functionDeclarations,
-          executeMap,
-          failedTools,
-        );
-        logger.debug(`[GoogleVertex] Native SDK step ${step}/${maxSteps}`);
-
-        try {
-          const stream = await client.models.generateContentStream({
-            model: modelName,
-            contents: currentContents,
-            config: { ...config, abortSignal: effectiveSignal },
-          });
-
-          const stepFunctionCalls: Array<{
-            name: string;
-            args: Record<string, unknown>;
-          }> = [];
-
-          // Capture raw response parts including thoughtSignature
-          const rawResponseParts: unknown[] = [];
-          // This step's own finish reason (vs the cross-step
-          // lastFinishReason) — drives the single MALFORMED_FUNCTION_CALL
-          // retry below.
-          let stepFinishReason: string | undefined;
-          // Per-step usage trackers for WRITE-THROUGH accumulation: within a
-          // step's chunk stream the counts are latest-wins (promptTokenCount
-          // arrives once in the final chunk; candidates/thoughts counts are
-          // cumulative across chunks), so each chunk folds only the DELTA
-          // over this step's previous value into the turn totals. The totals
-          // are therefore correct at every point mid-drain — a step killed
-          // mid-stream (abort / turn deadline / stall watchdog) still counts
-          // the billed tokens it already reported.
-
-          // The drain now lives in collectVertexStreamChunks. The hooks below
-          // are the two couplings it had to this loop, plus the per-chunk
-          // usage deltas — those must stay per-chunk so a step killed
-          // mid-stream still bills what it reported.
-          const collected = await collectVertexStreamChunks(
-            stream,
-            {
-              push: (chunk) => {
-                if (chunk.content) {
-                  incrementalTextChunks.push(chunk.content);
+      // The turn runs on the shared engine. The step cap, tool dispatch, the
+      // failure breaker, per-step usage accumulation, the single malformed
+      // retry and the pre-first-chunk provider retry all live there now; what
+      // stays here is everything the engine has no opinion about — the turn
+      // clock, the context guard, conversation-memory storage, the wrap-up
+      // nudge, and the terminal block below.
+      const engineAdapter = createGeminiLoopAdapter({
+        providerLabel: "GoogleVertex",
+        maxSteps,
+        // Ported verbatim: the same DEFAULT_TOOL_MAX_RETRIES threshold, plus
+        // the two rules this loop has always had and the engine did not.
+        toolFailureBreaker: {
+          maxRetries: DEFAULT_TOOL_MAX_RETRIES,
+          // Strikes are CONSECUTIVE here: a clean result clears the count, so
+          // an argument-dependent soft error cannot accumulate its way to
+          // disabling a tool that works.
+          consecutive: true,
+          // A result that reports failure without throwing — an MCP isError
+          // payload, a proxy-blocked call resolving with { error } — counts
+          // toward the breaker exactly as a throw does.
+          classifyResultFailure: (output) =>
+            extractToolFailureText(output) ?? undefined,
+        },
+        liveTools: options.tools ?? {},
+        ...(declarations ? { declarations } : {}),
+        ...(useFinalResultTool
+          ? {
+              finalResultToolName: "final_result",
+              onTerminalResult: (text) => {
+                try {
+                  finalResultStructuredOutput = JSON.parse(text) as Record<
+                    string,
+                    unknown
+                  >;
+                } catch {
+                  /* the caller's coercion layer repairs a partial payload */
                 }
               },
+            }
+          : {}),
+        enableMalformedRetry: true,
+        buildMalformedRetryNote: (conversation, retriedStep) => {
+          this.emitTurnEvent({
+            phase: "malformed-retry",
+            step: retriedStep + 1,
+            maxSteps,
+          });
+          return [
+            ...conversation,
+            {
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "Your previous function call was malformed and could not " +
+                    "be parsed. Re-issue it as a single valid function call, " +
+                    "or answer in plain text.",
+                },
+              ],
             },
+          ];
+        },
+        // The turn clock's per-chunk ping and the context guard's per-step
+        // prompt size both ride the drain, which is why this loop keeps its
+        // own collector rather than the adapter's default.
+        collectStep: (stream, channel) =>
+          collectVertexStreamChunks(
+            stream as AsyncIterable<{
+              functionCalls?: NativeFunctionCall[];
+              [key: string]: unknown;
+            }>,
+            channel,
             {
               onProgress: () => turnClock.noteProgress(),
               onUsage: (input, output) => contextGuard.noteUsage(input, output),
@@ -2191,431 +2185,242 @@ export class GoogleVertexProvider extends BaseProvider {
                 }
               },
             },
-          );
-          rawResponseParts.push(...collected.rawResponseParts);
-          stepFunctionCalls.push(...collected.stepFunctionCalls);
-          if (collected.finishReason) {
-            stepFinishReason = collected.finishReason;
-            lastFinishReason = collected.finishReason;
+          ),
+        planReclaim: (conversation) => {
+          if (!contextGuard.shouldStop()) {
+            return undefined;
           }
-
-          // Extract text from raw parts after stream completes
-          // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
-          const stepText = rawResponseParts
-            .filter(
-              (part): part is { text: string } =>
-                typeof (part as Record<string, unknown>).text === "string",
-            )
-            .map((part) => part.text)
-            .join("");
-
-          // MALFORMED_FUNCTION_CALL is usually a transient formatting failure
-          // (the model emitted an unparseable call): retry the step ONCE with
-          // a corrective note instead of hard-ending the turn with empty
-          // content — automated alert-RCA turns were dying at step 2-4 on
-          // this, mislabeled as step-cap exits.
+          // Try to RECLAIM budget and keep going before falling back to the
+          // historic stop-only behaviour. Ending the turn early is safe but
+          // throws away work the model was mid-way through; dropping the
+          // oldest complete tool exchanges usually buys enough room to finish.
+          const working = [...conversation] as Array<{
+            role: string;
+            parts: VertexNativeLoopPart[];
+          }>;
           if (
-            stepFunctionCalls.length === 0 &&
-            !stepText &&
-            stepFinishReason === "MALFORMED_FUNCTION_CALL" &&
-            malformedRetryCount < 1 &&
-            !effectiveSignal.aborted
+            reclaimVertexLoopContext(
+              working,
+              modelName,
+              contextGuard.projectedNextPromptTokens,
+            )
           ) {
-            malformedRetryCount++;
-            logger.warn(
-              `[GoogleVertex] Model returned MALFORMED_FUNCTION_CALL at step ${step}/${maxSteps}; retrying once with a corrective note.`,
-            );
-            this.emitTurnEvent({ phase: "malformed-retry", step, maxSteps });
-            if (rawResponseParts.length > 0) {
-              currentContents.push({
-                role: "model",
-                parts: rawResponseParts as VertexNativePart[],
-              });
-            }
-            currentContents.push({
-              role: "user",
-              parts: [
-                {
-                  text:
-                    "Your previous function call was malformed and could not " +
-                    "be parsed. Re-issue it as a single valid function call, " +
-                    "or answer in plain text.",
-                },
-              ],
-            });
-            continue;
+            contextGuard.resetAfterReclaim();
+            return { conversation: working };
           }
-
-          // If no function calls, we're done
-          if (stepFunctionCalls.length === 0) {
-            finalText = stepText;
-            break;
-          }
-
-          // Check for final_result tool call - this is our structured output pattern
-          if (useFinalResultTool) {
-            const finalResultCall = stepFunctionCalls.find(
-              (call) => call.name === "final_result",
-            );
-            if (finalResultCall) {
-              // Extract the structured output from final_result arguments
-              finalResultStructuredOutput = finalResultCall.args as Record<
-                string,
-                unknown
-              >;
-              logger.debug(
-                "[GoogleVertex] Received final_result tool call with structured output (stream)",
-                {
-                  outputKeys: Object.keys(finalResultStructuredOutput),
-                },
-              );
-              // Return the structured output as JSON text
-              finalText = JSON.stringify(finalResultStructuredOutput);
-              break;
-            }
-          }
-
-          // Execute function calls
-          logger.debug(
-            `[GoogleVertex] Executing ${stepFunctionCalls.length} function calls`,
+          hitContextLimit = true;
+          logger.warn(
+            `[GoogleVertex] Gemini turn stopped by the context guard: ` +
+              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+              `>= threshold ${contextGuard.thresholdTokens} — synthesizing a final answer.`,
           );
+          return { stop: true };
+        },
+        buildRequest: (conversation) => ({
+          model: modelName,
+          contents: conversation,
+          config: { ...config, ...(tools ? { tools } : {}) },
+        }),
+        sendStep: async (request, signal) => {
+          turnClock.noteProgress();
+          const built = request as {
+            model: string;
+            contents: Array<{ role: string; parts: unknown[] }>;
+            config?: Record<string, unknown>;
+          };
+          return client.models.generateContentStream({
+            model: built.model,
+            contents: built.contents,
+            config: { ...(built.config ?? {}), abortSignal: signal },
+          }) as Promise<
+            AsyncIterable<{
+              functionCalls?: NativeFunctionCall[];
+              [key: string]: unknown;
+            }>
+          >;
+        },
+      });
 
-          // Add model response with ALL parts (including thoughtSignature) to history
-          // This preserves the thought_signature which is required for Gemini 3 multi-turn tool calling
-          currentContents.push({
-            role: "model",
-            parts:
-              rawResponseParts.length > 0
-                ? (rawResponseParts as VertexNativeLoopPart[])
-                : stepFunctionCalls.map((fc) => ({
-                    functionCall: fc,
-                  })),
-          });
-
-          // Execute each function and collect responses (plus an optional
-          // trailing wrap-up nudge text part).
-          const functionResponses: Array<
-            | {
-                functionResponse: {
-                  name: string;
-                  response: Record<string, unknown>;
-                };
-              }
-            | { text: string }
-          > = [];
-          // Per-step bookkeeping for conversation-memory storage.
-          const stepStorageCalls: Array<{
-            toolName: string;
-            args: Record<string, unknown>;
-          }> = [];
-          const stepStorageResults: Array<{
-            toolName: string;
-            output: unknown;
-          }> = [];
-
-          // Note: tool:start / tool:end events are emitted by ToolsManager's
-          // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
-          for (const call of stepFunctionCalls) {
-            // Honor a deadline/stall/caller abort BETWEEN tool executions —
-            // without this check a multi-tool step keeps executing its whole
-            // batch (up to N × toolTimeoutMs past the deadline) before the
-            // while-top check finally breaks.
-            if (effectiveSignal.aborted) {
-              wasAborted = true;
-              break;
-            }
-            allToolCalls.push({ toolName: call.name, args: call.args });
-            stepStorageCalls.push({ toolName: call.name, args: call.args });
-
-            // Check if this tool has already exceeded retry limit
-            const failedInfo = failedTools.get(call.name);
-            if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-              logger.warn(
-                `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-              );
-              const errorPayload = {
-                error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-                status: "permanently_failed",
-                do_not_retry: true,
-              };
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: errorPayload,
-                },
-              });
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: errorPayload,
-              });
-              stepStorageResults.push({
-                toolName: call.name,
-                output: errorPayload,
-              });
-              continue;
-            }
-
-            let execute = executeMap.get(call.name);
-            if (!execute) {
-              // Snapshot miss: the tool may have been hydrated into the live
-              // record by search_tools within this very step batch, or the
-              // model called a deferred catalog tool directly by name.
-              execute = this.resolveGeminiToolOnMiss(
-                call.name,
-                options.tools,
-                tools?.[0]?.functionDeclarations,
-                executeMap,
-                failedTools,
-              );
-            }
-            if (execute) {
-              try {
-                // AI SDK Tool execute requires (args, options) - provide minimal options
-                const toolOptions = {
-                  toolCallId: `${call.name}-${Date.now()}`,
-                  messages: [],
-                  abortSignal: effectiveSignal,
-                };
-                turnClock.noteProgress();
-                // Bound the execute() await — a wedged tool costs one step
-                // (error tool_result), not the whole turn — and race it
-                // against the turn's abort so a deadline/caller abort is
-                // observed IMMEDIATELY instead of after the tool settles.
-                const result = await withTimeout(
-                  raceWithAbort(
-                    Promise.resolve(execute(call.args, toolOptions)),
-                    effectiveSignal,
-                  ),
-                  toolExecTimeoutMs,
-                  `Tool "${call.name}" execution timed out after ${toolExecTimeoutMs}ms`,
-                );
-                turnClock.noteProgress();
-                // Error-shaped success (MCP isError / { error } payloads —
-                // e.g. proxy-blocked tools) counts toward the breaker too:
-                // these fail without throwing, and only counting throws lets
-                // the model grind on a blocked tool for the whole budget.
-                const resultErrorText = extractToolFailureText(result);
-                if (resultErrorText) {
-                  const info = failedTools.get(call.name) || {
-                    count: 0,
-                    lastError: "",
-                  };
-                  info.count++;
-                  info.lastError = resultErrorText;
-                  failedTools.set(call.name, info);
-                } else {
-                  // Genuinely consecutive: a success clears the strike count
-                  // (argument-dependent soft errors — file-not-found on
-                  // different paths — must not disable a working tool).
-                  failedTools.delete(call.name);
-                }
-                toolExecutions.push({
-                  name: call.name,
-                  input: call.args,
-                  output: result,
-                });
-                functionResponses.push({
-                  functionResponse: { name: call.name, response: { result } },
-                });
-                stepStorageResults.push({
-                  toolName: call.name,
-                  output: result,
-                });
-              } catch (error) {
-                // An abort during tool execution ends the turn gracefully — it
-                // must NOT be recorded as a spurious tool failure. Both checks
-                // matter: effectiveSignal.aborted catches an abort WE triggered
-                // (even if the throw isn't abort-shaped); isAbortError(error)
-                // catches an abort-shaped throw (e.g. a tool raising AbortError)
-                // even when the signal itself never fired.
-                if (effectiveSignal.aborted || isAbortError(error)) {
-                  wasAborted = true;
-                  break;
-                }
-                turnClock.noteProgress();
-                if (error instanceof TimeoutError) {
-                  this.emitTurnEvent({
-                    phase: "tool-timeout",
-                    step,
-                    maxSteps,
-                    toolName: call.name,
-                  });
-                }
-                const errorMessage =
-                  error instanceof Error ? error.message : "Unknown error";
-
-                // Track this failure
-                const currentFailInfo = failedTools.get(call.name) || {
-                  count: 0,
-                  lastError: "",
-                };
-                currentFailInfo.count++;
-                currentFailInfo.lastError = errorMessage;
-                failedTools.set(call.name, currentFailInfo);
-
-                logger.warn(
-                  `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-                );
-
-                // Determine if this is a permanent failure
-                const isPermanentFailure =
-                  currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-                const errorPayload = {
-                  error: isPermanentFailure
-                    ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                    : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                  status: isPermanentFailure ? "permanently_failed" : "failed",
-                  do_not_retry: isPermanentFailure,
-                  retry_count: currentFailInfo.count,
-                  max_retries: DEFAULT_TOOL_MAX_RETRIES,
-                };
-                functionResponses.push({
-                  functionResponse: {
-                    name: call.name,
-                    response: errorPayload,
-                  },
-                });
-                toolExecutions.push({
-                  name: call.name,
-                  input: call.args,
-                  output: errorPayload,
-                });
-                stepStorageResults.push({
-                  toolName: call.name,
-                  output: errorPayload,
-                });
-              }
-            } else {
-              // Tool not found is a permanent error. Count it toward the
-              // breaker too (parity with the Anthropic loops) — a model that
-              // ignores the do_not_retry hint and keeps calling a
-              // hallucinated/stale tool name must not burn the whole step
-              // budget on TOOL_NOT_FOUND round-trips.
-              const errorPayload = {
-                error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-                status: "permanently_failed",
-                do_not_retry: true,
-              };
-              const notFoundInfo = failedTools.get(call.name) || {
-                count: 0,
-                lastError: "",
-              };
-              notFoundInfo.count++;
-              notFoundInfo.lastError = errorPayload.error;
-              failedTools.set(call.name, notFoundInfo);
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: errorPayload,
-                },
-              });
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: errorPayload,
-              });
-              stepStorageResults.push({
-                toolName: call.name,
-                output: errorPayload,
+      // Wrapped rather than configured: these fire once PER STEP, and
+      // buildToolResultMessages is the only hook that runs per step with
+      // exactly that step's results. Reading them off the turn's final result
+      // would batch every step into one late write and lose the per-step
+      // thought signature.
+      const adapter: typeof engineAdapter = {
+        ...engineAdapter,
+        // Counted HERE, not in buildToolResultMessages: this runs once per
+        // step exactly as the old `step++` at the top of the loop did,
+        // malformed retries included. Counting in the tool-result hook would
+        // skip the final text-only step and quietly report one step fewer in
+        // `stepsUsed`, which is a public field on the result.
+        buildStepRequest: (conversation, step) => {
+          stepsTaken = step + 1;
+          return engineAdapter.buildStepRequest(conversation, step);
+        },
+        buildToolResultMessages: (
+          conversation,
+          stepResult,
+          toolResults,
+          engineStep,
+        ) => {
+          const next = engineAdapter.buildToolResultMessages(
+            conversation,
+            stepResult,
+            toolResults,
+            engineStep,
+          );
+          // Time-budget wrap-up nudge (twin of the Anthropic loops' soft step
+          // nudge): with the turn deadline approaching, tell the model to
+          // consolidate. Rides as a trailing text part on the tool-response
+          // user turn.
+          if (turnClock.shouldNudgeWrapup()) {
+            const last = next[next.length - 1];
+            if (last && Array.isArray(last.parts)) {
+              last.parts.push({
+                text: buildWrapupNudgeText(useFinalResultTool),
               });
             }
           }
-
-          // An abort inside the tool-exec loop only breaks that inner for-loop.
-          // Break the while too so no further model call is issued and control
-          // reaches the terminal step-cap handling below.
-          if (wasAborted) {
-            break;
-          }
-
           // Persist this step's tool calls/results into conversation memory.
           // Without this, tool_call / tool_result rows never reach Redis and
-          // the chat-history UI loses every tool invocation.
-          //
-          // `thoughtSignature` rides as a sibling on the first call of the
-          // step — Gemini 3 needs it to match thinking patterns when the
-          // conversation is replayed on the next turn.
-          if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
-            const stepThoughtSig = extractThoughtSignature(rawResponseParts);
-            withTimeout(
-              this.handleToolExecutionStorage(
-                stepStorageCalls.map((c, i) => ({
-                  ...c,
-                  ...(i === 0 && stepThoughtSig
-                    ? { thoughtSignature: stepThoughtSig }
-                    : {}),
-                  stepIndex: step,
-                })),
-                stepStorageResults.map((r) => ({ ...r, stepIndex: step })),
-                options,
-                new Date(),
-              ),
-              TOOL_STORAGE_TIMEOUT_MS,
-              "tool storage write timed out",
-            ).catch((error: unknown) => {
-              logger.warn(
-                "[GoogleVertex] Failed to store native Gemini stream tool executions",
-                {
-                  error: error instanceof Error ? error.message : String(error),
-                },
-              );
-            });
-          }
-
-          // Time-budget wrap-up nudge (twin of the Anthropic loops' soft
-          // step nudge): with the turn deadline approaching, tell the model
-          // to consolidate. Rides as a trailing text part on the
-          // tool-response user turn.
-          if (turnClock.shouldNudgeWrapup()) {
-            functionResponses.push({
-              text: buildWrapupNudgeText(useFinalResultTool),
-            });
-          }
-
-          // The @google/genai SDK only accepts "user" and "model" as valid
-          // roles in contents — function/tool responses must use role: "user"
-          // (matching the SDK's automaticFunctionCalling implementation and
-          // the Google AI Studio path). Sending role: "function" was causing
-          // native Vertex Gemini tool loops to be silently rejected by the
-          // request validator.
-          currentContents.push({
-            role: "user",
-            parts: functionResponses,
+          // the chat-history UI loses every tool invocation. `thoughtSignature`
+          // rides as a sibling on the first call of the step — Gemini 3 needs
+          // it to match thinking patterns when the conversation is replayed.
+          const stepThoughtSig = extractThoughtSignature(
+            stepResult.raw.rawResponseParts,
+          );
+          withTimeout(
+            this.handleToolExecutionStorage(
+              toolResults.map((result, index) => ({
+                toolName: result.name,
+                args: result.args,
+                ...(index === 0 && stepThoughtSig
+                  ? { thoughtSignature: stepThoughtSig }
+                  : {}),
+                stepIndex: engineStep + 1,
+              })),
+              toolResults.map((result) => ({
+                toolName: result.name,
+                output: result.output,
+                stepIndex: engineStep + 1,
+              })),
+              options,
+              new Date(),
+            ),
+            TOOL_STORAGE_TIMEOUT_MS,
+            "tool storage write timed out",
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleVertex] Failed to store native Gemini stream tool executions",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
           });
           // Project this step's growth for the context guard: the appended
           // tool results ride the next prompt (Gemini reports usage per call,
           // but only for content it has already seen).
           try {
+            const appended = next[next.length - 1];
             contextGuard.noteAppendedChars(
-              JSON.stringify(functionResponses).length,
+              JSON.stringify(appended?.parts ?? []).length,
             );
           } catch {
             /* estimation is best-effort — never break the loop */
           }
-        } catch (error) {
-          // A mid-drain abort surfaces as an AbortError from the `for await`.
-          // Break gracefully into the terminal block instead of re-throwing
-          // (a re-throw would route the caller's abort into a second unbounded
-          // fallback stream()). Dual check as with the inner catch:
-          // effectiveSignal.aborted (a signal we tripped) OR isAbortError(error)
-          // (an abort-shaped throw) — either means "stop", not a real failure.
-          if (effectiveSignal.aborted || isAbortError(error)) {
-            wasAborted = true;
-            break;
+          return next;
+        },
+      };
+
+      const { stream: engineStream, resultPromise } = runAgenticLoop(
+        adapter,
+        // A concrete parts array widens to the engine's `unknown[]` on its
+        // own; only the direction back needs an assertion.
+        currentContents as GeminiTurnContent[],
+        {
+          tools: buildDedupedEngineTools(declarations, options.tools, {
+            toolTimeoutMs: toolExecTimeoutMs,
+            abortSignal: effectiveSignal,
+            onProgress: () => turnClock.noteProgress(),
+          }),
+          abortSignal: effectiveSignal,
+        },
+      );
+
+      // Collected, NOT forwarded to the consumer here. This loop replays the
+      // gathered text after the turn rather than streaming it live, and a
+      // characterization case pins exactly that — pushing to the consumer
+      // channel from inside the pump would make the turn stream live and break
+      // it.
+      const pump = (async () => {
+        for await (const chunk of engineStream) {
+          if (chunk.content) {
+            incrementalTextChunks.push(chunk.content);
           }
-          logger.error("[GoogleVertex] Native SDK error", error);
-          throw this.handleProviderError(error);
         }
+      })();
+
+      let engineResult;
+      let turnFailure: unknown;
+      try {
+        engineResult = await resultPromise;
+      } catch (error) {
+        turnFailure = error;
+      }
+      // Drained unconditionally and tolerantly. When the turn ends by abort the
+      // channel rejects too, and re-awaiting a settled rejection here would
+      // rethrow the very error the branch below has already decided to absorb —
+      // which is what turned both turn-clock cases into failures instead of
+      // clean deadline exits.
+      await pump.catch(() => {});
+      if (turnFailure !== undefined) {
+        // A mid-drain abort surfaces as an AbortError. End gracefully into the
+        // terminal block instead of re-throwing — a re-throw would route the
+        // caller's abort into a second unbounded fallback stream().
+        if (effectiveSignal.aborted || isAbortError(turnFailure)) {
+          wasAborted = true;
+        } else {
+          logger.error("[GoogleVertex] Native SDK error", turnFailure);
+          throw this.handleProviderError(turnFailure);
+        }
+      }
+
+      if (engineResult) {
+        finalText = engineResult.text;
+        lastFinishReason = engineResult.rawStopReason ?? lastFinishReason;
+        for (const call of engineResult.toolCalls) {
+          allToolCalls.push({ toolName: call.name, args: call.args });
+        }
+        for (const execution of engineResult.toolExecutions) {
+          toolExecutions.push({
+            name: execution.name,
+            input: execution.input,
+            output: execution.output,
+          });
+        }
+        // Replace in place: `currentContents` is a const the terminal block
+        // and the synth call both read.
+        currentContents.length = 0;
+        currentContents.push(
+          ...(engineResult.conversation as Array<{
+            role: string;
+            parts: VertexNativeLoopPart[];
+          }>),
+        );
+      }
+      if (effectiveSignal.aborted) {
+        wasAborted = true;
       }
 
       // Handle maxSteps termination / abort — the loop exited because the step
       // cap was reached (or the turn was aborted) while the model was still
       // calling tools. Surface a real answer instead of the canned placeholder
       // (Bug 1) and a meaningful finishReason (Bug 2).
-      if (!finalText && (step >= maxSteps || wasAborted || hitContextLimit)) {
-        hitStepLimit = step >= maxSteps && !wasAborted;
+      if (
+        !finalText &&
+        (stepsTaken >= maxSteps || wasAborted || hitContextLimit)
+      ) {
+        hitStepLimit = stepsTaken >= maxSteps && !wasAborted;
         const toolCallCount = allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
         ).length;
@@ -2716,7 +2521,7 @@ export class GoogleVertexProvider extends BaseProvider {
     if (stopReason !== "completed") {
       this.emitTurnEvent({
         phase: stopReason,
-        step,
+        step: stepsTaken,
         maxSteps,
         toolCallCount: allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
@@ -2813,7 +2618,7 @@ export class GoogleVertexProvider extends BaseProvider {
         totalToolExecutions: externalToolCalls.length,
         stopReason,
         rawFinishReason: lastFinishReason,
-        stepsUsed: step,
+        stepsUsed: stepsTaken,
       },
     };
 
@@ -3034,12 +2839,16 @@ export class GoogleVertexProvider extends BaseProvider {
       | Array<{ functionDeclarations: VertexGenaiFunctionDeclaration[] }>
       | undefined;
     const executeMap = new DedupExecuteMap();
+    let declarations: NativeToolDeclarationsResult | undefined;
 
     if (Object.keys(combinedTools).length > 0) {
       const declared = toNativeToolDeclarations(
         combinedTools,
         "functionDeclarations",
       );
+      // Kept for the shared adapter: originalNameMap for name translation,
+      // executeMap for the per-turn dedup wrapper.
+      declarations = declared;
       tools = declared.toolsConfig;
       for (const [name, execute] of declared.executeMap) {
         executeMap.set(name, execute);
@@ -3239,14 +3048,9 @@ export class GoogleVertexProvider extends BaseProvider {
       input: Record<string, unknown>;
       output: unknown;
     }> = [];
-    let step = 0;
 
     // Track structured output from final_result tool (when using final_result pattern)
     let finalResultStructuredOutput: Record<string, unknown> | undefined;
-
-    // Track failed tools to prevent infinite retry loops
-    // Key: tool name, Value: { count: retry attempts, lastError: error message }
-    const failedTools = new Map<string, { count: number; lastError: string }>();
 
     // In-loop context guard: stop calling tools when the accumulated
     // conversation approaches the model's context window instead of stepping
@@ -3299,98 +3103,90 @@ export class GoogleVertexProvider extends BaseProvider {
       internalAbort.abort();
     }
     let wasAborted = false;
-    // One retry per turn for MALFORMED_FUNCTION_CALL steps (see the retry
-    // block after the step drain).
-    let malformedRetryCount = 0;
 
     // Step-cap flags declared in the outer scope so the terminal block (also
     // inside the try) and the finishReason mapping (after the finally) can
     // both read them.
     let hitStepLimit = false;
     let synthesizedFinalAnswer = false;
+    // Steps the ENGINE took, reported back from the per-step hook; counting
+    // hook invocations would drift by the number of malformed retries.
+    let stepsTaken = 0;
 
     try {
       // Agentic loop for tool calling
-      while (step < maxSteps) {
-        if (effectiveSignal.aborted) {
-          wasAborted = true;
-          break;
-        }
-        // Context guard: stop the tool loop before the accumulated
-        // conversation crosses the window threshold — synthesize from what
-        // we have instead of stepping into a provider rejection.
-        if (contextGuard.shouldStop()) {
-          // Parity upgrade: try to RECLAIM budget and keep going before
-          // falling back to the historic stop-only behaviour. Ending the turn
-          // early is safe but throws away work the model was mid-way through;
-          // dropping the oldest complete tool exchanges usually buys enough
-          // room to finish. Only when reclaiming changes nothing do we stop.
-          const reclaimed = reclaimVertexLoopContext(
-            currentContents,
-            modelName,
-            contextGuard.projectedNextPromptTokens,
-          );
-          if (reclaimed) {
-            contextGuard.resetAfterReclaim();
-          } else {
-            hitContextLimit = true;
-            logger.warn(
-              `[GoogleVertex] Gemini turn stopped by the context guard: ` +
-                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-                `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
-            );
-            break;
-          }
-        }
-        step++;
-        turnClock.noteProgress();
-        // Mid-turn discovery sync — see the stream twin.
-        this.refreshGeminiToolDeclarations(
-          combinedTools,
-          tools?.[0]?.functionDeclarations,
-          executeMap,
-          failedTools,
-        );
-        logger.debug(
-          `[GoogleVertex] Native SDK generate step ${step}/${maxSteps}`,
-        );
-
-        try {
-          // Use generateContentStream and collect all chunks (same as GoogleAIStudio)
-          const stream = await client.models.generateContentStream({
-            model: modelName,
-            contents: currentContents,
-            config: { ...config, abortSignal: effectiveSignal },
+      // The turn runs on the shared engine. The step cap, tool dispatch, the
+      // failure breaker, per-step usage accumulation, the single malformed
+      // retry and the pre-first-chunk provider retry all live there now; what
+      // stays here is everything the engine has no opinion about — the turn
+      // clock, the context guard, conversation-memory storage, the wrap-up
+      // nudge, and the terminal block below.
+      const engineAdapter = createGeminiLoopAdapter({
+        providerLabel: "GoogleVertex",
+        maxSteps,
+        // Ported verbatim: the same DEFAULT_TOOL_MAX_RETRIES threshold, plus
+        // the two rules this loop has always had and the engine did not.
+        toolFailureBreaker: {
+          maxRetries: DEFAULT_TOOL_MAX_RETRIES,
+          // Strikes are CONSECUTIVE here: a clean result clears the count, so
+          // an argument-dependent soft error cannot accumulate its way to
+          // disabling a tool that works.
+          consecutive: true,
+          // A result that reports failure without throwing — an MCP isError
+          // payload, a proxy-blocked call resolving with { error } — counts
+          // toward the breaker exactly as a throw does.
+          classifyResultFailure: (output) =>
+            extractToolFailureText(output) ?? undefined,
+        },
+        liveTools: options.tools ?? {},
+        ...(declarations ? { declarations } : {}),
+        ...(useFinalResultTool
+          ? {
+              finalResultToolName: "final_result",
+              onTerminalResult: (text) => {
+                try {
+                  finalResultStructuredOutput = JSON.parse(text) as Record<
+                    string,
+                    unknown
+                  >;
+                } catch {
+                  /* the caller's coercion layer repairs a partial payload */
+                }
+              },
+            }
+          : {}),
+        enableMalformedRetry: true,
+        buildMalformedRetryNote: (conversation, retriedStep) => {
+          this.emitTurnEvent({
+            phase: "malformed-retry",
+            step: retriedStep + 1,
+            maxSteps,
           });
-
-          const stepFunctionCalls: Array<{
-            name: string;
-            args: Record<string, unknown>;
-          }> = [];
-
-          // Capture raw response parts including thoughtSignature
-          const rawResponseParts: unknown[] = [];
-          // This step's own finish reason (vs the cross-step
-          // lastFinishReason) — drives the single MALFORMED_FUNCTION_CALL
-          // retry below.
-          let stepFinishReason: string | undefined;
-          // Per-step usage trackers for WRITE-THROUGH accumulation: within a
-          // step's chunk stream the counts are latest-wins (promptTokenCount
-          // arrives once in the final chunk; candidates/thoughts counts are
-          // cumulative across chunks), so each chunk folds only the DELTA
-          // over this step's previous value into the turn totals. The totals
-          // are therefore correct at every point mid-drain — a step killed
-          // mid-stream (abort / turn deadline / stall watchdog) still counts
-          // the billed tokens it already reported.
-          // Same collector as the streaming twin. generate() returns one
-          // result rather than streaming, so the channel is a no-op — the
-          // stream loop uses it to fill incrementalTextChunks for replay, and
-          // there is nothing to replay here. Everything else is identical,
-          // including the per-chunk usage deltas that keep the turn totals
-          // correct for a step killed mid-stream.
-          const collected = await collectVertexStreamChunks(
-            stream,
-            { push: () => {} },
+          return [
+            ...conversation,
+            {
+              role: "user",
+              parts: [
+                {
+                  text:
+                    "Your previous function call was malformed and could not " +
+                    "be parsed. Re-issue it as a single valid function call, " +
+                    "or answer in plain text.",
+                },
+              ],
+            },
+          ];
+        },
+        // The turn clock's per-chunk ping and the context guard's per-step
+        // prompt size both ride the drain, which is why this loop keeps its
+        // own collector rather than the adapter's default.
+        collectStep: (stream, channel) =>
+          collectVertexStreamChunks(
+            stream as AsyncIterable<{
+              functionCalls?: NativeFunctionCall[];
+              [key: string]: unknown;
+            }>,
+            channel,
             {
               onProgress: () => turnClock.noteProgress(),
               onUsage: (input, output) => contextGuard.noteUsage(input, output),
@@ -3406,431 +3202,231 @@ export class GoogleVertexProvider extends BaseProvider {
                 }
               },
             },
-          );
-          rawResponseParts.push(...collected.rawResponseParts);
-          stepFunctionCalls.push(...collected.stepFunctionCalls);
-          if (collected.finishReason) {
-            stepFinishReason = collected.finishReason;
-            lastFinishReason = collected.finishReason;
+          ),
+        planReclaim: (conversation) => {
+          if (!contextGuard.shouldStop()) {
+            return undefined;
           }
-
-          // Extract text from raw parts after stream completes
-          // This avoids SDK warning about non-text parts (thoughtSignature, functionCall)
-          const stepText = rawResponseParts
-            .filter(
-              (part): part is { text: string } =>
-                typeof (part as Record<string, unknown>).text === "string",
-            )
-            .map((part) => part.text)
-            .join("");
-
-          // MALFORMED_FUNCTION_CALL is usually a transient formatting failure
-          // (the model emitted an unparseable call): retry the step ONCE with
-          // a corrective note instead of hard-ending the turn with empty
-          // content — automated alert-RCA turns were dying at step 2-4 on
-          // this, mislabeled as step-cap exits.
+          // Try to RECLAIM budget and keep going before falling back to the
+          // historic stop-only behaviour. Ending the turn early is safe but
+          // throws away work the model was mid-way through; dropping the
+          // oldest complete tool exchanges usually buys enough room to finish.
+          const working = [...conversation] as Array<{
+            role: string;
+            parts: VertexNativeLoopPart[];
+          }>;
           if (
-            stepFunctionCalls.length === 0 &&
-            !stepText &&
-            stepFinishReason === "MALFORMED_FUNCTION_CALL" &&
-            malformedRetryCount < 1 &&
-            !effectiveSignal.aborted
+            reclaimVertexLoopContext(
+              working,
+              modelName,
+              contextGuard.projectedNextPromptTokens,
+            )
           ) {
-            malformedRetryCount++;
-            logger.warn(
-              `[GoogleVertex] Model returned MALFORMED_FUNCTION_CALL at step ${step}/${maxSteps}; retrying once with a corrective note.`,
-            );
-            this.emitTurnEvent({ phase: "malformed-retry", step, maxSteps });
-            if (rawResponseParts.length > 0) {
-              currentContents.push({
-                role: "model",
-                parts: rawResponseParts as VertexNativePart[],
-              });
-            }
-            currentContents.push({
-              role: "user",
-              parts: [
-                {
-                  text:
-                    "Your previous function call was malformed and could not " +
-                    "be parsed. Re-issue it as a single valid function call, " +
-                    "or answer in plain text.",
-                },
-              ],
-            });
-            continue;
+            contextGuard.resetAfterReclaim();
+            return { conversation: working };
           }
-
-          // If no function calls, we're done
-          if (stepFunctionCalls.length === 0) {
-            finalText = stepText;
-            break;
-          }
-
-          // Check for final_result tool call - this is our structured output pattern
-          if (useFinalResultTool) {
-            const finalResultCall = stepFunctionCalls.find(
-              (call) => call.name === "final_result",
-            );
-            if (finalResultCall) {
-              // Extract the structured output from final_result arguments
-              finalResultStructuredOutput = finalResultCall.args as Record<
-                string,
-                unknown
-              >;
-              logger.debug(
-                "[GoogleVertex] Received final_result tool call with structured output (generate)",
-                {
-                  outputKeys: Object.keys(finalResultStructuredOutput),
-                },
-              );
-              // Return the structured output as JSON text
-              finalText = JSON.stringify(finalResultStructuredOutput);
-              break;
-            }
-          }
-
-          // Accumulate non-empty step text across steps so the
-          // maxSteps-exhaustion exit can surface the prose the model produced
-          // instead of a canned placeholder (Bug 1). Mirrors the Vertex-Claude
-          // loop's text accumulation.
-          accumulatedText = appendStepText(accumulatedText, stepText);
-
-          // Execute function calls
-          logger.debug(
-            `[GoogleVertex] Generate executing ${stepFunctionCalls.length} function calls`,
+          hitContextLimit = true;
+          logger.warn(
+            `[GoogleVertex] Gemini turn stopped by the context guard: ` +
+              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+              `>= threshold ${contextGuard.thresholdTokens} — synthesizing a final answer.`,
           );
+          return { stop: true };
+        },
+        buildRequest: (conversation) => ({
+          model: modelName,
+          contents: conversation,
+          config: { ...config, ...(tools ? { tools } : {}) },
+        }),
+        sendStep: async (request, signal) => {
+          turnClock.noteProgress();
+          const built = request as {
+            model: string;
+            contents: Array<{ role: string; parts: unknown[] }>;
+            config?: Record<string, unknown>;
+          };
+          return client.models.generateContentStream({
+            model: built.model,
+            contents: built.contents,
+            config: { ...(built.config ?? {}), abortSignal: signal },
+          }) as Promise<
+            AsyncIterable<{
+              functionCalls?: NativeFunctionCall[];
+              [key: string]: unknown;
+            }>
+          >;
+        },
+      });
 
-          // Add model response with ALL parts (including thoughtSignature) to history
-          // This preserves the thought_signature which is required for Gemini 3 multi-turn tool calling
-          currentContents.push({
-            role: "model",
-            parts:
-              rawResponseParts.length > 0
-                ? (rawResponseParts as VertexNativeLoopPart[])
-                : stepFunctionCalls.map((fc) => ({
-                    functionCall: fc,
-                  })),
-          });
-
-          // Execute each function and collect responses (plus an optional
-          // trailing wrap-up nudge text part).
-          const functionResponses: Array<
-            | {
-                functionResponse: {
-                  name: string;
-                  response: Record<string, unknown>;
-                };
-              }
-            | { text: string }
-          > = [];
-          const toolCallsBefore = allToolCalls.length;
-          const toolExecsBefore = toolExecutions.length;
-          // Note: tool:start / tool:end events are emitted by ToolsManager's
-          // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
-
-          for (const call of stepFunctionCalls) {
-            // Honor a deadline/stall/caller abort BETWEEN tool executions —
-            // without this check a multi-tool step keeps executing its whole
-            // batch (up to N × toolTimeoutMs past the deadline) before the
-            // while-top check finally breaks.
-            if (effectiveSignal.aborted) {
-              wasAborted = true;
-              break;
-            }
-            allToolCalls.push({ toolName: call.name, args: call.args });
-
-            // Check if this tool has already exceeded retry limit
-            const failedInfo = failedTools.get(call.name);
-            if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-              logger.warn(
-                `[GoogleVertex] Tool "${call.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-              );
-
-              const errorOutput = {
-                error: `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`,
-                status: "permanently_failed",
-                do_not_retry: true,
-              };
-
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: errorOutput,
-              });
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: errorOutput,
-                },
-              });
-              continue;
-            }
-
-            let execute = executeMap.get(call.name);
-            if (!execute) {
-              // Snapshot miss — see the stream twin.
-              execute = this.resolveGeminiToolOnMiss(
-                call.name,
-                combinedTools,
-                tools?.[0]?.functionDeclarations,
-                executeMap,
-                failedTools,
-              );
-            }
-            if (execute) {
-              try {
-                // AI SDK Tool execute requires (args, options) - provide minimal options
-                const toolOptions = {
-                  toolCallId: `${call.name}-${Date.now()}`,
-                  messages: [],
-                  abortSignal: effectiveSignal,
-                };
-                turnClock.noteProgress();
-                // Bound the execute() await — a wedged tool costs one step
-                // (error tool_result), not the whole turn.
-                const execResult = await withTimeout(
-                  raceWithAbort(
-                    Promise.resolve(execute(call.args, toolOptions)),
-                    effectiveSignal,
-                  ),
-                  toolExecTimeoutMs,
-                  `Tool "${call.name}" execution timed out after ${toolExecTimeoutMs}ms`,
-                );
-                turnClock.noteProgress();
-                // Error-shaped success (MCP isError / { error } payloads —
-                // e.g. proxy-blocked tools) counts toward the breaker too:
-                // these fail without throwing, and only counting throws lets
-                // the model grind on a blocked tool for the whole budget.
-                const resultErrorText = extractToolFailureText(execResult);
-                if (resultErrorText) {
-                  const info = failedTools.get(call.name) || {
-                    count: 0,
-                    lastError: "",
-                  };
-                  info.count++;
-                  info.lastError = resultErrorText;
-                  failedTools.set(call.name, info);
-                } else {
-                  // Genuinely consecutive: a success clears the strike count
-                  // (argument-dependent soft errors — file-not-found on
-                  // different paths — must not disable a working tool).
-                  failedTools.delete(call.name);
-                }
-
-                // Track execution
-                toolExecutions.push({
-                  name: call.name,
-                  input: call.args,
-                  output: execResult,
-                });
-
-                functionResponses.push({
-                  functionResponse: {
-                    name: call.name,
-                    response: { result: execResult },
-                  },
-                });
-              } catch (error) {
-                // An abort during tool execution ends the turn gracefully — it
-                // must NOT be recorded as a spurious tool failure. Both checks
-                // matter: effectiveSignal.aborted catches an abort WE triggered
-                // (even if the throw isn't abort-shaped); isAbortError(error)
-                // catches an abort-shaped throw (e.g. a tool raising AbortError)
-                // even when the signal itself never fired.
-                if (effectiveSignal.aborted || isAbortError(error)) {
-                  wasAborted = true;
-                  break;
-                }
-                turnClock.noteProgress();
-                if (error instanceof TimeoutError) {
-                  this.emitTurnEvent({
-                    phase: "tool-timeout",
-                    step,
-                    maxSteps,
-                    toolName: call.name,
-                  });
-                }
-                const errorMessage =
-                  error instanceof Error ? error.message : "Unknown error";
-
-                // Track this failure
-                const currentFailInfo = failedTools.get(call.name) || {
-                  count: 0,
-                  lastError: "",
-                };
-                currentFailInfo.count++;
-                currentFailInfo.lastError = errorMessage;
-                failedTools.set(call.name, currentFailInfo);
-
-                logger.warn(
-                  `[GoogleVertex] Tool "${call.name}" failed (attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${errorMessage}`,
-                );
-
-                // Determine if this is a permanent failure
-                const isPermanentFailure =
-                  currentFailInfo.count >= DEFAULT_TOOL_MAX_RETRIES;
-
-                const errorOutput = {
-                  error: isPermanentFailure
-                    ? `TOOL_PERMANENTLY_FAILED: The tool "${call.name}" has failed ${currentFailInfo.count} times with error: ${errorMessage}. This tool will not be retried. Please proceed without using this tool or inform the user that this functionality is unavailable.`
-                    : `TOOL_EXECUTION_ERROR: ${errorMessage}. Retry attempt ${currentFailInfo.count}/${DEFAULT_TOOL_MAX_RETRIES}.`,
-                  status: isPermanentFailure ? "permanently_failed" : "failed",
-                  do_not_retry: isPermanentFailure,
-                  retry_count: currentFailInfo.count,
-                  max_retries: DEFAULT_TOOL_MAX_RETRIES,
-                };
-
-                toolExecutions.push({
-                  name: call.name,
-                  input: call.args,
-                  output: errorOutput,
-                });
-
-                functionResponses.push({
-                  functionResponse: {
-                    name: call.name,
-                    response: errorOutput,
-                  },
-                });
-              }
-            } else {
-              // Tool not found is a permanent error
-              const errorOutput = {
-                error: `TOOL_NOT_FOUND: The tool "${call.name}" does not exist. Do not attempt to call this tool again.`,
-                status: "permanently_failed",
-                do_not_retry: true,
-              };
-
-              toolExecutions.push({
-                name: call.name,
-                input: call.args,
-                output: errorOutput,
-              });
-
-              functionResponses.push({
-                functionResponse: {
-                  name: call.name,
-                  response: errorOutput,
-                },
+      // Wrapped rather than configured: these fire once PER STEP, and
+      // buildToolResultMessages is the only hook that runs per step with
+      // exactly that step's results. Reading them off the turn's final result
+      // would batch every step into one late write and lose the per-step
+      // thought signature.
+      const adapter: typeof engineAdapter = {
+        ...engineAdapter,
+        // Counted HERE, not in buildToolResultMessages: this runs once per
+        // step exactly as the old `step++` at the top of the loop did,
+        // malformed retries included. Counting in the tool-result hook would
+        // skip the final text-only step and quietly report one step fewer in
+        // `stepsUsed`, which is a public field on the result.
+        buildStepRequest: (conversation, step) => {
+          stepsTaken = step + 1;
+          return engineAdapter.buildStepRequest(conversation, step);
+        },
+        buildToolResultMessages: (
+          conversation,
+          stepResult,
+          toolResults,
+          engineStep,
+        ) => {
+          const next = engineAdapter.buildToolResultMessages(
+            conversation,
+            stepResult,
+            toolResults,
+            engineStep,
+          );
+          // Time-budget wrap-up nudge (twin of the Anthropic loops' soft step
+          // nudge): with the turn deadline approaching, tell the model to
+          // consolidate. Rides as a trailing text part on the tool-response
+          // user turn.
+          if (turnClock.shouldNudgeWrapup()) {
+            const last = next[next.length - 1];
+            if (last && Array.isArray(last.parts)) {
+              last.parts.push({
+                text: buildWrapupNudgeText(useFinalResultTool),
               });
             }
           }
-
-          // An abort inside the tool-exec loop only breaks that inner for-loop.
-          // Break the while too so no further model call is issued and control
-          // reaches the terminal step-cap handling below.
-          if (wasAborted) {
-            break;
-          }
-
           // Persist this step's tool calls/results into conversation memory.
           // Without this, tool_call / tool_result rows never reach Redis and
-          // the chat-history UI loses every tool invocation. The first call
-          // of the step carries the step's `thoughtSignature` so Gemini 3 can
-          // match thinking patterns on replay.
-          const stepToolCalls = allToolCalls.slice(toolCallsBefore);
-          const stepToolExecs = toolExecutions.slice(toolExecsBefore);
-          if (stepToolCalls.length > 0 || stepToolExecs.length > 0) {
-            const stepThoughtSig = extractThoughtSignature(rawResponseParts);
-            withTimeout(
-              this.handleToolExecutionStorage(
-                stepToolCalls.map((tc, i) => ({
-                  toolName: tc.toolName,
-                  args: tc.args,
-                  ...(i === 0 && stepThoughtSig
-                    ? { thoughtSignature: stepThoughtSig }
-                    : {}),
-                  stepIndex: step,
-                })),
-                stepToolExecs.map((te) => ({
-                  toolName: te.name,
-                  output: te.output,
-                  stepIndex: step,
-                })),
-                options,
-                new Date(),
-              ),
-              TOOL_STORAGE_TIMEOUT_MS,
-              "tool storage write timed out",
-            ).catch((error: unknown) => {
-              logger.warn(
-                "[GoogleVertex] Failed to store native Gemini generate tool executions",
-                {
-                  error: error instanceof Error ? error.message : String(error),
-                },
-              );
-            });
-          }
-
-          // Time-budget wrap-up nudge (twin of the Anthropic loops' soft
-          // step nudge): with the turn deadline approaching, tell the model
-          // to consolidate. Rides as a trailing text part on the
-          // tool-response user turn.
-          if (turnClock.shouldNudgeWrapup()) {
-            functionResponses.push({
-              text: buildWrapupNudgeText(useFinalResultTool),
-            });
-          }
-
-          // The @google/genai SDK only accepts "user" and "model" as valid
-          // roles in contents — function/tool responses must use role: "user"
-          // (matching the SDK's automaticFunctionCalling implementation and
-          // the Google AI Studio path). See note in executeNativeGemini3Stream.
-          currentContents.push({
-            role: "user",
-            parts: functionResponses,
+          // the chat-history UI loses every tool invocation. `thoughtSignature`
+          // rides as a sibling on the first call of the step — Gemini 3 needs
+          // it to match thinking patterns when the conversation is replayed.
+          const stepThoughtSig = extractThoughtSignature(
+            stepResult.raw.rawResponseParts,
+          );
+          withTimeout(
+            this.handleToolExecutionStorage(
+              toolResults.map((result, index) => ({
+                toolName: result.name,
+                args: result.args,
+                ...(index === 0 && stepThoughtSig
+                  ? { thoughtSignature: stepThoughtSig }
+                  : {}),
+                stepIndex: engineStep + 1,
+              })),
+              toolResults.map((result) => ({
+                toolName: result.name,
+                output: result.output,
+                stepIndex: engineStep + 1,
+              })),
+              options,
+              new Date(),
+            ),
+            TOOL_STORAGE_TIMEOUT_MS,
+            "tool storage write timed out",
+          ).catch((error: unknown) => {
+            logger.warn(
+              "[GoogleVertex] Failed to store native Gemini stream tool executions",
+              {
+                error: error instanceof Error ? error.message : String(error),
+              },
+            );
           });
           // Project this step's growth for the context guard: the appended
           // tool results ride the next prompt (Gemini reports usage per call,
           // but only for content it has already seen).
           try {
+            const appended = next[next.length - 1];
             contextGuard.noteAppendedChars(
-              JSON.stringify(functionResponses).length,
+              JSON.stringify(appended?.parts ?? []).length,
             );
           } catch {
             /* estimation is best-effort — never break the loop */
           }
-        } catch (error) {
-          // A mid-drain abort surfaces as an AbortError from the `for await`.
-          // Break gracefully into the terminal block instead of re-throwing
-          // (a re-throw would route the caller's abort into a second unbounded
-          // fallback generate()). Dual check as with the inner catch:
-          // effectiveSignal.aborted (a signal we tripped) OR isAbortError(error)
-          // (an abort-shaped throw) — either means "stop", not a real failure.
-          if (effectiveSignal.aborted || isAbortError(error)) {
-            wasAborted = true;
-            break;
-          }
-          logger.error("[GoogleVertex] Native SDK generate error", {
-            error,
-            model: modelName,
-            location: effectiveLocation,
-            status: (error as { status?: number })?.status,
-          });
-          // Best-effort request context for formatProviderError —
-          // this.modelName can be stale when options.model overrides the
-          // instance default.
-          try {
-            if (error && typeof error === "object") {
-              const e = error as Record<string, unknown>;
-              e.requestModel = modelName;
-              e.requestRegion = effectiveLocation;
-            }
-          } catch {
-            /* frozen/sealed error — context stays best-effort */
-          }
+          return next;
+        },
+      };
+
+      const { stream: engineStream, resultPromise } = runAgenticLoop(
+        adapter,
+        // A concrete parts array widens to the engine's `unknown[]` on its
+        // own; only the direction back needs an assertion.
+        currentContents as GeminiTurnContent[],
+        {
+          tools: buildDedupedEngineTools(declarations, options.tools, {
+            toolTimeoutMs: toolExecTimeoutMs,
+            abortSignal: effectiveSignal,
+            onProgress: () => turnClock.noteProgress(),
+          }),
+          abortSignal: effectiveSignal,
+        },
+      );
+
+      // generate() returns one result rather than streaming, so the engine's
+      // chunks are drained and discarded — the answer comes off the turn's
+      // result. The drain still has to happen: leaving the channel unread
+      // would stall the engine once its buffer fills.
+      const pump = (async () => {
+        for await (const chunk of engineStream) {
+          void chunk;
+        }
+      })();
+
+      let engineResult;
+      try {
+        engineResult = await resultPromise;
+      } catch (error) {
+        await pump.catch(() => {});
+        // A mid-drain abort surfaces as an AbortError. End gracefully into the
+        // terminal block instead of re-throwing — a re-throw would route the
+        // caller's abort into a second unbounded fallback stream().
+        if (effectiveSignal.aborted || isAbortError(error)) {
+          wasAborted = true;
+        } else {
+          logger.error("[GoogleVertex] Native SDK error", error);
           throw this.handleProviderError(error);
         }
+      }
+      await pump;
+
+      if (engineResult) {
+        finalText = engineResult.text;
+        lastFinishReason = engineResult.rawStopReason ?? lastFinishReason;
+        for (const call of engineResult.toolCalls) {
+          allToolCalls.push({ toolName: call.name, args: call.args });
+        }
+        for (const execution of engineResult.toolExecutions) {
+          toolExecutions.push({
+            name: execution.name,
+            input: execution.input,
+            output: execution.output,
+          });
+        }
+        // Replace in place: `currentContents` is a const the terminal block
+        // and the synth call both read.
+        currentContents.length = 0;
+        currentContents.push(
+          ...(engineResult.conversation as Array<{
+            role: string;
+            parts: VertexNativeLoopPart[];
+          }>),
+        );
+      }
+      if (effectiveSignal.aborted) {
+        wasAborted = true;
       }
 
       // Handle maxSteps termination / abort — the loop exited because the step
       // cap was reached (or the turn was aborted) while the model was still
       // calling tools. Surface a real answer instead of the canned placeholder
       // (Bug 1) and a meaningful finishReason (Bug 2).
-      if (!finalText && (step >= maxSteps || wasAborted || hitContextLimit)) {
-        hitStepLimit = step >= maxSteps && !wasAborted;
+      if (
+        !finalText &&
+        (stepsTaken >= maxSteps || wasAborted || hitContextLimit)
+      ) {
+        hitStepLimit = stepsTaken >= maxSteps && !wasAborted;
         const toolCallCount = allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
         ).length;
@@ -3928,7 +3524,7 @@ export class GoogleVertexProvider extends BaseProvider {
     if (stopReason !== "completed") {
       this.emitTurnEvent({
         phase: stopReason,
-        step,
+        step: stepsTaken,
         maxSteps,
         toolCallCount: allToolCalls.filter(
           (tc) => tc.toolName !== "final_result",
@@ -3962,7 +3558,7 @@ export class GoogleVertexProvider extends BaseProvider {
       finishReason: resolvedFinishReason,
       stopReason,
       rawFinishReason: lastFinishReason,
-      stepsUsed: step,
+      stepsUsed: stepsTaken,
       usage: {
         input: adjustedInputTokens,
         // Thinking tokens are billed at the output rate but Gemini does NOT
@@ -7164,7 +6760,7 @@ export class GoogleVertexProvider extends BaseProvider {
     if (stopReason !== "completed") {
       this.emitTurnEvent({
         phase: stopReason,
-        step,
+        step: step,
         maxSteps,
         toolCallCount: externalToolCalls.length,
         elapsedMs: turnClock.elapsedMs(),

@@ -1070,7 +1070,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                     return undefined;
                   }
                   contextGuard.resetAfterReclaim();
-                  return working;
+                  return { conversation: working };
                 },
               });
 
@@ -1085,8 +1085,17 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   contents,
                   stepResult,
                   toolResults,
+                  engineStep,
                 ) => {
-                  step++;
+                  // The engine's own step, not a count of times this hook ran.
+                  // The two agree only while nothing skips the hook mid-turn:
+                  // a malformed-call retry `continue`s before it and still
+                  // consumes a step, so a self-incrementing counter drifts by
+                  // exactly the number of retries and mislabels every row
+                  // after the first. Values are unchanged for this provider
+                  // today — it enables no such retry — and stay correct if it
+                  // ever does.
+                  step = engineStep + 1;
                   for (const call of stepResult.toolCalls) {
                     span.addEvent("gen_ai.tool_call", {
                       "tool.name": call.name,
@@ -1147,6 +1156,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                     contents,
                     stepResult,
                     toolResults,
+                    engineStep,
                   );
                   // Project this step's growth: the appended tool results ride
                   // the next prompt, which the provider has not reported on yet.
@@ -1537,14 +1547,21 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 return undefined;
               }
               contextGuard.resetAfterReclaim();
-              return working;
+              return { conversation: working };
             },
           });
 
           const adapter: typeof baseAdapter = {
             ...baseAdapter,
-            buildToolResultMessages: (contents, stepResult, toolResults) => {
-              step++;
+            buildToolResultMessages: (
+              contents,
+              stepResult,
+              toolResults,
+              engineStep,
+            ) => {
+              // Same as the streaming twin: the engine's step, not a count of
+              // hook invocations. See the comment there.
+              step = engineStep + 1;
               for (const call of stepResult.toolCalls) {
                 span.addEvent("gen_ai.tool_call", {
                   "tool.name": call.name,
@@ -1598,6 +1615,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 contents,
                 stepResult,
                 toolResults,
+                engineStep,
               );
               try {
                 const appended = next[next.length - 1];
