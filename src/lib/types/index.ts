@@ -105,3 +105,4 @@ export * from "./requestRouter.js";
 export * from "./classifierRouter.js";
 // Multi-Agent orchestration types
 export * from "./agentNetwork.js";
+export * from "./localUsage.js";

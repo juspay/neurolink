@@ -1426,3 +1426,17 @@ export {
   NetworkTopology,
   TopologyBuilder,
 } from "./agent/index.js";
+
+// ============================================================================
+// Local usage exports
+// ============================================================================
+// Token spend read from each CLI's own session logs, rather than from proxy
+// traffic. Exported because the proxy's ledger only sees CLIs that route
+// through it; this covers the rest, and covers history predating the proxy.
+export {
+  createLocalUsageReader,
+  getLocalUsageDescriptors,
+  getRegisteredLocalUsageCliIds,
+  readAllLocalUsage,
+  registerLocalUsageReader,
+} from "./localUsage/index.js";
