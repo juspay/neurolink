@@ -11,6 +11,7 @@ import type {
 import { createAgentRoutes } from "./agentRoutes.js";
 import { createClaudeProxyRoutes } from "./claudeProxyRoutes.js";
 // ClaudeProxyDeps removed
+import { createGeminiProxyRoutes } from "./geminiProxyRoutes.js";
 import { createHealthRoutes } from "./healthRoutes.js";
 import { createOpenAIProxyRoutes } from "./openaiProxyRoutes.js";
 import { createCodexProxyRoutes } from "./codexProxyRoutes.js";
@@ -26,6 +27,7 @@ export { createClaudeProxyRoutes } from "./claudeProxyRoutes.js";
 export { createHealthRoutes } from "./healthRoutes.js";
 export { createOpenAIProxyRoutes } from "./openaiProxyRoutes.js";
 export { createCodexProxyRoutes } from "./codexProxyRoutes.js";
+export { createGeminiProxyRoutes } from "./geminiProxyRoutes.js";
 export { createMCPRoutes } from "./mcpRoutes.js";
 export { createMemoryRoutes } from "./memoryRoutes.js";
 export { createOpenApiRoutes } from "./openApiRoutes.js";
@@ -59,6 +61,7 @@ export function createAllRoutes(
   const enableClaudeProxy = options?.proxy || options?.claudeProxy;
   const enableOpenAIProxy = options?.proxy || options?.openaiProxy;
   const enableCodexProxy = options?.proxy || options?.codexProxy;
+  const enableGeminiProxy = options?.proxy || options?.geminiProxy;
 
   if (enableClaudeProxy) {
     routes.push(createClaudeProxyRoutes(undefined, basePath));
@@ -70,6 +73,10 @@ export function createAllRoutes(
 
   if (enableCodexProxy) {
     routes.push(createCodexProxyRoutes(basePath));
+  }
+
+  if (enableGeminiProxy) {
+    routes.push(createGeminiProxyRoutes(undefined, basePath));
   }
 
   return routes;

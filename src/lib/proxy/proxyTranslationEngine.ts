@@ -18,6 +18,10 @@ import {
   serializeClaudeResponse,
 } from "./claudeFormat.js";
 import {
+  buildGeminiResponse,
+  createGeminiSerializerAdapter,
+} from "./geminiFormat.js";
+import {
   generateOpenAIToolCallId,
   OpenAIStreamSerializer,
   serializeOpenAIResponse,
@@ -33,6 +37,7 @@ import {
 import type {
   InternalResult,
   ParsedClaudeRequest,
+  ParsedGeminiRequest,
   ParsedOpenAIRequest,
   ProxyFormat,
   ProxyTranslationAttempt,
@@ -147,6 +152,19 @@ export function detectProxyFormat(
   if (path.includes("/messages")) {
     return "claude";
   }
+  // Gemini CLI wire format: POST /v1beta/models/<model>:generateContent
+  // (non-streaming) or :streamGenerateContent (streaming, selected via
+  // ?alt=sse on ctx.query — not part of ctx.path, so it plays no role here).
+  // Checked as two explicit suffixes: "streamGenerateContent" capitalizes
+  // the "Generate" it shares with "generateContent", so
+  // "streamGenerateContent".includes("generateContent") is false and a
+  // single check would miss every streaming request.
+  if (
+    path.includes(":generateContent") ||
+    path.includes(":streamGenerateContent")
+  ) {
+    return "gemini";
+  }
 
   // Header-based fallback
   if (headers["anthropic-version"]) {
@@ -201,12 +219,15 @@ function shouldOmitThinkingConfigForTarget(
  * Build options for ctx.neurolink.stream() from a parsed request
  * and an optional provider/model override.
  *
- * Works for both ParsedClaudeRequest and ParsedOpenAIRequest — the
- * only differences are Claude-specific fields (topK, thinkingConfig)
- * which are safely absent on OpenAI parsed requests.
+ * Works for ParsedClaudeRequest, ParsedOpenAIRequest and
+ * ParsedGeminiRequest. The differences are Claude-specific fields (topK,
+ * thinkingConfig), safely absent on OpenAI/Gemini parsed requests, and
+ * toolChoice/toolChoiceName, absent on Gemini parsed requests — Gemini's
+ * parser always emits tools: {} (see geminiFormat.ts's parseGeminiRequest),
+ * so toolNames.length is always 0 below and disableTools is set instead.
  */
 export function buildTranslationOptions(
-  parsed: ParsedClaudeRequest | ParsedOpenAIRequest,
+  parsed: ParsedClaudeRequest | ParsedOpenAIRequest | ParsedGeminiRequest,
   overrides: { provider?: string; model?: string } = {},
 ): Record<string, unknown> {
   const historyMessages = parsed.conversationMessages.slice(0, -1);
@@ -223,9 +244,14 @@ export function buildTranslationOptions(
       ? claudeParsed.thinkingConfig
       : undefined;
 
-  const toolChoice = parsed.toolChoiceName
-    ? { type: "tool" as const, toolName: parsed.toolChoiceName }
-    : parsed.toolChoice;
+  // toolChoice/toolChoiceName exist on ParsedClaudeRequest and
+  // ParsedOpenAIRequest but not on ParsedGeminiRequest — go through the same
+  // Partial-cast pattern as claudeParsed above so a Gemini request just sees
+  // both as undefined instead of failing to compile.
+  const toolChoiceParsed = parsed as Partial<ParsedOpenAIRequest>;
+  const toolChoice = toolChoiceParsed.toolChoiceName
+    ? { type: "tool" as const, toolName: toolChoiceParsed.toolChoiceName }
+    : toolChoiceParsed.toolChoice;
 
   return {
     input: {
@@ -298,7 +324,13 @@ function defaultFinishReason(format: ProxyFormat): string {
 }
 
 function logTag(format: ProxyFormat): string {
-  return format === "claude" ? "[proxy]" : "[proxy:openai]";
+  if (format === "claude") {
+    return "[proxy]";
+  }
+  if (format === "gemini") {
+    return "[proxy:gemini]";
+  }
+  return "[proxy:openai]";
 }
 
 // ---------------------------------------------------------------------------
@@ -316,7 +348,7 @@ export async function handleTranslatedStreamRequest(args: {
   ctx: ServerContext;
   format: ProxyFormat;
   requestModel: string;
-  parsed: ParsedClaudeRequest | ParsedOpenAIRequest;
+  parsed: ParsedClaudeRequest | ParsedOpenAIRequest | ParsedGeminiRequest;
   attempts: ProxyTranslationAttempt[];
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -334,7 +366,9 @@ export async function handleTranslatedStreamRequest(args: {
   const serializer =
     format === "claude"
       ? createClaudeSerializerAdapter(requestModel)
-      : createOpenAISerializerAdapter(requestModel);
+      : format === "gemini"
+        ? createGeminiSerializerAdapter(requestModel)
+        : createOpenAISerializerAdapter(requestModel);
 
   const KEEPALIVE_INTERVAL_MS = 15_000;
   const encoder = new TextEncoder();
@@ -652,7 +686,7 @@ export async function handleTranslatedJsonRequest(args: {
   ctx: ServerContext;
   format: ProxyFormat;
   requestModel: string;
-  parsed: ParsedClaudeRequest | ParsedOpenAIRequest;
+  parsed: ParsedClaudeRequest | ParsedOpenAIRequest | ParsedGeminiRequest;
   attempts: ProxyTranslationAttempt[];
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -765,9 +799,18 @@ export async function handleTranslatedJsonRequest(args: {
         ...(traceCtx?.spanId ? { spanId: traceCtx.spanId } : {}),
       });
 
-      return format === "claude"
-        ? serializeClaudeResponse(internal, requestModel)
-        : serializeOpenAIResponse(internal, requestModel);
+      if (format === "claude") {
+        return serializeClaudeResponse(internal, requestModel);
+      }
+      if (format === "gemini") {
+        return buildGeminiResponse(
+          internal.content,
+          internal.finishReason ?? defaultFinishReason(format),
+          resolvedUsage,
+          internal.model ?? requestModel,
+        );
+      }
+      return serializeOpenAIResponse(internal, requestModel);
     } catch (attemptError) {
       lastAttemptError =
         attemptError instanceof Error

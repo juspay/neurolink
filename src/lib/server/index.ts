@@ -190,13 +190,15 @@ export {
   createOpenApiRoutes,
   createToolRoutes,
   registerAllRoutes,
-  // The proxy doors. All three were reachable only from the deep path
+  // The proxy doors. All were reachable only from the deep path
   // ./routes/index.js, which is not a package export — so a consumer of
   // "@juspay/neurolink/server" could reach them only indirectly through
-  // createAllRoutes' flags, never to mount one on its own.
+  // createAllRoutes' flags, never to mount one on its own. Codex stayed
+  // CLI-only for long enough on exactly that gap to be worth naming.
   createClaudeProxyRoutes,
   createOpenAIProxyRoutes,
   createCodexProxyRoutes,
+  createGeminiProxyRoutes,
 } from "./routes/index.js";
 // ============================================
 // Streaming
