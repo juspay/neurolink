@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseChatReturn** = `object`
 
-Defined in: [types/client.ts:588](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L588)
+Defined in: [types/client.ts:588](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L588)
 
 useChat hook return type
 
@@ -18,7 +18,7 @@ useChat hook return type
 
 > **messages**: [`ClientChatMessage`](ClientChatMessage.md)[]
 
-Defined in: [types/client.ts:590](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L590)
+Defined in: [types/client.ts:590](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L590)
 
 Chat messages
 
@@ -28,7 +28,7 @@ Chat messages
 
 > **input**: `string`
 
-Defined in: [types/client.ts:592](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L592)
+Defined in: [types/client.ts:592](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L592)
 
 Current input value
 
@@ -38,7 +38,7 @@ Current input value
 
 > **setInput**: (`input`) => `void`
 
-Defined in: [types/client.ts:594](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L594)
+Defined in: [types/client.ts:594](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L594)
 
 Set input value
 
@@ -58,7 +58,7 @@ Set input value
 
 > **handleInputChange**: (`e`) => `void`
 
-Defined in: [types/client.ts:596](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L596)
+Defined in: [types/client.ts:596](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L596)
 
 Handle input change
 
@@ -84,7 +84,7 @@ Handle input change
 
 > **handleSubmit**: (`e?`, `options?`) => `void`
 
-Defined in: [types/client.ts:598](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L598)
+Defined in: [types/client.ts:598](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L598)
 
 Submit message
 
@@ -112,7 +112,7 @@ Submit message
 
 > **append**: (`message`) => `Promise`\<`string` \| `null` \| `undefined`\>
 
-Defined in: [types/client.ts:603](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L603)
+Defined in: [types/client.ts:603](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L603)
 
 Append a message
 
@@ -132,7 +132,7 @@ Append a message
 
 > **reload**: () => `Promise`\<`string` \| `null` \| `undefined`\>
 
-Defined in: [types/client.ts:607](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L607)
+Defined in: [types/client.ts:607](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L607)
 
 Reload the last message
 
@@ -146,7 +146,7 @@ Reload the last message
 
 > **stop**: () => `void`
 
-Defined in: [types/client.ts:609](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L609)
+Defined in: [types/client.ts:609](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L609)
 
 Stop generation
 
@@ -160,7 +160,7 @@ Stop generation
 
 > **setMessages**: (`messages`) => `void`
 
-Defined in: [types/client.ts:611](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L611)
+Defined in: [types/client.ts:611](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L611)
 
 Set messages directly
 
@@ -180,7 +180,7 @@ Set messages directly
 
 > **isLoading**: `boolean`
 
-Defined in: [types/client.ts:613](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L613)
+Defined in: [types/client.ts:613](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L613)
 
 Loading state
 
@@ -190,7 +190,7 @@ Loading state
 
 > **error**: [`ClientApiError`](ClientApiError.md) \| `null`
 
-Defined in: [types/client.ts:615](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L615)
+Defined in: [types/client.ts:615](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L615)
 
 Error state
 
@@ -200,7 +200,7 @@ Error state
 
 > **clearError**: () => `void`
 
-Defined in: [types/client.ts:617](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L617)
+Defined in: [types/client.ts:617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L617)
 
 Clear error
 
@@ -214,6 +214,6 @@ Clear error
 
 > **toolCalls**: [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/client.ts:619](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L619)
+Defined in: [types/client.ts:619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L619)
 
 Current tool calls being executed

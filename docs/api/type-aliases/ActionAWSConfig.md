@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ActionAWSConfig** = `object`
 
-Defined in: [types/action.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L35)
+Defined in: [types/action.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L35)
 
 AWS credentials for Bedrock/SageMaker
 
@@ -18,7 +18,7 @@ AWS credentials for Bedrock/SageMaker
 
 > `optional` **awsAccessKeyId?**: `string`
 
-Defined in: [types/action.ts:36](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L36)
+Defined in: [types/action.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L36)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/action.ts:36](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **awsSecretAccessKey?**: `string`
 
-Defined in: [types/action.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L37)
+Defined in: [types/action.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L37)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/action.ts:37](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **awsRegion**: `string`
 
-Defined in: [types/action.ts:38](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L38)
+Defined in: [types/action.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L38)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/action.ts:38](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **awsSessionToken?**: `string`
 
-Defined in: [types/action.ts:39](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L39)
+Defined in: [types/action.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L39)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/action.ts:39](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **bedrockModelId?**: `string`
 
-Defined in: [types/action.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L40)
+Defined in: [types/action.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L40)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/action.ts:40](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **sagemakerEndpoint?**: `string`
 
-Defined in: [types/action.ts:41](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/action.ts#L41)
+Defined in: [types/action.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/action.ts#L41)

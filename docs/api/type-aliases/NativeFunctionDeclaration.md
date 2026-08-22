@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NativeFunctionDeclaration** = `object`
 
-Defined in: [types/providers.ts:1719](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1719)
+Defined in: [types/providers.ts:2010](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2010)
 
 A single function declaration for the Gemini native SDK.
 
@@ -18,7 +18,7 @@ A single function declaration for the Gemini native SDK.
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:1720](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1720)
+Defined in: [types/providers.ts:2011](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2011)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1720](https://github.com/juspay/neurolink/blob/f
 
 > **description**: `string`
 
-Defined in: [types/providers.ts:1721](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1721)
+Defined in: [types/providers.ts:2012](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2012)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:1721](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **parametersJsonSchema?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:1722](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1722)
+Defined in: [types/providers.ts:2013](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2013)

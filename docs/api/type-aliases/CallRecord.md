@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CallRecord** = `object`
 
-Defined in: [types/mcp.ts:329](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L329)
+Defined in: [types/mcp.ts:329](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L329)
 
 Call record for circuit breaker statistics tracking.
 Superset shape: MCP breaker uses {timestamp, success, duration};
@@ -21,7 +21,7 @@ metrics). Both import from here.
 
 > **timestamp**: `number`
 
-Defined in: [types/mcp.ts:330](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L330)
+Defined in: [types/mcp.ts:330](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L330)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/mcp.ts:330](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **success**: `boolean`
 
-Defined in: [types/mcp.ts:331](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L331)
+Defined in: [types/mcp.ts:331](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L331)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/mcp.ts:331](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **duration**: `number`
 
-Defined in: [types/mcp.ts:332](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L332)
+Defined in: [types/mcp.ts:332](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L332)
 
 ---
 
@@ -45,4 +45,4 @@ Defined in: [types/mcp.ts:332](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **operationType?**: `string`
 
-Defined in: [types/mcp.ts:333](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L333)
+Defined in: [types/mcp.ts:333](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L333)

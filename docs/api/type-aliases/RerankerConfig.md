@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RerankerConfig** = `object`
 
-Defined in: [types/rag.ts:394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L394)
+Defined in: [types/rag.ts:396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L396)
 
 Reranker configuration
 
@@ -18,7 +18,7 @@ Reranker configuration
 
 > **type**: [`RerankerType`](RerankerType.md)
 
-Defined in: [types/rag.ts:396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L396)
+Defined in: [types/rag.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L398)
 
 Reranker type
 
@@ -28,7 +28,7 @@ Reranker type
 
 > `optional` **model?**: `string` \| \{ `provider`: `string`; `modelName`: `string`; \}
 
-Defined in: [types/rag.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L398)
+Defined in: [types/rag.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L400)
 
 Model name for LLM-based rerankers
 
@@ -38,7 +38,7 @@ Model name for LLM-based rerankers
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/rag.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L400)
+Defined in: [types/rag.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L402)
 
 Provider for the model
 
@@ -48,7 +48,7 @@ Provider for the model
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L402)
+Defined in: [types/rag.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L404)
 
 Number of results to return after reranking
 
@@ -58,7 +58,7 @@ Number of results to return after reranking
 
 > `optional` **weights?**: `object`
 
-Defined in: [types/rag.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L404)
+Defined in: [types/rag.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L406)
 
 Scoring weights
 
@@ -80,6 +80,6 @@ Scoring weights
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/rag.ts:410](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L410)
+Defined in: [types/rag.ts:412](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L412)
 
 API key for external services (e.g., Cohere)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationTraceContext** = `object`
 
-Defined in: [types/scorer.ts:429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L429)
+Defined in: [types/scorer.ts:429](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L429)
 
 Evaluation trace context for observability
 
@@ -18,7 +18,7 @@ Evaluation trace context for observability
 
 > **traceId**: `string`
 
-Defined in: [types/scorer.ts:431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L431)
+Defined in: [types/scorer.ts:431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L431)
 
 Trace ID
 
@@ -28,7 +28,7 @@ Trace ID
 
 > `optional` **spanId?**: `string`
 
-Defined in: [types/scorer.ts:433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L433)
+Defined in: [types/scorer.ts:433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L433)
 
 Span ID
 
@@ -38,7 +38,7 @@ Span ID
 
 > `optional` **parentSpanId?**: `string`
 
-Defined in: [types/scorer.ts:435](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L435)
+Defined in: [types/scorer.ts:435](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L435)
 
 Parent span ID
 
@@ -48,7 +48,7 @@ Parent span ID
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/scorer.ts:437](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L437)
+Defined in: [types/scorer.ts:437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L437)
 
 Session ID
 
@@ -58,7 +58,7 @@ Session ID
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/scorer.ts:439](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L439)
+Defined in: [types/scorer.ts:439](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L439)
 
 User ID
 
@@ -68,6 +68,6 @@ User ID
 
 > `optional` **attributes?**: `Record`\<`string`, `string` \| `number` \| `boolean`\>
 
-Defined in: [types/scorer.ts:441](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L441)
+Defined in: [types/scorer.ts:441](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L441)
 
 Custom attributes

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GraphEdge** = `object`
 
-Defined in: [types/rag.ts:1315](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1315)
+Defined in: [types/rag.ts:1359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1359)
 
 Graph edge representing semantic relationship
 
@@ -18,7 +18,7 @@ Graph edge representing semantic relationship
 
 > **source**: `string`
 
-Defined in: [types/rag.ts:1317](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1317)
+Defined in: [types/rag.ts:1361](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1361)
 
 Source node ID
 
@@ -28,7 +28,7 @@ Source node ID
 
 > **target**: `string`
 
-Defined in: [types/rag.ts:1319](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1319)
+Defined in: [types/rag.ts:1363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1363)
 
 Target node ID
 
@@ -38,7 +38,7 @@ Target node ID
 
 > **weight**: `number`
 
-Defined in: [types/rag.ts:1321](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1321)
+Defined in: [types/rag.ts:1365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1365)
 
 Edge weight (similarity score)
 
@@ -48,6 +48,6 @@ Edge weight (similarity score)
 
 > `optional` **type?**: `string`
 
-Defined in: [types/rag.ts:1323](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1323)
+Defined in: [types/rag.ts:1367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1367)
 
 Edge type

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DomainTemplate** = `object`
 
-Defined in: [types/domain.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L53)
+Defined in: [types/domain.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L53)
 
 Domain template for factory registration
 
@@ -18,7 +18,7 @@ Domain template for factory registration
 
 > **domainType**: [`DomainType`](DomainType.md)
 
-Defined in: [types/domain.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L54)
+Defined in: [types/domain.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L54)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/domain.ts:54](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **template**: `Partial`\<[`DomainConfig`](DomainConfig.md)\>
 
-Defined in: [types/domain.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L55)
+Defined in: [types/domain.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L55)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/domain.ts:55](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **isDefault?**: `boolean`
 
-Defined in: [types/domain.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L56)
+Defined in: [types/domain.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L56)

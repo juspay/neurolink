@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthCacheConfig** = `object`
 
-Defined in: [types/auth.ts:442](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L442)
+Defined in: [types/auth.ts:442](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L442)
 
 Auth cache configuration
 
@@ -18,7 +18,7 @@ Auth cache configuration
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/auth.ts:444](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L444)
+Defined in: [types/auth.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L444)
 
 Enable caching
 
@@ -28,7 +28,7 @@ Enable caching
 
 > `optional` **ttl?**: `number`
 
-Defined in: [types/auth.ts:446](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L446)
+Defined in: [types/auth.ts:446](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L446)
 
 Cache TTL in seconds
 
@@ -38,7 +38,7 @@ Cache TTL in seconds
 
 > `optional` **maxEntries?**: `number`
 
-Defined in: [types/auth.ts:448](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L448)
+Defined in: [types/auth.ts:448](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L448)
 
 Maximum cache entries
 
@@ -48,6 +48,6 @@ Maximum cache entries
 
 > `optional` **prefix?**: `string`
 
-Defined in: [types/auth.ts:450](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L450)
+Defined in: [types/auth.ts:450](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L450)
 
 Cache key prefix

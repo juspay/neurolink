@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TelemetryAccumulator** = `object`
 
-Defined in: [types/proxy.ts:1129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1129)
+Defined in: [types/proxy.ts:2347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2347)
 
 Mutable accumulator the SSE interceptor uses internally.
 
@@ -18,7 +18,7 @@ Mutable accumulator the SSE interceptor uses internally.
 
 > **messageId**: `string`
 
-Defined in: [types/proxy.ts:1130](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1130)
+Defined in: [types/proxy.ts:2348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2348)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1130](https://github.com/juspay/neurolink/blob/ff50c
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:1131](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1131)
+Defined in: [types/proxy.ts:2349](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2349)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1131](https://github.com/juspay/neurolink/blob/ff50c
 
 > **inputTokens**: `number`
 
-Defined in: [types/proxy.ts:1132](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1132)
+Defined in: [types/proxy.ts:2350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2350)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:1132](https://github.com/juspay/neurolink/blob/ff50c
 
 > **outputTokens**: `number`
 
-Defined in: [types/proxy.ts:1133](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1133)
+Defined in: [types/proxy.ts:2351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2351)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:1133](https://github.com/juspay/neurolink/blob/ff50c
 
 > **cacheCreationInputTokens**: `number`
 
-Defined in: [types/proxy.ts:1134](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1134)
+Defined in: [types/proxy.ts:2352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2352)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:1134](https://github.com/juspay/neurolink/blob/ff50c
 
 > **cacheReadInputTokens**: `number`
 
-Defined in: [types/proxy.ts:1135](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1135)
+Defined in: [types/proxy.ts:2353](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2353)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:1135](https://github.com/juspay/neurolink/blob/ff50c
 
 > **contentBlocks**: [`SSEContentBlock`](SSEContentBlock.md)[]
 
-Defined in: [types/proxy.ts:1136](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1136)
+Defined in: [types/proxy.ts:2354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2354)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:1136](https://github.com/juspay/neurolink/blob/ff50c
 
 > **blockByteCounts**: `Map`\<`number`, `number`\>
 
-Defined in: [types/proxy.ts:1137](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1137)
+Defined in: [types/proxy.ts:2355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2355)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:1137](https://github.com/juspay/neurolink/blob/ff50c
 
 > **stopReason**: `string` \| `null`
 
-Defined in: [types/proxy.ts:1138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1138)
+Defined in: [types/proxy.ts:2356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2356)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/proxy.ts:1138](https://github.com/juspay/neurolink/blob/ff50c
 
 > **stopSequence**: `string` \| `null`
 
-Defined in: [types/proxy.ts:1139](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1139)
+Defined in: [types/proxy.ts:2357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2357)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/proxy.ts:1139](https://github.com/juspay/neurolink/blob/ff50c
 
 > **eventCount**: `number`
 
-Defined in: [types/proxy.ts:1140](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1140)
+Defined in: [types/proxy.ts:2358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2358)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/proxy.ts:1140](https://github.com/juspay/neurolink/blob/ff50c
 
 > **startTime**: `number`
 
-Defined in: [types/proxy.ts:1141](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1141)
+Defined in: [types/proxy.ts:2359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2359)
 
 ---
 
@@ -114,7 +114,7 @@ Defined in: [types/proxy.ts:1141](https://github.com/juspay/neurolink/blob/ff50c
 
 > **totalBytesReceived**: `number`
 
-Defined in: [types/proxy.ts:1142](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1142)
+Defined in: [types/proxy.ts:2360](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2360)
 
 ---
 
@@ -122,7 +122,7 @@ Defined in: [types/proxy.ts:1142](https://github.com/juspay/neurolink/blob/ff50c
 
 > **events**: `object`[]
 
-Defined in: [types/proxy.ts:1143](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1143)
+Defined in: [types/proxy.ts:2361](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2361)
 
 #### type
 
@@ -142,7 +142,7 @@ Defined in: [types/proxy.ts:1143](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **rawTextChunks?**: `string`[]
 
-Defined in: [types/proxy.ts:1144](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1144)
+Defined in: [types/proxy.ts:2362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2362)
 
 ---
 
@@ -150,7 +150,7 @@ Defined in: [types/proxy.ts:1144](https://github.com/juspay/neurolink/blob/ff50c
 
 > **rawTextBytes**: `number`
 
-Defined in: [types/proxy.ts:1145](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1145)
+Defined in: [types/proxy.ts:2363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2363)
 
 ---
 
@@ -158,7 +158,7 @@ Defined in: [types/proxy.ts:1145](https://github.com/juspay/neurolink/blob/ff50c
 
 > **rawTextTruncated**: `boolean`
 
-Defined in: [types/proxy.ts:1146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1146)
+Defined in: [types/proxy.ts:2364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2364)
 
 ---
 
@@ -166,4 +166,12 @@ Defined in: [types/proxy.ts:1146](https://github.com/juspay/neurolink/blob/ff50c
 
 > **eventLogTruncated**: `boolean`
 
-Defined in: [types/proxy.ts:1147](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1147)
+Defined in: [types/proxy.ts:2365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2365)
+
+---
+
+### streamErrorMessage?
+
+> `optional` **streamErrorMessage?**: `string`
+
+Defined in: [types/proxy.ts:2366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2366)

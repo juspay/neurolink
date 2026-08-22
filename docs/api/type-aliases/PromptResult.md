@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PromptResult** = `object`
 
-Defined in: [types/mcp.ts:2047](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2047)
+Defined in: [types/mcp.ts:2047](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2047)
 
 Result of getting a prompt
 
@@ -18,7 +18,7 @@ Result of getting a prompt
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:2051](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2051)
+Defined in: [types/mcp.ts:2051](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2051)
 
 Optional description
 
@@ -28,6 +28,6 @@ Optional description
 
 > **messages**: [`PromptMessage`](PromptMessage.md)[]
 
-Defined in: [types/mcp.ts:2056](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2056)
+Defined in: [types/mcp.ts:2056](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2056)
 
 Prompt messages

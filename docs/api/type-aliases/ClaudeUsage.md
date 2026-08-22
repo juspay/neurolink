@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeUsage** = `object`
 
-Defined in: [types/proxy.ts:133](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L133)
+Defined in: [types/proxy.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L145)
 
 Usage counters returned in a Claude response.
 
@@ -18,7 +18,7 @@ Usage counters returned in a Claude response.
 
 > **input_tokens**: `number`
 
-Defined in: [types/proxy.ts:134](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L134)
+Defined in: [types/proxy.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L146)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:134](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **output_tokens**: `number`
 
-Defined in: [types/proxy.ts:135](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L135)
+Defined in: [types/proxy.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L147)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:135](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **cache_creation_input_tokens?**: `number`
 
-Defined in: [types/proxy.ts:136](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L136)
+Defined in: [types/proxy.ts:148](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L148)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:136](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **cache_read_input_tokens?**: `number`
 
-Defined in: [types/proxy.ts:137](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L137)
+Defined in: [types/proxy.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L149)

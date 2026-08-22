@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseCaseSuitability** = `object`
 
-Defined in: [types/model.ts:157](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L157)
+Defined in: [types/model.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L165)
 
 Use case suitability scores (1-10 scale)
 
@@ -18,7 +18,7 @@ Use case suitability scores (1-10 scale)
 
 > **coding**: `number`
 
-Defined in: [types/model.ts:158](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L158)
+Defined in: [types/model.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L166)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:158](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **creative**: `number`
 
-Defined in: [types/model.ts:159](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L159)
+Defined in: [types/model.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L167)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/model.ts:159](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **analysis**: `number`
 
-Defined in: [types/model.ts:160](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L160)
+Defined in: [types/model.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L168)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/model.ts:160](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **conversation**: `number`
 
-Defined in: [types/model.ts:161](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L161)
+Defined in: [types/model.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L169)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/model.ts:161](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **reasoning**: `number`
 
-Defined in: [types/model.ts:162](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L162)
+Defined in: [types/model.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L170)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/model.ts:162](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **translation**: `number`
 
-Defined in: [types/model.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L163)
+Defined in: [types/model.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L171)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/model.ts:163](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **summarization**: `number`
 
-Defined in: [types/model.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L164)
+Defined in: [types/model.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L172)

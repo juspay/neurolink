@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **getTelemetryStatus**(): `Promise`\<\{ `enabled`: `boolean`; `initialized`: `boolean`; `endpoint?`: `string`; `service?`: `string`; `version?`: `string`; \}\>
 
-Defined in: [index.ts:576](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/index.ts#L576)
+Defined in: [index.ts:742](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/index.ts#L742)
 
 ## Returns
 

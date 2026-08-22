@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ArchiveEntry** = `object`
 
-Defined in: [types/processor.ts:886](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L886)
+Defined in: [types/processor.ts:942](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L942)
 
 Metadata about an individual entry within an archive.
 
@@ -18,7 +18,7 @@ Metadata about an individual entry within an archive.
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:887](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L887)
+Defined in: [types/processor.ts:943](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L943)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/processor.ts:887](https://github.com/juspay/neurolink/blob/ff
 
 > **uncompressedSize**: `number`
 
-Defined in: [types/processor.ts:888](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L888)
+Defined in: [types/processor.ts:944](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L944)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/processor.ts:888](https://github.com/juspay/neurolink/blob/ff
 
 > **compressedSize**: `number`
 
-Defined in: [types/processor.ts:889](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L889)
+Defined in: [types/processor.ts:945](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L945)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/processor.ts:889](https://github.com/juspay/neurolink/blob/ff
 
 > **isDirectory**: `boolean`
 
-Defined in: [types/processor.ts:890](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L890)
+Defined in: [types/processor.ts:946](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L946)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessorErrorMessageTemplate** = `object`
 
-Defined in: [types/processor.ts:969](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L969)
+Defined in: [types/processor.ts:1025](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1025)
 
 Error message template with user-friendly messaging and retry information.
 
@@ -18,7 +18,7 @@ Error message template with user-friendly messaging and retry information.
 
 > **message**: `string`
 
-Defined in: [types/processor.ts:971](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L971)
+Defined in: [types/processor.ts:1027](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1027)
 
 Technical error message
 
@@ -28,7 +28,7 @@ Technical error message
 
 > **userMessage**: `string`
 
-Defined in: [types/processor.ts:973](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L973)
+Defined in: [types/processor.ts:1029](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1029)
 
 User-friendly error message
 
@@ -38,7 +38,7 @@ User-friendly error message
 
 > **suggestedAction**: `string`
 
-Defined in: [types/processor.ts:975](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L975)
+Defined in: [types/processor.ts:1031](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1031)
 
 Suggested action to resolve the error
 
@@ -48,6 +48,6 @@ Suggested action to resolve the error
 
 > **retryable**: `boolean`
 
-Defined in: [types/processor.ts:977](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L977)
+Defined in: [types/processor.ts:1033](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1033)
 
 Whether this error is potentially retryable

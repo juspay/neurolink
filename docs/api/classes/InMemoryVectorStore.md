@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: InMemoryVectorStore
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/vectorQueryTool.ts#L205)
+Defined in: [rag/retrieval/vectorQueryTool.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/retrieval/vectorQueryTool.ts#L198)
 
 In-memory vector store implementation for testing and development
 
@@ -30,7 +30,7 @@ In-memory vector store implementation for testing and development
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/vectorQueryTool.ts#L214)
+Defined in: [rag/retrieval/vectorQueryTool.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/retrieval/vectorQueryTool.ts#L207)
 
 Add vectors to an index
 
@@ -54,7 +54,7 @@ Add vectors to an index
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/vectorQueryTool.ts#L238)
+Defined in: [rag/retrieval/vectorQueryTool.ts:231](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/retrieval/vectorQueryTool.ts#L231)
 
 Query vectors by similarity
 
@@ -96,7 +96,7 @@ Query vectors by similarity
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
 
-Defined in: [rag/retrieval/vectorQueryTool.ts:295](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/retrieval/vectorQueryTool.ts#L295)
+Defined in: [rag/retrieval/vectorQueryTool.ts:288](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/retrieval/vectorQueryTool.ts#L288)
 
 Delete vectors from an index
 

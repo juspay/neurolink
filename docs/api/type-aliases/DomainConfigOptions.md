@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DomainConfigOptions** = `object`
 
-Defined in: [types/domain.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L72)
+Defined in: [types/domain.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L72)
 
 Domain configuration options for factory
 
@@ -18,7 +18,7 @@ Domain configuration options for factory
 
 > **domainType**: [`DomainType`](DomainType.md)
 
-Defined in: [types/domain.ts:73](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L73)
+Defined in: [types/domain.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L73)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/domain.ts:73](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **customConfig?**: `Partial`\<[`DomainConfig`](DomainConfig.md)\>
 
-Defined in: [types/domain.ts:74](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L74)
+Defined in: [types/domain.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L74)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/domain.ts:74](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **validateDomainData?**: `boolean`
 
-Defined in: [types/domain.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L75)
+Defined in: [types/domain.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L75)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/domain.ts:75](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **includeDefaults?**: `boolean`
 
-Defined in: [types/domain.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/domain.ts#L76)
+Defined in: [types/domain.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/domain.ts#L76)

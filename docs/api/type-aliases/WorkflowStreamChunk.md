@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WorkflowStreamChunk** = `object`
 
-Defined in: [types/workflow.ts:808](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L808)
+Defined in: [types/workflow.ts:808](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L808)
 
 Progressive workflow response chunk streamed by runWorkflow().
 
@@ -18,7 +18,7 @@ Progressive workflow response chunk streamed by runWorkflow().
 
 > **type**: `"preliminary"` \| `"final"`
 
-Defined in: [types/workflow.ts:809](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L809)
+Defined in: [types/workflow.ts:809](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L809)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:809](https://github.com/juspay/neurolink/blob/ff5
 
 > **content**: `string`
 
-Defined in: [types/workflow.ts:810](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L810)
+Defined in: [types/workflow.ts:810](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L810)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/workflow.ts:810](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **partialResult?**: `Partial`\<[`WorkflowResult`](WorkflowResult.md)\>
 
-Defined in: [types/workflow.ts:811](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L811)
+Defined in: [types/workflow.ts:811](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L811)

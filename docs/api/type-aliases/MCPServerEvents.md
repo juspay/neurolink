@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPServerEvents** = `object`
 
-Defined in: [types/mcp.ts:1090](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1090)
+Defined in: [types/mcp.ts:1090](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1090)
 
 Server lifecycle events.
 
@@ -18,7 +18,7 @@ Server lifecycle events.
 
 > **toolRegistered**: `object`
 
-Defined in: [types/mcp.ts:1091](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1091)
+Defined in: [types/mcp.ts:1091](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1091)
 
 #### toolName
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1091](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **toolExecuted**: `object`
 
-Defined in: [types/mcp.ts:1092](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1092)
+Defined in: [types/mcp.ts:1092](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1092)
 
 #### toolName
 
@@ -54,7 +54,7 @@ Defined in: [types/mcp.ts:1092](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **toolError**: `object`
 
-Defined in: [types/mcp.ts:1093](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1093)
+Defined in: [types/mcp.ts:1093](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1093)
 
 #### toolName
 
@@ -70,7 +70,7 @@ Defined in: [types/mcp.ts:1093](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **serverReady**: `object`
 
-Defined in: [types/mcp.ts:1094](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1094)
+Defined in: [types/mcp.ts:1094](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1094)
 
 #### tools
 
@@ -82,7 +82,7 @@ Defined in: [types/mcp.ts:1094](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **serverStopped**: `object`
 
-Defined in: [types/mcp.ts:1095](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1095)
+Defined in: [types/mcp.ts:1095](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1095)
 
 #### reason?
 

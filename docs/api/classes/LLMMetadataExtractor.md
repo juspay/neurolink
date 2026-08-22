@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: LLMMetadataExtractor
 
-Defined in: [rag/metadata/metadataExtractor.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/metadata/metadataExtractor.ts#L62)
+Defined in: [rag/metadata/metadataExtractor.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/metadata/metadataExtractor.ts#L62)
 
 LLM-powered metadata extractor
 Extracts title, summary, keywords, Q&A pairs, and custom schema data
@@ -17,7 +17,7 @@ Extracts title, summary, keywords, Q&A pairs, and custom schema data
 
 > **new LLMMetadataExtractor**(`options?`): `LLMMetadataExtractor`
 
-Defined in: [rag/metadata/metadataExtractor.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/metadata/metadataExtractor.ts#L66)
+Defined in: [rag/metadata/metadataExtractor.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/metadata/metadataExtractor.ts#L66)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [rag/metadata/metadataExtractor.ts:66](https://github.com/juspay/neu
 
 > **extract**(`chunks`, `params`): `Promise`\<[`ExtractionResult`](../type-aliases/ExtractionResult.md)[]\>
 
-Defined in: [rag/metadata/metadataExtractor.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/metadata/metadataExtractor.ts#L77)
+Defined in: [rag/metadata/metadataExtractor.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/metadata/metadataExtractor.ts#L77)
 
 Extract metadata from chunks based on configuration
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ThemeFonts** = `object`
 
-Defined in: [types/ppt.ts:750](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L750)
+Defined in: [types/ppt.ts:750](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L750)
 
 Font configuration for a theme
 
@@ -18,7 +18,7 @@ Font configuration for a theme
 
 > **heading**: `string`
 
-Defined in: [types/ppt.ts:751](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L751)
+Defined in: [types/ppt.ts:751](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L751)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:751](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **body**: `string`
 
-Defined in: [types/ppt.ts:752](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L752)
+Defined in: [types/ppt.ts:752](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L752)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:752](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **sizes**: `object`
 
-Defined in: [types/ppt.ts:753](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L753)
+Defined in: [types/ppt.ts:753](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L753)
 
 #### title
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareRequestSchema** = `object`
 
-Defined in: [types/middleware.ts:441](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L441)
+Defined in: [types/middleware.ts:499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L499)
 
 Simple structural validation schema used by the request-validation
 middleware. Named MiddlewareRequestSchema to disambiguate from the zod
@@ -20,7 +20,7 @@ middleware. Named MiddlewareRequestSchema to disambiguate from the zod
 
 > `optional` **required?**: `string`[]
 
-Defined in: [types/middleware.ts:442](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L442)
+Defined in: [types/middleware.ts:500](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L500)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/middleware.ts:442](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **properties?**: `Record`\<`string`, [`PropertySchema`](PropertySchema.md)\>
 
-Defined in: [types/middleware.ts:443](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L443)
+Defined in: [types/middleware.ts:501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L501)
 
 ---
 
@@ -36,4 +36,4 @@ Defined in: [types/middleware.ts:443](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **additionalProperties?**: `boolean`
 
-Defined in: [types/middleware.ts:444](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L444)
+Defined in: [types/middleware.ts:502](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L502)

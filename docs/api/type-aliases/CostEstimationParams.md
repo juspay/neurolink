@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CostEstimationParams** = `object`
 
-Defined in: [types/evaluationProviders.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L94)
+Defined in: [types/evaluationProviders.ts:94](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L94)
 
 Provider cost estimation parameters
 
@@ -18,7 +18,7 @@ Provider cost estimation parameters
 
 > **provider**: `string`
 
-Defined in: [types/evaluationProviders.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L95)
+Defined in: [types/evaluationProviders.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L95)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluationProviders.ts:95](https://github.com/juspay/neurolin
 
 > **inputTokens**: `number`
 
-Defined in: [types/evaluationProviders.ts:96](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L96)
+Defined in: [types/evaluationProviders.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L96)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluationProviders.ts:96](https://github.com/juspay/neurolin
 
 > **outputTokens**: `number`
 
-Defined in: [types/evaluationProviders.ts:97](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L97)
+Defined in: [types/evaluationProviders.ts:97](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L97)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/evaluationProviders.ts:97](https://github.com/juspay/neurolin
 
 > `optional` **model?**: `string`
 
-Defined in: [types/evaluationProviders.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluationProviders.ts#L98)
+Defined in: [types/evaluationProviders.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L98)

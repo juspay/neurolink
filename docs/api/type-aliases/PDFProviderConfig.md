@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PDFProviderConfig** = `object`
 
-Defined in: [types/file.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L213)
+Defined in: [types/file.ts:345](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L345)
 
 PDF provider configuration
 
@@ -18,7 +18,7 @@ PDF provider configuration
 
 > **maxSizeMB**: `number`
 
-Defined in: [types/file.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L214)
+Defined in: [types/file.ts:346](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L346)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **maxPages**: `number`
 
-Defined in: [types/file.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L215)
+Defined in: [types/file.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L347)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **supportsNative**: `boolean`
 
-Defined in: [types/file.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L216)
+Defined in: [types/file.ts:348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L348)
 
 ---
 
@@ -42,7 +42,14 @@ Defined in: [types/file.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **requiresCitations**: `boolean` \| `"auto"`
 
-Defined in: [types/file.ts:217](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L217)
+Defined in: [types/file.ts:357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L357)
+
+Whether this provider needs source citations enabled for visual PDF
+analysis (#349). `"auto"` = enable when the request requires visual
+grounding (currently Bedrock's Converse document blocks); `false` = the
+provider handles PDFs without an explicit citations flag. Surfaced on
+`FileProcessingResult.metadata.requiresCitations` so downstream provider
+adapters can act on it instead of the value being dead config.
 
 ---
 
@@ -50,4 +57,4 @@ Defined in: [types/file.ts:217](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **apiType**: [`PDFAPIType`](PDFAPIType.md)
 
-Defined in: [types/file.ts:218](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L218)
+Defined in: [types/file.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L358)

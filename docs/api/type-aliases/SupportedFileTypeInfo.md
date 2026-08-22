@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SupportedFileTypeInfo** = `object`
 
-Defined in: [types/processor.ts:952](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L952)
+Defined in: [types/processor.ts:1008](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1008)
 
 Information about a supported file type
 
@@ -18,7 +18,7 @@ Information about a supported file type
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:954](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L954)
+Defined in: [types/processor.ts:1010](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1010)
 
 Processor name
 
@@ -28,7 +28,7 @@ Processor name
 
 > **priority**: `number`
 
-Defined in: [types/processor.ts:956](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L956)
+Defined in: [types/processor.ts:1012](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1012)
 
 Priority (lower = processed first)
 
@@ -38,7 +38,7 @@ Priority (lower = processed first)
 
 > **extensions**: `string`[]
 
-Defined in: [types/processor.ts:958](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L958)
+Defined in: [types/processor.ts:1014](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1014)
 
 Supported file extensions
 
@@ -48,7 +48,7 @@ Supported file extensions
 
 > **mimeTypes**: `string`[]
 
-Defined in: [types/processor.ts:960](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L960)
+Defined in: [types/processor.ts:1016](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1016)
 
 Supported MIME types
 
@@ -58,6 +58,6 @@ Supported MIME types
 
 > `optional` **description?**: `string`
 
-Defined in: [types/processor.ts:962](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L962)
+Defined in: [types/processor.ts:1018](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1018)
 
 Optional description

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConflictDetectionPlugin** = `object`
 
-Defined in: [types/utilities.ts:179](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L179)
+Defined in: [types/utilities.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L179)
 
 Plugin-based conflict detection system
 Extensible and configurable enhancement conflict resolution
@@ -19,7 +19,7 @@ Extensible and configurable enhancement conflict resolution
 
 > **name**: `string`
 
-Defined in: [types/utilities.ts:181](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L181)
+Defined in: [types/utilities.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L181)
 
 Plugin name for identification
 
@@ -29,7 +29,7 @@ Plugin name for identification
 
 > **version**: `string`
 
-Defined in: [types/utilities.ts:183](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L183)
+Defined in: [types/utilities.ts:183](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L183)
 
 Plugin version for compatibility checks
 
@@ -39,7 +39,7 @@ Plugin version for compatibility checks
 
 > **detectConflict**(`enhancementA`, `enhancementB`, `optionsA?`, `optionsB?`): `boolean`
 
-Defined in: [types/utilities.ts:185](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L185)
+Defined in: [types/utilities.ts:185](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L185)
 
 Check if two enhancement types conflict
 
@@ -71,7 +71,7 @@ Check if two enhancement types conflict
 
 > `optional` **getConflictSeverity**(`enhancementA`, `enhancementB`): `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/utilities.ts:192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L192)
+Defined in: [types/utilities.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L192)
 
 Get conflict severity (low, medium, high)
 
@@ -95,7 +95,7 @@ Get conflict severity (low, medium, high)
 
 > `optional` **suggestResolution**(`enhancementA`, `enhancementB`): `string`[]
 
-Defined in: [types/utilities.ts:197](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L197)
+Defined in: [types/utilities.ts:197](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L197)
 
 Suggest resolution strategies
 

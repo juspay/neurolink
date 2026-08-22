@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PrecallEvaluationConfig** = `object`
 
-Defined in: [types/guardrails.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L55)
+Defined in: [types/guardrails.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L55)
 
 Configuration for precall evaluation using AI models
 
@@ -18,7 +18,7 @@ Configuration for precall evaluation using AI models
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/guardrails.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L56)
+Defined in: [types/guardrails.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L56)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/guardrails.ts:56](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/guardrails.ts:57](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L57)
+Defined in: [types/guardrails.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L57)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/guardrails.ts:57](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **evaluationModel?**: `string`
 
-Defined in: [types/guardrails.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L58)
+Defined in: [types/guardrails.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L58)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/guardrails.ts:58](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **evaluationPrompt?**: `string`
 
-Defined in: [types/guardrails.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L59)
+Defined in: [types/guardrails.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L59)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/guardrails.ts:59](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **actions?**: [`EvaluationActions`](EvaluationActions.md)
 
-Defined in: [types/guardrails.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L60)
+Defined in: [types/guardrails.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L60)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/guardrails.ts:60](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **thresholds?**: [`EvaluationThresholds`](EvaluationThresholds.md)
 
-Defined in: [types/guardrails.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L61)
+Defined in: [types/guardrails.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L61)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/guardrails.ts:61](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **blockUnsafeRequests?**: `boolean`
 
-Defined in: [types/guardrails.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L62)
+Defined in: [types/guardrails.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L62)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/guardrails.ts:62](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **sanitizationPatterns?**: `string`[]
 
-Defined in: [types/guardrails.ts:74](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L74)
+Defined in: [types/guardrails.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L74)
 
 Regex patterns to use for sanitizing input when action is "sanitize".
 Each pattern will be applied with the 'gi' flags (global, case-insensitive).
@@ -93,7 +93,7 @@ Example patterns:
 
 > `optional` **replacementText?**: `string`
 
-Defined in: [types/guardrails.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L85)
+Defined in: [types/guardrails.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L85)
 
 Text to use when replacing sanitized content.
 

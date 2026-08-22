@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NeverSampler
 
-Defined in: [observability/sampling/samplers.ts:33](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L33)
+Defined in: [observability/sampling/samplers.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L33)
 
 Never sample any spans
 
@@ -30,7 +30,7 @@ Never sample any spans
 
 > `readonly` **name**: `"never"` = `"never"`
 
-Defined in: [observability/sampling/samplers.ts:34](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L34)
+Defined in: [observability/sampling/samplers.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L34)
 
 Sampler name for identification
 
@@ -44,7 +44,7 @@ Sampler name for identification
 
 > **shouldSample**(`_span`): `boolean`
 
-Defined in: [observability/sampling/samplers.ts:36](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L36)
+Defined in: [observability/sampling/samplers.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L36)
 
 Determine if a span should be sampled
 
@@ -68,7 +68,7 @@ Determine if a span should be sampled
 
 > **getDescription**(): `string`
 
-Defined in: [observability/sampling/samplers.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L40)
+Defined in: [observability/sampling/samplers.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L40)
 
 Get sampling decision description
 

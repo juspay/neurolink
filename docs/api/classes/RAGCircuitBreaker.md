@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RAGCircuitBreaker
 
-Defined in: [rag/resilience/CircuitBreaker.ts:38](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L38)
+Defined in: [rag/resilience/CircuitBreaker.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L38)
 
 RAG Circuit Breaker
 
@@ -23,7 +23,7 @@ with comprehensive statistics and event handling.
 
 > **new RAGCircuitBreaker**(`name`, `config?`): `RAGCircuitBreaker`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L47)
+Defined in: [rag/resilience/CircuitBreaker.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L47)
 
 #### Parameters
 
@@ -49,7 +49,7 @@ Defined in: [rag/resilience/CircuitBreaker.ts:47](https://github.com/juspay/neur
 
 > **on**\<`K`\>(`event`, `listener`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:6](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L6)
+Defined in: [core/infrastructure/typedEventEmitter.ts:6](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L6)
 
 #### Type Parameters
 
@@ -81,7 +81,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:6](https://github.com/jusp
 
 > **off**\<`K`\>(`event`, `listener`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:14](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L14)
+Defined in: [core/infrastructure/typedEventEmitter.ts:14](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L14)
 
 #### Type Parameters
 
@@ -113,7 +113,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:14](https://github.com/jus
 
 > **emit**\<`K`\>(`event`, ...`args`): `boolean`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L22)
+Defined in: [core/infrastructure/typedEventEmitter.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L22)
 
 #### Type Parameters
 
@@ -145,7 +145,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:22](https://github.com/jus
 
 > **once**\<`K`\>(`event`, `listener`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L26)
+Defined in: [core/infrastructure/typedEventEmitter.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L26)
 
 #### Type Parameters
 
@@ -177,7 +177,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:26](https://github.com/jus
 
 > **removeAllListeners**\<`K`\>(`event?`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L37)
+Defined in: [core/infrastructure/typedEventEmitter.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L37)
 
 #### Type Parameters
 
@@ -205,7 +205,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:37](https://github.com/jus
 
 > **execute**\<`T`\>(`operation`, `operationType?`): `Promise`\<`T`\>
 
-Defined in: [rag/resilience/CircuitBreaker.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L61)
+Defined in: [rag/resilience/CircuitBreaker.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L61)
 
 Execute an operation with circuit breaker protection
 
@@ -235,7 +235,7 @@ Execute an operation with circuit breaker protection
 
 > **getStats**(): [`RAGCircuitBreakerStats`](../type-aliases/RAGCircuitBreakerStats.md)
 
-Defined in: [rag/resilience/CircuitBreaker.ts:303](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L303)
+Defined in: [rag/resilience/CircuitBreaker.ts:303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L303)
 
 Get current statistics
 
@@ -249,7 +249,7 @@ Get current statistics
 
 > **reset**(): `void`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:344](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L344)
+Defined in: [rag/resilience/CircuitBreaker.ts:344](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L344)
 
 Manually reset the circuit breaker
 
@@ -263,7 +263,7 @@ Manually reset the circuit breaker
 
 > **forceOpen**(`reason?`): `void`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L354)
+Defined in: [rag/resilience/CircuitBreaker.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L354)
 
 Force open the circuit breaker
 
@@ -283,7 +283,7 @@ Force open the circuit breaker
 
 > **getName**(): `string`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L362)
+Defined in: [rag/resilience/CircuitBreaker.ts:362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L362)
 
 Get circuit breaker name
 
@@ -297,7 +297,7 @@ Get circuit breaker name
 
 > **isOpen**(): `boolean`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:369](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L369)
+Defined in: [rag/resilience/CircuitBreaker.ts:369](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L369)
 
 Check if circuit is open
 
@@ -311,7 +311,7 @@ Check if circuit is open
 
 > **isClosed**(): `boolean`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:376](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L376)
+Defined in: [rag/resilience/CircuitBreaker.ts:376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L376)
 
 Check if circuit is closed
 
@@ -325,7 +325,7 @@ Check if circuit is closed
 
 > **isHalfOpen**(): `boolean`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:383](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L383)
+Defined in: [rag/resilience/CircuitBreaker.ts:383](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L383)
 
 Check if circuit is half-open
 
@@ -339,7 +339,7 @@ Check if circuit is half-open
 
 > **getState**(): [`CircuitState`](../type-aliases/CircuitState.md)
 
-Defined in: [rag/resilience/CircuitBreaker.ts:390](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L390)
+Defined in: [rag/resilience/CircuitBreaker.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L390)
 
 Get current state
 
@@ -353,7 +353,7 @@ Get current state
 
 > **destroy**(): `void`
 
-Defined in: [rag/resilience/CircuitBreaker.ts:397](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/resilience/CircuitBreaker.ts#L397)
+Defined in: [rag/resilience/CircuitBreaker.ts:397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/resilience/CircuitBreaker.ts#L397)
 
 Destroy the circuit breaker and clean up resources
 

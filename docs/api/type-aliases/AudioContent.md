@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AudioContent** = `object`
 
-Defined in: [types/multimodal.ts:126](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L126)
+Defined in: [types/multimodal.ts:126](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L126)
 
 Audio content type for multimodal messages
 
@@ -36,7 +36,7 @@ const audioContent: AudioContent = {
 
 > **type**: `"audio"`
 
-Defined in: [types/multimodal.ts:127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L127)
+Defined in: [types/multimodal.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L127)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/multimodal.ts:127](https://github.com/juspay/neurolink/blob/f
 
 > **data**: `Buffer` \| `string`
 
-Defined in: [types/multimodal.ts:128](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L128)
+Defined in: [types/multimodal.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L128)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/multimodal.ts:128](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **mediaType?**: `"audio/mpeg"` \| `"audio/wav"` \| `"audio/ogg"` \| `"audio/webm"` \| `"audio/aac"` \| `"audio/flac"` \| `"audio/mp4"`
 
-Defined in: [types/multimodal.ts:129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L129)
+Defined in: [types/multimodal.ts:129](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L129)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/multimodal.ts:129](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/multimodal.ts:137](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L137)
+Defined in: [types/multimodal.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L137)
 
 #### filename?
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TypedEventEmitter\<TEvents\>
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:3](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L3)
+Defined in: [core/infrastructure/typedEventEmitter.ts:3](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L3)
 
 ## Extended by
 
@@ -34,7 +34,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:3](https://github.com/jusp
 
 > **on**\<`K`\>(`event`, `listener`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:6](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L6)
+Defined in: [core/infrastructure/typedEventEmitter.ts:6](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L6)
 
 #### Type Parameters
 
@@ -62,7 +62,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:6](https://github.com/jusp
 
 > **off**\<`K`\>(`event`, `listener`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:14](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L14)
+Defined in: [core/infrastructure/typedEventEmitter.ts:14](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L14)
 
 #### Type Parameters
 
@@ -90,7 +90,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:14](https://github.com/jus
 
 > **emit**\<`K`\>(`event`, ...`args`): `boolean`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L22)
+Defined in: [core/infrastructure/typedEventEmitter.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L22)
 
 #### Type Parameters
 
@@ -118,7 +118,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:22](https://github.com/jus
 
 > **once**\<`K`\>(`event`, `listener`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L26)
+Defined in: [core/infrastructure/typedEventEmitter.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L26)
 
 #### Type Parameters
 
@@ -146,7 +146,7 @@ Defined in: [core/infrastructure/typedEventEmitter.ts:26](https://github.com/jus
 
 > **removeAllListeners**\<`K`\>(`event?`): `this`
 
-Defined in: [core/infrastructure/typedEventEmitter.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/core/infrastructure/typedEventEmitter.ts#L37)
+Defined in: [core/infrastructure/typedEventEmitter.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/core/infrastructure/typedEventEmitter.ts#L37)
 
 #### Type Parameters
 

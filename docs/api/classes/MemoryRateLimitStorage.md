@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MemoryRateLimitStorage
 
-Defined in: [auth/middleware/rateLimitByUser.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L25)
+Defined in: [auth/middleware/rateLimitByUser.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L25)
 
 In-memory storage for rate limiting (single instance deployments)
 
@@ -20,7 +20,7 @@ In-memory storage for rate limiting (single instance deployments)
 
 > **new MemoryRateLimitStorage**(`cleanupIntervalMs?`, `expiryMs?`): `MemoryRateLimitStorage`
 
-Defined in: [auth/middleware/rateLimitByUser.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L30)
+Defined in: [auth/middleware/rateLimitByUser.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L30)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [auth/middleware/rateLimitByUser.ts:30](https://github.com/juspay/ne
 
 > **getBucket**(`userId`): `Promise`\<[`TokenBucket`](../type-aliases/TokenBucket.md) \| `null`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L40)
+Defined in: [auth/middleware/rateLimitByUser.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L40)
 
 #### Parameters
 
@@ -64,7 +64,7 @@ Defined in: [auth/middleware/rateLimitByUser.ts:40](https://github.com/juspay/ne
 
 > **setBucket**(`userId`, `bucket`): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L44)
+Defined in: [auth/middleware/rateLimitByUser.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L44)
 
 #### Parameters
 
@@ -90,7 +90,7 @@ Defined in: [auth/middleware/rateLimitByUser.ts:44](https://github.com/juspay/ne
 
 > **deleteBucket**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:48](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L48)
+Defined in: [auth/middleware/rateLimitByUser.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L48)
 
 #### Parameters
 
@@ -112,7 +112,7 @@ Defined in: [auth/middleware/rateLimitByUser.ts:48](https://github.com/juspay/ne
 
 > **healthCheck**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:52](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L52)
+Defined in: [auth/middleware/rateLimitByUser.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L52)
 
 #### Returns
 
@@ -128,7 +128,7 @@ Defined in: [auth/middleware/rateLimitByUser.ts:52](https://github.com/juspay/ne
 
 > **cleanup**(): `Promise`\<`void`\>
 
-Defined in: [auth/middleware/rateLimitByUser.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/middleware/rateLimitByUser.ts#L56)
+Defined in: [auth/middleware/rateLimitByUser.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/middleware/rateLimitByUser.ts#L56)
 
 #### Returns
 

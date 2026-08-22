@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BedrockToolUse** = `object`
 
-Defined in: [types/providers.ts:727](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L727)
+Defined in: [types/providers.ts:979](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L979)
 
 Bedrock tool usage structure
 
@@ -18,7 +18,7 @@ Bedrock tool usage structure
 
 > **toolUseId**: `string`
 
-Defined in: [types/providers.ts:728](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L728)
+Defined in: [types/providers.ts:980](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L980)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:728](https://github.com/juspay/neurolink/blob/ff
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:729](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L729)
+Defined in: [types/providers.ts:981](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L981)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:729](https://github.com/juspay/neurolink/blob/ff
 
 > **input**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:730](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L730)
+Defined in: [types/providers.ts:982](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L982)

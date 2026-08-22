@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CommandResult** = `object`
 
-Defined in: [types/cli.ts:390](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L390)
+Defined in: [types/cli.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L404)
 
 CLI command result
 
@@ -18,7 +18,7 @@ CLI command result
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:392](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L392)
+Defined in: [types/cli.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L406)
 
 Command success status
 
@@ -28,7 +28,7 @@ Command success status
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/cli.ts:394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L394)
+Defined in: [types/cli.ts:408](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L408)
 
 Result data
 
@@ -38,7 +38,7 @@ Result data
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L396)
+Defined in: [types/cli.ts:410](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L410)
 
 Error message if failed
 
@@ -48,7 +48,7 @@ Error message if failed
 
 > `optional` **content?**: `string`
 
-Defined in: [types/cli.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L398)
+Defined in: [types/cli.ts:412](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L412)
 
 Output content
 
@@ -58,7 +58,7 @@ Output content
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/cli.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L400)
+Defined in: [types/cli.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L414)
 
 Execution metadata
 

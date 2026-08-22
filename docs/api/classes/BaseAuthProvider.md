@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Abstract Class: BaseAuthProvider
 
-Defined in: [auth/providers/BaseAuthProvider.ts:175](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L175)
+Defined in: [auth/providers/BaseAuthProvider.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L175)
 
 BaseAuthProvider - Abstract base class for all auth providers
 
@@ -31,7 +31,7 @@ Optionally override:
 
 > **new BaseAuthProvider**(`config`): `BaseAuthProvider`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:184](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L184)
+Defined in: [auth/providers/BaseAuthProvider.ts:184](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L184)
 
 #### Parameters
 
@@ -49,7 +49,7 @@ Defined in: [auth/providers/BaseAuthProvider.ts:184](https://github.com/juspay/n
 
 > `abstract` `readonly` **type**: [`AuthProviderType`](../type-aliases/AuthProviderType.md)
 
-Defined in: [auth/providers/BaseAuthProvider.ts:176](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L176)
+Defined in: [auth/providers/BaseAuthProvider.ts:176](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L176)
 
 Provider type identifier
 
@@ -63,7 +63,7 @@ Provider type identifier
 
 > `readonly` **config**: [`AuthProviderConfig`](../type-aliases/AuthProviderConfig.md)
 
-Defined in: [auth/providers/BaseAuthProvider.ts:177](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L177)
+Defined in: [auth/providers/BaseAuthProvider.ts:177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L177)
 
 Provider configuration
 
@@ -77,7 +77,7 @@ Provider configuration
 
 > `protected` **sessionStorage**: [`SessionStorage`](../type-aliases/SessionStorage.md)
 
-Defined in: [auth/providers/BaseAuthProvider.ts:179](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L179)
+Defined in: [auth/providers/BaseAuthProvider.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L179)
 
 ---
 
@@ -85,7 +85,7 @@ Defined in: [auth/providers/BaseAuthProvider.ts:179](https://github.com/juspay/n
 
 > `protected` **sessionConfig**: [`SessionConfig`](../type-aliases/SessionConfig.md)
 
-Defined in: [auth/providers/BaseAuthProvider.ts:180](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L180)
+Defined in: [auth/providers/BaseAuthProvider.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L180)
 
 ---
 
@@ -93,15 +93,15 @@ Defined in: [auth/providers/BaseAuthProvider.ts:180](https://github.com/juspay/n
 
 > `protected` **rbacConfig**: [`RBACConfig`](../type-aliases/RBACConfig.md)
 
-Defined in: [auth/providers/BaseAuthProvider.ts:181](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L181)
+Defined in: [auth/providers/BaseAuthProvider.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L181)
 
 ---
 
 ### emitter
 
-> `protected` **emitter**: `EventEmitter`\<`any`\>
+> `protected` **emitter**: `EventEmitter`\<`DefaultEventMap`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:182](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L182)
+Defined in: [auth/providers/BaseAuthProvider.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L182)
 
 ## Methods
 
@@ -109,7 +109,7 @@ Defined in: [auth/providers/BaseAuthProvider.ts:182](https://github.com/juspay/n
 
 > `abstract` **authenticateToken**(`token`, `context?`): `Promise`\<[`TokenValidationResult`](../type-aliases/TokenValidationResult.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L236)
+Defined in: [auth/providers/BaseAuthProvider.ts:236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L236)
 
 Validate and authenticate a token
 Subclasses must implement provider-specific token validation
@@ -138,7 +138,7 @@ Subclasses must implement provider-specific token validation
 
 > **extractToken**(`context`): `Promise`\<`string` \| `null`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:257](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L257)
+Defined in: [auth/providers/BaseAuthProvider.ts:257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L257)
 
 Extract token using configured strategy
 
@@ -173,7 +173,7 @@ Extracted token or null if not found
 
 > **createSession**(`user`, `context?`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:325](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L325)
+Defined in: [auth/providers/BaseAuthProvider.ts:325](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L325)
 
 Create a new session for an authenticated user
 
@@ -205,7 +205,7 @@ signature: `createSession(user, context?)`.
 
 > **validateSession**(`sessionId`): `Promise`\<[`SessionValidationResult`](../type-aliases/SessionValidationResult.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:372](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L372)
+Defined in: [auth/providers/BaseAuthProvider.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L372)
 
 Validate an existing session
 
@@ -225,7 +225,7 @@ Validate an existing session
 
 > **refreshSession**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L433)
+Defined in: [auth/providers/BaseAuthProvider.ts:433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L433)
 
 Refresh a session (extend expiration)
 
@@ -249,7 +249,7 @@ Refresh a session (extend expiration)
 
 > **revokeSession**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L481)
+Defined in: [auth/providers/BaseAuthProvider.ts:481](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L481)
 
 Revoke a session
 
@@ -273,7 +273,7 @@ This keeps a tombstone so that "revoked" is distinguishable from
 
 > **revokeAllSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:495](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L495)
+Defined in: [auth/providers/BaseAuthProvider.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L495)
 
 Revoke all sessions for a user
 
@@ -293,7 +293,7 @@ Revoke all sessions for a user
 
 > **authorize**(`user`, `options`): `Promise`\<[`AuthorizationResult`](../type-aliases/AuthorizationResult.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:507](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L507)
+Defined in: [auth/providers/BaseAuthProvider.ts:507](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L507)
 
 Check if a user is authorized for specific roles/permissions
 
@@ -327,7 +327,7 @@ Check if a user is authorized for specific roles/permissions
 
 > `protected` **isSuperAdmin**(`user`): `boolean`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:579](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L579)
+Defined in: [auth/providers/BaseAuthProvider.ts:579](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L579)
 
 Check if user is a super admin
 
@@ -347,7 +347,7 @@ Check if user is a super admin
 
 > `protected` **getEffectiveRoles**(`user`): `Set`\<`string`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:587](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L587)
+Defined in: [auth/providers/BaseAuthProvider.ts:587](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L587)
 
 Get effective roles including inherited roles from hierarchy (transitive)
 
@@ -367,7 +367,7 @@ Get effective roles including inherited roles from hierarchy (transitive)
 
 > `protected` **getEffectivePermissions**(`user`): `Set`\<`string`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:612](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L612)
+Defined in: [auth/providers/BaseAuthProvider.ts:612](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L612)
 
 Get effective permissions including role-based permissions
 
@@ -387,7 +387,7 @@ Get effective permissions including role-based permissions
 
 > `protected` **parseJWT**(`token`): [`TokenClaims`](../type-aliases/TokenClaims.md) \| `null`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:658](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L658)
+Defined in: [auth/providers/BaseAuthProvider.ts:658](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L658)
 
 Parse JWT token (without validation)
 
@@ -407,7 +407,7 @@ Parse JWT token (without validation)
 
 > `protected` **isTokenExpired**(`claims`, `clockTolerance?`): `boolean`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:676](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L676)
+Defined in: [auth/providers/BaseAuthProvider.ts:676](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L676)
 
 Check if token is expired
 
@@ -431,7 +431,7 @@ Check if token is expired
 
 > `protected` **isTokenNotYetValid**(`claims`, `clockTolerance?`): `boolean`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:688](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L688)
+Defined in: [auth/providers/BaseAuthProvider.ts:688](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L688)
 
 Check if token is not yet valid
 
@@ -455,7 +455,7 @@ Check if token is not yet valid
 
 > `protected` **extractUserFromClaims**(`claims`, `options?`): [`AuthUser`](../type-aliases/AuthUser.md)
 
-Defined in: [auth/providers/BaseAuthProvider.ts:703](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L703)
+Defined in: [auth/providers/BaseAuthProvider.ts:703](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L703)
 
 Extract user from token claims
 
@@ -489,7 +489,7 @@ Extract user from token claims
 
 > `optional` **getUser**(`_userId`): `Promise`\<[`AuthUser`](../type-aliases/AuthUser.md) \| `null`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:743](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L743)
+Defined in: [auth/providers/BaseAuthProvider.ts:743](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L743)
 
 Get user by ID
 Override in subclass if provider supports user lookup
@@ -514,7 +514,7 @@ Override in subclass if provider supports user lookup
 
 > `optional` **updateUserRoles**(`_userId`, `_roles`): `Promise`\<[`AuthUser`](../type-aliases/AuthUser.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:753](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L753)
+Defined in: [auth/providers/BaseAuthProvider.ts:753](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L753)
 
 Update user roles
 Override in subclass if provider supports role updates.
@@ -544,7 +544,7 @@ Returns the user with updated roles.
 
 > `optional` **updateUserPermissions**(`_userId`, `_permissions`): `Promise`\<[`AuthUser`](../type-aliases/AuthUser.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:765](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L765)
+Defined in: [auth/providers/BaseAuthProvider.ts:765](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L765)
 
 Update user permissions
 Override in subclass if provider supports permission updates.
@@ -574,7 +574,7 @@ Returns the user with updated permissions.
 
 > **dispose**(): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:778](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L778)
+Defined in: [auth/providers/BaseAuthProvider.ts:778](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L778)
 
 Clean up resources
 
@@ -592,7 +592,7 @@ Clean up resources
 
 > **authorizeUser**(`user`, `permission`): `Promise`\<[`AuthorizationResult`](../type-aliases/AuthorizationResult.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:790](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L790)
+Defined in: [auth/providers/BaseAuthProvider.ts:790](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L790)
 
 Check if a user is authorized to perform an action
 
@@ -620,7 +620,7 @@ Check if a user is authorized to perform an action
 
 > **authorizeRoles**(`user`, `roles`): `Promise`\<[`AuthorizationResult`](../type-aliases/AuthorizationResult.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:800](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L800)
+Defined in: [auth/providers/BaseAuthProvider.ts:800](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L800)
 
 Check if user has specific roles
 
@@ -648,7 +648,7 @@ Check if user has specific roles
 
 > **authorizePermissions**(`user`, `permissions`): `Promise`\<[`AuthorizationResult`](../type-aliases/AuthorizationResult.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:810](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L810)
+Defined in: [auth/providers/BaseAuthProvider.ts:810](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L810)
 
 Check if user has all specified permissions
 
@@ -676,7 +676,7 @@ Check if user has all specified permissions
 
 > **getSession**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:820](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L820)
+Defined in: [auth/providers/BaseAuthProvider.ts:820](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L820)
 
 Get an existing session by ID
 
@@ -700,7 +700,7 @@ Get an existing session by ID
 
 > **destroySession**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:827](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L827)
+Defined in: [auth/providers/BaseAuthProvider.ts:827](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L827)
 
 Invalidate/destroy a session
 
@@ -724,7 +724,7 @@ Invalidate/destroy a session
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)[]\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:834](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L834)
+Defined in: [auth/providers/BaseAuthProvider.ts:834](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L834)
 
 Get all active sessions for a user
 
@@ -748,7 +748,7 @@ Get all active sessions for a user
 
 > **destroyAllUserSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:841](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L841)
+Defined in: [auth/providers/BaseAuthProvider.ts:841](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L841)
 
 Invalidate all sessions for a user (global logout)
 
@@ -772,7 +772,7 @@ Invalidate all sessions for a user (global logout)
 
 > **authenticateRequest**(`context`): `Promise`\<[`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md) \| `null`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:854](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L854)
+Defined in: [auth/providers/BaseAuthProvider.ts:854](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L854)
 
 Full request authentication flow
 
@@ -803,7 +803,7 @@ Authenticated context with user and session, or null
 
 > **healthCheck**(): `Promise`\<[`AuthHealthCheck`](../type-aliases/AuthHealthCheck.md)\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:901](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L901)
+Defined in: [auth/providers/BaseAuthProvider.ts:901](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L901)
 
 Check provider health
 
@@ -821,7 +821,7 @@ Check provider health
 
 > **on**(`event`, `listener`): `void`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:916](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L916)
+Defined in: [auth/providers/BaseAuthProvider.ts:916](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L916)
 
 Subscribe to auth events
 
@@ -845,7 +845,7 @@ Subscribe to auth events
 
 > **off**(`event`, `listener`): `void`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:923](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L923)
+Defined in: [auth/providers/BaseAuthProvider.ts:923](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L923)
 
 Unsubscribe from auth events
 
@@ -869,7 +869,7 @@ Unsubscribe from auth events
 
 > `protected` **emit**(`event`, ...`args`): `void`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:930](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/providers/BaseAuthProvider.ts#L930)
+Defined in: [auth/providers/BaseAuthProvider.ts:930](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L930)
 
 Emit an auth event
 

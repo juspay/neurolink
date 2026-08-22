@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileProcessorConfig** = `object`
 
-Defined in: [types/processor.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L56)
+Defined in: [types/processor.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L56)
 
 Configuration for file processors.
 Defines constraints and defaults for a specific file type processor.
@@ -19,7 +19,7 @@ Defines constraints and defaults for a specific file type processor.
 
 > **maxSizeMB**: `number`
 
-Defined in: [types/processor.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L58)
+Defined in: [types/processor.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L58)
 
 Maximum file size in megabytes
 
@@ -29,7 +29,7 @@ Maximum file size in megabytes
 
 > **timeoutMs**: `number`
 
-Defined in: [types/processor.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L60)
+Defined in: [types/processor.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L60)
 
 Download/processing timeout in milliseconds
 
@@ -39,7 +39,7 @@ Download/processing timeout in milliseconds
 
 > **supportedMimeTypes**: `string`[]
 
-Defined in: [types/processor.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L62)
+Defined in: [types/processor.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L62)
 
 List of supported MIME types
 
@@ -49,7 +49,7 @@ List of supported MIME types
 
 > **supportedExtensions**: `string`[]
 
-Defined in: [types/processor.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L64)
+Defined in: [types/processor.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L64)
 
 List of supported file extensions (with leading dot)
 
@@ -59,7 +59,7 @@ List of supported file extensions (with leading dot)
 
 > **fileTypeName**: `string`
 
-Defined in: [types/processor.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L66)
+Defined in: [types/processor.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L66)
 
 Human-readable name for this file type (e.g., 'image', 'PDF')
 
@@ -69,6 +69,6 @@ Human-readable name for this file type (e.g., 'image', 'PDF')
 
 > **defaultFilename**: `string`
 
-Defined in: [types/processor.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L68)
+Defined in: [types/processor.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L68)
 
 Default filename when original name is not available

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolUtilities** = `object`
 
-Defined in: [types/common.ts:439](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L439)
+Defined in: [types/common.ts:469](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L469)
 
 Utility functions for tool management.
 
@@ -18,7 +18,7 @@ Utility functions for tool management.
 
 > `optional` **isZodSchema?**: (`schema`) => `boolean`
 
-Defined in: [types/common.ts:440](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L440)
+Defined in: [types/common.ts:470](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L470)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/common.ts:440](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **convertToolResult?**: (`result`) => `Promise`\<`unknown`\>
 
-Defined in: [types/common.ts:441](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L441)
+Defined in: [types/common.ts:471](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L471)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [types/common.ts:441](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **createPermissiveZodSchema?**: () => `z.ZodSchema`
 
-Defined in: [types/common.ts:442](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L442)
+Defined in: [types/common.ts:472](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L472)
 
 #### Returns
 
@@ -66,7 +66,7 @@ Defined in: [types/common.ts:442](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **fixSchemaForOpenAIStrictMode?**: (`schema`) => `Record`\<`string`, `unknown`\>
 
-Defined in: [types/common.ts:443](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L443)
+Defined in: [types/common.ts:473](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L473)
 
 #### Parameters
 

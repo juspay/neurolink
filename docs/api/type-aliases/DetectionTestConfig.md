@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DetectionTestConfig** = `object`
 
-Defined in: [types/providers.ts:1876](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1876)
+Defined in: [types/providers.ts:2253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2253)
 
 Configuration object for a detection test wrapper.
 
@@ -18,7 +18,7 @@ Configuration object for a detection test wrapper.
 
 > **test**: () => `Promise`\<`void`\>
 
-Defined in: [types/providers.ts:1877](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1877)
+Defined in: [types/providers.ts:2254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2254)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:1877](https://github.com/juspay/neurolink/blob/f
 
 > **index**: `number`
 
-Defined in: [types/providers.ts:1878](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1878)
+Defined in: [types/providers.ts:2255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2255)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:1878](https://github.com/juspay/neurolink/blob/f
 
 > **testName**: `string`
 
-Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1879)
+Defined in: [types/providers.ts:2256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2256)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/f
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1880)
+Defined in: [types/providers.ts:2257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2257)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/f
 
 > **semaphore**: `object`
 
-Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1881)
+Defined in: [types/providers.ts:2258](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2258)
 
 #### acquire()
 
@@ -78,7 +78,7 @@ Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/f
 
 > **incrementRateLimit**: () => `void`
 
-Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1885)
+Defined in: [types/providers.ts:2262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2262)
 
 #### Returns
 
@@ -90,7 +90,7 @@ Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/f
 
 > **maxRateLimitRetries**: `number`
 
-Defined in: [types/providers.ts:1886](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1886)
+Defined in: [types/providers.ts:2263](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2263)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/providers.ts:1886](https://github.com/juspay/neurolink/blob/f
 
 > **rateLimitState**: `object`
 
-Defined in: [types/providers.ts:1887](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1887)
+Defined in: [types/providers.ts:2264](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2264)
 
 #### count
 

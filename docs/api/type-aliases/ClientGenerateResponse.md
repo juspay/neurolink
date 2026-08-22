@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientGenerateResponse** = `object`
 
-Defined in: [types/client.ts:258](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L258)
+Defined in: [types/client.ts:258](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L258)
 
 Generate response (client-side version)
 
@@ -18,7 +18,7 @@ Generate response (client-side version)
 
 > **content**: `string`
 
-Defined in: [types/client.ts:260](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L260)
+Defined in: [types/client.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L260)
 
 Generated content
 
@@ -28,7 +28,7 @@ Generated content
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/client.ts:262](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L262)
+Defined in: [types/client.ts:262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L262)
 
 Provider used
 
@@ -38,7 +38,7 @@ Provider used
 
 > `optional` **model?**: `string`
 
-Defined in: [types/client.ts:264](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L264)
+Defined in: [types/client.ts:264](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L264)
 
 Model used
 
@@ -48,7 +48,7 @@ Model used
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/client.ts:266](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L266)
+Defined in: [types/client.ts:266](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L266)
 
 Token usage
 
@@ -70,7 +70,7 @@ Token usage
 
 > `optional` **toolCalls?**: [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/client.ts:272](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L272)
+Defined in: [types/client.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L272)
 
 Tool calls made
 
@@ -80,7 +80,7 @@ Tool calls made
 
 > `optional` **toolResults?**: [`StreamToolResult`](StreamToolResult.md)[]
 
-Defined in: [types/client.ts:274](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L274)
+Defined in: [types/client.ts:274](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L274)
 
 Tool results
 
@@ -90,7 +90,7 @@ Tool results
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/client.ts:276](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L276)
+Defined in: [types/client.ts:276](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L276)
 
 Finish reason
 
@@ -100,6 +100,6 @@ Finish reason
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/client.ts:278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L278)
+Defined in: [types/client.ts:278](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L278)
 
 Response metadata

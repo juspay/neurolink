@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnalyticsErrorInfo** = `object`
 
-Defined in: [types/analytics.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L24)
+Defined in: [types/analytics.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L25)
 
 Error info type for analytics
 
@@ -18,7 +18,7 @@ Error info type for analytics
 
 > **message**: `string`
 
-Defined in: [types/analytics.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L25)
+Defined in: [types/analytics.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L26)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/analytics.ts:25](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **code?**: `string` \| `number`
 
-Defined in: [types/analytics.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L26)
+Defined in: [types/analytics.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L27)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/analytics.ts:26](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **stack?**: `string`
 
-Defined in: [types/analytics.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L27)
+Defined in: [types/analytics.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L28)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/analytics.ts:27](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **details?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/analytics.ts:28](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L28)
+Defined in: [types/analytics.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L29)

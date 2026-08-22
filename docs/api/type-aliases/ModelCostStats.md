@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelCostStats** = `object`
 
-Defined in: [types/observability.ts:353](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L353)
+Defined in: [types/observability.ts:353](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L353)
 
 Cost breakdown by model
 
@@ -18,7 +18,7 @@ Cost breakdown by model
 
 > **model**: `string`
 
-Defined in: [types/observability.ts:354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L354)
+Defined in: [types/observability.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L354)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/observability.ts:354](https://github.com/juspay/neurolink/blo
 
 > **provider**: `string`
 
-Defined in: [types/observability.ts:355](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L355)
+Defined in: [types/observability.ts:355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L355)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/observability.ts:355](https://github.com/juspay/neurolink/blo
 
 > **totalCost**: `number`
 
-Defined in: [types/observability.ts:356](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L356)
+Defined in: [types/observability.ts:356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L356)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/observability.ts:356](https://github.com/juspay/neurolink/blo
 
 > **requestCount**: `number`
 
-Defined in: [types/observability.ts:357](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L357)
+Defined in: [types/observability.ts:357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L357)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/observability.ts:357](https://github.com/juspay/neurolink/blo
 
 > **avgCostPerRequest**: `number`
 
-Defined in: [types/observability.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L358)
+Defined in: [types/observability.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L358)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/observability.ts:358](https://github.com/juspay/neurolink/blo
 
 > **inputTokens**: `number`
 
-Defined in: [types/observability.ts:359](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L359)
+Defined in: [types/observability.ts:359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L359)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/observability.ts:359](https://github.com/juspay/neurolink/blo
 
 > **outputTokens**: `number`
 
-Defined in: [types/observability.ts:360](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L360)
+Defined in: [types/observability.ts:360](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L360)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/observability.ts:360](https://github.com/juspay/neurolink/blo
 
 > **inputCost**: `number`
 
-Defined in: [types/observability.ts:361](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L361)
+Defined in: [types/observability.ts:361](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L361)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/observability.ts:361](https://github.com/juspay/neurolink/blo
 
 > **outputCost**: `number`
 
-Defined in: [types/observability.ts:362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L362)
+Defined in: [types/observability.ts:362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L362)

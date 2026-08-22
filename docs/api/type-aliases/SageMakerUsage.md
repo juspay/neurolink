@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SageMakerUsage** = `object`
 
-Defined in: [types/providers.ts:1152](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1152)
+Defined in: [types/providers.ts:1472](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1472)
 
 Token usage and billing information
 
@@ -18,7 +18,7 @@ Token usage and billing information
 
 > **promptTokens**: `number`
 
-Defined in: [types/providers.ts:1154](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1154)
+Defined in: [types/providers.ts:1474](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1474)
 
 Number of prompt tokens
 
@@ -28,7 +28,7 @@ Number of prompt tokens
 
 > **completionTokens**: `number`
 
-Defined in: [types/providers.ts:1156](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1156)
+Defined in: [types/providers.ts:1476](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1476)
 
 Number of completion tokens
 
@@ -38,7 +38,7 @@ Number of completion tokens
 
 > **total**: `number`
 
-Defined in: [types/providers.ts:1158](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1158)
+Defined in: [types/providers.ts:1478](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1478)
 
 Total tokens used
 
@@ -48,7 +48,7 @@ Total tokens used
 
 > `optional` **requestTime?**: `number`
 
-Defined in: [types/providers.ts:1160](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1160)
+Defined in: [types/providers.ts:1480](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1480)
 
 Request processing time in milliseconds
 
@@ -58,7 +58,7 @@ Request processing time in milliseconds
 
 > `optional` **inferenceTime?**: `number`
 
-Defined in: [types/providers.ts:1162](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1162)
+Defined in: [types/providers.ts:1482](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1482)
 
 Model inference time in milliseconds
 
@@ -68,6 +68,6 @@ Model inference time in milliseconds
 
 > `optional` **estimatedCost?**: `number`
 
-Defined in: [types/providers.ts:1164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1164)
+Defined in: [types/providers.ts:1484](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1484)
 
 Estimated cost in USD

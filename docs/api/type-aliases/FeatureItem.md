@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FeatureItem** = `object`
 
-Defined in: [types/ppt.ts:401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L401)
+Defined in: [types/ppt.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L401)
 
 Feature item for features slides
 Maps to: addImage/addShape (icon) + addText
@@ -19,7 +19,7 @@ Maps to: addImage/addShape (icon) + addText
 
 > **title**: `string`
 
-Defined in: [types/ppt.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L402)
+Defined in: [types/ppt.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L402)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/ppt.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **description**: `string`
 
-Defined in: [types/ppt.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L403)
+Defined in: [types/ppt.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L403)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/ppt.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **icon?**: `string`
 
-Defined in: [types/ppt.ts:405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L405)
+Defined in: [types/ppt.ts:405](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L405)
 
 Icon code (Unicode) or image prompt
 
@@ -45,6 +45,6 @@ Icon code (Unicode) or image prompt
 
 > `optional` **iconPrompt?**: `string`
 
-Defined in: [types/ppt.ts:407](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L407)
+Defined in: [types/ppt.ts:407](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L407)
 
 Image prompt if using AI-generated icon

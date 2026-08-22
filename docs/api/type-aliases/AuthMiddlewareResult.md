@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthMiddlewareResult** = `object`
 
-Defined in: [types/auth.ts:1318](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1318)
+Defined in: [types/auth.ts:1318](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1318)
 
 Result produced by an auth middleware handler.
 
@@ -18,7 +18,7 @@ Result produced by an auth middleware handler.
 
 > **proceed**: `boolean`
 
-Defined in: [types/auth.ts:1319](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1319)
+Defined in: [types/auth.ts:1319](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1319)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/auth.ts:1319](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **context?**: [`AuthenticatedContext`](AuthenticatedContext.md)
 
-Defined in: [types/auth.ts:1320](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1320)
+Defined in: [types/auth.ts:1320](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1320)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/auth.ts:1320](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **error?**: `object`
 
-Defined in: [types/auth.ts:1321](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1321)
+Defined in: [types/auth.ts:1321](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1321)
 
 #### statusCode
 

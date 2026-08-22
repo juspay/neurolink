@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PipelineConfig** = `object`
 
-Defined in: [types/scorer.ts:339](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L339)
+Defined in: [types/scorer.ts:339](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L339)
 
 Pipeline configuration for multi-scorer evaluation
 
@@ -18,7 +18,7 @@ Pipeline configuration for multi-scorer evaluation
 
 > `optional` **name?**: `string`
 
-Defined in: [types/scorer.ts:341](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L341)
+Defined in: [types/scorer.ts:341](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L341)
 
 Pipeline name
 
@@ -28,7 +28,7 @@ Pipeline name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/scorer.ts:343](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L343)
+Defined in: [types/scorer.ts:343](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L343)
 
 Pipeline description
 
@@ -38,7 +38,7 @@ Pipeline description
 
 > **scorers**: `object`[]
 
-Defined in: [types/scorer.ts:345](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L345)
+Defined in: [types/scorer.ts:345](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L345)
 
 Scorers to run in the pipeline
 
@@ -56,7 +56,7 @@ Scorers to run in the pipeline
 
 > `optional` **aggregation?**: [`AggregationConfig`](AggregationConfig.md)
 
-Defined in: [types/scorer.ts:347](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L347)
+Defined in: [types/scorer.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L347)
 
 Aggregation configuration
 
@@ -66,7 +66,7 @@ Aggregation configuration
 
 > `optional` **passThreshold?**: `number`
 
-Defined in: [types/scorer.ts:349](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L349)
+Defined in: [types/scorer.ts:349](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L349)
 
 Overall pass threshold
 
@@ -76,7 +76,7 @@ Overall pass threshold
 
 > `optional` **executionMode?**: `"parallel"` \| `"sequential"`
 
-Defined in: [types/scorer.ts:351](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L351)
+Defined in: [types/scorer.ts:351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L351)
 
 Execution mode
 
@@ -86,7 +86,7 @@ Execution mode
 
 > `optional` **stopOnFailure?**: `boolean`
 
-Defined in: [types/scorer.ts:353](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L353)
+Defined in: [types/scorer.ts:353](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L353)
 
 Stop on first failure
 
@@ -96,7 +96,7 @@ Stop on first failure
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/scorer.ts:355](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L355)
+Defined in: [types/scorer.ts:355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L355)
 
 Timeout for entire pipeline (ms)
 
@@ -106,6 +106,6 @@ Timeout for entire pipeline (ms)
 
 > `optional` **requiredScorers?**: `string`[]
 
-Defined in: [types/scorer.ts:357](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L357)
+Defined in: [types/scorer.ts:357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L357)
 
 Required scorers that must pass

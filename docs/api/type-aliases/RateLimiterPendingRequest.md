@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RateLimiterPendingRequest** = `object`
 
-Defined in: [types/utilities.ts:294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L294)
+Defined in: [types/utilities.ts:294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L294)
 
 Pending request held by TokenBucketRateLimiter's queue.
 Named RateLimiterPendingRequest to disambiguate from the MCP
@@ -20,7 +20,7 @@ PendingRequest in mcp.ts (Rule 9).
 
 > **resolve**: () => `void`
 
-Defined in: [types/utilities.ts:295](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L295)
+Defined in: [types/utilities.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L295)
 
 #### Returns
 
@@ -32,7 +32,7 @@ Defined in: [types/utilities.ts:295](https://github.com/juspay/neurolink/blob/ff
 
 > **reject**: (`error`) => `void`
 
-Defined in: [types/utilities.ts:296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L296)
+Defined in: [types/utilities.ts:296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L296)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [types/utilities.ts:296](https://github.com/juspay/neurolink/blob/ff
 
 > **timestamp**: `number`
 
-Defined in: [types/utilities.ts:297](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L297)
+Defined in: [types/utilities.ts:297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L297)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/utilities.ts:297](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **timeoutTimer?**: `ReturnType`\<_typeof_ `setTimeout`\>
 
-Defined in: [types/utilities.ts:298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/utilities.ts#L298)
+Defined in: [types/utilities.ts:298](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L298)

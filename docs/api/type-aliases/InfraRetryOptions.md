@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **InfraRetryOptions** = `object`
 
-Defined in: [types/common.ts:324](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L324)
+Defined in: [types/common.ts:324](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L324)
 
 Simple retry options for infrastructure-level retry logic.
 Named InfraRetryOptions to avoid collision with utilities.ts RetryOptions and
@@ -20,7 +20,7 @@ common.ts AsyncRetryOptions.
 
 > **maxRetries**: `number`
 
-Defined in: [types/common.ts:325](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L325)
+Defined in: [types/common.ts:325](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L325)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/common.ts:325](https://github.com/juspay/neurolink/blob/ff50c
 
 > **baseDelayMs**: `number`
 
-Defined in: [types/common.ts:326](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L326)
+Defined in: [types/common.ts:326](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L326)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/common.ts:326](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **maxDelayMs?**: `number`
 
-Defined in: [types/common.ts:327](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L327)
+Defined in: [types/common.ts:327](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L327)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/common.ts:327](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **shouldRetry?**: (`error`) => `boolean`
 
-Defined in: [types/common.ts:328](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L328)
+Defined in: [types/common.ts:328](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L328)
 
 #### Parameters
 

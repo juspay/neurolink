@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BaseAuthProviderConfig** = `object`
 
-Defined in: [types/auth.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L398)
+Defined in: [types/auth.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L398)
 
 Base authentication provider configuration.
 
@@ -21,7 +21,7 @@ Provider-specific fields are added via intersection in [AuthProviderConfig](Auth
 
 > **type**: [`AuthProviderType`](AuthProviderType.md)
 
-Defined in: [types/auth.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L400)
+Defined in: [types/auth.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L400)
 
 Provider type
 
@@ -31,7 +31,7 @@ Provider type
 
 > `optional` **required?**: `boolean`
 
-Defined in: [types/auth.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L402)
+Defined in: [types/auth.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L402)
 
 Whether authentication is required
 
@@ -41,7 +41,7 @@ Whether authentication is required
 
 > `optional` **debug?**: `boolean`
 
-Defined in: [types/auth.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L404)
+Defined in: [types/auth.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L404)
 
 Enable debug logging
 
@@ -51,7 +51,7 @@ Enable debug logging
 
 > `optional` **tokenValidation?**: [`TokenValidationConfig`](TokenValidationConfig.md)
 
-Defined in: [types/auth.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L406)
+Defined in: [types/auth.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L406)
 
 Custom token validation options
 
@@ -61,7 +61,7 @@ Custom token validation options
 
 > `optional` **tokenExtraction?**: [`TokenExtractionStrategy`](TokenExtractionStrategy.md)
 
-Defined in: [types/auth.ts:408](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L408)
+Defined in: [types/auth.ts:408](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L408)
 
 Token extraction strategy
 
@@ -71,7 +71,7 @@ Token extraction strategy
 
 > `optional` **session?**: [`SessionConfig`](SessionConfig.md)
 
-Defined in: [types/auth.ts:410](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L410)
+Defined in: [types/auth.ts:410](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L410)
 
 Session configuration
 
@@ -81,7 +81,7 @@ Session configuration
 
 > `optional` **rbac?**: [`RBACConfig`](RBACConfig.md)
 
-Defined in: [types/auth.ts:412](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L412)
+Defined in: [types/auth.ts:412](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L412)
 
 RBAC configuration
 
@@ -91,7 +91,7 @@ RBAC configuration
 
 > `optional` **cache?**: [`AuthCacheConfig`](AuthCacheConfig.md)
 
-Defined in: [types/auth.ts:414](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L414)
+Defined in: [types/auth.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L414)
 
 Cache configuration
 
@@ -101,6 +101,6 @@ Cache configuration
 
 > `optional` **options?**: [`UnknownRecord`](UnknownRecord.md)
 
-Defined in: [types/auth.ts:416](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L416)
+Defined in: [types/auth.ts:416](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L416)
 
 Provider-specific options (generic extensibility point)

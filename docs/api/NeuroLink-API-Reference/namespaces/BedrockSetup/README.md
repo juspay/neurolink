@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../README.md)
 
 ---
 
@@ -10,7 +10,7 @@ AWS Bedrock setup configuration types
 
 ## Type Aliases
 
-- [SetupOptions](type-aliases/SetupOptions.md)
-- [SetupArgv](type-aliases/SetupArgv.md)
+- [BedrockSetupOptions](type-aliases/BedrockSetupOptions.md)
+- [BedrockSetupArgv](type-aliases/BedrockSetupArgv.md)
 - [ConfigData](type-aliases/ConfigData.md)
 - [ConfigStatus](type-aliases/ConfigStatus.md)

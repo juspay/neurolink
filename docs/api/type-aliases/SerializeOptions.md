@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SerializeOptions** = `object`
 
-Defined in: [types/processor.ts:1119](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1119)
+Defined in: [types/processor.ts:1175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1175)
 
 Options for error serialization.
 
@@ -18,7 +18,7 @@ Options for error serialization.
 
 > `optional` **includeStack?**: `boolean`
 
-Defined in: [types/processor.ts:1120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1120)
+Defined in: [types/processor.ts:1176](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1176)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/processor.ts:1120](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **maxDepth?**: `number`
 
-Defined in: [types/processor.ts:1121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1121)
+Defined in: [types/processor.ts:1177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1177)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/processor.ts:1121](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **filterStacks?**: `boolean`
 
-Defined in: [types/processor.ts:1122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1122)
+Defined in: [types/processor.ts:1178](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1178)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/processor.ts:1122](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/processor.ts:1123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1123)
+Defined in: [types/processor.ts:1179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1179)

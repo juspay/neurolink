@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CompleteSlide** = `object`
 
-Defined in: [types/ppt.ts:863](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L863)
+Defined in: [types/ppt.ts:863](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L863)
 
 A fully generated slide ready for assembly
 
@@ -18,7 +18,7 @@ A fully generated slide ready for assembly
 
 > **slideNumber**: `number`
 
-Defined in: [types/ppt.ts:864](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L864)
+Defined in: [types/ppt.ts:864](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L864)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:864](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **schema**: [`SlideSchema`](SlideSchema.md)
 
-Defined in: [types/ppt.ts:865](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L865)
+Defined in: [types/ppt.ts:865](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L865)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:865](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **imageBuffer?**: `Buffer`
 
-Defined in: [types/ppt.ts:866](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L866)
+Defined in: [types/ppt.ts:866](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L866)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/ppt.ts:866](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **imageMetadata?**: `object`
 
-Defined in: [types/ppt.ts:867](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L867)
+Defined in: [types/ppt.ts:867](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L867)
 
 #### prompt
 
@@ -62,4 +62,4 @@ Defined in: [types/ppt.ts:867](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **generationTime**: `number`
 
-Defined in: [types/ppt.ts:872](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L872)
+Defined in: [types/ppt.ts:872](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L872)

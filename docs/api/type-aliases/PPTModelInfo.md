@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PPTModelInfo** = `object`
 
-Defined in: [types/ppt.ts:1217](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1217)
+Defined in: [types/ppt.ts:1217](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1217)
 
 Model info for prompt tier detection.
 Both name and provider are required.
@@ -19,7 +19,7 @@ Both name and provider are required.
 
 > **name**: `string`
 
-Defined in: [types/ppt.ts:1218](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1218)
+Defined in: [types/ppt.ts:1218](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1218)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/ppt.ts:1218](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **provider**: `string`
 
-Defined in: [types/ppt.ts:1219](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1219)
+Defined in: [types/ppt.ts:1219](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1219)

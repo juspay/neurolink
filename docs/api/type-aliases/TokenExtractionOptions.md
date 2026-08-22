@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenExtractionOptions** = `object`
 
-Defined in: [types/common.ts:373](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L373)
+Defined in: [types/common.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L403)
 
 Options for token extraction from raw usage objects.
 
@@ -18,7 +18,7 @@ Options for token extraction from raw usage objects.
 
 > `optional` **calculateCacheSavings?**: `boolean`
 
-Defined in: [types/common.ts:378](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L378)
+Defined in: [types/common.ts:408](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L408)
 
 Whether to calculate cache savings percentage
 
@@ -34,7 +34,7 @@ true;
 
 > `optional` **missingOptionalBehavior?**: `"zero"` \| `"undefined"`
 
-Defined in: [types/common.ts:385](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L385)
+Defined in: [types/common.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L415)
 
 How to handle missing optional fields
 

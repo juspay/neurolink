@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelDetectionResult** = `object`
 
-Defined in: [types/providers.ts:1855](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1855)
+Defined in: [types/providers.ts:2232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2232)
 
 Model type detection result.
 
@@ -18,7 +18,7 @@ Model type detection result.
 
 > **type**: [`StreamingCapability`](StreamingCapability.md)\[`"modelType"`\]
 
-Defined in: [types/providers.ts:1856](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1856)
+Defined in: [types/providers.ts:2233](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2233)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1856](https://github.com/juspay/neurolink/blob/f
 
 > **confidence**: `number`
 
-Defined in: [types/providers.ts:1857](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1857)
+Defined in: [types/providers.ts:2234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2234)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:1857](https://github.com/juspay/neurolink/blob/f
 
 > **evidence**: `string`[]
 
-Defined in: [types/providers.ts:1858](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1858)
+Defined in: [types/providers.ts:2235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2235)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:1858](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **suggestedConfig?**: `Partial`\<[`SageMakerModelConfig`](SageMakerModelConfig.md)\>
 
-Defined in: [types/providers.ts:1859](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1859)
+Defined in: [types/providers.ts:2236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2236)

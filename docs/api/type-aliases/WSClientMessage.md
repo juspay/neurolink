@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WSClientMessage** = `object`
 
-Defined in: [types/client.ts:1018](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1018)
+Defined in: [types/client.ts:1018](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1018)
 
 WebSocket message for the dedicated NeuroLinkWebSocket client
 
@@ -18,7 +18,7 @@ WebSocket message for the dedicated NeuroLinkWebSocket client
 
 > **type**: `"subscribe"` \| `"unsubscribe"` \| `"message"` \| `"ping"` \| `"pong"`
 
-Defined in: [types/client.ts:1019](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1019)
+Defined in: [types/client.ts:1019](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1019)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/client.ts:1019](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **channel?**: `string`
 
-Defined in: [types/client.ts:1020](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1020)
+Defined in: [types/client.ts:1020](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1020)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/client.ts:1020](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **payload?**: `unknown`
 
-Defined in: [types/client.ts:1021](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1021)
+Defined in: [types/client.ts:1021](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1021)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/client.ts:1021](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **id?**: `string`
 
-Defined in: [types/client.ts:1022](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L1022)
+Defined in: [types/client.ts:1022](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1022)

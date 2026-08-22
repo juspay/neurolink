@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MetadataExtractor** = `object`
 
-Defined in: [types/rag.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L100)
+Defined in: [types/rag.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L102)
 
 Metadata Extractor type - all extractors implement this
 
@@ -18,7 +18,7 @@ Metadata Extractor type - all extractors implement this
 
 > `readonly` **type**: [`MetadataExtractorType`](MetadataExtractorType.md)
 
-Defined in: [types/rag.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L102)
+Defined in: [types/rag.ts:104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L104)
 
 Extractor type identifier
 
@@ -28,7 +28,7 @@ Extractor type identifier
 
 > **extract**(`chunks`, `params?`): `Promise`\<[`ExtractionResult`](ExtractionResult.md)[]\>
 
-Defined in: [types/rag.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L110)
+Defined in: [types/rag.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L112)
 
 Extract metadata from chunks
 

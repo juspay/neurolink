@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SlideGeneratorConfig** = `object`
 
-Defined in: [types/ppt.ts:1348](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1348)
+Defined in: [types/ppt.ts:1348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1348)
 
 Configuration for slide generation
 
@@ -18,7 +18,7 @@ Configuration for slide generation
 
 > **theme**: `string` \| [`PresentationTheme`](PresentationTheme.md)
 
-Defined in: [types/ppt.ts:1350](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1350)
+Defined in: [types/ppt.ts:1350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1350)
 
 Theme name or custom theme
 
@@ -28,7 +28,7 @@ Theme name or custom theme
 
 > **generateAIImages**: `boolean`
 
-Defined in: [types/ppt.ts:1352](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1352)
+Defined in: [types/ppt.ts:1352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1352)
 
 Whether to generate AI images (user-provided images are always used)
 
@@ -38,7 +38,7 @@ Whether to generate AI images (user-provided images are always used)
 
 > **aspectRatio**: [`AspectRatioOption`](AspectRatioOption.md)
 
-Defined in: [types/ppt.ts:1354](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1354)
+Defined in: [types/ppt.ts:1354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1354)
 
 Aspect ratio for slides
 
@@ -48,7 +48,7 @@ Aspect ratio for slides
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/ppt.ts:1356](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1356)
+Defined in: [types/ppt.ts:1356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1356)
 
 Provider for image generation
 
@@ -58,7 +58,7 @@ Provider for image generation
 
 > `optional` **imageModel?**: `string`
 
-Defined in: [types/ppt.ts:1358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1358)
+Defined in: [types/ppt.ts:1358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1358)
 
 Model for image generation
 
@@ -68,7 +68,7 @@ Model for image generation
 
 > `optional` **logo?**: `Buffer` \| `string` \| [`LogoConfig`](LogoConfig.md)
 
-Defined in: [types/ppt.ts:1360](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1360)
+Defined in: [types/ppt.ts:1360](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1360)
 
 Logo configuration
 
@@ -78,7 +78,7 @@ Logo configuration
 
 > `optional` **userImages?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/ppt.ts:1362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1362)
+Defined in: [types/ppt.ts:1362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1362)
 
 User-provided images for slides (takes priority over AI generation)
 
@@ -88,6 +88,6 @@ User-provided images for slides (takes priority over AI generation)
 
 > `optional` **neurolink?**: [`NeuroLink`](../classes/NeuroLink.md)
 
-Defined in: [types/ppt.ts:1364](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1364)
+Defined in: [types/ppt.ts:1364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1364)
 
 NeuroLink instance for image generation

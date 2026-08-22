@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileReference** = `object`
 
-Defined in: [types/fileReference.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L63)
+Defined in: [types/fileReference.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L63)
 
 A lightweight reference to a file registered for on-demand processing.
 
@@ -21,7 +21,7 @@ Full processing is deferred until the LLM requests it via tools.
 
 > **id**: `string`
 
-Defined in: [types/fileReference.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L65)
+Defined in: [types/fileReference.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L65)
 
 Unique identifier (UUID v4)
 
@@ -31,7 +31,7 @@ Unique identifier (UUID v4)
 
 > **source**: [`FileSource`](FileSource.md)
 
-Defined in: [types/fileReference.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L67)
+Defined in: [types/fileReference.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L67)
 
 How the file was provided
 
@@ -41,7 +41,7 @@ How the file was provided
 
 > `optional` **originalPath?**: `string`
 
-Defined in: [types/fileReference.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L69)
+Defined in: [types/fileReference.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L69)
 
 Original file path or URL
 
@@ -51,7 +51,7 @@ Original file path or URL
 
 > **filename**: `string`
 
-Defined in: [types/fileReference.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L71)
+Defined in: [types/fileReference.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L71)
 
 Display name
 
@@ -61,7 +61,7 @@ Display name
 
 > **sizeBytes**: `number`
 
-Defined in: [types/fileReference.ts:73](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L73)
+Defined in: [types/fileReference.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L73)
 
 Original file size in bytes
 
@@ -71,7 +71,7 @@ Original file size in bytes
 
 > **detectedType**: [`FileType`](FileType.md)
 
-Defined in: [types/fileReference.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L75)
+Defined in: [types/fileReference.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L75)
 
 Detected file type from magic bytes / extension
 
@@ -81,7 +81,7 @@ Detected file type from magic bytes / extension
 
 > **mimeType**: `string`
 
-Defined in: [types/fileReference.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L77)
+Defined in: [types/fileReference.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L77)
 
 Detected MIME type
 
@@ -91,7 +91,7 @@ Detected MIME type
 
 > **sizeTier**: [`SizeTier`](SizeTier.md)
 
-Defined in: [types/fileReference.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L79)
+Defined in: [types/fileReference.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L79)
 
 Size tier determining processing strategy
 
@@ -101,7 +101,7 @@ Size tier determining processing strategy
 
 > **estimatedTokens**: `number`
 
-Defined in: [types/fileReference.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L81)
+Defined in: [types/fileReference.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L81)
 
 Estimated tokens after processing (type-aware)
 
@@ -111,7 +111,7 @@ Estimated tokens after processing (type-aware)
 
 > **preview**: `string`
 
-Defined in: [types/fileReference.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L83)
+Defined in: [types/fileReference.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L83)
 
 First ~500 tokens of content (lightweight preview)
 
@@ -121,7 +121,7 @@ First ~500 tokens of content (lightweight preview)
 
 > **status**: [`FileReferenceStatus`](FileReferenceStatus.md)
 
-Defined in: [types/fileReference.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L85)
+Defined in: [types/fileReference.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L85)
 
 Current processing status
 
@@ -131,7 +131,7 @@ Current processing status
 
 > `optional` **summary?**: `string`
 
-Defined in: [types/fileReference.ts:87](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L87)
+Defined in: [types/fileReference.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L87)
 
 LLM-generated summary (populated lazily via summarize_file tool)
 
@@ -141,7 +141,7 @@ LLM-generated summary (populated lazily via summarize_file tool)
 
 > `optional` **outlineSections?**: [`OutlineSection`](OutlineSection.md)[]
 
-Defined in: [types/fileReference.ts:89](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L89)
+Defined in: [types/fileReference.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L89)
 
 Structural outline for code/docs (populated lazily)
 
@@ -151,7 +151,7 @@ Structural outline for code/docs (populated lazily)
 
 > `optional` **tempPath?**: `string`
 
-Defined in: [types/fileReference.ts:91](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L91)
+Defined in: [types/fileReference.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L91)
 
 Path in temp directory where buffer is persisted
 
@@ -161,7 +161,7 @@ Path in temp directory where buffer is persisted
 
 > `optional` **providerId?**: `string`
 
-Defined in: [types/fileReference.ts:93](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L93)
+Defined in: [types/fileReference.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L93)
 
 Provider file API ID (for Anthropic Files API, Gemini File API, etc.)
 
@@ -171,7 +171,7 @@ Provider file API ID (for Anthropic Files API, Gemini File API, etc.)
 
 > `optional` **processedContent?**: `string`
 
-Defined in: [types/fileReference.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L95)
+Defined in: [types/fileReference.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L95)
 
 Full processed content (cached after first full processing)
 
@@ -181,7 +181,7 @@ Full processed content (cached after first full processing)
 
 > `optional` **extractedImages?**: `Buffer`[]
 
-Defined in: [types/fileReference.ts:97](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L97)
+Defined in: [types/fileReference.ts:97](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L97)
 
 Extracted images (e.g., video keyframes, PPTX slide images)
 
@@ -191,7 +191,7 @@ Extracted images (e.g., video keyframes, PPTX slide images)
 
 > **registeredAt**: `number`
 
-Defined in: [types/fileReference.ts:99](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L99)
+Defined in: [types/fileReference.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L99)
 
 Timestamp when the file was registered
 
@@ -201,7 +201,7 @@ Timestamp when the file was registered
 
 > **lastAccessedAt**: `number`
 
-Defined in: [types/fileReference.ts:101](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L101)
+Defined in: [types/fileReference.ts:101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L101)
 
 Timestamp when the file was last accessed (for LRU eviction)
 
@@ -211,7 +211,7 @@ Timestamp when the file was last accessed (for LRU eviction)
 
 > `optional` **totalLines?**: `number`
 
-Defined in: [types/fileReference.ts:103](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L103)
+Defined in: [types/fileReference.ts:103](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L103)
 
 Total line count (for text files, populated on first read)
 
@@ -221,6 +221,6 @@ Total line count (for text files, populated on first read)
 
 > `optional` **extension?**: `string`
 
-Defined in: [types/fileReference.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L105)
+Defined in: [types/fileReference.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L105)
 
 File extension (e.g., 'py', 'xlsx', 'mp4')

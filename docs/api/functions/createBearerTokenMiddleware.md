@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **createBearerTokenMiddleware**(`token`): [`ClientMiddleware`](../type-aliases/ClientMiddleware.md)
 
-Defined in: [client/auth.ts:307](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/auth.ts#L307)
+Defined in: [client/auth.ts:304](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L304)
 
 Create a Bearer token authentication middleware
 

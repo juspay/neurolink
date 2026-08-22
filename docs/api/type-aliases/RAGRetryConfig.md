@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RAGRetryConfig** = `object`
 
-Defined in: [types/rag.ts:158](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L158)
+Defined in: [types/rag.ts:160](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L160)
 
 RAG-specific retry configuration
 
@@ -18,7 +18,7 @@ RAG-specific retry configuration
 
 > **maxRetries**: `number`
 
-Defined in: [types/rag.ts:160](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L160)
+Defined in: [types/rag.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L162)
 
 Maximum number of retry attempts (default: 3)
 
@@ -28,7 +28,7 @@ Maximum number of retry attempts (default: 3)
 
 > **initialDelay**: `number`
 
-Defined in: [types/rag.ts:162](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L162)
+Defined in: [types/rag.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L164)
 
 Initial delay in ms (default: 1000)
 
@@ -38,7 +38,7 @@ Initial delay in ms (default: 1000)
 
 > **maxDelay**: `number`
 
-Defined in: [types/rag.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L164)
+Defined in: [types/rag.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L166)
 
 Maximum delay in ms (default: 30000)
 
@@ -48,7 +48,7 @@ Maximum delay in ms (default: 30000)
 
 > **backoffMultiplier**: `number`
 
-Defined in: [types/rag.ts:166](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L166)
+Defined in: [types/rag.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L168)
 
 Backoff multiplier (default: 2)
 
@@ -58,7 +58,7 @@ Backoff multiplier (default: 2)
 
 > **jitter**: `boolean`
 
-Defined in: [types/rag.ts:168](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L168)
+Defined in: [types/rag.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L170)
 
 Whether to add jitter (default: true)
 
@@ -68,7 +68,7 @@ Whether to add jitter (default: true)
 
 > `optional` **shouldRetry?**: (`error`) => `boolean`
 
-Defined in: [types/rag.ts:178](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L178)
+Defined in: [types/rag.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L180)
 
 Custom function to determine if error is retryable.
 
@@ -94,7 +94,7 @@ could be retried instead of propagating immediately.
 
 > `optional` **retryableErrorCodes?**: `string`[]
 
-Defined in: [types/rag.ts:180](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L180)
+Defined in: [types/rag.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L182)
 
 Retryable error codes
 
@@ -104,6 +104,6 @@ Retryable error codes
 
 > `optional` **retryableStatusCodes?**: `number`[]
 
-Defined in: [types/rag.ts:182](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L182)
+Defined in: [types/rag.ts:184](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L184)
 
 Retryable HTTP status codes

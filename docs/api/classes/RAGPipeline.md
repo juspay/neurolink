@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RAGPipeline
 
-Defined in: [rag/pipeline/RAGPipeline.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L70)
+Defined in: [rag/pipeline/RAGPipeline.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L70)
 
 RAG (Retrieval-Augmented Generation) Document Processing
 
@@ -43,7 +43,7 @@ console.log(response.answer);
 
 > **new RAGPipeline**(`config`): `RAGPipeline`
 
-Defined in: [rag/pipeline/RAGPipeline.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L82)
+Defined in: [rag/pipeline/RAGPipeline.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L82)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: [rag/pipeline/RAGPipeline.ts:82](https://github.com/juspay/neurolink
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L112)
+Defined in: [rag/pipeline/RAGPipeline.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L112)
 
 Initialize the pipeline (lazy loading of providers)
 
@@ -75,7 +75,7 @@ Initialize the pipeline (lazy loading of providers)
 
 > **ingest**(`sources`, `options?`): `Promise`\<\{ `documentsProcessed`: `number`; `chunksCreated`: `number`; \}\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L146)
+Defined in: [rag/pipeline/RAGPipeline.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L146)
 
 Ingest documents into the pipeline
 
@@ -103,7 +103,7 @@ Ingestion options
 
 > **query**(`query`, `options?`): `Promise`\<[`RAGResponse`](../type-aliases/RAGResponse.md)\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:273](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L273)
+Defined in: [rag/pipeline/RAGPipeline.ts:273](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L273)
 
 Query the pipeline
 
@@ -133,7 +133,7 @@ RAG response with retrieved context and optional generated answer
 
 > **getStats**(): [`PipelineStats`](../type-aliases/PipelineStats.md)
 
-Defined in: [rag/pipeline/RAGPipeline.ts:418](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L418)
+Defined in: [rag/pipeline/RAGPipeline.ts:418](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L418)
 
 Get pipeline statistics
 
@@ -147,7 +147,7 @@ Get pipeline statistics
 
 > **getId**(): `string`
 
-Defined in: [rag/pipeline/RAGPipeline.ts:432](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L432)
+Defined in: [rag/pipeline/RAGPipeline.ts:432](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L432)
 
 Get pipeline ID
 
@@ -161,7 +161,7 @@ Get pipeline ID
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [rag/pipeline/RAGPipeline.ts:439](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/pipeline/RAGPipeline.ts#L439)
+Defined in: [rag/pipeline/RAGPipeline.ts:439](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/RAGPipeline.ts#L439)
 
 Clear all indexed data
 

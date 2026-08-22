@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StandardError** = `object`
 
-Defined in: [types/aliases.ts:235](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L235)
+Defined in: [types/aliases.ts:249](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/aliases.ts#L249)
 
 Standard error structure
 Consistent error format across the codebase
@@ -19,7 +19,7 @@ Consistent error format across the codebase
 
 > **message**: `string`
 
-Defined in: [types/aliases.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L236)
+Defined in: [types/aliases.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/aliases.ts#L250)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/aliases.ts:236](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **code?**: `string`
 
-Defined in: [types/aliases.ts:237](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L237)
+Defined in: [types/aliases.ts:251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/aliases.ts#L251)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/aliases.ts:237](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **details?**: [`StandardRecord`](StandardRecord.md)
 
-Defined in: [types/aliases.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L238)
+Defined in: [types/aliases.ts:252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/aliases.ts#L252)
 
 ---
 
@@ -43,4 +43,4 @@ Defined in: [types/aliases.ts:238](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **stack?**: `string`
 
-Defined in: [types/aliases.ts:239](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/aliases.ts#L239)
+Defined in: [types/aliases.ts:253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/aliases.ts#L253)

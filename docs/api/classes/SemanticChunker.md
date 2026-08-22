@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: SemanticChunker
 
-Defined in: [rag/chunking/semanticChunker.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/semanticChunker.ts#L24)
+Defined in: [rag/chunking/semanticChunker.ts:24](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/semanticChunker.ts#L24)
 
 Semantic chunker implementation
 Uses embedding similarity to find natural content boundaries
@@ -31,7 +31,7 @@ Uses embedding similarity to find natural content boundaries
 
 > `readonly` **strategy**: `"semantic"`
 
-Defined in: [rag/chunking/semanticChunker.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/semanticChunker.ts#L25)
+Defined in: [rag/chunking/semanticChunker.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/semanticChunker.ts#L25)
 
 Strategy name for identification
 
@@ -45,7 +45,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/chunking/semanticChunker.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/semanticChunker.ts#L27)
+Defined in: [rag/chunking/semanticChunker.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/semanticChunker.ts#L27)
 
 Split text into chunks
 
@@ -79,7 +79,7 @@ Array of chunks
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
 
-Defined in: [rag/chunking/semanticChunker.ts:397](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/semanticChunker.ts#L397)
+Defined in: [rag/chunking/semanticChunker.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/semanticChunker.ts#L390)
 
 #### Parameters
 

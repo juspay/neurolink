@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GenAIClient** = `object`
 
-Defined in: [types/providers.ts:916](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L916)
+Defined in: [types/providers.ts:1192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1192)
 
 Google AI client interface
 
@@ -18,7 +18,7 @@ Google AI client interface
 
 > **live**: `object`
 
-Defined in: [types/providers.ts:917](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L917)
+Defined in: [types/providers.ts:1193](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1193)
 
 #### connect
 
@@ -40,4 +40,4 @@ Defined in: [types/providers.ts:917](https://github.com/juspay/neurolink/blob/ff
 
 > **models**: [`GenAIModelsAPI`](GenAIModelsAPI.md)
 
-Defined in: [types/providers.ts:918](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L918)
+Defined in: [types/providers.ts:1194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1194)

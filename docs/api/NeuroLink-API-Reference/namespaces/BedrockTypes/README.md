@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../README.md)
 
 ---
 
@@ -10,5 +10,5 @@ Amazon Bedrock specific types
 
 ## Type Aliases
 
-- [Client](type-aliases/Client.md)
+- [BedrockClient](type-aliases/BedrockClient.md)
 - [InvokeModelCommand](type-aliases/InvokeModelCommand.md)

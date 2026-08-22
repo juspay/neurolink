@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BaseExtractorConfig** = `object`
 
-Defined in: [types/rag.ts:1003](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1003)
+Defined in: [types/rag.ts:1047](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1047)
 
 Base configuration for metadata extractors
 
@@ -18,7 +18,7 @@ Base configuration for metadata extractors
 
 > `optional` **modelName?**: `string`
 
-Defined in: [types/rag.ts:1005](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1005)
+Defined in: [types/rag.ts:1049](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1049)
 
 Language model to use for extraction
 
@@ -28,7 +28,7 @@ Language model to use for extraction
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/rag.ts:1007](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1007)
+Defined in: [types/rag.ts:1051](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1051)
 
 Provider for the model
 
@@ -38,7 +38,7 @@ Provider for the model
 
 > `optional` **promptTemplate?**: `string`
 
-Defined in: [types/rag.ts:1009](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1009)
+Defined in: [types/rag.ts:1053](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1053)
 
 Custom prompt template
 
@@ -48,7 +48,7 @@ Custom prompt template
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/rag.ts:1011](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1011)
+Defined in: [types/rag.ts:1055](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1055)
 
 Maximum tokens for LLM response
 
@@ -58,6 +58,6 @@ Maximum tokens for LLM response
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/rag.ts:1013](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1013)
+Defined in: [types/rag.ts:1057](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1057)
 
 Temperature for LLM generation

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthResult** = `object`
 
-Defined in: [types/server.ts:1306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1306)
+Defined in: [types/server.ts:1306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1306)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/server.ts:1306](https://github.com/juspay/neurolink/blob/ff50
 
 > **id**: `string`
 
-Defined in: [types/server.ts:1308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1308)
+Defined in: [types/server.ts:1308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1308)
 
 User ID
 
@@ -26,7 +26,7 @@ User ID
 
 > `optional` **email?**: `string`
 
-Defined in: [types/server.ts:1311](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1311)
+Defined in: [types/server.ts:1311](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1311)
 
 User email (optional)
 
@@ -36,7 +36,7 @@ User email (optional)
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:1314](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1314)
+Defined in: [types/server.ts:1314](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1314)
 
 User roles (optional)
 
@@ -46,6 +46,6 @@ User roles (optional)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/server.ts:1317](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1317)
+Defined in: [types/server.ts:1317](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1317)
 
 Additional user data

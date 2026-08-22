@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MarkdownLoader
 
-Defined in: [rag/document/loaders.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L77)
+Defined in: [rag/document/loaders.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L89)
 
 Markdown file loader
 
@@ -34,7 +34,7 @@ Markdown file loader
 
 > `protected` **loadContent**(`source`, `encoding?`): `Promise`\<`string`\>
 
-Defined in: [rag/document/loaders.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L58)
+Defined in: [rag/document/loaders.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L70)
 
 #### Parameters
 
@@ -60,7 +60,7 @@ Defined in: [rag/document/loaders.ts:58](https://github.com/juspay/neurolink/blo
 
 > `protected` **getSourceName**(`source`): `string`
 
-Defined in: [rag/document/loaders.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L69)
+Defined in: [rag/document/loaders.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L81)
 
 #### Parameters
 
@@ -82,7 +82,7 @@ Defined in: [rag/document/loaders.ts:69](https://github.com/juspay/neurolink/blo
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L78)
+Defined in: [rag/document/loaders.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L90)
 
 Load document from source
 
@@ -116,7 +116,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:86](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/document/loaders.ts#L86)
+Defined in: [rag/document/loaders.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L98)
 
 Check if loader can handle the source
 

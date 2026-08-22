@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamAnalyticsData** = `object`
 
-Defined in: [types/analytics.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L47)
+Defined in: [types/analytics.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L67)
 
 Stream Analytics Data - Enhanced for performance tracking
 
@@ -18,7 +18,7 @@ Stream Analytics Data - Enhanced for performance tracking
 
 > `optional` **toolResults?**: `Promise`\<`unknown`[]\>
 
-Defined in: [types/analytics.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L49)
+Defined in: [types/analytics.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L69)
 
 Tool execution results with timing
 
@@ -28,7 +28,7 @@ Tool execution results with timing
 
 > `optional` **toolCalls?**: `Promise`\<`unknown`[]\>
 
-Defined in: [types/analytics.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L51)
+Defined in: [types/analytics.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L71)
 
 Tool calls made during stream
 
@@ -38,7 +38,7 @@ Tool calls made during stream
 
 > `optional` **performance?**: `object`
 
-Defined in: [types/analytics.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L53)
+Defined in: [types/analytics.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L73)
 
 Stream performance metrics
 
@@ -68,6 +68,6 @@ Stream performance metrics
 
 > `optional` **providerAnalytics?**: [`AnalyticsData`](AnalyticsData.md)
 
-Defined in: [types/analytics.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/analytics.ts#L61)
+Defined in: [types/analytics.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L81)
 
 Provider analytics

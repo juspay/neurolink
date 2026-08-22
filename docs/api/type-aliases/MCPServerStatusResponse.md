@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPServerStatusResponse** = `object`
 
-Defined in: [types/server.ts:733](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L733)
+Defined in: [types/server.ts:733](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L733)
 
 MCP server status response
 
@@ -18,7 +18,7 @@ MCP server status response
 
 > **serverId**: `string`
 
-Defined in: [types/server.ts:735](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L735)
+Defined in: [types/server.ts:735](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L735)
 
 Server ID
 
@@ -28,7 +28,7 @@ Server ID
 
 > **name**: `string`
 
-Defined in: [types/server.ts:738](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L738)
+Defined in: [types/server.ts:738](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L738)
 
 Server name
 
@@ -38,7 +38,7 @@ Server name
 
 > **status**: [`ExternalMCPServerStatus`](ExternalMCPServerStatus.md)
 
-Defined in: [types/server.ts:741](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L741)
+Defined in: [types/server.ts:741](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L741)
 
 Connection status
 
@@ -48,7 +48,7 @@ Connection status
 
 > **toolCount**: `number`
 
-Defined in: [types/server.ts:744](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L744)
+Defined in: [types/server.ts:744](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L744)
 
 Available tools count
 
@@ -58,7 +58,7 @@ Available tools count
 
 > `optional` **lastHealthCheck?**: `string`
 
-Defined in: [types/server.ts:747](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L747)
+Defined in: [types/server.ts:747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L747)
 
 Last health check time
 
@@ -68,6 +68,6 @@ Last health check time
 
 > `optional` **error?**: `string`
 
-Defined in: [types/server.ts:750](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L750)
+Defined in: [types/server.ts:750](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L750)
 
 Error message if failed

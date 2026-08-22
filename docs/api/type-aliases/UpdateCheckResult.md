@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UpdateCheckResult** = `object`
 
-Defined in: [types/proxy.ts:1166](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1166)
+Defined in: [types/proxy.ts:2385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2385)
 
 Outcome of a proxy auto-update version check against npm.
 
@@ -18,7 +18,7 @@ Outcome of a proxy auto-update version check against npm.
 
 > **currentVersion**: `string`
 
-Defined in: [types/proxy.ts:1167](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1167)
+Defined in: [types/proxy.ts:2386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2386)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1167](https://github.com/juspay/neurolink/blob/ff50c
 
 > **latestVersion**: `string`
 
-Defined in: [types/proxy.ts:1168](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1168)
+Defined in: [types/proxy.ts:2387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2387)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:1168](https://github.com/juspay/neurolink/blob/ff50c
 
 > **updateAvailable**: `boolean`
 
-Defined in: [types/proxy.ts:1169](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L1169)
+Defined in: [types/proxy.ts:2388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L2388)

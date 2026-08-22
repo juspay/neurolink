@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileProcessingResult** = `object`
 
-Defined in: [types/file.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L75)
+Defined in: [types/file.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L157)
 
 File processing result after detection and conversion
 
@@ -18,7 +18,7 @@ File processing result after detection and conversion
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L76)
+Defined in: [types/file.ts:158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L158)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **content**: `string` \| `Buffer`
 
-Defined in: [types/file.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L77)
+Defined in: [types/file.ts:159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L159)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L78)
+Defined in: [types/file.ts:160](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L160)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **images?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/file.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L80)
+Defined in: [types/file.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L162)
 
 Additional images extracted from the file (e.g., video keyframes, audio cover art)
 
@@ -52,7 +52,7 @@ Additional images extracted from the file (e.g., video keyframes, audio cover ar
 
 > **metadata**: `object`
 
-Defined in: [types/file.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L81)
+Defined in: [types/file.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L163)
 
 #### confidence
 
@@ -124,6 +124,30 @@ Whether headers were detected
 
 Detected delimiter
 
+#### detectedEncoding?
+
+> `optional` **detectedEncoding?**: `string`
+
+Detected (or overridden) character encoding used to decode the CSV (#362)
+
+#### encodingConfidence?
+
+> `optional` **encodingConfidence?**: `number`
+
+Confidence (0-100) of the detected encoding (#362)
+
+#### columnNameMapping?
+
+> `optional` **columnNameMapping?**: `object`[]
+
+Original→sanitized column-name mapping when sanitizeColumnNames is on (#378)
+
+#### parseTimedOut?
+
+> `optional` **parseTimedOut?**: `boolean`
+
+True when the parse hit its time budget and returned partial rows (#379)
+
 #### version?
 
 > `optional` **version?**: `string`
@@ -139,6 +163,12 @@ Detected delimiter
 #### apiType?
 
 > `optional` **apiType?**: [`PDFAPIType`](PDFAPIType.md)
+
+#### requiresCitations?
+
+> `optional` **requiresCitations?**: `boolean` \| `"auto"`
+
+Provider's citations requirement for visual PDF analysis (#349).
 
 #### officeFormat?
 

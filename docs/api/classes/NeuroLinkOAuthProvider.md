@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NeuroLinkOAuthProvider
 
-Defined in: [mcp/auth/oauthClientProvider.ts:32](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L32)
+Defined in: [mcp/auth/oauthClientProvider.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L32)
 
 NeuroLink OAuth Provider for MCP HTTP Transport
 Handles OAuth 2.1 authentication flow with optional PKCE support
@@ -17,7 +17,7 @@ Handles OAuth 2.1 authentication flow with optional PKCE support
 
 > **new NeuroLinkOAuthProvider**(`config`, `storage?`): `NeuroLinkOAuthProvider`
 
-Defined in: [mcp/auth/oauthClientProvider.ts:38](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L38)
+Defined in: [mcp/auth/oauthClientProvider.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L38)
 
 #### Parameters
 
@@ -39,7 +39,7 @@ Defined in: [mcp/auth/oauthClientProvider.ts:38](https://github.com/juspay/neuro
 
 > **tokens**(`serverId`): `Promise`\<[`OAuthTokens`](../type-aliases/OAuthTokens.md) \| `null`\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L50)
+Defined in: [mcp/auth/oauthClientProvider.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L50)
 
 Get stored tokens for a server
 Returns null if tokens are not available or expired (without refresh token)
@@ -60,7 +60,7 @@ Returns null if tokens are not available or expired (without refresh token)
 
 > **saveTokens**(`serverId`, `tokens`): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:88](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L88)
+Defined in: [mcp/auth/oauthClientProvider.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L88)
 
 Save tokens for a server
 
@@ -84,7 +84,7 @@ Save tokens for a server
 
 > **deleteTokens**(`serverId`): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L95)
+Defined in: [mcp/auth/oauthClientProvider.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L95)
 
 Delete tokens for a server
 
@@ -104,7 +104,7 @@ Delete tokens for a server
 
 > **clientInformation**(): [`OAuthClientInformation`](../type-aliases/OAuthClientInformation.md)
 
-Defined in: [mcp/auth/oauthClientProvider.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L102)
+Defined in: [mcp/auth/oauthClientProvider.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L102)
 
 Get client information for MCP SDK
 
@@ -118,7 +118,7 @@ Get client information for MCP SDK
 
 > **redirectToAuthorization**(`_serverId`): [`AuthorizationUrlResult`](../type-aliases/AuthorizationUrlResult.md)
 
-Defined in: [mcp/auth/oauthClientProvider.ts:115](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L115)
+Defined in: [mcp/auth/oauthClientProvider.ts:115](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L115)
 
 Generate authorization URL for OAuth flow
 Returns the URL to redirect the user to for authorization
@@ -141,7 +141,7 @@ Server ID (reserved for future use in state management)
 
 > **exchangeCode**(`serverId`, `request`): `Promise`\<[`OAuthTokens`](../type-aliases/OAuthTokens.md)\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L164)
+Defined in: [mcp/auth/oauthClientProvider.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L164)
 
 Exchange authorization code for tokens
 
@@ -165,7 +165,7 @@ Exchange authorization code for tokens
 
 > **refreshTokens**(`serverId`, `refreshToken`): `Promise`\<[`OAuthTokens`](../type-aliases/OAuthTokens.md)\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:246](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L246)
+Defined in: [mcp/auth/oauthClientProvider.ts:246](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L246)
 
 Refresh tokens using refresh token
 
@@ -189,7 +189,7 @@ Refresh tokens using refresh token
 
 > **revokeTokens**(`serverId`, `revocationUrl`): `Promise`\<`void`\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:303](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L303)
+Defined in: [mcp/auth/oauthClientProvider.ts:303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L303)
 
 Revoke tokens (if supported by the OAuth server)
 
@@ -213,7 +213,7 @@ Revoke tokens (if supported by the OAuth server)
 
 > **getAuthorizationHeader**(`serverId`): `Promise`\<`string` \| `null`\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:346](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L346)
+Defined in: [mcp/auth/oauthClientProvider.ts:346](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L346)
 
 Get authorization header value for API requests
 
@@ -233,7 +233,7 @@ Get authorization header value for API requests
 
 > **hasValidTokens**(`serverId`): `Promise`\<`boolean`\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:359](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L359)
+Defined in: [mcp/auth/oauthClientProvider.ts:359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L359)
 
 Check if a server has valid (non-expired) tokens
 
@@ -253,7 +253,7 @@ Check if a server has valid (non-expired) tokens
 
 > **getConfig**(): `Readonly`\<[`MCPOAuthConfig`](../type-aliases/MCPOAuthConfig.md)\>
 
-Defined in: [mcp/auth/oauthClientProvider.ts:394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L394)
+Defined in: [mcp/auth/oauthClientProvider.ts:394](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L394)
 
 Get the OAuth configuration
 
@@ -267,7 +267,7 @@ Get the OAuth configuration
 
 > **getStorage**(): [`TokenStorage`](../type-aliases/TokenStorage.md)
 
-Defined in: [mcp/auth/oauthClientProvider.ts:401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L401)
+Defined in: [mcp/auth/oauthClientProvider.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L401)
 
 Get the token storage instance
 
@@ -281,7 +281,7 @@ Get the token storage instance
 
 > **cleanupPendingRequests**(): `void`
 
-Defined in: [mcp/auth/oauthClientProvider.ts:409](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/auth/oauthClientProvider.ts#L409)
+Defined in: [mcp/auth/oauthClientProvider.ts:409](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/auth/oauthClientProvider.ts#L409)
 
 Clean up expired pending states and challenges
 Should be called periodically to prevent memory leaks

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderRegistration** = `object`
 
-Defined in: [types/providers.ts:1824](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1824)
+Defined in: [types/providers.ts:2138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2138)
 
 Provider registration entry held by ProviderFactory.
 
@@ -18,7 +18,7 @@ Provider registration entry held by ProviderFactory.
 
 > **constructor**: [`ProviderConstructor`](ProviderConstructor.md)
 
-Defined in: [types/providers.ts:1825](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1825)
+Defined in: [types/providers.ts:2139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2139)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1825](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **defaultModel?**: `string`
 
-Defined in: [types/providers.ts:1826](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1826)
+Defined in: [types/providers.ts:2140](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2140)
 
 ---
 
@@ -34,4 +34,12 @@ Defined in: [types/providers.ts:1826](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/providers.ts:1827](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1827)
+Defined in: [types/providers.ts:2141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2141)
+
+---
+
+### descriptor?
+
+> `optional` **descriptor?**: [`ProviderDescriptor`](ProviderDescriptor.md)
+
+Defined in: [types/providers.ts:2142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2142)

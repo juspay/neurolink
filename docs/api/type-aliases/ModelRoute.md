@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelRoute** = `object`
 
-Defined in: [types/model.ts:246](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L246)
+Defined in: [types/model.ts:254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L254)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/model.ts:246](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **provider**: `string`
 
-Defined in: [types/model.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L247)
+Defined in: [types/model.ts:255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L255)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/model.ts:247](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **model**: `string`
 
-Defined in: [types/model.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L248)
+Defined in: [types/model.ts:256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L256)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/model.ts:248](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **reasoning**: `string`
 
-Defined in: [types/model.ts:249](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L249)
+Defined in: [types/model.ts:257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L257)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/model.ts:249](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **confidence**: `number`
 
-Defined in: [types/model.ts:250](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L250)
+Defined in: [types/model.ts:258](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L258)

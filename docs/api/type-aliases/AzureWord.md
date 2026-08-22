@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AzureWord** = `object`
 
-Defined in: [types/stt.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L398)
+Defined in: [types/stt.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L398)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:398](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Word**: `string`
 
-Defined in: [types/stt.ts:399](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L399)
+Defined in: [types/stt.ts:399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L399)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:399](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Offset**: `number`
 
-Defined in: [types/stt.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L400)
+Defined in: [types/stt.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L400)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:400](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Duration**: `number`
 
-Defined in: [types/stt.ts:401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L401)
+Defined in: [types/stt.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L401)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/stt.ts:401](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **Confidence?**: `number`
 
-Defined in: [types/stt.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L402)
+Defined in: [types/stt.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L402)

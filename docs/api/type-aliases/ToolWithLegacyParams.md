@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolWithLegacyParams** = `object`
 
-Defined in: [types/providers.ts:1791](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1791)
+Defined in: [types/providers.ts:2103](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2103)
 
 Represents an AI SDK Tool that may carry a legacy `parameters` field
 (from AI SDK v3/v4) in addition to the current `inputSchema`.
@@ -19,7 +19,7 @@ Represents an AI SDK Tool that may carry a legacy `parameters` field
 
 > `optional` **description?**: `string`
 
-Defined in: [types/providers.ts:1792](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1792)
+Defined in: [types/providers.ts:2104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2104)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/providers.ts:1792](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **inputSchema?**: `unknown`
 
-Defined in: [types/providers.ts:1793](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1793)
+Defined in: [types/providers.ts:2105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2105)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/providers.ts:1793](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **execute?**: (...`args`) => `unknown`
 
-Defined in: [types/providers.ts:1794](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1794)
+Defined in: [types/providers.ts:2106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2106)
 
 #### Parameters
 
@@ -53,6 +53,6 @@ Defined in: [types/providers.ts:1794](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **parameters?**: `unknown`
 
-Defined in: [types/providers.ts:1796](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1796)
+Defined in: [types/providers.ts:2108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2108)
 
 Legacy field from AI SDK v3/v4

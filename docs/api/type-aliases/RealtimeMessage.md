@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeMessage** = `object`
 
-Defined in: [types/realtime.ts:151](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L151)
+Defined in: [types/realtime.ts:151](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L151)
 
 Realtime message
 
@@ -18,7 +18,7 @@ Realtime message
 
 > **type**: [`RealtimeMessageType`](RealtimeMessageType.md)
 
-Defined in: [types/realtime.ts:153](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L153)
+Defined in: [types/realtime.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L153)
 
 Message type
 
@@ -28,7 +28,7 @@ Message type
 
 > `optional` **id?**: `string`
 
-Defined in: [types/realtime.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L155)
+Defined in: [types/realtime.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L155)
 
 Message ID
 
@@ -38,7 +38,7 @@ Message ID
 
 > `optional` **audio?**: [`RealtimeAudioChunk`](RealtimeAudioChunk.md)
 
-Defined in: [types/realtime.ts:157](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L157)
+Defined in: [types/realtime.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L157)
 
 Audio data (for audio messages)
 
@@ -48,7 +48,7 @@ Audio data (for audio messages)
 
 > `optional` **text?**: `string`
 
-Defined in: [types/realtime.ts:159](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L159)
+Defined in: [types/realtime.ts:159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L159)
 
 Text content (for text/transcript messages)
 
@@ -58,7 +58,7 @@ Text content (for text/transcript messages)
 
 > `optional` **isPartial?**: `boolean`
 
-Defined in: [types/realtime.ts:161](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L161)
+Defined in: [types/realtime.ts:161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L161)
 
 Whether this is a partial result
 
@@ -68,7 +68,7 @@ Whether this is a partial result
 
 > `optional` **functionCall?**: `object`
 
-Defined in: [types/realtime.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L163)
+Defined in: [types/realtime.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L163)
 
 Function call data
 
@@ -86,7 +86,7 @@ Function call data
 
 > `optional` **functionResult?**: `object`
 
-Defined in: [types/realtime.ts:168](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L168)
+Defined in: [types/realtime.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L168)
 
 Function result data
 
@@ -104,7 +104,7 @@ Function result data
 
 > `optional` **error?**: `object`
 
-Defined in: [types/realtime.ts:173](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L173)
+Defined in: [types/realtime.ts:173](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L173)
 
 Error information
 
@@ -122,6 +122,6 @@ Error information
 
 > **timestamp**: `Date`
 
-Defined in: [types/realtime.ts:178](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/realtime.ts#L178)
+Defined in: [types/realtime.ts:178](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/realtime.ts#L178)
 
 Timestamp

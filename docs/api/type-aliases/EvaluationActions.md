@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationActions** = `object`
 
-Defined in: [types/guardrails.ts:40](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L40)
+Defined in: [types/guardrails.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L40)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/guardrails.ts:40](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **onUnsafe?**: `"block"` \| `"sanitize"` \| `"warn"` \| `"log"`
 
-Defined in: [types/guardrails.ts:41](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L41)
+Defined in: [types/guardrails.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L41)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/guardrails.ts:41](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **onInappropriate?**: `"block"` \| `"sanitize"` \| `"warn"` \| `"log"`
 
-Defined in: [types/guardrails.ts:42](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L42)
+Defined in: [types/guardrails.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L42)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/guardrails.ts:42](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **onSuspicious?**: `"warn"` \| `"log"` \| `"allow"`
 
-Defined in: [types/guardrails.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/guardrails.ts#L43)
+Defined in: [types/guardrails.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L43)

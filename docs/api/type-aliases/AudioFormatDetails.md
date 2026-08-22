@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AudioFormatDetails** = `object`
 
-Defined in: [types/voice.ts:90](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L90)
+Defined in: [types/voice.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L90)
 
 Audio format details
 
@@ -18,7 +18,7 @@ Audio format details
 
 > **format**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/voice.ts:92](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L92)
+Defined in: [types/voice.ts:92](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L92)
 
 Format name
 
@@ -28,7 +28,7 @@ Format name
 
 > **mimeType**: `string`
 
-Defined in: [types/voice.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L94)
+Defined in: [types/voice.ts:94](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L94)
 
 MIME type
 
@@ -38,7 +38,7 @@ MIME type
 
 > **extension**: `string`
 
-Defined in: [types/voice.ts:96](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L96)
+Defined in: [types/voice.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L96)
 
 File extension
 
@@ -48,7 +48,7 @@ File extension
 
 > **supportsStreaming**: `boolean`
 
-Defined in: [types/voice.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L98)
+Defined in: [types/voice.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L98)
 
 Whether format supports streaming
 
@@ -58,7 +58,7 @@ Whether format supports streaming
 
 > **sampleRates**: `number`[]
 
-Defined in: [types/voice.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L100)
+Defined in: [types/voice.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L100)
 
 Typical sample rates
 
@@ -68,6 +68,6 @@ Typical sample rates
 
 > **bitDepths**: `number`[]
 
-Defined in: [types/voice.ts:102](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L102)
+Defined in: [types/voice.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L102)
 
 Bit depths

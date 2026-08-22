@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessedAudio** = [`ProcessedFileBase`](ProcessedFileBase.md) & `object`
 
-Defined in: [types/processor.ts:810](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L810)
+Defined in: [types/processor.ts:810](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L810)
 
 Processed audio file result.
 Extends ProcessedFileBase with audio-specific metadata, tags, and transcript info.
@@ -124,6 +124,14 @@ Extracted ID3/Vorbis/APE tags
 ### transcriptionProvider?
 
 > `optional` **transcriptionProvider?**: `string`
+
+### transcriptionSkippedReason?
+
+> `optional` **transcriptionSkippedReason?**: `string`
+
+Why transcription produced nothing, when it did (#416). Absent on success.
+Lets a caller distinguish "this audio has no speech" from "the transcription
+backend was never reachable", which previously looked identical.
 
 ### coverArt?
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Chunker** = `object`
 
-Defined in: [types/rag.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L20)
+Defined in: [types/rag.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L22)
 
 Chunker type - all chunking strategies implement this
 
@@ -18,7 +18,7 @@ Chunker type - all chunking strategies implement this
 
 > `readonly` **strategy**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L22)
+Defined in: [types/rag.ts:24](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L24)
 
 Strategy name for identification
 
@@ -28,7 +28,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](Chunk.md)[]\>
 
-Defined in: [types/rag.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L30)
+Defined in: [types/rag.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L32)
 
 Split text into chunks
 

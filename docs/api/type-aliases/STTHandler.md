@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **STTHandler** = `object`
 
-Defined in: [types/stt.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L155)
+Defined in: [types/stt.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L155)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **maxAudioDuration?**: `number`
 
-Defined in: [types/stt.ts:167](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L167)
+Defined in: [types/stt.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L167)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:167](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **supportsStreaming?**: `boolean`
 
-Defined in: [types/stt.ts:168](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L168)
+Defined in: [types/stt.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L168)
 
 ## Methods
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:168](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **transcribe**(`audio`, `options`): `Promise`\<[`STTResult`](STTResult.md)\>
 
-Defined in: [types/stt.ts:156](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L156)
+Defined in: [types/stt.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L156)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [types/stt.ts:156](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](TranscriptionSegment.md)\>
 
-Defined in: [types/stt.ts:160](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L160)
+Defined in: [types/stt.ts:160](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L160)
 
 #### Parameters
 
@@ -76,7 +76,7 @@ Defined in: [types/stt.ts:160](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **getSupportedLanguages**(): `Promise`\<[`STTLanguage`](STTLanguage.md)[]\>
 
-Defined in: [types/stt.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L164)
+Defined in: [types/stt.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L164)
 
 #### Returns
 
@@ -88,7 +88,7 @@ Defined in: [types/stt.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](TTSAudioFormat.md)[]
 
-Defined in: [types/stt.ts:165](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L165)
+Defined in: [types/stt.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L165)
 
 #### Returns
 
@@ -100,7 +100,7 @@ Defined in: [types/stt.ts:165](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/stt.ts:166](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L166)
+Defined in: [types/stt.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L166)
 
 #### Returns
 

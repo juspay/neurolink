@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ComparisonColumn** = `object`
 
-Defined in: [types/ppt.ts:413](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L413)
+Defined in: [types/ppt.ts:413](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L413)
 
 Comparison column for comparison slides
 
@@ -18,7 +18,7 @@ Comparison column for comparison slides
 
 > **title**: `string`
 
-Defined in: [types/ppt.ts:414](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L414)
+Defined in: [types/ppt.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L414)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:414](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **items**: `string`[]
 
-Defined in: [types/ppt.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L415)
+Defined in: [types/ppt.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L415)
 
 ---
 
@@ -34,6 +34,6 @@ Defined in: [types/ppt.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **highlight?**: `boolean`
 
-Defined in: [types/ppt.ts:417](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L417)
+Defined in: [types/ppt.ts:417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L417)
 
 Highlight color for this column (e.g., for the "better" option)

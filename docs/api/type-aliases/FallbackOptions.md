@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FallbackOptions** = `object`
 
-Defined in: [types/tools.ts:91](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L91)
+Defined in: [types/tools.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L108)
 
 Fallback configuration options
 Moved from src/lib/mcp/contracts/mcpContract.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/tools.ts:92](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L92)
+Defined in: [types/tools.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L109)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/tools.ts:92](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/tools.ts:93](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L93)
+Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L110)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/tools.ts:93](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **delayMs?**: `number`
 
-Defined in: [types/tools.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L94)
+Defined in: [types/tools.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L111)
 
 ---
 
@@ -43,4 +43,4 @@ Defined in: [types/tools.ts:94](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **circuitBreaker?**: `boolean`
 
-Defined in: [types/tools.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L95)
+Defined in: [types/tools.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L112)

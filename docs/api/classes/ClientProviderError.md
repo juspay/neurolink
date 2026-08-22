@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ClientProviderError
 
-Defined in: [client/errors.ts:487](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L487)
+Defined in: [client/errors.ts:487](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L487)
 
 Error from AI provider
 
@@ -25,7 +25,7 @@ Error from AI provider
 
 > **new ClientProviderError**(`message`, `options?`): `ClientProviderError`
 
-Defined in: [client/errors.ts:495](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L495)
+Defined in: [client/errors.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L495)
 
 #### Parameters
 
@@ -77,7 +77,7 @@ Defined in: [client/errors.ts:495](https://github.com/juspay/neurolink/blob/ff50
 
 > `readonly` **code**: [`ErrorCodeType`](../type-aliases/ErrorCodeType.md)
 
-Defined in: [client/errors.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L76)
+Defined in: [client/errors.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L76)
 
 Error code for programmatic handling
 
@@ -91,7 +91,7 @@ Error code for programmatic handling
 
 > `readonly` `optional` **status?**: `number`
 
-Defined in: [client/errors.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L78)
+Defined in: [client/errors.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L78)
 
 HTTP status code (if applicable)
 
@@ -105,7 +105,7 @@ HTTP status code (if applicable)
 
 > `readonly` `optional` **details?**: [`JsonObject`](../type-aliases/JsonObject.md)
 
-Defined in: [client/errors.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L80)
+Defined in: [client/errors.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L80)
 
 Additional error details
 
@@ -119,7 +119,7 @@ Additional error details
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [client/errors.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L82)
+Defined in: [client/errors.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L82)
 
 Whether the error is retryable
 
@@ -133,7 +133,7 @@ Whether the error is retryable
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [client/errors.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L84)
+Defined in: [client/errors.ts:84](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L84)
 
 Request ID for error tracking
 
@@ -147,7 +147,7 @@ Request ID for error tracking
 
 > `readonly` `optional` **provider?**: `string`
 
-Defined in: [client/errors.ts:489](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L489)
+Defined in: [client/errors.ts:489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L489)
 
 Provider name
 
@@ -157,7 +157,7 @@ Provider name
 
 > `readonly` `optional` **model?**: `string`
 
-Defined in: [client/errors.ts:491](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L491)
+Defined in: [client/errors.ts:491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L491)
 
 Model name
 
@@ -167,7 +167,7 @@ Model name
 
 > `readonly` `optional` **providerError?**: `unknown`
 
-Defined in: [client/errors.ts:493](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L493)
+Defined in: [client/errors.ts:493](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L493)
 
 Original provider error
 
@@ -177,7 +177,7 @@ Original provider error
 
 > **toApiError**(): [`ClientApiError`](../type-aliases/ClientApiError.md)
 
-Defined in: [client/errors.ts:109](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L109)
+Defined in: [client/errors.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L109)
 
 Convert error to API error format
 
@@ -195,7 +195,7 @@ Convert error to API error format
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [client/errors.ts:123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L123)
+Defined in: [client/errors.ts:123](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L123)
 
 Convert error to JSON
 

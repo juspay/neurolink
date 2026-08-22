@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ClientTimeoutError
 
-Defined in: [client/errors.ts:345](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L345)
+Defined in: [client/errors.ts:345](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L345)
 
 Error for request timeout
 
@@ -20,7 +20,7 @@ Error for request timeout
 
 > **new ClientTimeoutError**(`timeoutMs`, `message?`, `options?`): `ClientTimeoutError`
 
-Defined in: [client/errors.ts:349](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L349)
+Defined in: [client/errors.ts:349](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L349)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [client/errors.ts:349](https://github.com/juspay/neurolink/blob/ff50
 
 > `readonly` **code**: [`ErrorCodeType`](../type-aliases/ErrorCodeType.md)
 
-Defined in: [client/errors.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L76)
+Defined in: [client/errors.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L76)
 
 Error code for programmatic handling
 
@@ -70,7 +70,7 @@ Error code for programmatic handling
 
 > `readonly` `optional` **status?**: `number`
 
-Defined in: [client/errors.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L78)
+Defined in: [client/errors.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L78)
 
 HTTP status code (if applicable)
 
@@ -84,7 +84,7 @@ HTTP status code (if applicable)
 
 > `readonly` `optional` **details?**: [`JsonObject`](../type-aliases/JsonObject.md)
 
-Defined in: [client/errors.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L80)
+Defined in: [client/errors.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L80)
 
 Additional error details
 
@@ -98,7 +98,7 @@ Additional error details
 
 > `readonly` **retryable**: `boolean`
 
-Defined in: [client/errors.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L82)
+Defined in: [client/errors.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L82)
 
 Whether the error is retryable
 
@@ -112,7 +112,7 @@ Whether the error is retryable
 
 > `readonly` `optional` **requestId?**: `string`
 
-Defined in: [client/errors.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L84)
+Defined in: [client/errors.ts:84](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L84)
 
 Request ID for error tracking
 
@@ -126,7 +126,7 @@ Request ID for error tracking
 
 > `readonly` **timeoutMs**: `number`
 
-Defined in: [client/errors.ts:347](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L347)
+Defined in: [client/errors.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L347)
 
 Timeout duration in milliseconds
 
@@ -136,7 +136,7 @@ Timeout duration in milliseconds
 
 > **toApiError**(): [`ClientApiError`](../type-aliases/ClientApiError.md)
 
-Defined in: [client/errors.ts:109](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L109)
+Defined in: [client/errors.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L109)
 
 Convert error to API error format
 
@@ -154,7 +154,7 @@ Convert error to API error format
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [client/errors.ts:123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/client/errors.ts#L123)
+Defined in: [client/errors.ts:123](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/errors.ts#L123)
 
 Convert error to JSON
 

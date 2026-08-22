@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelDeploymentConfig** = `object`
 
-Defined in: [types/providers.ts:1423](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1423)
+Defined in: [types/providers.ts:1743](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1743)
 
 Model deployment configuration
 
@@ -18,7 +18,7 @@ Model deployment configuration
 
 > **modelName**: `string`
 
-Defined in: [types/providers.ts:1425](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1425)
+Defined in: [types/providers.ts:1745](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1745)
 
 Model name
 
@@ -28,7 +28,7 @@ Model name
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1427](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1427)
+Defined in: [types/providers.ts:1747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1747)
 
 Endpoint name
 
@@ -38,7 +38,7 @@ Endpoint name
 
 > **instanceType**: `string`
 
-Defined in: [types/providers.ts:1429](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1429)
+Defined in: [types/providers.ts:1749](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1749)
 
 EC2 instance type
 
@@ -48,7 +48,7 @@ EC2 instance type
 
 > **initialInstanceCount**: `number`
 
-Defined in: [types/providers.ts:1431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1431)
+Defined in: [types/providers.ts:1751](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1751)
 
 Initial instance count
 
@@ -58,7 +58,7 @@ Initial instance count
 
 > **modelDataUrl**: `string`
 
-Defined in: [types/providers.ts:1433](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1433)
+Defined in: [types/providers.ts:1753](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1753)
 
 Model data S3 location
 
@@ -68,7 +68,7 @@ Model data S3 location
 
 > **image**: `string`
 
-Defined in: [types/providers.ts:1435](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1435)
+Defined in: [types/providers.ts:1755](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1755)
 
 Container image URI
 
@@ -78,7 +78,7 @@ Container image URI
 
 > **executionRoleArn**: `string`
 
-Defined in: [types/providers.ts:1437](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1437)
+Defined in: [types/providers.ts:1757](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1757)
 
 IAM execution role ARN
 
@@ -88,7 +88,7 @@ IAM execution role ARN
 
 > `optional` **tags?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/providers.ts:1439](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1439)
+Defined in: [types/providers.ts:1759](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1759)
 
 Resource tags
 
@@ -98,7 +98,7 @@ Resource tags
 
 > `optional` **autoScaling?**: `object`
 
-Defined in: [types/providers.ts:1441](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1441)
+Defined in: [types/providers.ts:1761](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1761)
 
 Auto scaling configuration
 

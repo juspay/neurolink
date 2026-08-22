@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CacheStore** = `object`
 
-Defined in: [types/server.ts:1320](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1320)
+Defined in: [types/server.ts:1320](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1320)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/server.ts:1320](https://github.com/juspay/neurolink/blob/ff50
 
 > **get**(`key`): `Promise`\<[`CacheEntry`](CacheEntry.md) \| `undefined`\>
 
-Defined in: [types/server.ts:1321](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1321)
+Defined in: [types/server.ts:1321](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1321)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1321](https://github.com/juspay/neurolink/blob/ff50
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1322](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1322)
+Defined in: [types/server.ts:1322](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1322)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [types/server.ts:1322](https://github.com/juspay/neurolink/blob/ff50
 
 > **delete**(`key`): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1323](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1323)
+Defined in: [types/server.ts:1323](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1323)
 
 #### Parameters
 
@@ -74,7 +74,7 @@ Defined in: [types/server.ts:1323](https://github.com/juspay/neurolink/blob/ff50
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [types/server.ts:1324](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1324)
+Defined in: [types/server.ts:1324](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1324)
 
 #### Returns
 

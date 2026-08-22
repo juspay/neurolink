@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConversationMemoryConfig** = `object`
 
-Defined in: [types/conversation.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L45)
+Defined in: [types/conversation.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L72)
 
 Configuration for conversation memory feature
 
@@ -18,7 +18,7 @@ Configuration for conversation memory feature
 
 > **enabled**: `boolean`
 
-Defined in: [types/conversation.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L47)
+Defined in: [types/conversation.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L74)
 
 Enable conversation memory feature
 
@@ -28,7 +28,7 @@ Enable conversation memory feature
 
 > `optional` **maxSessions?**: `number`
 
-Defined in: [types/conversation.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L50)
+Defined in: [types/conversation.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L77)
 
 Maximum number of sessions to keep in memory (default: 50)
 
@@ -38,7 +38,7 @@ Maximum number of sessions to keep in memory (default: 50)
 
 > `optional` **enableSummarization?**: `boolean`
 
-Defined in: [types/conversation.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L53)
+Defined in: [types/conversation.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L80)
 
 Enable automatic summarization
 
@@ -48,7 +48,7 @@ Enable automatic summarization
 
 > `optional` **tokenThreshold?**: `number`
 
-Defined in: [types/conversation.ts:56](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L56)
+Defined in: [types/conversation.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L83)
 
 Token threshold to trigger summarization (optional - defaults to 80% of model context)
 
@@ -58,7 +58,7 @@ Token threshold to trigger summarization (optional - defaults to 80% of model co
 
 > `optional` **summarizationProvider?**: `string`
 
-Defined in: [types/conversation.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L59)
+Defined in: [types/conversation.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L86)
 
 Provider to use for summarization
 
@@ -68,7 +68,7 @@ Provider to use for summarization
 
 > `optional` **summarizationModel?**: `string`
 
-Defined in: [types/conversation.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L62)
+Defined in: [types/conversation.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L89)
 
 Model to use for summarization
 
@@ -78,7 +78,7 @@ Model to use for summarization
 
 > `optional` **memory?**: [`HippocampusMemory`](HippocampusMemory.md)
 
-Defined in: [types/conversation.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L65)
+Defined in: [types/conversation.ts:92](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L92)
 
 Memory SDK config (condensed key-value memory per user). Set enabled: true to activate.
 
@@ -88,7 +88,7 @@ Memory SDK config (condensed key-value memory per user). Set enabled: true to ac
 
 > `optional` **redisConfig?**: [`RedisStorageConfig`](RedisStorageConfig.md)
 
-Defined in: [types/conversation.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L68)
+Defined in: [types/conversation.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L95)
 
 Redis configuration (optional) - overrides environment variables
 
@@ -98,7 +98,7 @@ Redis configuration (optional) - overrides environment variables
 
 > `optional` **contextCompaction?**: `object`
 
-Defined in: [types/conversation.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L71)
+Defined in: [types/conversation.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L98)
 
 Context compaction configuration
 
@@ -166,7 +166,7 @@ File read budget as fraction of remaining context (default: 0.60)
 
 > `optional` **fileSummarization?**: `object`
 
-Defined in: [types/conversation.ts:101](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L101)
+Defined in: [types/conversation.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L128)
 
 Configuration for automatic file content summarization when files exceed context budget
 
@@ -200,7 +200,7 @@ Configuration for automatic file content summarization when files exceed context
 
 > `optional` **maxTurnsPerSession?**: `number`
 
-Defined in: [types/conversation.ts:111](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L111)
+Defined in: [types/conversation.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L138)
 
 #### Deprecated
 
@@ -212,7 +212,7 @@ Use tokenThreshold instead - Maximum number of conversation turns to keep per se
 
 > `optional` **summarizationThresholdTurns?**: `number`
 
-Defined in: [types/conversation.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L114)
+Defined in: [types/conversation.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L141)
 
 #### Deprecated
 
@@ -224,7 +224,7 @@ Use tokenThreshold instead - Turn count to trigger summarization
 
 > `optional` **summarizationTargetTurns?**: `number`
 
-Defined in: [types/conversation.ts:117](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L117)
+Defined in: [types/conversation.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L144)
 
 #### Deprecated
 

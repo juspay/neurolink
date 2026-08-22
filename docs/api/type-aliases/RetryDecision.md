@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RetryDecision** = `object`
 
-Defined in: [types/observability.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L402)
+Defined in: [types/observability.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L402)
 
 Result of a retry decision
 
@@ -18,7 +18,7 @@ Result of a retry decision
 
 > **shouldRetry**: `boolean`
 
-Defined in: [types/observability.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L404)
+Defined in: [types/observability.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L404)
 
 Whether to retry
 
@@ -28,7 +28,7 @@ Whether to retry
 
 > **delayMs**: `number`
 
-Defined in: [types/observability.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L406)
+Defined in: [types/observability.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L406)
 
 Delay before retry in milliseconds
 
@@ -38,6 +38,6 @@ Delay before retry in milliseconds
 
 > **reason**: `string`
 
-Defined in: [types/observability.ts:408](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L408)
+Defined in: [types/observability.ts:408](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L408)
 
 Reason for the decision

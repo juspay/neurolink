@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RetryPolicy** = `object`
 
-Defined in: [types/observability.ts:203](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L203)
+Defined in: [types/observability.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L203)
 
 Retry policy type for observability exporters.
 
@@ -18,7 +18,7 @@ Retry policy type for observability exporters.
 
 > `readonly` **name**: `string`
 
-Defined in: [types/observability.ts:205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L205)
+Defined in: [types/observability.ts:205](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L205)
 
 Policy name for identification
 
@@ -28,7 +28,7 @@ Policy name for identification
 
 > `readonly` **maxAttempts**: `number`
 
-Defined in: [types/observability.ts:211](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L211)
+Defined in: [types/observability.ts:211](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L211)
 
 Maximum attempts allowed
 
@@ -38,7 +38,7 @@ Maximum attempts allowed
 
 > `readonly` **maxTotalTimeMs**: `number`
 
-Defined in: [types/observability.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L214)
+Defined in: [types/observability.ts:214](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L214)
 
 Maximum total time allowed for retries
 
@@ -48,7 +48,7 @@ Maximum total time allowed for retries
 
 > **shouldRetry**(`context`): [`RetryDecision`](RetryDecision.md)
 
-Defined in: [types/observability.ts:208](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L208)
+Defined in: [types/observability.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L208)
 
 Decide whether to retry
 

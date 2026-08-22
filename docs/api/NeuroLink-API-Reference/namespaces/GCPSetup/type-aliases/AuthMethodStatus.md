@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthMethodStatus** = `object`
 
-Defined in: [types/cli.ts:857](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L857)
+Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L877)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:857](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **hasServiceAccount**: `boolean`
 
-Defined in: [types/cli.ts:858](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L858)
+Defined in: [types/cli.ts:878](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L878)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:858](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **hasGcloudAuth**: `boolean`
 
-Defined in: [types/cli.ts:859](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L859)
+Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L879)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:859](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **hasApplicationDefault**: `boolean`
 
-Defined in: [types/cli.ts:860](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L860)
+Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L880)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:860](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **preferredMethod?**: `"service-account"` \| `"gcloud"` \| `"adc"`
 
-Defined in: [types/cli.ts:861](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L861)
+Defined in: [types/cli.ts:881](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L881)

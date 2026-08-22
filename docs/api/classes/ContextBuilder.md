@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ContextBuilder
 
-Defined in: [evaluation/contextBuilder.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/contextBuilder.ts#L27)
+Defined in: [evaluation/contextBuilder.ts:23](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/contextBuilder.ts#L23)
 
 Builds the enhanced context required for a RAGAS-style evaluation.
 This class gathers data from the generation options and results to create a
@@ -28,7 +28,7 @@ rich snapshot of the interaction, which is then used by the evaluator.
 
 > **buildContext**(`options`, `result`): [`EnhancedEvaluationContext`](../type-aliases/EnhancedEvaluationContext.md)
 
-Defined in: [evaluation/contextBuilder.ts:54](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/contextBuilder.ts#L54)
+Defined in: [evaluation/contextBuilder.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/contextBuilder.ts#L50)
 
 Builds the full evaluation context for a single evaluation attempt.
 
@@ -58,7 +58,7 @@ An `EnhancedEvaluationContext` object ready for evaluation.
 
 > **recordEvaluation**(`evaluation`): `void`
 
-Defined in: [evaluation/contextBuilder.ts:112](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/contextBuilder.ts#L112)
+Defined in: [evaluation/contextBuilder.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/contextBuilder.ts#L108)
 
 Records the result of an evaluation and increments the internal attempt counter.
 This is used to build up the `previousEvaluations` array for subsequent retries.
@@ -81,7 +81,7 @@ The `EvaluationResult` from the last attempt.
 
 > **reset**(): `void`
 
-Defined in: [evaluation/contextBuilder.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/contextBuilder.ts#L121)
+Defined in: [evaluation/contextBuilder.ts:117](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/contextBuilder.ts#L117)
 
 Resets the internal state of the context builder. This should be called
 before starting a new, independent evaluation sequence.

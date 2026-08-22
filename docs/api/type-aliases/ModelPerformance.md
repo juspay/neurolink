@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelPerformance** = `object`
 
-Defined in: [types/model.ts:138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L138)
+Defined in: [types/model.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L146)
 
 Model performance characteristics
 
@@ -18,7 +18,7 @@ Model performance characteristics
 
 > **speed**: `"fast"` \| `"medium"` \| `"slow"`
 
-Defined in: [types/model.ts:139](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L139)
+Defined in: [types/model.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L147)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:139](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **quality**: `"high"` \| `"medium"` \| `"low"`
 
-Defined in: [types/model.ts:140](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L140)
+Defined in: [types/model.ts:148](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L148)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/model.ts:140](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **accuracy**: `"high"` \| `"medium"` \| `"low"`
 
-Defined in: [types/model.ts:141](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L141)
+Defined in: [types/model.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L149)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyConfigFile** = `object`
 
-Defined in: [types/proxy.ts:471](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L471)
+Defined in: [types/proxy.ts:483](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L483)
 
 Top-level proxy configuration structure.
 
@@ -18,7 +18,7 @@ Top-level proxy configuration structure.
 
 > `optional` **version?**: `number`
 
-Defined in: [types/proxy.ts:473](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L473)
+Defined in: [types/proxy.ts:485](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L485)
 
 Configuration schema version
 
@@ -28,7 +28,7 @@ Configuration schema version
 
 > `optional` **defaultProvider?**: `string`
 
-Defined in: [types/proxy.ts:475](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L475)
+Defined in: [types/proxy.ts:487](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L487)
 
 Default provider name to apply when not specified per-account
 
@@ -38,7 +38,7 @@ Default provider name to apply when not specified per-account
 
 > `optional` **defaultBaseUrl?**: `string`
 
-Defined in: [types/proxy.ts:477](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L477)
+Defined in: [types/proxy.ts:489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L489)
 
 Default base URL applied to accounts that omit baseUrl
 
@@ -48,7 +48,7 @@ Default base URL applied to accounts that omit baseUrl
 
 > **accounts**: `Record`\<`string`, [`ProxyAccountConfig`](ProxyAccountConfig.md)[]\>
 
-Defined in: [types/proxy.ts:479](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L479)
+Defined in: [types/proxy.ts:491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L491)
 
 Map of provider names to their account lists
 
@@ -58,7 +58,7 @@ Map of provider names to their account lists
 
 > `optional` **routing?**: `Partial`\<[`ProxyRoutingConfig`](ProxyRoutingConfig.md)\>
 
-Defined in: [types/proxy.ts:481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L481)
+Defined in: [types/proxy.ts:493](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L493)
 
 Routing configuration (strategy, model mappings, fallback chain)
 
@@ -68,6 +68,6 @@ Routing configuration (strategy, model mappings, fallback chain)
 
 > `optional` **cloaking?**: [`CloakingConfig`](CloakingConfig.md)
 
-Defined in: [types/proxy.ts:483](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L483)
+Defined in: [types/proxy.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L495)
 
 Cloaking plugin configuration

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SamplingContext** = `object`
 
-Defined in: [types/scorer.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L415)
+Defined in: [types/scorer.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L415)
 
 Sampling context for adaptive sampling
 
@@ -18,7 +18,7 @@ Sampling context for adaptive sampling
 
 > `optional` **recentScores?**: `number`[]
 
-Defined in: [types/scorer.ts:417](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L417)
+Defined in: [types/scorer.ts:417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L417)
 
 Recent quality scores
 
@@ -28,7 +28,7 @@ Recent quality scores
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/scorer.ts:419](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L419)
+Defined in: [types/scorer.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L419)
 
 User ID if available
 
@@ -38,7 +38,7 @@ User ID if available
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/scorer.ts:421](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L421)
+Defined in: [types/scorer.ts:421](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L421)
 
 Tags for this request
 
@@ -48,6 +48,6 @@ Tags for this request
 
 > `optional` **hasError?**: `boolean`
 
-Defined in: [types/scorer.ts:423](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L423)
+Defined in: [types/scorer.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L423)
 
 Whether this request errored

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthMiddlewareOptions** = `object`
 
-Defined in: [types/auth.ts:573](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L573)
+Defined in: [types/auth.ts:573](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L573)
 
 Auth middleware options
 
@@ -18,7 +18,7 @@ Auth middleware options
 
 > **provider**: [`AuthProvider`](AuthProvider.md)
 
-Defined in: [types/auth.ts:575](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L575)
+Defined in: [types/auth.ts:575](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L575)
 
 Auth provider instance
 
@@ -28,7 +28,7 @@ Auth provider instance
 
 > `optional` **excludePaths?**: `string`[]
 
-Defined in: [types/auth.ts:577](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L577)
+Defined in: [types/auth.ts:577](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L577)
 
 Routes to exclude from authentication
 
@@ -38,7 +38,7 @@ Routes to exclude from authentication
 
 > `optional` **optional?**: `boolean`
 
-Defined in: [types/auth.ts:579](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L579)
+Defined in: [types/auth.ts:579](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L579)
 
 Whether auth is optional (continue if no token)
 
@@ -48,7 +48,7 @@ Whether auth is optional (continue if no token)
 
 > `optional` **onUnauthorized?**: (`context`) => `Response` \| `Promise`\<`Response`\>
 
-Defined in: [types/auth.ts:581](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L581)
+Defined in: [types/auth.ts:581](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L581)
 
 Custom unauthorized handler
 
@@ -68,7 +68,7 @@ Custom unauthorized handler
 
 > `optional` **onError?**: (`error`, `context`) => `Response` \| `Promise`\<`Response`\>
 
-Defined in: [types/auth.ts:585](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L585)
+Defined in: [types/auth.ts:585](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L585)
 
 Custom error handler
 

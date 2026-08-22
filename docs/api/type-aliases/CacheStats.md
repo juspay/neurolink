@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CacheStats** = `object`
 
-Defined in: [types/mcp.ts:2384](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2384)
+Defined in: [types/mcp.ts:2384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2384)
 
 Cache statistics
 
@@ -18,7 +18,7 @@ Cache statistics
 
 > **hits**: `number`
 
-Defined in: [types/mcp.ts:2385](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2385)
+Defined in: [types/mcp.ts:2385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2385)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2385](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **misses**: `number`
 
-Defined in: [types/mcp.ts:2386](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2386)
+Defined in: [types/mcp.ts:2386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2386)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2386](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **evictions**: `number`
 
-Defined in: [types/mcp.ts:2387](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2387)
+Defined in: [types/mcp.ts:2387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2387)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2387](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **size**: `number`
 
-Defined in: [types/mcp.ts:2388](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2388)
+Defined in: [types/mcp.ts:2388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2388)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:2388](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **maxSize**: `number`
 
-Defined in: [types/mcp.ts:2389](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2389)
+Defined in: [types/mcp.ts:2389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2389)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/mcp.ts:2389](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **hitRate**: `number`
 
-Defined in: [types/mcp.ts:2390](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2390)
+Defined in: [types/mcp.ts:2390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2390)

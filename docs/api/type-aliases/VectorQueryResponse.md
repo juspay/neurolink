@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VectorQueryResponse** = `object`
 
-Defined in: [types/rag.ts:1220](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1220)
+Defined in: [types/rag.ts:1264](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1264)
 
 Vector query result wrapper
 
@@ -18,7 +18,7 @@ Vector query result wrapper
 
 > **relevantContext**: `string`
 
-Defined in: [types/rag.ts:1222](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1222)
+Defined in: [types/rag.ts:1266](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1266)
 
 Formatted relevant context string
 
@@ -28,7 +28,7 @@ Formatted relevant context string
 
 > **sources**: [`VectorQueryResult`](VectorQueryResult.md)[]
 
-Defined in: [types/rag.ts:1224](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1224)
+Defined in: [types/rag.ts:1268](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1268)
 
 Source query results
 
@@ -38,7 +38,7 @@ Source query results
 
 > **totalResults**: `number`
 
-Defined in: [types/rag.ts:1226](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1226)
+Defined in: [types/rag.ts:1270](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1270)
 
 Total results found
 
@@ -48,7 +48,7 @@ Total results found
 
 > **metadata**: `object`
 
-Defined in: [types/rag.ts:1228](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1228)
+Defined in: [types/rag.ts:1272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1272)
 
 Query metadata
 

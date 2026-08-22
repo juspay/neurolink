@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PreparedAnthropicAccountAttempt** = `object`
 
-Defined in: [types/proxy.ts:673](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L673)
+Defined in: [types/proxy.ts:953](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L953)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:673](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **continueLoop**: `boolean`
 
-Defined in: [types/proxy.ts:674](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L674)
+Defined in: [types/proxy.ts:954](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L954)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:674](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **lastError**: `unknown`
 
-Defined in: [types/proxy.ts:675](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L675)
+Defined in: [types/proxy.ts:955](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L955)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:675](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **authFailureMessage**: `string` \| `null`
 
-Defined in: [types/proxy.ts:676](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L676)
+Defined in: [types/proxy.ts:956](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L956)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:676](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/proxy.ts:677](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L677)
+Defined in: [types/proxy.ts:957](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L957)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/proxy.ts:677](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **buildUpstreamBody?**: [`AnthropicUpstreamBodyBuilder`](AnthropicUpstreamBodyBuilder.md)
 
-Defined in: [types/proxy.ts:678](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L678)
+Defined in: [types/proxy.ts:958](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L958)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/proxy.ts:678](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **finalBodyStr?**: `string`
 
-Defined in: [types/proxy.ts:679](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L679)
+Defined in: [types/proxy.ts:959](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L959)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/proxy.ts:679](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **fetchStartMs?**: `number`
 
-Defined in: [types/proxy.ts:680](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L680)
+Defined in: [types/proxy.ts:960](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L960)
 
 ---
 
@@ -72,4 +72,4 @@ Defined in: [types/proxy.ts:680](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **upstreamSpan?**: `Span`
 
-Defined in: [types/proxy.ts:681](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L681)
+Defined in: [types/proxy.ts:961](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L961)

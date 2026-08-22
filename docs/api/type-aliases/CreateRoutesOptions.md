@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CreateRoutesOptions** = `object`
 
-Defined in: [types/server.ts:1401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1401)
+Defined in: [types/server.ts:1401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1401)
 
 Options for createAllRoutes / createRoutes.
 
@@ -18,7 +18,7 @@ Options for createAllRoutes / createRoutes.
 
 > `optional` **enableSwagger?**: `boolean`
 
-Defined in: [types/server.ts:1402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1402)
+Defined in: [types/server.ts:1402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1402)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1402](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **getRoutes?**: () => [`RouteDefinition`](RouteDefinition.md)[]
 
-Defined in: [types/server.ts:1403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1403)
+Defined in: [types/server.ts:1403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1403)
 
 #### Returns
 
@@ -34,8 +34,50 @@ Defined in: [types/server.ts:1403](https://github.com/juspay/neurolink/blob/ff50
 
 ---
 
+### proxy?
+
+> `optional` **proxy?**: `boolean`
+
+Defined in: [types/server.ts:1405](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1405)
+
+Enable every proxy door: Claude, OpenAI, Codex and Gemini.
+
+---
+
 ### claudeProxy?
 
 > `optional` **claudeProxy?**: `boolean`
 
-Defined in: [types/server.ts:1404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1404)
+Defined in: [types/server.ts:1406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1406)
+
+---
+
+### openaiProxy?
+
+> `optional` **openaiProxy?**: `boolean`
+
+Defined in: [types/server.ts:1407](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1407)
+
+---
+
+### codexProxy?
+
+> `optional` **codexProxy?**: `boolean`
+
+Defined in: [types/server.ts:1415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1415)
+
+Enable the Codex door on its own.
+
+Codex was reachable only from `neurolink proxy start` until this existed —
+`createAllRoutes` mounted two of the doors, so an SDK consumer could not
+expose it even deliberately.
+
+---
+
+### geminiProxy?
+
+> `optional` **geminiProxy?**: `boolean`
+
+Defined in: [types/server.ts:1417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1417)
+
+Enable the Gemini door on its own, for the same reason.

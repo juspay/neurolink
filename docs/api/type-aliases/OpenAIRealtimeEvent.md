@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAIRealtimeEvent** = `object`
 
-Defined in: [types/stt.ts:676](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L676)
+Defined in: [types/stt.ts:676](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L676)
 
 ## Indexable
 
@@ -20,7 +20,7 @@ Defined in: [types/stt.ts:676](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **type**: `string`
 
-Defined in: [types/stt.ts:677](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L677)
+Defined in: [types/stt.ts:677](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L677)
 
 ---
 
@@ -28,4 +28,4 @@ Defined in: [types/stt.ts:677](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **event_id?**: `string`
 
-Defined in: [types/stt.ts:678](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L678)
+Defined in: [types/stt.ts:678](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L678)

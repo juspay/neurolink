@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DocumentLoader** = `object`
 
-Defined in: [types/rag.ts:559](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L559)
+Defined in: [types/rag.ts:606](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L606)
 
 Abstract document loader type
 
@@ -18,7 +18,7 @@ Abstract document loader type
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](../classes/MDocument.md)\>
 
-Defined in: [types/rag.ts:566](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L566)
+Defined in: [types/rag.ts:613](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L613)
 
 Load document from source
 
@@ -48,7 +48,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [types/rag.ts:576](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L576)
+Defined in: [types/rag.ts:623](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L623)
 
 Check if loader can handle the source
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ArtifactStore** = `object`
 
-Defined in: [types/artifact.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/artifact.ts#L53)
+Defined in: [types/artifact.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/artifact.ts#L53)
 
 Pluggable storage contract for externalized MCP tool outputs.
 
@@ -21,7 +21,7 @@ Future backends can implement this interface for S3, Redis blobs, etc.
 
 > **store**(`payload`, `meta`): `Promise`\<[`ArtifactRef`](ArtifactRef.md)\>
 
-Defined in: [types/artifact.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/artifact.ts#L59)
+Defined in: [types/artifact.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/artifact.ts#L59)
 
 Persist a payload and return a lightweight reference.
 
@@ -49,7 +49,7 @@ Descriptor without `createdAt` (assigned internally).
 
 > **retrieve**(`id`): `Promise`\<`string` \| `null`\>
 
-Defined in: [types/artifact.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/artifact.ts#L68)
+Defined in: [types/artifact.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/artifact.ts#L68)
 
 Retrieve the full payload by artifact ID.
 Returns `null` if the artifact is not found or has been cleaned up.
@@ -70,7 +70,7 @@ Returns `null` if the artifact is not found or has been cleaned up.
 
 > **delete**(`id`): `Promise`\<`void`\>
 
-Defined in: [types/artifact.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/artifact.ts#L71)
+Defined in: [types/artifact.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/artifact.ts#L71)
 
 Delete a single artifact. No-op if the ID does not exist.
 
@@ -90,7 +90,7 @@ Delete a single artifact. No-op if the ID does not exist.
 
 > **cleanup**(`olderThanMs`): `Promise`\<`number`\>
 
-Defined in: [types/artifact.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/artifact.ts#L77)
+Defined in: [types/artifact.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/artifact.ts#L77)
 
 Delete all artifacts older than `olderThanMs` milliseconds.
 Returns the number of artifacts deleted.
@@ -111,7 +111,7 @@ Returns the number of artifacts deleted.
 
 > **generatePreview**(`payload`): `string`
 
-Defined in: [types/artifact.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/artifact.ts#L80)
+Defined in: [types/artifact.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/artifact.ts#L80)
 
 Generate a short preview string from a serialized payload.
 

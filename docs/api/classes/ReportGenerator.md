@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ReportGenerator
 
-Defined in: [evaluation/reporting/reportGenerator.ts:27](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/reporting/reportGenerator.ts#L27)
+Defined in: [evaluation/reporting/reportGenerator.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/reportGenerator.ts#L27)
 
 Report generator class
 
@@ -16,7 +16,7 @@ Report generator class
 
 > **new ReportGenerator**(`config?`): `ReportGenerator`
 
-Defined in: [evaluation/reporting/reportGenerator.ts:30](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/reporting/reportGenerator.ts#L30)
+Defined in: [evaluation/reporting/reportGenerator.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/reportGenerator.ts#L30)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [evaluation/reporting/reportGenerator.ts:30](https://github.com/jusp
 
 > **generate**(`data`): [`GeneratedReport`](../type-aliases/GeneratedReport.md)
 
-Defined in: [evaluation/reporting/reportGenerator.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/reporting/reportGenerator.ts#L37)
+Defined in: [evaluation/reporting/reportGenerator.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/reportGenerator.ts#L37)
 
 Generate a report
 
@@ -54,7 +54,7 @@ Generate a report
 
 > **configure**(`config`): `void`
 
-Defined in: [evaluation/reporting/reportGenerator.ts:419](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/reporting/reportGenerator.ts#L419)
+Defined in: [evaluation/reporting/reportGenerator.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/reportGenerator.ts#L419)
 
 Update configuration
 

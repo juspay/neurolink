@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: LaTeXChunker
 
-Defined in: [rag/chunking/latexChunker.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/latexChunker.ts#L21)
+Defined in: [rag/chunking/latexChunker.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/latexChunker.ts#L21)
 
 LaTeX-aware chunker implementation
 Splits based on LaTeX structure (sections, environments)
@@ -31,7 +31,7 @@ Splits based on LaTeX structure (sections, environments)
 
 > `readonly` **strategy**: `"latex"`
 
-Defined in: [rag/chunking/latexChunker.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/latexChunker.ts#L22)
+Defined in: [rag/chunking/latexChunker.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/latexChunker.ts#L22)
 
 Strategy name for identification
 
@@ -45,7 +45,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/chunking/latexChunker.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/latexChunker.ts#L44)
+Defined in: [rag/chunking/latexChunker.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/latexChunker.ts#L44)
 
 Split text into chunks
 
@@ -79,7 +79,7 @@ Array of chunks
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
 
-Defined in: [rag/chunking/latexChunker.ts:323](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/rag/chunking/latexChunker.ts#L323)
+Defined in: [rag/chunking/latexChunker.ts:323](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/latexChunker.ts#L323)
 
 #### Parameters
 

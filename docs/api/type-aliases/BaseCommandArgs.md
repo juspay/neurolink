@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BaseCommandArgs** = `object`
 
-Defined in: [types/cli.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L43)
+Defined in: [types/cli.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L46)
 
 Base command arguments type
 
@@ -24,7 +24,7 @@ Index signature to allow additional properties
 
 > `optional` **debug?**: `boolean`
 
-Defined in: [types/cli.ts:45](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L45)
+Defined in: [types/cli.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L48)
 
 Enable debug output
 
@@ -34,7 +34,7 @@ Enable debug output
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"` \| `"yaml"`
 
-Defined in: [types/cli.ts:47](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L47)
+Defined in: [types/cli.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L50)
 
 Output format
 
@@ -44,7 +44,7 @@ Output format
 
 > `optional` **verbose?**: `boolean`
 
-Defined in: [types/cli.ts:49](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L49)
+Defined in: [types/cli.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L52)
 
 Verbose output
 
@@ -54,6 +54,6 @@ Verbose output
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L51)
+Defined in: [types/cli.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L54)
 
 Quiet mode

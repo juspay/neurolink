@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnthropicAttemptLogger** = (`status`, `errorType?`, `errorMessage?`, `extra?`) => `void`
 
-Defined in: [types/proxy.ts:596](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L596)
+Defined in: [types/proxy.ts:807](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L807)
 
 ## Parameters
 
@@ -41,6 +41,40 @@ Defined in: [types/proxy.ts:596](https://github.com/juspay/neurolink/blob/ff50c1
 #### cacheReadTokens?
 
 `number`
+
+#### retryable?
+
+`boolean`
+
+#### errorCode?
+
+`string`
+
+Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL.
+
+#### transportScope?
+
+[`ProxyTransportScope`](ProxyTransportScope.md)
+
+#### rateLimitKind?
+
+`"transient"` \| `"quota"`
+
+#### cooldownReason?
+
+`"transient"` \| `"session"` \| `"weekly"` \| `"unified"`
+
+#### attemptDurationMs?
+
+`number`
+
+Override for nested retries whose attempt starts after this logger.
+
+#### attempt?
+
+`number`
+
+Override used when one account selection performs an OAuth retry fetch.
 
 ## Returns
 
