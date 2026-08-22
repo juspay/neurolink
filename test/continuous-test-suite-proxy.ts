@@ -2328,6 +2328,151 @@ async function testGeminiMultiTurnHistoryReachesProvider(): Promise<
 }
 
 /**
+ * Continuing from a model turn must reach a provider, not 500 at the door.
+ *
+ * Google lets a client send `contents` whose final entry is a model turn — the
+ * Gemini CLI does exactly that when continuing — and there is no user turn to
+ * become `input.text`. That left `prompt` empty, and NeuroLink's stream()
+ * rejects an empty input before any provider is contacted, so every continue
+ * failed with a 500 and the message "Stream options must include either
+ * input.text, input.audio, or stt.audio".
+ *
+ * This was missed twice over. The review that found the history-slice half of
+ * it proposed a terminal placeholder, which was applied and is correct as far
+ * as it goes — but a placeholder consumed by the slice does nothing about the
+ * prompt, and no case ever sent a model-final request to find out. The
+ * multi-turn case next door covers [user, model, user] only, which always has
+ * a user turn to promote.
+ *
+ * The status assertion is the load-bearing one here: the turns could all
+ * arrive correctly and the request still fail.
+ */
+async function testGeminiModelFinalTurnReachesProvider(): Promise<
+  boolean | null
+> {
+  const MARKERS = { user: "MF_USER_ONE", model: "MF_MODEL_FINAL_CANARY" };
+
+  let capturedBody: string | undefined;
+  const upstream = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c: Buffer) => {
+      raw += c.toString();
+    });
+    req.on("end", () => {
+      capturedBody = raw;
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+      });
+      const chunk = (o: unknown) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+      chunk({
+        id: "chatcmpl-capture",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "capture-model",
+        choices: [{ index: 0, delta: { role: "assistant", content: "OK" } }],
+      });
+      chunk({
+        id: "chatcmpl-capture",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "capture-model",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        usage: { prompt_tokens: 8, completion_tokens: 1, total_tokens: 9 },
+      });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    });
+  });
+
+  const capturePort = await freePort();
+  let proxy: Awaited<ReturnType<typeof spawnIsolatedProxy>> = null;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      upstream.once("error", reject);
+      upstream.listen(capturePort, "127.0.0.1", () => resolve());
+    });
+
+    proxy = await spawnIsolatedProxy({
+      configYaml: `routing:
+  modelMappings:
+    - from: "gemini-2.5-flash"
+      to: "capture-model"
+      provider: "openai-compatible"
+`,
+      env: {
+        OPENAI_COMPATIBLE_BASE_URL: `http://127.0.0.1:${capturePort}/v1`,
+        OPENAI_COMPATIBLE_API_KEY: "capture-key",
+      },
+    });
+    if (!proxy) {
+      log(
+        "capture proxy never became healthy; the model-final path could not be observed",
+        "yellow",
+      );
+      return null;
+    }
+
+    const resp = await fetch(
+      `http://127.0.0.1:${proxy.port}/v1beta/models/gemini-2.5-flash:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "neurolink-model-final-probe/1.0",
+        },
+        body: JSON.stringify({
+          // No trailing user turn — this is the continue-from-model shape.
+          contents: [
+            { role: "user", parts: [{ text: MARKERS.user }] },
+            { role: "model", parts: [{ text: MARKERS.model }] },
+          ],
+          generationConfig: { maxOutputTokens: 32 },
+        }),
+      },
+    );
+
+    if (resp.status !== 200) {
+      log(
+        `continuing from a model turn answered ${resp.status} instead of 200 — ` +
+          "the door is failing the CLI's continue flow",
+        "red",
+      );
+      return false;
+    }
+
+    if (!capturedBody) {
+      log(
+        "the capture upstream was never called on a model-final request",
+        "red",
+      );
+      return false;
+    }
+
+    if (
+      !capturedBody.includes(MARKERS.user) ||
+      !capturedBody.includes(MARKERS.model)
+    ) {
+      log(
+        "a model-final request reached the provider without its full history",
+        "red",
+      );
+      return false;
+    }
+
+    log(
+      "continuing from a model turn reaches the provider, with both turns intact",
+      "green",
+    );
+    return true;
+  } finally {
+    proxy?.stop();
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+  }
+}
+
+/**
  * Every inbound door must be covered by the tracking middleware.
  *
  * Hono matches a wildcard one path segment at a time, so `app.use("/v1/*")`
@@ -6577,6 +6722,11 @@ const tests: TestFunction[] = [
     category: "proxy-api",
   },
   {
+    name: "Gemini Door: continuing from a model turn reaches the provider",
+    fn: testGeminiModelFinalTurnReachesProvider,
+    category: "proxy-api",
+  },
+  {
     name: "Attribution: the request log records the calling CLI",
     fn: testPerClientAttribution,
     category: "proxy-config",
@@ -6729,6 +6879,52 @@ const tests: TestFunction[] = [
 // Test Runner
 // ============================================================================
 
+/**
+ * Bound every case in this suite.
+ *
+ * This suite drives its own runner — it destructures `recordTest`/`runSuite`
+ * from `defineSuite` and calls `test.fn()` directly — so it never passes
+ * through the harness's own `Promise.race` per-case timeout
+ * (test/helpers/harness.ts:411). Any case that hangs hangs the whole run, with
+ * nothing to distinguish it from slow work: a spawned proxy that never becomes
+ * healthy, an upstream that accepts a connection and never answers, a fetch
+ * with no signal.
+ *
+ * Reported as a failure rather than a skip, deliberately. The harness's own
+ * timeout raises a `SKIP:`-prefixed message, which is right for a live-provider
+ * suite where a hung upstream is not the code's fault — but every case here
+ * talks to a proxy this repo builds and spawns, so a hang is a defect and must
+ * not go green.
+ */
+const CASE_TIMEOUT_MS = 180_000;
+
+async function withCaseTimeout(
+  name: string,
+  fn: () => Promise<boolean | null>,
+): Promise<boolean | null> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      fn(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `case exceeded ${CASE_TIMEOUT_MS}ms and was aborted — treat as a hang, not slowness`,
+              ),
+            ),
+          CASE_TIMEOUT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 async function runAllTests(): Promise<void> {
   if (!fs.existsSync("dist") || !fs.existsSync("dist/cli/index.js")) {
     log("Build artifacts not found. Run: pnpm run build:cli", "red");
@@ -6753,7 +6949,7 @@ async function runAllTests(): Promise<void> {
         continue;
       }
       try {
-        const result = await test.fn();
+        const result = await withCaseTimeout(test.name, test.fn);
         recordTest(
           test.name,
           result === true,

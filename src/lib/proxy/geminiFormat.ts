@@ -29,6 +29,15 @@ import type {
 /** Google's role for assistant turns. */
 const MODEL_ROLE = "model";
 
+/**
+ * Sent as `input.text` when a request's final turn is a model turn.
+ *
+ * Google lets a client continue generation from the assistant's own last turn;
+ * the chat-completions wire format the engine targets has no way to say that,
+ * and an empty prompt is rejected before any provider is reached.
+ */
+const CONTINUATION_PROMPT = "Continue.";
+
 function partsToText(parts: ProxyGeminiPart[] | undefined): string {
   if (!Array.isArray(parts)) {
     return "";
@@ -115,11 +124,24 @@ export function parseGeminiRequest(
   // it, which is the same lost-turn bug one case further along.
   //
   // A terminal placeholder restores the invariant: the slice removes this
-  // instead of the model turn. It is never sent anywhere — `prompt` is
-  // independently "" in exactly this case, so the placeholder only exists to be
-  // consumed by the slice.
+  // instead of the model turn.
+  //
+  // The prompt needs its own answer, and leaving it "" was a 500. A
+  // model-final request carries no user turn to send as `input.text`, and
+  // NeuroLink's stream() rejects an empty one outright — "Stream options must
+  // include either input.text, input.audio, or stt.audio" — so every continue
+  // from a model turn failed at the door rather than reaching a provider. The
+  // placeholder above fixed the history slice but never exercised this path,
+  // because nothing had sent the request.
+  //
+  // Google's semantics for a model-final `contents` are "keep going", and the
+  // chat-completions shape the engine translates into has no assistant-prefill
+  // to express that. An explicit continuation instruction is the closest
+  // faithful equivalent: the full conversation still arrives as history, and
+  // the model is told to continue it rather than being handed an empty turn.
   if (turns.length > 0 && turns[turns.length - 1].role !== "user") {
-    conversationMessages.push({ role: "user", content: "" });
+    conversationMessages.push({ role: "user", content: CONTINUATION_PROMPT });
+    prompt = CONTINUATION_PROMPT;
   }
 
   const numeric = (v: unknown): number | undefined =>
