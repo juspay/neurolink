@@ -1496,6 +1496,123 @@ async function testOpenCodeWriterReportsWhetherItWrote(): Promise<boolean> {
 }
 
 /**
+ * Codex was the one configurator with no apply/restore round-trip test.
+ *
+ * It is also the one with the most to get wrong: unlike the other four it edits
+ * TOML by regex rather than round-tripping JSON, it keeps its snapshot in a
+ * sidecar file rather than inside the config, and it rewrites a top-level
+ * selector line that must stay in the preamble — a `model_provider` captured
+ * from inside a `[profiles.*]` table would be written back as the global
+ * selector on restore.
+ *
+ * This drives the real writer against a real config containing exactly that
+ * hazard: a user selector, unrelated keys, and a profile table with its own
+ * model_provider.
+ */
+async function testCodexConfiguratorRoundTrip(): Promise<boolean> {
+  const { __codexClientTestHooks } =
+    await import("../src/cli/proxy-clients/codex.js");
+  const url = "http://127.0.0.1:55669";
+
+  const runCase = async (
+    label: string,
+    preambleSelector: string | null,
+    check: (afterApply: string, afterRestore: string) => string | null,
+  ): Promise<boolean> => {
+    const prevHome = process.env.HOME;
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-codex-"));
+    try {
+      process.env.HOME = root;
+      fs.mkdirSync(path.join(root, ".codex"), { recursive: true });
+      const configPath = __codexClientTestHooks.getCodexConfigPath();
+      fs.writeFileSync(
+        configPath,
+        [
+          'model = "gpt-5.1-codex"',
+          ...(preambleSelector ? [preambleSelector] : []),
+          'approval_policy = "on-request"',
+          "",
+          // The hazard: a profile table with its own selector. It must never
+          // be mistaken for the global one.
+          "[profiles.work]",
+          'model_provider = "some-other-provider"',
+          "",
+        ].join("\n"),
+      );
+
+      if (!(await __codexClientTestHooks.setCodexProxySettings(url))) {
+        log(`Codex ${label}: writer reported no write`, "red");
+        return false;
+      }
+      const afterApply = fs.readFileSync(configPath, "utf8");
+      if (!(await __codexClientTestHooks.clearCodexProxySettings(url))) {
+        log(`Codex ${label}: restore reported that it did nothing`, "red");
+        return false;
+      }
+      const afterRestore = fs.readFileSync(configPath, "utf8");
+
+      const failure = check(afterApply, afterRestore);
+      if (failure) {
+        log(`Codex ${label}: ${failure}`, "red");
+        return false;
+      }
+      return true;
+    } finally {
+      if (prevHome === undefined) {
+        delete process.env.HOME;
+      } else {
+        process.env.HOME = prevHome;
+      }
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  };
+
+  // Case A — the user had a global selector. It must come back verbatim.
+  const withSelector = await runCase(
+    "with a user selector",
+    'model_provider = "openai"',
+    (applied, restored) => {
+      if (!/^model_provider = "neurolink"$/m.test(applied)) {
+        return "apply did not point the selector at the proxy";
+      }
+      if (!applied.includes("[model_providers.neurolink]")) {
+        return "apply did not write its managed provider table";
+      }
+      if (!/^approval_policy = "on-request"$/m.test(applied)) {
+        return "apply disturbed an unrelated top-level key";
+      }
+      if (!/^model_provider = "openai"$/m.test(restored)) {
+        return "restore did not put the user's selector back";
+      }
+      if (restored.includes("neurolink")) {
+        return "restore left its managed block behind";
+      }
+      return null;
+    },
+  );
+  if (!withSelector) {
+    return false;
+  }
+
+  // Case B — no global selector, only a profile's. This is what separates a
+  // preamble-scoped snapshot from a document-wide one: matched document-wide,
+  // the profile's provider is captured and then written back as the GLOBAL
+  // selector, silently repointing every Codex run at another provider.
+  return await runCase("with only a profile selector", null, (_a, restored) => {
+    // Scope to the preamble. A bare /^model_provider/m also matches the line
+    // inside [profiles.work], which is legitimate and must stay.
+    const preamble = restored.split(/^\[/m)[0];
+    if (/^model_provider = /m.test(preamble)) {
+      return "restore invented a global selector the user never had";
+    }
+    if (!restored.includes('model_provider = "some-other-provider"')) {
+      return "restore lost the profile table's own provider";
+    }
+    return null;
+  });
+}
+
+/**
  * Restoring must require proving we own the value, not just the URL.
  *
  * The base-URL check catches a user who repointed the client somewhere else,
@@ -5410,6 +5527,11 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Codex configurator probes before writing",
     fn: testCodexConfiguratorDetectsInstall,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Codex apply/restore round-trips a real config",
+    fn: testCodexConfiguratorRoundTrip,
     category: "proxy-config",
   },
   {

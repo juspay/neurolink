@@ -1401,10 +1401,18 @@ export type OpenAPISpec = {
 export type CreateRoutesOptions = {
   enableSwagger?: boolean;
   getRoutes?: () => RouteDefinition[];
-  /** Enable both Claude and OpenAI proxy endpoints. */
+  /** Enable every proxy door: Claude, OpenAI and Codex. */
   proxy?: boolean;
   claudeProxy?: boolean;
   openaiProxy?: boolean;
+  /**
+   * Enable the Codex door on its own.
+   *
+   * Codex was reachable only from `neurolink proxy start` until this existed —
+   * `createAllRoutes` mounted two of the three doors, so an SDK consumer could
+   * not expose it even deliberately.
+   */
+  codexProxy?: boolean;
 };
 
 // =============================================================================
