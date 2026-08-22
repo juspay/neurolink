@@ -1,0 +1,32 @@
+{
+  // Typecheck the scripts and tools that CI actually depends on.
+  //
+  // The root tsconfig excludes `tools` and `scripts` wholesale, and ESLint
+  // ignores `scripts/**`. That blind spot is not theoretical: the provider
+  // onboarding gate shipped with a cast asserting a field
+  // (`OpenAICompatCatalogEntry.provider`) that does not exist, so its catalog
+  // lookup silently produced {undefined} and half the gate never ran. Nothing
+  // could have caught it, because the file that gates a required CI check was
+  // itself unchecked.
+  //
+  // Scope is deliberately narrow: only the files reachable from a workflow, via
+  // a package.json script, where a defect can gate or break a release. The wider
+  // tools/ tree has ~109 pre-existing errors and is a separate cleanup — the
+  // point here is to cover the surface that CI trusts, not to boil the ocean.
+  //
+  // Add a file here whenever a workflow starts depending on a new one.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": [
+    "scripts/build-validations.ts",
+    "scripts/check-banned-deps.ts",
+    "scripts/env-validation.ts",
+    "scripts/security-check.ts",
+    "tools/verify-provider-onboarding.ts",
+    "tools/testing/proxyLifecycleBenchmark.ts",
+    "tools/testing/proxyRollingHandoffBenchmark.ts",
+    "tools/testing/proxyTransportBenchmark.ts",
+    "tools/testing/proxyUsageStatsBenchmark.ts"
+  ],
+  "exclude": []
+}
