@@ -9,6 +9,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../lib/utils/logger.js";
 import type { CliProxyClientConfigurator } from "../../lib/types/index.js";
+import { writeFileAtomic } from "./snapshot.js";
 
 //
 // Points the Codex CLI at the proxy by managing `~/.codex/config.toml`:
@@ -115,10 +116,10 @@ export async function setCodexProxySettings(baseUrl: string): Promise<boolean> {
           ? providerMatch[0]
           : null;
       fs.mkdirSync(join(homedir(), ".neurolink"), { recursive: true });
-      fs.writeFileSync(
+      await writeFileAtomic(
         getCodexSnapshotPath(),
         JSON.stringify({ originalProviderLine }, null, 2),
-        { mode: 0o600 },
+        0o600,
       );
     }
 
@@ -148,7 +149,7 @@ export async function setCodexProxySettings(baseUrl: string): Promise<boolean> {
     }
 
     const trimmed = text.replace(/\s*$/, "\n");
-    fs.writeFileSync(
+    await writeFileAtomic(
       getCodexConfigPath(),
       `${trimmed}\n${buildCodexProviderBlock(baseUrl)}`,
     );
@@ -239,7 +240,7 @@ export async function clearCodexProxySettings(
       }
       return false;
     }
-    fs.writeFileSync(getCodexConfigPath(), text.replace(/\s*$/, "\n"));
+    await writeFileAtomic(getCodexConfigPath(), text.replace(/\s*$/, "\n"));
     try {
       fs.rmSync(getCodexSnapshotPath(), { force: true });
     } catch {

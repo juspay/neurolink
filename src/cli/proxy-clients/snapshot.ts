@@ -111,3 +111,109 @@ export function isProxyOwnedValue(args: {
   }
   return valuesMatch(args.current, args.written);
 }
+
+/** Distinguishes concurrent writers within one process. */
+let atomicWriteCounter = 0;
+
+/**
+ * Replace a file's contents without ever exposing a partial one.
+ *
+ * `writeFileSync` opens with `O_TRUNC`, so from the truncate until the last
+ * byte lands the user's config is short — and a real config spans several
+ * syscalls, not an instant. Anything reading concurrently, the CLI the config
+ * belongs to included, can load a truncated file; a crash in that window leaves
+ * it truncated permanently. Both Qwen and OpenCode keep live API keys there.
+ *
+ * Writing to a sibling temp file and renaming closes it: `rename(2)` within a
+ * directory is atomic, so a reader sees either the whole old file or the whole
+ * new one. The temp file must be a sibling — a rename across filesystems is a
+ * copy, which reintroduces exactly the window this removes.
+ *
+ * PERMISSIONS ARE THE SUBTLE PART, and getting them wrong here leaks API keys.
+ *
+ * Writing through a temp file changes who decides the destination's mode. A
+ * plain `writeFileSync` over an existing file leaves that file's mode alone, so
+ * a config the user had locked to 0600 stayed 0600. A rename replaces the inode,
+ * so the destination inherits the TEMP file's mode instead — and a temp file
+ * created without an explicit mode lands at 0666 minus umask, i.e. 0644 on a
+ * default system. Left unhandled, making the write atomic would have quietly
+ * widened every credential file it touched from 0600 to 0644.
+ *
+ * So when the caller does not specify a mode, the destination's current mode is
+ * carried over, which reproduces `writeFileSync`'s behaviour exactly; a file
+ * that does not exist yet starts at 0600 rather than whatever umask allows.
+ *
+ * The mode is applied at CREATE time, not after. `writeFileSync` followed by
+ * `chmodSync` would put the credential bytes on disk at 0644 first and tighten
+ * them a moment later — a window a local reader can win. The trailing `chmod`
+ * remains only to pin the exact mode, since umask masks the create mode; by
+ * then the file has never been readable more widely than its final mode.
+ *
+ * On Windows the guarantee holds but the failure mode differs, which is worth
+ * stating because the obvious worry there is the wrong one. Node's `renameSync`
+ * is `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING`; replacing a file on the
+ * same volume is an atomic directory-entry update, so a concurrent reader still
+ * sees the whole old file or the whole new one and never a torn one. What
+ * Windows adds is that the rename can *fail* — `EPERM`/`EBUSY` when a reader
+ * holds the destination open — where POSIX would succeed. That path is safe:
+ * the catch below removes the temp file and rethrows, leaving the previous
+ * config intact for the caller to report on.
+ *
+ * The sibling rule above is what makes that true. `MOVEFILE_COPY_ALLOWED` is
+ * also set, so a cross-volume rename silently degrades to copy-then-delete and
+ * is NOT atomic. Moving the temp file to `os.tmpdir()` would look like a
+ * tidy-up and would quietly restore the exact window this function exists to
+ * close, on Windows only, where nobody here would see it.
+ */
+export async function writeFileAtomic(
+  filePath: string,
+  contents: string,
+  mode?: number,
+): Promise<void> {
+  const fs = await import("fs");
+  const { dirname, join, basename } = await import("path");
+  atomicWriteCounter += 1;
+  const tempPath = join(
+    dirname(filePath),
+    `.${basename(filePath)}.neurolink-${process.pid}-${atomicWriteCounter}.tmp`,
+  );
+  // Which step failed changes what the user should do about it: a failed write
+  // is usually a missing directory or a full disk and the config is untouched,
+  // while a failed rename is a locked destination and the config is intact but
+  // stale. The bare errno is the same shape for both, so the stage is recorded
+  // as it advances and named in the rethrow.
+  let stage: "write" | "chmod" | "rename" = "write";
+  // Resolved before the first byte is written — see the permissions note above.
+  let effectiveMode = mode;
+  if (effectiveMode === undefined) {
+    try {
+      effectiveMode = fs.statSync(filePath).mode & 0o777;
+    } catch {
+      effectiveMode = 0o600;
+    }
+  }
+  try {
+    fs.writeFileSync(tempPath, contents, { mode: effectiveMode });
+    stage = "chmod";
+    fs.chmodSync(tempPath, effectiveMode);
+    stage = "rename";
+    fs.renameSync(tempPath, filePath);
+  } catch (error) {
+    // Never leave scratch in the user's config directory.
+    try {
+      fs.rmSync(tempPath, { force: true });
+    } catch {
+      // best effort
+    }
+    const reason = error instanceof Error ? error.message : String(error);
+    // The original is attached as `cause`, not discarded: wrapping moves the
+    // errno off the thrown object, and `cause` is where anything that needs
+    // ENOENT/EPERM finds it. No caller reads it today — every call site either
+    // lets this propagate or swallows it — so nothing breaks, but a future one
+    // should not have to re-derive the syscall from a string.
+    throw new Error(
+      `atomic write to ${filePath} failed at the ${stage} step: ${reason}`,
+      { cause: error },
+    );
+  }
+}

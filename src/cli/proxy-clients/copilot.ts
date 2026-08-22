@@ -26,6 +26,7 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../lib/utils/logger.js";
 import type { CliProxyClientConfigurator } from "../../lib/types/index.js";
+import { writeFileAtomic } from "./snapshot.js";
 
 /**
  * Resolved per call rather than at module load so `detect()` and `apply()`
@@ -70,16 +71,15 @@ export async function setCopilotProxySettings(
   try {
     const envPath = getCopilotEnvPath();
     fs.mkdirSync(join(homedir(), ".neurolink"), { recursive: true });
-    fs.writeFileSync(
+    // 0600 is applied to the temp file before the rename, so the script never
+    // exists at the destination with wider permissions — not even briefly.
+    // writeFileSync's own mode option would not do this: it applies only when
+    // open() creates the file, so an overwrite kept whatever mode was there.
+    await writeFileAtomic(
       envPath,
       buildCopilotEnvScript(baseUrl, proxyKey || "neurolink-proxy"),
-      { mode: 0o600 },
+      0o600,
     );
-    // The mode option above only applies when open() creates the file. On an
-    // overwrite it is ignored, so a pre-existing file keeps whatever
-    // permissions it had — which for a file holding a proxy key could be
-    // world-readable. Enforce it on both paths.
-    fs.chmodSync(envPath, 0o600);
     return true;
   } catch (error) {
     logger.debug(

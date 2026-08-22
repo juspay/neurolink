@@ -13,6 +13,7 @@ import {
   cloneForSnapshot,
   isProxyOwnedValue,
   shouldCaptureSnapshot,
+  writeFileAtomic,
 } from "./snapshot.js";
 
 function getOpenCodeConfigDir(): string {
@@ -105,7 +106,10 @@ export async function setOpenCodeProxySettings(
   config[OPENCODE_WRITTEN_KEY] = cloneForSnapshot(block);
 
   config.provider = provider;
-  fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
+  await writeFileAtomic(
+    getOpenCodeConfigPath(),
+    JSON.stringify(config, null, 2),
+  );
   return true;
 }
 
@@ -181,7 +185,10 @@ export async function clearOpenCodeProxySettings(
   }
 
   config.provider = provider;
-  fs.writeFileSync(getOpenCodeConfigPath(), JSON.stringify(config, null, 2));
+  await writeFileAtomic(
+    getOpenCodeConfigPath(),
+    JSON.stringify(config, null, 2),
+  );
   return hadNeurolink;
 }
 
