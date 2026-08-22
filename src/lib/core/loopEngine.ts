@@ -41,6 +41,10 @@ function sumUsage(a: AgenticLoopUsage, b: AgenticLoopUsage): AgenticLoopUsage {
       (a.cacheWriteTokens ?? 0) + (b.cacheWriteTokens ?? 0) || undefined,
     reasoningTokens:
       (a.reasoningTokens ?? 0) + (b.reasoningTokens ?? 0) || undefined,
+    cacheWrite5mTokens:
+      (a.cacheWrite5mTokens ?? 0) + (b.cacheWrite5mTokens ?? 0) || undefined,
+    cacheWrite1hTokens:
+      (a.cacheWrite1hTokens ?? 0) + (b.cacheWrite1hTokens ?? 0) || undefined,
   };
 }
 

@@ -73,6 +73,19 @@ jobs:
           echo "🔍 Verifying no banned packages leaked into production dependencies..."
           pnpm run check:deps
 
+      # tools/ and scripts/ are excluded from the root tsconfig, so the files a
+      # workflow actually depends on were never typechecked. That is how the
+      # provider onboarding gate shipped reading a field that does not exist.
+      - name: 🔎 Typecheck CI-critical scripts and tools
+        run: pnpm run check:ci-scripts
+
+      # test/ is excluded from tsconfig too, so `check` never looks at the
+      # suites. A full typecheck there is 296 errors and a separate cleanup;
+      # a parse check is free and catches the breakage that actually happens
+      # when editing them — a stray backtick inside a generated-script template.
+      - name: 🔎 Parse-check the test suites
+        run: pnpm run check:test-parse
+
       - name: Build package
         run: pnpm run build
 

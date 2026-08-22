@@ -53,12 +53,11 @@ function mapAnthropicFinishReason(
   }
 }
 
-export function createAnthropicLoopAdapter(
-  config: AnthropicLoopAdapterConfig,
-): AgenticLoopAdapter<
-  Anthropic.Messages.MessageParam[],
-  Anthropic.Messages.ContentBlockParam[]
-> {
+export function createAnthropicLoopAdapter<
+  TMessage = Anthropic.Messages.MessageParam,
+>(
+  config: AnthropicLoopAdapterConfig<TMessage>,
+): AgenticLoopAdapter<TMessage[], Anthropic.Messages.ContentBlockParam[]> {
   return {
     providerLabel: "anthropic",
     maxSteps: config.maxSteps,
@@ -74,13 +73,13 @@ export function createAnthropicLoopAdapter(
      */
     ...(config.planReclaim
       ? {
-          planReclaim: (
-            conversation: Anthropic.Messages.MessageParam[],
-            step: number,
-          ) => {
-            const reclaimed = config.planReclaim?.(conversation, step);
-            return reclaimed ? { conversation: reclaimed } : undefined;
-          },
+          // Passed straight through, INCLUDING `{ stop: true }`. Wrapping the
+          // return as `{ conversation }` swallowed the stop signal, so a guard
+          // that could not reclaim enough room had no way to end the turn and
+          // the loop kept sending oversized requests until the provider
+          // rejected one.
+          planReclaim: (conversation: TMessage[], step: number) =>
+            config.planReclaim?.(conversation, step),
         }
       : {}),
 
@@ -101,7 +100,7 @@ export function createAnthropicLoopAdapter(
     },
 
     buildStepRequest(
-      conversation: Anthropic.Messages.MessageParam[],
+      conversation: TMessage[],
       step: number,
     ): AgenticLoopStepRequest {
       return { raw: config.buildParams(conversation, step) };
@@ -139,6 +138,12 @@ export function createAnthropicLoopAdapter(
       let outputTokens = 0;
       let cacheReadTokens = 0;
       let cacheWriteTokens = 0;
+      // Reported alongside the total, not derivable from it: the two TTL
+      // tiers are priced differently, so a caller that reports them (the
+      // Claude-on-Vertex turn span does) cannot reconstruct the split from
+      // cacheWriteTokens alone.
+      let cacheWrite5mTokens = 0;
+      let cacheWrite1hTokens = 0;
       let stepOutputTokens = 0;
 
       for await (const rawEvent of events) {
@@ -162,6 +167,19 @@ export function createAnthropicLoopAdapter(
           // accounting.
           cacheReadTokens += usage?.cache_read_input_tokens ?? 0;
           cacheWriteTokens += usage?.cache_creation_input_tokens ?? 0;
+          // BEST EFFORT, and the limit is worth stating. The nested TTL
+          // breakdown exists only on `Usage` (this event); `MessageDeltaUsage`
+          // carries the cache TOTALS but not the split, so message_start is
+          // the only place in the raw event stream it can come from. The
+          // pre-migration loop read it off `stream.finalMessage()` — the SDK's
+          // ACCUMULATED message — so if the API leaves `cache_creation` null
+          // here and fills it only on the assembled message, these two stay
+          // zero and the totals above remain correct regardless.
+          // Reported as undefined rather than a false zero when absent.
+          cacheWrite5mTokens +=
+            usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0;
+          cacheWrite1hTokens +=
+            usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
           // The guard calibrates from the FULL prompt size, not input_tokens
           // alone: on a cache hit the uncached remainder is tiny and using it
           // would let the guard drift far under the real cost.
@@ -349,6 +367,11 @@ export function createAnthropicLoopAdapter(
           outputTokens,
           cacheReadTokens,
           cacheWriteTokens,
+          // Omitted entirely when the stream never reported a split, so a
+          // consumer can tell "no TTL breakdown available" from "zero tokens
+          // in that tier".
+          ...(cacheWrite5mTokens ? { cacheWrite5mTokens } : {}),
+          ...(cacheWrite1hTokens ? { cacheWrite1hTokens } : {}),
         },
         rawStopReason,
         raw: blocks,
@@ -356,13 +379,21 @@ export function createAnthropicLoopAdapter(
     },
 
     buildToolResultMessages(
-      conversation: Anthropic.Messages.MessageParam[],
+      conversation: TMessage[],
       stepResult: AgenticLoopStepResult<Anthropic.Messages.ContentBlockParam[]>,
       toolResults: AgenticLoopToolCallResult[],
-    ): Anthropic.Messages.MessageParam[] {
+    ): TMessage[] {
       const assistantMessage: Anthropic.Messages.MessageParam = {
         role: "assistant",
-        content: stepResult.raw,
+        // server_tool_use blocks are stripped before the turn is replayed:
+        // the API emits them on the way out but REJECTS them on the way back
+        // in, so echoing one fails the next request outright rather than
+        // degrading. Both Claude-on-Vertex loops filtered these by hand; doing
+        // it here means a caller cannot forget to. A provider that never emits
+        // them sees no change.
+        content: stepResult.raw.filter(
+          (block) => (block as { type?: string }).type !== "server_tool_use",
+        ),
       };
       const resultMessage: Anthropic.Messages.MessageParam = {
         role: "user",
@@ -375,7 +406,17 @@ export function createAnthropicLoopAdapter(
           ...(result.error ? { is_error: true } : {}),
         })),
       };
-      return [...conversation, assistantMessage, resultMessage];
+      // The two messages are built in the SDK's own shape and handed back as
+      // TMessage. Every Anthropic-compatible message type accepts a plain
+      // assistant turn and a tool_result user turn — that is the wire format,
+      // not a dialect — and a caller's narrower type differs only in fields
+      // neither of these sets. One assertion, at the single point where the
+      // adapter authors content rather than passing it through.
+      return [
+        ...conversation,
+        assistantMessage as TMessage,
+        resultMessage as TMessage,
+      ];
     },
 
     mapFinishReason: mapAnthropicFinishReason,

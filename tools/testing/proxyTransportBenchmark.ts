@@ -100,7 +100,11 @@ const proxy = createServer(
       const response = await fetch(upstreamUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body,
+        // Node accepts a Buffer at runtime, but BodyInit in this project's lib
+        // set admits neither Buffer nor any ArrayBufferView. The payload is
+        // JSON (see the content-type just above), so decode it as UTF-8 text —
+        // which is a BodyInit and round-trips JSON exactly.
+        body: body.toString("utf8"),
       });
       outgoing.writeHead(
         response.status,

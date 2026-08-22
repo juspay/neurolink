@@ -31,6 +31,7 @@ import {
 import type { NeuroLink } from "../../neurolink.js";
 import { warnGoogleSdkIgnoresProxy } from "../../proxy/proxyFetch.js";
 import type {
+  AgenticLoopOptions,
   GeminiTurnContent,
   NativeToolDeclarationsResult,
   UnknownRecord,
@@ -103,11 +104,7 @@ import {
   ensureNestedSchemaTypes,
 } from "../../utils/schemaConversion.js";
 import { createNativeThinkingConfig } from "../../utils/thinkingConfig.js";
-import {
-  TimeoutError,
-  raceWithAbort,
-  withTimeout,
-} from "../../utils/async/index.js";
+import { TimeoutError, withTimeout } from "../../utils/async/index.js";
 import { parseTimeout } from "../../utils/timeout.js";
 import {
   appendStepText,
@@ -129,6 +126,9 @@ import {
 } from "../googleNativeGemini3/index.js";
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
+import { createAnthropicLoopAdapter } from "../anthropic/loopAdapter.js";
+import { guardToolExecutor } from "../googleNativeGemini3/utils.js";
+import { extractMcpToolErrorMessage } from "../../utils/mcpErrorText.js";
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 import {
@@ -156,10 +156,7 @@ import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
 import { sanitizeAnthropicMessagesForTrace } from "../../utils/anthropicTraceSanitizer.js";
-import {
-  extractMcpToolErrorMessage,
-  extractToolFailureText,
-} from "../../utils/mcpErrorText.js";
+import { extractToolFailureText } from "../../utils/mcpErrorText.js";
 import type {
   Schema,
   LanguageModel,
@@ -4389,598 +4386,391 @@ export class GoogleVertexProvider extends BaseProvider {
       >();
 
       try {
-        while (step < agenticStepBudget) {
-          // Honor aborts BETWEEN steps (caller signal OR the turn clock's
-          // watchdogs — all fan into internalAbort): break into terminal
-          // handling (one honest terminal chunk, clean close) instead of
-          // throwing — channel.error would surface the caller's own abort as
-          // a stream failure and route consumers into fallback retries.
-          if (internalAbort.signal.aborted) {
-            wasAborted = true;
-            break;
+        // Executors handed to the engine, taken through the turn's
+        // DedupExecuteMap so an identical repeated call is answered from the
+        // per-turn cache rather than run again (BZ-3327). `.get()` returns the
+        // wrapper; iterating the map yields the raw functions, which is why the
+        // record is built by name rather than from entries.
+        const engineTools: NonNullable<AgenticLoopOptions["tools"]> = {};
+        for (const toolName of executeMap.keys()) {
+          const wrapped = executeMap.get(toolName);
+          if (!wrapped) {
+            continue;
           }
-          // Context guard: stop the tool loop before the accumulated
-          // conversation crosses the window threshold (see generate twin).
-          if (contextGuard.shouldStop()) {
-            // Parity upgrade: reclaim and continue where possible; the
-            // historic stop-only behaviour remains the fallback.
-            const reclaimed = reclaimVertexAnthropicContext(
-              currentMessages,
-              modelName,
-              contextGuard.projectedNextPromptTokens,
-            );
-            if (reclaimed) {
-              contextGuard.resetAfterReclaim();
-            } else {
-              hitContextLimit = true;
-              logger.warn(
-                `[GoogleVertex] Anthropic stream turn stopped by the context guard: ` +
-                  `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-                  `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
-              );
-              break;
-            }
-          }
-          step++;
-          turnClock.noteProgress();
-          // Mid-turn discovery sync: Claude only calls tools declared in the
-          // request, so tools hydrated by search_tools last step must be
-          // advertised now (requestParams.tools holds this array by
-          // reference).
-          this.refreshAnthropicToolDeclarations(
-            options.tools,
-            tools,
-            executeMap,
-            failedTools,
-          );
-
-          // One generation observation per API call: request in, content + usage out.
-          const generationSpan = tracers.generation.startSpan(
-            "anthropic.messages.stream",
-            {
-              kind: SpanKind.CLIENT,
-              attributes: {
-                [LANGFUSE_ATTR.OBSERVATION_TYPE]: "generation",
-                [LANGFUSE_ATTR.OBSERVATION_MODEL_NAME]: modelName,
-                [LANGFUSE_ATTR.OBSERVATION_MODEL_PARAMETERS]: spanJsonAttribute(
+          engineTools[toolName] = {
+            // Guarded exactly as the hand-rolled loop guarded it: a per-tool
+            // bound so a wedged tool costs ONE STEP rather than the whole turn,
+            // raced against the turn's abort so a deadline is observed at once
+            // instead of after the tool settles, and a stall-clock ping either
+            // side so a slow-but-healthy tool is not read as a stalled turn.
+            execute: guardToolExecutor(toolName, wrapped, {
+              toolTimeoutMs: toolExecTimeoutMs,
+              abortSignal: internalAbort.signal,
+              onProgress: () => turnClock.noteProgress(),
+              // Restores the per-tool observation the hand-rolled dispatch had.
+              // The execution runs INSIDE the span's context so spans the tool opens
+              // itself nest under this call rather than dangling beside the turn, and
+              // the settled RESULT is inspected — an MCP tool reports failure in its
+              // payload, so an observation that only watches for throws records a
+              // failed call as successful.
+              //
+              // Stream path only: the generate twin never had per-tool spans, and
+              // giving it them here would be behaviour GAINED under cover of a
+              // migration.
+              withToolSpan: (toolCallName, run) => {
+                const toolSpan = tracers.mcp.startSpan(
+                  "ai.toolCall",
                   {
-                    max_tokens: requestParams.max_tokens,
-                    temperature: requestParams.temperature,
-                    top_p: requestParams.top_p,
+                    kind: SpanKind.INTERNAL,
+                    attributes: {
+                      [LANGFUSE_ATTR.OBSERVATION_TYPE]: "tool",
+                      [ATTR.GEN_AI_TOOL_NAME]: toolCallName,
+                      "ai.toolCall.name": toolCallName,
+                    },
                   },
-                ),
-                [LANGFUSE_ATTR.OBSERVATION_INPUT]: spanJsonAttribute({
-                  system: systemPromptWithSchema,
-                  messages: sanitizeAnthropicMessagesForTrace(currentMessages),
-                }),
-                [LANGFUSE_ATTR.OBSERVATION_METADATA]: spanJsonAttribute({
-                  step,
-                  toolsOffered: offeredToolNames.length,
-                }),
-                [ATTR.GEN_AI_SYSTEM]: "anthropic",
-                [ATTR.GEN_AI_MODEL]: modelName,
-                [ATTR.GEN_AI_OPERATION]: "chat",
+                  turnContext,
+                );
+                const finish = (output: unknown, errorMessage?: string) => {
+                  toolSpan.setAttribute(
+                    "ai.toolCall.result",
+                    spanJsonAttribute(output),
+                  );
+                  toolSpan.setAttribute(
+                    LANGFUSE_ATTR.OBSERVATION_OUTPUT,
+                    spanJsonAttribute(output),
+                  );
+                  if (errorMessage) {
+                    toolSpan.setAttribute(
+                      LANGFUSE_ATTR.OBSERVATION_LEVEL,
+                      "ERROR",
+                    );
+                    toolSpan.setAttribute(
+                      LANGFUSE_ATTR.OBSERVATION_STATUS_MESSAGE,
+                      errorMessage,
+                    );
+                    toolSpan.setStatus({
+                      code: SpanStatusCode.ERROR,
+                      message: errorMessage,
+                    });
+                  } else {
+                    toolSpan.setStatus({ code: SpanStatusCode.OK });
+                  }
+                  toolSpan.end();
+                };
+                return otelContext.with(
+                  otelTrace.setSpan(turnContext, toolSpan),
+                  async () => {
+                    try {
+                      const result = await run();
+                      finish(result, extractMcpToolErrorMessage(result));
+                      return result;
+                    } catch (error) {
+                      finish(
+                        { error: true },
+                        error instanceof Error ? error.message : String(error),
+                      );
+                      throw error;
+                    }
+                  },
+                );
               },
-            },
-            turnContext,
-          );
+            }),
+          };
+        }
 
-          let response: Awaited<
-            ReturnType<
-              Awaited<ReturnType<typeof client.messages.stream>>["finalMessage"]
-            >
-          >;
-          try {
-            // Vertex has no automatic prompt caching — place explicit
-            // cache_control breakpoints (system, tools, rolling history) so the
-            // conversation prefix is cached across turns instead of re-billed as
-            // fresh input every call. Re-applied per step: the stable prefix
-            // stays byte-identical (consistent cache key) while the rolling
-            // breakpoint follows the growing tail.
-            const cachedStream = applyVertexAnthropicCacheBreakpoints({
+        // The turn runs on the shared engine. The step cap, tool dispatch, the
+        // failure breaker, per-step usage accumulation and the pre-first-chunk
+        // provider retry all live there now. What stays here is everything the
+        // engine has no opinion about: the turn clock, the context guard, the
+        // per-step Langfuse generation span, conversation-memory storage, the
+        // wrap-up nudge, and the reserved finalization in the terminal block.
+        //
+        // maxSteps is agenticStepBudget, NOT maxSteps: when structured output is
+        // active the last slot is reserved for the forced final_result call, and
+        // the engine must never spend it.
+        // The type argument is explicit: without it TMessage infers as the SDK's
+        // MessageParam and every hook here is typed against the wrong shape.
+        const baseAdapter = createAnthropicLoopAdapter<VertexAnthropicMessage>({
+          client,
+          maxSteps: agenticStepBudget,
+          toolsRecord: options.tools ?? {},
+          // Set here and NOT for native Anthropic: these loops have always had
+          // the consecutive-failure strike breaker, and native Anthropic has
+          // never had one. Giving it one under cover of a shared refactor would
+          // be a behaviour change, not a migration.
+          toolFailureBreaker: {
+            maxRetries: DEFAULT_TOOL_MAX_RETRIES,
+            // MCP failures are RETURNED, not thrown. Counting only throws lets
+            // the model grind on a blocked tool for the whole step budget.
+            classifyResultFailure: (output) =>
+              extractToolFailureText(output) ?? undefined,
+          },
+          buildParams: (conversation) => {
+            // Mid-turn discovery sync: Claude only calls tools declared in the
+            // request, so tools hydrated by search_tools last step have to be
+            // advertised now. `tools` is held by reference in requestParams.
+            this.refreshAnthropicToolDeclarations(
+              options.tools,
+              tools,
+              executeMap,
+              failedTools,
+            );
+            // Vertex has no automatic prompt caching — explicit cache_control
+            // breakpoints (system, tools, rolling history) keep the conversation
+            // prefix cached across turns instead of re-billed as fresh input.
+            // Re-applied per step: the stable prefix stays byte-identical for a
+            // consistent cache key while the rolling breakpoint follows the tail.
+            const cached = applyVertexAnthropicCacheBreakpoints({
               system: systemPromptWithSchema,
               tools,
-              messages: currentMessages,
+              messages: conversation,
             });
-            const stream = await client.messages.stream({
-              ...requestParams,
-              ...(cachedStream.system !== undefined && {
-                system: cachedStream.system as Parameters<
+            // `stream` is dropped from the spread: requestParams is typed for
+            // messages.stream so it carries an optional stream flag, and
+            // executeStep sets that itself. Passing it through would type this
+            // return as the streaming variant for a field the adapter owns.
+            const {
+              stream: _ignoredStreamFlag,
+              output_config: _ignoredOutputConfig,
+              ...baseParams
+            } = requestParams;
+            void _ignoredStreamFlag;
+            // output_config differs between the two param types as well — the
+            // streaming variant allows null where the non-streaming one does
+            // not. Nothing here sets it, so it is dropped rather than widened.
+            void _ignoredOutputConfig;
+            return {
+              ...baseParams,
+              ...(cached.system !== undefined && {
+                system: cached.system as Parameters<
                   typeof client.messages.stream
                 >[0]["system"],
               }),
-              ...(cachedStream.tools &&
-                cachedStream.tools.length > 0 && {
-                  tools: cachedStream.tools as Parameters<
+              ...(cached.tools &&
+                cached.tools.length > 0 && {
+                  tools: cached.tools as Parameters<
                     typeof client.messages.stream
                   >[0]["tools"],
                 }),
-              messages: cachedStream.messages as Parameters<
+              messages: cached.messages as Parameters<
                 typeof client.messages.stream
               >[0]["messages"],
-            });
-            activeStream = stream;
-
-            // Forward each text delta as it arrives — the Anthropic SDK fires
-            // this synchronously per content_block_delta, so the channel streams
-            // at wire cadence. The first delta stamps completion_start_time,
-            // giving Langfuse the generation's time-to-first-token.
-            let firstDeltaSeen = false;
-            stream.on("text", (delta: string) => {
-              turnClock.noteProgress();
-              if (delta.length > 0) {
-                if (!firstDeltaSeen) {
-                  firstDeltaSeen = true;
-                  generationSpan.setAttribute(
-                    LANGFUSE_ATTR.OBSERVATION_COMPLETION_START_TIME,
-                    new Date().toISOString(),
+            };
+          },
+          planReclaim: (conversation) => {
+            if (!contextGuard.shouldStop()) {
+              return undefined;
+            }
+            // Reclaim and continue where possible: ending the turn early is safe
+            // but throws away work the model was mid-way through.
+            const working = [...conversation];
+            if (
+              reclaimVertexAnthropicContext(
+                working,
+                modelName,
+                contextGuard.projectedNextPromptTokens,
+              )
+            ) {
+              contextGuard.resetAfterReclaim();
+              return { conversation: working };
+            }
+            hitContextLimit = true;
+            logger.warn(
+              `[GoogleVertex] Native Anthropic turn stopped by the context guard: ` +
+                `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+                `>= threshold ${contextGuard.thresholdTokens} — forcing finalization.`,
+            );
+            return undefined;
+          },
+          noteObservedPromptTokens: (tokens) => {
+            contextGuard.noteUsage(tokens, 0);
+          },
+          ...(useFinalResultTool
+            ? {
+                finalResultToolName: "final_result",
+                onTerminalResult: (text: string) => {
+                  // The engine ends the turn on a terminal call and hands back
+                  // the payload as text; this loop also streams it, so the push
+                  // stays here rather than in the adapter.
+                  try {
+                    structuredOutputRef.value = JSON.parse(text) as Record<
+                      string,
+                      unknown
+                    >;
+                  } catch {
+                    /* the caller's coercion layer repairs a partial payload */
+                  }
+                  channel.push({ content: text });
+                  liveTextPushedLength += text.length;
+                  logger.debug(
+                    "[GoogleVertex] Extracted structured output from final_result tool (stream)",
+                    { chars: text.length },
                   );
-                }
-                channel.push({ content: delta });
-                liveTextPushedLength += delta.length;
+                },
               }
-            });
+            : {}),
+        });
 
-            // finalMessage() resolves AFTER message_stop. By then the listener
-            // has already fired for every delta — awaiting here doesn't block
-            // visible streaming, it just gives us the structured response
-            // shape needed for tool_use block extraction.
-            response = await stream.finalMessage();
-          } catch (modelCallError) {
-            generationSpan.setStatus({
-              code: SpanStatusCode.ERROR,
-              message:
-                modelCallError instanceof Error
-                  ? modelCallError.message
-                  : String(modelCallError),
-            });
-            if (modelCallError instanceof Error) {
-              generationSpan.recordException(modelCallError);
-            }
-            generationSpan.end();
-            // A mid-flight abort (caller signal or a turn-clock watchdog
-            // tripping internalAbort/abortHandler) rejects finalMessage()
-            // with an abort-shaped error. Break gracefully into the terminal
-            // handling instead of routing it through channel.error as a
-            // failure.
-            if (internalAbort.signal.aborted || isAbortError(modelCallError)) {
-              activeStream = undefined;
-              wasAborted = true;
-              break;
-            }
-            throw modelCallError;
-          }
-          activeStream = undefined;
-
-          // End the generation span even if the bookkeeping below throws (else
-          // it leaks). The model-call error path already ended it — no double-end.
-          try {
-            const stepCacheRead = response.usage?.cache_read_input_tokens ?? 0;
-            const stepCacheCreation =
-              response.usage?.cache_creation_input_tokens ?? 0;
-            const stepCacheCreation5m =
-              response.usage?.cache_creation?.ephemeral_5m_input_tokens ?? 0;
-            const stepCacheCreation1h =
-              response.usage?.cache_creation?.ephemeral_1h_input_tokens ?? 0;
-            turnCacheUsage.read += stepCacheRead;
-            turnCacheUsage.creation += stepCacheCreation;
-            turnCacheUsage.creation5m += stepCacheCreation5m;
-            turnCacheUsage.creation1h += stepCacheCreation1h;
-
-            usage.input += response.usage?.input_tokens || 0;
-            usage.output += response.usage?.output_tokens || 0;
-            // Anthropic's input_tokens is only the UNCACHED remainder; cache
-            // reads/writes are billed tokens reported separately, so the
-            // total must include them (matches proxyTracer + anthropic.ts).
-            usage.total =
-              usage.input +
-              usage.output +
-              turnCacheUsage.read +
-              turnCacheUsage.creation;
-            lastStopReason = response.stop_reason;
-            // Feed the context guard the FULL prompt size of this call
-            // (uncached input + cache reads/writes).
-            contextGuard.noteUsage(
-              (response.usage?.input_tokens || 0) +
-                stepCacheRead +
-                stepCacheCreation,
-              response.usage?.output_tokens || 0,
+        // Wrapped rather than configured: both of these fire once PER STEP, and
+        // these are the only hooks that see a single step's request and results.
+        // Reading them off the turn's final result would batch every step into
+        // one late write and lose the per-step generation span entirely.
+        const adapter: typeof baseAdapter = {
+          ...baseAdapter,
+          buildStepRequest: (conversation, engineStep) => {
+            step = engineStep + 1;
+            turnClock.noteProgress();
+            return baseAdapter.buildStepRequest(conversation, engineStep);
+          },
+          // The provider's own miss handler, not the adapter's. The adapter
+          // resolves a deferred tool and hands back its RAW executor; this one
+          // also DECLARES the tool so Claude can call it on later steps, and
+          // registers it in the turn's DedupExecuteMap so a repeat with
+          // identical arguments is served from cache. Without the declaration a
+          // hydrated tool works exactly once and is then invisible again.
+          resolveToolOnMiss: (name) => {
+            const hydrated = this.resolveAnthropicToolOnMiss(
+              name,
+              options.tools,
+              tools,
+              executeMap,
+              failedTools,
             );
-
-            for (const block of response.content) {
-              if (block.type === "text" && typeof block.text === "string") {
-                aggregatedTurnText += block.text;
-              }
+            if (!hydrated) {
+              return undefined;
             }
-
-            generationSpan.setAttribute(
-              LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-              spanJsonAttribute(response.content),
-            );
-            // 5m and 1h cache-creation are priced differently, so keep both;
-            // drop the aggregate input_cache_creation (= 5m + 1h) that would
-            // double-count. total sums the per-TTL keys shown here to match them.
-            generationSpan.setAttribute(
-              LANGFUSE_ATTR.OBSERVATION_USAGE_DETAILS,
-              spanJsonAttribute({
-                input: response.usage?.input_tokens ?? 0,
-                output: response.usage?.output_tokens ?? 0,
-                input_cached_tokens: stepCacheRead,
-                input_cache_creation_5m: stepCacheCreation5m,
-                input_cache_creation_1h: stepCacheCreation1h,
-                total:
-                  (response.usage?.input_tokens ?? 0) +
-                  (response.usage?.output_tokens ?? 0) +
-                  stepCacheRead +
-                  stepCacheCreation5m +
-                  stepCacheCreation1h,
+            return {
+              execute: guardToolExecutor(name, hydrated, {
+                toolTimeoutMs: toolExecTimeoutMs,
+                abortSignal: internalAbort.signal,
+                onProgress: () => turnClock.noteProgress(),
               }),
-            );
-            generationSpan.setAttribute(
-              ATTR.GEN_AI_INPUT_TOKENS,
-              response.usage?.input_tokens ?? 0,
-            );
-            generationSpan.setAttribute(
-              ATTR.GEN_AI_OUTPUT_TOKENS,
-              response.usage?.output_tokens ?? 0,
-            );
-            if (response.stop_reason) {
-              generationSpan.setAttribute(
-                ATTR.GEN_AI_FINISH_REASON,
-                response.stop_reason,
-              );
-            }
-            generationSpan.setStatus({ code: SpanStatusCode.OK });
-          } finally {
-            generationSpan.end();
-          }
-
-          const toolUseBlocks = (
-            response.content as VertexAnthropicContentBlock[]
-          ).filter(
-            (
-              block,
-            ): block is {
-              type: "tool_use";
-              id: string;
-              name: string;
-              input: Record<string, unknown>;
-            } => block.type === "tool_use",
-          );
-
-          // Structured-output pattern: when the model returns the
-          // final_result tool call, push its arguments as JSON and stop.
-          // Single-shot yield so callers consuming the stream still see
-          // the structured value.
-          if (useFinalResultTool) {
-            const finalResultCall = toolUseBlocks.find(
-              (block) => block.name === "final_result",
-            );
-            if (finalResultCall) {
-              structuredOutputRef.value = finalResultCall.input;
-              channel.push({ content: JSON.stringify(finalResultCall.input) });
-              modelFinished = true;
-              logger.debug(
-                "[GoogleVertex] Extracted structured output from final_result tool (stream)",
-                { keys: Object.keys(finalResultCall.input) },
-              );
-              break;
-            }
-          }
-
-          // No tools — pure text turn. Listener already pushed all deltas;
-          // loop terminates and channel.close() flushes the consumer.
-          if (toolUseBlocks.length === 0) {
-            modelFinished = true;
-            break;
-          }
-
-          // Tool execution loop. tool:start / tool:end events fire from
-          // ToolsManager's wrapped execute (ToolsManager.ts:355) — no inline
-          // emit needed. The array also carries the trailing soft-budget
-          // nudge text block appended below (tool_result blocks stay first,
-          // as the Anthropic API requires).
-          const toolResults: Array<
-            | {
-                type: "tool_result";
-                tool_use_id: string;
-                content: string;
-              }
-            | { type: "text"; text: string }
-          > = [];
-          // Per-step bookkeeping for conversation-memory storage.
-          const stepStorageCalls: Array<{
-            toolCallId: string;
-            toolName: string;
-            args: Record<string, unknown>;
-          }> = [];
-          const stepStorageResults: Array<{
-            toolCallId: string;
-            toolName: string;
-            output: unknown;
-          }> = [];
-          // Note: tool:start / tool:end events are emitted by ToolsManager's
-          // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
-          for (const toolUse of toolUseBlocks) {
-            // Honor a deadline/stall/caller abort BETWEEN tool executions —
-            // without this check a multi-tool step keeps executing its whole
-            // batch (up to N × toolTimeoutMs past the deadline) before the
-            // while-top check finally breaks. Skipped tools get neither a
-            // call row nor a result row, so persisted history stays paired.
-            if (internalAbort.signal.aborted) {
-              wasAborted = true;
-              break;
-            }
-            allToolCalls.push({
-              toolName: toolUse.name,
-              args: toolUse.input,
-            });
-            toolsUsedRef.push(toolUse.name);
-            stepStorageCalls.push({
-              toolCallId: toolUse.id,
-              toolName: toolUse.name,
-              args: toolUse.input,
-            });
-
-            // Consecutive-failure breaker (ports the Gemini loops' failedTools
-            // map): a tool that has already failed DEFAULT_TOOL_MAX_RETRIES
-            // times this turn is short-circuited instead of re-executed.
-            const failedInfo = failedTools.get(toolUse.name);
-            if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-              logger.warn(
-                `[GoogleVertex] Tool "${toolUse.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-              );
-              const errMsg = `TOOL_PERMANENTLY_FAILED: The tool "${toolUse.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`;
-              const errorPayload = { error: errMsg };
-              toolExecutions.push({
-                name: toolUse.name,
-                input: toolUse.input,
-                output: errorPayload,
-              });
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
-                content: errMsg,
-              });
-              stepStorageResults.push({
-                toolCallId: toolUse.id,
-                toolName: toolUse.name,
-                output: errorPayload,
-              });
-              continue;
-            }
-
-            // One tool observation per execution. ai.toolCall.* names follow the
-            // Vercel AI SDK convention so existing tooling keeps working.
-            const toolSpan = tracers.mcp.startSpan(
-              "ai.toolCall",
+            };
+          },
+          executeStep: async (request, stepChannel, signal) => {
+            // One generation observation per API call: request in, content and
+            // usage out. Started here rather than inside the adapter because the
+            // attributes are this provider's, not the engine's.
+            const generationSpan = tracers.generation.startSpan(
+              "anthropic.messages.stream",
               {
-                kind: SpanKind.INTERNAL,
+                kind: SpanKind.CLIENT,
                 attributes: {
-                  [LANGFUSE_ATTR.OBSERVATION_TYPE]: "tool",
-                  [ATTR.GEN_AI_TOOL_NAME]: toolUse.name,
-                  "ai.toolCall.name": toolUse.name,
-                  "ai.toolCall.id": toolUse.id,
-                  "ai.toolCall.args": spanJsonAttribute(toolUse.input, 20_000),
-                  [LANGFUSE_ATTR.OBSERVATION_INPUT]: spanJsonAttribute(
-                    toolUse.input,
-                    20_000,
-                  ),
+                  [LANGFUSE_ATTR.OBSERVATION_TYPE]: "generation",
+                  [LANGFUSE_ATTR.OBSERVATION_MODEL_NAME]: modelName,
+                  [LANGFUSE_ATTR.OBSERVATION_MODEL_PARAMETERS]:
+                    spanJsonAttribute({
+                      max_tokens: requestParams.max_tokens,
+                      temperature: requestParams.temperature,
+                      top_p: requestParams.top_p,
+                    }),
+                  [LANGFUSE_ATTR.OBSERVATION_INPUT]: spanJsonAttribute({
+                    system: systemPromptWithSchema,
+                    messages:
+                      sanitizeAnthropicMessagesForTrace(currentMessages),
+                  }),
                   [LANGFUSE_ATTR.OBSERVATION_METADATA]: spanJsonAttribute({
                     step,
+                    toolsOffered: offeredToolNames.length,
                   }),
+                  [ATTR.GEN_AI_SYSTEM]: "anthropic",
+                  [ATTR.GEN_AI_MODEL]: modelName,
+                  [ATTR.GEN_AI_OPERATION]: "chat",
                 },
               },
               turnContext,
             );
-            const endToolSpan = (output: unknown, errorMessage?: string) => {
-              toolSpan.setAttribute(
-                "ai.toolCall.result",
-                spanJsonAttribute(output),
+            let firstDeltaSeen = false;
+            try {
+              const result = await baseAdapter.executeStep(
+                request,
+                {
+                  push: (chunk) => {
+                    turnClock.noteProgress();
+                    if (chunk.content && !firstDeltaSeen) {
+                      firstDeltaSeen = true;
+                      // Time-to-first-token for this generation.
+                      generationSpan.setAttribute(
+                        LANGFUSE_ATTR.OBSERVATION_COMPLETION_START_TIME,
+                        new Date().toISOString(),
+                      );
+                    }
+                    stepChannel.push(chunk);
+                  },
+                },
+                signal,
               );
-              toolSpan.setAttribute(
+              turnCacheUsage.read += result.usage.cacheReadTokens ?? 0;
+              turnCacheUsage.creation += result.usage.cacheWriteTokens ?? 0;
+              turnCacheUsage.creation5m += result.usage.cacheWrite5mTokens ?? 0;
+              turnCacheUsage.creation1h += result.usage.cacheWrite1hTokens ?? 0;
+              generationSpan.setAttribute(
                 LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-                spanJsonAttribute(output),
+                spanJsonAttribute({ text: result.text }),
               );
-              if (errorMessage) {
-                toolSpan.setAttribute(LANGFUSE_ATTR.OBSERVATION_LEVEL, "ERROR");
-                toolSpan.setAttribute(
-                  LANGFUSE_ATTR.OBSERVATION_STATUS_MESSAGE,
-                  errorMessage,
-                );
-                toolSpan.setStatus({
-                  code: SpanStatusCode.ERROR,
-                  message: errorMessage,
-                });
-              } else {
-                toolSpan.setStatus({ code: SpanStatusCode.OK });
+              return result;
+            } catch (error) {
+              generationSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: error instanceof Error ? error.message : String(error),
+              });
+              if (error instanceof Error) {
+                generationSpan.recordException(error);
               }
-              toolSpan.end();
-            };
-
-            let execute = executeMap.get(toolUse.name);
-            if (!execute) {
-              // Snapshot miss: hydrated by search_tools this step batch, or
-              // a deferred catalog tool called directly by name.
-              execute = this.resolveAnthropicToolOnMiss(
-                toolUse.name,
-                options.tools,
-                tools,
-                executeMap,
-                failedTools,
-              );
+              throw error;
+            } finally {
+              generationSpan.end();
             }
-            if (execute) {
-              try {
-                const toolOptions = {
-                  toolCallId: toolUse.id,
-                  messages: [],
-                  abortSignal: internalAbort.signal,
-                };
-                turnClock.noteProgress();
-                // Run with toolSpan active so spans inside execute
-                // (neurolink.tool.execute) nest under this observation instead
-                // of becoming disconnected siblings. Bound the await — a
-                // wedged tool costs one step (error tool_result), not the
-                // whole turn — and race it against the turn's abort so a
-                // deadline/caller abort is observed IMMEDIATELY instead of
-                // after the tool settles.
-                const result = await withTimeout(
-                  raceWithAbort(
-                    otelContext.with(
-                      otelTrace.setSpan(turnContext, toolSpan),
-                      () =>
-                        Promise.resolve(execute(toolUse.input, toolOptions)),
-                    ),
-                    internalAbort.signal,
-                  ),
-                  toolExecTimeoutMs,
-                  `Tool "${toolUse.name}" execution timed out after ${toolExecTimeoutMs}ms`,
-                );
-                turnClock.noteProgress();
-                // MCP failures are returned, not thrown — surface them on
-                // the span so failed calls show as ERROR in Langfuse.
-                endToolSpan(result, extractMcpToolErrorMessage(result));
-                // Error-shaped success (MCP isError / { error } payloads)
-                // counts toward the breaker too — see the generate twin.
-                const resultErrorText = extractToolFailureText(result);
-                if (resultErrorText) {
-                  const info = failedTools.get(toolUse.name) || {
-                    count: 0,
-                    lastError: "",
-                  };
-                  info.count++;
-                  info.lastError = resultErrorText;
-                  failedTools.set(toolUse.name, info);
-                } else {
-                  // Genuinely consecutive: a success clears the strike count
-                  // (argument-dependent soft errors — file-not-found on
-                  // different paths — must not disable a working tool).
-                  failedTools.delete(toolUse.name);
-                }
-                toolExecutions.push({
-                  name: toolUse.name,
-                  input: toolUse.input,
-                  output: result,
-                });
-                // Anthropic requires tool_result.content to be a string.
-                // JSON.stringify returns undefined for undefined/function/symbol,
-                // so coerce defensively to keep the follow-up turn valid.
-                const resultContent =
-                  typeof result === "string"
-                    ? result
-                    : stringifyContentSafe(result ?? null);
-                toolResults.push({
-                  type: "tool_result",
-                  tool_use_id: toolUse.id,
-                  content: resultContent,
-                });
-                stepStorageResults.push({
-                  toolCallId: toolUse.id,
-                  toolName: toolUse.name,
-                  output: result,
-                });
-              } catch (err) {
-                // An aborted tool call is a cancellation, not a tool failure —
-                // end the span without recording an error execution/result and
-                // break the turn.
-                if (internalAbort.signal.aborted || isAbortError(err)) {
-                  endToolSpan({ aborted: true });
-                  // Keep persisted tool history paired: the call row was
-                  // already pushed above, so record a neutral cancellation
-                  // result (NOT an error) — an unpaired tool_use replayed on
-                  // the next turn would be rejected by the Anthropic API.
-                  stepStorageResults.push({
-                    toolCallId: toolUse.id,
-                    toolName: toolUse.name,
-                    output: { aborted: true },
-                  });
-                  wasAborted = true;
-                  break;
-                }
-                turnClock.noteProgress();
-                if (err instanceof TimeoutError) {
-                  this.emitTurnEvent({
-                    phase: "tool-timeout",
-                    step,
-                    maxSteps,
-                    toolName: toolUse.name,
-                  });
-                }
-                // Count the failure toward the consecutive-failure breaker.
-                const thrownErrorText =
-                  err instanceof Error ? err.message : String(err);
-                const info = failedTools.get(toolUse.name) || {
-                  count: 0,
-                  lastError: "",
-                };
-                info.count++;
-                info.lastError = thrownErrorText;
-                failedTools.set(toolUse.name, info);
-                logger.warn(
-                  `[GoogleVertex] Tool "${toolUse.name}" failed (attempt ${info.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${thrownErrorText}`,
-                );
-                const errMsg = `Error executing tool "${toolUse.name}": ${thrownErrorText}`;
-                const errorPayload = { error: errMsg };
-                endToolSpan(errorPayload, errMsg);
-                toolExecutions.push({
-                  name: toolUse.name,
-                  input: toolUse.input,
-                  output: errorPayload,
-                });
-                toolResults.push({
-                  type: "tool_result",
-                  tool_use_id: toolUse.id,
-                  content: errMsg,
-                });
-                stepStorageResults.push({
-                  toolCallId: toolUse.id,
-                  toolName: toolUse.name,
-                  output: errorPayload,
-                });
-              }
-            } else {
-              const errMsg = `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`;
-              const errorPayload = { error: errMsg };
-              // A missing tool counts toward the breaker too — a model
-              // grinding on a hallucinated/stale tool name must not burn the
-              // whole step budget on TOOL_NOT_FOUND round-trips.
-              const notFoundInfo = failedTools.get(toolUse.name) || {
-                count: 0,
-                lastError: "",
-              };
-              notFoundInfo.count++;
-              notFoundInfo.lastError = errMsg;
-              failedTools.set(toolUse.name, notFoundInfo);
-              endToolSpan(errorPayload, errMsg);
+          },
+          buildToolResultMessages: (
+            conversation,
+            stepResult,
+            toolResults,
+            engineStep,
+          ) => {
+            for (const result of toolResults) {
+              allToolCalls.push({ toolName: result.name, args: result.args });
+              toolsUsedRef.push(result.name);
               toolExecutions.push({
-                name: toolUse.name,
-                input: toolUse.input,
-                output: errorPayload,
-              });
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
-                content: errMsg,
-              });
-              stepStorageResults.push({
-                toolCallId: toolUse.id,
-                toolName: toolUse.name,
-                output: errorPayload,
+                name: result.name,
+                input: result.args,
+                output: result.output,
               });
             }
-          }
-
-          // Persist this step's tool calls/results into conversation memory.
-          // Without this hook, tool rows never land in Redis and the
-          // chat-history UI loses every tool invocation. Runs BEFORE the
-          // abort break below so tools that DID complete in an aborted step
-          // (real side effects) still reach the chat history.
-          if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
+            metadata.totalToolExecutions += toolResults.length;
+            const next = baseAdapter.buildToolResultMessages(
+              conversation,
+              stepResult,
+              toolResults,
+              engineStep,
+            );
+            // Time-budget wrap-up nudge: with the turn deadline approaching,
+            // tell the model to consolidate. Rides as a trailing text block on
+            // the tool_result user turn.
+            if (turnClock.shouldNudgeWrapup()) {
+              const last = next[next.length - 1];
+              if (last && Array.isArray(last.content)) {
+                last.content.push({
+                  type: "text",
+                  text: buildWrapupNudgeText(useFinalResultTool),
+                });
+              }
+            }
+            // Tool activity reaches conversation memory per step, not batched at
+            // the end: tools that DID complete in a step later aborted are real
+            // side effects and belong in the chat history.
             withTimeout(
               this.handleToolExecutionStorage(
-                stepStorageCalls.map((c) => ({ ...c, stepIndex: step })),
-                stepStorageResults.map((r) => ({ ...r, stepIndex: step })),
+                toolResults.map((result) => ({
+                  toolName: result.name,
+                  args: result.args,
+                  stepIndex: engineStep + 1,
+                })),
+                toolResults.map((result) => ({
+                  toolName: result.name,
+                  output: result.output,
+                  stepIndex: engineStep + 1,
+                })),
                 options,
                 new Date(),
               ),
@@ -4994,64 +4784,83 @@ export class GoogleVertexProvider extends BaseProvider {
                 },
               );
             });
-          }
+            // Project this step's growth for the context guard: everything just
+            // appended rides the next prompt.
+            try {
+              const appended = next[next.length - 1];
+              contextGuard.noteAppendedChars(
+                JSON.stringify(appended?.content ?? []).length,
+              );
+            } catch {
+              /* estimation is best-effort — never break the loop */
+            }
+            return next;
+          },
+        };
 
-          // An abort inside the tool-exec loop only breaks that inner
-          // for-loop. Break the while too so no further model call is issued
-          // and control reaches the terminal step-cap handling below.
-          if (wasAborted) {
-            break;
-          }
+        const activeSpan = otelTrace.getSpan(turnContext);
+        const { stream: engineStream, resultPromise } = runAgenticLoop(
+          adapter,
+          currentMessages.slice(),
+          {
+            tools: engineTools,
+            abortSignal: internalAbort.signal,
+            ...(activeSpan ? { span: activeSpan } : {}),
+          },
+        );
 
-          // Soft budget nudge: with the step cap approaching, tell the model
-          // to wrap up so the reserved forced-finalization call below stays a
-          // fallback, not the norm. Rides as a trailing text block on the
-          // tool_result user turn (cache-safe: it lives in the growing tail).
-          // The time-budget twin fires when the turn deadline is inside the
-          // wrap-up lead window instead.
-          const stepsRemaining = agenticStepBudget - step;
-          if (stepsRemaining > 0 && stepsRemaining <= 3) {
-            toolResults.push({
-              type: "text",
-              text:
-                `NOTE: Only ${stepsRemaining} tool step(s) remain. Consolidate what you have and ` +
-                (useFinalResultTool
-                  ? "call final_result with your best answer."
-                  : "provide your final answer."),
-            });
-          } else if (turnClock.shouldNudgeWrapup()) {
-            toolResults.push({
-              type: "text",
-              text: buildWrapupNudgeText(useFinalResultTool),
-            });
+        const pump = (async () => {
+          for await (const chunk of engineStream) {
+            if (chunk.content) {
+              channel.push({ content: chunk.content });
+              liveTextPushedLength += chunk.content.length;
+              aggregatedTurnText += chunk.content;
+            }
           }
+        })();
 
-          // Continue the loop: assistant turn + tool_result user turn.
-          // Filter server_tool_use blocks (Anthropic API rejects them in
-          // subsequent message turns).
-          const assistantContent = response.content.filter(
-            (block: { type: string }) => block.type !== "server_tool_use",
-          ) as (typeof currentMessages)[number]["content"];
-          currentMessages.push({
-            role: "assistant",
-            content: assistantContent,
-          });
-          currentMessages.push({
-            role: "user",
-            content: toolResults,
-          });
-          // Project this step's growth for the context guard: everything
-          // just appended (tool results + nudge text) rides the next prompt.
-          contextGuard.noteAppendedChars(
-            toolResults.reduce(
-              (sum, block) =>
-                sum +
-                ("content" in block
-                  ? block.content.length
-                  : (block as { text: string }).text.length),
-              0,
-            ),
+        let engineResult;
+        let turnFailure: unknown;
+        try {
+          engineResult = await resultPromise;
+        } catch (error) {
+          turnFailure = error;
+        }
+        // Drained tolerantly and exactly once: when a turn ends by abort the
+        // channel rejects too, and re-awaiting a settled rejection would rethrow
+        // the error the branch below has already decided to absorb.
+        await pump.catch(() => {});
+        if (turnFailure !== undefined) {
+          if (internalAbort.signal.aborted || isAbortError(turnFailure)) {
+            wasAborted = true;
+          } else {
+            throw turnFailure;
+          }
+        }
+
+        if (engineResult) {
+          usage.input += engineResult.usage.inputTokens;
+          usage.output += engineResult.usage.outputTokens;
+          finishReasonRef.value =
+            engineResult.rawStopReason ?? finishReasonRef.value;
+          // NOT `toolCalls.length === 0`: that array accumulates across the
+          // WHOLE turn, so a turn that called a tool in step 1 and answered
+          // with text in step 2 would look unfinished and fall into terminal
+          // handling. The finish reason is the per-turn signal — the engine
+          // reports "tool-calls" only when the cap was hit with tools still
+          // pending.
+          modelFinished =
+            engineResult.toolCalls.length === 0 ||
+            engineResult.finishReason !== "tool-calls";
+          // Replace in place: the terminal block and the finalization call both
+          // read `currentMessages`.
+          currentMessages.length = 0;
+          currentMessages.push(
+            ...(engineResult.conversation as typeof currentMessages),
           );
+        }
+        if (internalAbort.signal.aborted) {
+          wasAborted = true;
         }
 
         // Terminal handling — the loop exited without a model-initiated
@@ -6002,507 +5811,288 @@ export class GoogleVertexProvider extends BaseProvider {
       options.abortSignal?.removeEventListener("abort", onCallerAbort);
     };
 
-    while (step < agenticStepBudget) {
-      // Honor aborts BETWEEN steps (caller signal OR turn-clock watchdogs —
-      // all fan into internalAbort): break into terminal handling instead of
-      // throwing (a throw routes consumers into abortSignal-less fallback
-      // retries — observed in production as a 600s abort no-op).
-      if (internalAbort.signal.aborted) {
-        wasAborted = true;
-        break;
+    // Executors handed to the engine, taken through the turn's
+    // DedupExecuteMap so an identical repeated call is answered from the
+    // per-turn cache rather than run again (BZ-3327), and guarded exactly as
+    // the hand-rolled loop guarded them: a per-tool bound so a wedged tool
+    // costs ONE STEP rather than the whole turn, raced against the turn's
+    // abort, and a stall-clock ping either side.
+    const engineTools: NonNullable<AgenticLoopOptions["tools"]> = {};
+    for (const toolName of executeMap.keys()) {
+      const wrapped = executeMap.get(toolName);
+      if (!wrapped) {
+        continue;
       }
-      // Context guard: the projected next prompt (last call's REAL usage +
-      // this step's appended tool results/output) would cross the window
-      // threshold — stop the tool loop and synthesize from what we have.
-      if (contextGuard.shouldStop()) {
-        const reclaimed = reclaimVertexAnthropicContext(
-          currentMessages,
-          modelName,
-          contextGuard.projectedNextPromptTokens,
-        );
-        if (reclaimed) {
-          contextGuard.resetAfterReclaim();
-        } else {
-          hitContextLimit = true;
-          logger.warn(
-            `[GoogleVertex] Anthropic generate turn stopped by the context guard: ` +
-              `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
-              `>= threshold ${contextGuard.thresholdTokens} (step ${step}) — synthesizing a final answer.`,
-          );
-          break;
-        }
-      }
-      step++;
-      turnClock.noteProgress();
-      // Mid-turn discovery sync — see the stream twin.
-      this.refreshAnthropicToolDeclarations(
-        options.tools,
-        tools,
-        executeMap,
-        failedTools,
-      );
+      engineTools[toolName] = {
+        execute: guardToolExecutor(toolName, wrapped, {
+          toolTimeoutMs: toolExecTimeoutMs,
+          abortSignal: internalAbort.signal,
+          onProgress: () => turnClock.noteProgress(),
+        }),
+      };
+    }
 
-      try {
-        // Bound the SDK wait so a stalled Vertex/Anthropic call can't hang
-        // generate forever. options.timeout wins if set, otherwise default
-        // to 5 min — generous for tool-heavy turns.
-        // Vertex has no automatic prompt caching — place explicit cache_control
-        // breakpoints (system, tools, rolling history) so the conversation
-        // prefix is cached across turns instead of re-billed as fresh input
-        // every call. Re-applied per step: the stable prefix stays
-        // byte-identical (consistent cache key) while the rolling breakpoint
-        // follows the growing tail.
-        const cachedGenerate = applyVertexAnthropicCacheBreakpoints({
+    // The turn runs on the shared engine, exactly as the streaming twin does.
+    // maxSteps is agenticStepBudget, not maxSteps: the last slot is reserved
+    // for the forced final_result call in the terminal block below, and the
+    // engine must never spend it.
+    const baseAdapter = createAnthropicLoopAdapter<VertexAnthropicMessage>({
+      client,
+      maxSteps: agenticStepBudget,
+      toolsRecord: options.tools ?? {},
+      toolFailureBreaker: {
+        maxRetries: DEFAULT_TOOL_MAX_RETRIES,
+        // MCP failures are RETURNED, not thrown. Counting only throws lets
+        // the model grind on a blocked tool for the whole step budget.
+        classifyResultFailure: (output) =>
+          extractToolFailureText(output) ?? undefined,
+      },
+      buildParams: (conversation) => {
+        // Mid-turn discovery sync — see the stream twin.
+        this.refreshAnthropicToolDeclarations(
+          options.tools,
+          tools,
+          executeMap,
+          failedTools,
+        );
+        const cached = applyVertexAnthropicCacheBreakpoints({
           system: systemPromptWithSchema,
           tools,
-          messages: currentMessages,
+          messages: conversation,
         });
-        // The caller's abortSignal rides as an SDK request option so a
-        // mid-flight abort cancels the HTTP call itself (the SDK rejects with
-        // an abort-shaped error the per-step catch below turns into a break).
-        const response = await withTimeout(
-          client.messages.create(
-            {
-              ...requestParams,
-              ...(cachedGenerate.system !== undefined && {
-                system: cachedGenerate.system as Parameters<
-                  typeof client.messages.create
-                >[0]["system"],
-              }),
-              ...(cachedGenerate.tools &&
-                cachedGenerate.tools.length > 0 && {
-                  tools: cachedGenerate.tools as Parameters<
-                    typeof client.messages.create
-                  >[0]["tools"],
-                }),
-              messages: cachedGenerate.messages as Parameters<
+        return {
+          ...requestParams,
+          ...(cached.system !== undefined && {
+            system: cached.system as Parameters<
+              typeof client.messages.create
+            >[0]["system"],
+          }),
+          ...(cached.tools &&
+            cached.tools.length > 0 && {
+              tools: cached.tools as Parameters<
                 typeof client.messages.create
-              >[0]["messages"],
+              >[0]["tools"],
+            }),
+          messages: cached.messages as Parameters<
+            typeof client.messages.create
+          >[0]["messages"],
+        };
+      },
+      planReclaim: (conversation) => {
+        if (!contextGuard.shouldStop()) {
+          return undefined;
+        }
+        const working = [...conversation];
+        if (
+          reclaimVertexAnthropicContext(
+            working,
+            modelName,
+            contextGuard.projectedNextPromptTokens,
+          )
+        ) {
+          contextGuard.resetAfterReclaim();
+          return { conversation: working };
+        }
+        hitContextLimit = true;
+        logger.warn(
+          `[GoogleVertex] Anthropic generate turn stopped by the context guard: ` +
+            `projected prompt ~${contextGuard.projectedNextPromptTokens} tokens ` +
+            `>= threshold ${contextGuard.thresholdTokens} — forcing finalization.`,
+        );
+        // STOP, not undefined: undefined means "nothing to reclaim, carry
+        // on", which is the opposite of what the guard just decided.
+        return { stop: true };
+      },
+      noteObservedPromptTokens: (tokens) => {
+        contextGuard.noteUsage(tokens, 0);
+      },
+      ...(useFinalResultTool
+        ? {
+            finalResultToolName: "final_result",
+            onTerminalResult: (text: string) => {
+              try {
+                structuredOutput = JSON.parse(text) as Record<string, unknown>;
+              } catch {
+                /* the caller's coercion layer repairs a partial payload */
+              }
+              logger.debug(
+                "[GoogleVertex] Extracted structured output from final_result tool (generate)",
+                { chars: text.length },
+              );
             },
-            { signal: internalAbort.signal },
+          }
+        : {}),
+    });
+
+    const adapter: typeof baseAdapter = {
+      ...baseAdapter,
+      buildStepRequest: (conversation, engineStep) => {
+        step = engineStep + 1;
+        turnClock.noteProgress();
+        return baseAdapter.buildStepRequest(conversation, engineStep);
+      },
+      // The provider's own miss handler, not the adapter's. The adapter
+      // resolves a deferred tool and hands back its RAW executor; this one
+      // also DECLARES the tool so Claude can call it on later steps, and
+      // registers it in the turn's DedupExecuteMap so a repeat with
+      // identical arguments is served from cache. Without the declaration a
+      // hydrated tool works exactly once and is then invisible again.
+      resolveToolOnMiss: (name) => {
+        const hydrated = this.resolveAnthropicToolOnMiss(
+          name,
+          options.tools,
+          tools,
+          executeMap,
+          failedTools,
+        );
+        if (!hydrated) {
+          return undefined;
+        }
+        return {
+          execute: guardToolExecutor(name, hydrated, {
+            toolTimeoutMs: toolExecTimeoutMs,
+            abortSignal: internalAbort.signal,
+            onProgress: () => turnClock.noteProgress(),
+          }),
+        };
+      },
+      buildToolResultMessages: (
+        conversation,
+        stepResult,
+        toolResults,
+        engineStep,
+      ) => {
+        for (const result of toolResults) {
+          allToolCalls.push({ toolName: result.name, args: result.args });
+          // Recorded here as well: `toolExecutions` feeds
+          // resolveToolExecutionRecords and the result's own
+          // toolExecutions, and pushing only to allToolCalls left it empty
+          // for every generate turn.
+          toolExecutions.push({
+            name: result.name,
+            input: result.args,
+            output: result.output,
+          });
+        }
+        // Per STEP, with appendStepText's newline join — this hook runs once
+        // per step and `stepResult.text` is that step's whole text.
+        accumulatedStepText = appendStepText(
+          accumulatedStepText,
+          stepResult.text,
+        );
+        const next = baseAdapter.buildToolResultMessages(
+          conversation,
+          stepResult,
+          toolResults,
+          engineStep,
+        );
+        // Time-budget wrap-up nudge, as a trailing text block on the
+        // tool_result user turn.
+        if (turnClock.shouldNudgeWrapup()) {
+          const last = next[next.length - 1];
+          if (last && Array.isArray(last.content)) {
+            last.content.push({
+              type: "text",
+              text: buildWrapupNudgeText(useFinalResultTool),
+            });
+          }
+        }
+        // Per step, not batched at the end: tools that completed in a step
+        // later aborted are real side effects and belong in the history.
+        withTimeout(
+          this.handleToolExecutionStorage(
+            toolResults.map((result) => ({
+              toolName: result.name,
+              args: result.args,
+              stepIndex: engineStep + 1,
+            })),
+            toolResults.map((result) => ({
+              toolName: result.name,
+              output: result.output,
+              stepIndex: engineStep + 1,
+            })),
+            options,
+            new Date(),
           ),
-          generateTimeoutMs,
-          "Anthropic generate timed out",
-        );
-
-        // Update token counts. input_tokens is the uncached remainder; cache
-        // reads/writes are reported separately and accumulated here so the
-        // result reflects the full picture.
-        totalInputTokens += response.usage?.input_tokens || 0;
-        totalOutputTokens += response.usage?.output_tokens || 0;
-        totalCacheReadTokens += response.usage?.cache_read_input_tokens || 0;
-        totalCacheCreationTokens +=
-          response.usage?.cache_creation_input_tokens || 0;
-        lastStopReason = response.stop_reason;
-        // Feed the context guard the FULL prompt size of this call (uncached
-        // input + cache reads/writes) — the API reports it every step.
-        contextGuard.noteUsage(
-          (response.usage?.input_tokens || 0) +
-            (response.usage?.cache_read_input_tokens || 0) +
-            (response.usage?.cache_creation_input_tokens || 0),
-          response.usage?.output_tokens || 0,
-        );
-
-        // Check if we need to handle tool use
-        const toolUseBlocks = (
-          response.content as VertexAnthropicContentBlock[]
-        ).filter(
-          (
-            block,
-          ): block is {
-            type: "tool_use";
-            id: string;
-            name: string;
-            input: Record<string, unknown>;
-          } => block.type === "tool_use",
-        );
-
-        // Check for final_result tool call (for structured output)
-        if (useFinalResultTool) {
-          const finalResultCall = toolUseBlocks.find(
-            (block) => block.name === "final_result",
+          TOOL_STORAGE_TIMEOUT_MS,
+          "tool storage write timed out",
+        ).catch((error: unknown) => {
+          logger.warn(
+            "[GoogleVertex] Failed to store native Anthropic generate tool executions",
+            {
+              error: error instanceof Error ? error.message : String(error),
+            },
           );
-          if (finalResultCall) {
-            // Extract structured output and convert to JSON string for finalText
-            structuredOutput = finalResultCall.input;
-            finalText = JSON.stringify(structuredOutput);
-            modelFinished = true;
-            logger.debug(
-              "[GoogleVertex] Extracted structured output from final_result tool (generate)",
-              { keys: Object.keys(structuredOutput) },
-            );
-            break; // We have the structured output, we're done
-          }
-        }
-
-        // Extract text from response
-        const textBlocks = (
-          response.content as VertexAnthropicContentBlock[]
-        ).filter(
-          (block): block is { type: "text"; text: string } =>
-            block.type === "text",
-        );
-        const responseText = textBlocks.map((b) => b.text).join("");
-
-        if (toolUseBlocks.length === 0) {
-          // No tool calls, we're done
-          finalText = responseText || accumulatedStepText;
-          modelFinished = true;
-          break;
-        }
-
-        // Handle tool calls. The array also carries the trailing soft-budget
-        // nudge text block appended below (tool_result blocks stay first, as
-        // the Anthropic API requires).
-        const toolResults: Array<
-          | {
-              type: "tool_result";
-              tool_use_id: string;
-              content: string;
-            }
-          | { type: "text"; text: string }
-        > = [];
-        // Per-step bookkeeping for conversation-memory storage. Tracks calls
-        // and results for ONLY the tools fired in this step so the storage
-        // hook can tag them with the current stepIndex.
-        const stepStorageCalls: Array<{
-          toolCallId: string;
-          toolName: string;
-          args: Record<string, unknown>;
-        }> = [];
-        const stepStorageResults: Array<{
-          toolCallId: string;
-          toolName: string;
-          output: unknown;
-        }> = [];
-        // Note: tool:start / tool:end events are emitted by ToolsManager's
-        // wrapped `execute` (see ToolsManager.ts:355) — no inline emit needed.
-        for (const toolUse of toolUseBlocks) {
-          // Honor a deadline/stall/caller abort BETWEEN tool executions —
-          // without this check a multi-tool step keeps executing its whole
-          // batch (up to N × toolTimeoutMs past the deadline) before the
-          // while-top check finally breaks. Skipped tools get neither a call
-          // row nor a result row, so persisted history stays paired.
-          if (internalAbort.signal.aborted) {
-            wasAborted = true;
-            break;
-          }
-          allToolCalls.push({
-            toolName: toolUse.name,
-            args: toolUse.input,
-          });
-          stepStorageCalls.push({
-            toolCallId: toolUse.id,
-            toolName: toolUse.name,
-            args: toolUse.input,
-          });
-
-          // Consecutive-failure breaker: stop re-executing a tool that has
-          // already failed DEFAULT_TOOL_MAX_RETRIES times this turn (ports
-          // the Gemini loops' failedTools map — the Anthropic loops let a
-          // blocked tool be retried for the entire remaining step budget).
-          const failedInfo = failedTools.get(toolUse.name);
-          if (failedInfo && failedInfo.count >= DEFAULT_TOOL_MAX_RETRIES) {
-            logger.warn(
-              `[GoogleVertex] Tool "${toolUse.name}" has exceeded retry limit (${DEFAULT_TOOL_MAX_RETRIES}), skipping execution`,
-            );
-            const errMsg = `TOOL_PERMANENTLY_FAILED: The tool "${toolUse.name}" has failed ${failedInfo.count} times and will not be retried. Last error: ${failedInfo.lastError}. Please proceed without using this tool or inform the user that this functionality is unavailable.`;
-            const errorPayload = { error: errMsg };
-            toolExecutions.push({
-              name: toolUse.name,
-              input: toolUse.input,
-              output: errorPayload,
-            });
-            toolResults.push({
-              type: "tool_result",
-              tool_use_id: toolUse.id,
-              content: errMsg,
-            });
-            stepStorageResults.push({
-              toolCallId: toolUse.id,
-              toolName: toolUse.name,
-              output: errorPayload,
-            });
-            continue;
-          }
-
-          let execute = executeMap.get(toolUse.name);
-          if (!execute) {
-            // Snapshot miss — see the stream twin.
-            execute = this.resolveAnthropicToolOnMiss(
-              toolUse.name,
-              options.tools,
-              tools,
-              executeMap,
-              failedTools,
-            );
-          }
-          if (execute) {
-            try {
-              const toolOptions = {
-                toolCallId: toolUse.id,
-                messages: [],
-                abortSignal: internalAbort.signal,
-              };
-              turnClock.noteProgress();
-              // Bound the execute() await — a wedged tool costs one step
-              // (error tool_result), not the whole turn — and race it against
-              // the turn's abort so a deadline/caller abort is observed
-              // IMMEDIATELY instead of after the tool settles (live-verified:
-              // an 8s deadline previously waited out a 60s tool).
-              const result = await withTimeout(
-                raceWithAbort(
-                  Promise.resolve(execute(toolUse.input, toolOptions)),
-                  internalAbort.signal,
-                ),
-                toolExecTimeoutMs,
-                `Tool "${toolUse.name}" execution timed out after ${toolExecTimeoutMs}ms`,
-              );
-              turnClock.noteProgress();
-              // Error-shaped success (MCP isError / { error } payloads —
-              // e.g. proxy-blocked tools) counts toward the breaker too:
-              // these fail without throwing, and only counting throws lets
-              // the model grind on a blocked tool for the whole budget.
-              const resultErrorText = extractToolFailureText(result);
-              if (resultErrorText) {
-                const info = failedTools.get(toolUse.name) || {
-                  count: 0,
-                  lastError: "",
-                };
-                info.count++;
-                info.lastError = resultErrorText;
-                failedTools.set(toolUse.name, info);
-              } else {
-                // Genuinely consecutive: a success clears the strike count
-                // (argument-dependent soft errors — file-not-found on
-                // different paths — must not disable a working tool).
-                failedTools.delete(toolUse.name);
-              }
-              toolExecutions.push({
-                name: toolUse.name,
-                input: toolUse.input,
-                output: result,
-              });
-              // Anthropic requires tool_result.content to be a string.
-              // JSON.stringify returns undefined for undefined/function/symbol,
-              // so coerce defensively to keep the follow-up turn valid.
-              const resultContent =
-                typeof result === "string"
-                  ? result
-                  : stringifyContentSafe(result ?? null);
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
-                content: resultContent,
-              });
-              stepStorageResults.push({
-                toolCallId: toolUse.id,
-                toolName: toolUse.name,
-                output: result,
-              });
-            } catch (err) {
-              // An aborted tool call is a cancellation, not a tool failure —
-              // break the turn without recording an error execution/result.
-              if (internalAbort.signal.aborted || isAbortError(err)) {
-                // Keep persisted tool history paired: the call row was
-                // already pushed above, so record a neutral cancellation
-                // result (NOT an error) — an unpaired tool_use replayed on
-                // the next turn would be rejected by the Anthropic API.
-                stepStorageResults.push({
-                  toolCallId: toolUse.id,
-                  toolName: toolUse.name,
-                  output: { aborted: true },
-                });
-                wasAborted = true;
-                break;
-              }
-              turnClock.noteProgress();
-              if (err instanceof TimeoutError) {
-                this.emitTurnEvent({
-                  phase: "tool-timeout",
-                  step,
-                  maxSteps,
-                  toolName: toolUse.name,
-                });
-              }
-              // Count the failure toward the consecutive-failure breaker.
-              const thrownErrorText =
-                err instanceof Error ? err.message : String(err);
-              const info = failedTools.get(toolUse.name) || {
-                count: 0,
-                lastError: "",
-              };
-              info.count++;
-              info.lastError = thrownErrorText;
-              failedTools.set(toolUse.name, info);
-              logger.warn(
-                `[GoogleVertex] Tool "${toolUse.name}" failed (attempt ${info.count}/${DEFAULT_TOOL_MAX_RETRIES}): ${thrownErrorText}`,
-              );
-              const errMsg = `Error executing tool "${toolUse.name}": ${thrownErrorText}`;
-              const errorPayload = { error: errMsg };
-              toolExecutions.push({
-                name: toolUse.name,
-                input: toolUse.input,
-                output: errorPayload,
-              });
-              toolResults.push({
-                type: "tool_result",
-                tool_use_id: toolUse.id,
-                content: errMsg,
-              });
-              stepStorageResults.push({
-                toolCallId: toolUse.id,
-                toolName: toolUse.name,
-                output: errorPayload,
-              });
-            }
-          } else {
-            const errMsg = `TOOL_NOT_FOUND: The tool "${toolUse.name}" does not exist.`;
-            const errorPayload = { error: errMsg };
-            // A missing tool counts toward the breaker too — a model
-            // grinding on a hallucinated/stale tool name must not burn the
-            // whole step budget on TOOL_NOT_FOUND round-trips.
-            const notFoundInfo = failedTools.get(toolUse.name) || {
-              count: 0,
-              lastError: "",
-            };
-            notFoundInfo.count++;
-            notFoundInfo.lastError = errMsg;
-            failedTools.set(toolUse.name, notFoundInfo);
-            toolExecutions.push({
-              name: toolUse.name,
-              input: toolUse.input,
-              output: errorPayload,
-            });
-            toolResults.push({
-              type: "tool_result",
-              tool_use_id: toolUse.id,
-              content: errMsg,
-            });
-            stepStorageResults.push({
-              toolCallId: toolUse.id,
-              toolName: toolUse.name,
-              output: errorPayload,
-            });
-          }
-        }
-
-        // Persist this step's tool calls/results into conversation memory.
-        // Without this, tool_call / tool_result rows never reach Redis and
-        // the chat-history UI loses every tool invocation.
-        // Fire-and-forget — storage failures must not break generation.
-        // Runs BEFORE the abort break below so tools that DID complete in an
-        // aborted step (real side effects) still reach the chat history.
-        if (stepStorageCalls.length > 0 || stepStorageResults.length > 0) {
-          withTimeout(
-            this.handleToolExecutionStorage(
-              stepStorageCalls.map((c) => ({ ...c, stepIndex: step })),
-              stepStorageResults.map((r) => ({ ...r, stepIndex: step })),
-              options,
-              new Date(),
-            ),
-            TOOL_STORAGE_TIMEOUT_MS,
-            "tool storage write timed out",
-          ).catch((error: unknown) => {
-            logger.warn(
-              "[GoogleVertex] Failed to store native Anthropic generate tool executions",
-              {
-                error: error instanceof Error ? error.message : String(error),
-              },
-            );
-          });
-        }
-
-        // An abort inside the tool-exec loop only breaks that inner for-loop.
-        // Break the while too so no further model call is issued and control
-        // reaches the terminal step-cap handling below.
-        if (wasAborted) {
-          break;
-        }
-
-        // Soft budget nudge: with the step cap approaching, tell the model to
-        // wrap up so the reserved forced-finalization call below stays a
-        // fallback, not the norm. Rides as a trailing text block on the
-        // tool_result user turn (cache-safe: it lives in the growing tail).
-        // The time-budget twin fires when the turn deadline is inside the
-        // wrap-up lead window instead.
-        const stepsRemaining = agenticStepBudget - step;
-        if (stepsRemaining > 0 && stepsRemaining <= 3) {
-          toolResults.push({
-            type: "text",
-            text:
-              `NOTE: Only ${stepsRemaining} tool step(s) remain. Consolidate what you have and ` +
-              (useFinalResultTool
-                ? "call final_result with your best answer."
-                : "provide your final answer."),
-          });
-        } else if (turnClock.shouldNudgeWrapup()) {
-          toolResults.push({
-            type: "text",
-            text: buildWrapupNudgeText(useFinalResultTool),
-          });
-        }
-
-        // Add assistant message and tool results to continue the loop
-        // Filter out server_tool_use blocks that the Anthropic API doesn't accept in messages
-        const assistantContent = response.content.filter(
-          (block: { type: string }) => block.type !== "server_tool_use",
-        ) as (typeof currentMessages)[number]["content"];
-        currentMessages.push({
-          role: "assistant",
-          content: assistantContent,
         });
-        currentMessages.push({
-          role: "user",
-          content: toolResults,
-        });
-        // Project this step's growth for the context guard: everything just
-        // appended (tool results + nudge text) rides the next prompt. The
-        // assistant output was already counted via noteUsage.
-        contextGuard.noteAppendedChars(
-          toolResults.reduce(
-            (sum, block) =>
-              sum +
-              ("content" in block
-                ? block.content.length
-                : (block as { text: string }).text.length),
-            0,
-          ),
-        );
-
-        // Accumulate the step's prose so a capped turn can still surface it —
-        // finalText is reserved for model-initiated finishes.
-        accumulatedStepText = appendStepText(accumulatedStepText, responseText);
-      } catch (error) {
-        // A mid-request abort surfaces as an abort-shaped SDK rejection (we
-        // pass internalAbort.signal as the request signal above, and the
-        // caller's signal + turn-clock watchdogs all fan into it). Break
-        // gracefully into the terminal handling instead of re-throwing — a
-        // re-throw routes the caller's abort into abortSignal-less fallback
-        // retries. Dual check as in the Gemini loops: the internal signal OR
-        // an abort-shaped error either way means "stop", not a real failure.
-        if (internalAbort.signal.aborted || isAbortError(error)) {
-          wasAborted = true;
-          break;
-        }
-        logger.error("[GoogleVertex] Native Anthropic SDK generate error", {
-          error,
-          model: modelName,
-          step,
-          status: (error as { status?: number })?.status,
-        });
-        // Best-effort request context for formatProviderError — see the
-        // native Gemini catch for rationale.
         try {
-          if (error && typeof error === "object") {
-            (error as Record<string, unknown>).requestModel = modelName;
-          }
+          const appended = next[next.length - 1];
+          contextGuard.noteAppendedChars(
+            JSON.stringify(appended?.content ?? []).length,
+          );
         } catch {
-          /* frozen/sealed error — context stays best-effort */
+          /* estimation is best-effort — never break the loop */
         }
-        releaseTurnResources();
-        throw this.handleProviderError(error);
+        return next;
+      },
+    };
+
+    const { stream: engineStream, resultPromise } = runAgenticLoop(
+      adapter,
+      currentMessages.slice(),
+      {
+        tools: engineTools,
+        abortSignal: internalAbort.signal,
+      },
+    );
+
+    // Drained and discarded: generate() returns one result rather than
+    // streaming, and the per-step text is accumulated in
+    // buildToolResultMessages instead — appendStepText joins steps with a
+    // NEWLINE, which a chunk-by-chunk `+=` here would silently drop, running
+    // consecutive steps' text together. The drain still has to happen:
+    // leaving the channel unread stalls the engine once its buffer fills.
+    const pump = (async () => {
+      for await (const chunk of engineStream) {
+        void chunk;
       }
+    })();
+
+    let engineResult;
+    let turnFailure: unknown;
+    try {
+      engineResult = await resultPromise;
+    } catch (error) {
+      turnFailure = error;
+    }
+    await pump.catch(() => {});
+    if (turnFailure !== undefined) {
+      if (internalAbort.signal.aborted || isAbortError(turnFailure)) {
+        wasAborted = true;
+      } else {
+        logger.error("[GoogleVertex] Native Anthropic SDK generate error", {
+          error: turnFailure,
+          model: modelName,
+        });
+        throw this.handleProviderError(turnFailure);
+      }
+    }
+
+    if (engineResult) {
+      totalInputTokens += engineResult.usage.inputTokens;
+      totalOutputTokens += engineResult.usage.outputTokens;
+      totalCacheReadTokens += engineResult.usage.cacheReadTokens ?? 0;
+      totalCacheCreationTokens += engineResult.usage.cacheWriteTokens ?? 0;
+      lastStopReason = engineResult.rawStopReason ?? lastStopReason;
+      finalText = engineResult.text || finalText;
+      // Replace in place: the terminal block and the finalization call both
+      // read `currentMessages`.
+      currentMessages.length = 0;
+      currentMessages.push(
+        ...(engineResult.conversation as typeof currentMessages),
+      );
+    }
+    if (internalAbort.signal.aborted) {
+      wasAborted = true;
     }
 
     // Terminal handling — the loop exited without a model-initiated finish

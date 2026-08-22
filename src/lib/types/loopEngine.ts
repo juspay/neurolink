@@ -34,6 +34,19 @@ export type AgenticLoopUsage = {
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
   reasoningTokens?: number;
+  /**
+   * Cache writes split by time-to-live, which Anthropic reports separately
+   * from the total under `cache_creation.ephemeral_5m_input_tokens` and
+   * `ephemeral_1h_input_tokens`.
+   *
+   * Carried because the Claude-on-Vertex turn span reports both as
+   * `input_cache_creation_5m` / `_1h`, and `cacheWriteTokens` alone cannot
+   * reconstruct them — the two tiers are priced differently, so collapsing
+   * them loses the only signal that says which one a turn actually bought.
+   * Undefined for providers that never report the split.
+   */
+  cacheWrite5mTokens?: number;
+  cacheWrite1hTokens?: number;
 };
 
 export type AgenticLoopStepResult<TRaw = unknown> = {
@@ -246,18 +259,51 @@ export type AgenticLoopAdapter<TConversation = unknown, TRaw = unknown> = {
  * Anthropic has never had one, and setting it for both would change native
  * Anthropic's behaviour under the guise of a shared refactor.
  */
-export type AnthropicLoopAdapterConfig = {
-  client: Pick<Anthropic, "messages">;
+/**
+ * Construction input for `createAnthropicLoopAdapter`, shared by direct
+ * Anthropic and Claude-on-Vertex.
+ *
+ * Parameterized on the message shape because the two do NOT agree on it.
+ * Direct Anthropic uses the SDK's `MessageParam`; Claude-on-Vertex carries its
+ * own `VertexAnthropicMessage`, whose role union is narrower
+ * ("user" | "assistant", no "system") and whose image `media_type` is a plain
+ * string rather than the SDK's four-way union. Neither is assignable to the
+ * other, so pinning the adapter to one of them locked the other out entirely.
+ * The engine has been generic over its conversation type all along; this makes
+ * the adapter config match.
+ */
+export type AnthropicLoopAdapterConfig<
+  TMessage = Anthropic.Messages.MessageParam,
+> = {
+  /**
+   * Only `messages.create` is ever called, so only that is required.
+   *
+   * `Pick<Anthropic, "messages">` looked equivalent and is not: it demands the
+   * FULL `Messages` resource, including `batches` and the private `_client`.
+   * That excludes `AnthropicVertex`, whose `MessagesResource` is structurally
+   * smaller but has the one method this adapter uses — a client the adapter
+   * can drive perfectly, rejected for members it never touches.
+   */
+  client: {
+    messages: Pick<Anthropic["messages"], "create">;
+  };
   maxSteps: number;
   /**
    * Build one step's request. A closure so the per-turn work the caller
    * already does — system prompt, tool declarations, sampling, thinking
    * config, cache breakpoints — stays where it is rather than moving here.
    */
+  /**
+   * Returns the NON-streaming params. The adapter adds `stream: true` itself,
+   * so requiring the streaming variant here would force every caller to
+   * declare a literal `true` it does not control — and a caller whose params
+   * type carries `stream?: boolean` fails to match `stream: true` for a field
+   * the adapter is about to overwrite.
+   */
   buildParams: (
-    conversation: Anthropic.Messages.MessageParam[],
+    conversation: TMessage[],
     step: number,
-  ) => Anthropic.Messages.MessageCreateParams;
+  ) => Anthropic.Messages.MessageCreateParamsNonStreaming;
   /** The turn's live tool record, used for deferred-catalog resolution. */
   toolsRecord: Record<string, Tool>;
   /**
@@ -293,9 +339,9 @@ export type AnthropicLoopAdapterConfig = {
    * drops this overflows the window mid-turn.
    */
   planReclaim?: (
-    conversation: Anthropic.Messages.MessageParam[],
+    conversation: TMessage[],
     step: number,
-  ) => Anthropic.Messages.MessageParam[] | undefined;
+  ) => AgenticLoopReclaimResult<TMessage[]> | undefined;
   /**
    * Calibration feedback for the provider's reclaim guard: the FULL prompt
    * size for the step just made — uncached input plus both cache tiers.
@@ -330,6 +376,21 @@ export type GeminiToolExecutionGuards = {
    * legitimately slow tool reads as a stalled turn without this.
    */
   onProgress?: () => void;
+  /**
+   * Wrap one tool call in the provider's own observability.
+   *
+   * A function rather than a pair of start/end callbacks, because the caller
+   * needs the execution to happen INSIDE its span's context — spans opened by
+   * the tool itself must nest under the tool call, not dangle as siblings of
+   * the turn. Handing over the whole invocation is the only shape that lets a
+   * caller do `context.with(span, run)`.
+   *
+   * The caller awaits `run()` itself, so it sees the settled result and can
+   * mark a FAILURE THAT WAS RETURNED rather than thrown: MCP tools report
+   * errors in their payload, and an observation that only watches for
+   * exceptions records those calls as successful.
+   */
+  withToolSpan?: <T>(name: string, run: () => Promise<T>) => Promise<T>;
 };
 
 /** What one Gemini step produced, carried to `buildToolResultMessages`. */
