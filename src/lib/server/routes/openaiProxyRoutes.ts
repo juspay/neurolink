@@ -25,6 +25,7 @@ import {
   handleTranslatedJsonRequest,
   handleTranslatedStreamRequest,
 } from "../../proxy/proxyTranslationEngine.js";
+import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { logRequest } from "../../proxy/requestLogger.js";
 import { buildProxyTranslationPlan } from "../../proxy/routingPolicy.js";
 import type {
@@ -180,6 +181,7 @@ async function handleOpenAIToAnthropicBridge(args: {
       toolCount,
       account: "",
       accountType: "openai-bridge",
+      ...buildClientAttribution(ctx.headers),
       responseStatus,
       responseTimeMs: Date.now() - requestStartTime,
       ...extra,

@@ -181,3 +181,47 @@ uniqueness, so a fixed correlation header or an idempotency wrapper produces
 genuinely distinct requests that agree on id, account and model. Those each
 carry their own usage, and are counted separately rather than collapsed into
 one.
+
+## Per-CLI attribution
+
+Each row's `usage` carries a `byClient` map splitting the same totals by the CLI
+that spent them:
+
+```json
+"usage": {
+  "requests": 412, "costUsd": 18.44,
+  "byClient": {
+    "claude-code": { "requests": 380, "costUsd": 17.90, "inputTokens": 1200000, "outputTokens": 90000, "cacheReadTokens": 400000, "cacheCreationTokens": 12000 },
+    "opencode":    { "requests": 32,  "costUsd": 0.54,  "inputTokens": 40000,   "outputTokens": 3000,  "cacheReadTokens": 0,      "cacheCreationTokens": 0 }
+  }
+}
+```
+
+One pooled account is routinely shared by several CLIs, so an account-level
+total cannot answer _what_ is costing money — only _which credential_ paid. The
+split reconciles with the account total: summing `byClient` requests and cost
+gives back `requests` and `costUsd`, and a test asserts it, so a dashboard
+showing both cannot contradict itself.
+
+### Client names
+
+The name is derived from `User-Agent`, and the raw header is stored alongside
+it. Only prefixes observed in real traffic are classified — a guessed mapping
+that never matches looks identical to one that works, and files a client under
+the wrong name when the guess collides.
+
+| Key            | Meaning                                                              |
+| -------------- | -------------------------------------------------------------------- |
+| `claude-code`  | `claude-cli/*`                                                       |
+| `sdk`          | `ai/*`, the AI SDK's own agent                                       |
+| `unknown`      | A `User-Agent` was sent but is not classified yet                    |
+| `unattributed` | No `User-Agent` recorded — traffic logged before attribution existed |
+
+`unknown` and `unattributed` are deliberately distinct: the first is a client
+we saw and could not name, the second is history we cannot reconstruct. Folding
+them together would make old traffic look like an unidentified tool.
+
+For an `unknown` client the raw `User-Agent` is preserved on the log record, so
+it stays attributable by its own header rather than collapsing into one bucket
+with every other unrecognised caller. Adding a name is then a one-line entry in
+`src/lib/proxy/clientAttribution.ts` once the header has actually been observed.

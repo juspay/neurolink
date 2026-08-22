@@ -81,6 +81,7 @@ import {
   logRequest,
   logRequestAttempt,
 } from "../../proxy/requestLogger.js";
+import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { createSSEInterceptor } from "../../proxy/sseInterceptor.js";
 import {
   createStreamTerminalOutcomeTracker,
@@ -6971,6 +6972,7 @@ function createClaudeRequestRuntimeContext(args: {
       toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
       account: finalAccountLabel ?? "",
       accountType: finalAccountType ?? "",
+      ...buildClientAttribution(ctx.headers),
       responseStatus: status,
       responseTimeMs: Date.now() - requestStartTime,
       ...(errorType ? { errorType } : {}),

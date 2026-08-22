@@ -1679,6 +1679,98 @@ async function testCodexConfiguratorRoundTrip(): Promise<boolean> {
 }
 
 /**
+ * Usage must be attributable to the CLI that spent it, not only the account.
+ *
+ * The proxy already derived a client label from User-Agent, then dropped it
+ * into an OTel span attribute and nothing else. The request log never carried
+ * it, so the ledger could group by account and by nothing else — a pooled
+ * operator could see that an account burned $40 today but not whether it was
+ * Claude Code or a runaway script.
+ *
+ * Driven the way the CLIs drive it: real requests to a spawned proxy carrying
+ * real User-Agent headers, then the attribution read back out of the log the
+ * proxy itself wrote. Nothing here is stubbed.
+ */
+async function testPerClientAttribution(): Promise<boolean | null> {
+  const logsDir = path.join(os.homedir(), ".neurolink", "logs");
+  const today = new Date().toISOString().slice(0, 10);
+  const logPath = path.join(logsDir, `proxy-${today}.jsonl`);
+  const sizeBefore = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0;
+
+  // Two distinct callers: one the classifier knows, one it does not.
+  const agents = [
+    { ua: "claude-cli/2.1.223 (external, cli)", expect: "claude-code" },
+    { ua: "some-unreleased-cli/9.9.9", expect: "unknown" },
+  ];
+  for (const a of agents) {
+    await fetchProxy("/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "user-agent": a.ua },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1,
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    });
+  }
+
+  if (!fs.existsSync(logPath)) {
+    log(
+      "proxy wrote no request log; attribution could not be observed",
+      "yellow",
+    );
+    return null;
+  }
+  const appended = fs
+    .readFileSync(logPath, "utf8")
+    .slice(sizeBefore)
+    .split("\n")
+    .filter((l) => l.trim());
+  if (appended.length === 0) {
+    log(
+      "proxy appended no log lines; attribution could not be observed",
+      "yellow",
+    );
+    return null;
+  }
+
+  const seen = new Map<string, string | undefined>();
+  for (const line of appended) {
+    try {
+      const rec = JSON.parse(line) as {
+        clientApp?: string;
+        userAgent?: string;
+      };
+      if (rec.clientApp) {
+        seen.set(rec.clientApp, rec.userAgent);
+      }
+    } catch {
+      // partial trailing line
+    }
+  }
+
+  for (const a of agents) {
+    if (!seen.has(a.expect)) {
+      log(
+        `request log carried no attribution for the ${a.expect} caller`,
+        "red",
+      );
+      return false;
+    }
+  }
+  // The raw header must survive for the client the classifier cannot name,
+  // otherwise every unrecognised CLI collapses into one indistinguishable
+  // bucket and the feature is useless exactly where it is most needed.
+  const rawForUnknown = seen.get("unknown");
+  if (!rawForUnknown || !rawForUnknown.startsWith("some-unreleased-cli/")) {
+    log("an unrecognised client lost its raw User-Agent", "red");
+    return false;
+  }
+  log(`attributed ${seen.size} distinct clients from live traffic`, "green");
+  return true;
+}
+
+/**
  * Restoring must require proving we own the value, not just the URL.
  *
  * The base-URL check catches a user who repointed the client somewhere else,
@@ -3269,6 +3361,73 @@ async function testAccountsQuotaWindowsAreNormalised(): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+/**
+ * The ledger must split an account's usage by the CLI that spent it.
+ *
+ * One account is routinely shared by several CLIs, so an account-level total
+ * cannot answer "what is costing me this". Rows written before attribution
+ * existed carry no client at all and must land in their own bucket rather than
+ * being folded into a named one, which would overstate that client's spend.
+ */
+async function testLedgerSplitsUsageByClient(): Promise<boolean> {
+  const { readAccountUsage, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  const rows = [
+    ledgerRow({ requestId: "c1", account: "a@t", clientApp: "claude-code" }),
+    ledgerRow({ requestId: "c2", account: "a@t", clientApp: "claude-code" }),
+    ledgerRow({ requestId: "o1", account: "a@t", clientApp: "opencode" }),
+    // Pre-attribution row: no clientApp, no userAgent.
+    ledgerRow({ requestId: "x1", account: "a@t" }),
+  ];
+  return await withLedgerHome(rows, LEDGER_DATE, async () => {
+    resetAccountLedgerCache();
+    const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+    if (!row) {
+      log("ledger reported nothing for an account with traffic", "red");
+      return false;
+    }
+    if (row.requests !== 4) {
+      log("ledger lost a request while splitting by client", "red");
+      return false;
+    }
+    const claude = row.byClient["claude-code"];
+    const opencode = row.byClient["opencode"];
+    const legacy = row.byClient["unattributed"];
+    if (!claude || claude.requests !== 2) {
+      log("ledger did not group both requests under their client", "red");
+      return false;
+    }
+    if (!opencode || opencode.requests !== 1) {
+      log("ledger dropped a second client's usage", "red");
+      return false;
+    }
+    if (!legacy || legacy.requests !== 1) {
+      log("a row predating attribution was not kept in its own bucket", "red");
+      return false;
+    }
+    // The split must reconcile with the total, or a dashboard showing both
+    // side by side contradicts itself.
+    const summed = Object.values(row.byClient).reduce(
+      (n, c) => n + c.requests,
+      0,
+    );
+    if (summed !== row.requests) {
+      log("per-client requests do not reconcile with the account total", "red");
+      return false;
+    }
+    const summedCost = Number(
+      Object.values(row.byClient)
+        .reduce((n, c) => n + c.costUsd, 0)
+        .toFixed(6),
+    );
+    if (summedCost !== row.costUsd) {
+      log("per-client cost does not reconcile with the account total", "red");
+      return false;
+    }
+    return true;
+  });
 }
 
 /** The route must join quota, stats and usage, and label the cost basis. */
@@ -5603,6 +5762,16 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Codex apply/restore round-trips a real config",
     fn: testCodexConfiguratorRoundTrip,
+    category: "proxy-config",
+  },
+  {
+    name: "Ledger: usage splits by calling CLI and reconciles",
+    fn: testLedgerSplitsUsageByClient,
+    category: "proxy-config",
+  },
+  {
+    name: "Attribution: the request log records the calling CLI",
+    fn: testPerClientAttribution,
     category: "proxy-config",
   },
   {
