@@ -15,6 +15,16 @@ const MAX_HOT_PATH_P95_MICROS = Number(
   process.env.PROXY_STATS_MAX_P95_MICROS ?? 50,
 );
 const MAX_FLUSH_MS = Number(process.env.PROXY_STATS_MAX_FLUSH_MS ?? 250);
+/**
+ * How many flushes to time.
+ *
+ * The gate used to gate on ONE wall-clock flush, which made it a coin flip on a
+ * contended runner: a real flush costs 3-6ms locally against a 250ms budget —
+ * 50-90x of headroom — and CI still read 545ms once and failed a PR that had
+ * touched nothing near the proxy. A budget with that much headroom failing does
+ * not mean the code regressed, it means one disk write got descheduled.
+ */
+const FLUSH_SAMPLES = Number(process.env.PROXY_STATS_FLUSH_SAMPLES ?? 7);
 const MAX_HEAP_GROWTH_BYTES = Number(
   process.env.PROXY_STATS_MAX_HEAP_GROWTH_BYTES ?? 16 * 1024 * 1024,
 );
@@ -67,9 +77,38 @@ try {
   );
   const hotPath = summarize(samplesMs);
 
-  const flushStartedAt = performance.now();
-  await store.flush();
-  const flushMs = performance.now() - flushStartedAt;
+  // Time several flushes and gate on the MEDIAN, so one descheduled write
+  // cannot fail the run. Max is still reported, because a genuine regression
+  // moves the whole distribution and hiding the tail would make that harder to
+  // see — it is just not what the gate trips on.
+  //
+  // Every sample dirties the store first, and that is load-bearing rather than
+  // incidental: flush() early-returns when nothing is pending
+  // (usageStats.ts:841-850), so repeat flushes over a clean store would time
+  // the early return and the gate would pass no matter how slow a real flush
+  // became. `flushSamplesWereReal` below asserts each sample actually had work
+  // to do, so that failure mode is caught rather than silently enjoyed.
+  //
+  // Dirtying with a single request per sample still measures the real cost: a
+  // flush writes the whole snapshot, so the disk write is the same size
+  // whether one mutation is pending or fifty thousand.
+  const flushSamplesMs: number[] = [];
+  let flushSamplesWereReal = true;
+  for (let index = 0; index < FLUSH_SAMPLES; index += 1) {
+    if (index > 0) {
+      store.recordAttempt("benchmark@example.com", "oauth");
+      store.recordFinalSuccess("benchmark@example.com", "oauth");
+    }
+    if (store.getPersistenceStatus().unpersistedMutations === 0) {
+      flushSamplesWereReal = false;
+    }
+    const flushStartedAt = performance.now();
+    await store.flush();
+    flushSamplesMs.push(performance.now() - flushStartedAt);
+  }
+  const sortedFlushMs = [...flushSamplesMs].sort((a, b) => a - b);
+  const flushMs = percentile(sortedFlushMs, 0.5);
+  const flushMaxMs = sortedFlushMs.at(-1) ?? 0;
   const snapshotBytes = (await stat(filePath)).size;
 
   const replacement = new ProxyUsageStatsStore({ filePath });
@@ -77,7 +116,9 @@ try {
   await replacement.initialize();
   const restoreMs = performance.now() - restoreStartedAt;
   const restored = replacement.getStats();
-  const expectedRequests = REQUESTS + 1_000;
+  // +(FLUSH_SAMPLES - 1) for the requests the flush-sampling loop records to
+  // keep each flush from hitting the early return.
+  const expectedRequests = REQUESTS + 1_000 + Math.max(0, FLUSH_SAMPLES - 1);
   const exact =
     restored.totalAttempts === expectedRequests &&
     restored.totalRequests === expectedRequests &&
@@ -90,6 +131,7 @@ try {
   };
   const passed =
     exact &&
+    flushSamplesWereReal &&
     hotPath.p95Micros <= budgets.hotPathP95Micros &&
     flushMs <= budgets.flushMs &&
     heapGrowthBytes <= budgets.heapGrowthBytes &&
@@ -101,6 +143,9 @@ try {
         requests: REQUESTS,
         hotPath,
         flushMs,
+        flushMaxMs,
+        flushSamples: flushSamplesMs.length,
+        flushSamplesWereReal,
         restoreMs,
         snapshotBytes,
         heapGrowthBytes,
