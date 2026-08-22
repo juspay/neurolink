@@ -1307,6 +1307,7 @@ console.log(result.content);
 - [LocalUsageReaderFailure](type-aliases/LocalUsageReaderFailure.md)
 - [LocalUsageAggregateReport](type-aliases/LocalUsageAggregateReport.md)
 - [LocalUsageClaudeRawUsage](type-aliases/LocalUsageClaudeRawUsage.md)
+- [LocalUsageCodexSessionRollup](type-aliases/LocalUsageCodexSessionRollup.md)
 - [AgenticLoopChunk](type-aliases/AgenticLoopChunk.md)
 - [AgenticLoopToolCall](type-aliases/AgenticLoopToolCall.md)
 - [AgenticLoopUsage](type-aliases/AgenticLoopUsage.md)

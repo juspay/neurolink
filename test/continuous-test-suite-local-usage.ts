@@ -141,6 +141,59 @@ async function withHome<T>(home: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Build a temp HOME containing one Codex rollout.
+ *
+ * Layout matches the real one: `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`,
+ * nested by date, so the reader's directory walk is exercised rather than
+ * assumed.
+ */
+function writeCodexFixtureHome(lines: string[]): string {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-codexusage-"));
+  const dir = path.join(home, ".codex", "sessions", "2026", "05", "22");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "rollout-2026-05-22T21-39-27-fixture.jsonl"),
+    lines.join("\n") + "\n",
+  );
+  return home;
+}
+
+/** One `token_count` event, carrying both counters the real format carries. */
+function codexTokenCount(
+  cumulative: { input: number; output: number; cached: number },
+  perTurn: { input: number; output: number; cached: number },
+): string {
+  const shape = (t: { input: number; output: number; cached: number }) => ({
+    input_tokens: t.input,
+    cached_input_tokens: t.cached,
+    output_tokens: t.output,
+    reasoning_output_tokens: 0,
+    total_tokens: t.input + t.output,
+  });
+  return JSON.stringify({
+    timestamp: "2026-05-22T16:11:27.095Z",
+    type: "event_msg",
+    payload: {
+      type: "token_count",
+      info: {
+        total_token_usage: shape(cumulative),
+        last_token_usage: shape(perTurn),
+        model_context_window: 258400,
+      },
+      rate_limits: { limit_id: "codex", plan_type: "prolite" },
+    },
+  });
+}
+
+function codexTurnContext(model: string): string {
+  return JSON.stringify({
+    timestamp: "2026-05-22T16:11:12.517Z",
+    type: "turn_context",
+    payload: { turn_id: "t1", model, cwd: "/tmp/fixture" },
+  });
+}
+
 async function runAllTests(): Promise<void> {
   await test("the SDK exports the local-usage surface", async () => {
     assert(
@@ -469,6 +522,136 @@ async function runAllTests(): Promise<void> {
         // already gone
       }
     }
+  });
+
+  await test("Codex: the cumulative counter is used, not a sum of per-turn values", async () => {
+    // This is the whole design decision, and the naive implementation is the
+    // wrong one. Every token_count event carries a cumulative
+    // total_token_usage AND a per-turn last_token_usage; the per-turn value
+    // repeats across events within a turn, so summing it double-counts.
+    // Measured over 108 real sessions, summing gave 9,191,613,238 tokens
+    // against a true 5,653,217,442 — 62.6% over, and 195% on the worst file.
+    //
+    // The fixture below is built so the two strategies cannot agree:
+    //   sum of per-turn : 100 + 200 + 200 + 300 = 800 output
+    //   cumulative final: 600 output
+    // A reader that sums reports 800. A correct one reports 600.
+    const home = writeCodexFixtureHome([
+      codexTurnContext("gpt-5.5"),
+      codexTokenCount(
+        { input: 1000, output: 100, cached: 400 },
+        { input: 1000, output: 100, cached: 400 },
+      ),
+      codexTokenCount(
+        { input: 3000, output: 300, cached: 1200 },
+        { input: 2000, output: 200, cached: 800 },
+      ),
+      // Repeated event for the same turn — the cumulative total does not
+      // advance, which is exactly what makes summing wrong.
+      codexTokenCount(
+        { input: 3000, output: 300, cached: 1200 },
+        { input: 2000, output: 200, cached: 800 },
+      ),
+      codexTokenCount(
+        { input: 6000, output: 600, cached: 2400 },
+        { input: 3000, output: 300, cached: 1200 },
+      ),
+    ]);
+
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["codex"];
+    assert(totals !== undefined, "the codex reader produced no totals");
+
+    assert(
+      totals!.outputTokens === 600,
+      `per-turn values were summed instead of using the cumulative counter — expected 600 output, got ${totals!.outputTokens}`,
+    );
+    // input is reported net of the cached subset: 6000 - 2400.
+    assert(
+      totals!.inputTokens === 3600 && totals!.cacheReadTokens === 2400,
+      `cached tokens were not separated from input — expected 3600/2400, got ${totals!.inputTokens}/${totals!.cacheReadTokens}`,
+    );
+    // Three of the four events advanced the counter; the repeat did not.
+    assert(
+      totals!.requests === 3,
+      `a repeated token_count event was counted as a billable turn — expected 3, got ${totals!.requests}`,
+    );
+    log(
+      "Codex usage comes from the cumulative counter, with cached split out of input",
+      "green",
+    );
+  });
+
+  await test("Codex: subscription usage reports no invented cost", async () => {
+    // Codex is a ChatGPT subscription — the rollouts carry rate_limits.plan_type.
+    // A per-token dollar figure would be an invention, so the tokens are real
+    // and the cost is declared unavailable rather than quietly zero.
+    const home = writeCodexFixtureHome([
+      codexTurnContext("gpt-5.5"),
+      codexTokenCount(
+        { input: 500, output: 50, cached: 100 },
+        { input: 500, output: 50, cached: 100 },
+      ),
+    ]);
+
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["codex"];
+    assert(totals !== undefined, "the codex reader produced no totals");
+    assert(
+      totals!.costConfidence === "unavailable",
+      "a subscription CLI reported a cost confidence other than unavailable",
+    );
+    assert(totals!.costUsd === 0, "a subscription CLI invented a dollar cost");
+    assert(
+      totals!.unpricedRequests === totals!.requests,
+      "a subscription CLI did not report all of its turns as unpriced",
+    );
+    assert(
+      totals!.unpricedModels.includes("gpt-5.5"),
+      "the model behind unpriced subscription turns was not named",
+    );
+    log(
+      "Codex reports real tokens and an explicitly unavailable cost",
+      "green",
+    );
+  });
+
+  await test("Codex: this machine's real rollouts scan coherently", async () => {
+    const realSessions = path.join(os.homedir(), ".codex", "sessions");
+    if (!fs.existsSync(realSessions)) {
+      throw new Error("SKIP: no ~/.codex/sessions on this machine");
+    }
+    const reader = await createLocalUsageReader("codex");
+    assert(await reader.detect(), "detect() denied a store that exists");
+
+    const week = await reader.scan({ sinceDays: 7 });
+    const month = await reader.scan({ sinceDays: 30 });
+
+    if (week.totals.requests === 0 && month.totals.requests === 0) {
+      throw new Error("SKIP: no Codex activity in the last 30 days");
+    }
+
+    assert(
+      month.filesScanned >= week.filesScanned,
+      "a wider time window scanned fewer rollouts than a narrower one",
+    );
+    assert(
+      month.totals.requests >= week.totals.requests,
+      "a wider time window produced fewer turns than a narrower one",
+    );
+    assert(
+      month.totals.costUsd === 0 &&
+        month.totals.costConfidence === "unavailable",
+      "real Codex rollouts produced an invented cost",
+    );
+    log(
+      `real Codex scan: ${month.totals.requests} turns over ${month.filesScanned} rollouts in 30d`,
+      "green",
+    );
   });
 
   await test("repeated scans of the same data agree", async () => {
