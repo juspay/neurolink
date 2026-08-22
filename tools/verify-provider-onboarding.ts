@@ -102,10 +102,17 @@ async function loadDescriptors(): Promise<ReadonlySet<string>> {
 }
 
 async function loadCatalog(): Promise<ReadonlySet<string>> {
-  const mod = (await import("../src/lib/providers/openaiCompatCatalog.js")) as {
-    OPENAI_COMPAT_CATALOG: ReadonlyArray<{ provider: string }>;
-  };
-  return new Set(mod.OPENAI_COMPAT_CATALOG.map((c) => c.provider));
+  // The field is `providerName`, not `provider`. Reading `.provider` yielded
+  // undefined for every row, so this Set was {undefined} and the catalog half
+  // of the catalog-or-class check below never matched anything — the gate has
+  // been resting entirely on nativeClasses since it was written.
+  //
+  // Import the real type instead of re-declaring a structural shape. The old
+  // local `{ provider: string }` cast is exactly what hid the mistake: it
+  // asserted a field that does not exist, and tools/ is excluded from
+  // tsconfig, so nothing ever typechecked the assertion.
+  const mod = await import("../src/lib/providers/openaiCompatCatalog.js");
+  return new Set(mod.OPENAI_COMPAT_CATALOG.map((c) => String(c.providerName)));
 }
 
 function loadNativeProviderNames(
