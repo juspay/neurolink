@@ -59,3 +59,18 @@ registerLocalUsageReader({
     return createClaudeCodeReader();
   },
 });
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "codex",
+    displayName: "Codex",
+    verified: true,
+    dedupStrategy: "session-dag",
+    costConfidence: "unavailable",
+    requiresSqlite: false,
+  },
+  factory: async () => {
+    const { createCodexReader } = await import("./codexReader.js");
+    return createCodexReader();
+  },
+});

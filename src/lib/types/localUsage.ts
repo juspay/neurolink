@@ -167,3 +167,18 @@ export type LocalUsageClaudeRawUsage = {
   cache_read_input_tokens?: number;
   cache_creation_input_tokens?: number;
 };
+
+/**
+ * One Codex rollout reduced to its session-level totals.
+ *
+ * The token figures here are the session's CUMULATIVE counter, not a sum of
+ * per-turn values — see `codexReader.ts` for why summing overstates by ~63%.
+ */
+export type LocalUsageCodexSessionRollup = {
+  model?: string;
+  input: number;
+  output: number;
+  cached: number;
+  /** token_count events where the cumulative total actually advanced. */
+  billableEvents: number;
+};
