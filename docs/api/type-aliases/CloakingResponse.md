@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CloakingResponse** = `object`
 
-Defined in: [types/proxy.ts:348](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L348)
+Defined in: [types/proxy.ts:360](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L360)
 
 Response envelope for cloaking pipeline.
 
@@ -18,7 +18,7 @@ Response envelope for cloaking pipeline.
 
 > **headers**: `Record`\<`string`, `string` \| `undefined`\>
 
-Defined in: [types/proxy.ts:349](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L349)
+Defined in: [types/proxy.ts:361](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L361)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:349](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **body**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:350](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L350)
+Defined in: [types/proxy.ts:362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L362)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:350](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **status**: `number`
 
-Defined in: [types/proxy.ts:351](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L351)
+Defined in: [types/proxy.ts:363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L363)

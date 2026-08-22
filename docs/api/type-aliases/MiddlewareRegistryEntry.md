@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareRegistryEntry** = `object`
 
-Defined in: [types/middleware.ts:213](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L213)
+Defined in: [types/middleware.ts:243](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L243)
 
 Middleware registry entry
 
@@ -18,7 +18,7 @@ Middleware registry entry
 
 > **name**: `string`
 
-Defined in: [types/middleware.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L214)
+Defined in: [types/middleware.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L244)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:214](https://github.com/juspay/neurolink/blob/f
 
 > **factory**: `MiddlewareFactory`
 
-Defined in: [types/middleware.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L215)
+Defined in: [types/middleware.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L245)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:215](https://github.com/juspay/neurolink/blob/f
 
 > **defaultConfig**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middleware.ts:216](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L216)
+Defined in: [types/middleware.ts:246](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L246)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/middleware.ts:216](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **description?**: `string`
 
-Defined in: [types/middleware.ts:217](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L217)
+Defined in: [types/middleware.ts:247](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L247)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/middleware.ts:217](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **version?**: `string`
 
-Defined in: [types/middleware.ts:218](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L218)
+Defined in: [types/middleware.ts:248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L248)

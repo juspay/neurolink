@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelComparison** = `object`
 
-Defined in: [types/model.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L236)
+Defined in: [types/model.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L244)
 
 Model comparison result
 
@@ -18,7 +18,7 @@ Model comparison result
 
 > **models**: [`ModelInfo`](ModelInfo.md)[]
 
-Defined in: [types/model.ts:237](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L237)
+Defined in: [types/model.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L245)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:237](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **comparison**: `object`
 
-Defined in: [types/model.ts:238](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L238)
+Defined in: [types/model.ts:246](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L246)
 
 #### capabilities
 

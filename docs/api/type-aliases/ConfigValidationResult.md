@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConfigValidationResult** = `object`
 
-Defined in: [types/config.ts:328](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L328)
+Defined in: [types/config.ts:452](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L452)
 
 Configuration validation result
 
@@ -18,7 +18,7 @@ Configuration validation result
 
 > **valid**: `boolean`
 
-Defined in: [types/config.ts:329](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L329)
+Defined in: [types/config.ts:453](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L453)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:329](https://github.com/juspay/neurolink/blob/ff50c
 
 > **errors**: `string`[]
 
-Defined in: [types/config.ts:330](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L330)
+Defined in: [types/config.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L454)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:330](https://github.com/juspay/neurolink/blob/ff50c
 
 > **warnings**: `string`[]
 
-Defined in: [types/config.ts:331](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L331)
+Defined in: [types/config.ts:455](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L455)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/config.ts:331](https://github.com/juspay/neurolink/blob/ff50c
 
 > **suggestions**: `string`[]
 
-Defined in: [types/config.ts:332](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/config.ts#L332)
+Defined in: [types/config.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L456)

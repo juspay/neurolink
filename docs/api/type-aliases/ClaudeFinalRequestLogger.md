@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeFinalRequestLogger** = (`status`, `accountLabel`, `accountType`, `errorType?`, `errorMessage?`, `extra?`) => `void`
 
-Defined in: [types/proxy.ts:563](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L563)
+Defined in: [types/proxy.ts:766](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L766)
 
 ## Parameters
 
@@ -49,6 +49,14 @@ Defined in: [types/proxy.ts:563](https://github.com/juspay/neurolink/blob/ff50c1
 #### cacheReadTokens?
 
 `number`
+
+#### errorCode?
+
+`string`
+
+#### transportScope?
+
+[`ProxyTransportScope`](ProxyTransportScope.md)
 
 ## Returns
 

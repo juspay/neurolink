@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamingOptions** = `object`
 
-Defined in: [types/stream.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L63)
+Defined in: [types/stream.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stream.ts#L74)
 
 Options for AI requests with unified provider configuration
 
@@ -18,7 +18,7 @@ Options for AI requests with unified provider configuration
 
 > **providers**: [`AIModelProviderConfig`](AIModelProviderConfig.md)[]
 
-Defined in: [types/stream.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L64)
+Defined in: [types/stream.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stream.ts#L75)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/stream.ts:64](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/stream.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L65)
+Defined in: [types/stream.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stream.ts#L76)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/stream.ts:65](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/stream.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L66)
+Defined in: [types/stream.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stream.ts#L77)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/stream.ts:66](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/stream.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stream.ts#L67)
+Defined in: [types/stream.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stream.ts#L78)

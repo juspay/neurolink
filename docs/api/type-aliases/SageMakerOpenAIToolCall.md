@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SageMakerOpenAIToolCall** = `object`
 
-Defined in: [types/providers.ts:1928](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1928)
+Defined in: [types/providers.ts:2305](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2305)
 
 SageMaker tool_call item in the OpenAI-compatible payload shape.
 
@@ -18,7 +18,7 @@ SageMaker tool_call item in the OpenAI-compatible payload shape.
 
 > **type**: `"function"`
 
-Defined in: [types/providers.ts:1929](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1929)
+Defined in: [types/providers.ts:2306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2306)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1929](https://github.com/juspay/neurolink/blob/f
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:1930](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1930)
+Defined in: [types/providers.ts:2307](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2307)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:1930](https://github.com/juspay/neurolink/blob/f
 
 > **function**: `object`
 
-Defined in: [types/providers.ts:1931](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1931)
+Defined in: [types/providers.ts:2308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L2308)
 
 #### name
 

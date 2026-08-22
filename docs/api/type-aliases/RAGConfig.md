@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RAGConfig** = `object`
 
-Defined in: [types/rag.ts:656](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L656)
+Defined in: [types/rag.ts:700](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L700)
 
 RAG configuration for generate() and stream() APIs.
 
@@ -41,7 +41,7 @@ const result = await neurolink.generate({
 
 > **files**: `string`[]
 
-Defined in: [types/rag.ts:658](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L658)
+Defined in: [types/rag.ts:702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L702)
 
 File paths to load and index for retrieval
 
@@ -51,7 +51,7 @@ File paths to load and index for retrieval
 
 > `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:664](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L664)
+Defined in: [types/rag.ts:708](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L708)
 
 Chunking strategy to use. If not specified, auto-detected from file extension.
 
@@ -67,7 +67,7 @@ Chunking strategy to use. If not specified, auto-detected from file extension.
 
 > `optional` **chunkSize?**: `number`
 
-Defined in: [types/rag.ts:670](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L670)
+Defined in: [types/rag.ts:714](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L714)
 
 Maximum chunk size in characters.
 
@@ -83,7 +83,7 @@ Maximum chunk size in characters.
 
 > `optional` **chunkOverlap?**: `number`
 
-Defined in: [types/rag.ts:676](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L676)
+Defined in: [types/rag.ts:720](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L720)
 
 Overlap between adjacent chunks in characters.
 
@@ -99,7 +99,7 @@ Overlap between adjacent chunks in characters.
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:682](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L682)
+Defined in: [types/rag.ts:726](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L726)
 
 Number of top results to retrieve per query.
 
@@ -115,7 +115,7 @@ Number of top results to retrieve per query.
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/rag.ts:688](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L688)
+Defined in: [types/rag.ts:732](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L732)
 
 Tool name visible to the AI model.
 
@@ -131,7 +131,7 @@ Tool name visible to the AI model.
 
 > `optional` **toolDescription?**: `string`
 
-Defined in: [types/rag.ts:694](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L694)
+Defined in: [types/rag.ts:738](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L738)
 
 Tool description for the AI model explaining what the knowledge base contains.
 
@@ -147,7 +147,7 @@ Tool description for the AI model explaining what the knowledge base contains.
 
 > `optional` **embeddingProvider?**: `string`
 
-Defined in: [types/rag.ts:700](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L700)
+Defined in: [types/rag.ts:744](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L744)
 
 Embedding model provider for generating embeddings.
 Defaults to the same provider used for generation.
@@ -158,7 +158,7 @@ Defaults to the same provider used for generation.
 
 > `optional` **embeddingModel?**: `string`
 
-Defined in: [types/rag.ts:706](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L706)
+Defined in: [types/rag.ts:750](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L750)
 
 Embedding model name.
 Defaults to the provider's default embedding model.

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPDiscoveryResult** = `object`
 
-Defined in: [types/cli.ts:1765](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1765)
+Defined in: [types/cli.ts:1885](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1885)
 
 Per-server discovery result produced by `neurolink mcp discover`.
 
@@ -18,7 +18,7 @@ Per-server discovery result produced by `neurolink mcp discover`.
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1766](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1766)
+Defined in: [types/cli.ts:1886](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1886)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1766](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1767](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1767)
+Defined in: [types/cli.ts:1887](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1887)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1767](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **toolCount**: `number`
 
-Defined in: [types/cli.ts:1768](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1768)
+Defined in: [types/cli.ts:1888](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1888)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1768](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **tools**: `object`[]
 
-Defined in: [types/cli.ts:1769](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1769)
+Defined in: [types/cli.ts:1889](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1889)
 
 #### name
 

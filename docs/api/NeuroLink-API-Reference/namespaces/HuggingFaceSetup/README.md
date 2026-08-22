@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../README.md)
 
 ---
 
@@ -10,4 +10,4 @@ Hugging Face setup configuration types
 
 ## Type Aliases
 
-- [SetupArgs](type-aliases/SetupArgs.md)
+- [HuggingFaceSetupArgs](type-aliases/HuggingFaceSetupArgs.md)

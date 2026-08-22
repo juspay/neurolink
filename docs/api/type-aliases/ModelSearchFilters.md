@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelSearchFilters** = `object`
 
-Defined in: [types/model.ts:190](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L190)
+Defined in: [types/model.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L198)
 
 Model search filters
 
@@ -18,7 +18,7 @@ Model search filters
 
 > `optional` **provider?**: [`AIProviderName`](../enumerations/AIProviderName.md) \| [`AIProviderName`](../enumerations/AIProviderName.md)[]
 
-Defined in: [types/model.ts:191](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L191)
+Defined in: [types/model.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L199)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:191](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **capability?**: keyof [`ModelCapabilities`](ModelCapabilities.md) \| keyof [`ModelCapabilities`](ModelCapabilities.md)[]
 
-Defined in: [types/model.ts:192](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L192)
+Defined in: [types/model.ts:200](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L200)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/model.ts:192](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **useCase?**: keyof [`UseCaseSuitability`](UseCaseSuitability.md)
 
-Defined in: [types/model.ts:193](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L193)
+Defined in: [types/model.ts:201](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L201)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/model.ts:193](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **maxCost?**: `number`
 
-Defined in: [types/model.ts:194](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L194)
+Defined in: [types/model.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L202)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/model.ts:194](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **minContextSize?**: `number`
 
-Defined in: [types/model.ts:195](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L195)
+Defined in: [types/model.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L203)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/model.ts:195](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **maxContextSize?**: `number`
 
-Defined in: [types/model.ts:196](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L196)
+Defined in: [types/model.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L204)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/model.ts:196](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **performance?**: [`ModelPerformance`](ModelPerformance.md)\[`"speed"`\] \| [`ModelPerformance`](ModelPerformance.md)\[`"quality"`\]
 
-Defined in: [types/model.ts:197](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L197)
+Defined in: [types/model.ts:205](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L205)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/model.ts:197](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **category?**: [`ModelInfo`](ModelInfo.md)\[`"category"`\] \| [`ModelInfo`](ModelInfo.md)\[`"category"`\][]
 
-Defined in: [types/model.ts:198](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L198)
+Defined in: [types/model.ts:206](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L206)

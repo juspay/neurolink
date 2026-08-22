@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPPrompt** = `object`
 
-Defined in: [types/mcp.ts:1991](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1991)
+Defined in: [types/mcp.ts:1991](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1991)
 
 MCP Prompt definition
 
@@ -18,7 +18,7 @@ MCP Prompt definition
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1995](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1995)
+Defined in: [types/mcp.ts:1995](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1995)
 
 Unique prompt name
 
@@ -28,7 +28,7 @@ Unique prompt name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:2000](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2000)
+Defined in: [types/mcp.ts:2000](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2000)
 
 Human-readable description
 
@@ -38,7 +38,7 @@ Human-readable description
 
 > `optional` **arguments?**: `object`[]
 
-Defined in: [types/mcp.ts:2005](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2005)
+Defined in: [types/mcp.ts:2005](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2005)
 
 Prompt arguments schema
 

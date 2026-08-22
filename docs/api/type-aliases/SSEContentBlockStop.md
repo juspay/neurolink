@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SSEContentBlockStop** = `object`
 
-Defined in: [types/proxy.ts:194](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L194)
+Defined in: [types/proxy.ts:206](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L206)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:194](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **type**: `"content_block_stop"`
 
-Defined in: [types/proxy.ts:195](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L195)
+Defined in: [types/proxy.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L207)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:195](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **index**: `number`
 
-Defined in: [types/proxy.ts:196](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L196)
+Defined in: [types/proxy.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L208)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WorkerState** = `object`
 
-Defined in: [types/task.ts:412](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L412)
+Defined in: [types/task.ts:416](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L416)
 
 State persisted by the CLI task worker daemon
 
@@ -18,7 +18,7 @@ State persisted by the CLI task worker daemon
 
 > **pid**: `number`
 
-Defined in: [types/task.ts:413](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L413)
+Defined in: [types/task.ts:417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L417)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/task.ts:413](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **startedAt**: `string`
 
-Defined in: [types/task.ts:414](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L414)
+Defined in: [types/task.ts:418](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L418)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/task.ts:414](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **logFile**: `string`
 
-Defined in: [types/task.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L415)
+Defined in: [types/task.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L419)

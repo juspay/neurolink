@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeRequestRuntimeContext** = `object`
 
-Defined in: [types/proxy.ts:588](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L588)
+Defined in: [types/proxy.ts:795](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L795)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:588](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **tracer?**: `ProxyTracer`
 
-Defined in: [types/proxy.ts:589](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L589)
+Defined in: [types/proxy.ts:796](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L796)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:589](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **requestStartTime**: `number`
 
-Defined in: [types/proxy.ts:590](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L590)
+Defined in: [types/proxy.ts:797](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L797)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:590](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **logProxyBody**: [`ProxyBodyCaptureLogger`](ProxyBodyCaptureLogger.md)
 
-Defined in: [types/proxy.ts:591](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L591)
+Defined in: [types/proxy.ts:798](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L798)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:591](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **logFinalRequest**: [`ClaudeFinalRequestLogger`](ClaudeFinalRequestLogger.md)
 
-Defined in: [types/proxy.ts:592](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L592)
+Defined in: [types/proxy.ts:799](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L799)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/proxy.ts:592](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **buildLoggedClaudeError**: [`ClaudeLoggedErrorBuilder`](ClaudeLoggedErrorBuilder.md)
 
-Defined in: [types/proxy.ts:593](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L593)
+Defined in: [types/proxy.ts:800](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L800)

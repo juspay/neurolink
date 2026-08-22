@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NoOpExporter
 
-Defined in: [observability/exporters/baseExporter.ts:243](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L243)
+Defined in: [observability/exporters/baseExporter.ts:243](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L243)
 
 No-op exporter for when observability is disabled
 Provides zero-overhead behavior
@@ -21,7 +21,7 @@ Provides zero-overhead behavior
 
 > **new NoOpExporter**(): `NoOpExporter`
 
-Defined in: [observability/exporters/baseExporter.ts:244](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L244)
+Defined in: [observability/exporters/baseExporter.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L244)
 
 #### Returns
 
@@ -37,7 +37,7 @@ Defined in: [observability/exporters/baseExporter.ts:244](https://github.com/jus
 
 > `protected` `readonly` **name**: `string`
 
-Defined in: [observability/exporters/baseExporter.ts:19](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L19)
+Defined in: [observability/exporters/baseExporter.ts:19](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L19)
 
 #### Inherited from
 
@@ -49,7 +49,7 @@ Defined in: [observability/exporters/baseExporter.ts:19](https://github.com/jusp
 
 > `protected` `readonly` **config**: [`ExporterConfig`](../type-aliases/ExporterConfig.md)
 
-Defined in: [observability/exporters/baseExporter.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L20)
+Defined in: [observability/exporters/baseExporter.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L20)
 
 #### Inherited from
 
@@ -61,7 +61,7 @@ Defined in: [observability/exporters/baseExporter.ts:20](https://github.com/jusp
 
 > `protected` **initialized**: `boolean` = `false`
 
-Defined in: [observability/exporters/baseExporter.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L21)
+Defined in: [observability/exporters/baseExporter.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L21)
 
 #### Inherited from
 
@@ -73,7 +73,7 @@ Defined in: [observability/exporters/baseExporter.ts:21](https://github.com/jusp
 
 > `protected` **buffer**: [`SpanData`](../type-aliases/SpanData.md)[] = `[]`
 
-Defined in: [observability/exporters/baseExporter.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L22)
+Defined in: [observability/exporters/baseExporter.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L22)
 
 #### Inherited from
 
@@ -85,7 +85,7 @@ Defined in: [observability/exporters/baseExporter.ts:22](https://github.com/jusp
 
 > `protected` `readonly` **maxBufferSize**: `number`
 
-Defined in: [observability/exporters/baseExporter.ts:23](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L23)
+Defined in: [observability/exporters/baseExporter.ts:23](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L23)
 
 #### Inherited from
 
@@ -97,7 +97,7 @@ Defined in: [observability/exporters/baseExporter.ts:23](https://github.com/jusp
 
 > `protected` `readonly` **retries**: `number`
 
-Defined in: [observability/exporters/baseExporter.ts:24](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L24)
+Defined in: [observability/exporters/baseExporter.ts:24](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L24)
 
 #### Inherited from
 
@@ -109,7 +109,7 @@ Defined in: [observability/exporters/baseExporter.ts:24](https://github.com/jusp
 
 > `protected` **flushInterval**: `Timeout` \| `null` = `null`
 
-Defined in: [observability/exporters/baseExporter.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L25)
+Defined in: [observability/exporters/baseExporter.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L25)
 
 #### Inherited from
 
@@ -121,7 +121,7 @@ Defined in: [observability/exporters/baseExporter.ts:25](https://github.com/jusp
 
 > `protected` **lastExportTime**: `number` = `0`
 
-Defined in: [observability/exporters/baseExporter.ts:26](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L26)
+Defined in: [observability/exporters/baseExporter.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L26)
 
 #### Inherited from
 
@@ -133,7 +133,7 @@ Defined in: [observability/exporters/baseExporter.ts:26](https://github.com/jusp
 
 > `protected` **ping**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporters/baseExporter.ts:74](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L74)
+Defined in: [observability/exporters/baseExporter.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L74)
 
 Ping the exporter's backend to verify connectivity
 Override this in subclasses to provide backend-specific health check
@@ -152,7 +152,7 @@ Override this in subclasses to provide backend-specific health check
 
 > `protected` **bufferSpan**(`span`): `void`
 
-Defined in: [observability/exporters/baseExporter.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L83)
+Defined in: [observability/exporters/baseExporter.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L83)
 
 Buffer a span for batch export
 Triggers flush if buffer is full
@@ -177,7 +177,7 @@ Triggers flush if buffer is full
 
 > `protected` **startFlushInterval**(`intervalMs`): `void`
 
-Defined in: [observability/exporters/baseExporter.ts:95](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L95)
+Defined in: [observability/exporters/baseExporter.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L95)
 
 Start automatic flush interval
 
@@ -203,7 +203,7 @@ Interval in milliseconds between flushes
 
 > `protected` **stopFlushInterval**(): `void`
 
-Defined in: [observability/exporters/baseExporter.ts:111](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L111)
+Defined in: [observability/exporters/baseExporter.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L111)
 
 Stop the automatic flush interval
 
@@ -221,7 +221,7 @@ Stop the automatic flush interval
 
 > **getName**(): `string`
 
-Defined in: [observability/exporters/baseExporter.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L121)
+Defined in: [observability/exporters/baseExporter.ts:121](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L121)
 
 Get exporter name
 
@@ -239,7 +239,7 @@ Get exporter name
 
 > **isInitialized**(): `boolean`
 
-Defined in: [observability/exporters/baseExporter.ts:128](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L128)
+Defined in: [observability/exporters/baseExporter.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L128)
 
 Check if exporter is initialized
 
@@ -257,7 +257,7 @@ Check if exporter is initialized
 
 > **getPendingCount**(): `number`
 
-Defined in: [observability/exporters/baseExporter.ts:135](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L135)
+Defined in: [observability/exporters/baseExporter.ts:135](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L135)
 
 Get number of pending spans in buffer
 
@@ -275,7 +275,7 @@ Get number of pending spans in buffer
 
 > **getLastExportTime**(): `number`
 
-Defined in: [observability/exporters/baseExporter.ts:142](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L142)
+Defined in: [observability/exporters/baseExporter.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L142)
 
 Get last export timestamp
 
@@ -293,7 +293,7 @@ Get last export timestamp
 
 > `protected` **createSuccessResult**(`exportedCount`, `durationMs`): [`ExportResult`](../type-aliases/ExportResult.md)
 
-Defined in: [observability/exporters/baseExporter.ts:149](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L149)
+Defined in: [observability/exporters/baseExporter.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L149)
 
 Create a standard export result for success
 
@@ -321,7 +321,7 @@ Create a standard export result for success
 
 > `protected` **createFailureResult**(`spanIds`, `error`, `durationMs`, `retryable?`): [`ExportResult`](../type-aliases/ExportResult.md)
 
-Defined in: [observability/exporters/baseExporter.ts:165](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L165)
+Defined in: [observability/exporters/baseExporter.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L165)
 
 Create a standard export result for failure
 
@@ -357,7 +357,7 @@ Create a standard export result for failure
 
 > `protected` **createHealthStatus**(`healthy`, `errors?`): [`ExporterHealthStatus`](../type-aliases/ExporterHealthStatus.md)
 
-Defined in: [observability/exporters/baseExporter.ts:187](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L187)
+Defined in: [observability/exporters/baseExporter.ts:187](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L187)
 
 Create a standard health status
 
@@ -385,7 +385,7 @@ Create a standard health status
 
 > `protected` **withRetry**\<`T`\>(`operation`, `operationName`): `Promise`\<`T`\>
 
-Defined in: [observability/exporters/baseExporter.ts:207](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L207)
+Defined in: [observability/exporters/baseExporter.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L207)
 
 Execute an operation with exponential backoff retry
 
@@ -429,7 +429,7 @@ The last error if all retries fail
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporters/baseExporter.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L248)
+Defined in: [observability/exporters/baseExporter.ts:248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L248)
 
 Initialize the exporter connection
 Must be called before exporting spans
@@ -448,7 +448,7 @@ Must be called before exporting spans
 
 > **exportSpan**(`_span`): `Promise`\<[`ExportResult`](../type-aliases/ExportResult.md)\>
 
-Defined in: [observability/exporters/baseExporter.ts:252](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L252)
+Defined in: [observability/exporters/baseExporter.ts:252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L252)
 
 Export a single span
 
@@ -472,7 +472,7 @@ Export a single span
 
 > **exportBatch**(`_spans`): `Promise`\<[`ExportResult`](../type-aliases/ExportResult.md)\>
 
-Defined in: [observability/exporters/baseExporter.ts:256](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L256)
+Defined in: [observability/exporters/baseExporter.ts:256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L256)
 
 Export multiple spans in batch
 
@@ -496,7 +496,7 @@ Export multiple spans in batch
 
 > **flush**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporters/baseExporter.ts:260](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L260)
+Defined in: [observability/exporters/baseExporter.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L260)
 
 Flush all buffered spans
 
@@ -514,7 +514,7 @@ Flush all buffered spans
 
 > **shutdown**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporters/baseExporter.ts:264](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L264)
+Defined in: [observability/exporters/baseExporter.ts:264](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L264)
 
 Shutdown the exporter gracefully
 Should flush remaining spans before closing
@@ -533,7 +533,7 @@ Should flush remaining spans before closing
 
 > **healthCheck**(): `Promise`\<[`ExporterHealthStatus`](../type-aliases/ExporterHealthStatus.md)\>
 
-Defined in: [observability/exporters/baseExporter.ts:268](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporters/baseExporter.ts#L268)
+Defined in: [observability/exporters/baseExporter.ts:268](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporters/baseExporter.ts#L268)
 
 Check exporter health status
 Implementations should make an actual API call to verify connectivity

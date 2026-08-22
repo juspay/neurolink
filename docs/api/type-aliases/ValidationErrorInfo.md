@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ValidationErrorInfo** = `object`
 
-Defined in: [types/middleware.ts:420](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L420)
+Defined in: [types/middleware.ts:478](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L478)
 
 Minimal structural view of the server-side ValidationError class used by
 the request-validation middleware's errorFormatter callback.
@@ -19,7 +19,7 @@ the request-validation middleware's errorFormatter callback.
 
 > **errors**: [`ValidationErrorPayload`](ValidationErrorPayload.md)[]
 
-Defined in: [types/middleware.ts:421](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L421)
+Defined in: [types/middleware.ts:479](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L479)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/middleware.ts:421](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/middleware.ts:422](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L422)
+Defined in: [types/middleware.ts:480](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L480)

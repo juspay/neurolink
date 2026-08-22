@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ProviderError
 
-Defined in: [types/errors.ts:15](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L15)
+Defined in: [types/errors.ts:15](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L15)
 
 Thrown when a provider encounters a generic error.
 
@@ -16,7 +16,10 @@ Thrown when a provider encounters a generic error.
 
 ## Extended by
 
+- [`AuthenticationError`](AuthenticationError.md)
+- [`AuthorizationError`](AuthorizationError.md)
 - [`NetworkError`](NetworkError.md)
+- [`RateLimitError`](RateLimitError.md)
 - [`InvalidModelError`](InvalidModelError.md)
 - [`ModelAccessDeniedError`](ModelAccessDeniedError.md)
 
@@ -26,7 +29,7 @@ Thrown when a provider encounters a generic error.
 
 > **new ProviderError**(`message`, `provider?`): `ProviderError`
 
-Defined in: [types/errors.ts:16](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L16)
+Defined in: [types/errors.ts:16](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L16)
 
 #### Parameters
 
@@ -52,4 +55,4 @@ Defined in: [types/errors.ts:16](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/errors.ts#L18)
+Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L18)

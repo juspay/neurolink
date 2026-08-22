@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ReportConfig** = `object`
 
-Defined in: [types/scorer.ts:452](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L452)
+Defined in: [types/scorer.ts:452](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L452)
 
 Report configuration
 
@@ -18,7 +18,7 @@ Report configuration
 
 > **format**: [`ReportFormat`](ReportFormat.md)
 
-Defined in: [types/scorer.ts:454](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L454)
+Defined in: [types/scorer.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L454)
 
 Report format
 
@@ -28,7 +28,7 @@ Report format
 
 > `optional` **includeReasoning?**: `boolean`
 
-Defined in: [types/scorer.ts:456](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L456)
+Defined in: [types/scorer.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L456)
 
 Include detailed reasoning
 
@@ -38,7 +38,7 @@ Include detailed reasoning
 
 > `optional` **includeMetadata?**: `boolean`
 
-Defined in: [types/scorer.ts:458](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L458)
+Defined in: [types/scorer.ts:458](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L458)
 
 Include metadata
 
@@ -48,6 +48,6 @@ Include metadata
 
 > `optional` **includeTiming?**: `boolean`
 
-Defined in: [types/scorer.ts:460](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L460)
+Defined in: [types/scorer.ts:460](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L460)
 
 Include timing information

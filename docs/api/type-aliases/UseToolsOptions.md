@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UseToolsOptions** = `object`
 
-Defined in: [types/client.ts:804](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L804)
+Defined in: [types/client.ts:804](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L804)
 
 useTools hook options
 
@@ -18,7 +18,7 @@ useTools hook options
 
 > `optional` **category?**: `string`
 
-Defined in: [types/client.ts:806](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L806)
+Defined in: [types/client.ts:806](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L806)
 
 Filter tools by category
 
@@ -28,7 +28,7 @@ Filter tools by category
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/client.ts:808](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L808)
+Defined in: [types/client.ts:808](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L808)
 
 Filter tools by server
 
@@ -38,6 +38,6 @@ Filter tools by server
 
 > `optional` **refreshInterval?**: `number`
 
-Defined in: [types/client.ts:810](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L810)
+Defined in: [types/client.ts:810](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L810)
 
 Auto-refresh interval (ms)

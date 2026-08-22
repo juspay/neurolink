@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SessionStorage** = `object`
 
-Defined in: [types/auth.ts:292](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L292)
+Defined in: [types/auth.ts:292](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L292)
 
 Session storage interface
 
@@ -18,7 +18,7 @@ Session storage interface
 
 > **get**(`sessionId`): `Promise`\<[`AuthSession`](AuthSession.md) \| `null`\>
 
-Defined in: [types/auth.ts:294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L294)
+Defined in: [types/auth.ts:294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L294)
 
 Get a session by ID
 
@@ -38,7 +38,7 @@ Get a session by ID
 
 > **save**(`session`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L296)
+Defined in: [types/auth.ts:296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L296)
 
 Save a session
 
@@ -58,7 +58,7 @@ Save a session
 
 > **delete**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L298)
+Defined in: [types/auth.ts:298](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L298)
 
 Delete a session
 
@@ -78,7 +78,7 @@ Delete a session
 
 > **deleteAllForUser**(`userId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:300](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L300)
+Defined in: [types/auth.ts:300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L300)
 
 Delete all sessions for a user
 
@@ -98,7 +98,7 @@ Delete all sessions for a user
 
 > **getForUser**(`userId`): `Promise`\<[`AuthSession`](AuthSession.md)[]\>
 
-Defined in: [types/auth.ts:302](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L302)
+Defined in: [types/auth.ts:302](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L302)
 
 Get all sessions for a user
 
@@ -118,7 +118,7 @@ Get all sessions for a user
 
 > **exists**(`sessionId`): `Promise`\<`boolean`\>
 
-Defined in: [types/auth.ts:304](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L304)
+Defined in: [types/auth.ts:304](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L304)
 
 Check if a session exists
 
@@ -138,7 +138,7 @@ Check if a session exists
 
 > **touch**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L306)
+Defined in: [types/auth.ts:306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L306)
 
 Update session last activity
 
@@ -158,7 +158,7 @@ Update session last activity
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L308)
+Defined in: [types/auth.ts:308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L308)
 
 Clear all sessions
 

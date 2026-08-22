@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NormalizedMcpOutput** = `object`
 
-Defined in: [types/mcpOutput.ts:35](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcpOutput.ts#L35)
+Defined in: [types/mcpOutput.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcpOutput.ts#L35)
 
 Value returned by McpOutputNormalizer.normalize().
 
@@ -18,7 +18,7 @@ Value returned by McpOutputNormalizer.normalize().
 
 > **result**: `unknown`
 
-Defined in: [types/mcpOutput.ts:37](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcpOutput.ts#L37)
+Defined in: [types/mcpOutput.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcpOutput.ts#L37)
 
 The result to substitute for the raw callResult. May be a surrogate.
 
@@ -28,7 +28,7 @@ The result to substitute for the raw callResult. May be a surrogate.
 
 > **isExternalized**: `boolean`
 
-Defined in: [types/mcpOutput.ts:39](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcpOutput.ts#L39)
+Defined in: [types/mcpOutput.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcpOutput.ts#L39)
 
 Whether the full payload was written to the artifact store.
 
@@ -38,7 +38,7 @@ Whether the full payload was written to the artifact store.
 
 > `optional` **artifactId?**: `string`
 
-Defined in: [types/mcpOutput.ts:41](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcpOutput.ts#L41)
+Defined in: [types/mcpOutput.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcpOutput.ts#L41)
 
 Artifact ID when isExternalized === true.
 
@@ -48,6 +48,6 @@ Artifact ID when isExternalized === true.
 
 > **originalBytes**: `number`
 
-Defined in: [types/mcpOutput.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcpOutput.ts#L43)
+Defined in: [types/mcpOutput.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcpOutput.ts#L43)
 
 Serialized byte size of the original payload.

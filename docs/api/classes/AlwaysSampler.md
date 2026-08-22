@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AlwaysSampler
 
-Defined in: [observability/sampling/samplers.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L18)
+Defined in: [observability/sampling/samplers.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L18)
 
 Always sample all spans
 
@@ -30,7 +30,7 @@ Always sample all spans
 
 > `readonly` **name**: `"always"` = `"always"`
 
-Defined in: [observability/sampling/samplers.ts:19](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L19)
+Defined in: [observability/sampling/samplers.ts:19](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L19)
 
 Sampler name for identification
 
@@ -44,7 +44,7 @@ Sampler name for identification
 
 > **shouldSample**(`_span`): `boolean`
 
-Defined in: [observability/sampling/samplers.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L21)
+Defined in: [observability/sampling/samplers.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L21)
 
 Determine if a span should be sampled
 
@@ -68,7 +68,7 @@ Determine if a span should be sampled
 
 > **getDescription**(): `string`
 
-Defined in: [observability/sampling/samplers.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/sampling/samplers.ts#L25)
+Defined in: [observability/sampling/samplers.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/sampling/samplers.ts#L25)
 
 Get sampling decision description
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessorFileProcessingResult**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:148](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L148)
+Defined in: [types/processor.ts:148](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L148)
 
 Result of a file processing operation.
 Uses discriminated union pattern for type-safe error handling.
@@ -36,7 +36,7 @@ if (result.success) {
 
 > **success**: `boolean`
 
-Defined in: [types/processor.ts:152](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L152)
+Defined in: [types/processor.ts:152](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L152)
 
 Whether the processing was successful
 
@@ -46,7 +46,7 @@ Whether the processing was successful
 
 > `optional` **data?**: `T`
 
-Defined in: [types/processor.ts:154](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L154)
+Defined in: [types/processor.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L154)
 
 Processed file data (present when success is true)
 
@@ -56,6 +56,6 @@ Processed file data (present when success is true)
 
 > `optional` **error?**: [`FileProcessingError`](FileProcessingError.md)
 
-Defined in: [types/processor.ts:156](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L156)
+Defined in: [types/processor.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L156)
 
 Error information (present when success is false)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ScorerBuilder
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L20)
+Defined in: [evaluation/scorers/scorerBuilder.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L20)
 
 Fluent builder for creating custom scorers
 
@@ -16,7 +16,7 @@ Fluent builder for creating custom scorers
 
 > **new ScorerBuilder**(`id`, `name`): `ScorerBuilder`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L43)
+Defined in: [evaluation/scorers/scorerBuilder.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L43)
 
 #### Parameters
 
@@ -38,7 +38,7 @@ Defined in: [evaluation/scorers/scorerBuilder.ts:43](https://github.com/juspay/n
 
 > `static` **create**(`id`, `name`): `ScorerBuilder`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L51)
+Defined in: [evaluation/scorers/scorerBuilder.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L51)
 
 Create a new scorer builder
 
@@ -62,7 +62,7 @@ Create a new scorer builder
 
 > **description**(`desc`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:58](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L58)
+Defined in: [evaluation/scorers/scorerBuilder.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L58)
 
 Set scorer description
 
@@ -82,7 +82,7 @@ Set scorer description
 
 > **type**(`type`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L66)
+Defined in: [evaluation/scorers/scorerBuilder.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L66)
 
 Set scorer type
 
@@ -102,7 +102,7 @@ Set scorer type
 
 > **category**(`category`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:74](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L74)
+Defined in: [evaluation/scorers/scorerBuilder.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L74)
 
 Set scorer category
 
@@ -122,7 +122,7 @@ Set scorer category
 
 > **version**(`version`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L82)
+Defined in: [evaluation/scorers/scorerBuilder.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L82)
 
 Set scorer version
 
@@ -142,7 +142,7 @@ Set scorer version
 
 > **requireInputs**(...`inputs`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:90](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L90)
+Defined in: [evaluation/scorers/scorerBuilder.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L90)
 
 Set required inputs
 
@@ -162,7 +162,7 @@ Set required inputs
 
 > **optionalInputs**(...`inputs`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:98](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L98)
+Defined in: [evaluation/scorers/scorerBuilder.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L98)
 
 Set optional inputs
 
@@ -182,7 +182,7 @@ Set optional inputs
 
 > **threshold**(`threshold`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:106](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L106)
+Defined in: [evaluation/scorers/scorerBuilder.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L106)
 
 Set pass/fail threshold
 
@@ -202,7 +202,7 @@ Set pass/fail threshold
 
 > **weight**(`weight`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L114)
+Defined in: [evaluation/scorers/scorerBuilder.ts:114](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L114)
 
 Set weight for aggregation
 
@@ -222,7 +222,7 @@ Set weight for aggregation
 
 > **timeout**(`ms`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L122)
+Defined in: [evaluation/scorers/scorerBuilder.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L122)
 
 Set execution timeout
 
@@ -242,7 +242,7 @@ Set execution timeout
 
 > **retries**(`count`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:130](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L130)
+Defined in: [evaluation/scorers/scorerBuilder.ts:130](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L130)
 
 Set retry count
 
@@ -262,7 +262,7 @@ Set retry count
 
 > **scoringFunction**(`fn`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L138)
+Defined in: [evaluation/scorers/scorerBuilder.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L138)
 
 Set the scoring function
 
@@ -282,7 +282,7 @@ Set the scoring function
 
 > **addScorer**(`scorer`, `weight?`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:146](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L146)
+Defined in: [evaluation/scorers/scorerBuilder.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L146)
 
 Add a sub-scorer for composition
 
@@ -306,7 +306,7 @@ Add a sub-scorer for composition
 
 > **aggregateWith**(`method`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L155)
+Defined in: [evaluation/scorers/scorerBuilder.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L155)
 
 Set aggregation method for composed scorers
 
@@ -326,7 +326,7 @@ Set aggregation method for composed scorers
 
 > **matchesPattern**(`pattern`, `options?`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L163)
+Defined in: [evaluation/scorers/scorerBuilder.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L163)
 
 Add a regex check rule
 
@@ -356,7 +356,7 @@ Add a regex check rule
 
 > **containsKeyword**(`keyword`, `options?`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:205](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L205)
+Defined in: [evaluation/scorers/scorerBuilder.ts:205](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L205)
 
 Add a keyword check rule
 
@@ -386,7 +386,7 @@ Add a keyword check rule
 
 > **hasLength**(`options`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:225](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L225)
+Defined in: [evaluation/scorers/scorerBuilder.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L225)
 
 Add a length check rule
 
@@ -428,7 +428,7 @@ Add a length check rule
 
 > **customRule**(`rule`): `this`
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:251](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L251)
+Defined in: [evaluation/scorers/scorerBuilder.ts:251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L251)
 
 Add a custom rule
 
@@ -448,7 +448,7 @@ Add a custom rule
 
 > **build**(): [`BaseScorer`](BaseScorer.md)
 
-Defined in: [evaluation/scorers/scorerBuilder.ts:259](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/scorers/scorerBuilder.ts#L259)
+Defined in: [evaluation/scorers/scorerBuilder.ts:259](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerBuilder.ts#L259)
 
 Build the scorer
 

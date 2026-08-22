@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ColumnData** = `object`
 
-Defined in: [types/ppt.ts:1303](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1303)
+Defined in: [types/ppt.ts:1303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1303)
 
 Column data structure for generic column rendering
 
@@ -18,7 +18,7 @@ Column data structure for generic column rendering
 
 > `optional` **title?**: `string`
 
-Defined in: [types/ppt.ts:1304](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1304)
+Defined in: [types/ppt.ts:1304](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1304)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1304](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **bullets?**: [`BulletPoint`](BulletPoint.md)[]
 
-Defined in: [types/ppt.ts:1305](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1305)
+Defined in: [types/ppt.ts:1305](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1305)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/ppt.ts:1305](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **image?**: `string`
 
-Defined in: [types/ppt.ts:1306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1306)
+Defined in: [types/ppt.ts:1306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1306)

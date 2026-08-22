@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BaseContext** = `object`
 
-Defined in: [types/context.ts:13](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L13)
+Defined in: [types/context.ts:13](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L13)
 
 Base context type for all AI operations
 
@@ -22,7 +22,7 @@ Base context type for all AI operations
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/context.ts:15](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L15)
+Defined in: [types/context.ts:15](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L15)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/context.ts:15](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L16)
+Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L16)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L17)
+Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L17)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **userRole?**: `string`
 
-Defined in: [types/context.ts:20](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L20)
+Defined in: [types/context.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L20)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/context.ts:20](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **userPreferences?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L21)
+Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L21)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **userMetadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L22)
+Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L22)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **applicationContext?**: `object`
 
-Defined in: [types/context.ts:25](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L25)
+Defined in: [types/context.ts:25](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L25)
 
 #### name
 
@@ -90,7 +90,7 @@ Defined in: [types/context.ts:25](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **organizationId?**: `string`
 
-Defined in: [types/context.ts:32](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L32)
+Defined in: [types/context.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L32)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/context.ts:32](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **departmentId?**: `string`
 
-Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L33)
+Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L33)
 
 ---
 
@@ -106,4 +106,4 @@ Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **projectId?**: `string`
 
-Defined in: [types/context.ts:34](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L34)
+Defined in: [types/context.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L34)

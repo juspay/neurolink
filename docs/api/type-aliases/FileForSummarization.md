@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileForSummarization** = `object`
 
-Defined in: [types/context.ts:675](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L675)
+Defined in: [types/context.ts:698](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L698)
 
 A file prepared for potential summarization.
 
@@ -18,7 +18,7 @@ A file prepared for potential summarization.
 
 > **fileName**: `string`
 
-Defined in: [types/context.ts:677](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L677)
+Defined in: [types/context.ts:700](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L700)
 
 Display name (e.g. "report.pdf")
 
@@ -28,7 +28,7 @@ Display name (e.g. "report.pdf")
 
 > **fileType**: `string`
 
-Defined in: [types/context.ts:679](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L679)
+Defined in: [types/context.ts:702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L702)
 
 Human-readable type label (e.g. "PDF Document")
 
@@ -38,7 +38,7 @@ Human-readable type label (e.g. "PDF Document")
 
 > **content**: `string`
 
-Defined in: [types/context.ts:681](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L681)
+Defined in: [types/context.ts:704](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L704)
 
 Extracted text content
 
@@ -48,7 +48,7 @@ Extracted text content
 
 > **estimatedTokens**: `number`
 
-Defined in: [types/context.ts:683](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L683)
+Defined in: [types/context.ts:706](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L706)
 
 Estimated token count (provider-adjusted)
 
@@ -58,7 +58,7 @@ Estimated token count (provider-adjusted)
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/context.ts:685](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L685)
+Defined in: [types/context.ts:708](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L708)
 
 Optional MIME type
 
@@ -68,6 +68,6 @@ Optional MIME type
 
 > `optional` **originalSize?**: `number`
 
-Defined in: [types/context.ts:687](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L687)
+Defined in: [types/context.ts:710](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L710)
 
 Original byte size on disk

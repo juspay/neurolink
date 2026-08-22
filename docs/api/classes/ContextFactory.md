@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ContextFactory
 
-Defined in: [types/context.ts:99](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L99)
+Defined in: [types/context.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L99)
 
 Factory for context processing
 
@@ -26,7 +26,7 @@ Factory for context processing
 
 > `readonly` `static` **DEFAULT_FRAMEWORK_FIELDS**: [`FrameworkFieldsConfig`](../type-aliases/FrameworkFieldsConfig.md)
 
-Defined in: [types/context.ts:103](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L103)
+Defined in: [types/context.ts:103](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L103)
 
 Default framework fields configuration
 
@@ -36,7 +36,7 @@ Default framework fields configuration
 
 > `readonly` `static` **DEFAULT_CONFIG**: [`ContextConfig`](../type-aliases/ContextConfig.md)
 
-Defined in: [types/context.ts:234](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L234)
+Defined in: [types/context.ts:234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L234)
 
 Default context configuration
 
@@ -46,7 +46,7 @@ Default context configuration
 
 > `static` **configureFrameworkFields**(`config`): `void`
 
-Defined in: [types/context.ts:138](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L138)
+Defined in: [types/context.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L138)
 
 Configure framework fields for exclusion from custom data
 
@@ -66,7 +66,7 @@ Configure framework fields for exclusion from custom data
 
 > `static` **getFrameworkFieldsConfig**(): [`FrameworkFieldsConfig`](../type-aliases/FrameworkFieldsConfig.md)
 
-Defined in: [types/context.ts:152](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L152)
+Defined in: [types/context.ts:152](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L152)
 
 Get current framework fields configuration
 Ensures lazy initialization if not already loaded
@@ -81,7 +81,7 @@ Ensures lazy initialization if not already loaded
 
 > `static` **resetFrameworkFieldsConfig**(): `void`
 
-Defined in: [types/context.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L164)
+Defined in: [types/context.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L164)
 
 Reset framework fields configuration to default
 
@@ -95,7 +95,7 @@ Reset framework fields configuration to default
 
 > `static` **loadFrameworkFieldsFromEnv**(): `void`
 
-Defined in: [types/context.ts:174](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L174)
+Defined in: [types/context.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L174)
 
 Load framework fields configuration from environment variables
 Supports NEUROLINK_CONTEXT_EXCLUDE_FIELDS and NEUROLINK_CONTEXT_INCLUDE_FIELDS
@@ -110,7 +110,7 @@ Supports NEUROLINK_CONTEXT_EXCLUDE_FIELDS and NEUROLINK_CONTEXT_INCLUDE_FIELDS
 
 > `static` **addFrameworkFieldsToExclude**(`fields`): `void`
 
-Defined in: [types/context.ts:214](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L214)
+Defined in: [types/context.ts:214](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L214)
 
 Add additional fields to exclude
 
@@ -130,7 +130,7 @@ Add additional fields to exclude
 
 > `static` **addFrameworkFieldsToInclude**(`fields`): `void`
 
-Defined in: [types/context.ts:224](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L224)
+Defined in: [types/context.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L224)
 
 Add fields to include (override exclusion)
 
@@ -150,7 +150,7 @@ Add fields to include (override exclusion)
 
 > `static` **validateContext**(`context`): [`BaseContext`](../type-aliases/BaseContext.md) \| `null`
 
-Defined in: [types/context.ts:245](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L245)
+Defined in: [types/context.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L245)
 
 Validate and normalize context data
 
@@ -170,7 +170,7 @@ Validate and normalize context data
 
 > `static` **processContext**(`context`, `config?`): `ProcessedContext`
 
-Defined in: [types/context.ts:269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L269)
+Defined in: [types/context.ts:269](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L269)
 
 Process context for AI generation based on configuration
 
@@ -194,7 +194,7 @@ Process context for AI generation based on configuration
 
 > `static` **extractAnalyticsContext**(`context`): [`JsonObject`](../type-aliases/JsonObject.md)
 
-Defined in: [types/context.ts:420](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L420)
+Defined in: [types/context.ts:420](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L420)
 
 Extract analytics data from context
 
@@ -214,7 +214,7 @@ Extract analytics data from context
 
 > `static` **extractEvaluationContext**(`context`): [`JsonObject`](../type-aliases/JsonObject.md)
 
-Defined in: [types/context.ts:434](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L434)
+Defined in: [types/context.ts:434](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L434)
 
 Extract evaluation context
 

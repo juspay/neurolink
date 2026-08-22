@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelCapabilities** = `object`
 
-Defined in: [types/model.ts:116](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L116)
+Defined in: [types/model.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L116)
 
 Model capabilities interface
 
@@ -18,7 +18,7 @@ Model capabilities interface
 
 > **vision**: `boolean`
 
-Defined in: [types/model.ts:117](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L117)
+Defined in: [types/model.ts:117](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L117)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:117](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **functionCalling**: `boolean`
 
-Defined in: [types/model.ts:118](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L118)
+Defined in: [types/model.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L118)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/model.ts:118](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **codeGeneration**: `boolean`
 
-Defined in: [types/model.ts:119](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L119)
+Defined in: [types/model.ts:119](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L119)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/model.ts:119](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **reasoning**: `boolean`
 
-Defined in: [types/model.ts:120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L120)
+Defined in: [types/model.ts:120](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L120)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/model.ts:120](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **multimodal**: `boolean`
 
-Defined in: [types/model.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L121)
+Defined in: [types/model.ts:121](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L121)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/model.ts:121](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **streaming**: `boolean`
 
-Defined in: [types/model.ts:122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L122)
+Defined in: [types/model.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L122)
 
 ---
 
@@ -66,4 +66,18 @@ Defined in: [types/model.ts:122](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **jsonMode**: `boolean`
 
-Defined in: [types/model.ts:123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/model.ts#L123)
+Defined in: [types/model.ts:123](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L123)
+
+---
+
+### samplingParams?
+
+> `optional` **samplingParams?**: `boolean`
+
+Defined in: [types/model.ts:131](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L131)
+
+Whether the model accepts classic sampling parameters
+(`temperature` / `topP`). Reasoning-effort models (Claude Sonnet 5,
+Opus 4.7+, Fable 5 families) reject them. Optional: unset means
+supported, and `modelSupportsSamplingParams` falls back to the known
+family patterns.

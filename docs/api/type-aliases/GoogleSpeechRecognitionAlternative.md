@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GoogleSpeechRecognitionAlternative** = `object`
 
-Defined in: [types/stt.ts:503](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L503)
+Defined in: [types/stt.ts:503](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L503)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:503](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **transcript**: `string`
 
-Defined in: [types/stt.ts:504](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L504)
+Defined in: [types/stt.ts:504](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L504)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:504](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **confidence**: `number`
 
-Defined in: [types/stt.ts:505](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L505)
+Defined in: [types/stt.ts:505](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L505)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/stt.ts:505](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **words?**: [`GoogleWordInfo`](GoogleWordInfo.md)[]
 
-Defined in: [types/stt.ts:506](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L506)
+Defined in: [types/stt.ts:506](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L506)

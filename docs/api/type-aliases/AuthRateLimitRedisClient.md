@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthRateLimitRedisClient** = `object`
 
-Defined in: [types/auth.ts:1394](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1394)
+Defined in: [types/auth.ts:1394](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1394)
 
 Minimal Redis client shape used by the rate-limiter to avoid a hard
 dependency on the full `RedisClientType`. Named with an Auth prefix to
@@ -20,7 +20,7 @@ avoid collision with `RedisClientType` from the redis package.
 
 > **connect**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1395](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1395)
+Defined in: [types/auth.ts:1395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1395)
 
 #### Returns
 
@@ -32,7 +32,7 @@ Defined in: [types/auth.ts:1395](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **quit**(): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1396](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1396)
+Defined in: [types/auth.ts:1396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1396)
 
 #### Returns
 
@@ -44,7 +44,7 @@ Defined in: [types/auth.ts:1396](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **ping**(): `Promise`\<`string`\>
 
-Defined in: [types/auth.ts:1397](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1397)
+Defined in: [types/auth.ts:1397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1397)
 
 #### Returns
 
@@ -56,7 +56,7 @@ Defined in: [types/auth.ts:1397](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **get**(`key`): `Promise`\<`string` \| `null`\>
 
-Defined in: [types/auth.ts:1398](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1398)
+Defined in: [types/auth.ts:1398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1398)
 
 #### Parameters
 
@@ -74,7 +74,7 @@ Defined in: [types/auth.ts:1398](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **setEx**(`key`, `seconds`, `value`): `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:1399](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1399)
+Defined in: [types/auth.ts:1399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1399)
 
 #### Parameters
 
@@ -100,7 +100,7 @@ Defined in: [types/auth.ts:1399](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **del**(`key`): `Promise`\<`number`\>
 
-Defined in: [types/auth.ts:1400](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1400)
+Defined in: [types/auth.ts:1400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1400)
 
 #### Parameters
 
@@ -118,7 +118,7 @@ Defined in: [types/auth.ts:1400](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **eval**(`script`, `numkeys`, ...`args`): `Promise`\<`unknown`\>
 
-Defined in: [types/auth.ts:1401](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1401)
+Defined in: [types/auth.ts:1401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1401)
 
 #### Parameters
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: Evaluator
 
-Defined in: [evaluation/index.ts:48](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/index.ts#L48)
+Defined in: [evaluation/index.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/index.ts#L49)
 
 A centralized class for performing response evaluations. It supports different
 evaluation strategies, with RAGAS-style model-based evaluation as the default.
@@ -18,7 +18,7 @@ This class orchestrates the context building and evaluation process.
 
 > **new Evaluator**(`config?`): `Evaluator`
 
-Defined in: [evaluation/index.ts:53](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/index.ts#L53)
+Defined in: [evaluation/index.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/index.ts#L54)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [evaluation/index.ts:53](https://github.com/juspay/neurolink/blob/ff
 
 > **evaluate**(`options`, `result`, `threshold`, `config`): `Promise`\<[`EvaluationData`](../type-aliases/EvaluationData.md)\>
 
-Defined in: [evaluation/index.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/index.ts#L72)
+Defined in: [evaluation/index.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/index.ts#L73)
 
 The main entry point for performing an evaluation. It selects the evaluation
 strategy based on the configuration and executes it.

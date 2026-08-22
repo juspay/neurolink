@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: SessionManager
 
-Defined in: [auth/sessionManager.ts:370](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L370)
+Defined in: [auth/sessionManager.ts:370](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L370)
 
 Session Manager
 
@@ -19,7 +19,7 @@ automatic refresh, and storage abstraction.
 
 > **new SessionManager**(`config?`): `SessionManager`
 
-Defined in: [auth/sessionManager.ts:374](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L374)
+Defined in: [auth/sessionManager.ts:374](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L374)
 
 #### Parameters
 
@@ -37,7 +37,7 @@ Defined in: [auth/sessionManager.ts:374](https://github.com/juspay/neurolink/blo
 
 > **createSession**(`user`, `metadata?`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)\>
 
-Defined in: [auth/sessionManager.ts:409](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L409)
+Defined in: [auth/sessionManager.ts:409](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L409)
 
 Create a new session
 
@@ -71,7 +71,7 @@ Create a new session
 
 > **getSession**(`sessionId`, `autoRefresh?`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/sessionManager.ts:466](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L466)
+Defined in: [auth/sessionManager.ts:466](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L466)
 
 Get a session by ID
 
@@ -97,7 +97,7 @@ Optionally auto-refreshes if close to expiration.
 
 > **refreshSession**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/sessionManager.ts:520](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L520)
+Defined in: [auth/sessionManager.ts:520](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L520)
 
 Refresh a session
 
@@ -117,7 +117,7 @@ Refresh a session
 
 > **destroySession**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:550](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L550)
+Defined in: [auth/sessionManager.ts:550](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L550)
 
 Destroy a session
 
@@ -137,7 +137,7 @@ Destroy a session
 
 > **getUserSessions**(`userId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)[]\>
 
-Defined in: [auth/sessionManager.ts:558](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L558)
+Defined in: [auth/sessionManager.ts:558](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L558)
 
 Get all sessions for a user
 
@@ -157,7 +157,7 @@ Get all sessions for a user
 
 > **destroyAllUserSessions**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:565](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L565)
+Defined in: [auth/sessionManager.ts:565](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L565)
 
 Destroy all sessions for a user (global logout)
 
@@ -177,7 +177,7 @@ Destroy all sessions for a user (global logout)
 
 > **validateSession**(`sessionId`): `Promise`\<`boolean`\>
 
-Defined in: [auth/sessionManager.ts:573](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L573)
+Defined in: [auth/sessionManager.ts:573](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L573)
 
 Validate a session is still active
 
@@ -197,7 +197,7 @@ Validate a session is still active
 
 > **updateSessionMetadata**(`sessionId`, `metadata`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/sessionManager.ts:592](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L592)
+Defined in: [auth/sessionManager.ts:592](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L592)
 
 Update session metadata
 
@@ -221,7 +221,7 @@ Update session metadata
 
 > **isHealthy**(): `Promise`\<`boolean`\>
 
-Defined in: [auth/sessionManager.ts:614](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L614)
+Defined in: [auth/sessionManager.ts:614](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L614)
 
 Health check
 
@@ -235,7 +235,7 @@ Health check
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [auth/sessionManager.ts:621](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/auth/sessionManager.ts#L621)
+Defined in: [auth/sessionManager.ts:621](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/sessionManager.ts#L621)
 
 Clear all sessions (for testing/cleanup)
 

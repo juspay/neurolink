@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TTSHandler** = `object`
 
-Defined in: [types/common.ts:482](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L482)
+Defined in: [types/common.ts:512](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L512)
 
 TTS Handler interface for provider-specific implementations
 
@@ -49,7 +49,7 @@ class MyTTSHandler implements TTSHandler {
 
 > `optional` **maxTextLength?**: `number`
 
-Defined in: [types/common.ts:518](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L518)
+Defined in: [types/common.ts:548](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L548)
 
 Maximum text length supported by this provider (in bytes)
 Different providers have different limits
@@ -66,7 +66,7 @@ Different providers have different limits
 
 > **synthesize**(`text`, `options`): `Promise`\<[`TTSResult`](TTSResult.md)\>
 
-Defined in: [types/common.ts:495](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L495)
+Defined in: [types/common.ts:525](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L525)
 
 Generate audio from text using provider-specific TTS API
 
@@ -104,7 +104,7 @@ On synthesis failure, timeout, or configuration issues
 
 > `optional` **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](TTSVoice.md)[]\>
 
-Defined in: [types/common.ts:503](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L503)
+Defined in: [types/common.ts:533](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L533)
 
 Get available voices for the provider
 
@@ -128,7 +128,7 @@ List of available voices
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/common.ts:510](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/common.ts#L510)
+Defined in: [types/common.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L540)
 
 Validate that the provider is properly configured
 

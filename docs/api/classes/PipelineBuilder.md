@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: PipelineBuilder
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:18](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L18)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L18)
 
 Fluent builder for creating evaluation pipelines
 
@@ -16,7 +16,7 @@ Fluent builder for creating evaluation pipelines
 
 > **new PipelineBuilder**(`name?`): `PipelineBuilder`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:29](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L29)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L29)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [evaluation/pipeline/pipelineBuilder.ts:29](https://github.com/juspa
 
 > `static` **create**(`name?`): `PipelineBuilder`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:36](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L36)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L36)
 
 Create a new pipeline builder
 
@@ -54,7 +54,7 @@ Create a new pipeline builder
 
 > **name**(`name`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:43](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L43)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L43)
 
 Set pipeline name
 
@@ -74,7 +74,7 @@ Set pipeline name
 
 > **description**(`desc`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L51)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L51)
 
 Set pipeline description
 
@@ -94,7 +94,7 @@ Set pipeline description
 
 > **addScorer**(`id`, `config?`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:59](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L59)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L59)
 
 Add a scorer by ID
 
@@ -118,7 +118,7 @@ Add a scorer by ID
 
 > **addScorers**(...`ids`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:67](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L67)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L67)
 
 Add multiple scorers
 
@@ -138,7 +138,7 @@ Add multiple scorers
 
 > **requireScorer**(`id`, `config?`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L77)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L77)
 
 Add a scorer and mark it as required
 
@@ -162,7 +162,7 @@ Add a scorer and mark it as required
 
 > **aggregateWith**(`method`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:97](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L97)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:97](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L97)
 
 Set aggregation method
 
@@ -182,7 +182,7 @@ Set aggregation method
 
 > **withWeights**(`weights`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:105](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L105)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L105)
 
 Set weights for weighted aggregation
 
@@ -202,7 +202,7 @@ Set weights for weighted aggregation
 
 > **customAggregation**(`fn`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:114](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L114)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:114](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L114)
 
 Set custom aggregation function
 
@@ -222,7 +222,7 @@ Set custom aggregation function
 
 > **passThreshold**(`threshold`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L123)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:123](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L123)
 
 Set pass/fail threshold
 
@@ -242,7 +242,7 @@ Set pass/fail threshold
 
 > **parallel**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:131](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L131)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:131](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L131)
 
 Run scorers in parallel (default)
 
@@ -256,7 +256,7 @@ Run scorers in parallel (default)
 
 > **sequential**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:139](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L139)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L139)
 
 Run scorers sequentially
 
@@ -270,7 +270,7 @@ Run scorers sequentially
 
 > **stopOnFailure**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:147](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L147)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L147)
 
 Stop pipeline on first failure
 
@@ -284,7 +284,7 @@ Stop pipeline on first failure
 
 > **continueOnFailure**(): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L155)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L155)
 
 Continue pipeline on failures (default)
 
@@ -298,7 +298,7 @@ Continue pipeline on failures (default)
 
 > **timeout**(`ms`): `this`
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L163)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L163)
 
 Set pipeline timeout
 
@@ -318,7 +318,7 @@ Set pipeline timeout
 
 > **buildConfig**(): [`PipelineConfig`](../type-aliases/PipelineConfig.md)
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:171](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L171)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L171)
 
 Build the pipeline configuration
 
@@ -332,7 +332,7 @@ Build the pipeline configuration
 
 > **build**(): [`EvaluationPipeline`](EvaluationPipeline.md)
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:199](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L199)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L199)
 
 Build the pipeline (not initialized)
 
@@ -346,7 +346,7 @@ Build the pipeline (not initialized)
 
 > **buildAndInitialize**(): `Promise`\<[`EvaluationPipeline`](EvaluationPipeline.md)\>
 
-Defined in: [evaluation/pipeline/pipelineBuilder.ts:206](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/evaluation/pipeline/pipelineBuilder.ts#L206)
+Defined in: [evaluation/pipeline/pipelineBuilder.ts:206](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/pipelineBuilder.ts#L206)
 
 Build and initialize the pipeline
 

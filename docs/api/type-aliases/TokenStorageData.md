@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenStorageData** = `object`
 
-Defined in: [types/auth.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L64)
+Defined in: [types/auth.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L64)
 
 Internal storage format for multi-provider tokens
 
@@ -18,7 +18,7 @@ Internal storage format for multi-provider tokens
 
 > **version**: `string`
 
-Defined in: [types/auth.ts:66](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L66)
+Defined in: [types/auth.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L66)
 
 Version of the storage format
 
@@ -28,7 +28,7 @@ Version of the storage format
 
 > **lastModified**: `number`
 
-Defined in: [types/auth.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L68)
+Defined in: [types/auth.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L68)
 
 Last modified timestamp
 
@@ -38,6 +38,6 @@ Last modified timestamp
 
 > **providers**: `Record`\<`string`, [`StoredProviderTokens`](StoredProviderTokens.md)\>
 
-Defined in: [types/auth.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L70)
+Defined in: [types/auth.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L70)
 
 Tokens indexed by provider name

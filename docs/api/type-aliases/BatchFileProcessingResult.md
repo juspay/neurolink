@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchFileProcessingResult** = `object`
 
-Defined in: [types/processor.ts:1044](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1044)
+Defined in: [types/processor.ts:1100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1100)
 
 Result of processing multiple files through the registry.
 Categorizes files into successful, failed, and skipped.
@@ -40,7 +40,7 @@ for (const { fileInfo, reason } of result.skipped) {
 
 > **successful**: `object`[]
 
-Defined in: [types/processor.ts:1046](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1046)
+Defined in: [types/processor.ts:1102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1102)
 
 Successfully processed files
 
@@ -62,7 +62,7 @@ Successfully processed files
 
 > **failed**: `object`[]
 
-Defined in: [types/processor.ts:1052](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1052)
+Defined in: [types/processor.ts:1108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1108)
 
 Files that failed to process
 
@@ -80,7 +80,7 @@ Files that failed to process
 
 > **skipped**: `object`[]
 
-Defined in: [types/processor.ts:1057](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/processor.ts#L1057)
+Defined in: [types/processor.ts:1113](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L1113)
 
 Files that were skipped (no processor found or over limit)
 

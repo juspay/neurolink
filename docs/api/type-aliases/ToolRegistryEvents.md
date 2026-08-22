@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolRegistryEvents** = `object`
 
-Defined in: [types/mcp.ts:620](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L620)
+Defined in: [types/mcp.ts:620](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L620)
 
 Tool registry events
 Moved from src/lib/mcp/toolDiscoveryService.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/toolDiscoveryService.ts
 
 > **toolRegistered**: `object`
 
-Defined in: [types/mcp.ts:621](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L621)
+Defined in: [types/mcp.ts:621](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L621)
 
 #### serverId
 
@@ -43,7 +43,7 @@ Defined in: [types/mcp.ts:621](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **toolUnregistered**: `object`
 
-Defined in: [types/mcp.ts:628](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L628)
+Defined in: [types/mcp.ts:628](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L628)
 
 #### serverId
 
@@ -63,7 +63,7 @@ Defined in: [types/mcp.ts:628](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **toolExecuted**: `object`
 
-Defined in: [types/mcp.ts:634](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L634)
+Defined in: [types/mcp.ts:634](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L634)
 
 #### serverId
 
@@ -91,7 +91,7 @@ Defined in: [types/mcp.ts:634](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **discoveryStarted**: `object`
 
-Defined in: [types/mcp.ts:642](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L642)
+Defined in: [types/mcp.ts:642](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L642)
 
 #### serverId
 
@@ -107,7 +107,7 @@ Defined in: [types/mcp.ts:642](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **discoveryCompleted**: `object`
 
-Defined in: [types/mcp.ts:647](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L647)
+Defined in: [types/mcp.ts:647](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L647)
 
 #### serverId
 
@@ -131,7 +131,7 @@ Defined in: [types/mcp.ts:647](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **discoveryFailed**: `object`
 
-Defined in: [types/mcp.ts:654](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L654)
+Defined in: [types/mcp.ts:654](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L654)
 
 #### serverId
 

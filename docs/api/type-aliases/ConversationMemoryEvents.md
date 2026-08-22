@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConversationMemoryEvents** = `object`
 
-Defined in: [types/conversation.ts:348](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L348)
+Defined in: [types/conversation.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L404)
 
 Events emitted by conversation memory system
 
@@ -18,7 +18,7 @@ Events emitted by conversation memory system
 
 > **session:created**: `object`
 
-Defined in: [types/conversation.ts:353](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L353)
+Defined in: [types/conversation.ts:409](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L409)
 
 Emitted when a new session is created.
 The timestamp field is Unix epoch milliseconds.
@@ -43,7 +43,7 @@ Event timestamp as Unix epoch milliseconds
 
 > **turn:stored**: `object`
 
-Defined in: [types/conversation.ts:361](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L361)
+Defined in: [types/conversation.ts:417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L417)
 
 Emitted when a conversation turn is stored
 
@@ -65,7 +65,7 @@ Emitted when a conversation turn is stored
 
 > **session:cleanup**: `object`
 
-Defined in: [types/conversation.ts:368](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L368)
+Defined in: [types/conversation.ts:424](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L424)
 
 Emitted when a session is cleaned up
 
@@ -87,7 +87,7 @@ Emitted when a session is cleaned up
 
 > **context:injected**: `object`
 
-Defined in: [types/conversation.ts:375](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/conversation.ts#L375)
+Defined in: [types/conversation.ts:431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L431)
 
 Emitted when context is injected
 

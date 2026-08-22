@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AudioSaveResult** = `object`
 
-Defined in: [types/tts.ts:119](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L119)
+Defined in: [types/tts.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L137)
 
 Result of saving audio to file
 
@@ -18,7 +18,7 @@ Result of saving audio to file
 
 > **success**: `boolean`
 
-Defined in: [types/tts.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L121)
+Defined in: [types/tts.ts:139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L139)
 
 Whether the save was successful
 
@@ -28,7 +28,7 @@ Whether the save was successful
 
 > **path**: `string`
 
-Defined in: [types/tts.ts:123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L123)
+Defined in: [types/tts.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L141)
 
 Full path to the saved file
 
@@ -38,7 +38,7 @@ Full path to the saved file
 
 > **size**: `number`
 
-Defined in: [types/tts.ts:125](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L125)
+Defined in: [types/tts.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L143)
 
 File size in bytes
 
@@ -48,6 +48,6 @@ File size in bytes
 
 > `optional` **error?**: `string`
 
-Defined in: [types/tts.ts:127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tts.ts#L127)
+Defined in: [types/tts.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L145)
 
 Error message if failed

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResearchState** = `object`
 
-Defined in: [types/autoresearch.ts:68](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L68)
+Defined in: [types/autoresearch.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L68)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/autoresearch.ts:68](https://github.com/juspay/neurolink/blob/
 
 > **branch**: `string`
 
-Defined in: [types/autoresearch.ts:69](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L69)
+Defined in: [types/autoresearch.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L69)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/autoresearch.ts:69](https://github.com/juspay/neurolink/blob/
 
 > **acceptedCommit**: `string` \| `null`
 
-Defined in: [types/autoresearch.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L70)
+Defined in: [types/autoresearch.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L70)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/autoresearch.ts:70](https://github.com/juspay/neurolink/blob/
 
 > **baselineMetric**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:71](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L71)
+Defined in: [types/autoresearch.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L71)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/autoresearch.ts:71](https://github.com/juspay/neurolink/blob/
 
 > **bestMetric**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L72)
+Defined in: [types/autoresearch.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L72)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/autoresearch.ts:72](https://github.com/juspay/neurolink/blob/
 
 > **candidateCommit**: `string` \| `null`
 
-Defined in: [types/autoresearch.ts:73](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L73)
+Defined in: [types/autoresearch.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L73)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/autoresearch.ts:73](https://github.com/juspay/neurolink/blob/
 
 > **runCount**: `number`
 
-Defined in: [types/autoresearch.ts:74](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L74)
+Defined in: [types/autoresearch.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L74)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/autoresearch.ts:74](https://github.com/juspay/neurolink/blob/
 
 > **keepCount**: `number`
 
-Defined in: [types/autoresearch.ts:75](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L75)
+Defined in: [types/autoresearch.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L75)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/autoresearch.ts:75](https://github.com/juspay/neurolink/blob/
 
 > **lastStatus**: [`ExperimentStatus`](ExperimentStatus.md) \| `null`
 
-Defined in: [types/autoresearch.ts:76](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L76)
+Defined in: [types/autoresearch.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L76)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [types/autoresearch.ts:76](https://github.com/juspay/neurolink/blob/
 
 > **currentPhase**: [`ExperimentPhase`](ExperimentPhase.md)
 
-Defined in: [types/autoresearch.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L77)
+Defined in: [types/autoresearch.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L77)
 
 ---
 
@@ -88,7 +88,7 @@ Defined in: [types/autoresearch.ts:77](https://github.com/juspay/neurolink/blob/
 
 > **tag**: `string`
 
-Defined in: [types/autoresearch.ts:78](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L78)
+Defined in: [types/autoresearch.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L78)
 
 ---
 
@@ -96,7 +96,7 @@ Defined in: [types/autoresearch.ts:78](https://github.com/juspay/neurolink/blob/
 
 > **startedAt**: `string`
 
-Defined in: [types/autoresearch.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L79)
+Defined in: [types/autoresearch.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L79)
 
 ---
 
@@ -104,7 +104,7 @@ Defined in: [types/autoresearch.ts:79](https://github.com/juspay/neurolink/blob/
 
 > **updatedAt**: `string`
 
-Defined in: [types/autoresearch.ts:80](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L80)
+Defined in: [types/autoresearch.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L80)
 
 ---
 
@@ -112,4 +112,4 @@ Defined in: [types/autoresearch.ts:80](https://github.com/juspay/neurolink/blob/
 
 > `optional` **lastSummary?**: [`ExperimentSummary`](ExperimentSummary.md) \| `null`
 
-Defined in: [types/autoresearch.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/autoresearch.ts#L81)
+Defined in: [types/autoresearch.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L81)

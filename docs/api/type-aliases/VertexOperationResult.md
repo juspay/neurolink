@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VertexOperationResult** = `object`
 
-Defined in: [types/multimodal.ts:658](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L658)
+Defined in: [types/multimodal.ts:761](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L761)
 
 Polling result envelope returned by Vertex Veo long-running operations.
 
@@ -18,7 +18,7 @@ Polling result envelope returned by Vertex Veo long-running operations.
 
 > `optional` **done?**: `boolean`
 
-Defined in: [types/multimodal.ts:659](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L659)
+Defined in: [types/multimodal.ts:762](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L762)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:659](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **response?**: `object`
 
-Defined in: [types/multimodal.ts:660](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L660)
+Defined in: [types/multimodal.ts:763](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L763)
 
 #### videos?
 
@@ -38,7 +38,7 @@ Defined in: [types/multimodal.ts:660](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **error?**: `object`
 
-Defined in: [types/multimodal.ts:666](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L666)
+Defined in: [types/multimodal.ts:769](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L769)
 
 #### message?
 

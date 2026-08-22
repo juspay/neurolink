@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TruncateResult** = `object`
 
-Defined in: [types/context.ts:803](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L803)
+Defined in: [types/context.ts:826](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L826)
 
 ## Deprecated
 
@@ -20,7 +20,7 @@ Use ToolOutputPreviewResult instead.
 
 > **content**: `string`
 
-Defined in: [types/context.ts:804](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L804)
+Defined in: [types/context.ts:827](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L827)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/context.ts:804](https://github.com/juspay/neurolink/blob/ff50
 
 > **truncated**: `boolean`
 
-Defined in: [types/context.ts:805](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L805)
+Defined in: [types/context.ts:828](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L828)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/context.ts:805](https://github.com/juspay/neurolink/blob/ff50
 
 > `optional` **savedPath?**: `string`
 
-Defined in: [types/context.ts:806](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L806)
+Defined in: [types/context.ts:829](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L829)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/context.ts:806](https://github.com/juspay/neurolink/blob/ff50
 
 > **originalSize**: `number`
 
-Defined in: [types/context.ts:807](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L807)
+Defined in: [types/context.ts:830](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L830)

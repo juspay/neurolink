@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthUserManager** = `object`
 
-Defined in: [types/auth.ts:1149](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1149)
+Defined in: [types/auth.ts:1149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1149)
 
 Optional user management operations.
 
@@ -18,7 +18,7 @@ Optional user management operations.
 
 > `optional` **getUser**(`userId`): `Promise`\<[`AuthUser`](AuthUser.md) \| `null`\>
 
-Defined in: [types/auth.ts:1151](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1151)
+Defined in: [types/auth.ts:1151](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1151)
 
 Get user by ID
 
@@ -38,7 +38,7 @@ Get user by ID
 
 > `optional` **getUserByEmail**(`email`): `Promise`\<[`AuthUser`](AuthUser.md) \| `null`\>
 
-Defined in: [types/auth.ts:1154](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1154)
+Defined in: [types/auth.ts:1154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1154)
 
 Get user by email
 
@@ -58,7 +58,7 @@ Get user by email
 
 > `optional` **updateUserMetadata**(`userId`, `metadata`): `Promise`\<[`AuthUser`](AuthUser.md)\>
 
-Defined in: [types/auth.ts:1157](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1157)
+Defined in: [types/auth.ts:1157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1157)
 
 Update user metadata
 
@@ -82,7 +82,7 @@ Update user metadata
 
 > `optional` **updateUserRoles**(`userId`, `roles`): `Promise`\<[`AuthUser`](AuthUser.md)\>
 
-Defined in: [types/auth.ts:1163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1163)
+Defined in: [types/auth.ts:1163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1163)
 
 Update user roles
 
@@ -106,7 +106,7 @@ Update user roles
 
 > `optional` **updateUserPermissions**(`userId`, `permissions`): `Promise`\<[`AuthUser`](AuthUser.md)\>
 
-Defined in: [types/auth.ts:1166](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1166)
+Defined in: [types/auth.ts:1166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1166)
 
 Update user permissions
 

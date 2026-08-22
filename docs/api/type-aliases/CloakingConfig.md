@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CloakingConfig** = `object`
 
-Defined in: [types/subscription.ts:1123](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1123)
+Defined in: [types/subscription.ts:1244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1244)
 
 Cloaking plugin config
 
@@ -18,7 +18,7 @@ Cloaking plugin config
 
 > **mode**: `"auto"` \| `"always"` \| `"never"`
 
-Defined in: [types/subscription.ts:1124](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1124)
+Defined in: [types/subscription.ts:1245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1245)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1124](https://github.com/juspay/neurolink/blo
 
 > **plugins**: `object`
 
-Defined in: [types/subscription.ts:1125](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L1125)
+Defined in: [types/subscription.ts:1246](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1246)
 
 #### headerScrubber?
 

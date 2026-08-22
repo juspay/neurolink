@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: WebSocketConnectionManager
 
-Defined in: [server/websocket/WebSocketHandler.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L44)
+Defined in: [server/websocket/WebSocketHandler.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L44)
 
 WebSocket connection manager
 
@@ -16,7 +16,7 @@ WebSocket connection manager
 
 > **new WebSocketConnectionManager**(`config?`): `WebSocketConnectionManager`
 
-Defined in: [server/websocket/WebSocketHandler.ts:50](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L50)
+Defined in: [server/websocket/WebSocketHandler.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L50)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [server/websocket/WebSocketHandler.ts:50](https://github.com/juspay/
 
 > **registerHandler**(`path`, `handler`): `void`
 
-Defined in: [server/websocket/WebSocketHandler.ts:57](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L57)
+Defined in: [server/websocket/WebSocketHandler.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L57)
 
 Register a handler for a path
 
@@ -58,7 +58,7 @@ Register a handler for a path
 
 > **getHandler**(`path`): [`WebSocketHandler`](../type-aliases/WebSocketHandler.md) \| `undefined`
 
-Defined in: [server/websocket/WebSocketHandler.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L65)
+Defined in: [server/websocket/WebSocketHandler.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L65)
 
 Get handler for a path
 
@@ -78,7 +78,7 @@ Get handler for a path
 
 > **handleConnection**(`socket`, `path`, `user?`): `Promise`\<[`WebSocketConnection`](../type-aliases/WebSocketConnection.md)\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L72)
+Defined in: [server/websocket/WebSocketHandler.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L72)
 
 Handle new connection
 
@@ -106,7 +106,7 @@ Handle new connection
 
 > **handleMessage**(`connectionId`, `data`, `isBinary`): `Promise`\<`void`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:117](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L117)
+Defined in: [server/websocket/WebSocketHandler.ts:117](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L117)
 
 Handle incoming message
 
@@ -134,7 +134,7 @@ Handle incoming message
 
 > **handleClose**(`connectionId`, `code`, `reason`): `Promise`\<`void`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L164)
+Defined in: [server/websocket/WebSocketHandler.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L164)
 
 Handle connection close
 
@@ -162,7 +162,7 @@ Handle connection close
 
 > **handleError**(`connectionId`, `error`): `Promise`\<`void`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:201](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L201)
+Defined in: [server/websocket/WebSocketHandler.ts:201](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L201)
 
 Handle connection error
 
@@ -186,7 +186,7 @@ Handle connection error
 
 > **getConnection**(`connectionId`): [`WebSocketConnection`](../type-aliases/WebSocketConnection.md) \| `undefined`
 
-Defined in: [server/websocket/WebSocketHandler.ts:228](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L228)
+Defined in: [server/websocket/WebSocketHandler.ts:228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L228)
 
 Get connection by ID
 
@@ -206,7 +206,7 @@ Get connection by ID
 
 > **getAllConnections**(): [`WebSocketConnection`](../type-aliases/WebSocketConnection.md)[]
 
-Defined in: [server/websocket/WebSocketHandler.ts:235](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L235)
+Defined in: [server/websocket/WebSocketHandler.ts:235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L235)
 
 Get all connections
 
@@ -220,7 +220,7 @@ Get all connections
 
 > **getConnectionsByUser**(`userId`): [`WebSocketConnection`](../type-aliases/WebSocketConnection.md)[]
 
-Defined in: [server/websocket/WebSocketHandler.ts:242](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L242)
+Defined in: [server/websocket/WebSocketHandler.ts:242](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L242)
 
 Get connections for a user
 
@@ -240,7 +240,7 @@ Get connections for a user
 
 > **getConnectionsByPath**(`path`): [`WebSocketConnection`](../type-aliases/WebSocketConnection.md)[]
 
-Defined in: [server/websocket/WebSocketHandler.ts:251](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L251)
+Defined in: [server/websocket/WebSocketHandler.ts:251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L251)
 
 Get connections for a path
 
@@ -260,7 +260,7 @@ Get connections for a path
 
 > **send**(`connectionId`, `data`): `void`
 
-Defined in: [server/websocket/WebSocketHandler.ts:260](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L260)
+Defined in: [server/websocket/WebSocketHandler.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L260)
 
 Send message to a connection
 
@@ -284,7 +284,7 @@ Send message to a connection
 
 > **broadcast**(`data`, `filter?`): `void`
 
-Defined in: [server/websocket/WebSocketHandler.ts:284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L284)
+Defined in: [server/websocket/WebSocketHandler.ts:284](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L284)
 
 Broadcast message to all connections
 
@@ -308,7 +308,7 @@ Broadcast message to all connections
 
 > **close**(`connectionId`, `code?`, `reason?`): `Promise`\<`void`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:306](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L306)
+Defined in: [server/websocket/WebSocketHandler.ts:306](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L306)
 
 Close a connection
 
@@ -336,7 +336,7 @@ Close a connection
 
 > **closeAll**(`code?`, `reason?`): `Promise`\<`void`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:334](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L334)
+Defined in: [server/websocket/WebSocketHandler.ts:334](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L334)
 
 Close all connections
 
@@ -360,7 +360,7 @@ Close all connections
 
 > **getConnectionCount**(): `number`
 
-Defined in: [server/websocket/WebSocketHandler.ts:344](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/server/websocket/WebSocketHandler.ts#L344)
+Defined in: [server/websocket/WebSocketHandler.ts:344](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/websocket/WebSocketHandler.ts#L344)
 
 Get connection count
 

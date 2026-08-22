@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientProviderStatus** = `object`
 
-Defined in: [types/client.ts:116](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L116)
+Defined in: [types/client.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L116)
 
 Provider status information
 
@@ -18,7 +18,7 @@ Provider status information
 
 > **name**: `string`
 
-Defined in: [types/client.ts:118](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L118)
+Defined in: [types/client.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L118)
 
 Provider name
 
@@ -28,7 +28,7 @@ Provider name
 
 > **status**: `"available"` \| `"degraded"` \| `"unavailable"`
 
-Defined in: [types/client.ts:120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L120)
+Defined in: [types/client.ts:120](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L120)
 
 Provider availability status
 
@@ -38,7 +38,7 @@ Provider availability status
 
 > **models**: `string`[]
 
-Defined in: [types/client.ts:122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L122)
+Defined in: [types/client.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L122)
 
 Available models for this provider
 
@@ -48,7 +48,7 @@ Available models for this provider
 
 > `optional` **capabilities?**: `object`
 
-Defined in: [types/client.ts:124](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L124)
+Defined in: [types/client.ts:124](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L124)
 
 Provider capabilities
 
@@ -74,6 +74,6 @@ Provider capabilities
 
 > `optional` **lastChecked?**: `number`
 
-Defined in: [types/client.ts:131](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/client.ts#L131)
+Defined in: [types/client.ts:131](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L131)
 
 Last health check timestamp

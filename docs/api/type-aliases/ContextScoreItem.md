@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ContextScoreItem** = `object`
 
-Defined in: [types/scorer.ts:651](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L651)
+Defined in: [types/scorer.ts:651](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L651)
 
 Context score row reported by the context-relevancy scorer.
 
@@ -18,7 +18,7 @@ Context score row reported by the context-relevancy scorer.
 
 > `optional` **index?**: `number`
 
-Defined in: [types/scorer.ts:652](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L652)
+Defined in: [types/scorer.ts:652](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L652)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/scorer.ts:652](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **score?**: `number`
 
-Defined in: [types/scorer.ts:653](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L653)
+Defined in: [types/scorer.ts:653](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L653)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/scorer.ts:653](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/scorer.ts:654](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L654)
+Defined in: [types/scorer.ts:654](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L654)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/scorer.ts:654](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **keyInfo?**: `string`[]
 
-Defined in: [types/scorer.ts:655](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L655)
+Defined in: [types/scorer.ts:655](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L655)

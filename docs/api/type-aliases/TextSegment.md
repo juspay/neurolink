@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TextSegment** = `object`
 
-Defined in: [types/ppt.ts:1260](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1260)
+Defined in: [types/ppt.ts:1260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1260)
 
 Text segment with optional formatting
 
@@ -18,7 +18,7 @@ Text segment with optional formatting
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:1261](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1261)
+Defined in: [types/ppt.ts:1261](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1261)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1261](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **bold?**: `boolean`
 
-Defined in: [types/ppt.ts:1262](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1262)
+Defined in: [types/ppt.ts:1262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1262)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/ppt.ts:1262](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **italic?**: `boolean`
 
-Defined in: [types/ppt.ts:1263](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/ppt.ts#L1263)
+Defined in: [types/ppt.ts:1263](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1263)

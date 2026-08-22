@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CommandDefinition**\<`TArgs`\> = `object`
 
-Defined in: [types/cli.ts:474](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L474)
+Defined in: [types/cli.ts:492](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L492)
 
 Command definition
 
@@ -24,7 +24,7 @@ Command definition
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:475](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L475)
+Defined in: [types/cli.ts:493](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L493)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:475](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:476](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L476)
+Defined in: [types/cli.ts:494](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L494)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:476](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/cli.ts:477](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L477)
+Defined in: [types/cli.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L495)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/cli.ts:477](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **args?**: \{ \[K in keyof TArgs\]: \{ type: "string" \| "number" \| "boolean"; description: string; required?: boolean; default?: TArgs\[K\] \} \}
 
-Defined in: [types/cli.ts:478](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L478)
+Defined in: [types/cli.ts:496](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L496)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/cli.ts:478](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **handler**: [`CommandHandler`](CommandHandler.md)\<`TArgs`\>
 
-Defined in: [types/cli.ts:486](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L486)
+Defined in: [types/cli.ts:504](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L504)

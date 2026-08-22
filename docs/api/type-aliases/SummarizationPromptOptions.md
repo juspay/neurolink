@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SummarizationPromptOptions** = `object`
 
-Defined in: [types/context.ts:841](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L841)
+Defined in: [types/context.ts:965](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L965)
 
 Options for summarization prompt building.
 
@@ -18,7 +18,7 @@ Options for summarization prompt building.
 
 > **isIncremental**: `boolean`
 
-Defined in: [types/context.ts:845](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L845)
+Defined in: [types/context.ts:969](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L969)
 
 Whether this is an incremental update to an existing summary
 
@@ -28,7 +28,7 @@ Whether this is an incremental update to an existing summary
 
 > `optional` **previousSummary?**: `string`
 
-Defined in: [types/context.ts:850](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L850)
+Defined in: [types/context.ts:974](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L974)
 
 The previous summary to merge with (required for incremental mode)
 
@@ -38,7 +38,7 @@ The previous summary to merge with (required for incremental mode)
 
 > `optional` **filesRead?**: `string`[]
 
-Defined in: [types/context.ts:855](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L855)
+Defined in: [types/context.ts:979](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L979)
 
 List of files that have been read during the conversation
 
@@ -48,6 +48,6 @@ List of files that have been read during the conversation
 
 > `optional` **filesModified?**: `string`[]
 
-Defined in: [types/context.ts:860](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/context.ts#L860)
+Defined in: [types/context.ts:984](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L984)
 
 List of files that have been modified during the conversation

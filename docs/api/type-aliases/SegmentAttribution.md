@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SegmentAttribution** = `object`
 
-Defined in: [types/grounding.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L77)
+Defined in: [types/grounding.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L77)
 
 Represents attribution information for a specific segment of the AI response.
 Maps portions of the generated text to their supporting sources, enabling
@@ -35,7 +35,7 @@ const attribution: SegmentAttribution = {
 
 > **text**: `string`
 
-Defined in: [types/grounding.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L79)
+Defined in: [types/grounding.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L79)
 
 The actual text content of this segment from the response
 
@@ -45,7 +45,7 @@ The actual text content of this segment from the response
 
 > **startIndex**: `number`
 
-Defined in: [types/grounding.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L81)
+Defined in: [types/grounding.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L81)
 
 Starting character index of this segment in the full response text
 
@@ -55,7 +55,7 @@ Starting character index of this segment in the full response text
 
 > **endIndex**: `number`
 
-Defined in: [types/grounding.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L83)
+Defined in: [types/grounding.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L83)
 
 Ending character index of this segment in the full response text
 
@@ -65,7 +65,7 @@ Ending character index of this segment in the full response text
 
 > **partIndex**: `number`
 
-Defined in: [types/grounding.ts:85](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L85)
+Defined in: [types/grounding.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L85)
 
 Index of the response part this segment belongs to (for multi-part responses)
 
@@ -75,6 +75,6 @@ Index of the response part this segment belongs to (for multi-part responses)
 
 > **supportingSources**: [`SegmentSupport`](SegmentSupport.md)[]
 
-Defined in: [types/grounding.ts:87](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/grounding.ts#L87)
+Defined in: [types/grounding.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L87)
 
 Array of sources that support this segment with their confidence scores

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../README.md)
 
 ---
 
@@ -10,6 +10,6 @@ Google AI setup configuration types
 
 ## Type Aliases
 
-- [SetupOptions](type-aliases/SetupOptions.md)
-- [SetupArgv](type-aliases/SetupArgv.md)
-- [Config](type-aliases/Config.md)
+- [GoogleAISetupOptions](type-aliases/GoogleAISetupOptions.md)
+- [GoogleAISetupArgv](type-aliases/GoogleAISetupArgv.md)
+- [GoogleAISetupConfig](type-aliases/GoogleAISetupConfig.md)

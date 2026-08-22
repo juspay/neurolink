@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ExporterRegistry
 
-Defined in: [observability/exporterRegistry.ts:51](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L51)
+Defined in: [observability/exporterRegistry.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L51)
 
 Registry for managing multiple observability exporters
 Includes circuit breaker protection to prevent cascading failures
@@ -27,7 +27,7 @@ Includes circuit breaker protection to prevent cascading failures
 
 > **register**(`exporter`): `void`
 
-Defined in: [observability/exporterRegistry.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L65)
+Defined in: [observability/exporterRegistry.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L65)
 
 Register an exporter
 
@@ -47,7 +47,7 @@ Register an exporter
 
 > **unregister**(`name`): `boolean`
 
-Defined in: [observability/exporterRegistry.ts:72](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L72)
+Defined in: [observability/exporterRegistry.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L72)
 
 Unregister an exporter
 
@@ -67,7 +67,7 @@ Unregister an exporter
 
 > **get**(`name`): `BaseExporter` \| `undefined`
 
-Defined in: [observability/exporterRegistry.ts:79](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L79)
+Defined in: [observability/exporterRegistry.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L79)
 
 Get an exporter by name
 
@@ -87,7 +87,7 @@ Get an exporter by name
 
 > **getNames**(): `string`[]
 
-Defined in: [observability/exporterRegistry.ts:86](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L86)
+Defined in: [observability/exporterRegistry.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L86)
 
 Get all registered exporter names
 
@@ -101,7 +101,7 @@ Get all registered exporter names
 
 > **getCount**(): `number`
 
-Defined in: [observability/exporterRegistry.ts:93](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L93)
+Defined in: [observability/exporterRegistry.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L93)
 
 Get total exporter count
 
@@ -115,7 +115,7 @@ Get total exporter count
 
 > **setDefault**(`name`): `void`
 
-Defined in: [observability/exporterRegistry.ts:100](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L100)
+Defined in: [observability/exporterRegistry.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L100)
 
 Set the default exporter
 
@@ -135,7 +135,7 @@ Set the default exporter
 
 > **getDefault**(): `BaseExporter` \| `undefined`
 
-Defined in: [observability/exporterRegistry.ts:110](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L110)
+Defined in: [observability/exporterRegistry.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L110)
 
 Get the default exporter
 
@@ -149,7 +149,7 @@ Get the default exporter
 
 > **setSampler**(`sampler`): `void`
 
-Defined in: [observability/exporterRegistry.ts:120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L120)
+Defined in: [observability/exporterRegistry.ts:120](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L120)
 
 Set the sampler for the registry
 
@@ -169,7 +169,7 @@ Set the sampler for the registry
 
 > **getSampler**(): [`Sampler`](../type-aliases/Sampler.md)
 
-Defined in: [observability/exporterRegistry.ts:127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L127)
+Defined in: [observability/exporterRegistry.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L127)
 
 Get the current sampler
 
@@ -183,7 +183,7 @@ Get the current sampler
 
 > **configureCircuitBreaker**(`config`): `void`
 
-Defined in: [observability/exporterRegistry.ts:135](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L135)
+Defined in: [observability/exporterRegistry.ts:135](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L135)
 
 Configure the circuit breaker settings
 
@@ -205,7 +205,7 @@ Partial circuit breaker configuration
 
 > **getCircuitBreakerStatus**(`exporterName`): [`ObservabilityCircuitBreakerState`](../type-aliases/ObservabilityCircuitBreakerState.md) \| `undefined`
 
-Defined in: [observability/exporterRegistry.ts:215](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L215)
+Defined in: [observability/exporterRegistry.ts:215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L215)
 
 Get circuit breaker status for an exporter
 
@@ -229,7 +229,7 @@ Circuit breaker state or undefined if not tracked
 
 > **resetCircuitBreaker**(`exporterName`): `void`
 
-Defined in: [observability/exporterRegistry.ts:225](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L225)
+Defined in: [observability/exporterRegistry.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L225)
 
 Reset circuit breaker for an exporter
 
@@ -251,7 +251,7 @@ Name of the exporter
 
 > **exportToAll**(`span`): `Promise`\<`Map`\<`string`, [`ExportResult`](../type-aliases/ExportResult.md)\>\>
 
-Defined in: [observability/exporterRegistry.ts:233](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L233)
+Defined in: [observability/exporterRegistry.ts:233](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L233)
 
 Export span to all registered exporters
 Applies sampling and circuit breaker protection before export
@@ -272,7 +272,7 @@ Applies sampling and circuit breaker protection before export
 
 > **exportTo**(`name`, `span`): `Promise`\<[`ExportResult`](../type-aliases/ExportResult.md) \| `null`\>
 
-Defined in: [observability/exporterRegistry.ts:309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L309)
+Defined in: [observability/exporterRegistry.ts:309](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L309)
 
 Export span to a specific exporter
 Applies sampling and circuit breaker protection
@@ -297,7 +297,7 @@ Applies sampling and circuit breaker protection
 
 > **initializeAll**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporterRegistry.ts:381](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L381)
+Defined in: [observability/exporterRegistry.ts:381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L381)
 
 Initialize all exporters
 
@@ -311,7 +311,7 @@ Initialize all exporters
 
 > **shutdownAll**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporterRegistry.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L406)
+Defined in: [observability/exporterRegistry.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L406)
 
 Shutdown all exporters
 
@@ -325,7 +325,7 @@ Shutdown all exporters
 
 > **flushAll**(): `Promise`\<`void`\>
 
-Defined in: [observability/exporterRegistry.ts:431](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L431)
+Defined in: [observability/exporterRegistry.ts:431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L431)
 
 Flush all exporters
 
@@ -339,7 +339,7 @@ Flush all exporters
 
 > **healthCheckAll**(): `Promise`\<`Map`\<`string`, [`ExporterHealthStatus`](../type-aliases/ExporterHealthStatus.md)\>\>
 
-Defined in: [observability/exporterRegistry.ts:454](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L454)
+Defined in: [observability/exporterRegistry.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L454)
 
 Get health status of all exporters
 
@@ -353,7 +353,7 @@ Get health status of all exporters
 
 > **isHealthy**(): `Promise`\<`boolean`\>
 
-Defined in: [observability/exporterRegistry.ts:471](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L471)
+Defined in: [observability/exporterRegistry.ts:471](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L471)
 
 Check if all exporters are healthy
 
@@ -367,7 +367,7 @@ Check if all exporters are healthy
 
 > **getTotalPendingSpans**(): `number`
 
-Defined in: [observability/exporterRegistry.ts:479](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L479)
+Defined in: [observability/exporterRegistry.ts:479](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L479)
 
 Get total pending spans across all exporters
 
@@ -381,7 +381,7 @@ Get total pending spans across all exporters
 
 > **clear**(): `void`
 
-Defined in: [observability/exporterRegistry.ts:492](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/observability/exporterRegistry.ts#L492)
+Defined in: [observability/exporterRegistry.ts:492](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/exporterRegistry.ts#L492)
 
 Clear all registered exporters and reset state
 (For testing and cleanup)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TaskStore** = `object`
 
-Defined in: [types/task.ts:226](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L226)
+Defined in: [types/task.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L226)
 
 Abstracts task persistence. Auto-selected based on backend:
 
@@ -21,7 +21,7 @@ Abstracts task persistence. Auto-selected based on backend:
 
 > `readonly` **type**: `"redis"` \| `"file"`
 
-Defined in: [types/task.ts:227](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L227)
+Defined in: [types/task.ts:227](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L227)
 
 ## Methods
 
@@ -29,7 +29,7 @@ Defined in: [types/task.ts:227](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:229](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L229)
+Defined in: [types/task.ts:229](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L229)
 
 #### Returns
 
@@ -41,7 +41,7 @@ Defined in: [types/task.ts:229](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **shutdown**(): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:230](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L230)
+Defined in: [types/task.ts:230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L230)
 
 #### Returns
 
@@ -53,7 +53,7 @@ Defined in: [types/task.ts:230](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **save**(`task`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:233](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L233)
+Defined in: [types/task.ts:233](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L233)
 
 #### Parameters
 
@@ -71,7 +71,7 @@ Defined in: [types/task.ts:233](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **get**(`taskId`): `Promise`\<[`Task`](Task.md) \| `null`\>
 
-Defined in: [types/task.ts:234](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L234)
+Defined in: [types/task.ts:234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L234)
 
 #### Parameters
 
@@ -89,7 +89,7 @@ Defined in: [types/task.ts:234](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **list**(`filter?`): `Promise`\<[`Task`](Task.md)[]\>
 
-Defined in: [types/task.ts:235](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L235)
+Defined in: [types/task.ts:235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L235)
 
 #### Parameters
 
@@ -109,7 +109,7 @@ Defined in: [types/task.ts:235](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **update**(`taskId`, `updates`): `Promise`\<[`Task`](Task.md)\>
 
-Defined in: [types/task.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L236)
+Defined in: [types/task.ts:236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L236)
 
 #### Parameters
 
@@ -131,7 +131,7 @@ Defined in: [types/task.ts:236](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **delete**(`taskId`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:237](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L237)
+Defined in: [types/task.ts:237](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L237)
 
 #### Parameters
 
@@ -149,7 +149,7 @@ Defined in: [types/task.ts:237](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **appendRun**(`taskId`, `run`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L240)
+Defined in: [types/task.ts:240](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L240)
 
 #### Parameters
 
@@ -171,7 +171,7 @@ Defined in: [types/task.ts:240](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **getRuns**(`taskId`, `options?`): `Promise`\<[`TaskRunResult`](TaskRunResult.md)[]\>
 
-Defined in: [types/task.ts:241](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L241)
+Defined in: [types/task.ts:241](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L241)
 
 #### Parameters
 
@@ -199,7 +199,7 @@ Defined in: [types/task.ts:241](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **appendHistory**(`taskId`, `messages`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L247)
+Defined in: [types/task.ts:247](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L247)
 
 #### Parameters
 
@@ -221,7 +221,7 @@ Defined in: [types/task.ts:247](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **getHistory**(`taskId`): `Promise`\<[`ConversationEntry`](ConversationEntry.md)[]\>
 
-Defined in: [types/task.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L248)
+Defined in: [types/task.ts:248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L248)
 
 #### Parameters
 
@@ -239,7 +239,7 @@ Defined in: [types/task.ts:248](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **clearHistory**(`taskId`): `Promise`\<`void`\>
 
-Defined in: [types/task.ts:249](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/task.ts#L249)
+Defined in: [types/task.ts:249](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L249)
 
 #### Parameters
 

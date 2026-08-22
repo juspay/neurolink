@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolCallResult** = `object`
 
-Defined in: [types/tools.ts:572](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L572)
+Defined in: [types/tools.ts:589](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L589)
 
 Tool call result (for AI SDK integration)
 
@@ -18,7 +18,7 @@ Tool call result (for AI SDK integration)
 
 > `optional` **id?**: `string`
 
-Defined in: [types/tools.ts:573](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L573)
+Defined in: [types/tools.ts:590](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L590)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:573](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **result**: [`ToolResult`](ToolResult.md)
 
-Defined in: [types/tools.ts:574](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L574)
+Defined in: [types/tools.ts:591](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L591)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/tools.ts:574](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **formattedForAI**: `string`
 
-Defined in: [types/tools.ts:575](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L575)
+Defined in: [types/tools.ts:592](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L592)

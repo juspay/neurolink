@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClaudeQuotaInfo** = `object`
 
-Defined in: [types/subscription.ts:261](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L261)
+Defined in: [types/subscription.ts:343](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L343)
 
 Claude quota information for tracking usage limits
 
@@ -23,7 +23,7 @@ including message limits, token limits, and model access restrictions.
 
 > **maxMessagesPerPeriod**: `number`
 
-Defined in: [types/subscription.ts:266](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L266)
+Defined in: [types/subscription.ts:348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L348)
 
 Maximum messages allowed per time period
 
@@ -37,7 +37,7 @@ Number of messages the user can send within the reset period
 
 > **maxTokensPerPeriod**: `number`
 
-Defined in: [types/subscription.ts:272](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L272)
+Defined in: [types/subscription.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L354)
 
 Maximum tokens allowed per time period
 
@@ -51,7 +51,7 @@ Total tokens (input + output) allowed within the reset period
 
 > **maxTokensPerRequest**: `number`
 
-Defined in: [types/subscription.ts:278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L278)
+Defined in: [types/subscription.ts:360](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L360)
 
 Maximum tokens per individual request
 
@@ -65,7 +65,7 @@ Limit on tokens for a single API request
 
 > **resetPeriodMs**: `number`
 
-Defined in: [types/subscription.ts:284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L284)
+Defined in: [types/subscription.ts:366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L366)
 
 Time period for quota reset in milliseconds
 
@@ -79,7 +79,7 @@ Duration after which quota counters reset (e.g., 3600000 for 1 hour)
 
 > **nextResetTimestamp**: `number`
 
-Defined in: [types/subscription.ts:290](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L290)
+Defined in: [types/subscription.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L372)
 
 Timestamp when quota will reset (Unix epoch in milliseconds)
 
@@ -93,7 +93,7 @@ Next quota reset time
 
 > **availableModels**: `string`[]
 
-Defined in: [types/subscription.ts:296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L296)
+Defined in: [types/subscription.ts:378](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L378)
 
 List of models accessible with current subscription
 
@@ -107,7 +107,7 @@ Model identifiers the user has access to based on tier
 
 > **hasPriorityAccess**: `boolean`
 
-Defined in: [types/subscription.ts:302](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L302)
+Defined in: [types/subscription.ts:384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L384)
 
 Whether priority queue access is enabled
 
@@ -121,7 +121,7 @@ Priority access reduces wait times during high traffic
 
 > **maxConcurrentRequests**: `number`
 
-Defined in: [types/subscription.ts:308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L308)
+Defined in: [types/subscription.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L390)
 
 Maximum concurrent requests allowed
 
@@ -135,7 +135,7 @@ Number of simultaneous API requests permitted
 
 > **hasExtendedThinking**: `boolean`
 
-Defined in: [types/subscription.ts:314](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L314)
+Defined in: [types/subscription.ts:396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L396)
 
 Whether extended thinking is available
 
@@ -149,7 +149,7 @@ Access to extended thinking/reasoning capabilities
 
 > **maxContextWindow**: `number`
 
-Defined in: [types/subscription.ts:320](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/subscription.ts#L320)
+Defined in: [types/subscription.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L402)
 
 Maximum context window size in tokens
 

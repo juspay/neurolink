@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EmbedResponse** = `object`
 
-Defined in: [types/server.ts:645](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L645)
+Defined in: [types/server.ts:645](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L645)
 
 Embed response (single text)
 
@@ -18,7 +18,7 @@ Embed response (single text)
 
 > **embedding**: `number`[]
 
-Defined in: [types/server.ts:647](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L647)
+Defined in: [types/server.ts:647](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L647)
 
 The embedding vector
 
@@ -28,7 +28,7 @@ The embedding vector
 
 > **provider**: `string`
 
-Defined in: [types/server.ts:650](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L650)
+Defined in: [types/server.ts:650](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L650)
 
 Provider used
 
@@ -38,7 +38,7 @@ Provider used
 
 > **model**: `string`
 
-Defined in: [types/server.ts:653](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L653)
+Defined in: [types/server.ts:653](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L653)
 
 Model used
 
@@ -48,6 +48,6 @@ Model used
 
 > **dimension**: `number`
 
-Defined in: [types/server.ts:656](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L656)
+Defined in: [types/server.ts:656](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L656)
 
 Embedding dimension

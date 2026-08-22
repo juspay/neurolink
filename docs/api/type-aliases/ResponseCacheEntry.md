@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResponseCacheEntry**\<`T`\> = `object`
 
-Defined in: [types/proxy.ts:830](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L830)
+Defined in: [types/proxy.ts:1516](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1516)
 
 Cache entry for response caching middleware.
 
@@ -24,7 +24,7 @@ Cache entry for response caching middleware.
 
 > **value**: `T`
 
-Defined in: [types/proxy.ts:831](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L831)
+Defined in: [types/proxy.ts:1517](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1517)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:831](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **expiresAt**: `number`
 
-Defined in: [types/proxy.ts:832](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L832)
+Defined in: [types/proxy.ts:1518](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1518)

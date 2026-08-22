@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderSetupConfig** = `object`
 
-Defined in: [types/cli.ts:1308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1308)
+Defined in: [types/cli.ts:1428](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1428)
 
 Superset provider-setup config. `endpoint` is Azure-only; other providers
 leave it undefined. Pre-consolidation there were 4 near-duplicate types
@@ -20,7 +20,7 @@ leave it undefined. Pre-consolidation there were 4 near-duplicate types
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:1309](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1309)
+Defined in: [types/cli.ts:1429](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1429)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/cli.ts:1309](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:1310](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1310)
+Defined in: [types/cli.ts:1430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1430)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/cli.ts:1310](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/cli.ts:1311](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1311)
+Defined in: [types/cli.ts:1431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1431)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/cli.ts:1311](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **isReconfiguring?**: `boolean`
 
-Defined in: [types/cli.ts:1312](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1312)
+Defined in: [types/cli.ts:1432](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1432)

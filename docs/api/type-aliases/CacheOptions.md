@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CacheOptions** = `object`
 
-Defined in: [types/tools.ts:81](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L81)
+Defined in: [types/tools.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L98)
 
 Cache configuration options
 Moved from src/lib/mcp/contracts/mcpContract.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/tools.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L82)
+Defined in: [types/tools.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L99)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/tools.ts:82](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **ttlMs?**: `number`
 
-Defined in: [types/tools.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L83)
+Defined in: [types/tools.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L100)
 
 ---
 
@@ -35,4 +35,4 @@ Defined in: [types/tools.ts:83](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **strategy?**: `"memory"` \| `"writeThrough"` \| `"cacheAside"`
 
-Defined in: [types/tools.ts:84](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L84)
+Defined in: [types/tools.ts:101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L101)

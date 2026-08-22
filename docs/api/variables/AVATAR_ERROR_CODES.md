@@ -1,0 +1,47 @@
+[**NeuroLink API Reference v11.2.3**](../README.md)
+
+---
+
+[NeuroLink API Reference](../README.md) / AVATAR_ERROR_CODES
+
+# Variable: AVATAR_ERROR_CODES
+
+> `const` **AVATAR_ERROR_CODES**: `object`
+
+Defined in: [utils/avatarProcessor.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L32)
+
+Avatar-specific error codes.
+
+## Type Declaration
+
+### PROVIDER_NOT_SUPPORTED
+
+> `readonly` **PROVIDER_NOT_SUPPORTED**: `"AVATAR_PROVIDER_NOT_SUPPORTED"` = `"AVATAR_PROVIDER_NOT_SUPPORTED"`
+
+### PROVIDER_NOT_CONFIGURED
+
+> `readonly` **PROVIDER_NOT_CONFIGURED**: `"AVATAR_PROVIDER_NOT_CONFIGURED"` = `"AVATAR_PROVIDER_NOT_CONFIGURED"`
+
+### GENERATION_FAILED
+
+> `readonly` **GENERATION_FAILED**: `"AVATAR_GENERATION_FAILED"` = `"AVATAR_GENERATION_FAILED"`
+
+### POLL_TIMEOUT
+
+> `readonly` **POLL_TIMEOUT**: `"AVATAR_POLL_TIMEOUT"` = `"AVATAR_POLL_TIMEOUT"`
+
+### INVALID_INPUT
+
+> `readonly` **INVALID_INPUT**: `"AVATAR_INVALID_INPUT"` = `"AVATAR_INVALID_INPUT"`
+
+### AUDIO_REQUIRED
+
+> `readonly` **AUDIO_REQUIRED**: `"AVATAR_AUDIO_REQUIRED"` = `"AVATAR_AUDIO_REQUIRED"`
+
+### IMAGE_REQUIRED
+
+> `readonly` **IMAGE_REQUIRED**: `"AVATAR_IMAGE_REQUIRED"` = `"AVATAR_IMAGE_REQUIRED"`
+
+### AUDIO_TOO_LONG
+
+> `readonly` **AUDIO_TOO_LONG**: `"AVATAR_AUDIO_TOO_LONG"` = `"AVATAR_AUDIO_TOO_LONG"`

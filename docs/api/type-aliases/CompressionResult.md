@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CompressionResult** = `object`
 
-Defined in: [types/multimodal.ts:687](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L687)
+Defined in: [types/multimodal.ts:790](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L790)
 
 Result of compressImage() with metadata.
 
@@ -18,7 +18,7 @@ Result of compressImage() with metadata.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/multimodal.ts:688](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L688)
+Defined in: [types/multimodal.ts:791](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L791)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/multimodal.ts:688](https://github.com/juspay/neurolink/blob/f
 
 > **originalSize**: `number`
 
-Defined in: [types/multimodal.ts:689](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L689)
+Defined in: [types/multimodal.ts:792](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L792)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/multimodal.ts:689](https://github.com/juspay/neurolink/blob/f
 
 > **compressedSize**: `number`
 
-Defined in: [types/multimodal.ts:690](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L690)
+Defined in: [types/multimodal.ts:793](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L793)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/multimodal.ts:690](https://github.com/juspay/neurolink/blob/f
 
 > **compressionRatio**: `number`
 
-Defined in: [types/multimodal.ts:691](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L691)
+Defined in: [types/multimodal.ts:794](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L794)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/multimodal.ts:691](https://github.com/juspay/neurolink/blob/f
 
 > **metadata**: `object`
 
-Defined in: [types/multimodal.ts:692](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L692)
+Defined in: [types/multimodal.ts:795](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L795)
 
 #### width
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MCPProtocolTool** = `object`
 
-Defined in: [types/mcp.ts:2159](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2159)
+Defined in: [types/mcp.ts:2159](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2159)
 
 MCP protocol tool format (from @modelcontextprotocol/sdk)
 
@@ -18,7 +18,7 @@ MCP protocol tool format (from @modelcontextprotocol/sdk)
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:2163](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2163)
+Defined in: [types/mcp.ts:2163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2163)
 
 Tool name
 
@@ -28,7 +28,7 @@ Tool name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:2168](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2168)
+Defined in: [types/mcp.ts:2168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2168)
 
 Tool description
 
@@ -38,7 +38,7 @@ Tool description
 
 > **inputSchema**: `object`
 
-Defined in: [types/mcp.ts:2173](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2173)
+Defined in: [types/mcp.ts:2173](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2173)
 
 JSON Schema for input
 
@@ -60,7 +60,7 @@ JSON Schema for input
 
 > `optional` **annotations?**: `object`
 
-Defined in: [types/mcp.ts:2182](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2182)
+Defined in: [types/mcp.ts:2182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2182)
 
 Optional annotations (MCP 2024-11-05+)
 

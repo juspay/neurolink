@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BuiltInScorerDefinition** = `object`
 
-Defined in: [types/scorer.ts:632](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L632)
+Defined in: [types/scorer.ts:632](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L632)
 
 Row describing a built-in scorer in the scorer registry seed list.
 
@@ -18,7 +18,7 @@ Row describing a built-in scorer in the scorer registry seed list.
 
 > **metadata**: [`ScorerMetadata`](ScorerMetadata.md)
 
-Defined in: [types/scorer.ts:633](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L633)
+Defined in: [types/scorer.ts:633](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L633)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/scorer.ts:633](https://github.com/juspay/neurolink/blob/ff50c
 
 > **factory**: [`ScorerFactory`](ScorerFactory.md)
 
-Defined in: [types/scorer.ts:634](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L634)
+Defined in: [types/scorer.ts:634](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L634)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/scorer.ts:634](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/scorer.ts:635](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/scorer.ts#L635)
+Defined in: [types/scorer.ts:635](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L635)

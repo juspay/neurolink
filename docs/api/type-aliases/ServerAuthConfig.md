@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerAuthConfig** = `object`
 
-Defined in: [types/server.ts:953](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L953)
+Defined in: [types/server.ts:953](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L953)
 
 Authentication configuration
 
@@ -18,7 +18,7 @@ Authentication configuration
 
 > **strategy**: [`AuthStrategy`](AuthStrategy.md)
 
-Defined in: [types/server.ts:954](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L954)
+Defined in: [types/server.ts:954](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L954)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:954](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **required?**: `boolean`
 
-Defined in: [types/server.ts:955](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L955)
+Defined in: [types/server.ts:955](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L955)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:955](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **headerName?**: `string`
 
-Defined in: [types/server.ts:956](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L956)
+Defined in: [types/server.ts:956](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L956)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/server.ts:956](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **queryParam?**: `string`
 
-Defined in: [types/server.ts:957](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L957)
+Defined in: [types/server.ts:957](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L957)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/server.ts:957](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **validate?**: (`token`) => `Promise`\<[`AuthenticatedUser`](AuthenticatedUser.md) \| `null`\>
 
-Defined in: [types/server.ts:958](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L958)
+Defined in: [types/server.ts:958](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L958)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [types/server.ts:958](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/server.ts:959](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L959)
+Defined in: [types/server.ts:959](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L959)
 
 ---
 
@@ -76,4 +76,4 @@ Defined in: [types/server.ts:959](https://github.com/juspay/neurolink/blob/ff50c
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/server.ts:960](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L960)
+Defined in: [types/server.ts:960](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L960)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolValidationOptions** = `object`
 
-Defined in: [types/tools.ts:541](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L541)
+Defined in: [types/tools.ts:558](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L558)
 
 Tool validation options
 
@@ -18,7 +18,7 @@ Tool validation options
 
 > `optional` **customValidator?**: (`toolName`, `params`) => `boolean` \| `Promise`\<`boolean`\>
 
-Defined in: [types/tools.ts:542](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L542)
+Defined in: [types/tools.ts:559](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L559)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/tools.ts:542](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **validateSchema?**: `boolean`
 
-Defined in: [types/tools.ts:546](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L546)
+Defined in: [types/tools.ts:563](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L563)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/tools.ts:546](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **allowUnknownProperties?**: `boolean`
 
-Defined in: [types/tools.ts:547](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L547)
+Defined in: [types/tools.ts:564](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L564)

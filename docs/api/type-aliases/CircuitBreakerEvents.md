@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CircuitBreakerEvents** = `object`
 
-Defined in: [types/mcp.ts:728](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L728)
+Defined in: [types/mcp.ts:728](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L728)
 
 Circuit breaker events
 Moved from src/lib/mcp/mcpCircuitBreaker.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/mcpCircuitBreaker.ts
 
 > **stateChange**: `object`
 
-Defined in: [types/mcp.ts:729](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L729)
+Defined in: [types/mcp.ts:729](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L729)
 
 #### oldState
 
@@ -43,7 +43,7 @@ Defined in: [types/mcp.ts:729](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **callSuccess**: `object`
 
-Defined in: [types/mcp.ts:736](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L736)
+Defined in: [types/mcp.ts:736](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L736)
 
 #### duration
 
@@ -59,7 +59,7 @@ Defined in: [types/mcp.ts:736](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **callFailure**: `object`
 
-Defined in: [types/mcp.ts:741](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L741)
+Defined in: [types/mcp.ts:741](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L741)
 
 #### error
 
@@ -79,7 +79,7 @@ Defined in: [types/mcp.ts:741](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **circuitOpen**: `object`
 
-Defined in: [types/mcp.ts:747](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L747)
+Defined in: [types/mcp.ts:747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L747)
 
 #### failureRate
 
@@ -99,7 +99,7 @@ Defined in: [types/mcp.ts:747](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **circuitHalfOpen**: `object`
 
-Defined in: [types/mcp.ts:753](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L753)
+Defined in: [types/mcp.ts:753](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L753)
 
 #### timestamp
 
@@ -111,7 +111,7 @@ Defined in: [types/mcp.ts:753](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **circuitClosed**: `object`
 
-Defined in: [types/mcp.ts:757](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L757)
+Defined in: [types/mcp.ts:757](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L757)
 
 #### timestamp
 

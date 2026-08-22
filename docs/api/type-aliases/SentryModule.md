@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SentryModule** = `object`
 
-Defined in: [types/observability.ts:524](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L524)
+Defined in: [types/observability.ts:524](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L524)
 
 Minimal view of the dynamically-imported @sentry/node module.
 
@@ -18,7 +18,7 @@ Minimal view of the dynamically-imported @sentry/node module.
 
 > **init**: (`options`) => `void`
 
-Defined in: [types/observability.ts:525](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L525)
+Defined in: [types/observability.ts:525](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L525)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [types/observability.ts:525](https://github.com/juspay/neurolink/blo
 
 > **withScope**: (`callback`) => `void`
 
-Defined in: [types/observability.ts:531](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L531)
+Defined in: [types/observability.ts:531](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L531)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [types/observability.ts:531](https://github.com/juspay/neurolink/blo
 
 > **captureException**: (`error`) => `void`
 
-Defined in: [types/observability.ts:532](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L532)
+Defined in: [types/observability.ts:532](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L532)
 
 #### Parameters
 
@@ -86,7 +86,7 @@ Defined in: [types/observability.ts:532](https://github.com/juspay/neurolink/blo
 
 > **startInactiveSpan**: (`options`) => `object`
 
-Defined in: [types/observability.ts:533](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L533)
+Defined in: [types/observability.ts:533](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L533)
 
 #### Parameters
 
@@ -132,7 +132,7 @@ Defined in: [types/observability.ts:533](https://github.com/juspay/neurolink/blo
 
 > **flush**: (`timeout`) => `Promise`\<`boolean`\>
 
-Defined in: [types/observability.ts:539](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L539)
+Defined in: [types/observability.ts:539](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L539)
 
 #### Parameters
 
@@ -150,7 +150,7 @@ Defined in: [types/observability.ts:539](https://github.com/juspay/neurolink/blo
 
 > **close**: (`timeout`) => `Promise`\<`boolean`\>
 
-Defined in: [types/observability.ts:540](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L540)
+Defined in: [types/observability.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L540)
 
 #### Parameters
 

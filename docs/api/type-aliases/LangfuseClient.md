@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LangfuseClient** = `object`
 
-Defined in: [types/evaluation.ts:632](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L632)
+Defined in: [types/evaluation.ts:627](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L627)
 
 Minimal Langfuse client interface for evaluation hooks.
 
@@ -18,7 +18,7 @@ Minimal Langfuse client interface for evaluation hooks.
 
 > **score**: (`params`) => `Promise`\<`unknown`\>
 
-Defined in: [types/evaluation.ts:633](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L633)
+Defined in: [types/evaluation.ts:628](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L628)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [types/evaluation.ts:633](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **trace?**: (`params`) => `object`
 
-Defined in: [types/evaluation.ts:641](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L641)
+Defined in: [types/evaluation.ts:636](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L636)
 
 #### Parameters
 
@@ -90,7 +90,7 @@ Defined in: [types/evaluation.ts:641](https://github.com/juspay/neurolink/blob/f
 
 > `optional` **shutdown?**: () => `Promise`\<`void`\>
 
-Defined in: [types/evaluation.ts:646](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L646)
+Defined in: [types/evaluation.ts:641](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L641)
 
 #### Returns
 

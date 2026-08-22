@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RBACMiddlewareConfig** = `object`
 
-Defined in: [types/auth.ts:617](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L617)
+Defined in: [types/auth.ts:617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L617)
 
 RBAC middleware configuration
 
@@ -18,7 +18,7 @@ RBAC middleware configuration
 
 > `optional` **roles?**: `string`[]
 
-Defined in: [types/auth.ts:619](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L619)
+Defined in: [types/auth.ts:619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L619)
 
 Required roles (user must have at least one)
 
@@ -28,7 +28,7 @@ Required roles (user must have at least one)
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/auth.ts:621](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L621)
+Defined in: [types/auth.ts:621](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L621)
 
 Required permissions (user must have all)
 
@@ -38,7 +38,7 @@ Required permissions (user must have all)
 
 > `optional` **requireAllRoles?**: `boolean`
 
-Defined in: [types/auth.ts:623](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L623)
+Defined in: [types/auth.ts:623](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L623)
 
 Whether all roles are required (default: false, any role matches)
 
@@ -48,7 +48,7 @@ Whether all roles are required (default: false, any role matches)
 
 > `optional` **superAdminRoles?**: `string`[]
 
-Defined in: [types/auth.ts:625](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L625)
+Defined in: [types/auth.ts:625](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L625)
 
 Super admin roles that bypass all role/permission checks
 
@@ -58,7 +58,7 @@ Super admin roles that bypass all role/permission checks
 
 > `optional` **rolePermissions?**: `Record`\<`string`, `string`[]\>
 
-Defined in: [types/auth.ts:627](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L627)
+Defined in: [types/auth.ts:627](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L627)
 
 Mapping from role name to granted permissions
 
@@ -68,7 +68,7 @@ Mapping from role name to granted permissions
 
 > `optional` **roleHierarchy?**: `Record`\<`string`, `string`[]\>
 
-Defined in: [types/auth.ts:629](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L629)
+Defined in: [types/auth.ts:629](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L629)
 
 Role hierarchy: a role inherits permissions from its children
 
@@ -78,7 +78,7 @@ Role hierarchy: a role inherits permissions from its children
 
 > `optional` **custom?**: (`user`, `context`) => `boolean` \| `Promise`\<`boolean`\>
 
-Defined in: [types/auth.ts:631](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L631)
+Defined in: [types/auth.ts:631](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L631)
 
 Custom authorization function
 
@@ -102,7 +102,7 @@ Custom authorization function
 
 > `optional` **onDenied?**: (`result`, `context`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/auth.ts:636](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L636)
+Defined in: [types/auth.ts:636](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L636)
 
 Custom error handler
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RefactoringResult** = `object`
 
-Defined in: [types/mcp.ts:2603](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2603)
+Defined in: [types/mcp.ts:2603](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2603)
 
 Result of the code-refactoring AI workflow.
 
@@ -18,7 +18,7 @@ Result of the code-refactoring AI workflow.
 
 > **refactoredCode**: `string`
 
-Defined in: [types/mcp.ts:2604](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2604)
+Defined in: [types/mcp.ts:2604](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2604)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2604](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **changes**: `string`[]
 
-Defined in: [types/mcp.ts:2605](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2605)
+Defined in: [types/mcp.ts:2605](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2605)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2605](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **improvements**: `string`[]
 
-Defined in: [types/mcp.ts:2606](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2606)
+Defined in: [types/mcp.ts:2606](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2606)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2606](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **metrics**: `object`
 
-Defined in: [types/mcp.ts:2607](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2607)
+Defined in: [types/mcp.ts:2607](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2607)
 
 #### linesReduced
 

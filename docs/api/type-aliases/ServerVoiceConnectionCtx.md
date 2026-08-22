@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerVoiceConnectionCtx** = `object`
 
-Defined in: [types/server.ts:1488](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1488)
+Defined in: [types/server.ts:1501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1501)
 
 Per-WebSocket-connection context object passed to the voice connection
 handler. Holds shared singletons that all per-connection state derives from.
@@ -21,7 +21,7 @@ handler. Holds shared singletons that all per-connection state derives from.
 
 > **neurolink**: [`NeuroLink`](../classes/NeuroLink.md)
 
-Defined in: [types/server.ts:1489](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1489)
+Defined in: [types/server.ts:1502](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1502)
 
 ---
 
@@ -29,4 +29,4 @@ Defined in: [types/server.ts:1489](https://github.com/juspay/neurolink/blob/ff50
 
 > **accessKey**: `string`
 
-Defined in: [types/server.ts:1490](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1490)
+Defined in: [types/server.ts:1503](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1503)

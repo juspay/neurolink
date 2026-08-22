@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolDefinition**\<`TArgs`, `TResult`\> = `object`
 
-Defined in: [types/tools.ts:402](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L402)
+Defined in: [types/tools.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L419)
 
 Tool definition type
 
@@ -28,7 +28,7 @@ Tool definition type
 
 > **description**: `string`
 
-Defined in: [types/tools.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L403)
+Defined in: [types/tools.ts:420](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L420)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/tools.ts:403](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **parameters?**: [`ToolParameterSchema`](ToolParameterSchema.md)
 
-Defined in: [types/tools.ts:404](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L404)
+Defined in: [types/tools.ts:421](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L421)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/tools.ts:404](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **metadata?**: [`ToolMetadata`](ToolMetadata.md)
 
-Defined in: [types/tools.ts:405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L405)
+Defined in: [types/tools.ts:422](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L422)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/tools.ts:405](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **execute**: (`params`, `context?`) => `Promise`\<[`ToolResult`](ToolResult.md)\<`TResult`\>\> \| [`ToolResult`](ToolResult.md)\<`TResult`\>
 
-Defined in: [types/tools.ts:406](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L406)
+Defined in: [types/tools.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L423)
 
 #### Parameters
 

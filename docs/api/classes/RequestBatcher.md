@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RequestBatcher\<T\>
 
-Defined in: [mcp/batching/requestBatcher.ts:44](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L44)
+Defined in: [mcp/batching/requestBatcher.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L44)
 
 Request Batcher - Efficient batch processing for MCP tool calls
 
@@ -45,7 +45,7 @@ const result2 = await batcher.add("getUserById", { id: 2 });
 
 > **new RequestBatcher**\<`T`\>(`config`): `RequestBatcher`\<`T`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:55](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L55)
+Defined in: [mcp/batching/requestBatcher.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L55)
 
 #### Parameters
 
@@ -69,7 +69,7 @@ Defined in: [mcp/batching/requestBatcher.ts:55](https://github.com/juspay/neurol
 
 > **get** **queueSize**(): `number`
 
-Defined in: [mcp/batching/requestBatcher.ts:155](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L155)
+Defined in: [mcp/batching/requestBatcher.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L155)
 
 Get current queue size
 
@@ -85,7 +85,7 @@ Get current queue size
 
 > **get** **activeBatchCount**(): `number`
 
-Defined in: [mcp/batching/requestBatcher.ts:162](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L162)
+Defined in: [mcp/batching/requestBatcher.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L162)
 
 Get number of active batches
 
@@ -101,7 +101,7 @@ Get number of active batches
 
 > **get** **isIdle**(): `boolean`
 
-Defined in: [mcp/batching/requestBatcher.ts:169](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L169)
+Defined in: [mcp/batching/requestBatcher.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L169)
 
 Check if the batcher is idle (no pending requests)
 
@@ -115,7 +115,7 @@ Check if the batcher is idle (no pending requests)
 
 > **setExecutor**(`executor`): `void`
 
-Defined in: [mcp/batching/requestBatcher.ts:70](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L70)
+Defined in: [mcp/batching/requestBatcher.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L70)
 
 Set the batch executor function
 
@@ -135,7 +135,7 @@ Set the batch executor function
 
 > **add**(`tool`, `args`, `serverId?`): `Promise`\<`T`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:77](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L77)
+Defined in: [mcp/batching/requestBatcher.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L77)
 
 Add a request to the batch queue
 
@@ -163,7 +163,7 @@ Add a request to the batch queue
 
 > **flush**(): `Promise`\<`void`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:137](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L137)
+Defined in: [mcp/batching/requestBatcher.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L137)
 
 Manually flush the current batch
 
@@ -177,7 +177,7 @@ Manually flush the current batch
 
 > **drain**(): `Promise`\<`void`\>
 
-Defined in: [mcp/batching/requestBatcher.ts:176](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L176)
+Defined in: [mcp/batching/requestBatcher.ts:176](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L176)
 
 Wait for all pending requests to complete
 
@@ -191,7 +191,7 @@ Wait for all pending requests to complete
 
 > **destroy**(): `void`
 
-Defined in: [mcp/batching/requestBatcher.ts:194](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/mcp/batching/requestBatcher.ts#L194)
+Defined in: [mcp/batching/requestBatcher.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/batching/requestBatcher.ts#L194)
 
 Destroy the batcher and reject all pending requests
 

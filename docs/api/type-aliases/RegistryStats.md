@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RegistryStats** = `object`
 
-Defined in: [types/workflow.ts:702](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L702)
+Defined in: [types/workflow.ts:702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L702)
 
 Registry statistics
 
@@ -18,7 +18,7 @@ Registry statistics
 
 > **totalWorkflows**: `number`
 
-Defined in: [types/workflow.ts:703](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L703)
+Defined in: [types/workflow.ts:703](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L703)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:703](https://github.com/juspay/neurolink/blob/ff5
 
 > **byType**: `Record`\<`string`, `number`\>
 
-Defined in: [types/workflow.ts:704](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L704)
+Defined in: [types/workflow.ts:704](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L704)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:704](https://github.com/juspay/neurolink/blob/ff5
 
 > **totalUsage**: `number`
 
-Defined in: [types/workflow.ts:705](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L705)
+Defined in: [types/workflow.ts:705](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L705)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:705](https://github.com/juspay/neurolink/blob/ff5
 
 > `optional` **mostUsed?**: `object`
 
-Defined in: [types/workflow.ts:706](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/workflow.ts#L706)
+Defined in: [types/workflow.ts:706](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L706)
 
 #### id
 

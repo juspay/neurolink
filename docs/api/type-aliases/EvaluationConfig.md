@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationConfig** = `object`
 
-Defined in: [types/evaluation.ts:288](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L288)
+Defined in: [types/evaluation.ts:283](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L283)
 
 Configuration for the main `Evaluator` class.
 
@@ -18,7 +18,7 @@ Configuration for the main `Evaluator` class.
 
 > `optional` **threshold?**: `number`
 
-Defined in: [types/evaluation.ts:290](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L290)
+Defined in: [types/evaluation.ts:285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L285)
 
 The minimum score (1-10) for a response to be considered passing.
 
@@ -28,7 +28,7 @@ The minimum score (1-10) for a response to be considered passing.
 
 > `optional` **evaluationStrategy?**: `"ragas"` \| `"custom"`
 
-Defined in: [types/evaluation.ts:292](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L292)
+Defined in: [types/evaluation.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L287)
 
 The evaluation strategy to use. Currently only 'ragas' is supported.
 
@@ -38,7 +38,7 @@ The evaluation strategy to use. Currently only 'ragas' is supported.
 
 > `optional` **evaluationModel?**: `string`
 
-Defined in: [types/evaluation.ts:294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L294)
+Defined in: [types/evaluation.ts:289](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L289)
 
 The model to use for the LLM-as-judge evaluation.
 
@@ -48,7 +48,7 @@ The model to use for the LLM-as-judge evaluation.
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/evaluation.ts:296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L296)
+Defined in: [types/evaluation.ts:291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L291)
 
 The maximum number of evaluation attempts before failing.
 
@@ -58,7 +58,7 @@ The maximum number of evaluation attempts before failing.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/evaluation.ts:298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L298)
+Defined in: [types/evaluation.ts:293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L293)
 
 The provider to use for the evaluation model.
 
@@ -68,7 +68,7 @@ The provider to use for the evaluation model.
 
 > `optional` **customEvaluator?**: (`options`, `result`) => `Promise`\<\{ `evaluationResult`: [`EvaluationResult`](EvaluationResult.md); `evalContext`: [`EnhancedEvaluationContext`](EnhancedEvaluationContext.md); \}\>
 
-Defined in: [types/evaluation.ts:300](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L300)
+Defined in: [types/evaluation.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L295)
 
 A custom evaluator function to override the default behavior.
 
@@ -92,7 +92,7 @@ A custom evaluator function to override the default behavior.
 
 > `optional` **offTopicThreshold?**: `number`
 
-Defined in: [types/evaluation.ts:308](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L308)
+Defined in: [types/evaluation.ts:303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L303)
 
 The score below which a response is considered off-topic.
 
@@ -102,7 +102,7 @@ The score below which a response is considered off-topic.
 
 > `optional` **highSeverityThreshold?**: `number`
 
-Defined in: [types/evaluation.ts:310](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L310)
+Defined in: [types/evaluation.ts:305](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L305)
 
 The score below which a failing response is considered a high severity alert.
 
@@ -112,6 +112,6 @@ The score below which a failing response is considered a high severity alert.
 
 > `optional` **promptGenerator?**: [`GetPromptFunction`](GetPromptFunction.md)
 
-Defined in: [types/evaluation.ts:312](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/evaluation.ts#L312)
+Defined in: [types/evaluation.ts:307](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L307)
 
 An optional function to generate custom evaluation prompts.

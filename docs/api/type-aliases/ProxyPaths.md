@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyPaths** = `object`
 
-Defined in: [types/proxy.ts:897](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L897)
+Defined in: [types/proxy.ts:1586](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1586)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:897](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **stateDir**: `string`
 
-Defined in: [types/proxy.ts:899](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L899)
+Defined in: [types/proxy.ts:1588](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1588)
 
 Base directory for proxy state files
 
@@ -26,7 +26,7 @@ Base directory for proxy state files
 
 > **logsDir**: `string`
 
-Defined in: [types/proxy.ts:901](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L901)
+Defined in: [types/proxy.ts:1590](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1590)
 
 logs/ — request/response logs
 
@@ -36,9 +36,29 @@ logs/ — request/response logs
 
 > **quotaFile**: `string`
 
-Defined in: [types/proxy.ts:903](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L903)
+Defined in: [types/proxy.ts:1592](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1592)
 
 account-quotas.json — per-account rate limit state
+
+---
+
+### cooldownFile
+
+> **cooldownFile**: `string`
+
+Defined in: [types/proxy.ts:1594](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1594)
+
+account-cooldowns.json — restart-safe account cooldown state
+
+---
+
+### statsFile?
+
+> `optional` **statsFile?**: `string`
+
+Defined in: [types/proxy.ts:1596](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1596)
+
+proxy-usage-stats.json — restart- and handoff-safe usage counters
 
 ---
 
@@ -46,6 +66,6 @@ account-quotas.json — per-account rate limit state
 
 > **isDev**: `boolean`
 
-Defined in: [types/proxy.ts:905](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L905)
+Defined in: [types/proxy.ts:1598](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1598)
 
 Whether this is a dev-mode isolated instance

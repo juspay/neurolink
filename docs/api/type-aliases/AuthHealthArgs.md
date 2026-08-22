@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthHealthArgs** = `object`
 
-Defined in: [types/cli.ts:1264](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1264)
+Defined in: [types/cli.ts:1384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1384)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:1264](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **provider**: [`AuthProviderType`](AuthProviderType.md)
 
-Defined in: [types/cli.ts:1265](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1265)
+Defined in: [types/cli.ts:1385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1385)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:1265](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **domain?**: `string`
 
-Defined in: [types/cli.ts:1266](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1266)
+Defined in: [types/cli.ts:1386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1386)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:1266](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **clientId?**: `string`
 
-Defined in: [types/cli.ts:1267](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1267)
+Defined in: [types/cli.ts:1387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1387)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:1267](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **secretKey?**: `string`
 
-Defined in: [types/cli.ts:1268](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1268)
+Defined in: [types/cli.ts:1388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1388)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/cli.ts:1268](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **secret?**: `string`
 
-Defined in: [types/cli.ts:1269](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1269)
+Defined in: [types/cli.ts:1389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1389)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/cli.ts:1269](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **url?**: `string`
 
-Defined in: [types/cli.ts:1270](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1270)
+Defined in: [types/cli.ts:1390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1390)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/cli.ts:1270](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **anonKey?**: `string`
 
-Defined in: [types/cli.ts:1271](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1271)
+Defined in: [types/cli.ts:1391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1391)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/cli.ts:1271](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:1272](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1272)
+Defined in: [types/cli.ts:1392](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1392)
 
 ---
 
@@ -80,4 +80,4 @@ Defined in: [types/cli.ts:1272](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > `optional` **format?**: `"text"` \| `"json"`
 
-Defined in: [types/cli.ts:1273](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/cli.ts#L1273)
+Defined in: [types/cli.ts:1393](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1393)

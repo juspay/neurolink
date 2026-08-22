@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RetryContext** = `object`
 
-Defined in: [types/observability.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L415)
+Defined in: [types/observability.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L415)
 
 Context for retry decision making
 
@@ -18,7 +18,7 @@ Context for retry decision making
 
 > **attempt**: `number`
 
-Defined in: [types/observability.ts:417](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L417)
+Defined in: [types/observability.ts:417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L417)
 
 Current attempt number (0-indexed)
 
@@ -28,7 +28,7 @@ Current attempt number (0-indexed)
 
 > **error**: `Error`
 
-Defined in: [types/observability.ts:419](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L419)
+Defined in: [types/observability.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L419)
 
 The error that triggered the retry
 
@@ -38,7 +38,7 @@ The error that triggered the retry
 
 > **elapsedMs**: `number`
 
-Defined in: [types/observability.ts:421](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L421)
+Defined in: [types/observability.ts:421](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L421)
 
 Total elapsed time since first attempt
 
@@ -48,7 +48,7 @@ Total elapsed time since first attempt
 
 > **operationName**: `string`
 
-Defined in: [types/observability.ts:423](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L423)
+Defined in: [types/observability.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L423)
 
 Operation name for logging
 
@@ -58,6 +58,6 @@ Operation name for logging
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/observability.ts:425](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L425)
+Defined in: [types/observability.ts:425](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L425)
 
 Additional metadata

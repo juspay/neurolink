@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PromptMessage** = `object`
 
-Defined in: [types/mcp.ts:2025](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2025)
+Defined in: [types/mcp.ts:2025](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2025)
 
 Prompt message content
 
@@ -18,7 +18,7 @@ Prompt message content
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/mcp.ts:2029](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2029)
+Defined in: [types/mcp.ts:2029](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2029)
 
 Message role
 
@@ -28,7 +28,7 @@ Message role
 
 > **content**: `object`
 
-Defined in: [types/mcp.ts:2034](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L2034)
+Defined in: [types/mcp.ts:2034](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2034)
 
 Message content
 

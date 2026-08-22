@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **IncomingRequest** = `object`
 
-Defined in: [types/auth.ts:1293](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1293)
+Defined in: [types/auth.ts:1293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1293)
 
 Minimal request object accepted by the auth middleware.
 
@@ -18,7 +18,7 @@ Minimal request object accepted by the auth middleware.
 
 > `optional` **method?**: `string`
 
-Defined in: [types/auth.ts:1294](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1294)
+Defined in: [types/auth.ts:1294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1294)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/auth.ts:1294](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **url?**: `string`
 
-Defined in: [types/auth.ts:1295](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1295)
+Defined in: [types/auth.ts:1295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1295)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/auth.ts:1295](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **path?**: `string`
 
-Defined in: [types/auth.ts:1296](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1296)
+Defined in: [types/auth.ts:1296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1296)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/auth.ts:1296](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **headers?**: `Record`\<`string`, `string` \| `string`[] \| `undefined`\>
 
-Defined in: [types/auth.ts:1297](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1297)
+Defined in: [types/auth.ts:1297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1297)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/auth.ts:1297](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **cookies?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/auth.ts:1298](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1298)
+Defined in: [types/auth.ts:1298](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1298)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/auth.ts:1298](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **query?**: `Record`\<`string`, `string` \| `string`[] \| `undefined`\>
 
-Defined in: [types/auth.ts:1299](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1299)
+Defined in: [types/auth.ts:1299](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1299)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/auth.ts:1299](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **body?**: `unknown`
 
-Defined in: [types/auth.ts:1300](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1300)
+Defined in: [types/auth.ts:1300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1300)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/auth.ts:1300](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **ip?**: `string`
 
-Defined in: [types/auth.ts:1301](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1301)
+Defined in: [types/auth.ts:1301](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1301)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/auth.ts:1301](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **user?**: [`AuthUser`](AuthUser.md)
 
-Defined in: [types/auth.ts:1302](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1302)
+Defined in: [types/auth.ts:1302](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1302)
 
 ---
 
@@ -90,4 +90,4 @@ Defined in: [types/auth.ts:1302](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **authContext?**: [`AuthenticatedContext`](AuthenticatedContext.md)
 
-Defined in: [types/auth.ts:1303](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L1303)
+Defined in: [types/auth.ts:1303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1303)

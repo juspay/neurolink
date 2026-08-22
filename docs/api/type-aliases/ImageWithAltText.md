@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageWithAltText** = `object`
 
-Defined in: [types/multimodal.ts:358](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L358)
+Defined in: [types/multimodal.ts:422](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L422)
 
 Image data with optional alt text for accessibility
 Use this when you need to provide alt text for screen readers and SEO
@@ -28,7 +28,7 @@ const imageWithAlt: ImageWithAltText = {
 
 > **data**: `Buffer` \| `string`
 
-Defined in: [types/multimodal.ts:360](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L360)
+Defined in: [types/multimodal.ts:424](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L424)
 
 Image data as Buffer, base64 string, URL, or data URI
 
@@ -38,6 +38,6 @@ Image data as Buffer, base64 string, URL, or data URI
 
 > `optional` **altText?**: `string`
 
-Defined in: [types/multimodal.ts:362](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/multimodal.ts#L362)
+Defined in: [types/multimodal.ts:426](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L426)
 
 Alternative text for accessibility (screen readers, SEO)

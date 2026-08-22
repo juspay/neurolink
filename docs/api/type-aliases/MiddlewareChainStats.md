@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareChainStats** = `object`
 
-Defined in: [types/middleware.ts:111](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L111)
+Defined in: [types/middleware.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L141)
 
 Middleware chain execution statistics
 
@@ -18,7 +18,7 @@ Middleware chain execution statistics
 
 > **totalMiddleware**: `number`
 
-Defined in: [types/middleware.ts:113](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L113)
+Defined in: [types/middleware.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L143)
 
 Total number of middleware in the chain
 
@@ -28,7 +28,7 @@ Total number of middleware in the chain
 
 > **appliedMiddleware**: `number`
 
-Defined in: [types/middleware.ts:115](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L115)
+Defined in: [types/middleware.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L145)
 
 Number of middleware that were applied
 
@@ -38,7 +38,7 @@ Number of middleware that were applied
 
 > **totalExecutionTime**: `number`
 
-Defined in: [types/middleware.ts:117](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L117)
+Defined in: [types/middleware.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L147)
 
 Total execution time for the chain
 
@@ -48,6 +48,6 @@ Total execution time for the chain
 
 > **results**: `Record`\<`string`, [`MiddlewareExecutionResult`](MiddlewareExecutionResult.md)\>
 
-Defined in: [types/middleware.ts:119](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/middleware.ts#L119)
+Defined in: [types/middleware.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L149)
 
 Individual middleware execution results

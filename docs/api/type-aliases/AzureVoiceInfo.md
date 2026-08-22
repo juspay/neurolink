@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AzureVoiceInfo** = `object`
 
-Defined in: [types/stt.ts:616](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L616)
+Defined in: [types/stt.ts:616](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L616)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:616](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Name**: `string`
 
-Defined in: [types/stt.ts:617](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L617)
+Defined in: [types/stt.ts:617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L617)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:617](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **DisplayName**: `string`
 
-Defined in: [types/stt.ts:618](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L618)
+Defined in: [types/stt.ts:618](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L618)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:618](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **LocalName**: `string`
 
-Defined in: [types/stt.ts:619](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L619)
+Defined in: [types/stt.ts:619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L619)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:619](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **ShortName**: `string`
 
-Defined in: [types/stt.ts:620](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L620)
+Defined in: [types/stt.ts:620](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L620)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/stt.ts:620](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Gender**: `string`
 
-Defined in: [types/stt.ts:623](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L623)
+Defined in: [types/stt.ts:623](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L623)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/stt.ts:623](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Locale**: `string`
 
-Defined in: [types/stt.ts:624](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L624)
+Defined in: [types/stt.ts:624](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L624)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/stt.ts:624](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **LocaleName**: `string`
 
-Defined in: [types/stt.ts:625](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L625)
+Defined in: [types/stt.ts:625](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L625)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/stt.ts:625](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **VoiceType**: `string`
 
-Defined in: [types/stt.ts:626](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L626)
+Defined in: [types/stt.ts:626](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L626)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [types/stt.ts:626](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **Status**: `string`
 
-Defined in: [types/stt.ts:627](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L627)
+Defined in: [types/stt.ts:627](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L627)
 
 ---
 
@@ -88,4 +88,4 @@ Defined in: [types/stt.ts:627](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > `optional` **WordsPerMinute?**: `string`
 
-Defined in: [types/stt.ts:628](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/stt.ts#L628)
+Defined in: [types/stt.ts:628](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L628)

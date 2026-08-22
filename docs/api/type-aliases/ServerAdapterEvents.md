@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerAdapterEvents** = `object`
 
-Defined in: [types/server.ts:499](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L499)
+Defined in: [types/server.ts:499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L499)
 
 Server adapter events
 
@@ -18,7 +18,7 @@ Server adapter events
 
 > **initialized**: `object`
 
-Defined in: [types/server.ts:501](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L501)
+Defined in: [types/server.ts:501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L501)
 
 Server initialized
 
@@ -40,7 +40,7 @@ Server initialized
 
 > **started**: `object`
 
-Defined in: [types/server.ts:508](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L508)
+Defined in: [types/server.ts:508](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L508)
 
 Server started
 
@@ -62,7 +62,7 @@ Server started
 
 > **stopped**: `object`
 
-Defined in: [types/server.ts:515](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L515)
+Defined in: [types/server.ts:515](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L515)
 
 Server stopped
 
@@ -80,7 +80,7 @@ Server stopped
 
 > **request**: `object`
 
-Defined in: [types/server.ts:521](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L521)
+Defined in: [types/server.ts:521](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L521)
 
 Request received
 
@@ -106,7 +106,7 @@ Request received
 
 > **response**: `object`
 
-Defined in: [types/server.ts:529](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L529)
+Defined in: [types/server.ts:529](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L529)
 
 Response sent
 
@@ -132,7 +132,7 @@ Response sent
 
 > **error**: `object`
 
-Defined in: [types/server.ts:537](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L537)
+Defined in: [types/server.ts:537](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L537)
 
 Error occurred
 

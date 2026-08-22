@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RerankerOptions** = `object`
 
-Defined in: [types/rag.ts:1403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1403)
+Defined in: [types/rag.ts:1447](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1447)
 
 Reranker options
 
@@ -18,7 +18,7 @@ Reranker options
 
 > `optional` **queryEmbedding?**: `number`[]
 
-Defined in: [types/rag.ts:1405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1405)
+Defined in: [types/rag.ts:1449](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1449)
 
 Pre-computed query embedding
 
@@ -28,7 +28,7 @@ Pre-computed query embedding
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1407](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1407)
+Defined in: [types/rag.ts:1451](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1451)
 
 Number of results to return after reranking
 
@@ -38,7 +38,7 @@ Number of results to return after reranking
 
 > `optional` **weights?**: `object`
 
-Defined in: [types/rag.ts:1409](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1409)
+Defined in: [types/rag.ts:1453](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1453)
 
 Scoring weights (must sum to 1.0)
 

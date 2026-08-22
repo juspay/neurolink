@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TokenExtractionConfig** = `object`
 
-Defined in: [types/auth.ts:456](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L456)
+Defined in: [types/auth.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L456)
 
 Token extraction configuration (detailed, used by middleware)
 
@@ -18,7 +18,7 @@ Token extraction configuration (detailed, used by middleware)
 
 > `optional` **fromHeader?**: `object`
 
-Defined in: [types/auth.ts:458](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L458)
+Defined in: [types/auth.ts:458](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L458)
 
 Extract from Authorization header (Bearer token)
 
@@ -36,7 +36,7 @@ Extract from Authorization header (Bearer token)
 
 > `optional` **fromCookie?**: `object`
 
-Defined in: [types/auth.ts:463](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L463)
+Defined in: [types/auth.ts:463](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L463)
 
 Extract from cookie
 
@@ -50,7 +50,7 @@ Extract from cookie
 
 > `optional` **fromQuery?**: `object`
 
-Defined in: [types/auth.ts:467](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L467)
+Defined in: [types/auth.ts:467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L467)
 
 Extract from query parameter
 
@@ -64,7 +64,7 @@ Extract from query parameter
 
 > `optional` **custom?**: (`context`) => `string` \| `null` \| `Promise`\<`string` \| `null`\>
 
-Defined in: [types/auth.ts:471](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L471)
+Defined in: [types/auth.ts:471](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L471)
 
 Custom extraction function
 

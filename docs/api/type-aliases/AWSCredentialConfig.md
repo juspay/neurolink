@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AWSCredentialConfig** = `object`
 
-Defined in: [types/providers.ts:117](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L117)
+Defined in: [types/providers.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L137)
 
 AWS Credential Configuration for Bedrock provider
 
@@ -18,7 +18,7 @@ AWS Credential Configuration for Bedrock provider
 
 > `optional` **region?**: `string`
 
-Defined in: [types/providers.ts:118](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L118)
+Defined in: [types/providers.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L138)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:118](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **profile?**: `string`
 
-Defined in: [types/providers.ts:119](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L119)
+Defined in: [types/providers.ts:139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L139)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:119](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **roleArn?**: `string`
 
-Defined in: [types/providers.ts:120](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L120)
+Defined in: [types/providers.ts:140](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L140)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:120](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **roleSessionName?**: `string`
 
-Defined in: [types/providers.ts:121](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L121)
+Defined in: [types/providers.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L141)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:121](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:122](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L122)
+Defined in: [types/providers.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L142)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:122](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/providers.ts:124](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L124)
+Defined in: [types/providers.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L144)
 
 #### Deprecated
 
@@ -70,7 +70,7 @@ Prefer maxAttempts to match AWS SDK v3 config
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/providers.ts:126](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L126)
+Defined in: [types/providers.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L146)
 
 Number of attempts as per AWS SDK v3 ("retry-mode")
 
@@ -80,7 +80,7 @@ Number of attempts as per AWS SDK v3 ("retry-mode")
 
 > `optional` **enableDebugLogging?**: `boolean`
 
-Defined in: [types/providers.ts:127](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L127)
+Defined in: [types/providers.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L147)
 
 ---
 
@@ -88,6 +88,6 @@ Defined in: [types/providers.ts:127](https://github.com/juspay/neurolink/blob/ff
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/providers.ts:129](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L129)
+Defined in: [types/providers.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L149)
 
 Optional service endpoint override (e.g., VPC/Gov endpoints)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamHandlerConfig** = `object`
 
-Defined in: [types/voice.ts:410](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L410)
+Defined in: [types/voice.ts:410](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L410)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/voice.ts:410](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **chunkDurationMs?**: `number`
 
-Defined in: [types/voice.ts:411](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L411)
+Defined in: [types/voice.ts:411](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L411)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/voice.ts:411](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **sampleRate?**: `number`
 
-Defined in: [types/voice.ts:412](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L412)
+Defined in: [types/voice.ts:412](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L412)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/voice.ts:412](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **bytesPerSample?**: `number`
 
-Defined in: [types/voice.ts:413](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L413)
+Defined in: [types/voice.ts:413](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L413)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/voice.ts:413](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **format?**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/voice.ts:414](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L414)
+Defined in: [types/voice.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L414)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/voice.ts:414](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **highWaterMark?**: `number`
 
-Defined in: [types/voice.ts:415](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L415)
+Defined in: [types/voice.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L415)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/voice.ts:415](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **bufferTimeoutMs?**: `number`
 
-Defined in: [types/voice.ts:416](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/voice.ts#L416)
+Defined in: [types/voice.ts:416](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L416)

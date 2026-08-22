@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolRegistryEntry** = `object`
 
-Defined in: [types/tools.ts:480](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L480)
+Defined in: [types/tools.ts:497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L497)
 
 Tool registry entry
 
@@ -18,7 +18,7 @@ Tool registry entry
 
 > **name**: `string`
 
-Defined in: [types/tools.ts:481](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L481)
+Defined in: [types/tools.ts:498](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L498)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:481](https://github.com/juspay/neurolink/blob/ff50c1
 
 > **description**: `string`
 
-Defined in: [types/tools.ts:482](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L482)
+Defined in: [types/tools.ts:499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L499)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/tools.ts:482](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/tools.ts:483](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L483)
+Defined in: [types/tools.ts:500](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L500)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/tools.ts:483](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **isImplemented?**: `boolean`
 
-Defined in: [types/tools.ts:484](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L484)
+Defined in: [types/tools.ts:501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L501)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/tools.ts:484](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **parameters?**: [`ToolParameterSchema`](ToolParameterSchema.md)
 
-Defined in: [types/tools.ts:485](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L485)
+Defined in: [types/tools.ts:502](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L502)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/tools.ts:485](https://github.com/juspay/neurolink/blob/ff50c1
 
 > `optional` **execute?**: [`ToolDefinition`](ToolDefinition.md)\[`"execute"`\]
 
-Defined in: [types/tools.ts:486](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/tools.ts#L486)
+Defined in: [types/tools.ts:503](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L503)

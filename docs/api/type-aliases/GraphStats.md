@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GraphStats** = `object`
 
-Defined in: [types/rag.ts:1385](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1385)
+Defined in: [types/rag.ts:1429](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1429)
 
 Graph statistics
 
@@ -18,7 +18,7 @@ Graph statistics
 
 > **nodeCount**: `number`
 
-Defined in: [types/rag.ts:1386](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1386)
+Defined in: [types/rag.ts:1430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1430)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:1386](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **edgeCount**: `number`
 
-Defined in: [types/rag.ts:1387](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1387)
+Defined in: [types/rag.ts:1431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1431)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:1387](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **avgDegree**: `number`
 
-Defined in: [types/rag.ts:1388](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1388)
+Defined in: [types/rag.ts:1432](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1432)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/rag.ts:1388](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **threshold**: `number`
 
-Defined in: [types/rag.ts:1389](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1389)
+Defined in: [types/rag.ts:1433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1433)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ElicitationCancelMessage** = `object`
 
-Defined in: [types/mcp.ts:1363](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1363)
+Defined in: [types/mcp.ts:1363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1363)
 
 Elicitation cancel protocol message
 
@@ -18,7 +18,7 @@ Elicitation cancel protocol message
 
 > **jsonrpc**: `"2.0"`
 
-Defined in: [types/mcp.ts:1364](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1364)
+Defined in: [types/mcp.ts:1364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1364)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1364](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1365](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1365)
+Defined in: [types/mcp.ts:1365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1365)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1365](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **method**: `"elicitation/cancel"`
 
-Defined in: [types/mcp.ts:1366](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1366)
+Defined in: [types/mcp.ts:1366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1366)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1366](https://github.com/juspay/neurolink/blob/ff50c1e
 
 > **params**: [`ElicitationCancelParams`](ElicitationCancelParams.md)
 
-Defined in: [types/mcp.ts:1367](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1367)
+Defined in: [types/mcp.ts:1367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1367)

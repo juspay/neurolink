@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileSearchMatch** = `object`
 
-Defined in: [types/fileReference.ts:164](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L164)
+Defined in: [types/fileReference.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L164)
 
 A single search match within a file
 
@@ -18,7 +18,7 @@ A single search match within a file
 
 > **lineNumber**: `number`
 
-Defined in: [types/fileReference.ts:166](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L166)
+Defined in: [types/fileReference.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L166)
 
 Line number (1-indexed)
 
@@ -28,7 +28,7 @@ Line number (1-indexed)
 
 > **line**: `string`
 
-Defined in: [types/fileReference.ts:168](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L168)
+Defined in: [types/fileReference.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L168)
 
 The matching line content
 
@@ -38,7 +38,7 @@ The matching line content
 
 > **contextBefore**: `string`[]
 
-Defined in: [types/fileReference.ts:170](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L170)
+Defined in: [types/fileReference.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L170)
 
 Context lines before the match
 
@@ -48,6 +48,6 @@ Context lines before the match
 
 > **contextAfter**: `string`[]
 
-Defined in: [types/fileReference.ts:172](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/fileReference.ts#L172)
+Defined in: [types/fileReference.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L172)
 
 Context lines after the match

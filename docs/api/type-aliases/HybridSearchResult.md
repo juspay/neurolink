@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HybridSearchResult** = `object`
 
-Defined in: [types/rag.ts:1276](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1276)
+Defined in: [types/rag.ts:1320](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1320)
 
 Hybrid search result
 
@@ -18,7 +18,7 @@ Hybrid search result
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1278](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1278)
+Defined in: [types/rag.ts:1322](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1322)
 
 Document ID
 
@@ -28,7 +28,7 @@ Document ID
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1280](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1280)
+Defined in: [types/rag.ts:1324](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1324)
 
 Combined score
 
@@ -38,7 +38,7 @@ Combined score
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1282](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1282)
+Defined in: [types/rag.ts:1326](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1326)
 
 Document text
 
@@ -48,7 +48,7 @@ Document text
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1284](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1284)
+Defined in: [types/rag.ts:1328](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1328)
 
 Associated metadata
 
@@ -58,7 +58,7 @@ Associated metadata
 
 > `optional` **scores?**: `object`
 
-Defined in: [types/rag.ts:1286](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/rag.ts#L1286)
+Defined in: [types/rag.ts:1330](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1330)
 
 Score breakdown
 

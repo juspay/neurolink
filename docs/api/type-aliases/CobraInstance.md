@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CobraInstance** = `object`
 
-Defined in: [types/server.ts:1476](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1476)
+Defined in: [types/server.ts:1489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1489)
 
 Structural type for Picovoice Cobra VAD instance.
 Defined here so the optional `@picovoice/cobra-node` package
@@ -20,7 +20,7 @@ is not required at typecheck time.
 
 > **frameLength**: `number`
 
-Defined in: [types/server.ts:1477](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1477)
+Defined in: [types/server.ts:1490](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1490)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/server.ts:1477](https://github.com/juspay/neurolink/blob/ff50
 
 > **process**: (`pcm`) => `number`
 
-Defined in: [types/server.ts:1478](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1478)
+Defined in: [types/server.ts:1491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1491)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/server.ts:1478](https://github.com/juspay/neurolink/blob/ff50
 
 > **release**: () => `void`
 
-Defined in: [types/server.ts:1479](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/server.ts#L1479)
+Defined in: [types/server.ts:1492](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1492)
 
 #### Returns
 

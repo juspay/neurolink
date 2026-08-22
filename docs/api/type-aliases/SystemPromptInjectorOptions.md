@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SystemPromptInjectorOptions** = `object`
 
-Defined in: [types/proxy.ts:403](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L403)
+Defined in: [types/proxy.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L415)
 
 Options for the SystemPromptInjector cloaking plugin.
 
@@ -18,7 +18,7 @@ Options for the SystemPromptInjector cloaking plugin.
 
 > `optional` **ide?**: `string`
 
-Defined in: [types/proxy.ts:405](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L405)
+Defined in: [types/proxy.ts:417](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L417)
 
 IDE name to inject (default: "vscode").
 
@@ -28,7 +28,7 @@ IDE name to inject (default: "vscode").
 
 > `optional` **ideVersion?**: `string`
 
-Defined in: [types/proxy.ts:407](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L407)
+Defined in: [types/proxy.ts:419](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L419)
 
 IDE version (default: "1.96.2").
 
@@ -38,7 +38,7 @@ IDE version (default: "1.96.2").
 
 > `optional` **platform?**: `string`
 
-Defined in: [types/proxy.ts:409](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L409)
+Defined in: [types/proxy.ts:421](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L421)
 
 Platform string (default: "darwin").
 
@@ -48,7 +48,7 @@ Platform string (default: "darwin").
 
 > `optional` **cwd?**: `string`
 
-Defined in: [types/proxy.ts:411](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L411)
+Defined in: [types/proxy.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L423)
 
 Working directory to inject (default: "/home/user/project").
 
@@ -58,6 +58,6 @@ Working directory to inject (default: "/home/user/project").
 
 > `optional` **preamble?**: `string`
 
-Defined in: [types/proxy.ts:413](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/proxy.ts#L413)
+Defined in: [types/proxy.ts:425](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L425)
 
 Extra preamble to prepend.

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../../../../README.md)
+[**NeuroLink API Reference v11.2.3**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Meter** = `object`
 
-Defined in: [types/providers.ts:1636](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1636)
+Defined in: [types/providers.ts:1939](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1939)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1636](https://github.com/juspay/neurolink/blob/f
 
 > **createCounter**(`name`, `options?`): [`Counter`](Counter.md)
 
-Defined in: [types/providers.ts:1637](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1637)
+Defined in: [types/providers.ts:1940](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1940)
 
 #### Parameters
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:1637](https://github.com/juspay/neurolink/blob/f
 
 > **createHistogram**(`name`, `options?`): [`Histogram`](Histogram.md)
 
-Defined in: [types/providers.ts:1638](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/providers.ts#L1638)
+Defined in: [types/providers.ts:1941](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L1941)
 
 #### Parameters
 

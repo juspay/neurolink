@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CustomAuthConfig** = `object`
 
-Defined in: [types/auth.ts:827](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L827)
+Defined in: [types/auth.ts:827](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L827)
 
 Custom auth provider configuration
 
@@ -18,7 +18,7 @@ Custom auth provider configuration
 
 > **validateToken**: (`token`, `context?`) => `Promise`\<[`TokenValidationResult`](TokenValidationResult.md)\>
 
-Defined in: [types/auth.ts:829](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L829)
+Defined in: [types/auth.ts:829](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L829)
 
 Custom token validation function
 
@@ -42,7 +42,7 @@ Custom token validation function
 
 > `optional` **getUser?**: (`userId`) => `Promise`\<[`AuthUser`](AuthUser.md) \| `null`\>
 
-Defined in: [types/auth.ts:834](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L834)
+Defined in: [types/auth.ts:834](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L834)
 
 Custom user fetching function
 
@@ -62,7 +62,7 @@ Custom user fetching function
 
 > `optional` **createSession?**: (`user`, `context?`) => `Promise`\<[`AuthSession`](AuthSession.md)\>
 
-Defined in: [types/auth.ts:836](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/auth.ts#L836)
+Defined in: [types/auth.ts:836](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L836)
 
 Custom session creation function
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MetricsSummary** = `object`
 
-Defined in: [types/observability.ts:369](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L369)
+Defined in: [types/observability.ts:369](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L369)
 
 Aggregated metrics summary
 
@@ -18,7 +18,7 @@ Aggregated metrics summary
 
 > **totalSpans**: `number`
 
-Defined in: [types/observability.ts:371](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L371)
+Defined in: [types/observability.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L371)
 
 Total number of spans tracked
 
@@ -28,7 +28,7 @@ Total number of spans tracked
 
 > **successfulSpans**: `number`
 
-Defined in: [types/observability.ts:373](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L373)
+Defined in: [types/observability.ts:373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L373)
 
 Number of successful spans
 
@@ -38,7 +38,7 @@ Number of successful spans
 
 > **failedSpans**: `number`
 
-Defined in: [types/observability.ts:375](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L375)
+Defined in: [types/observability.ts:375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L375)
 
 Number of failed spans
 
@@ -48,7 +48,7 @@ Number of failed spans
 
 > **successRate**: `number`
 
-Defined in: [types/observability.ts:377](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L377)
+Defined in: [types/observability.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L377)
 
 Overall success rate (0-1)
 
@@ -58,7 +58,7 @@ Overall success rate (0-1)
 
 > **latency**: [`LatencyStats`](LatencyStats.md)
 
-Defined in: [types/observability.ts:379](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L379)
+Defined in: [types/observability.ts:379](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L379)
 
 Latency statistics
 
@@ -68,7 +68,7 @@ Latency statistics
 
 > **tokens**: [`TokenUsageStats`](TokenUsageStats.md)
 
-Defined in: [types/observability.ts:381](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L381)
+Defined in: [types/observability.ts:381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L381)
 
 Token usage statistics
 
@@ -78,7 +78,7 @@ Token usage statistics
 
 > **costByProvider**: [`ProviderCostStats`](ProviderCostStats.md)[]
 
-Defined in: [types/observability.ts:383](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L383)
+Defined in: [types/observability.ts:383](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L383)
 
 Cost by provider
 
@@ -88,7 +88,7 @@ Cost by provider
 
 > **costByModel**: [`ModelCostStats`](ModelCostStats.md)[]
 
-Defined in: [types/observability.ts:385](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L385)
+Defined in: [types/observability.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L385)
 
 Cost by model
 
@@ -98,7 +98,7 @@ Cost by model
 
 > **totalCost**: `number`
 
-Defined in: [types/observability.ts:387](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L387)
+Defined in: [types/observability.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L387)
 
 Total cost across all providers
 
@@ -108,7 +108,7 @@ Total cost across all providers
 
 > **spansByType**: `Record`\<`string`, `number`\>
 
-Defined in: [types/observability.ts:389](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L389)
+Defined in: [types/observability.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L389)
 
 Span count by type
 
@@ -118,7 +118,7 @@ Span count by type
 
 > `optional` **firstSpanTime?**: `Date`
 
-Defined in: [types/observability.ts:391](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L391)
+Defined in: [types/observability.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L391)
 
 Timestamp of first span
 
@@ -128,7 +128,7 @@ Timestamp of first span
 
 > `optional` **lastSpanTime?**: `Date`
 
-Defined in: [types/observability.ts:393](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L393)
+Defined in: [types/observability.ts:393](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L393)
 
 Timestamp of last span
 
@@ -138,6 +138,6 @@ Timestamp of last span
 
 > `optional` **trackingDurationMs?**: `number`
 
-Defined in: [types/observability.ts:395](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/observability.ts#L395)
+Defined in: [types/observability.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L395)
 
 Tracking duration in milliseconds

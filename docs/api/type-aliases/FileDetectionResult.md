@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileDetectionResult** = `object`
 
-Defined in: [types/file.ts:60](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L60)
+Defined in: [types/file.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L142)
 
 File detection result with confidence scoring
 
@@ -18,7 +18,7 @@ File detection result with confidence scoring
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L61)
+Defined in: [types/file.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L143)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:61](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L62)
+Defined in: [types/file.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L144)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:62](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **extension**: `string` \| `null`
 
-Defined in: [types/file.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L63)
+Defined in: [types/file.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L145)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:63](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **source**: [`FileSource`](FileSource.md)
 
-Defined in: [types/file.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L64)
+Defined in: [types/file.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L146)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/file.ts:64](https://github.com/juspay/neurolink/blob/ff50c1e5
 
 > **metadata**: `object`
 
-Defined in: [types/file.ts:65](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/file.ts#L65)
+Defined in: [types/file.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/file.ts#L147)
 
 #### size?
 

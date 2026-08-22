@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v9.62.0**](../README.md)
+[**NeuroLink API Reference v11.2.3**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RegistrySearchOptions** = `object`
 
-Defined in: [types/mcp.ts:1658](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1658)
+Defined in: [types/mcp.ts:1658](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1658)
 
 Search options for registry queries
 
@@ -18,7 +18,7 @@ Search options for registry queries
 
 > `optional` **query?**: `string`
 
-Defined in: [types/mcp.ts:1662](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1662)
+Defined in: [types/mcp.ts:1662](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1662)
 
 Search query (name, description, tags)
 
@@ -28,7 +28,7 @@ Search query (name, description, tags)
 
 > `optional` **categories?**: `string`[]
 
-Defined in: [types/mcp.ts:1667](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1667)
+Defined in: [types/mcp.ts:1667](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1667)
 
 Filter by categories
 
@@ -38,7 +38,7 @@ Filter by categories
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/mcp.ts:1672](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1672)
+Defined in: [types/mcp.ts:1672](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1672)
 
 Filter by tags
 
@@ -48,7 +48,7 @@ Filter by tags
 
 > `optional` **transport?**: [`MCPTransportType`](MCPTransportType.md)
 
-Defined in: [types/mcp.ts:1677](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1677)
+Defined in: [types/mcp.ts:1677](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1677)
 
 Filter by transport type
 
@@ -58,7 +58,7 @@ Filter by transport type
 
 > `optional` **verifiedOnly?**: `boolean`
 
-Defined in: [types/mcp.ts:1682](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1682)
+Defined in: [types/mcp.ts:1682](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1682)
 
 Only verified servers
 
@@ -68,7 +68,7 @@ Only verified servers
 
 > `optional` **sortBy?**: `"name"` \| `"downloads"` \| `"stars"` \| `"lastUpdated"`
 
-Defined in: [types/mcp.ts:1687](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1687)
+Defined in: [types/mcp.ts:1687](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1687)
 
 Sort by field
 
@@ -78,7 +78,7 @@ Sort by field
 
 > `optional` **sortDirection?**: `"asc"` \| `"desc"`
 
-Defined in: [types/mcp.ts:1692](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1692)
+Defined in: [types/mcp.ts:1692](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1692)
 
 Sort direction
 
@@ -88,7 +88,7 @@ Sort direction
 
 > `optional` **limit?**: `number`
 
-Defined in: [types/mcp.ts:1697](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1697)
+Defined in: [types/mcp.ts:1697](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1697)
 
 Maximum results
 
@@ -98,6 +98,6 @@ Maximum results
 
 > `optional` **offset?**: `number`
 
-Defined in: [types/mcp.ts:1702](https://github.com/juspay/neurolink/blob/ff50c1e5a18abd666c68e6a6290bfe2015cb65b1/src/lib/types/mcp.ts#L1702)
+Defined in: [types/mcp.ts:1702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1702)
 
 Offset for pagination
