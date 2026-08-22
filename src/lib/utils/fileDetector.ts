@@ -12,7 +12,8 @@ import {
   resolve as resolvePath,
   sep,
 } from "path";
-import { getGlobalDispatcher, interceptors, request } from "undici";
+import { request } from "undici";
+import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
 // Lazy-loaded processor singletons — avoids loading heavy media deps
 // (mediabunny, fluent-ffmpeg, music-metadata, adm-zip) on every generate() call.
 async function getVideoProcessor() {
@@ -2035,9 +2036,7 @@ export class FileDetector {
     if (getCachedUrlContentType(url, Date.now()) === undefined) {
       try {
         const head = await request(url, {
-          dispatcher: getGlobalDispatcher().compose(
-            interceptors.redirect({ maxRedirections: 5 }),
-          ),
+          dispatcher: redirectFollowingDispatcher(5),
           method: "HEAD",
           headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
           bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
@@ -2075,9 +2074,7 @@ export class FileDetector {
       async () => {
         try {
           const response = await request(url, {
-            dispatcher: getGlobalDispatcher().compose(
-              interceptors.redirect({ maxRedirections: 5 }),
-            ),
+            dispatcher: redirectFollowingDispatcher(5),
             method: "GET",
             headersTimeout: timeout,
             bodyTimeout: timeout,
@@ -2931,9 +2928,7 @@ class MimeTypeStrategy implements DetectionStrategy {
         contentType = await withTimeout(
           (async () => {
             const response = await request(input, {
-              dispatcher: getGlobalDispatcher().compose(
-                interceptors.redirect({ maxRedirections: 5 }),
-              ),
+              dispatcher: redirectFollowingDispatcher(5),
               method: "HEAD",
               headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
               bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
