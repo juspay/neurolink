@@ -128,7 +128,7 @@ async function testGenerate(): Promise<void> {
         model: () => getTestModel(),
         ...buildBaseOptions(false),
       });
-      const text = result.text || result.content || "";
+      const text = result.content || "";
       return text.length > 0;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -151,7 +151,7 @@ async function testGenerate(): Promise<void> {
         dynamicContext: { tenant: { id: "t1", plan: "enterprise" } },
         ...buildBaseOptions(false),
       } as Record<string, unknown>);
-      const text = result.text || result.content || "";
+      const text = result.content || "";
       return text.length > 0;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -172,7 +172,7 @@ async function testGenerate(): Promise<void> {
         dynamicContext: { user: { id: "test-user" } },
         ...buildBaseOptions(),
       } as Record<string, unknown>);
-      const text = result.text || result.content || "";
+      const text = result.content || "";
       return text.length > 0;
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
@@ -233,7 +233,7 @@ async function testStream(): Promise<void> {
             : "gemini-2.5-flash",
         dynamicContext: { tier: "pro" },
         ...buildBaseOptions(false),
-      } as Record<string, unknown>);
+      });
       const chunks: string[] = [];
       for await (const chunk of streamResult.stream) {
         if ("content" in chunk) {

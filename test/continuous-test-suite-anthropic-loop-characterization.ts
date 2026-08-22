@@ -47,8 +47,10 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { jsonSchema } from "ai";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import type { Tool } from "../src/lib/types/index.js";
 
 assertDistFresh();
 
@@ -243,15 +245,15 @@ async function startStandIn(
   };
 }
 
-function customTool(counter: { calls: number }) {
+function customTool(counter: { calls: number }): Record<string, Tool> {
   return {
     lookup: {
       description: "look a value up",
-      inputSchema: {
+      inputSchema: jsonSchema({
         type: "object",
         properties: {},
         additionalProperties: true,
-      },
+      }),
       execute: async () => {
         counter.calls++;
         return { found: true };
@@ -276,7 +278,9 @@ await test("a text-only turn streams its text and stops after one call", async (
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     assert(
       text.includes("hello from anthropic"),
@@ -317,7 +321,9 @@ await test("a caller's own tool is declared and executed, and its result returns
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     assert(
       declaredToolNames(server.calls[0]).includes("lookup"),
@@ -370,7 +376,9 @@ await test("text emitted before a tool call survives into the next request", asy
     });
     let streamed = "";
     for await (const chunk of result.stream) {
-      streamed += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamed += chunk.content;
+      }
     }
     assert(
       streamed.includes("let me check"),
@@ -508,7 +516,9 @@ await test("a truncated final_result payload survives verbatim instead of collap
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     console.log(
       `    [diagnostic] structured stream produced: ${text.slice(0, 120)}`,

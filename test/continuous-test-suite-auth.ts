@@ -88,6 +88,11 @@ import {
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
+import type { AuthenticatedUser } from "../src/lib/types/index.js";
+
+/** Hono generic env — gives `c.set("user", ...)` / `c.get("user")` a real type. */
+type AuthAppEnv = { Variables: { user?: AuthenticatedUser } };
+
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
 
@@ -199,8 +204,8 @@ function createAuthNeuroLink(): {
 async function buildProtectedHonoApp(opts?: {
   authProvider?: InstanceType<typeof CustomAuthProvider>;
   skipPaths?: string[];
-}): Promise<Hono> {
-  const app = new Hono();
+}): Promise<Hono<AuthAppEnv>> {
+  const app = new Hono<AuthAppEnv>();
 
   app.onError((error, c) => {
     if (typeof (error as any).getHttpStatus === "function") {
@@ -269,7 +274,7 @@ async function buildProtectedHonoApp(opts?: {
       };
       await bearerMiddleware.handler(ctx, async () => {
         if (ctx.user) {
-          c.set("user" as any, ctx.user);
+          c.set("user", ctx.user);
         }
         return next();
       });
@@ -281,7 +286,7 @@ async function buildProtectedHonoApp(opts?: {
   );
 
   app.post("/api/agent/execute", async (c) => {
-    const user = c.get("user" as any) as any;
+    const user = c.get("user");
     let body: any;
     try {
       body = await c.req.json();
@@ -481,8 +486,8 @@ async function testServerRBAC(): Promise<void> {
   async function buildRBACApp(config: {
     rolePermissions: Record<string, string[]>;
     endpointPermissions: Record<string, string[]>;
-  }): Promise<Hono> {
-    const app = new Hono();
+  }): Promise<Hono<AuthAppEnv>> {
+    const app = new Hono<AuthAppEnv>();
     const { rolePermissions, endpointPermissions } = config;
 
     app.onError((error, c) => {
@@ -542,7 +547,7 @@ async function testServerRBAC(): Promise<void> {
       };
       await bearerMiddleware.handler(ctx, async () => {
         if (ctx.user) {
-          c.set("user" as any, ctx.user);
+          c.set("user", ctx.user);
         }
         return next();
       });
@@ -552,7 +557,7 @@ async function testServerRBAC(): Promise<void> {
       if (c.req.path.startsWith("/api/health")) {
         return next();
       }
-      const user = c.get("user" as any) as any;
+      const user = c.get("user");
       if (!user) {
         return next();
       }
@@ -598,7 +603,7 @@ async function testServerRBAC(): Promise<void> {
 
     app.get("/api/health", (c) => c.json({ status: "ok" }, 200));
     app.post("/api/agent/execute", async (c) => {
-      const user = c.get("user" as any) as any;
+      const user = c.get("user");
       return c.json({
         data: {
           content: `Executed for ${user?.id}`,

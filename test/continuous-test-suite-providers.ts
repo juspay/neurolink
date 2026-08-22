@@ -989,7 +989,7 @@ async function testVertexGemini31Stream(
     });
     let collected = "";
     for await (const chunk of stream.stream) {
-      if (chunk?.content) {
+      if ("content" in chunk && typeof chunk.content === "string") {
         collected += chunk.content;
       }
     }
@@ -1297,7 +1297,7 @@ async function testVertexClaudeStream(sdk: NeuroLink): Promise<boolean | null> {
     });
     let collected = "";
     for await (const chunk of stream.stream) {
-      if (chunk?.content) {
+      if ("content" in chunk && typeof chunk.content === "string") {
         collected += chunk.content;
       }
     }

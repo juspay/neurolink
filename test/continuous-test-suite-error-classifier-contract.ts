@@ -96,6 +96,7 @@ import { LMStudioProvider } from "../src/lib/providers/lmStudio.js";
 import { CohereProvider } from "../src/lib/providers/cohere.js";
 import { AnthropicProvider } from "../src/lib/providers/anthropic/client.js";
 import { AmazonBedrockProvider } from "../src/lib/providers/amazonBedrock/client.js";
+import type { BaseProvider } from "../src/lib/core/baseProvider.js";
 import { isToolsSchemaExclusionInForce } from "../src/lib/core/modules/structuredOutputPolicy.js";
 import { assert, assertEqual, defineSuite } from "./helpers/harness.js";
 
@@ -390,9 +391,21 @@ void runSuite(async () => {
   // (old File2) — Part A test-a (TimeoutError) x19 providers
   // ===========================================================================
 
+  // `formatProviderError` is `protected` on every provider class (CLAUDE.md
+  // rule 6) — there is no public surface for it. Every provider below shares
+  // `BaseProvider` as a common ancestor (which declares the method
+  // `protected abstract`), so `instance` is typed to that real base class
+  // rather than an anonymous `{ formatProviderError(...): Error }` shape.
+  // That keeps the bracket-notation calls further down — the documented TS
+  // escape hatch for reaching a protected/private member from outside its
+  // class, which does not weaken the protected contract at runtime, only
+  // the compile-time accessibility check — fully typed. (A hand-written
+  // union of the concrete subclasses does NOT work here: TS's indexed-access
+  // resolution for a string-literal key does not look up the member across
+  // union constituents, only through a shared ancestor type.)
   type ProviderCase = {
     name: string;
-    instance: { formatProviderError(error: unknown): Error };
+    instance: BaseProvider;
     timeoutErrorClass: typeof NetworkError | typeof ProviderError;
   };
 
@@ -562,7 +575,12 @@ void runSuite(async () => {
   for (const { name, instance, timeoutErrorClass } of providers) {
     await test(`${name}: TimeoutError -> ${timeoutErrorClass.name}`, () => {
       const err = new TimeoutError("timed out", 3000, name, "generate");
-      const result = instance.formatProviderError(err);
+      // Bracket notation is the documented TS escape hatch for calling a
+      // protected member from outside its class hierarchy — it does not
+      // relax the protected contract at runtime, only the compile-time
+      // accessibility check, so this exercises the exact same method a
+      // subclass call would.
+      const result = instance["formatProviderError"](err);
       // Exact class, not `instanceof`: NetworkError/AuthenticationError/
       // RateLimitError all extend ProviderError, so an instanceof check
       // against ProviderError (Groq's expected class) would silently accept
@@ -593,7 +611,7 @@ void runSuite(async () => {
       const duckTimeout = Object.assign(new Error("the operation timed out"), {
         name: "TimeoutError",
       });
-      const result = compat.formatProviderError(duckTimeout);
+      const result = compat["formatProviderError"](duckTimeout);
       assert(
         result instanceof NetworkError,
         "openai-compatible's duck-typed timeout check (name === TimeoutError) no longer maps to NetworkError",
@@ -658,7 +676,7 @@ void runSuite(async () => {
 
     await test("ollama: TimeoutError -> NetworkError with its own wording (not the classifier default)", () => {
       const err = new TimeoutError("timed out", 3000, "ollama", "generate");
-      const result = ollama.formatProviderError(err);
+      const result = ollama["formatProviderError"](err);
       assert(
         result instanceof NetworkError,
         "ollama's TimeoutError intercept no longer maps to NetworkError",
@@ -679,7 +697,7 @@ void runSuite(async () => {
     const anthropic = new AnthropicProvider();
 
     await test("anthropic: TimeoutError -> NetworkError", () => {
-      const result = anthropic.formatProviderError(
+      const result = anthropic["formatProviderError"](
         new TimeoutError("timed out", 3000, "anthropic", "stream"),
       );
       assert(result instanceof NetworkError, "expected NetworkError");
@@ -704,7 +722,7 @@ void runSuite(async () => {
       const err = Object.assign(new Error("throttled"), {
         code: "ThrottlingException",
       });
-      const result = bedrock.formatProviderError(err);
+      const result = bedrock["formatProviderError"](err);
       assert(
         result instanceof RateLimitError,
         "bedrock's code-based ThrottlingException match was lost",
@@ -718,7 +736,7 @@ void runSuite(async () => {
         new Error("ValidationException-shaped but actually throttled"),
         { name: "ThrottlingException" },
       );
-      const result = bedrock.formatProviderError(err);
+      const result = bedrock["formatProviderError"](err);
       assert(
         result instanceof RateLimitError,
         "throttling-by-name lost precedence over message text",

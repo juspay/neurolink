@@ -12,6 +12,16 @@ import crypto from "crypto";
 import { diffLines } from "diff";
 import { fileURLToPath } from "url";
 
+// `diff` has no bundled type declarations and no @types/diff is installed
+// (the package itself is not a dependency of this workspace), so `diffLines`
+// resolves as `any`. This local shape types just the fields this file reads
+// off each hunk; it does not attempt to resolve module "diff" itself.
+type DiffChange = {
+  value: string;
+  added?: boolean;
+  removed?: boolean;
+};
+
 const __filename = fileURLToPath(import.meta.url);
 
 class ScriptAnalyzer {
@@ -155,7 +165,7 @@ class ScriptAnalyzer {
         content2.split("\n").length,
       );
       const changedLines = differences.filter(
-        (part) => part.added || part.removed,
+        (part: DiffChange) => part.added || part.removed,
       ).length;
       const similarity = Math.max(
         0,
@@ -165,7 +175,7 @@ class ScriptAnalyzer {
       return {
         percentage: similarity,
         differences: differences
-          .filter((part) => part.added || part.removed)
+          .filter((part: DiffChange) => part.added || part.removed)
           .slice(0, 5), // Limit for readability
       };
     } catch (error: any) {
@@ -212,7 +222,24 @@ class ScriptAnalyzer {
     console.log("📋 Generating cleanup and conversion plans...");
 
     // Removal plan for duplicates
-    const removalPlan = {
+    type DuplicateToRemove = {
+      file: string;
+      reason: string;
+      confidence: string;
+      size: number;
+    };
+    type DuplicateToReview = {
+      file: string;
+      reason: string;
+      differences: number;
+    };
+    const removalPlan: {
+      duplicatesToRemove: DuplicateToRemove[];
+      duplicatesToReview: DuplicateToReview[];
+      totalFilesSaved: number;
+      storageSaved: number;
+      estimatedTimeSaved: string;
+    } = {
       duplicatesToRemove: [],
       duplicatesToReview: [],
       totalFilesSaved: 0,
@@ -243,7 +270,7 @@ class ScriptAnalyzer {
     // Conversion plan for shell scripts
     const conversionPlan = {
       shellScriptsToConvert: this.analysisResults.shellScripts.map(
-        (script) => ({
+        (script: string) => ({
           file: script,
           targetName: script.replace(".sh", ".js"),
           complexity: this.estimateConversionComplexity(script),

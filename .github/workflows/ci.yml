@@ -122,6 +122,11 @@ jobs:
       - name: Build package
         run: pnpm run build
 
+      # After the build, deliberately: these suites import ../dist/index.js, so
+      # on an unbuilt tree every such import fails and cascades to ~769 errors.
+      - name: 🔎 Typecheck tools/ and test/
+        run: pnpm run check:tools-tests
+
       - name: Test CLI build
         run: |
           pnpm run build:cli

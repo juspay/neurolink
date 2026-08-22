@@ -43,7 +43,7 @@ import "dotenv/config";
  *      pnpm run test:model-manifests
  */
 
-import { assert, defineSuite } from "./helpers/harness.js";
+import { assert, assertNotNull, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
 // Fail loudly rather than silently testing a stale build.
@@ -67,7 +67,7 @@ await test("Alias resolves to its canonical entry, not the default", async () =>
   // model-specific contextWindow/vision/functionCalling data.
   const viaAlias = resolveManifestEntry("ollama", "llama3.2");
   const canonical = resolveManifestEntry("ollama", "llama3.2:latest");
-  assert(!!viaAlias, "alias lookup returned nothing");
+  assertNotNull(viaAlias, "alias lookup returned nothing");
   assert(!!canonical, "canonical lookup returned nothing");
   assert(
     JSON.stringify(viaAlias) === JSON.stringify(canonical),
@@ -82,7 +82,7 @@ await test("Alias resolves to its canonical entry, not the default", async () =>
 await test("Alias resolution also works via resolveManifestEntryExact", async () => {
   // anthropic's "claude-sonnet-5" entry declares "sonnet-5" as an alias.
   const viaAlias = resolveManifestEntryExact("anthropic", "sonnet-5");
-  assert(!!viaAlias, "exact-path alias lookup returned nothing");
+  assertNotNull(viaAlias, "exact-path alias lookup returned nothing");
   assert(
     viaAlias.contextWindow === 1_000_000,
     "exact-path alias resolution did not reach the canonical entry",
@@ -91,7 +91,7 @@ await test("Alias resolution also works via resolveManifestEntryExact", async ()
 
 await test("Exact and prefix resolution still take precedence over alias/default", async () => {
   const exact = resolveManifestEntryExact("anthropic", "claude-sonnet-5");
-  assert(!!exact, "exact id lookup returned nothing");
+  assertNotNull(exact, "exact id lookup returned nothing");
   assert(exact.contextWindow === 1_000_000, "exact id resolved wrong entry");
 
   // A gateway-shaped id ("<canonical-key><suffix>") not itself a key or
@@ -100,7 +100,7 @@ await test("Exact and prefix resolution still take precedence over alias/default
     "anthropic",
     "claude-sonnet-5-some-gateway-suffix",
   );
-  assert(!!prefixed, "prefix lookup returned nothing");
+  assertNotNull(prefixed, "prefix lookup returned nothing");
   assert(
     prefixed.contextWindow === 1_000_000,
     "prefix lookup resolved the wrong entry",
@@ -109,7 +109,7 @@ await test("Exact and prefix resolution still take precedence over alias/default
 
 await test("Unknown model falls back to an honest provider default", async () => {
   const fallback = resolveManifestEntry("bedrock", "totally-unknown-model-id");
-  assert(!!fallback, "default fallback returned nothing");
+  assertNotNull(fallback, "default fallback returned nothing");
   const manifest = getManifestForProvider("bedrock");
   assert(!!manifest, "bedrock manifest missing from registry");
   assert(

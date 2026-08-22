@@ -89,6 +89,7 @@ import {
   getDefaultConfig,
 } from "../src/lib/rag/ChunkerFactory.js";
 import {
+  ChunkerRegistry as ChunkerRegistrySingleton,
   chunkerRegistry,
   getAvailableChunkers,
   getChunker,
@@ -454,8 +455,8 @@ async function testChunkerRegistry(): Promise<boolean | null> {
   // Test 1: Singleton instance
   logSubsection("Singleton Pattern");
   try {
-    const instance1 = ChunkerRegistry.getInstance();
-    const instance2 = ChunkerRegistry.getInstance();
+    const instance1 = ChunkerRegistrySingleton.getInstance();
+    const instance2 = ChunkerRegistrySingleton.getInstance();
     if (instance1 === instance2) {
       logTest("ChunkerRegistry singleton", "PASS");
       recordResult({ name: "ChunkerRegistry singleton", status: "PASS" });
@@ -3526,8 +3527,8 @@ async function testRAGGenerateWithFilesAPI(): Promise<boolean | null> {
         if (result && typeof result === "object" && "content" in result) {
           const content = ((result.content as string) || "").toLowerCase();
           // Check if expected keywords appear in response (flexible matching)
-          const matchedKeywords = fixture.expectedKeywords.filter((kw) =>
-            content.includes(kw.toLowerCase()),
+          const matchedKeywords = fixture.expectedKeywords.filter(
+            (kw: string) => content.includes(kw.toLowerCase()),
           );
           const keywordRatio =
             fixture.expectedKeywords.length > 0

@@ -141,7 +141,9 @@ void runSuite(async () => {
       } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
       let text = "";
       for await (const chunk of result.stream) {
-        text += chunk.content ?? "";
+        if ("content" in chunk && typeof chunk.content === "string") {
+          text += chunk.content;
+        }
       }
       assert(attempt >= 3, "streamOneStep did not retry through the 429s");
       assert(
@@ -205,7 +207,9 @@ void runSuite(async () => {
       } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
       let text = "";
       for await (const chunk of result.stream) {
-        text += chunk.content ?? "";
+        if ("content" in chunk && typeof chunk.content === "string") {
+          text += chunk.content;
+        }
       }
       assert(
         attempt === 2,

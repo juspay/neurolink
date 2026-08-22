@@ -567,6 +567,24 @@ await test("NeuroLink.getToolDedupConfig(): returns undefined when not configure
 });
 
 /**
+ * Static shape of the two protected `BaseProvider` members this seam relies
+ * on. Declared once so the mixin below inherits them typed, instead of
+ * casting the constructed instance afterwards.
+ */
+type ToolSeamProvider = {
+  setupToolExecutor(
+    sdk: {
+      customTools: Map<string, unknown>;
+      executeTool: (name: string, params: unknown) => Promise<unknown>;
+    },
+    tag: string,
+  ): void;
+  getToolsForStream(
+    opts: Record<string, unknown>,
+  ): Promise<Record<string, Tool>>;
+};
+
+/**
  * Build a minimal BaseProvider subclass that exposes the protected
  * `getToolsForStream` seam, wired to a NeuroLink instance so that
  * `applyToolFiltering` can read `getToolDedupConfig()`.
@@ -583,14 +601,10 @@ async function buildToolSeam(
         modelName: string,
         providerName: string,
         neurolink: unknown,
-      ) => object;
+      ) => ToolSeamProvider;
     };
 
-  const provider = new (class extends (BaseProvider as unknown as new (
-    m: string,
-    p: string,
-    nl: unknown,
-  ) => object) {
+  const provider = new (class extends BaseProvider {
     supportsTools(): boolean {
       return true;
     }
@@ -600,18 +614,7 @@ async function buildToolSeam(
     getProviderName(): string {
       return "test-provider";
     }
-  })("test-model", "test-provider", neurolinkInstance) as {
-    setupToolExecutor(
-      sdk: {
-        customTools: Map<string, unknown>;
-        executeTool: (name: string, params: unknown) => Promise<unknown>;
-      },
-      tag: string,
-    ): void;
-    getToolsForStream(
-      opts: Record<string, unknown>,
-    ): Promise<Record<string, Tool>>;
-  };
+  })("test-model", "test-provider", neurolinkInstance);
 
   const customTools = (
     neurolinkInstance as unknown as { getCustomTools(): Map<string, unknown> }

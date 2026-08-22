@@ -41,8 +41,10 @@ import {
   SimpleSpanProcessor,
 } from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+import { jsonSchema } from "ai";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import type { Tool } from "../src/lib/types/index.js";
 
 assertDistFresh();
 
@@ -202,15 +204,15 @@ function credentialsFor(port: number) {
   };
 }
 
-function customTool(counter: { calls: number }) {
+function customTool(counter: { calls: number }): Record<string, Tool> {
   return {
     lookup: {
       description: "look a value up",
-      inputSchema: {
+      inputSchema: jsonSchema({
         type: "object",
         properties: {},
         additionalProperties: true,
-      },
+      }),
       execute: async () => {
         counter.calls++;
         return { found: true };
@@ -236,7 +238,9 @@ await test("a text-only turn streams its text and stops after one call", async (
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     assert(
       text.includes("hello from ai studio"),
@@ -275,7 +279,9 @@ await test("a caller's own tool is declared, executed, and its result returns to
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     assert(
       declaredToolNames(server.calls[0]).includes("lookup"),
@@ -317,7 +323,6 @@ await test("the generate path declares and executes a caller's tools", async () 
       maxTokens: 32,
       maxSteps: 3,
       disableTools: false,
-      disableInternalFallback: true,
       tools: customTool(counter),
       credentials: credentialsFor(server.port),
     });
@@ -383,17 +388,17 @@ await test("a tool that always throws is reported to the model and does not run 
         tools: {
           flaky: {
             description: "always fails",
-            inputSchema: {
+            inputSchema: jsonSchema({
               type: "object",
               properties: {},
               additionalProperties: true,
-            },
+            }),
             execute: async () => {
               attempts++;
               throw new Error("synthetic tool failure");
             },
           },
-        },
+        } satisfies Record<string, Tool>,
         credentials: credentialsFor(server.port),
       })
       .then(async (result) => {
@@ -488,7 +493,9 @@ await test("a turn that hits the step cap still delivers text to the consumer", 
       credentials: credentialsFor(server.port),
     });
     for await (const chunk of result.stream) {
-      streamed += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamed += chunk.content;
+      }
     }
   } finally {
     restore();
@@ -539,7 +546,6 @@ await test("the generate path hitting the step cap still returns the last step's
       maxTokens: 32,
       maxSteps: 2,
       disableTools: false,
-      disableInternalFallback: true,
       tools: customTool(counter),
       credentials: credentialsFor(server.port),
     });
@@ -589,17 +595,17 @@ await test("the streaming loop runs an identical repeated call only once", async
       tools: {
         repeatable: {
           description: "records how often it really ran",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: { q: { type: "string" } },
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             dispatched++;
             return { ran: dispatched };
           },
         },
-      },
+      } satisfies Record<string, Tool>,
       credentials: credentialsFor(server.port),
     });
     for await (const chunk of result.stream) {
@@ -642,21 +648,20 @@ await test("the generate loop runs an identical repeated call only once", async 
       maxTokens: 32,
       maxSteps: 5,
       disableTools: false,
-      disableInternalFallback: true,
       tools: {
         repeatable: {
           description: "records how often it really ran",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: { q: { type: "string" } },
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             dispatched++;
             return { ran: dispatched };
           },
         },
-      },
+      } satisfies Record<string, Tool>,
       credentials: credentialsFor(server.port),
     });
   } catch {
@@ -720,11 +725,11 @@ await test("an abort mid-step stops the loop from dispatching the rest of the ba
       tools: {
         first: {
           description: "aborts the turn",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: {},
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             firstCalls++;
             controller.abort();
@@ -733,17 +738,17 @@ await test("an abort mid-step stops the loop from dispatching the rest of the ba
         },
         second: {
           description: "must not run once the turn is aborted",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: {},
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             secondCalls++;
             return { ok: true };
           },
         },
-      },
+      } satisfies Record<string, Tool>,
     });
     for await (const chunk of result.stream) {
       void chunk;
@@ -805,17 +810,17 @@ await test("tool activity is numbered by the turn's steps, one per step", async 
       tools: {
         count: {
           description: "counts",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: { n: { type: "number" } },
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             dispatched++;
             return { ok: true };
           },
         },
-      },
+      } satisfies Record<string, Tool>,
     });
     for await (const chunk of result.stream) {
       void chunk;

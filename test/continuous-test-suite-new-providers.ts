@@ -812,9 +812,13 @@ async function section3Multimodal(): Promise<void> {
           text: "Describe this image in 1 sentence.",
           files: [
             {
-              data: VISION_PNG_BUFFER,
-              mimeType: "image/png",
-              name: "sample.png",
+              // FileWithMetadata is { buffer, filename, mimetype? }. This was
+              // built as { data, mimeType, name }, which isFileWithMetadata()
+              // rejects — so the image bytes were never attached and this
+              // vision test was exercising a text-only request.
+              buffer: VISION_PNG_BUFFER,
+              filename: "sample.png",
+              mimetype: "image/png",
             },
           ],
         },

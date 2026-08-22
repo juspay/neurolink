@@ -31,6 +31,15 @@ import { createServer, type Server } from "node:http";
 import { defineSuite, assert } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import type { NeurolinkCredentials } from "../src/lib/types/index.js";
+// Type-only (erased at compile time, no second runtime module graph — see
+// the ALL-DIST header above): needed only so the fake sdk below can be
+// typed as the real `NeuroLink` class instead of an untyped/`any` value.
+// Sourced from dist, not src: `ProviderFactory.createProvider` below is
+// also imported from dist, and a class with private fields is only
+// assignable to the `NeuroLink` type that originates from the same
+// declaration — the src and dist declarations are distinct for this
+// purpose even though they compile from identical source.
+import type { NeuroLink } from "../dist/neurolink.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -105,7 +114,19 @@ await test("HuggingFace factory forwards the sdk instance through to BaseProvide
   const { ProviderFactory } =
     await import("../dist/factories/providerFactory.js");
 
-  const fakeSdk = { __fakeNeuroLinkSdk: true };
+  // `NeuroLink` has private fields, so no object literal is structurally
+  // assignable to it (not even via a single `as NeuroLink` — TS rejects it
+  // as "neither type sufficiently overlaps"), and a double assertion
+  // through `unknown` is disallowed. `createProvider` only ever forwards
+  // this value by reference (see the identity check below) and never calls
+  // a method on it, so an opaque placeholder object satisfies the real
+  // type without a cast: `Object.create` with no generic type argument
+  // returns `any`, which an explicitly-typed `const` accepts.
+  const fakeSdk: NeuroLink = Object.create(null);
+  Object.defineProperty(fakeSdk, "__fakeNeuroLinkSdk", {
+    value: true,
+    enumerable: true,
+  });
   const provider = await ProviderFactory.createProvider(
     "huggingface",
     "some-model",

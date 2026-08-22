@@ -370,7 +370,10 @@ await test("translatePineconeFilter: throws a clear error on $nor (unsupported)"
     translatePineconeFilter({ $nor: [{ category: "docs" }] });
   } catch (err) {
     threw = true;
-    assert(err instanceof Error && err.message.includes("$nor"));
+    assert(
+      err instanceof Error && err.message.includes("$nor"),
+      "error message names the unsupported operator",
+    );
   }
   assert(threw, "translatePineconeFilter must throw for $nor");
 });
@@ -397,7 +400,10 @@ await test("translatePineconeFilter: throws a clear error on $contains (unsuppor
     translatePineconeFilter({ title: { $contains: "AI" } });
   } catch (err) {
     threw = true;
-    assert(err instanceof Error && err.message.includes("$contains"));
+    assert(
+      err instanceof Error && err.message.includes("$contains"),
+      "error message names the unsupported operator",
+    );
   }
   assert(threw, "translatePineconeFilter must throw for $contains");
 });
@@ -408,7 +414,10 @@ await test("translatePineconeFilter: throws a clear error on $regex (unsupported
     translatePineconeFilter({ title: { $regex: "^AI" } });
   } catch (err) {
     threw = true;
-    assert(err instanceof Error && err.message.includes("$regex"));
+    assert(
+      err instanceof Error && err.message.includes("$regex"),
+      "error message names the unsupported operator",
+    );
   }
   assert(threw, "translatePineconeFilter must throw for $regex");
 });
@@ -419,7 +428,10 @@ await test("translatePineconeFilter: throws a clear error on $size (unsupported)
     translatePineconeFilter({ tags: { $size: 3 } });
   } catch (err) {
     threw = true;
-    assert(err instanceof Error && err.message.includes("$size"));
+    assert(
+      err instanceof Error && err.message.includes("$size"),
+      "error message names the unsupported operator",
+    );
   }
   assert(threw, "translatePineconeFilter must throw for $size");
 });
@@ -437,7 +449,10 @@ await test("query() surfaces the filter-translation error when given an unsuppor
     });
   } catch (err) {
     threw = true;
-    assert(err instanceof Error && err.message.includes("$exists"));
+    assert(
+      err instanceof Error && err.message.includes("$exists"),
+      "query() propagates the translation error message",
+    );
   }
   assert(threw, "query() must propagate the translation error");
   assertEqual(

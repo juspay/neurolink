@@ -62,12 +62,13 @@ let lastRequestBody = "";
 // subset used here (on("data")/on("end")/writeHead/end/socket.destroy).
 function handleMockRequest(
   req: {
-    on: (ev: string, cb: (...a: never[]) => void) => void;
+    on(ev: string, cb: (...a: never[]) => void): void;
     socket?: { destroy(): void };
   },
   res: {
-    writeHead: (status: number, headers: Record<string, string>) => void;
-    end: (body?: string) => void;
+    writeHead(status: number, headers: Record<string, string>): void;
+    end(callback?: () => void): void;
+    end(body: string, callback?: () => void): void;
   },
 ): void {
   hitCount++;

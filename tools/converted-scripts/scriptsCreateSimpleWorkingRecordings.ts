@@ -25,9 +25,12 @@ const RECORDINGS_DIR = path.join(
 const CLI_PATH = path.join(PROJECT_ROOT, "dist", "cli", "index.js");
 
 // Logging functions
-const log_info = (message) => console.log(`\x1b[0;34mℹ️  ${message}\x1b[0m`);
-const log_success = (message) => console.log(`\x1b[0;32m✅ ${message}\x1b[0m`);
-const log_error = (message) => console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
+const log_info = (message: string) =>
+  console.log(`\x1b[0;34mℹ️  ${message}\x1b[0m`);
+const log_success = (message: string) =>
+  console.log(`\x1b[0;32m✅ ${message}\x1b[0m`);
+const log_error = (message: string) =>
+  console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
 
 /**
  * Creates a recording using a temporary shell script to handle timeouts.
@@ -37,9 +40,9 @@ const log_error = (message) => console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
  * @param {number} max_wait - The maximum time to wait for the command to complete.
  */
 async function create_simple_recording(
-  filename,
-  title,
-  command,
+  filename: string,
+  title: string,
+  command: string,
   max_wait = 30,
 ) {
   log_info(`Recording: ${filename}`);

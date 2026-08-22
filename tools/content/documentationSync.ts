@@ -22,6 +22,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
 
+/** One heading-delimited section parsed out of a markdown file. */
+type MarkdownSection = {
+  content: string;
+  level: number;
+  title: string;
+};
+
+/** A parsed section plus the file it came from, once merged across files. */
+type MarkdownSectionEntry = MarkdownSection & { sourceFile: string };
+
+/** All section versions found across every scanned markdown file, keyed by normalized section name. */
+type SectionsBySection = Record<string, MarkdownSectionEntry[]>;
+
 class DocumentationSync {
   docsDir: string;
   readmeFile: string;
@@ -127,9 +140,9 @@ class DocumentationSync {
    * Find all markdown files
    */
   async findMarkdownFiles() {
-    const markdownFiles = [];
+    const markdownFiles: string[] = [];
 
-    const scanDirectory = (dir) => {
+    const scanDirectory = (dir: string) => {
       try {
         const items = readdirSync(dir);
 
@@ -160,8 +173,8 @@ class DocumentationSync {
   /**
    * Extract sections from markdown files
    */
-  async extractSections(files: string[]) {
-    const allSections = {};
+  async extractSections(files: string[]): Promise<SectionsBySection> {
+    const allSections: SectionsBySection = {};
 
     for (const file of files) {
       try {
@@ -190,11 +203,8 @@ class DocumentationSync {
   /**
    * Parse markdown sections from content
    */
-  parseMarkdownSections(content: string) {
-    const sections: Record<
-      string,
-      { content: string; level: number; title: string }
-    > = {};
+  parseMarkdownSections(content: string): Record<string, MarkdownSection> {
+    const sections: Record<string, MarkdownSection> = {};
     const lines = content.split("\n");
     let currentSection: { key: string; title: string; level: number } | null =
       null;
@@ -256,7 +266,7 @@ class DocumentationSync {
   /**
    * Synchronize common sections across files
    */
-  async syncCommonSections(allSections: any) {
+  async syncCommonSections(allSections: SectionsBySection) {
     console.log("🔗 Synchronizing common sections...");
 
     const commonSections = this.identifyCommonSections(allSections);
@@ -282,8 +292,8 @@ class DocumentationSync {
   /**
    * Identify sections that appear in multiple files
    */
-  identifyCommonSections(allSections: any) {
-    const common = {};
+  identifyCommonSections(allSections: SectionsBySection): SectionsBySection {
+    const common: SectionsBySection = {};
 
     for (const [sectionName, versions] of Object.entries(allSections)) {
       // Only consider sections that match our known patterns
@@ -302,7 +312,9 @@ class DocumentationSync {
   /**
    * Select canonical version of a section
    */
-  selectCanonicalVersion(versions: any) {
+  selectCanonicalVersion(
+    versions: MarkdownSectionEntry[],
+  ): MarkdownSectionEntry {
     // Prefer main README.md, then longest content, then newest file
 
     const readmeVersion = versions.find(
@@ -323,7 +335,10 @@ class DocumentationSync {
   /**
    * Sync section across files (placeholder)
    */
-  async syncSectionAcrossFiles(sectionName: string, canonical: any) {
+  async syncSectionAcrossFiles(
+    sectionName: string,
+    canonical: MarkdownSectionEntry,
+  ) {
     console.log(`  📝 Syncing "${sectionName}" from ${canonical.sourceFile}`);
     // In a real implementation, this would update the files
     // For now, we'll just log the operation
@@ -332,7 +347,7 @@ class DocumentationSync {
   /**
    * Update main README.md
    */
-  async updateMainReadme(allSections: any) {
+  async updateMainReadme(allSections: SectionsBySection) {
     console.log("📝 Updating main README.md...");
 
     if (!existsSync(this.readmeFile)) {
@@ -547,7 +562,7 @@ This project is licensed under the ${packageData.license} License.
   /**
    * Generate table of contents from sections
    */
-  generateTableOfContents(sections: any) {
+  generateTableOfContents(sections: Record<string, MarkdownSection>) {
     const toc = [];
 
     for (const [sectionName, sectionData] of Object.entries(sections)) {

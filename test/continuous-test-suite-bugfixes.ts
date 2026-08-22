@@ -443,6 +443,7 @@ const tests: TestFunction[] = [
       const r16 = await CSVProcessor.process(u16, { formatStyle: "json" });
       if (
         (r16.metadata?.detectedEncoding ?? "").toLowerCase() !== "utf-16le" ||
+        typeof r16.content !== "string" ||
         JSON.parse(r16.content)[0]?.name !== "Alice"
       ) {
         return false;
@@ -455,6 +456,7 @@ const tests: TestFunction[] = [
       );
       return (
         ascii.metadata?.detectedEncoding === "utf-8" &&
+        typeof ascii.content === "string" &&
         JSON.parse(ascii.content).length === 2
       );
     },
@@ -586,11 +588,16 @@ const tests: TestFunction[] = [
       const skipped = await CSVProcessor.process(Buffer.from(csv), {
         formatStyle: "raw",
       });
-      const skippedLines = skipped.content.split("\n");
+      if (typeof skipped.content !== "string") {
+        return false;
+      }
+      const skippedLines: string[] = skipped.content.split("\n");
       const skippedOk =
         skipped.metadata.rowCount === 3 &&
         skippedLines.length === 4 &&
-        skippedLines.every((line, i) => i === 0 || line.trim() !== "");
+        skippedLines.every(
+          (line: string, i: number) => i === 0 || line.trim() !== "",
+        );
 
       // Explicit preserve: blank lines stay in raw content and count as rows
       // (including a trailing empty line from a final newline).
@@ -598,11 +605,14 @@ const tests: TestFunction[] = [
         formatStyle: "raw",
         skipEmptyLines: false,
       });
-      const preservedLines = preserved.content.split("\n");
+      if (typeof preserved.content !== "string") {
+        return false;
+      }
+      const preservedLines: string[] = preserved.content.split("\n");
       const preservedOk =
-        preserved.metadata.rowCount >= 5 &&
+        (preserved.metadata.rowCount ?? 0) >= 5 &&
         preservedLines.length >= 6 &&
-        preservedLines.some((line) => line.trim() === "");
+        preservedLines.some((line: string) => line.trim() === "");
 
       // Structured json also respects the option.
       const jsonSkipped = await CSVProcessor.process(Buffer.from(csv), {
@@ -612,9 +622,13 @@ const tests: TestFunction[] = [
         formatStyle: "json",
         skipEmptyLines: false,
       });
+      if (typeof jsonSkipped.content !== "string") {
+        return false;
+      }
       const jsonOk =
         JSON.parse(jsonSkipped.content).length === 3 &&
-        jsonPreserved.metadata.rowCount > jsonSkipped.metadata.rowCount;
+        (jsonPreserved.metadata.rowCount ?? 0) >
+          (jsonSkipped.metadata.rowCount ?? 0);
 
       return skippedOk && preservedOk && jsonOk;
     },
@@ -654,6 +668,9 @@ const tests: TestFunction[] = [
         formatStyle: "json",
         skipEmptyLines: false,
       });
+      if (typeof json.content !== "string" || typeof md.content !== "string") {
+        return false;
+      }
       const parsed = JSON.parse(json.content) as Array<Record<string, string>>;
       const mdHeaderOk = /^\| name \| age \|/m.test(md.content);
       const jsonOk =
@@ -682,6 +699,9 @@ const tests: TestFunction[] = [
         Buffer.from("a,b\n,,\n1,2\n"),
         { formatStyle: "raw" },
       );
+      if (typeof json.content !== "string" || typeof md.content !== "string") {
+        return false;
+      }
       const parsed = JSON.parse(json.content) as Array<Record<string, string>>;
       return (
         /^\| a \| b \|/m.test(md.content) &&
@@ -733,6 +753,9 @@ const tests: TestFunction[] = [
         formatStyle: "json",
         maxRows: 2,
       });
+      if (typeof result.content !== "string") {
+        return false;
+      }
       const parsed = JSON.parse(result.content) as Array<{ name: string }>;
       return (
         result.metadata.rowCount === 2 &&
@@ -753,6 +776,9 @@ const tests: TestFunction[] = [
         allowedTypes: ["csv"],
         csvOptions: { formatStyle: "json", sanitizeColumnNames: true },
       });
+      if (typeof result.content !== "string") {
+        return false;
+      }
       const parsed = JSON.parse(result.content);
       const keys = Object.keys(parsed[0]);
       const allValid = keys.every((k) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k));
@@ -769,6 +795,9 @@ const tests: TestFunction[] = [
         allowedTypes: ["csv"],
         csvOptions: { formatStyle: "json" },
       });
+      if (typeof raw.content !== "string") {
+        return false;
+      }
       const defaultRawKey =
         Object.keys(JSON.parse(raw.content)[0])[0] === "Price ($)";
 
@@ -815,6 +844,9 @@ const tests: TestFunction[] = [
         Buffer.from('"Price, USD",Qty\n"1,000",5\n'),
         { formatStyle: "raw", sanitizeColumnNames: true },
       );
+      if (typeof raw.content !== "string") {
+        return false;
+      }
       const header = raw.content.split("\n")[0];
       const mapping = raw.metadata?.columnNameMapping ?? [];
       return (
@@ -1613,12 +1645,12 @@ const tests: TestFunction[] = [
       // process.
       const pdf = readFileSync("test/fixtures/valid-sample.pdf");
       // Baseline count BEFORE any image conversion loads a pdfjs worker.
-      const before = await PDFProcessor.getAccuratePageCount(pdf);
+      const before = await PDFProcessor["getAccuratePageCount"](pdf);
       // Do NOT swallow: a conversion failure here (e.g. the very version skew
       // this guards against) must fail the test, not be hidden — nearby tests
       // already rely on convertToImages succeeding in this environment.
       await PDFProcessor.convertToImages(pdf, { maxPages: 1 });
-      const after = await PDFProcessor.getAccuratePageCount(pdf);
+      const after = await PDFProcessor["getAccuratePageCount"](pdf);
       // The count must survive the conversion (the skew made `after` null) and
       // stay identical to the pre-conversion count — not merely be positive.
       return before !== null && after !== null && after === before;
@@ -2604,9 +2636,9 @@ const tests: TestFunction[] = [
     name: "buildProxyTranslationPlan: no classification, all fallbacks eligible",
     category: "routing-policy",
     fn: async () => {
-      const tools: Record<string, unknown> = {};
+      const tools: ParsedClaudeRequest["tools"] = {};
       for (let i = 0; i < 30; i++) {
-        tools[`tool_${i}`] = {};
+        tools[`tool_${i}`] = { inputSchema: undefined };
       }
       const parsed = makeParsedRequest({ tools, stream: false });
       const plan = buildProxyTranslationPlan(
@@ -2824,7 +2856,12 @@ const tests: TestFunction[] = [
       const sequence: string[] = [];
       const result = await __testHooks.handleAnthropicStreamingSuccessResponse({
         ctx: {} as never,
-        body: { model: "claude-opus-4-8", messages: [], stream: true },
+        body: {
+          model: "claude-opus-4-8",
+          messages: [],
+          max_tokens: 1024,
+          stream: true,
+        },
         account,
         accountState: {
           consecutiveRefreshFailures: 0,
@@ -2844,6 +2881,9 @@ const tests: TestFunction[] = [
         logFinalRequest: () => sequence.push("logFinalRequest"),
         onStreamTerminal: () => sequence.push("onStreamTerminal"),
       });
+      if (!("response" in result)) {
+        return false;
+      }
       const reader = (result.response as Response).body?.getReader();
       if (!reader) {
         return false;
@@ -3394,7 +3434,7 @@ const tests: TestFunction[] = [
   {
     name: "updater: transient install classification retries network errors only",
     category: "launchd-regression",
-    fn: () =>
+    fn: async () =>
       isTransientInstallFailure(
         Object.assign(new Error("npm timed out"), { code: "ETIMEDOUT" }),
       ) &&
@@ -3796,7 +3836,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -3878,7 +3918,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -3931,7 +3971,7 @@ exit 127
         const provider = new OpenAIProvider("gpt-4o", undefined, undefined, {
           apiKey: "k",
         });
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -4160,7 +4200,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         // V3 prompt with a `role: "tool"` message whose tool_call_id/output
@@ -4409,7 +4449,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         try {
@@ -4485,7 +4525,7 @@ exit 127
           },
         );
         // Force resolveModelName to run (it's the same path executeStream uses).
-        await provider.getAISDKModel();
+        await provider["getAISDKModel"]();
         // Reach across to BaseProvider's modelName via the public getter.
         const propagated = (provider as unknown as { modelName: string })
           .modelName;
@@ -4609,7 +4649,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -4660,7 +4700,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         const controller = new AbortController();
@@ -4757,7 +4797,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -5266,7 +5306,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -5313,7 +5353,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -5376,7 +5416,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -5452,7 +5492,7 @@ exit 127
           undefined,
           { apiKey: "override-key", baseURL: "http://override.local/v1" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -5540,7 +5580,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -5597,7 +5637,7 @@ exit 127
           undefined,
           { apiKey: "k", baseURL: "http://fake.local" },
         );
-        const model = (await provider.getAISDKModel()) as unknown as {
+        const model = (await provider["getAISDKModel"]()) as unknown as {
           doGenerate: (opts: Record<string, unknown>) => Promise<unknown>;
         };
         await model.doGenerate({
@@ -7064,7 +7104,7 @@ exit 127
   {
     name: "logSanitize #564 round 2: redactUrlForError strips embedded user:pass@ credentials and the query string",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const out = redactUrlForError("https://user:secret@host/path?token=x");
       return out === "https://host/path";
     },
@@ -7072,7 +7112,7 @@ exit 127
   {
     name: "logSanitize #564 round 2: redactUrlForError falls back safely (no credential leak) for unparseable input",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       // Not a valid absolute URL — exercises the catch/fallback branch.
       const out = redactUrlForError("//user:secret@host/path?token=x");
       return out === "//***@host/path";
@@ -7082,7 +7122,7 @@ exit 127
   {
     name: "logSanitize #564 round 4: redactUrlCredentials strips credentials containing an embedded slash",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const out = redactUrlCredentials("//user:sec/ret@host/path");
       return out === "//***@host/path";
     },
@@ -7090,7 +7130,7 @@ exit 127
   {
     name: "logSanitize #564 round 4: redactUrlCredentials strips authorities with multiple @ characters",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const out = redactUrlCredentials("//a@b@host/path");
       return out === "//***@host/path";
     },
@@ -7098,7 +7138,7 @@ exit 127
   {
     name: "logSanitize #564 round 4: redactUrlCredentials still redacts every authority when a second, well-formed URL follows",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       // Guards against the two-pass fix regressing the existing multi-URL
       // (query-embedded second URL) redaction behavior.
       const out = redactUrlCredentials(
@@ -7110,7 +7150,7 @@ exit 127
   {
     name: "logSanitize #564 round 4: redactUrlForError fallback strips slash-in-credential and multi-@ malformed URLs",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const a = redactUrlForError("//user:sec/ret@host/path?token=x");
       const b = redactUrlForError("//a@b@host/path?token=x");
       return a === "//***@host/path" && b === "//***@host/path";
@@ -7119,7 +7159,7 @@ exit 127
   {
     name: "logSanitize #564 round 4: redactUrlsInText scrubs URLs embedded in arbitrary error text",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const message =
         "fetch failed: request to https://user:secret@host.example.com/path?token=abc123 failed, reason: getaddrinfo ENOTFOUND host.example.com";
       const out = redactUrlsInText(message);
@@ -7132,7 +7172,7 @@ exit 127
   {
     name: "logSanitize #564 round 4: redactUrlsInText leaves URL-free text untouched",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const message = "connect ECONNREFUSED 127.0.0.1:443";
       return redactUrlsInText(message) === message;
     },
@@ -7141,7 +7181,7 @@ exit 127
   {
     name: "logSanitize #564 round 5: redactUrlCredentials handles percent-encoded @ in the password",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const out = redactUrlCredentials("//user:pass%40evil.com@host/path");
       return out === "//***@host/path";
     },
@@ -7149,7 +7189,7 @@ exit 127
   {
     name: "logSanitize #564 round 5: redactUrlCredentials handles a bracketed IPv6 authority",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const withoutPort = redactUrlCredentials("//user:pass@[::1]/path");
       const withPort = redactUrlCredentials("http://user:pass@[::1]:8080/path");
       const noCreds = redactUrlCredentials("http://[::1]:8080/path");
@@ -7163,7 +7203,7 @@ exit 127
   {
     name: "logSanitize #564 round 5: redactUrlCredentials is not bypassed by a password containing both / and *",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       // Regression for a real bypass: the old pass-2 regex excluded a
       // literal "*" (to skip over its own "***" markers) instead of
       // bounding on a nested authority, so a malformed but RFC-3986-legal
@@ -7176,7 +7216,7 @@ exit 127
   {
     name: "imageUtils #564 round 5: redactPathFromMessage also redacts the path.resolve()'d form",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       // Node's own fs errors only ever embed the literal path as passed, so
       // this branch is unreachable through fileToBase64DataUri's real async
       // API — exercise the exported helper directly with a message shaped
@@ -7268,7 +7308,7 @@ exit 127
   {
     name: "logSanitize round 8: sanitizeErrorCause({ filePath }) redacts a known path from the cause message",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const filePath = "/Users/someone/private-project/secret-image.png";
       const underlying = new Error(
         `ENOENT: no such file or directory, stat '${filePath}'`,
@@ -7287,7 +7327,7 @@ exit 127
   {
     name: "logSanitize round 8: sanitizeErrorCause({ filePath }) redacts a non-Error thrown value's string form too",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       const filePath = "/Users/someone/private-project/secret-image.png";
       const sanitized = sanitizeErrorCause(`read failed for ${filePath}`, {
         filePath,
@@ -7369,14 +7409,18 @@ exit 127
       // statSync for anything else) so it can't mask unrelated statSync
       // calls made elsewhere during the same test run (review #1202 round 4).
       const originalStatSync = fs.statSync;
-      fs.statSync = ((targetPath: fs.PathLike) => {
-        if (targetPath.toString() === filePath) {
-          const err = new Error("EACCES: permission denied, stat");
-          (err as NodeJS.ErrnoException).code = "EACCES";
-          throw err;
-        }
-        return originalStatSync(targetPath);
-      }) as unknown as typeof fs.statSync;
+      Object.defineProperty(fs, "statSync", {
+        value: ((targetPath: fs.PathLike) => {
+          if (targetPath.toString() === filePath) {
+            const err = new Error("EACCES: permission denied, stat");
+            (err as NodeJS.ErrnoException).code = "EACCES";
+            throw err;
+          }
+          return originalStatSync(targetPath);
+        }) as unknown as typeof fs.statSync,
+        writable: true,
+        configurable: true,
+      });
 
       try {
         validateCliInputFiles({ image: filePath });
@@ -7391,7 +7435,11 @@ exit 127
           !/path not found/i.test(error.message)
         );
       } finally {
-        fs.statSync = originalStatSync;
+        Object.defineProperty(fs, "statSync", {
+          value: originalStatSync,
+          writable: true,
+          configurable: true,
+        });
         rmSync(dir, { recursive: true, force: true });
       }
     },
@@ -7563,7 +7611,7 @@ exit 127
   {
     name: "ImageProcessor #261 round 6: processImage() rejects the octet-stream sentinel too",
     category: "image-processor",
-    fn: () => {
+    fn: async () => {
       // process() already rejected undetectable bytes; processImage() is a
       // separate public path (returns ProcessedImage.mediaType, which
       // callers use to build their own data URI) that must reject them too,
@@ -8093,10 +8141,10 @@ exit 127
       // removed index signature is ever reintroduced, this assignment stops
       // erroring and the unused `@ts-expect-error` directive fails
       // `pnpm run check`, catching the regression.
-      // @ts-expect-error -- MessageContent must reject unsupported fields
       const invalidItem: MessageContentT = {
         type: "text",
         text: "hi",
+        // @ts-expect-error -- MessageContent must reject unsupported fields
         unsupported: true,
       };
       void invalidItem;
@@ -8369,11 +8417,15 @@ exit 127
       const originalStatSync = fs.statSync;
       // Simulate the TOCTOU race the review flagged: existsSync sees the
       // file, but statSync then throws (permission denied, race, etc.).
-      fs.statSync = (() => {
-        const err = new Error("EACCES: permission denied, stat");
-        (err as NodeJS.ErrnoException).code = "EACCES";
-        throw err;
-      }) as unknown as typeof fs.statSync;
+      Object.defineProperty(fs, "statSync", {
+        value: (() => {
+          const err = new Error("EACCES: permission denied, stat");
+          (err as NodeJS.ErrnoException).code = "EACCES";
+          throw err;
+        }) as unknown as typeof fs.statSync,
+        writable: true,
+        configurable: true,
+      });
 
       try {
         validateCliInputFiles({ image: filePath });
@@ -8394,7 +8446,11 @@ exit 127
           /troubleshoot/i.test(error.message)
         );
       } finally {
-        fs.statSync = originalStatSync;
+        Object.defineProperty(fs, "statSync", {
+          value: originalStatSync,
+          writable: true,
+          configurable: true,
+        });
         rmSync(dir, { recursive: true, force: true });
       }
     },
@@ -9998,6 +10054,7 @@ exit 127
           body: {
             model: "claude-sonnet-5",
             messages: [],
+            max_tokens: 1024,
             stream: false,
           },
           requestStartTime: Date.now(),

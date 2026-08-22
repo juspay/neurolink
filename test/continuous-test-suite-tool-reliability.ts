@@ -352,11 +352,11 @@ async function test_tool_execution_events(): Promise<boolean | null> {
     const toolEndEvents: Array<Record<string, unknown>> = [];
 
     const emitter = sdk.getEventEmitter();
-    emitter.on("tool:start", (event: Record<string, unknown>) => {
-      toolStartEvents.push(event);
+    emitter.on("tool:start", (...args: unknown[]) => {
+      toolStartEvents.push(args[0] as Record<string, unknown>);
     });
-    emitter.on("tool:end", (event: Record<string, unknown>) => {
-      toolEndEvents.push(event);
+    emitter.on("tool:end", (...args: unknown[]) => {
+      toolEndEvents.push(args[0] as Record<string, unknown>);
     });
 
     // Call generate with a prompt that should trigger the tool
@@ -531,7 +531,8 @@ async function test_tool_timeout_enforcement(): Promise<boolean | null> {
     emitter.on("tool:start", () => {
       toolStartFired = true;
     });
-    emitter.on("tool:end", (event: Record<string, unknown>) => {
+    emitter.on("tool:end", (...args: unknown[]) => {
+      const event = args[0] as Record<string, unknown>;
       if (event.error) {
         // Handle both string errors and Error objects
         toolEndError =
@@ -1084,4 +1085,6 @@ if (!TEST_CONFIG.model) {
   TEST_CONFIG.model = resolveTestModel(TEST_CONFIG.provider);
 }
 
-await runSuite(runAllTests);
+await runSuite(async () => {
+  await runAllTests();
+});

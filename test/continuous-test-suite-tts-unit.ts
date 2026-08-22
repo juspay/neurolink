@@ -81,7 +81,12 @@
 import { createServer, type Server } from "node:http";
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { TTSProcessor } from "../dist/index.js";
-import type { NeuroLink, TTSHandler, TTSResult } from "../dist/index.js";
+import type {
+  NeuroLink,
+  StreamOptions,
+  TTSHandler,
+  TTSResult,
+} from "../dist/index.js";
 
 const { test, runSuite } = defineSuite("TTSProcessor (public surface)");
 
@@ -164,7 +169,7 @@ const ACCUMULATED_TEXT = "hello world";
  */
 async function runTtsStream(
   nl: NeuroLink,
-  tts: Parameters<NeuroLink["stream"]>[0]["tts"],
+  tts: StreamOptions["tts"],
 ): Promise<{
   ttsAudioChunks: Array<{
     type: "tts_audio";

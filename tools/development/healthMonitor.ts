@@ -44,14 +44,14 @@ function isDebugHealthMonitor() {
  * @returns {number} The total count of files matching the specified extensions.
  */
 function countFilesByExtension(
-  dir,
-  extensions,
-  excludeDirs = ["node_modules", ".git"],
+  dir: string,
+  extensions: string[],
+  excludeDirs: string[] = ["node_modules", ".git"],
 ) {
   let count = 0;
-  const unreadableDirs = [];
+  const unreadableDirs: string[] = [];
 
-  function traverse(currentDir, depth = 0) {
+  function traverse(currentDir: string, depth = 0) {
     if (depth > 10) {
       return; // Prevent infinite recursion
     }
@@ -94,10 +94,13 @@ function countFilesByExtension(
 /**
  * Utility function to count all files excluding certain directories
  */
-function countAllFiles(dir, excludeDirs = ["node_modules", ".git"]) {
+function countAllFiles(
+  dir: string,
+  excludeDirs: string[] = ["node_modules", ".git"],
+) {
   let count = 0;
 
-  function traverse(currentDir, depth = 0) {
+  function traverse(currentDir: string, depth = 0) {
     if (depth > 10) {
       return; // Prevent infinite recursion
     }
@@ -133,10 +136,10 @@ function countAllFiles(dir, excludeDirs = ["node_modules", ".git"]) {
 /**
  * Utility function to get directory size using Node.js APIs
  */
-function getDirectorySizeSync(dir) {
+function getDirectorySizeSync(dir: string) {
   let totalSize = 0;
 
-  function traverse(currentDir, depth = 0) {
+  function traverse(currentDir: string, depth = 0) {
     if (depth > 20) {
       return; // Prevent infinite recursion for very deep dirs
     }
@@ -173,6 +176,19 @@ function getDirectorySizeSync(dir) {
   }
   return totalSize;
 }
+
+/** One problem surfaced by a health check, pushed onto `metrics.issues`. */
+type HealthIssue = {
+  type: string;
+  message: string;
+};
+
+/** One suggestion surfaced by `generateRecommendations`, pushed onto `metrics.recommendations`. */
+type HealthRecommendation = {
+  type: string;
+  priority: string;
+  message: string;
+};
 
 class HealthMonitor {
   metrics: Record<string, any>;
@@ -549,20 +565,24 @@ class HealthMonitor {
 
     // Show critical issues
     const criticalIssues = this.metrics.issues.filter(
-      (issue) => issue.type === "system",
+      (issue: HealthIssue) => issue.type === "system",
     );
     if (criticalIssues.length > 0) {
       console.log("\n🚨 Critical Issues:");
-      criticalIssues.forEach((issue) => console.log(`   • ${issue.message}`));
+      criticalIssues.forEach((issue: HealthIssue) =>
+        console.log(`   • ${issue.message}`),
+      );
     }
 
     // Show high priority recommendations
     const highPriorityRecs = this.metrics.recommendations.filter(
-      (rec) => rec.priority === "high",
+      (rec: HealthRecommendation) => rec.priority === "high",
     );
     if (highPriorityRecs.length > 0) {
       console.log("\n💡 Priority Recommendations:");
-      highPriorityRecs.forEach((rec) => console.log(`   • ${rec.message}`));
+      highPriorityRecs.forEach((rec: HealthRecommendation) =>
+        console.log(`   • ${rec.message}`),
+      );
     }
   }
 

@@ -6,10 +6,23 @@
  * Demonstrates the integration of all automation tools.
  */
 
-import { ScriptAnalyzer } from "./automation/scriptAnalyzer.ts";
-import { EnvironmentManager } from "./automation/environmentManager.ts";
-import { ProjectOrganizer } from "./automation/projectOrganizer.ts";
-import { VideoCleanup } from "./content/videoCleanup.ts";
+import { ScriptAnalyzer } from "./automation/scriptAnalyzer.js";
+import { EnvironmentManager } from "./automation/environmentManager.js";
+import { ProjectOrganizer } from "./automation/projectOrganizer.js";
+import { VideoCleanup } from "./content/videoCleanup.js";
+
+/** Existence check result for one category of required path (dirs or files). */
+type PathPresence = {
+  existing: string[];
+  missing: string[];
+};
+
+/** Report produced by {@link NeuroLinkSetup.validateToolsStructure}. */
+type ToolsStructureValidation = {
+  directories: PathPresence;
+  files: PathPresence;
+  valid: boolean;
+};
 
 class NeuroLinkSetup {
   steps: any[];
@@ -186,7 +199,7 @@ class NeuroLinkSetup {
     }
   }
 
-  async validateToolsStructure() {
+  async validateToolsStructure(): Promise<ToolsStructureValidation> {
     const fs = await import("fs/promises");
 
     const requiredDirectories = [
@@ -203,9 +216,10 @@ class NeuroLinkSetup {
       "tools/content/videoCleanup.ts",
     ];
 
-    const validation = {
+    const validation: ToolsStructureValidation = {
       directories: { existing: [], missing: [] },
       files: { existing: [], missing: [] },
+      valid: false,
     };
 
     // Check directories

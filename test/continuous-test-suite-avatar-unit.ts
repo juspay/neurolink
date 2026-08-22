@@ -323,11 +323,11 @@ await runSuite(async () => {
       const provider = "avatar-unit-overwrite";
       const { handler: first } = makeStubHandler(
         {},
-        { format: "first-fmt", size: 111 },
+        { format: "webm", size: 111 },
       );
       const { handler: second } = makeStubHandler(
         {},
-        { format: "second-fmt", size: 222 },
+        { format: "mov", size: 222 },
       );
       AvatarProcessor.registerHandler(provider, first);
       AvatarProcessor.registerHandler(provider, second);
@@ -343,7 +343,7 @@ await runSuite(async () => {
       );
       assertEqual(
         result.avatar?.format,
-        "second-fmt",
+        "mov",
         "the later registration's output is what generate() returned",
       );
     });

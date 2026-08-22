@@ -126,9 +126,10 @@ async function checkSuccessPath(): Promise<void> {
       },
       required: ["a", "b"],
     },
-    execute: async (params: { a?: number; b?: number }) => ({
-      sum: (params.a ?? 0) + (params.b ?? 0),
-    }),
+    execute: async (params: unknown) => {
+      const { a, b } = (params ?? {}) as { a?: number; b?: number };
+      return { sum: (a ?? 0) + (b ?? 0) };
+    },
   });
   try {
     await sdk.executeTool("calc_add", { a: 2, b: 3 });

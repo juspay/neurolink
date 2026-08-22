@@ -16,10 +16,14 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "..", "..");
 
 // Logging functions
-const log_info = (message) => console.log(`\x1b[0;34mℹ️  ${message}\x1b[0m`);
-const log_success = (message) => console.log(`\x1b[0;32m✅ ${message}\x1b[0m`);
-const log_warning = (message) => console.log(`\x1b[1;33m⚠️  ${message}\x1b[0m`);
-const log_error = (message) => console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
+const log_info = (message: string) =>
+  console.log(`\x1b[0;34mℹ️  ${message}\x1b[0m`);
+const log_success = (message: string) =>
+  console.log(`\x1b[0;32m✅ ${message}\x1b[0m`);
+const log_warning = (message: string) =>
+  console.log(`\x1b[1;33m⚠️  ${message}\x1b[0m`);
+const log_error = (message: string) =>
+  console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
 
 /**
  * Checks if the 'agg' command-line tool is installed.
@@ -43,9 +47,12 @@ function check_agg_dependency() {
  * @param {string} ext - The file extension to look for (e.g., '.cast').
  * @returns {Promise<string[]>} - A list of found file paths.
  */
-async function find_files_by_extension(dir, ext) {
-  const allFiles = [];
-  async function* getFiles(currentDir) {
+async function find_files_by_extension(
+  dir: string,
+  ext: string,
+): Promise<string[]> {
+  const allFiles: string[] = [];
+  async function* getFiles(currentDir: string): AsyncGenerator<string> {
     const dirents = await fs.readdir(currentDir, { withFileTypes: true });
     for (const dirent of dirents) {
       const res = path.resolve(currentDir, dirent.name);

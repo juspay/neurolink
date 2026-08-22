@@ -5,10 +5,7 @@
 
 import type { IncomingHttpHeaders } from "http";
 import type { Mock } from "vitest";
-import type {
-  MCPServerInfo,
-  MCPToolInfo,
-} from "../../src/lib/types/mcpTypes.js";
+import type { MCPServerInfo, MCPToolInfo } from "../../src/lib/types/index.js";
 
 /**
  * Type for tracking captured HTTP requests in integration tests

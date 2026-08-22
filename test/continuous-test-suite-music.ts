@@ -122,7 +122,7 @@ async function testValidationErrors(): Promise<void> {
   }
 }
 
-async function validateAudio(buffer: Buffer | undefined): boolean {
+async function validateAudio(buffer: Buffer | undefined): Promise<boolean> {
   if (!buffer || buffer.length < 1000) {
     return false;
   }

@@ -83,7 +83,9 @@ async function run() {
       `node ${CLI_PATH} generate '${rec.question}' --provider ${rec.provider}`;
     const title =
       rec.title ||
-      `NeuroLink - ${rec.provider.charAt(0).toUpperCase() + rec.provider.slice(1)} Provider Demo`;
+      (rec.provider
+        ? `NeuroLink - ${rec.provider.charAt(0).toUpperCase() + rec.provider.slice(1)} Provider Demo`
+        : "NeuroLink - Provider Demo");
 
     try {
       execSync(

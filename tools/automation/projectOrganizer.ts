@@ -176,7 +176,7 @@ class ProjectOrganizer {
     console.log("🔍 Analyzing existing scripts for categorization...");
 
     const scriptsDir = "./scripts";
-    const categorization = {
+    const categorization: Categorization = {
       automation: [],
       content: [],
       testing: [],

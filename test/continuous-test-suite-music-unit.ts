@@ -61,7 +61,7 @@ import {
   MusicError,
   MUSIC_ERROR_CODES,
 } from "../dist/index.js";
-import type { MusicHandler, MusicResult } from "../dist/index.js";
+import type { MusicHandler, MusicOptions, MusicResult } from "../dist/index.js";
 
 const { test, section, runSuite } = defineSuite("Music dispatch (generate)");
 
@@ -156,7 +156,7 @@ await runSuite(async () => {
           mode: "music",
           // No music.prompt — generateWithMusic() must fall back to
           // options.input.text before calling the handler.
-          music: { provider },
+          music: { provider } as MusicOptions,
         },
       });
 

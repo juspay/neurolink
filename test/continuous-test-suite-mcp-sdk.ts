@@ -28,6 +28,7 @@
  */
 
 import { NeuroLink } from "../dist/index.js";
+import type { MCPExecutableTool } from "../src/lib/types/index.js";
 
 // ============================================================
 // CONFIGURATION + LOGGING — extracted to shared helpers
@@ -70,12 +71,15 @@ async function testSDKToolRegistration(): Promise<void> {
           city: { type: "string", description: "City name" },
         },
       },
-      execute: async (params: { city?: string }) => ({
-        city: params.city || "Unknown",
-        temperature: 22,
-        condition: "sunny",
-        humidity: 45,
-      }),
+      execute: async (params: unknown) => {
+        const p = params as { city?: string };
+        return {
+          city: p.city || "Unknown",
+          temperature: 22,
+          condition: "sunny",
+          humidity: 45,
+        };
+      },
     });
     recordTest("SDK registerTool() - weather tool", true);
 
@@ -88,12 +92,15 @@ async function testSDKToolRegistration(): Promise<void> {
           ticker: { type: "string", description: "Stock ticker" },
         },
       },
-      execute: async (params: { ticker?: string }) => ({
-        ticker: params.ticker || "UNKNOWN",
-        price: 187.42,
-        change: "+2.35%",
-        marketCap: "2.87T",
-      }),
+      execute: async (params: unknown) => {
+        const p = params as { ticker?: string };
+        return {
+          ticker: p.ticker || "UNKNOWN",
+          price: 187.42,
+          change: "+2.35%",
+          marketCap: "2.87T",
+        };
+      },
     });
     recordTest("SDK registerTool() - stock tool", true);
 
@@ -1647,7 +1654,7 @@ async function testGenerateWithAllEnhancements(): Promise<void> {
     // 2. Register middleware that tracks tool calls
     const toolCallLog: string[] = [];
     sdk.useToolMiddleware(async (tool, _params, _context, next) => {
-      toolCallLog.push(tool.name || tool);
+      toolCallLog.push(tool.name);
       const result = await next();
       return result;
     });
@@ -1876,10 +1883,13 @@ async function testSDKEnhancementMethods(): Promise<void> {
           userId: { type: "string", description: "User ID to delete" },
         },
       },
-      execute: async (params: { userId?: string }) => ({
-        deleted: true,
-        userId: params.userId,
-      }),
+      execute: async (params: unknown) => {
+        const p = params as { userId?: string };
+        return {
+          deleted: true,
+          userId: p.userId,
+        };
+      },
     });
 
     const annotationResult = await sdk.getToolAnnotations("delete_user_data");
@@ -1938,7 +1948,7 @@ async function testSDKEnhancementMethods(): Promise<void> {
   try {
     sdk = new NeuroLink({
       mcp: {
-        cache: { enabled: true, defaultTTL: 60000 },
+        cache: { enabled: true, ttl: 60000 },
       },
     });
 
@@ -2306,7 +2316,7 @@ async function testGenerateWithExposedAgent(): Promise<void> {
 
     // Step 2: Register the exposed tool with the SDK
     log(`Registering exposed tool '${exposedTool.name}' with SDK...`, "blue");
-    sdk.registerTool(exposedTool.name, exposedTool);
+    sdk.registerTool(exposedTool.name, exposedTool as MCPExecutableTool);
 
     // Step 3: Call generate() asking to use the exposed tool
     const prompt = `Use the ${exposedTool.name} tool to resolve a support ticket. Report the exact ticket_id, customer name, issue, resolution, and status from the tool result.`;

@@ -125,7 +125,7 @@ function buildResponse(spec: RespondSpec): Response {
       "Content-Type": spec.contentType ?? "application/octet-stream",
       ...(spec.headers ?? {}),
     });
-    return new Response(spec.bytes, { status, headers });
+    return new Response(Buffer.from(spec.bytes), { status, headers });
   }
   if (spec.json !== undefined) {
     const headers = new Headers({

@@ -150,7 +150,7 @@ void runSuite(async () => {
           maxSteps: 1,
         } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
         for await (const chunk of result.stream) {
-          text += chunk.content ?? "";
+          text += ("content" in chunk ? chunk.content : undefined) ?? "";
         }
       } catch {
         // AnthropicProvider#formatProviderError (src/lib/providers/anthropic/

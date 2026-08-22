@@ -3798,11 +3798,11 @@ run();
     // Inner process timed out or crashed without printing anything useful —
     // treat as SKIP because we cannot distinguish a real schema regression
     // from a transient resource starvation under heavy concurrent test load.
-    if (result.exitCode === -1 || result.stdout.trim() === "") {
+    if (result.code === -1 || result.stdout.trim() === "") {
       logTest(
         "Schema Output with 3+ Images (SDK)",
         "SKIP",
-        `inner process produced no output (exit=${result.exitCode}); stderr=${(result.stderr || "").slice(0, 200)}`,
+        `inner process produced no output (exit=${result.code}); stderr=${(result.stderr || "").slice(0, 200)}`,
       );
       return null;
     }
@@ -4599,9 +4599,11 @@ async function testCloakingRuntime(): Promise<boolean | null> {
       );
       return false;
     }
-    // Verify word obfuscation (zero-width space in "proxy")
+    // Verify word obfuscation (zero-width space in "proxy"). `content` is
+    // `string | Array<Record<string, unknown>>` per CloakingRequest \u2014 the
+    // fixture above sends a plain string, so narrow to it explicitly.
     const content = result.request.body.messages[0].content;
-    if (!content.includes("\u200B")) {
+    if (typeof content !== "string" || !content.includes("\u200B")) {
       logTest("Cloaking Runtime", "FAIL", "Zero-width space not inserted");
       return false;
     }
