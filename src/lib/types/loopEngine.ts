@@ -400,6 +400,16 @@ export type GeminiLoopAdapterCoreConfig = {
    */
   noteUsage?: (inputTokens: number, outputTokens: number) => void;
   /**
+   * The same guards `buildDedupedEngineTools` wraps declared tools in, applied
+   * to one hydrated mid-turn.
+   *
+   * Without this a tool discovered during a turn is the ONE executor that runs
+   * raw: no per-turn dedup, no execution timeout, no stall-clock ping. That is
+   * the opposite of what discovery is for — the tool the model just found is
+   * the one most likely to be called repeatedly with the same arguments.
+   */
+  toolGuards?: GeminiToolExecutionGuards;
+  /**
    * Name of the terminal structured-output tool when one is in play. A call
    * to it ends the turn: its arguments ARE the answer, so it is reported as
    * text and omitted from `toolCalls`, which routes it through the engine's

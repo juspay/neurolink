@@ -2154,6 +2154,13 @@ export class GoogleVertexProvider extends BaseProvider {
             extractToolFailureText(output) ?? undefined,
         },
         liveTools: options.tools ?? {},
+        // A tool hydrated mid-turn gets the SAME bound, abort race and stall
+        // ping as one declared up front — see guardToolExecutor.
+        toolGuards: {
+          toolTimeoutMs: toolExecTimeoutMs,
+          abortSignal: effectiveSignal,
+          onProgress: () => turnClock.noteProgress(),
+        },
         ...(declarations ? { declarations } : {}),
         ...(useFinalResultTool
           ? {
@@ -3171,6 +3178,13 @@ export class GoogleVertexProvider extends BaseProvider {
             extractToolFailureText(output) ?? undefined,
         },
         liveTools: options.tools ?? {},
+        // A tool hydrated mid-turn gets the SAME bound, abort race and stall
+        // ping as one declared up front — see guardToolExecutor.
+        toolGuards: {
+          toolTimeoutMs: toolExecTimeoutMs,
+          abortSignal: effectiveSignal,
+          onProgress: () => turnClock.noteProgress(),
+        },
         ...(declarations ? { declarations } : {}),
         ...(useFinalResultTool
           ? {

@@ -27,8 +27,11 @@ import type {
   GeminiStepRaw,
   GeminiTurnContent,
 } from "../types/index.js";
+import type { Tool } from "../types/index.js";
+import { resolveLiveTool } from "../tools/toolDiscovery.js";
 import {
   collectStreamChunksIncremental,
+  guardToolExecutor,
   extractTextFromParts,
   mapGeminiFinishReason,
   pushModelResponseToHistory,
@@ -121,18 +124,35 @@ export function createGeminiLoopAdapter(
       : {}),
 
     resolveToolOnMiss: (name: string) => {
-      const tool = config.liveTools?.[name];
+      // resolveLiveTool, NOT a plain record lookup. A deferred-catalog tool is
+      // not a key on the record at all — it lives behind a symbol-keyed
+      // resolver — so `liveTools[name]` returns undefined for exactly the
+      // tools this hook exists to hydrate, and the model gets TOOL_NOT_FOUND
+      // for a tool it was told about.
+      const tool = resolveLiveTool(config.liveTools, name);
       const execute = tool?.execute;
       if (!execute) {
         return undefined;
       }
-      // Wrapped because the hook types `opts` as `unknown`, and a function
-      // declaring a narrower options type is not assignable to one accepting
-      // `unknown`. One assertion at the boundary, never a double assertion.
-      return {
-        execute: async (args: Record<string, unknown>, opts: unknown) =>
-          execute(args, opts as Parameters<typeof execute>[1]),
-      };
+      // Registered into the turn's DedupExecuteMap and taken back through
+      // `.get()`, so a hydrated tool gets the same per-turn result cache as a
+      // declared one. A tool the model just discovered is the one most likely
+      // to be re-requested with identical arguments.
+      const executeMap = config.declarations?.executeMap;
+      let resolved: NonNullable<Tool["execute"]> = execute;
+      if (executeMap) {
+        executeMap.set(name, execute);
+        resolved = executeMap.get(name) ?? execute;
+      }
+      const guarded = config.toolGuards
+        ? guardToolExecutor(name, resolved, config.toolGuards)
+        : // Wrapped because the hook types `opts` as `unknown`, and a function
+          // declaring a narrower options type is not assignable to one
+          // accepting `unknown`. One assertion at the boundary, never a double
+          // assertion.
+          async (args: Record<string, unknown>, opts: unknown) =>
+            resolved(args, opts as Parameters<typeof resolved>[1]);
+      return { execute: guarded };
     },
 
     async executeStep(

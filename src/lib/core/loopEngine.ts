@@ -117,9 +117,19 @@ async function dispatchStepTools(params: {
     // a deferred-catalog placeholder is exactly that shape, and it is
     // precisely what hydration exists to resolve.
     const declaredTool = tools?.[call.name];
-    const tool = declaredTool?.execute
-      ? declaredTool
-      : (adapter.resolveToolOnMiss?.(call.name) ?? declaredTool);
+    let tool = declaredTool;
+    if (!declaredTool?.execute) {
+      const hydrated = adapter.resolveToolOnMiss?.(call.name);
+      if (hydrated) {
+        tool = hydrated;
+        // It resolves NOW, so any strikes standing against this name were
+        // recorded while it genuinely did not resolve — snapshot artifacts of
+        // a deferred catalog, not failures of a tool that exists. Leaving them
+        // in place would disable the tool at the exact moment it became
+        // usable.
+        failedTools.delete(call.name);
+      }
+    }
     if (!tool?.execute) {
       const output = breaker
         ? {
