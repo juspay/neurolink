@@ -1,0 +1,15 @@
+{
+  // Typecheck tools/ and test/ — both are in the root tsconfig's exclude list,
+  // so nothing checked them until this config existed. That gap let a required
+  // CI gate ship reading a field that does not exist (#1463), two tools import
+  // packages that were never installed, and a vision test attach no image.
+  //
+  // MUST run after `pnpm run build`. These suites import the built package from
+  // ../dist/index.js, so on an unbuilt tree every one of those imports fails and
+  // cascades: 769 errors instead of 0, 281 of them bare "Cannot find module".
+  // The CI step is deliberately placed after the build for this reason.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true },
+  "include": ["tools/**/*.ts", "test/**/*.ts"],
+  "exclude": []
+}

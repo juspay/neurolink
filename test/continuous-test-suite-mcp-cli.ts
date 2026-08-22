@@ -22,6 +22,7 @@ import "dotenv/config";
 
 import path from "path";
 import { fileURLToPath } from "url";
+import type { StdioOptions } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -39,6 +40,7 @@ import {
   logSection,
 } from "./helpers/harness.js";
 import { NeuroLink } from "../dist/index.js";
+import type { MCPExecutableTool } from "../src/lib/types/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -96,7 +98,7 @@ async function testCLIGenerateWithTools(): Promise<void> {
     timeout: 120000,
     cwd: projectRoot,
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["pipe", "pipe", "pipe"] as const,
+    stdio: ["pipe", "pipe", "pipe"] as StdioOptions,
     shell: false as const,
   };
 
@@ -255,7 +257,7 @@ async function testCLIStreamWithTools(): Promise<void> {
     timeout: 120000,
     encoding: "utf-8" as const,
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["pipe", "pipe", "pipe"] as const,
+    stdio: ["pipe", "pipe", "pipe"] as StdioOptions,
     shell: false as const,
   };
 
@@ -383,7 +385,7 @@ async function testCLIMCPCommands(): Promise<void> {
     timeout: 60000,
     encoding: "utf-8" as const,
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["pipe", "pipe", "pipe"] as const,
+    stdio: ["pipe", "pipe", "pipe"] as StdioOptions,
     shell: false as const,
   };
 
@@ -724,7 +726,7 @@ async function testGenerateWithExposedAgent(): Promise<void> {
 
     // Step 2: Register the exposed tool with the SDK
     log(`Registering exposed tool '${exposedTool.name}' with SDK...`, "blue");
-    sdk.registerTool(exposedTool.name, exposedTool);
+    sdk.registerTool(exposedTool.name, exposedTool as MCPExecutableTool);
 
     // Step 3: Call generate() asking to use the exposed tool
     const prompt = `Use the ${exposedTool.name} tool to resolve a support ticket. Report the exact ticket_id, customer name, issue, resolution, and status from the tool result.`;
@@ -1603,7 +1605,7 @@ async function testCLIGenerateMultiTool(): Promise<void> {
     timeout: 120000,
     cwd: projectRoot,
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["pipe", "pipe", "pipe"] as const,
+    stdio: ["pipe", "pipe", "pipe"] as StdioOptions,
     shell: false as const,
   };
 
@@ -1739,7 +1741,7 @@ async function testCLIStreamWithReadFile(): Promise<void> {
     timeout: 120000,
     encoding: "utf-8" as const,
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["pipe", "pipe", "pipe"] as const,
+    stdio: ["pipe", "pipe", "pipe"] as StdioOptions,
     shell: false as const,
   };
 
@@ -1853,7 +1855,7 @@ async function testCLIThinkingLevelPassthrough(): Promise<void> {
     timeout: 120000,
     cwd: projectRoot,
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["pipe", "pipe", "pipe"] as const,
+    stdio: ["pipe", "pipe", "pipe"] as StdioOptions,
     shell: false as const,
   };
 

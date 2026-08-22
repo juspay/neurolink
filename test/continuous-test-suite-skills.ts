@@ -36,6 +36,7 @@ import { NeuroLink, RedisSkillStore, S3SkillStore } from "../dist/index.js";
 import { ConversationMemoryManager } from "../dist/core/conversationMemoryManager.js";
 import { buildContextFromPointer } from "../dist/utils/conversationMemory.js";
 import { truncateWithSlidingWindow } from "../dist/context/stages/slidingWindowTruncator.js";
+import type { ConversationMemoryConfig } from "../src/lib/types/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -904,7 +905,9 @@ async function testActivation(): Promise<void> {
   await runTest(
     "36. Memory manager stores pinned skills between ask and answer",
     async () => {
-      const memory = new ConversationMemoryManager({});
+      const memory = new ConversationMemoryManager({
+        enabled: true,
+      } satisfies ConversationMemoryConfig);
       await memory.storeConversationTurn({
         sessionId: "s1",
         userMessage: "how do I deploy?",
@@ -1841,16 +1844,15 @@ async function testCli(): Promise<void> {
 type RouteHandler = (ctx: Record<string, unknown>) => Promise<unknown>;
 
 async function loadSkillsRoutes(): Promise<Map<string, RouteHandler>> {
-  const serverModule = (await import("../dist/server/index.js")) as {
-    createAgentRoutes: (basePath?: string) => {
-      routes: Array<{ method: string; path: string; handler: RouteHandler }>;
-    };
-  };
-  const group = serverModule.createAgentRoutes("/api");
+  const { createAgentRoutes } = await import("../dist/server/index.js");
+  const group = createAgentRoutes("/api");
   const handlers = new Map<string, RouteHandler>();
   for (const route of group.routes) {
     if (route.path.includes("/agent/skills")) {
-      handlers.set(`${route.method} ${route.path}`, route.handler);
+      const { handler } = route;
+      handlers.set(`${route.method} ${route.path}`, (ctx) =>
+        handler(ctx as Parameters<typeof handler>[0]),
+      );
     }
   }
   return handlers;

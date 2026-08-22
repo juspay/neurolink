@@ -329,7 +329,7 @@ await test("a text-only turn streams its text and stops after one call", async (
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      text += "content" in chunk ? chunk.content : "";
     }
     assert(
       text.includes("hello from bedrock"),
@@ -362,7 +362,7 @@ await test("a tool_use turn runs the tool and finishes on the following turn", a
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      text += "content" in chunk ? chunk.content : "";
     }
     assert(
       server.calls.length === 2,
@@ -597,7 +597,7 @@ await test("assistant text emitted before a tool call survives into the next ste
     });
     let streamed = "";
     for await (const chunk of result.stream) {
-      streamed += chunk?.content ?? "";
+      streamed += "content" in chunk ? chunk.content : "";
     }
     assert(
       streamed.includes("let me check"),

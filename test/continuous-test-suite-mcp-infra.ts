@@ -67,6 +67,7 @@ import {
 import { defineSuite, logSection } from "./helpers/harness.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import type { McpCacheConfig } from "../src/lib/types/index.js";
 
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
@@ -135,7 +136,12 @@ async function testToolCache(): Promise<void> {
   try {
     recordTest("ToolCache class exported", ToolCache !== undefined);
 
-    const cache = new ToolCache({ ttl: 60000, maxSize: 100 });
+    const cacheConfig: McpCacheConfig = {
+      ttl: 60000,
+      maxSize: 100,
+      strategy: "lru",
+    };
+    const cache = new ToolCache(cacheConfig);
     recordTest("ToolCache instantiation", cache !== undefined);
 
     const key = "test-tool-result";
@@ -150,7 +156,14 @@ async function testToolCache(): Promise<void> {
     cache.invalidate("test-tool-result");
     recordTest("ToolCache.invalidate()", cache.get(key) === undefined);
 
-    recordTest("ToolCache.isExpired()", typeof cache.isExpired === "function");
+    // ToolCache.isExpired() is a private implementation method; there is no
+    // public surface for this check, so the cast intentionally goes through
+    // `unknown` to read it without altering the assertion's runtime meaning.
+    recordTest(
+      "ToolCache.isExpired()",
+      typeof (cache as unknown as { isExpired?: unknown }).isExpired ===
+        "function",
+    );
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     recordTest("ToolCache tests", false, false, msg);

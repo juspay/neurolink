@@ -106,8 +106,12 @@ await runSuite(async () => {
   logSection("Live registration carries its descriptor");
 
   await test("a registered provider's live descriptor matches PROVIDER_DESCRIPTORS", async () => {
-    const { ProviderFactory, ProviderRegistry, PROVIDER_DESCRIPTORS_BY_NAME } =
-      await import("../dist/index.js");
+    const {
+      ProviderFactory,
+      ProviderRegistry,
+      PROVIDER_DESCRIPTORS_BY_NAME,
+      AIProviderName,
+    } = await import("../dist/index.js");
     // registerAllProviders(), not ensureInitialized() — see the note in
     // Task 4's normalizeProviderName test for why.
     await ProviderRegistry.registerAllProviders();
@@ -115,7 +119,9 @@ await runSuite(async () => {
     // registration (or undefined) — it is not a bulk accessor.
     const info = ProviderFactory.getProviderInfo("openai");
     assert(info !== undefined, "expected openai to be registered");
-    const staticDescriptor = PROVIDER_DESCRIPTORS_BY_NAME.get("openai");
+    const staticDescriptor = PROVIDER_DESCRIPTORS_BY_NAME.get(
+      AIProviderName.OPENAI,
+    );
     const liveDescriptor = ProviderFactory.getDescriptor("openai");
     assertEqual(
       liveDescriptor?.credentialsKey,
@@ -152,12 +158,7 @@ await runSuite(async () => {
 
   await test("every descriptor has a non-empty credentialsKey and toolSupport", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    for (const d of PROVIDER_DESCRIPTORS as Array<{
-      name: string;
-      credentialsKey: string;
-      toolSupport: string;
-      healthCheck: string;
-    }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       assert(
         typeof d.credentialsKey === "string" && d.credentialsKey.length > 0,
         `${d.name} missing credentialsKey`,
@@ -178,10 +179,7 @@ await runSuite(async () => {
   await test("no two descriptors share an alias or a name-as-alias collision", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
     const seen = new Map<string, string>();
-    for (const d of PROVIDER_DESCRIPTORS as Array<{
-      name: string;
-      aliases: readonly string[];
-    }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       for (const key of [d.name, ...d.aliases]) {
         const lower = key.toLowerCase();
         const owner = seen.get(lower);
@@ -226,10 +224,7 @@ await runSuite(async () => {
     // aliases, lowercased, from both sides — which targets genuine future
     // drift (an alias added to one side and not the other) without
     // tripping on the name-as-alias convention.
-    for (const d of PROVIDER_DESCRIPTORS as Array<{
-      name: string;
-      aliases: readonly string[];
-    }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       const info = ProviderFactory.getProviderInfo(d.name);
       assert(info !== undefined, `expected ${d.name} to be registered`);
       const liveSet = new Set(
@@ -268,10 +263,7 @@ await runSuite(async () => {
       choices.includes("anthropic-subscription"),
       "choices missing 'anthropic-subscription'",
     );
-    for (const d of PROVIDER_DESCRIPTORS as Array<{
-      name: string;
-      aliases: readonly string[];
-    }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       assert(
         choices.includes(d.name),
         `choices missing provider name ${d.name}`,
@@ -299,10 +291,7 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: every field present on a descriptor is a real RegExp instance", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    for (const d of PROVIDER_DESCRIPTORS as Array<{
-      name: string;
-      apiKeyFormatPattern?: unknown;
-    }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       if (d.apiKeyFormatPattern !== undefined) {
         assert(
           d.apiKeyFormatPattern instanceof RegExp,
@@ -326,10 +315,7 @@ await runSuite(async () => {
       "sagemaker",
     ]);
     let checkedAbsent = 0;
-    for (const d of PROVIDER_DESCRIPTORS as Array<{
-      name: string;
-      apiKeyFormatPattern?: unknown;
-    }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       if (!withPattern.has(d.name)) {
         assert(
           d.apiKeyFormatPattern === undefined,
@@ -434,16 +420,10 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: accepts a realistic well-formed sample per provider", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const byName = new Map(
-      (
-        PROVIDER_DESCRIPTORS as Array<{
-          name: string;
-          apiKeyFormatPattern?: RegExp;
-        }>
-      ).map((d) => [d.name, d]),
-    );
     for (const { provider, accept } of patternCases) {
-      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      const pattern = PROVIDER_DESCRIPTORS.find(
+        (d) => d.name === provider,
+      )?.apiKeyFormatPattern;
       assert(
         pattern !== undefined,
         `${provider} descriptor is missing its apiKeyFormatPattern field`,
@@ -457,16 +437,10 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: rejects an empty string per provider", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const byName = new Map(
-      (
-        PROVIDER_DESCRIPTORS as Array<{
-          name: string;
-          apiKeyFormatPattern?: RegExp;
-        }>
-      ).map((d) => [d.name, d]),
-    );
     for (const { provider } of patternCases) {
-      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      const pattern = PROVIDER_DESCRIPTORS.find(
+        (d) => d.name === provider,
+      )?.apiKeyFormatPattern;
       assert(
         pattern !== undefined && !pattern.test(""),
         `${provider} apiKeyFormatPattern accepted an empty string`,
@@ -476,16 +450,10 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: rejects a wrong-prefix/wrong-shape sample per provider", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const byName = new Map(
-      (
-        PROVIDER_DESCRIPTORS as Array<{
-          name: string;
-          apiKeyFormatPattern?: RegExp;
-        }>
-      ).map((d) => [d.name, d]),
-    );
     for (const { provider, rejectShape } of patternCases) {
-      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      const pattern = PROVIDER_DESCRIPTORS.find(
+        (d) => d.name === provider,
+      )?.apiKeyFormatPattern;
       assert(
         pattern !== undefined && !pattern.test(rejectShape),
         `${provider} apiKeyFormatPattern accepted a wrong-shape sample`,
@@ -495,14 +463,6 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: completes well under a second against a 10k-char pathological input (ReDoS guard)", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const byName = new Map(
-      (
-        PROVIDER_DESCRIPTORS as Array<{
-          name: string;
-          apiKeyFormatPattern?: RegExp;
-        }>
-      ).map((d) => [d.name, d]),
-    );
     // Pathological-ish input: 10k chars that are almost-but-not-quite a
     // match for several of these patterns at once (mixed prefix text
     // followed by a long alnum run), to stress any backtracking, not just
@@ -513,7 +473,9 @@ await runSuite(async () => {
       "pathological ReDoS-guard fixture is shorter than intended",
     );
     for (const { provider } of patternCases) {
-      const pattern = byName.get(provider)?.apiKeyFormatPattern;
+      const pattern = PROVIDER_DESCRIPTORS.find(
+        (d) => d.name === provider,
+      )?.apiKeyFormatPattern;
       assert(pattern !== undefined, `${provider} descriptor pattern missing`);
       const start = performance.now();
       pattern!.test(pathological);
@@ -588,7 +550,7 @@ await runSuite(async () => {
       await import("../dist/utils/providerUtils.js");
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
     const available = getAvailableProviders();
-    for (const d of PROVIDER_DESCRIPTORS as Array<{ name: string }>) {
+    for (const d of PROVIDER_DESCRIPTORS) {
       assert(
         available.includes(d.name),
         `getAvailableProviders missing ${d.name}`,
@@ -600,13 +562,9 @@ await runSuite(async () => {
 
   await test("descriptors with autoSelectPriority reproduce getBestProvider's historical 10-provider order", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    const prioritized = (
-      PROVIDER_DESCRIPTORS as Array<{
-        name: string;
-        autoSelectPriority?: number;
-      }>
+    const prioritized = PROVIDER_DESCRIPTORS.filter(
+      (d) => d.autoSelectPriority !== undefined,
     )
-      .filter((d) => d.autoSelectPriority !== undefined)
       .sort((a, b) => (a.autoSelectPriority ?? 0) - (b.autoSelectPriority ?? 0))
       .map((d) => d.name);
     assert(
@@ -792,10 +750,7 @@ await runSuite(async () => {
       "jina",
       "voyage",
     ]);
-    for (const d of ProviderFactory.getAllDescriptors() as Array<{
-      name: string;
-      toolSupport: string;
-    }>) {
+    for (const d of ProviderFactory.getAllDescriptors()) {
       const derived = d.toolSupport !== "native";
       assertEqual(
         derived,

@@ -501,7 +501,7 @@ DO NOT hallucinate data. ALL metrics, campaign IDs, and account information must
       );
 
       // Verify specific tools were called
-      const toolNames = result.toolExecutions.map((te) => te.name);
+      const toolNames = result.toolExecutions.map((te) => te.toolName);
       const hasReadFile = toolNames.includes("readFile");
       const hasGetCurrentTime = toolNames.includes("getCurrentTime");
 
@@ -519,10 +519,10 @@ DO NOT hallucinate data. ALL metrics, campaign IDs, and account information must
 
       // Verify tool usage: readFile should have been called at least twice
       const readFileCount =
-        result.toolExecutions?.filter((te) => te.name === "readFile").length ||
-        0;
+        result.toolExecutions?.filter((te) => te.toolName === "readFile")
+          .length || 0;
       const getCurrentTimeUsed =
-        result.toolExecutions?.some((te) => te.name === "getCurrentTime") ||
+        result.toolExecutions?.some((te) => te.toolName === "getCurrentTime") ||
         false;
 
       if (readFileCount < 2) {

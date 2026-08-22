@@ -254,7 +254,6 @@ async function testNetworkExecute(): Promise<boolean | null> {
       provider: TEST_CONFIG.provider,
       ...(TEST_CONFIG.model && { model: TEST_CONFIG.model }),
     },
-    maxSteps: 2,
   });
   const result = await network.execute({ message: "Say PONG" });
   if (!result?.content || typeof result.content !== "string") {
@@ -286,7 +285,6 @@ async function testNetworkStream(): Promise<boolean | null> {
       provider: TEST_CONFIG.provider,
       ...(TEST_CONFIG.model && { model: TEST_CONFIG.model }),
     },
-    maxSteps: 2,
   });
   const chunkTypes: string[] = [];
   for await (const chunk of network.stream({ message: "Say PONG" })) {

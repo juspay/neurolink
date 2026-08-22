@@ -19,7 +19,13 @@ async function generateAllVideos() {
       "createMcpScreenshots.js",
     ];
 
-    const results = {
+    type VideoScriptResults = {
+      success: string[];
+      failed: Array<{ script: string; error: string }>;
+      total: number;
+    };
+
+    const results: VideoScriptResults = {
       success: [],
       failed: [],
       total: videoScripts.length,

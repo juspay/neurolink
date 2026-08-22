@@ -106,7 +106,7 @@ function skip(name: string, detail = ""): void {
 import { EventEmitter } from "node:events";
 import { cpSync } from "node:fs";
 import { resolve } from "node:path";
-import type { Task } from "../src/lib/types/taskTypes.js";
+import type { Task } from "../src/lib/types/index.js";
 
 // PROVIDER DETECTION (from autoresearch-live)
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
@@ -404,6 +404,19 @@ async function testBaselineExperimentRuns(): Promise<void> {
 // GROUP 2: Experiment Cycle Mechanics
 // ============================================================
 
+/**
+ * `ResearchWorker.getTools()` is declared `Record<string, unknown>` — the
+ * tools it actually returns are always executable (built via `tool()` in
+ * autoresearch/tools.ts), but the ai-sdk `Tool` type makes `execute`
+ * optional (to accommodate client-side, no-execute tools), so narrowing to
+ * the central `Tool` type would still leave every `.execute()` call flagged
+ * as possibly undefined. Narrow locally to the executable shape this suite
+ * actually calls, mirroring the `CallTool`/`ToolExecute` pattern already
+ * used for the same problem in continuous-test-suite-skills.ts.
+ */
+type ResearchToolExecute = (params: unknown, ctx?: unknown) => Promise<unknown>;
+type ResearchTool = { execute: ResearchToolExecute };
+
 async function testWriteCandidateTool(): Promise<void> {
   const name = "research_write_candidate writes file to repo";
   try {
@@ -411,7 +424,7 @@ async function testWriteCandidateTool(): Promise<void> {
       await import("../src/lib/autoresearch/worker.js");
 
     const worker = new ResearchWorker(makeWorkerConfig("e2e-write"));
-    const tools = worker.getTools();
+    const tools = worker.getTools() as Record<string, ResearchTool>;
     const writeTool = tools.research_write_candidate;
 
     // Fix one bug: replace first console.log in catch with console.error
@@ -454,7 +467,7 @@ async function testCommitCandidateTool(): Promise<void> {
     // Must initialize to create state and research branch
     await worker.initialize("e2e-write");
 
-    const tools = worker.getTools();
+    const tools = worker.getTools() as Record<string, ResearchTool>;
 
     // Re-apply our fix (initialize may have switched branches, carrying dirty state)
     const original = readFileSync(join(FIXTURE_REPO, "server.ts"), "utf-8");
@@ -516,7 +529,7 @@ async function testRunExperimentTool(): Promise<void> {
       await import("../src/lib/autoresearch/worker.js");
 
     const worker = new ResearchWorker(makeWorkerConfig("e2e-write"));
-    const tools = worker.getTools();
+    const tools = worker.getTools() as Record<string, ResearchTool>;
     const runTool = tools.research_run_experiment;
 
     // research_run_experiment requires a description argument and returns { success, description, summary }
@@ -574,7 +587,7 @@ async function testFullCycleAcceptImproved(): Promise<void> {
 
     const worker = new ResearchWorker(makeWorkerConfig("e2e-cycle"));
     await worker.initialize("e2e-cycle");
-    const tools = worker.getTools();
+    const tools = worker.getTools() as Record<string, ResearchTool>;
 
     // Step 1: Fix ALL 5 bugs at once
     const original = readFileSync(join(FIXTURE_REPO, "server.ts"), "utf-8");
@@ -947,13 +960,11 @@ async function awaitInFlightAutoresearchWork(graceMs: number): Promise<number> {
 // ============================================================
 
 /** Shared state across Group 1 tests (sequential dependency) */
-let g1Worker: Awaited<
-  ReturnType<typeof import("../src/lib/autoresearch/worker.js")>
->["ResearchWorker"] extends new (...args: never[]) => infer R
-  ? R
-  : never;
+let g1Worker: InstanceType<
+  typeof import("../src/lib/autoresearch/worker.js").ResearchWorker
+>;
 let g1ExperimentRecord:
-  | import("../src/lib/types/autoresearchTypes.js").ExperimentRecord
+  | import("../src/lib/types/index.js").ExperimentRecord
   | null = null;
 
 async function testG1WorkerInitialize(): Promise<boolean | null> {
@@ -1330,7 +1341,7 @@ async function group1_sdkPath(): Promise<void> {
 // ============================================================
 
 /** Shared state across Group 2 tests */
-let g2TaskResult: import("../src/lib/types/taskTypes.js").TaskRunResult | null =
+let g2TaskResult: import("../src/lib/types/index.js").TaskRunResult | null =
   null;
 let g2EmittedEvents: string[] = [];
 
@@ -1370,7 +1381,6 @@ async function testG2ExecuteAutoresearchTick(): Promise<boolean | null> {
       type: "autoresearch",
       status: "active",
       autoresearch: {
-        tag: "live-test",
         repoPath: REPO_DIR,
         mutablePaths: ["train.py"],
         runCommand: "python3 train.py",

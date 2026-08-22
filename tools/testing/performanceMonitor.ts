@@ -232,7 +232,7 @@ class PerformanceMonitor {
     }
 
     const highMemoryBenchmarks = benchmarkResults.filter(
-      (b) => b.memory?.heapUsed > 50,
+      (b) => (b.memory?.heapUsed ?? 0) > 50,
     );
     if (highMemoryBenchmarks.length > 0) {
       this.results.performance.recommendations.push({

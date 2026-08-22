@@ -42,6 +42,7 @@ import {
 } from "./helpers/mediaFixtures.js";
 import { hasPackage, makeDocx, makeXlsx } from "./helpers/officeFixtures.js";
 import { NeuroLink } from "../dist/index.js";
+import type { GenerateOptions } from "../src/lib/types/index.js";
 /**
  * Mirror of `LAZY_TIER_BOUNDARY_BYTES`. Restated here rather than imported
  * from `src/lib/` — it is used below to pick fixtures that sit either side of
@@ -185,7 +186,7 @@ function requireLive(): void {
  */
 async function generateNonEmpty(
   nl: NeuroLink,
-  options: Parameters<NeuroLink["generate"]>[0],
+  options: GenerateOptions,
 ): Promise<string> {
   let last = "";
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -471,7 +472,11 @@ await test("stream() carries a document through the same path as generate()", as
   });
   let text = "";
   for await (const chunk of result.stream) {
-    text += typeof chunk === "string" ? chunk : (chunk.content ?? "");
+    if (typeof chunk === "string") {
+      text += chunk;
+    } else if ("content" in chunk && typeof chunk.content === "string") {
+      text += chunk.content;
+    }
   }
   // generate() and stream() share MessageBuilder but not the whole path, so a
   // document that works in one can still be dropped in the other.
@@ -534,7 +539,11 @@ await test("stream() file parity on the configured provider (regression for #125
   });
   let text = "";
   for await (const chunk of result.stream) {
-    text += typeof chunk === "string" ? chunk : (chunk.content ?? "");
+    if (typeof chunk === "string") {
+      text += chunk;
+    } else if ("content" in chunk && typeof chunk.content === "string") {
+      text += chunk.content;
+    }
   }
   assertIncludesReply(
     text.toUpperCase(),

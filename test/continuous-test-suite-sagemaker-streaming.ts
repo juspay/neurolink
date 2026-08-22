@@ -129,7 +129,7 @@ await test("a SageMaker stream yields the endpoint's text instead of a not-imple
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      text += ("content" in chunk ? chunk.content : undefined) ?? "";
     }
     assert(
       !text.includes("not yet fully implemented"),
@@ -315,7 +315,7 @@ await test("a call with no per-request credentials still uses the environment", 
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      text += ("content" in chunk ? chunk.content : undefined) ?? "";
     }
     assert(
       server.requests > 0,

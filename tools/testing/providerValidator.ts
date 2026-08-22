@@ -15,9 +15,57 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
 
+// Local to this validation script: distinct from src/lib/types' provider
+// health-check types (e.g. ProviderHealthStatusOptions), which use a
+// different field set for a different subsystem. Reusing those here would
+// mean renaming every field this script reads/writes below (isHealthy vs.
+// functional, configurationIssues vs. error, etc.) — a behavioral rewrite,
+// not a type fix.
+type ProviderValidationDetails = {
+  hasApiKey?: boolean;
+  moduleInstalled?: boolean;
+};
+
+type ProviderValidationPerformance = {
+  responseTime?: number;
+  status?: string;
+};
+
+type ProviderValidationResult = {
+  provider: string;
+  status: string;
+  available: boolean;
+  configured: boolean;
+  functional: boolean;
+  performance: ProviderValidationPerformance;
+  error: string | null;
+  details: ProviderValidationDetails;
+};
+
+type ProviderValidationSummary = {
+  total: number;
+  available: number;
+  configured: number;
+  functional: number;
+  errors: Array<{ provider: string; error: string | null }>;
+};
+
+type ProviderValidationHealth = {
+  score: number;
+  recommendations: string[];
+  status: string;
+};
+
+type ProviderValidationResults = {
+  timestamp: string;
+  providers: Record<string, ProviderValidationResult>;
+  summary: ProviderValidationSummary;
+  health?: ProviderValidationHealth;
+};
+
 class ProviderValidator {
-  providers: any[];
-  results: Record<string, any>;
+  providers: string[];
+  results: ProviderValidationResults;
   envFile: string;
   configFile: string;
 
@@ -152,8 +200,8 @@ class ProviderValidator {
   /**
    * Validate individual provider
    */
-  async validateProvider(provider: string) {
-    const result = {
+  async validateProvider(provider: string): Promise<ProviderValidationResult> {
+    const result: ProviderValidationResult = {
       provider,
       status: "unknown",
       available: false,

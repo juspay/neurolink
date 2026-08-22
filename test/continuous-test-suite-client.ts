@@ -508,8 +508,8 @@ async function testErrorHierarchy(): Promise<boolean | null> {
 
   try {
     const {
-      ErrorCode,
-      NeuroLinkError,
+      ClientErrorCode: ErrorCode,
+      ClientNeuroLinkError: NeuroLinkError,
       HttpError,
       ClientRateLimitError,
       ClientAuthenticationError,

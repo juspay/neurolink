@@ -38,6 +38,7 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
+import { jsonSchema } from "ai";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -203,11 +204,11 @@ function customTool(counter: { calls: number }) {
   return {
     lookup: {
       description: "look a value up",
-      inputSchema: {
+      inputSchema: jsonSchema({
         type: "object",
         properties: {},
         additionalProperties: true,
-      },
+      }),
       execute: async () => {
         counter.calls++;
         return { found: true };
@@ -353,7 +354,9 @@ await test("the turn reaches the stand-in over Express Mode rather than ADC", as
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     assert(
       text.includes("hello from vertex"),
@@ -399,7 +402,9 @@ await test("a caller's own tool is declared, executed, and its result returns to
     });
     let text = "";
     for await (const chunk of result.stream) {
-      text += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        text += chunk.content;
+      }
     }
     assert(
       declaredToolNames(server.calls[0]).includes("lookup"),
@@ -456,7 +461,9 @@ await test("a malformed call is retried exactly once with a corrective note", as
       credentials: credentialsFor(server.port),
     });
     for await (const chunk of result.stream) {
-      streamed += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamed += chunk.content;
+      }
     }
   } catch {
     // The turn's outcome is not what is pinned here; the retry budget is.
@@ -512,7 +519,9 @@ await test("a model that never stops calling tools is bounded and still answers"
       credentials: credentialsFor(server.port),
     });
     for await (const chunk of result.stream) {
-      streamed += chunk?.content ?? "";
+      if ("content" in chunk && typeof chunk.content === "string") {
+        streamed += chunk.content;
+      }
     }
   } catch {
     failed = true;
@@ -563,11 +572,11 @@ await test("a tool that always throws is dispatched a bounded number of times", 
       tools: {
         flaky: {
           description: "always fails",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: {},
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             attempts++;
             throw new Error("synthetic tool failure");
@@ -801,7 +810,9 @@ await test("a turn pressing against the context window stops and still answers",
         credentials: credentialsFor(server.port),
       });
       for await (const chunk of result.stream) {
-        streamed += chunk?.content ?? "";
+        if ("content" in chunk && typeof chunk.content === "string") {
+          streamed += chunk.content;
+        }
       }
       stopReason = (result as { metadata?: { stopReason?: string } }).metadata
         ?.stopReason;
@@ -883,7 +894,11 @@ await test("text is replayed after the turn completes, not streamed live", async
       credentials: credentialsFor(server.port),
     });
     for await (const chunk of result.stream) {
-      if (!firstChunkAt && (chunk?.content ?? "").length > 0) {
+      const chunkContent =
+        "content" in chunk && typeof chunk.content === "string"
+          ? chunk.content
+          : "";
+      if (!firstChunkAt && chunkContent.length > 0) {
         firstChunkAt = Date.now();
       }
     }
@@ -936,7 +951,9 @@ await test("the generate path declares and executes a caller's tools", async () 
       maxTokens: 32,
       maxSteps: 3,
       disableTools: false,
-      disableInternalFallback: true,
+      // disableInternalFallback is a StreamOptions-only field (src/lib/types/stream.ts);
+      // GenerateOptions never reads it (grep confirms neurolink.ts uses it only
+      // inside stream()), so it was a no-op copied from the streaming cases below.
       tools: customTool(counter),
       credentials: credentialsFor(server.port),
     });
@@ -1003,11 +1020,11 @@ await test("a tool that never returns costs a bounded step, not the whole turn",
       tools: {
         wedged: {
           description: "never returns",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: { n: { type: "number" } },
             additionalProperties: true,
-          },
+          }),
           execute: () => {
             dispatched++;
             return new Promise(() => {});
@@ -1066,11 +1083,11 @@ await test("a tool that reports failure without throwing still trips the breaker
       tools: {
         blocked: {
           description: "resolves with an error payload",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: { n: { type: "number" } },
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             dispatched++;
             return { error: "blocked by policy" };
@@ -1130,11 +1147,11 @@ await test("a success between failures clears the strike count", async () => {
       tools: {
         alternating: {
           description: "fails on odd dispatches, succeeds on even ones",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: { n: { type: "number" } },
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             dispatched++;
             if (dispatched % 2 === 1) {
@@ -1191,11 +1208,11 @@ await test("the same tool call with the same arguments runs once per turn", asyn
       tools: {
         repeatable: {
           description: "records how often it really ran",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: {},
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             dispatched++;
             return { ran: dispatched };

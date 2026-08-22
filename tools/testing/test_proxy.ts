@@ -45,7 +45,6 @@ async function main() {
   console.log("[Test Script] 📋 Watch for proxy detection messages below:");
   console.log("--------------------------------------------------");
 
-  // @ts-expect-error - dist/index.js only exists after build; this script is run post-build
   const { NeuroLink } = await import("../../dist/index.js");
   const neurolink = new NeuroLink();
 

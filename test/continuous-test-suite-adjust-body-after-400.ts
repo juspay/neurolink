@@ -252,7 +252,7 @@ void runSuite(async () => {
       } as Parameters<InstanceType<typeof NeuroLink>["stream"]>[0]);
       let text = "";
       for await (const chunk of result.stream) {
-        text += chunk.content ?? "";
+        text += ("content" in chunk ? chunk.content : undefined) ?? "";
       }
 
       assert(

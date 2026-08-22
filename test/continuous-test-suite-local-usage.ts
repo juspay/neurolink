@@ -27,6 +27,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { defineSuite, log } from "./helpers/harness.js";
+import type { LocalUsageScanResult } from "../src/lib/types/index.js";
 
 const { test, runSuite } = defineSuite("Local Usage");
 
@@ -46,10 +47,7 @@ const { readAllLocalUsage, getLocalUsageDescriptors, createLocalUsageReader } =
     }>;
     createLocalUsageReader: (id: string) => Promise<{
       detect: () => Promise<boolean>;
-      scan: (o?: { sinceDays?: number }) => Promise<{
-        filesScanned: number;
-        totals: LocalTotalsShape;
-      }>;
+      scan: (o?: { sinceDays?: number }) => Promise<LocalUsageScanResult>;
     }>;
   };
 
@@ -568,7 +566,6 @@ async function runAllTests(): Promise<void> {
         "an unreadable project directory is skipped; the rest of the scan survives",
         "green",
       );
-      return true;
     } finally {
       // Restore before cleanup, or rmSync cannot descend either.
       try {

@@ -12,6 +12,18 @@ import crypto from "crypto";
 import { PROVIDER_DESCRIPTORS } from "../../src/lib/factories/providerDescriptors.js";
 import { satisfiesFallbacks } from "../../src/lib/utils/providerConfig.js";
 
+/** Parsed contents of a .env-style file: raw key/value string pairs. */
+type EnvMap = Record<string, string>;
+
+/** Report produced by {@link EnvironmentManager.validateEnvironment}. */
+type EnvironmentValidation = {
+  configured: string[];
+  missing: string[];
+  providers: Record<string, boolean>;
+  warnings: string[];
+  recommendations: string[];
+};
+
 class EnvironmentManager {
   envFile: string;
   envExample: string;
@@ -174,11 +186,11 @@ class EnvironmentManager {
     }
   }
 
-  async parseEnvFile(filePath: string) {
+  async parseEnvFile(filePath: string): Promise<EnvMap> {
     try {
       const content = await fs.readFile(filePath, "utf-8");
       const lines = content.split("\n");
-      const env = {};
+      const env: EnvMap = {};
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -243,7 +255,7 @@ class EnvironmentManager {
     }
   }
 
-  async validateEnvironment() {
+  async validateEnvironment(): Promise<EnvironmentValidation> {
     console.log("\n🔍 Validating environment configuration...");
 
     const env = await this.parseEnvFile(this.envFile);
@@ -265,7 +277,7 @@ class EnvironmentManager {
       providers[d.name] = hasPrimary && requiredOk;
     }
 
-    const validation = {
+    const validation: EnvironmentValidation = {
       configured: [],
       missing: [],
       providers,
@@ -318,7 +330,7 @@ class EnvironmentManager {
     }
   }
 
-  reportValidation(validation: any) {
+  reportValidation(validation: EnvironmentValidation) {
     console.log("\n📊 ENVIRONMENT VALIDATION RESULTS");
     console.log("=".repeat(50));
     const totalProviders = Object.keys(validation.providers).length;
@@ -362,7 +374,7 @@ class EnvironmentManager {
     );
   }
 
-  calculateScore(validation: any) {
+  calculateScore(validation: EnvironmentValidation) {
     const configuredWeight = 70; // 70% for having providers configured
     const diversityWeight = 20; // 20% for provider diversity
     const bestPracticeWeight = 10; // 10% for following best practices

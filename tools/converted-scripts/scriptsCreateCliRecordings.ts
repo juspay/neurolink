@@ -24,9 +24,12 @@ const RECORDINGS_DIR = path.join(
 const CLI_PATH = path.join(PROJECT_ROOT, "dist", "cli", "index.js");
 
 // Logging functions
-const log_info = (message) => console.log(`\x1b[0;34mℹ️  ${message}\x1b[0m`);
-const log_success = (message) => console.log(`\x1b[0;32m✅ ${message}\x1b[0m`);
-const log_error = (message) => console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
+const log_info = (message: string) =>
+  console.log(`\x1b[0;34mℹ️  ${message}\x1b[0m`);
+const log_success = (message: string) =>
+  console.log(`\x1b[0;32m✅ ${message}\x1b[0m`);
+const log_error = (message: string) =>
+  console.error(`\x1b[0;31m❌ ${message}\x1b[0m`);
 
 /**
  * Main execution function
@@ -85,7 +88,9 @@ async function run() {
       `node ${CLI_PATH} generate '${rec.question}' --provider ${rec.provider}`;
     const title =
       rec.title ||
-      `NeuroLink - ${rec.provider.charAt(0).toUpperCase() + rec.provider.slice(1)} Provider Demo`;
+      (rec.provider
+        ? `NeuroLink - ${rec.provider.charAt(0).toUpperCase() + rec.provider.slice(1)} Provider Demo`
+        : "NeuroLink - Provider Demo");
 
     try {
       execSync(

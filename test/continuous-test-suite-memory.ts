@@ -28,6 +28,7 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import type { ProcessResult } from "../dist/index.js";
 import { NeuroLink } from "../dist/index.js";
+import type { ChatMessage } from "../src/lib/types/index.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
 

@@ -26,6 +26,10 @@ import * as fs from "fs";
 import * as path from "path";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+// Type-only: erased at compile time, so this does not pull the runtime
+// suite off the all-dist module graph (rule 15) — the enum's runtime
+// binding below still comes from ../dist/constants/enums.js.
+import type { AIProviderName as AIProviderNameType } from "../src/lib/constants/enums.js";
 
 // Fail loudly rather than silently testing a stale build.
 assertDistFresh();
@@ -227,7 +231,8 @@ await test("Provider Registration Completeness", async () => {
 
   const canonicalIds = Object.values(AIProviderName)
     .filter(
-      (v): v is string => typeof v === "string" && v !== AIProviderName.AUTO,
+      (v): v is AIProviderNameType =>
+        typeof v === "string" && v !== AIProviderName.AUTO,
     )
     .sort();
 

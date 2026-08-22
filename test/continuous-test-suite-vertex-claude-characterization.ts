@@ -34,8 +34,10 @@ import "dotenv/config";
 
 import { createServer, type Server } from "node:http";
 import { z } from "zod";
+import { jsonSchema } from "ai";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import type { Tool } from "../src/lib/types/index.js";
 
 assertDistFresh();
 
@@ -326,15 +328,15 @@ function credentialsFor(port: number) {
   };
 }
 
-function customTool(counter: { calls: number }) {
+function customTool(counter: { calls: number }): Record<string, Tool> {
   return {
     lookup: {
       description: "look a value up",
-      inputSchema: {
+      inputSchema: jsonSchema({
         type: "object",
         properties: {},
         additionalProperties: true,
-      },
+      }),
       execute: async () => {
         counter.calls++;
         return { found: true };
@@ -424,7 +426,6 @@ await test("the generate path reaches the same endpoint with the same credential
       model: MODEL,
       maxTokens: 32,
       disableTools: true,
-      disableInternalFallback: true,
       credentials: credentialsFor(server.port),
     });
     content = (result as { content?: string })?.content ?? "";
@@ -560,11 +561,11 @@ await test("a tool that always throws is dispatched a bounded number of times", 
       tools: {
         flaky: {
           description: "always fails",
-          inputSchema: {
+          inputSchema: jsonSchema({
             type: "object",
             properties: {},
             additionalProperties: true,
-          },
+          }),
           execute: async () => {
             attempts++;
             throw new Error("synthetic tool failure");
@@ -666,7 +667,6 @@ await test("the generate path declares and executes a caller's tools", async () 
       maxTokens: 32,
       maxSteps: 3,
       disableTools: false,
-      disableInternalFallback: true,
       tools: customTool(counter),
       credentials: credentialsFor(server.port),
     });

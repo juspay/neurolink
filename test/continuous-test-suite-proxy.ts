@@ -110,6 +110,8 @@ import {
   isCaseTimeout,
 } from "./helpers/harness.js";
 
+import type { AccountQuota } from "../src/lib/types/index.js";
+
 const { recordTest, runSuite } = defineSuite("Claude Proxy");
 
 /** Print-only logTest shim. Counters come from recordTest in the runner. */
@@ -2937,7 +2939,7 @@ async function testUninstallRestoresClientConfigs(): Promise<boolean | null> {
     );
 
     const { execFileSync } = await import("node:child_process");
-    const env = { ...process.env, HOME: home };
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: home };
     delete env.XDG_CONFIG_HOME;
     try {
       execFileSync(process.execPath, [cliEntry, "proxy", "uninstall"], {
@@ -4565,9 +4567,7 @@ async function failRoutingCase(message: string): Promise<false> {
  */
 const TEST_NOW = 1_800_000_000_000;
 
-function makeQuota(
-  over: Record<string, number | string>,
-): Record<string, number | string> {
+function makeQuota(over: Partial<AccountQuota> = {}): AccountQuota {
   return {
     sessionUsed: 0,
     sessionStatus: "allowed",

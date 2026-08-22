@@ -15,9 +15,56 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
 
+// Local shapes for this tool's own bookkeeping — no equivalent lives in
+// src/lib/types/ (that barrel covers the SDK's public surface, not this
+// standalone build script's internal report structures).
+type BuildCommandResult = {
+  command: string;
+  success: boolean;
+  duration: number;
+  output: string;
+  error: string | null;
+};
+
+type BuildPhaseResult = {
+  name: string;
+  title: string;
+  status: string;
+  commands: BuildCommandResult[];
+  duration: number;
+  error: string | null;
+};
+
+type BuildResourceUsage =
+  | {
+      memory: { rss: number; heapUsed: number; heapTotal: number };
+      cpu: { user: number; system: number };
+    }
+  | { error: string };
+
+type BuildPerformance = {
+  totalDuration?: number;
+  phaseBreakdown: Record<string, { duration: number; percentage: number }>;
+  efficiency?: number;
+  resourceUsage?: BuildResourceUsage;
+};
+
+type BuildResults = {
+  timestamp: string;
+  buildId: string;
+  phases: Record<string, BuildPhaseResult>;
+  performance: BuildPerformance;
+  summary: {
+    total: number;
+    completed: number;
+    failed: number;
+    skipped: number;
+  };
+};
+
 class BuildSystem {
   phases: any[];
-  results: Record<string, any>;
+  results: BuildResults;
   startTime: number;
 
   constructor() {
@@ -73,7 +120,7 @@ class BuildSystem {
       timestamp: new Date().toISOString(),
       buildId: `build-${Date.now()}`,
       phases: {},
-      performance: {},
+      performance: { phaseBreakdown: {} },
       summary: {
         total: this.phases.length,
         completed: 0,
@@ -148,7 +195,7 @@ class BuildSystem {
     console.log("─".repeat(phase.title.length));
 
     const phaseStartTime = Date.now();
-    const phaseResult = {
+    const phaseResult: BuildPhaseResult = {
       name: phase.name,
       title: phase.title,
       status: "running",
@@ -197,9 +244,12 @@ class BuildSystem {
   /**
    * Execute a single command
    */
-  async executeCommand(command: string, options: Record<string, any> = {}) {
+  async executeCommand(
+    command: string,
+    options: Record<string, any> = {},
+  ): Promise<BuildCommandResult> {
     const commandStartTime = Date.now();
-    const result = {
+    const result: BuildCommandResult = {
       command,
       success: false,
       duration: 0,
@@ -270,7 +320,7 @@ class BuildSystem {
   /**
    * Get resource usage (placeholder)
    */
-  async getResourceUsage() {
+  async getResourceUsage(): Promise<BuildResourceUsage> {
     try {
       // Get basic system info
       const memUsage = process.memoryUsage();
@@ -332,11 +382,9 @@ class BuildSystem {
     }
 
     // Show resource usage
-    if (
-      this.results.performance.resourceUsage &&
-      !this.results.performance.resourceUsage.error
-    ) {
-      const { memory } = this.results.performance.resourceUsage;
+    const resourceUsage = this.results.performance.resourceUsage;
+    if (resourceUsage && !("error" in resourceUsage)) {
+      const { memory } = resourceUsage;
       console.log(`\n💾 Resource Usage:`);
       console.log(
         `   Memory: ${memory.heapUsed}MB / ${memory.heapTotal}MB heap`,

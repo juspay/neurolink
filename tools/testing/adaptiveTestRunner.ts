@@ -53,18 +53,25 @@ function shouldDebugLog() {
  * - Symlink protection prevents infinite loops and duplicate results in complex directory structures.
  */
 function findFilesByExtension(
-  dir,
-  extensions,
-  excludeDirs = ["node_modules", ".git", "dist", "build", ".next", "coverage"],
+  dir: string,
+  extensions: string[],
+  excludeDirs: string[] = [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    ".next",
+    "coverage",
+  ],
   maxFiles = 20,
 ) {
-  const files = [];
+  const files: string[] = [];
   const extensionSet = new Set(extensions); // O(1) lookup instead of O(n)
   const excludeSet = new Set(excludeDirs);
   const processedDirs = new Set(); // Prevent duplicate directory processing
   const resolveCache = new Map(); // Cache resolved paths for performance
 
-  function traverse(currentDir, depth = 0) {
+  function traverse(currentDir: string, depth = 0) {
     // Early exit conditions for performance
     if (depth > 10 || files.length >= maxFiles) {
       return;
@@ -474,7 +481,7 @@ class AdaptiveTestRunner {
   async selectRelevantTests() {
     console.log("🎯 Selecting relevant tests...");
 
-    const selectedTests = new Set();
+    const selectedTests = new Set<string>();
 
     // Always include critical tests
     this.config.criticalTests.forEach((pattern) => selectedTests.add(pattern));
@@ -507,7 +514,7 @@ class AdaptiveTestRunner {
   async selectAffectedTests() {
     console.log("🎯 Selecting affected tests...");
 
-    const selectedTests = new Set();
+    const selectedTests = new Set<string>();
 
     for (const file of this.changedFiles) {
       const testFile = this.findTestFile(file);

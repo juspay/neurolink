@@ -325,7 +325,11 @@ await test("runAgenticLoop: tool-call round trip across two steps", async () => 
   const tools = {
     add_numbers: {
       description: "add",
-      execute: async (args: { a: number; b: number }) => args.a + args.b,
+      execute: async (args: Record<string, unknown>) => {
+        const a = typeof args.a === "number" ? args.a : 0;
+        const b = typeof args.b === "number" ? args.b : 0;
+        return a + b;
+      },
     },
   };
   const adapter = fakeAdapter([
@@ -707,7 +711,7 @@ await test("the default executeStream streams a doStream provider's chunks", asy
   const result = await provider.stream({ input: { text: "hi there" } });
   let text = "";
   for await (const chunk of result.stream) {
-    text += chunk.content ?? "";
+    text += "content" in chunk ? chunk.content : "";
   }
   assertEqual(
     text,

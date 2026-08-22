@@ -1884,9 +1884,9 @@ async function testBatchEvaluateMultipleGenerations(
     // when only 1/3 questions had succeeded, masking real regressions.
     const allGenerationsSucceeded = responses.length === questions.length;
     // `averageScore` is required (its `.toFixed` call below would crash on
-    // undefined). `passRate` is optional — BatchStrategy emits it only when
-    // at least one scorer reports a binary passed/failed verdict; rule-only
-    // pipelines don't. Treat it as optional in the display.
+    // undefined). `passingRate` is also always emitted by BatchStrategy
+    // (defaulting to 0 when no result passed), but guard its type anyway
+    // since it feeds a `.toFixed` call below.
     const batcherSawAll =
       batchResult?.summary?.total === responses.length &&
       Array.isArray(batchResult?.results) &&
@@ -1894,16 +1894,16 @@ async function testBatchEvaluateMultipleGenerations(
       typeof batchResult.summary.averageScore === "number";
 
     if (allGenerationsSucceeded && batcherSawAll) {
-      const passRate = batchResult.summary.passRate;
+      const passingRate = batchResult.summary.passingRate;
       const passRateDisplay =
-        typeof passRate === "number"
-          ? `${(passRate * 100).toFixed(0)}%`
+        typeof passingRate === "number"
+          ? `${(passingRate * 100).toFixed(0)}%`
           : "n/a";
       logTest(
         "21. Batch Evaluate Multiple Generations",
         "PASS",
         `Generated ${responses.length}/${questions.length} responses, batch evaluated: total=${batchResult.summary.total}, ` +
-          `successful=${batchResult.summary.successful}, avg score=${batchResult.summary.averageScore.toFixed(2)}, ` +
+          `successful=${batchResult.summary.succeeded}, avg score=${batchResult.summary.averageScore.toFixed(2)}, ` +
           `pass rate=${passRateDisplay}`,
       );
       return true;
