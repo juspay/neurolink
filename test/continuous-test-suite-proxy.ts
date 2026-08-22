@@ -1834,6 +1834,223 @@ async function testCodexConfiguratorRoundTrip(): Promise<boolean> {
 }
 
 /**
+ * A client config must never be observable in a torn state.
+ *
+ * Every writer did readFileSync then writeFileSync. writeFileSync opens with
+ * O_TRUNC, so between the truncate and the last byte the user's config is
+ * short — and for a real config that is several syscalls wide, not an instant.
+ * Anything reading concurrently, including the CLI the config belongs to, can
+ * load a truncated file; a crash in that window leaves it truncated for good.
+ * Both Qwen's and OpenCode's configs hold live API keys.
+ *
+ * Measured against the pre-fix writer on a 1.4 MB config: 121 torn reads out of
+ * 3,717. This drives the real writer while a separate process reads — separate
+ * because writeFileSync blocks the writer's own event loop, so an in-process
+ * reader is never scheduled during the window it is supposed to catch.
+ */
+async function testClientConfigWritesAreAtomic(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const { spawn } = await import("child_process");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-atomic-"));
+  const url = "http://127.0.0.1:55669/v1";
+  const probe = path.resolve("test/fixtures/config-reader-probe.mjs");
+  try {
+    fs.mkdirSync(path.join(root, "opencode"), { recursive: true });
+    process.env.XDG_CONFIG_HOME = root;
+    const configPath = __openCodeTestHooks.getOpenCodeConfigPath();
+
+    // Large enough that the write spans multiple syscalls. A small file can be
+    // written in one and would hide the window rather than prove it closed.
+    const filler: Record<string, string> = {};
+    for (let i = 0; i < 20000; i += 1) {
+      filler[`key_${i}`] = `value_${i}_${"x".repeat(40)}`;
+    }
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({ provider: {}, filler }, null, 2),
+    );
+
+    const durationMs = 4000;
+    const deadline = Date.now() + durationMs;
+    const reader = spawn(
+      process.execPath,
+      [probe, configPath, String(deadline)],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    let out = "";
+    reader.stdout?.on("data", (d: Buffer) => {
+      out += d.toString();
+    });
+
+    let writes = 0;
+    while (Date.now() < deadline) {
+      await __openCodeTestHooks.setOpenCodeProxySettings(url);
+      await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+      writes += 2;
+    }
+    // "close", not "exit", and with an "error" handler: a spawn that fails
+    // outright (ENOENT on the probe path) never emits "exit", so waiting on it
+    // alone hangs this suite forever instead of failing. "close" fires in both
+    // cases, and the guard below turns a probe that never ran into a failure
+    // rather than a hang.
+    await new Promise<void>((resolve) => {
+      reader.on("close", () => resolve());
+      reader.on("error", () => resolve());
+    });
+
+    const parsed = out.trim()
+      ? (JSON.parse(out.trim()) as {
+          total: number;
+          torn: number;
+          unreadable?: number;
+        })
+      : { total: 0, torn: 0, unreadable: 0 };
+    // Reads that never landed prove nothing either way, so they cannot count
+    // toward the sample this test claims to have taken.
+    const observed = parsed.total - (parsed.unreadable ?? 0);
+    if (observed === 0) {
+      log(
+        "atomic-write probe never completed a read; test proved nothing",
+        "red",
+      );
+      return false;
+    }
+    if (parsed.total === 0) {
+      log(
+        "atomic-write probe never read the config; test proved nothing",
+        "red",
+      );
+      return false;
+    }
+    if (writes === 0) {
+      log(
+        "atomic-write probe never wrote the config; test proved nothing",
+        "red",
+      );
+      return false;
+    }
+    if (parsed.torn > 0) {
+      log(
+        `a concurrent reader observed a torn config on ${parsed.torn} of ${parsed.total} reads`,
+        "red",
+      );
+      return false;
+    }
+
+    // A failed rename must not leave scratch files in the user's config dir.
+    const strays = fs
+      .readdirSync(path.dirname(configPath))
+      .filter((f) => f.includes(".tmp") || f.includes("neurolink-"));
+    if (strays.length > 0) {
+      log(`the writer left ${strays.length} scratch file(s) behind`, "red");
+      return false;
+    }
+    log(
+      `${observed} concurrent reads across ${writes} writes, none torn`,
+      "green",
+    );
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Making a write atomic must not widen who can read the file.
+ *
+ * This is the trap the rename introduces and it is easy to miss. Overwriting in
+ * place leaves the destination's mode alone, so a config the user had locked to
+ * 0600 stayed 0600. A rename replaces the inode, so the destination inherits the
+ * TEMP file's mode — and a temp file created without an explicit mode lands at
+ * 0666 minus umask, i.e. 0644 by default. Without the carry-over, switching to
+ * atomic writes would silently relax every credential file it touched from
+ * owner-only to world-readable. Qwen's and OpenCode's configs hold live API
+ * keys, so that is a local disclosure, not a cosmetic change.
+ *
+ * Driven through the real configurators rather than the writer, because the
+ * whole point is the mode a USER's file ends up with after `proxy start`.
+ */
+async function testClientConfigWritesPreservePermissions(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-mode-"));
+  const url = "http://127.0.0.1:55669/v1";
+  const modeOf = (p: string): string =>
+    (fs.statSync(p).mode & 0o777).toString(8);
+
+  try {
+    fs.mkdirSync(path.join(root, "opencode"), { recursive: true });
+    process.env.XDG_CONFIG_HOME = root;
+    const configPath = __openCodeTestHooks.getOpenCodeConfigPath();
+
+    // A user who locked their credential file down. This must survive.
+    fs.writeFileSync(configPath, JSON.stringify({ existing: true }));
+    fs.chmodSync(configPath, 0o600);
+
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+    if (modeOf(configPath) !== "600") {
+      log(
+        `apply widened a 0600 config to 0${modeOf(configPath)} — credentials exposed to other local users`,
+        "red",
+      );
+      return false;
+    }
+
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+    if (modeOf(configPath) !== "600") {
+      log(`restore widened a 0600 config to 0${modeOf(configPath)}`, "red");
+      return false;
+    }
+
+    // A config the user deliberately left group-readable keeps that too — the
+    // rule is "carry the mode over", not "force 0600 on everyone".
+    fs.chmodSync(configPath, 0o644);
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+    if (modeOf(configPath) !== "644") {
+      log(
+        `apply changed a 0644 config to 0${modeOf(configPath)} instead of preserving it`,
+        "red",
+      );
+      return false;
+    }
+
+    // A config that did not exist yet must not be born world-readable.
+    const fresh = path.join(root, "opencode", "fresh.json");
+    const { writeFileAtomic } =
+      await import("../src/cli/proxy-clients/snapshot.js");
+    await writeFileAtomic(fresh, JSON.stringify({ apiKey: "sk-test" }));
+    if (modeOf(fresh) !== "600") {
+      log(
+        `a newly created credential file landed at 0${modeOf(fresh)} rather than 0600`,
+        "red",
+      );
+      return false;
+    }
+
+    log(
+      "config permissions preserved across apply and restore; new files start at 0600",
+      "green",
+    );
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
  * Usage must be attributable to the CLI that spent it, not only the account.
  *
  * The proxy already derived a client label from User-Agent, then dropped it
@@ -5917,6 +6134,16 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Codex apply/restore round-trips a real config",
     fn: testCodexConfiguratorRoundTrip,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: config writes are atomic under a concurrent reader",
+    fn: testClientConfigWritesAreAtomic,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: atomic writes preserve config permissions",
+    fn: testClientConfigWritesPreservePermissions,
     category: "proxy-config",
   },
   // Gemini CLI door: GOOGLE_GEMINI_BASE_URL round-trip through

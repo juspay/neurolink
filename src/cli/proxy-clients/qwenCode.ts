@@ -29,6 +29,7 @@ import {
   cloneForSnapshot,
   isProxyOwnedValue,
   shouldCaptureSnapshot,
+  writeFileAtomic,
 } from "./snapshot.js";
 
 /**
@@ -111,7 +112,10 @@ export async function setQwenProxySettings(
   settings.security = security;
   settings[QWEN_WRITTEN_KEY] = cloneForSnapshot(auth);
 
-  fs.writeFileSync(getQwenSettingsPath(), JSON.stringify(settings, null, 2));
+  await writeFileAtomic(
+    getQwenSettingsPath(),
+    JSON.stringify(settings, null, 2),
+  );
   return true;
 }
 
@@ -171,7 +175,10 @@ export async function clearQwenProxySettings(
   delete settings[QWEN_WRITTEN_KEY];
   settings.security = security;
 
-  fs.writeFileSync(getQwenSettingsPath(), JSON.stringify(settings, null, 2));
+  await writeFileAtomic(
+    getQwenSettingsPath(),
+    JSON.stringify(settings, null, 2),
+  );
   return true;
 }
 

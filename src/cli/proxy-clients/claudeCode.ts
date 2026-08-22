@@ -10,7 +10,11 @@ import { homedir } from "os";
 import { join } from "path";
 import { logger } from "../../lib/utils/logger.js";
 import type { CliProxyClientConfigurator } from "../../lib/types/index.js";
-import { isProxyOwnedValue, shouldCaptureSnapshot } from "./snapshot.js";
+import {
+  isProxyOwnedValue,
+  shouldCaptureSnapshot,
+  writeFileAtomic,
+} from "./snapshot.js";
 
 /**
  * Resolved per call rather than at module load so `detect()` and `apply()`
@@ -78,7 +82,10 @@ export async function setClaudeProxySettings(baseUrl: string): Promise<void> {
     ENABLE_TOOL_SEARCH: "true",
   };
 
-  fs.writeFileSync(getClaudeSettingsPath(), JSON.stringify(settings, null, 2));
+  await writeFileAtomic(
+    getClaudeSettingsPath(),
+    JSON.stringify(settings, null, 2),
+  );
 }
 
 export async function clearClaudeProxySettings(
@@ -162,7 +169,10 @@ export async function clearClaudeProxySettings(
     settings.env = env;
   }
 
-  fs.writeFileSync(getClaudeSettingsPath(), JSON.stringify(settings, null, 2));
+  await writeFileAtomic(
+    getClaudeSettingsPath(),
+    JSON.stringify(settings, null, 2),
+  );
   return hadBaseUrl || hadToolSearch;
 }
 
