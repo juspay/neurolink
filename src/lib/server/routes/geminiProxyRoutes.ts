@@ -263,7 +263,12 @@ export function createGeminiProxyRoutes(
           // --- Dispatch via shared translation engine ---
           try {
             if (stream) {
-              return handleTranslatedStreamRequest({
+              // Awaited, not returned bare: `handleTranslatedStreamRequest` is
+              // async, so a rejection raised before the Response exists would
+              // escape this try/catch and land in `app.onError`, which answers
+              // in Anthropic's error shape. A Gemini client parsing that finds
+              // no `error.message` and reports an empty failure.
+              return await handleTranslatedStreamRequest({
                 ctx,
                 format: "gemini",
                 requestModel: modelId,

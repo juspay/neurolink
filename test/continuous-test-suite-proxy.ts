@@ -51,6 +51,7 @@
  */
 
 import { spawn, ChildProcess } from "child_process";
+import * as http from "http";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -1650,13 +1651,29 @@ async function testGeminiDoorGenerateContent(): Promise<boolean | null> {
       return false;
     }
 
+    if (resp.status === 400) {
+      // 400 is the door's OWN request-shape rejection: buildGeminiErrorResponse
+      // answers 400 when `contents` is missing or empty. This test builds the
+      // body itself and always sends one user turn, so a 400 means the request
+      // contract moved underneath it — never a missing credential. Skipping
+      // here would report SKIP on exactly the regression this test exists to
+      // catch.
+      const badReqText = await resp.text();
+      log(
+        "Gemini door answered 400 to a well-formed generateContent body — " +
+          `the request-shape contract has changed: ${badReqText.slice(0, 200)}`,
+        "red",
+      );
+      return false;
+    }
+
     if (!resp.ok) {
       // No Google account can exist in this suite's isolated TEST_HOME, and
       // GOOGLE_API_KEY is stripped for every non-live run. Reaching the door
       // and failing downstream (auth, "no accounts configured", upstream
       // 5xx, ...) is the expected result without credentials — it proves the
-      // route matched, so it must not fail the test. Only a 404 above, or a
-      // 200 with the wrong body below, does that.
+      // route matched, so it must not fail the test. Only a 404 above, a 400
+      // above, or a 200 with the wrong body below, does that.
       const errText = await resp.text();
       log(
         `Gemini door reachable but returned ${resp.status} without ` +
@@ -2051,6 +2068,389 @@ async function testClientConfigWritesPreservePermissions(): Promise<boolean> {
 }
 
 /**
+ * Ask the OS for a free TCP port.
+ *
+ * The two cases below spawn their own proxies, and fixed ports made them
+ * collide with anything already listening — including another agent running
+ * this same suite in this worktree, which turned an unrelated concurrent run
+ * into a hard FAIL on EADDRINUSE. Binding port 0 and reading back what the
+ * kernel assigned leaves only the narrow window between close and re-bind,
+ * which is a better race than a guaranteed collision.
+ */
+async function freePort(): Promise<number> {
+  const net = await import("net");
+  return new Promise<number>((resolve, reject) => {
+    const srv = net.createServer();
+    srv.once("error", reject);
+    srv.listen(0, "127.0.0.1", () => {
+      const addr = srv.address();
+      const port = typeof addr === "object" && addr ? addr.port : 0;
+      srv.close(() =>
+        port ? resolve(port) : reject(new Error("no free port")),
+      );
+    });
+  });
+}
+
+/**
+ * Spawn a proxy with its own HOME, its own port, and its own config.
+ *
+ * The suite's shared proxy is fine for a case that only needs a door to
+ * answer, but a case that reads what the proxy *wrote* must own the directory
+ * it reads: the shared log dir accumulates every other case's traffic, and
+ * whether a given record is present depends on suite ordering and on which
+ * earlier cases happened to have credentials. An isolated HOME makes the
+ * observation deterministic instead.
+ */
+async function spawnIsolatedProxy(options: {
+  configYaml?: string;
+  env?: Record<string, string>;
+}): Promise<{ port: number; home: string; stop: () => void } | null> {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-isolated-proxy-"));
+  fs.mkdirSync(path.join(home, ".neurolink"), { recursive: true });
+  if (options.configYaml) {
+    fs.writeFileSync(
+      path.join(home, ".neurolink", "proxy-config.yaml"),
+      options.configYaml,
+    );
+  }
+
+  const port = await freePort();
+  const child = spawn(
+    process.execPath,
+    [
+      path.resolve("dist/cli/index.js"),
+      "proxy",
+      "start",
+      "--port",
+      String(port),
+      "--quiet",
+    ],
+    {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        HOME: home,
+        USERPROFILE: home,
+        NEUROLINK_SKIP_MCP: "true",
+        NEUROLINK_PROXY_IGNORE_LAUNCHD: "1",
+        ...(options.env ?? {}),
+      },
+    },
+  );
+
+  const stop = () => {
+    child.kill();
+    // The proxy is still flushing its journal when the kill lands, so a plain
+    // rmSync loses a race with it and throws ENOTEMPTY — `force` suppresses
+    // "missing", not "still being written to". That turned a PASSING assertion
+    // into a red test, intermittently, which is worse than either outcome:
+    // the failure names a temp directory and says nothing about the behaviour
+    // under test.
+    //
+    // Retry briefly, then give up silently. Cleanup of a temp directory must
+    // never decide whether a test passed.
+    try {
+      fs.rmSync(home, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      });
+    } catch {
+      // The OS reaps its own temp directory; a leftover here is not a result.
+    }
+  };
+
+  const deadline = Date.now() + 45_000;
+  while (Date.now() < deadline) {
+    try {
+      const probe = await fetch(`http://127.0.0.1:${port}/health`);
+      if (probe.ok) {
+        return { port, home, stop };
+      }
+    } catch {
+      // not listening yet
+    }
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  stop();
+  return null;
+}
+
+/**
+ * A multi-turn Gemini request must reach the provider with its history intact.
+ *
+ * The shared engine derives history with `conversationMessages.slice(0, -1)`,
+ * because the final turn is already sent separately as `prompt` — so
+ * claudeFormat and openaiFormat push EVERY turn, the last one included.
+ * geminiFormat pushed only the non-final turns, the intuitive reading of
+ * "history", which left the slice eating a real turn: a three-turn request
+ * arrived at the provider with the assistant's reply deleted.
+ *
+ * Nothing internal is asserted on. A proxy is spawned against a capture server
+ * standing in for the provider's HTTP endpoint, a three-turn generateContent
+ * goes through the real door, and the assertion is on what the provider
+ * actually received. The middle turn is the canary — the exact turn the bug
+ * ate. Both ends of the conversation are the control.
+ */
+async function testGeminiMultiTurnHistoryReachesProvider(): Promise<
+  boolean | null
+> {
+  const MARKERS = {
+    first: "TURN_ONE_USER",
+    canary: "TURN_TWO_MODEL_CANARY",
+    last: "TURN_THREE_USER",
+  };
+
+  let capturedBody: string | undefined;
+  const upstream = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (c: Buffer) => {
+      raw += c.toString();
+    });
+    req.on("end", () => {
+      capturedBody = raw;
+      // The engine drives providers through stream(), so a plain JSON body
+      // yields "no content or tool calls" and a 500 at the door. SSE keeps the
+      // door's own answer honest while the capture above does the real work.
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "cache-control": "no-cache",
+      });
+      const chunk = (o: unknown) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+      chunk({
+        id: "chatcmpl-capture",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "capture-model",
+        choices: [{ index: 0, delta: { role: "assistant", content: "OK" } }],
+      });
+      chunk({
+        id: "chatcmpl-capture",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "capture-model",
+        choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        usage: { prompt_tokens: 10, completion_tokens: 1, total_tokens: 11 },
+      });
+      res.write("data: [DONE]\n\n");
+      res.end();
+    });
+  });
+
+  const capturePort = await freePort();
+  let proxy: Awaited<ReturnType<typeof spawnIsolatedProxy>> = null;
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      upstream.once("error", reject);
+      upstream.listen(capturePort, "127.0.0.1", () => resolve());
+    });
+
+    proxy = await spawnIsolatedProxy({
+      configYaml: `routing:
+  modelMappings:
+    - from: "gemini-2.5-flash"
+      to: "capture-model"
+      provider: "openai-compatible"
+`,
+      env: {
+        OPENAI_COMPATIBLE_BASE_URL: `http://127.0.0.1:${capturePort}/v1`,
+        OPENAI_COMPATIBLE_API_KEY: "capture-key",
+      },
+    });
+    if (!proxy) {
+      log(
+        "capture proxy never became healthy; history could not be observed",
+        "yellow",
+      );
+      return null;
+    }
+
+    await fetch(
+      `http://127.0.0.1:${proxy.port}/v1beta/models/gemini-2.5-flash:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "neurolink-history-probe/1.0",
+        },
+        body: JSON.stringify({
+          contents: [
+            { role: "user", parts: [{ text: MARKERS.first }] },
+            { role: "model", parts: [{ text: MARKERS.canary }] },
+            { role: "user", parts: [{ text: MARKERS.last }] },
+          ],
+          generationConfig: { maxOutputTokens: 32 },
+        }),
+      },
+    );
+
+    if (!capturedBody) {
+      log(
+        "the capture upstream was never called; history could not be observed",
+        "yellow",
+      );
+      return null;
+    }
+
+    if (
+      !capturedBody.includes(MARKERS.first) ||
+      !capturedBody.includes(MARKERS.last)
+    ) {
+      log(
+        "the provider received neither end of the conversation; " +
+          "translation did not survive, so history is not observable here",
+        "yellow",
+      );
+      return null;
+    }
+
+    if (!capturedBody.includes(MARKERS.canary)) {
+      log(
+        "the provider received the first and last turns but not the middle " +
+          "one — conversation history is being truncated in translation",
+        "red",
+      );
+      return false;
+    }
+
+    log(
+      "a three-turn Gemini request reaches the provider with every turn intact",
+      "green",
+    );
+    return true;
+  } finally {
+    proxy?.stop();
+    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+  }
+}
+
+/**
+ * Every inbound door must be covered by the tracking middleware.
+ *
+ * Hono matches a wildcard one path segment at a time, so `app.use("/v1/*")`
+ * does NOT cover `/v1beta/models/...` — the segment is `v1beta`, not `v1`.
+ * The Gemini door landed matching neither `/v1/*` nor `/backend-api/*`, so its
+ * requests were invisible to the request log, to per-CLI attribution, and to
+ * the in-flight counter the graceful drain waits on — an auto-update could
+ * therefore cut a live Gemini stream mid-answer.
+ *
+ * Observed the way an operator would: drive the real doors over HTTP, then
+ * read the lifecycle journal the proxy itself wrote. No credentials are needed
+ * — `request_accepted` is emitted BEFORE `next()`, so the record exists
+ * whether or not an account is configured downstream. The proxy is isolated so
+ * the journal contains this case's traffic and nothing else.
+ */
+async function testEveryDoorIsTracked(): Promise<boolean | null> {
+  const proxy = await spawnIsolatedProxy({});
+  if (!proxy) {
+    log(
+      "isolated proxy never became healthy; door tracking could not be observed",
+      "yellow",
+    );
+    return null;
+  }
+
+  try {
+    // One request per door, so a regression naming only one of them stays
+    // attributable to that door rather than to "tracking is off everywhere".
+    const doors = [
+      {
+        path: "/v1/messages",
+        body: {
+          model: "claude-sonnet-4-5",
+          max_tokens: 1,
+          messages: [{ role: "user", content: "hi" }],
+        },
+      },
+      {
+        path: "/v1beta/models/gemini-2.5-flash:generateContent",
+        body: {
+          contents: [{ role: "user", parts: [{ text: "hi" }] }],
+          generationConfig: { maxOutputTokens: 1 },
+        },
+      },
+    ];
+
+    for (const door of doors) {
+      await fetch(`http://127.0.0.1:${proxy.port}${door.path}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "neurolink-door-tracking-probe/1.0",
+        },
+        body: JSON.stringify(door.body),
+      });
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const lifecyclePath = path.join(
+      proxy.home,
+      ".neurolink",
+      "logs",
+      `proxy-lifecycle-${today}.jsonl`,
+    );
+
+    // Written by a queued async writer. Poll for the records rather than
+    // sleeping a guessed interval, so a loaded machine reports the real answer
+    // instead of "unobservable".
+    const trackedPaths = new Set<string>();
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      if (fs.existsSync(lifecyclePath)) {
+        for (const line of fs
+          .readFileSync(lifecyclePath, "utf8")
+          .split("\n")
+          .filter((l) => l.trim())) {
+          try {
+            const rec = JSON.parse(line) as { event?: string; path?: string };
+            if (rec.event === "request_accepted" && rec.path) {
+              trackedPaths.add(rec.path);
+            }
+          } catch {
+            // partial trailing line
+          }
+        }
+      }
+      if (trackedPaths.size >= doors.length) {
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 300));
+    }
+
+    // The Anthropic door is the control: if IT is missing, tracking is off for
+    // reasons unrelated to the fix and this run proves nothing either way.
+    if (![...trackedPaths].some((p) => p.startsWith("/v1/messages"))) {
+      log(
+        "the control door produced no lifecycle record; " +
+          "tracking is not observable on this build",
+        "yellow",
+      );
+      return null;
+    }
+
+    if (![...trackedPaths].some((p) => p.startsWith("/v1beta/models/"))) {
+      log(
+        "the Gemini door produced no lifecycle record while the control door " +
+          "did — /v1beta/* is not covered by the tracking middleware",
+        "red",
+      );
+      return false;
+    }
+
+    log(
+      "every inbound door reaches the tracking middleware (anthropic + gemini)",
+      "green",
+    );
+    return true;
+  } finally {
+    proxy.stop();
+  }
+}
+
+/**
  * Usage must be attributable to the CLI that spent it, not only the account.
  *
  * The proxy already derived a client label from User-Agent, then dropped it
@@ -2093,9 +2493,14 @@ async function testPerClientAttribution(): Promise<boolean | null> {
     );
     return null;
   }
+  // sizeBefore is a BYTE offset from statSync. Slicing a decoded string by it
+  // counts UTF-16 code units instead, so one multi-byte character anywhere in
+  // the earlier log shifts the cut and the first "appended" line arrives
+  // truncated mid-JSON. Slice the buffer, then decode.
   const appended = fs
-    .readFileSync(logPath, "utf8")
-    .slice(sizeBefore)
+    .readFileSync(logPath)
+    .subarray(sizeBefore)
+    .toString("utf8")
     .split("\n")
     .filter((l) => l.trim());
   if (appended.length === 0) {
@@ -6160,6 +6565,16 @@ const tests: TestFunction[] = [
     name: "Ledger: usage splits by calling CLI and reconciles",
     fn: testLedgerSplitsUsageByClient,
     category: "proxy-config",
+  },
+  {
+    name: "Tracking: every inbound door reaches the tracking middleware",
+    fn: testEveryDoorIsTracked,
+    category: "proxy-api",
+  },
+  {
+    name: "Gemini Door: multi-turn history reaches the provider intact",
+    fn: testGeminiMultiTurnHistoryReachesProvider,
+    category: "proxy-api",
   },
   {
     name: "Attribution: the request log records the calling CLI",

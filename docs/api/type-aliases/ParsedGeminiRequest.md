@@ -10,6 +10,14 @@
 
 Defined in: [types/proxy.ts:3236](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3236)
 
+A Gemini `generateContent` request, reduced to what translation needs.
+
+Google's shape differs from both others in three ways that matter here:
+roles are `user`/`model` rather than `user`/`assistant`, the system prompt
+lives in a sibling `systemInstruction` rather than in the turn list, and
+generation settings are nested under `generationConfig` instead of sitting
+at the top level.
+
 ## Properties
 
 ### model

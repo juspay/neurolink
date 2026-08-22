@@ -1188,6 +1188,15 @@ function printProxyBanner(url: string, strategy: string): void {
   logger.always(
     `  ${chalk.blue("POST")} /v1/chat/completions — OpenAI-compatible proxy`,
   );
+  // The banner listed two of the four inbound doors, so the Codex and Gemini
+  // CLIs looked unsupported to anyone reading start-up output rather than the
+  // docs. Every door the proxy actually answers on belongs here.
+  logger.always(
+    `  ${chalk.blue("POST")} /backend-api/codex/… — Codex proxy (Responses format)`,
+  );
+  logger.always(
+    `  ${chalk.blue("POST")} /v1beta/models/…     — Gemini proxy (generateContent)`,
+  );
   logger.always(`  ${chalk.green("GET")}  /health              — Health check`);
   logger.always(
     `  ${chalk.green("GET")}  /status              — Detailed status`,
@@ -1491,9 +1500,17 @@ function registerProxyRequestTracking(
       throw error;
     }
   };
-  // Cover both the Anthropic (/v1/*) and Codex (/backend-api/*) inbound paths so
-  // drain/reject, lifecycle logging, and concurrency accounting apply to both.
+  // Cover every inbound door so drain/reject, lifecycle logging, and
+  // concurrency accounting apply to all of them.
+  //
+  // `/v1beta/*` is listed separately on purpose: Hono matches wildcards a path
+  // segment at a time, so `/v1/*` does NOT cover `/v1beta/models/...` — the
+  // segment is `v1beta`, not `v1`. When the Gemini door landed it inherited
+  // neither tracker, which meant its requests were absent from the request
+  // log, from per-CLI attribution, and from the in-flight count the graceful
+  // drain waits on. An update could therefore cut a live Gemini stream.
   app.use("/v1/*", trackingHandler);
+  app.use("/v1beta/*", trackingHandler);
   app.use("/backend-api/*", trackingHandler);
 }
 
