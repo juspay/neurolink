@@ -1244,6 +1244,19 @@ export type GoogleVertexProviderSettings = {
  * Anthropic Vertex AI settings for Claude models on Vertex
  * Used with @anthropic-ai/vertex-sdk
  */
+/**
+ * The two members `@anthropic-ai/vertex-sdk` actually uses off an auth client.
+ *
+ * Its declared `AuthClient` is far wider, but `prepareOptions()` only ever
+ * awaits `getRequestHeaders()` and reads `projectId` (client.js:109-111).
+ * Naming that narrow surface is what lets a caller supply a token directly
+ * instead of standing up Application Default Credentials.
+ */
+export type VertexAnthropicAuthClient = {
+  getRequestHeaders: () => Promise<Record<string, string>>;
+  projectId?: string | null;
+};
+
 export type AnthropicVertexSettings = {
   /** Google Cloud project ID */
   projectId: string;
@@ -1253,6 +1266,22 @@ export type AnthropicVertexSettings = {
   timeout?: number;
   /** SDK-internal retry budget (transport retries are the orchestrator's job) */
   maxRetries?: number;
+  /**
+   * Endpoint override. The SDK derives
+   * `https://${region}-aiplatform.googleapis.com/v1` by default; a gateway or
+   * a compatible endpoint is reached by setting this instead.
+   */
+  baseURL?: string;
+  /**
+   * Supply the request credentials directly, bypassing Application Default
+   * Credentials.
+   *
+   * Note that `accessToken` on the SDK's own options does NOT do this: the
+   * client stores it and never reads it for auth, so `prepareOptions()` still
+   * awaits ADC and a token-only caller fails with a credentials error that
+   * names nothing useful. `authClient` is the option that actually works.
+   */
+  authClient?: VertexAnthropicAuthClient;
 };
 
 // ============================================================================

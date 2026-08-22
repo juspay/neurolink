@@ -570,9 +570,21 @@ const hasGoogleCredentials = (): boolean => {
 const createVertexAnthropicSettings = async (
   region?: string,
   timeoutMs?: number,
+  direct?: { apiKey: string; projectId?: string },
+  baseURL?: string,
 ): Promise<AnthropicVertexSettings> => {
   const location = region || getVertexLocation();
-  const project = getVertexProjectId();
+  // Express-style auth carries its own credentials, so the ADC-derived project
+  // is neither available nor needed; asking for it would throw before the
+  // request is ever built. It cannot be EMPTY either — the SDK rejects a
+  // falsy projectId outright ("No projectId was given and it could not be
+  // resolved from credentials") — so a configured project is used when there
+  // is one and a placeholder stands in otherwise. The value only ever appears
+  // in the request path, which an endpoint reached this way is expected to
+  // route on its own.
+  const project = direct
+    ? direct.projectId?.trim() || "express"
+    : getVertexProjectId();
 
   return {
     projectId: project,
@@ -582,6 +594,26 @@ const createVertexAnthropicSettings = async (
     // bound (a 429 with retry-after: 8549 sleeps 2.4h per retry, invisible
     // to fallback orchestration). Retries are the orchestrator's job.
     maxRetries: 0,
+    // Outside the express branch too: an endpoint override is about WHERE the
+    // request goes, not how it is authenticated, so a caller using ADC against
+    // a gateway needs it just as much.
+    ...(baseURL ? { baseURL } : {}),
+    ...(direct
+      ? {
+          // The token goes on the request directly. `accessToken` on the SDK's
+          // own options looks like it should do this and does not — the client
+          // stores it and never reads it for auth, so prepareOptions() still
+          // awaits Application Default Credentials and the call fails with a
+          // credentials error that names nothing useful. `authClient` is the
+          // option the SDK actually consults.
+          authClient: {
+            getRequestHeaders: async () => ({
+              Authorization: `Bearer ${direct.apiKey}`,
+            }),
+            projectId: null,
+          },
+        }
+      : {}),
   };
 };
 
@@ -3762,11 +3794,29 @@ export class GoogleVertexProvider extends BaseProvider {
     timeoutMs?: number,
   ): Promise<AnthropicVertexType> {
     const mod = await getAnthropicVertexModule();
+    const expressApiKey = this.resolveExpressApiKey();
+    const directBaseURL =
+      this.baseURL?.trim() || process.env.GOOGLE_VERTEX_BASE_URL?.trim();
     const settings = await createVertexAnthropicSettings(
       this.location,
       timeoutMs,
+      expressApiKey
+        ? {
+            apiKey: expressApiKey,
+            ...(this.projectId ? { projectId: this.projectId } : {}),
+          }
+        : undefined,
+      directBaseURL,
     );
-    const client = new mod.AnthropicVertex(settings);
+    // One assertion, at the one place the shapes genuinely differ. The SDK
+    // declares `authClient` as its full `AuthClient` (24-plus members) while
+    // `prepareOptions()` only ever calls `getRequestHeaders()` and reads
+    // `projectId`. Naming the narrow surface in our own type and widening it
+    // here is the honest version of that gap; the alternative is standing up a
+    // real AuthClient to satisfy a contract the SDK does not exercise.
+    const client = new mod.AnthropicVertex(
+      settings as ConstructorParameters<typeof mod.AnthropicVertex>[0],
+    );
     // The vertex SDK eagerly starts Google ADC resolution in its constructor
     // (`this._authClientPromise = this._auth.getClient()`) and only awaits it
     // per-request in `prepareOptions()`. A client that is constructed but never

@@ -211,7 +211,8 @@
     "test:sagemaker-streaming": "tsx test/continuous-test-suite-sagemaker-streaming.ts",
     "test:anthropic-loop-characterization": "tsx test/continuous-test-suite-anthropic-loop-characterization.ts",
     "test:aistudio-loop-characterization": "tsx test/continuous-test-suite-aistudio-loop-characterization.ts",
-    "test:docs-mcp": "npx tsx test/continuous-test-suite-docs-mcp.ts"
+    "test:docs-mcp": "npx tsx test/continuous-test-suite-docs-mcp.ts",
+    "test:vertex-claude-characterization": "tsx test/continuous-test-suite-vertex-claude-characterization.ts"
   },
   "files": [
     "dist",
