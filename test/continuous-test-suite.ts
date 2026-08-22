@@ -22,6 +22,46 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
+/**
+ * Build the failure detail for a test that runs its body in a spawned script.
+ *
+ * These tests only ever inspected the child's stdout. When the child dies
+ * before printing anything -- a crash at import, a SIGTERM from the harness
+ * timeout, an unhandled rejection -- stdout is empty, so the detail collapsed
+ * to an empty string and the suite reported a bare "failed" with nothing to go
+ * on. That is exactly the state "JSON Format with 3+ Images (SDK)" fails in:
+ * reproducible in a full run, passing every time when driven directly, and
+ * undiagnosable from the log because the child's stderr was thrown away.
+ *
+ * Prefer the child's own FAIL line when it managed to print one; otherwise say
+ * what actually happened, including the exit code and the tail of stderr.
+ */
+function subprocessFailureDetail(result: {
+  stdout: string;
+  stderr: string;
+  exitCode?: number;
+  code?: number | null;
+}): string {
+  const own = result.stdout.split("\n").find((l) => l.includes("FAIL"));
+  if (own) {
+    return own;
+  }
+  const exit = result.exitCode ?? result.code ?? "unknown";
+  const out = (result.stdout || "").trim();
+  const err = (result.stderr || "").trim();
+  if (!out && !err) {
+    return `child produced no output at all (exit ${exit}) -- it died before printing, so there is no assertion result to report`;
+  }
+  const parts = [`child printed no FAIL line (exit ${exit})`];
+  if (out) {
+    parts.push(`stdout: ${out.slice(0, 200)}`);
+  }
+  if (err) {
+    parts.push(`stderr: ${err.slice(-400)}`);
+  }
+  return parts.join(" | ");
+}
+
 // Read package.json dynamically for version and main script
 const packageJsonPath = "package.json";
 let packageData: { version?: string; main?: string };
@@ -3602,9 +3642,7 @@ run();
       );
       return true;
     }
-    const failLine =
-      result.stdout.split("\n").find((l) => l.includes("FAIL")) ||
-      result.stdout.slice(0, 300);
+    const failLine = subprocessFailureDetail(result);
     logTest("Text Request on Dual-Mode Image Model (SDK)", "FAIL", failLine);
     return false;
   } catch (error) {
@@ -3768,9 +3806,7 @@ run();
       );
       return null;
     }
-    const failLine =
-      result.stdout.split("\n").find((l) => l.includes("FAIL")) ||
-      result.stdout.slice(0, 300);
+    const failLine = subprocessFailureDetail(result);
     const detail =
       `${failLine} | stderr=${(result.stderr || "").slice(0, 200)}`.slice(
         0,
@@ -3793,6 +3829,23 @@ run();
 
 async function testJsonFormatWithMultipleImagesSDK(): Promise<boolean | null> {
   logSection("Testing output.format=json with 3+ Images (SDK)");
+
+  // Fail loudly rather than silently testing a stale build.
+  //
+  // This used to live inside the generated child script as
+  // `import { assertDistFresh } from "./helpers/distFreshness.js"`. That could
+  // never work: the child is written into a mkdtemp directory under test/.tmp
+  // and run with plain `node`, so the relative specifier resolved to
+  // test/.tmp/<random>/helpers/distFreshness.js, and no compiled .js of that
+  // helper exists anywhere in the tree either. Every run died with
+  // ERR_MODULE_NOT_FOUND before printing a single line — which is why this test
+  // failed in every full-suite run while passing whenever the same call was
+  // driven directly, and why the failure carried no message.
+  //
+  // The parent runs under tsx and can load the helper normally, and the build
+  // is equally stale or fresh for both, so check it once here.
+  const { assertDistFresh } = await import("./helpers/distFreshness.js");
+  assertDistFresh();
 
   const screenshotPath = "test/fixtures/sample-screenshot.png";
   if (!fs.existsSync(screenshotPath)) {
@@ -3819,11 +3872,6 @@ async function testJsonFormatWithMultipleImagesSDK(): Promise<boolean | null> {
     const testScript = `
 import { NeuroLink } from '${process.cwd()}/dist/index.js';
 import { readFileSync } from 'fs';
-
-import { assertDistFresh } from "./helpers/distFreshness.js";
-
-// Fail loudly rather than silently testing a stale build (see distFreshness.ts).
-assertDistFresh();
 
 async function run() {
   const sdk = new NeuroLink();
@@ -3926,9 +3974,7 @@ run();
       );
       return true;
     }
-    const failLine =
-      result.stdout.split("\n").find((l) => l.includes("FAIL")) ||
-      result.stdout.slice(0, 300);
+    const failLine = subprocessFailureDetail(result);
     logTest("JSON Format with 3+ Images (SDK)", "FAIL", failLine);
     return false;
   } catch (error) {
