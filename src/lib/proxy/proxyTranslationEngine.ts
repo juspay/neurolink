@@ -808,6 +808,7 @@ export async function handleTranslatedJsonRequest(args: {
           internal.finishReason ?? defaultFinishReason(format),
           resolvedUsage,
           internal.model ?? requestModel,
+          internal.toolCalls,
         );
       }
       return serializeOpenAIResponse(internal, requestModel);

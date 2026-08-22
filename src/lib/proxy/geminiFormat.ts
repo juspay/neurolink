@@ -51,9 +51,17 @@ function partsToImages(parts: ProxyGeminiPart[] | undefined): string[] {
 /**
  * Parse a `generateContent` body into the shape the translation engine takes.
  *
- * The final user turn becomes `prompt`; everything before it becomes
- * `conversationMessages`, with Google's `model` role mapped to `assistant` so
- * downstream providers see a role they understand.
+ * The final user turn becomes `prompt`, with Google's `model` role mapped to
+ * `assistant` so downstream providers see a role they understand.
+ *
+ * `conversationMessages` carries EVERY turn, the final one included. That
+ * looks redundant next to `prompt`, and it is the contract the shared engine
+ * expects: `buildTranslationOptions` does `conversationMessages.slice(0, -1)`
+ * to derive history, because the final turn is already being sent as `prompt`.
+ * `claudeFormat` and `openaiFormat` both push unconditionally for that reason.
+ * Excluding the last turn here — the intuitive reading of "history" — made the
+ * engine's slice eat one real turn instead, so every multi-turn Gemini request
+ * silently lost its most recent message.
  */
 export function parseGeminiRequest(
   model: string,
@@ -81,9 +89,9 @@ export function parseGeminiRequest(
     images: partsToImages(c?.parts),
   }));
 
-  // The last user turn is the prompt; anything before it is history. A request
-  // whose final turn is a model turn (the CLI does this when continuing) leaves
-  // an empty prompt rather than replaying the assistant's own words as input.
+  // The last user turn is the prompt. A request whose final turn is a model
+  // turn (the CLI does this when continuing) leaves an empty prompt rather
+  // than replaying the assistant's own words as input.
   let prompt = "";
   let images: string[] = [];
   const conversationMessages: Array<{ role: string; content: string }> = [];
@@ -92,12 +100,26 @@ export function parseGeminiRequest(
     if (isLast && turns[i].role === "user") {
       prompt = turns[i].content;
       images = turns[i].images;
-    } else {
-      conversationMessages.push({
-        role: turns[i].role,
-        content: turns[i].content,
-      });
     }
+    // Unconditional — see the slice-contract note on this function.
+    conversationMessages.push({
+      role: turns[i].role,
+      content: turns[i].content,
+    });
+  }
+
+  // The engine's `slice(0, -1)` drops the LAST entry on the assumption that it
+  // is the turn already being sent as `prompt`. That holds only when the
+  // request ends with a user turn. The Gemini CLI also continues from a model
+  // turn, and there the last entry is a real assistant reply — so the slice ate
+  // it, which is the same lost-turn bug one case further along.
+  //
+  // A terminal placeholder restores the invariant: the slice removes this
+  // instead of the model turn. It is never sent anywhere — `prompt` is
+  // independently "" in exactly this case, so the placeholder only exists to be
+  // consumed by the slice.
+  if (turns.length > 0 && turns[turns.length - 1].role !== "user") {
+    conversationMessages.push({ role: "user", content: "" });
   }
 
   const numeric = (v: unknown): number | undefined =>
@@ -148,16 +170,41 @@ function usageMetadata(usage: {
 }
 
 /** Build a complete `generateContent` response body. */
+/**
+ * Render a tool call as text.
+ *
+ * The proxy does not forward tool calls in Google's `functionCall` part shape:
+ * the CLI drives tools locally, so a `functionCall` it never asked for would be
+ * an unresolvable pending call. Text is what it can act on. Both the streaming
+ * serializer and the non-streaming builder go through here so the two paths
+ * cannot drift.
+ */
+export function renderGeminiToolUse(name: string, input: unknown): string {
+  return `\n[tool: ${name} ${JSON.stringify(input)}]\n`;
+}
+
 export function buildGeminiResponse(
   text: string,
   finishReason: string,
   usage: { input: number; output: number; total: number },
   modelVersion: string,
+  toolCalls?: ReadonlyArray<{
+    toolName: string;
+    args: Record<string, unknown>;
+  }>,
 ): Record<string, unknown> {
+  // A translated result can legitimately carry tool calls and no text — the
+  // engine's hasTranslatedOutput() accepts that. Rendering only `text` there
+  // handed the client parts[0].text === "" with finishReason STOP, which reads
+  // as "the model answered nothing" rather than "the model wants a tool".
+  const rendered = (toolCalls ?? [])
+    .map((call) => renderGeminiToolUse(call.toolName, call.args))
+    .join("");
+  const body = `${text}${rendered}`;
   return {
     candidates: [
       {
-        content: { role: MODEL_ROLE, parts: [{ text }] },
+        content: { role: MODEL_ROLE, parts: [{ text: body }] },
         finishReason: toGeminiFinishReason(finishReason),
         index: 0,
       },
@@ -227,7 +274,7 @@ export class GeminiStreamSerializer {
    * that is never coming; rendering it as text keeps the turn terminating.
    */
   pushToolUse(_id: string, name: string, input: unknown): string[] {
-    return this.pushDelta(`\n[tool: ${name} ${JSON.stringify(input)}]\n`);
+    return this.pushDelta(renderGeminiToolUse(name, input));
   }
 
   finish(

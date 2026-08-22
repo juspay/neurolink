@@ -193,6 +193,12 @@ export async function writeFileAtomic(
     }
   }
   try {
+    // The temp file is a sibling of the destination, so a missing parent fails
+    // the write rather than the rename — the config is untouched, but the
+    // caller sees an ENOENT naming a path it never asked to write. Creating
+    // the directory first makes a first-run write behave like the plain
+    // writeFileSync it replaced.
+    fs.mkdirSync(dirname(filePath), { recursive: true });
     fs.writeFileSync(tempPath, contents, { mode: effectiveMode });
     stage = "chmod";
     fs.chmodSync(tempPath, effectiveMode);

@@ -3218,6 +3218,12 @@ export type OpenAIErrorResponse = {
 };
 
 /** Parsed OpenAI request — intermediate form for NeuroLink pipeline. */
+/** One part of a Gemini `contents[].parts[]` entry. */
+export type ProxyGeminiPart = { text?: string; inlineData?: { data?: string } };
+
+/** One turn in a Gemini `contents[]` array. */
+export type ProxyGeminiContent = { role?: string; parts?: ProxyGeminiPart[] };
+
 /**
  * A Gemini `generateContent` request, reduced to what translation needs.
  *
@@ -3227,12 +3233,6 @@ export type OpenAIErrorResponse = {
  * generation settings are nested under `generationConfig` instead of sitting
  * at the top level.
  */
-/** One part of a Gemini `contents[].parts[]` entry. */
-export type ProxyGeminiPart = { text?: string; inlineData?: { data?: string } };
-
-/** One turn in a Gemini `contents[]` array. */
-export type ProxyGeminiContent = { role?: string; parts?: ProxyGeminiPart[] };
-
 export type ParsedGeminiRequest = {
   model: string;
   maxTokens?: number;
