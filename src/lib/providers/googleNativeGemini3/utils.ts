@@ -50,7 +50,6 @@ import {
   ensureNestedSchemaTypes,
   inlineJsonSchema,
   isZodSchema,
-  normalizeJsonSchemaObject,
 } from "../../utils/schemaConversion.js";
 
 import { createNativeThinkingConfig } from "../../utils/thinkingConfig.js";
@@ -61,10 +60,6 @@ import type {
   Tool,
   GeminiToolExecutionGuards,
 } from "../../types/index.js";
-import {
-  jsonSchema as aiJsonSchema,
-  tool as createAISDKTool,
-} from "../../utils/tool.js";
 
 // ── Functions ──
 
@@ -142,7 +137,7 @@ const GOOGLE_FN_NAME_REGEX = /^[A-Za-z_][A-Za-z0-9_.:-]{0,127}$/;
 
 const GOOGLE_FN_NAME_MAX_LENGTH = 128;
 
-export function sanitizeForGoogleFunctionName(name: string): string {
+function sanitizeForGoogleFunctionName(name: string): string {
   if (GOOGLE_FN_NAME_REGEX.test(name)) {
     return name;
   }
@@ -167,7 +162,7 @@ export function sanitizeForGoogleFunctionName(name: string): string {
  * @param base       The already-sanitized candidate name.
  * @param isTaken    Predicate that returns true if `name` is already used.
  */
-export function resolveUniqueGoogleFunctionName(
+function resolveUniqueGoogleFunctionName(
   base: string,
   isTaken: (name: string) => boolean,
 ): string {
@@ -200,7 +195,7 @@ export function resolveUniqueGoogleFunctionName(
  * Also removes `$schema`, `additionalProperties`, and `default` keys that
  * Gemini's proto format doesn't support.
  */
-export function sanitizeSchemaForGemini(
+function sanitizeSchemaForGemini(
   schema: Record<string, unknown>,
 ): Record<string, unknown> {
   // If this node has anyOf/oneOf, collapse to string type
@@ -332,173 +327,6 @@ export function sanitizeSchemaForGemini(
   }
 
   return result;
-}
-
-/**
- * Sanitize Vercel AI SDK tools for Gemini compatibility.
- *
- * For the Vercel AI SDK path (non-native), tool parameters are Zod schemas that
- * get converted to JSON Schema internally by @ai-sdk/google. This conversion
- * doesn't sanitize union types (anyOf/oneOf), causing Gemini proto errors.
- *
- * This function pre-converts each tool's Zod parameters to sanitized JSON Schema
- * and re-wraps with the Vercel AI SDK's jsonSchema() helper.
- */
-export function sanitizeToolsForGemini(tools: Record<string, Tool>): {
-  tools: Record<string, Tool>;
-  dropped: string[];
-  /**
-   * Reverse map: Google-safe sanitized name → original consumer-supplied
-   * name. Lets the calling layer translate tool-call results back so the
-   * sanitization stays transport-only (see CodeRabbit thread, PR #1006).
-   */
-  originalNameMap: Map<string, string>;
-} {
-  const sanitized: Record<string, Tool> = {};
-  const dropped: string[] = [];
-  const renamed: Array<{ from: string; to: string }> = [];
-  const originalNameMap = new Map<string, string>();
-
-  for (const [name, tool] of Object.entries(tools)) {
-    try {
-      // Sanitize the tool name to fit Google's function_declarations regex.
-      // Without this, MCP-imported or user-registered tools whose names contain
-      // characters outside [A-Za-z_][A-Za-z0-9_.:-]{0,127} cause the entire
-      // request to 400 with "Invalid function name", surfacing as a misleading
-      // tool-calling failure. Distinct originals that collapse onto the same
-      // sanitized name (e.g. "my/tool" and "my-tool" → "my_tool") are
-      // disambiguated with a numeric suffix that preserves Google's 128-char
-      // ceiling.
-      const candidate = sanitizeForGoogleFunctionName(name);
-      const safeName = resolveUniqueGoogleFunctionName(
-        candidate,
-        (n) => n in sanitized,
-      );
-      // Always record the mapping so downstream code can translate every
-      // safeName back to the original — including the no-rename identity
-      // mapping, which simplifies the lookup path.
-      originalNameMap.set(safeName, name);
-      if (safeName !== name) {
-        renamed.push({ from: name, to: safeName });
-      }
-
-      // Access the legacy `parameters` field that may exist on older AI SDK tools.
-      // AI SDK v6 uses `inputSchema`, but v3/v4 tools and third-party wrappers use `parameters`.
-      const legacyTool = tool as ToolWithLegacyParams;
-      const params = legacyTool.parameters;
-      if (
-        params &&
-        typeof params === "object" &&
-        "_def" in params &&
-        typeof (params as Record<string, unknown>).parse === "function"
-      ) {
-        const rawJsonSchema = convertZodToJsonSchema(
-          params as ZodUnknownSchema,
-          "openApi3",
-        ) as Record<string, unknown>;
-        const inlined = inlineJsonSchema(rawJsonSchema);
-        // Gemini sanitization strips Zod-only features not supported by the Gemini API:
-        // union types (anyOf/oneOf) are collapsed to string, default values and
-        // additionalProperties are removed. The resulting schema is Gemini-compatible
-        // but loses some type constraints from the original Zod schema.
-        const sanitizedSchema = sanitizeSchemaForGemini(inlined);
-
-        sanitized[safeName] = createAISDKTool({
-          description: tool.description || `Tool: ${safeName}`,
-          inputSchema: aiJsonSchema(sanitizedSchema),
-          execute: tool.execute as ToolExecuteFunction<unknown, unknown>,
-        });
-      } else if (
-        params &&
-        typeof params === "object" &&
-        "jsonSchema" in params
-      ) {
-        // Non-Zod JSON schema (e.g., from ai SDK jsonSchema() helper) — still needs sanitization
-        const rawSchema = (params as Record<string, unknown>)
-          .jsonSchema as Record<string, unknown>;
-        const sanitizedSchema = sanitizeSchemaForGemini(
-          inlineJsonSchema(rawSchema),
-        );
-
-        sanitized[safeName] = createAISDKTool({
-          description: tool.description || `Tool: ${safeName}`,
-          inputSchema: aiJsonSchema(sanitizedSchema),
-          execute: tool.execute as ToolExecuteFunction<unknown, unknown>,
-        });
-      } else {
-        sanitized[safeName] = tool;
-      }
-    } catch (error) {
-      logger.warn(
-        `[Gemini] Failed to sanitize tool "${name}", skipping: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      // Don't fall back to the original tool — an incompatible schema would fail the Gemini request
-      dropped.push(name);
-    }
-  }
-
-  if (renamed.length > 0) {
-    logger.warn(
-      `[Gemini] ${renamed.length} tool name(s) sanitized for Google's function-name regex: ${renamed
-        .map((r) => `"${r.from}" -> "${r.to}"`)
-        .join(", ")}`,
-    );
-  }
-
-  return { tools: sanitized, dropped, originalNameMap };
-}
-
-export function normalizeToolsForJsonSchemaProvider(
-  tools: Record<string, Tool>,
-): {
-  tools: Record<string, Tool>;
-  normalized: string[];
-} {
-  const normalizedTools: Record<string, Tool> = {};
-  const normalized: string[] = [];
-
-  for (const [name, tool] of Object.entries(tools)) {
-    const legacyTool = tool as ToolWithLegacyParams;
-    const toolParams = legacyTool.parameters || tool.inputSchema;
-    let rawSchema: Record<string, unknown>;
-
-    if (isZodSchema(toolParams)) {
-      rawSchema = convertZodToJsonSchema(
-        toolParams as ZodUnknownSchema,
-        "openApi3",
-      ) as Record<string, unknown>;
-    } else if (toolParams && typeof toolParams === "object") {
-      rawSchema = toolParams as Record<string, unknown>;
-    } else {
-      rawSchema = { type: "object", properties: {} };
-    }
-
-    if (
-      rawSchema.jsonSchema &&
-      typeof rawSchema.jsonSchema === "object" &&
-      !rawSchema.type
-    ) {
-      rawSchema = rawSchema.jsonSchema as Record<string, unknown>;
-    }
-
-    const schemaBefore = JSON.stringify(rawSchema);
-    const normalizedSchema = normalizeJsonSchemaObject(rawSchema);
-    if (JSON.stringify(normalizedSchema) !== schemaBefore) {
-      normalized.push(name);
-    }
-
-    const wrappedSchema = aiJsonSchema(normalizedSchema);
-    normalizedTools[name] = {
-      ...tool,
-      inputSchema: wrappedSchema,
-      ...(legacyTool.parameters ? { parameters: wrappedSchema } : {}),
-    } as Tool;
-  }
-
-  return {
-    tools: normalizedTools,
-    normalized,
-  };
 }
 
 /**
