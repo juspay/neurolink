@@ -155,3 +155,36 @@ The Anthropic engine in `claudeProxyRoutes.ts` is untouched. The Codex engine is
 - **Quota-aware ordering is unverified against the live backend.** The usage endpoint and the rate-limit header shape were reconstructed from a capture, not confirmed end to end. If either is wrong, `fetchCodexAccountUsage` returns no quota, `x-neurolink-quota-source` reads `none`, and ordering degenerates to insertion order while every 429 falls back to the 15-minute transient cooldown. Rotation still works; it is simply not quota-aware. Verify with `neurolink auth list --refresh` — a `codex usage …` error line per account means the quota path is not live.
 - **SSE usage-limit signals are not acted on.** Only an HTTP 429 triggers a cooldown and rotation. A `200` response whose SSE stream carries `usage_limit_reached` (or the workspace-credit variants) is relayed to the client untouched, so the account is neither cooled nor rotated away from. HTTP-level exhaustion is handled; in-stream exhaustion is not.
 - **Client fingerprint is forwarded verbatim.** The proxy replaces the caller's credentials but does not regenerate `originator`, `installation_id`, `session-id`, or turn metadata per account, so every pooled account shares the client's fingerprint. This is what makes the terms-of-service point above concrete.
+
+## Model discovery
+
+The Codex CLI refreshes its model list on every invocation:
+
+```
+GET /backend-api/codex/models?client_version=<cli-version>
+```
+
+The proxy relays that upstream to `chatgpt.com/backend-api/codex/models` using a
+pooled account, forwarding the CLI's own query parameters.
+
+**It relays rather than synthesises**, unlike the Claude and OpenAI `/v1/models`
+routes, which build their lists locally from the model router. Which Codex
+models an account can reach is a property of that account — plan tier, rollout
+state — not something this proxy knows, so a locally-built list would be a guess
+that reads as authoritative.
+
+Two details matter to anyone touching it:
+
+- **`client_version` is required upstream.** Omit it and ChatGPT answers `400`
+  with a pydantic `Field required` on `('query', 'client_version')`. The query
+  is rebuilt from `ctx.query`; `ctx.path` carries no query string, and reading it
+  from there drops the parameter silently.
+- **Discovery is side-effect free.** No cooldown is recorded and no quota is
+  consumed, so the once-per-invocation refresh cannot influence routing for real
+  traffic. A cooling account is still allowed to answer it — being rate-limited
+  for completions does not make an account unable to say which models exist.
+
+Before this route existed the request 404'd, and the CLI printed
+`failed to refresh available models: unexpected status 404 Not Found` on every
+run before silently falling back to a default model — quietly ignoring the model
+the user had configured.
