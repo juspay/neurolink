@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: JWTTokenManager
 
-Defined in: [client/auth.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L198)
+Defined in: [client/auth.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L198)
 
 JWT Token Manager with automatic refresh
 
@@ -35,7 +35,7 @@ const tokenManager = new JWTTokenManager({
 
 > **new JWTTokenManager**(`config`): `JWTTokenManager`
 
-Defined in: [client/auth.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L204)
+Defined in: [client/auth.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L204)
 
 #### Parameters
 
@@ -67,7 +67,7 @@ Defined in: [client/auth.ts:204](https://github.com/juspay/neurolink/blob/49032f
 
 > **getToken**(): `Promise`\<`string`\>
 
-Defined in: [client/auth.ts:220](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L220)
+Defined in: [client/auth.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L220)
 
 Get a valid access token
 
@@ -81,7 +81,7 @@ Get a valid access token
 
 > **forceRefresh**(): `Promise`\<`string`\>
 
-Defined in: [client/auth.ts:240](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L240)
+Defined in: [client/auth.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L240)
 
 Force token refresh
 
@@ -95,7 +95,7 @@ Force token refresh
 
 > **setToken**(`token`, `expiresAt`): `void`
 
-Defined in: [client/auth.ts:252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L252)
+Defined in: [client/auth.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L252)
 
 Update token manually
 
@@ -119,7 +119,7 @@ Update token manually
 
 > **isValid**(): `boolean`
 
-Defined in: [client/auth.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L260)
+Defined in: [client/auth.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L260)
 
 Check if token is valid
 

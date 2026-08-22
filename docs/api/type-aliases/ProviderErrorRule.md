@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderErrorRule** = `object`
 
-Defined in: [types/errors.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L106)
+Defined in: [types/errors.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L106)
 
 One row of a provider's error-classification table. Rules are tried in
 array order; the first `match` to return true wins. `errorClass` must be
@@ -24,7 +24,7 @@ interpolate a model name, a scraped retry-delay, or an AWS error code.
 
 > **match**: (`ctx`) => `boolean`
 
-Defined in: [types/errors.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L107)
+Defined in: [types/errors.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L107)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [types/errors.ts:107](https://github.com/juspay/neurolink/blob/49032
 
 > **errorClass**: (`message`, `provider?`) => [`ProviderError`](../classes/ProviderError.md)
 
-Defined in: [types/errors.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L108)
+Defined in: [types/errors.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L108)
 
 #### Parameters
 
@@ -64,4 +64,4 @@ Defined in: [types/errors.ts:108](https://github.com/juspay/neurolink/blob/49032
 
 > **message**: `string` \| ((`ctx`) => `string`)
 
-Defined in: [types/errors.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L109)
+Defined in: [types/errors.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L109)

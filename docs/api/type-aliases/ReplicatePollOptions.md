@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ReplicatePollOptions** = `object`
 
-Defined in: [types/replicate.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L65)
+Defined in: [types/replicate.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L65)
 
 Options for the Replicate poll loop.
 
@@ -18,7 +18,7 @@ Options for the Replicate poll loop.
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/replicate.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L67)
+Defined in: [types/replicate.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L67)
 
 Total time to wait before throwing a timeout error (default 5 min).
 
@@ -28,7 +28,7 @@ Total time to wait before throwing a timeout error (default 5 min).
 
 > `optional` **pollIntervalMs?**: `number`
 
-Defined in: [types/replicate.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L69)
+Defined in: [types/replicate.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L69)
 
 Poll interval in milliseconds (default 2 s).
 
@@ -38,6 +38,6 @@ Poll interval in milliseconds (default 2 s).
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/replicate.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L71)
+Defined in: [types/replicate.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L71)
 
 Caller-supplied AbortSignal to cancel polling early.

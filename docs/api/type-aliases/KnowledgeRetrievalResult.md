@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KnowledgeRetrievalResult** = `object`
 
-Defined in: [types/knowledge.ts:344](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L344)
+Defined in: [types/knowledge.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L344)
 
 The result of one retrieval: the selected entries, the assembled ephemeral
 context string, a confidence class, and assembly diagnostics.
@@ -19,7 +19,7 @@ context string, a confidence class, and assembly diagnostics.
 
 > **entries**: [`NormalizedKnowledgeEntry`](NormalizedKnowledgeEntry.md)[]
 
-Defined in: [types/knowledge.ts:345](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L345)
+Defined in: [types/knowledge.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L345)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/knowledge.ts:345](https://github.com/juspay/neurolink/blob/49
 
 > **assembledContext**: `string`
 
-Defined in: [types/knowledge.ts:346](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L346)
+Defined in: [types/knowledge.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L346)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/knowledge.ts:346](https://github.com/juspay/neurolink/blob/49
 
 > **confidence**: [`KnowledgeRetrievalConfidence`](KnowledgeRetrievalConfidence.md)
 
-Defined in: [types/knowledge.ts:347](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L347)
+Defined in: [types/knowledge.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L347)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/knowledge.ts:347](https://github.com/juspay/neurolink/blob/49
 
 > **citations**: [`KnowledgeCitation`](KnowledgeCitation.md)[]
 
-Defined in: [types/knowledge.ts:348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L348)
+Defined in: [types/knowledge.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L348)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/knowledge.ts:348](https://github.com/juspay/neurolink/blob/49
 
 > **selectedEntryIds**: `string`[]
 
-Defined in: [types/knowledge.ts:350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L350)
+Defined in: [types/knowledge.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L350)
 
 Ids of the primary (non-expanded) entries, in final order.
 
@@ -61,7 +61,7 @@ Ids of the primary (non-expanded) entries, in final order.
 
 > **expandedEntryIds**: `string`[]
 
-Defined in: [types/knowledge.ts:352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L352)
+Defined in: [types/knowledge.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L352)
 
 Ids added by bounded relationship expansion.
 
@@ -71,7 +71,7 @@ Ids added by bounded relationship expansion.
 
 > **candidateCount**: `number`
 
-Defined in: [types/knowledge.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L354)
+Defined in: [types/knowledge.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L354)
 
 Candidates scored before truncation to the result limit.
 
@@ -81,7 +81,7 @@ Candidates scored before truncation to the result limit.
 
 > **contextTokens**: `number`
 
-Defined in: [types/knowledge.ts:356](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L356)
+Defined in: [types/knowledge.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L356)
 
 Estimated token size of `assembledContext`.
 
@@ -91,7 +91,7 @@ Estimated token size of `assembledContext`.
 
 > **truncated**: `boolean`
 
-Defined in: [types/knowledge.ts:358](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L358)
+Defined in: [types/knowledge.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L358)
 
 True when any entry body was truncated or entries were dropped for budget.
 
@@ -101,4 +101,4 @@ True when any entry body was truncated or entries were dropped for budget.
 
 > **durationMs**: `number`
 
-Defined in: [types/knowledge.ts:359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L359)
+Defined in: [types/knowledge.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L359)

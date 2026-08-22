@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **formatContextWithCitations**(`results`, `options?`): `object`
 
-Defined in: [rag/pipeline/contextAssembly.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/pipeline/contextAssembly.ts#L168)
+Defined in: [rag/pipeline/contextAssembly.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/contextAssembly.ts#L168)
 
 Format context with inline citations
 

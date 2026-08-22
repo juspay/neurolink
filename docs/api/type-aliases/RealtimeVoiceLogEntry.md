@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeVoiceLogEntry** = `object`
 
-Defined in: [types/livekit.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L456)
+Defined in: [types/livekit.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L456)
 
 A single log record handed to a `RealtimeVoiceAgentConfig.onLog` sink.
 
@@ -18,7 +18,7 @@ A single log record handed to a `RealtimeVoiceAgentConfig.onLog` sink.
 
 > **level**: `"debug"` \| `"info"` \| `"warn"` \| `"error"`
 
-Defined in: [types/livekit.ts:457](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L457)
+Defined in: [types/livekit.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L457)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/livekit.ts:457](https://github.com/juspay/neurolink/blob/4903
 
 > **message**: `string`
 
-Defined in: [types/livekit.ts:458](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L458)
+Defined in: [types/livekit.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L458)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/livekit.ts:458](https://github.com/juspay/neurolink/blob/4903
 
 > **timestamp**: `number`
 
-Defined in: [types/livekit.ts:459](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L459)
+Defined in: [types/livekit.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L459)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/livekit.ts:459](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/livekit.ts:460](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L460)
+Defined in: [types/livekit.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L460)

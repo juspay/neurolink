@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessedFileInfo** = `object`
 
-Defined in: [types/processor.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L224)
+Defined in: [types/processor.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L224)
 
 Information about a successfully processed file.
 
@@ -18,7 +18,7 @@ Information about a successfully processed file.
 
 > **fileId**: `string`
 
-Defined in: [types/processor.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L226)
+Defined in: [types/processor.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L226)
 
 File identifier
 
@@ -28,7 +28,7 @@ File identifier
 
 > **filename**: `string`
 
-Defined in: [types/processor.ts:228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L228)
+Defined in: [types/processor.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L228)
 
 Filename
 
@@ -38,7 +38,7 @@ Filename
 
 > **mimetype**: `string`
 
-Defined in: [types/processor.ts:230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L230)
+Defined in: [types/processor.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L230)
 
 MIME type
 
@@ -48,7 +48,7 @@ MIME type
 
 > **size**: `number`
 
-Defined in: [types/processor.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L232)
+Defined in: [types/processor.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L232)
 
 Size in bytes
 
@@ -58,6 +58,6 @@ Size in bytes
 
 > **processorType**: `string`
 
-Defined in: [types/processor.ts:234](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L234)
+Defined in: [types/processor.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L234)
 
 Type of processor used

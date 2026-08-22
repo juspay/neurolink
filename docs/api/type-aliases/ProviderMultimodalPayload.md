@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderMultimodalPayload** = `object`
 
-Defined in: [types/multimodal.ts:594](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L594)
+Defined in: [types/multimodal.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L594)
 
 Provider-specific multimodal payload
 
@@ -22,7 +22,7 @@ Provider-specific multimodal payload
 
 > **provider**: `string`
 
-Defined in: [types/multimodal.ts:595](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L595)
+Defined in: [types/multimodal.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L595)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/multimodal.ts:595](https://github.com/juspay/neurolink/blob/4
 
 > **model**: `string`
 
-Defined in: [types/multimodal.ts:596](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L596)
+Defined in: [types/multimodal.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L596)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/multimodal.ts:596](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **messages?**: [`MultimodalMessage`](MultimodalMessage.md)[]
 
-Defined in: [types/multimodal.ts:597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L597)
+Defined in: [types/multimodal.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L597)
 
 ---
 
@@ -46,4 +46,4 @@ Defined in: [types/multimodal.ts:597](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **contents?**: `unknown`[]
 
-Defined in: [types/multimodal.ts:598](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L598)
+Defined in: [types/multimodal.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L598)

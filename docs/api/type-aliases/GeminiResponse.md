@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GeminiResponse** = `object`
 
-Defined in: [types/stt.ts:757](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L757)
+Defined in: [types/stt.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L757)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:757](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **setupComplete?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/stt.ts:758](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L758)
+Defined in: [types/stt.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L758)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:758](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **serverContent?**: `object`
 
-Defined in: [types/stt.ts:759](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L759)
+Defined in: [types/stt.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L759)
 
 #### modelTurn?
 
@@ -48,7 +48,7 @@ Defined in: [types/stt.ts:759](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **toolCall?**: `object`
 
-Defined in: [types/stt.ts:772](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L772)
+Defined in: [types/stt.ts:772](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L772)
 
 #### functionCalls
 
@@ -60,7 +60,7 @@ Defined in: [types/stt.ts:772](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **toolCallCancellation?**: `object`
 
-Defined in: [types/stt.ts:779](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L779)
+Defined in: [types/stt.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L779)
 
 #### ids
 

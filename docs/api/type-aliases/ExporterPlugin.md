@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExporterPlugin** = `object`
 
-Defined in: [types/exporter.ts:201](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L201)
+Defined in: [types/exporter.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L201)
 
 Exporter plugin interface for custom exporters
 
@@ -18,7 +18,7 @@ Exporter plugin interface for custom exporters
 
 > **name**: `string`
 
-Defined in: [types/exporter.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L202)
+Defined in: [types/exporter.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L202)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/exporter.ts:202](https://github.com/juspay/neurolink/blob/490
 
 > **version**: `string`
 
-Defined in: [types/exporter.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L203)
+Defined in: [types/exporter.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L203)
 
 ## Methods
 
@@ -34,7 +34,7 @@ Defined in: [types/exporter.ts:203](https://github.com/juspay/neurolink/blob/490
 
 > **create**(`config`): `unknown`
 
-Defined in: [types/exporter.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/exporter.ts#L204)
+Defined in: [types/exporter.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/exporter.ts#L204)
 
 #### Parameters
 

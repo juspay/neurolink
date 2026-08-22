@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AzureTTS
 
-Defined in: [voice/providers/AzureTTS.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/AzureTTS.ts#L29)
+Defined in: [voice/providers/AzureTTS.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureTTS.ts#L29)
 
 Azure Cognitive Services Text-to-Speech Handler
 
@@ -26,7 +26,7 @@ https://docs.microsoft.com/azure/cognitive-services/speech-service/
 
 > **new AzureTTS**(`apiKey?`, `region?`): `AzureTTS`
 
-Defined in: [voice/providers/AzureTTS.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/AzureTTS.ts#L40)
+Defined in: [voice/providers/AzureTTS.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureTTS.ts#L40)
 
 #### Parameters
 
@@ -48,7 +48,7 @@ Defined in: [voice/providers/AzureTTS.ts:40](https://github.com/juspay/neurolink
 
 > `readonly` **maxTextLength**: `10000` = `10000`
 
-Defined in: [voice/providers/AzureTTS.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/AzureTTS.ts#L38)
+Defined in: [voice/providers/AzureTTS.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureTTS.ts#L38)
 
 Maximum text length (10000 characters for Azure)
 
@@ -62,7 +62,7 @@ Maximum text length (10000 characters for Azure)
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/AzureTTS.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/AzureTTS.ts#L51)
+Defined in: [voice/providers/AzureTTS.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureTTS.ts#L51)
 
 Validate that the provider is properly configured
 
@@ -82,7 +82,7 @@ True if provider can generate TTS
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](../type-aliases/TTSVoice.md)[]\>
 
-Defined in: [voice/providers/AzureTTS.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/AzureTTS.ts#L55)
+Defined in: [voice/providers/AzureTTS.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureTTS.ts#L55)
 
 Get available voices for the provider
 
@@ -110,7 +110,7 @@ List of available voices
 
 > **synthesize**(`text`, `options?`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [voice/providers/AzureTTS.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/AzureTTS.ts#L162)
+Defined in: [voice/providers/AzureTTS.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/AzureTTS.ts#L162)
 
 Generate audio from text using provider-specific TTS API
 

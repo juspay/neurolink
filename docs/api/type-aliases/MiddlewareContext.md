@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MiddlewareContext** = `object`
 
-Defined in: [types/middleware.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L96)
+Defined in: [types/middleware.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L96)
 
 Context passed to middleware for decision making
 
@@ -18,7 +18,7 @@ Context passed to middleware for decision making
 
 > **provider**: `string`
 
-Defined in: [types/middleware.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L98)
+Defined in: [types/middleware.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L98)
 
 Provider name
 
@@ -28,7 +28,7 @@ Provider name
 
 > **model**: `string`
 
-Defined in: [types/middleware.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L100)
+Defined in: [types/middleware.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L100)
 
 Model name
 
@@ -38,7 +38,7 @@ Model name
 
 > **options**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middleware.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L102)
+Defined in: [types/middleware.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L102)
 
 Request options
 
@@ -48,7 +48,7 @@ Request options
 
 > `optional` **session?**: `object`
 
-Defined in: [types/middleware.ts:104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L104)
+Defined in: [types/middleware.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L104)
 
 Session information
 
@@ -66,6 +66,6 @@ Session information
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/middleware.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L109)
+Defined in: [types/middleware.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L109)
 
 Additional metadata

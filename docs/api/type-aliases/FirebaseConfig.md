@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FirebaseConfig** = `object`
 
-Defined in: [types/auth.ts:690](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L690)
+Defined in: [types/auth.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L690)
 
 Firebase provider configuration
 
@@ -18,7 +18,7 @@ Firebase provider configuration
 
 > **projectId**: `string`
 
-Defined in: [types/auth.ts:692](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L692)
+Defined in: [types/auth.ts:692](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L692)
 
 Firebase project ID
 
@@ -28,7 +28,7 @@ Firebase project ID
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/auth.ts:694](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L694)
+Defined in: [types/auth.ts:694](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L694)
 
 Firebase API key
 
@@ -38,7 +38,7 @@ Firebase API key
 
 > `optional` **serviceAccount?**: `object`
 
-Defined in: [types/auth.ts:696](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L696)
+Defined in: [types/auth.ts:696](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L696)
 
 Service account credentials
 
@@ -56,7 +56,7 @@ Service account credentials
 
 > `optional` **databaseURL?**: `string`
 
-Defined in: [types/auth.ts:701](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L701)
+Defined in: [types/auth.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L701)
 
 Firebase database URL
 
@@ -66,7 +66,7 @@ Firebase database URL
 
 > `optional` **rolesClaimKey?**: `string`
 
-Defined in: [types/auth.ts:703](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L703)
+Defined in: [types/auth.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L703)
 
 Custom claims key for roles
 
@@ -76,6 +76,6 @@ Custom claims key for roles
 
 > `optional` **permissionsClaimKey?**: `string`
 
-Defined in: [types/auth.ts:705](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L705)
+Defined in: [types/auth.ts:705](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L705)
 
 Custom claims key for permissions

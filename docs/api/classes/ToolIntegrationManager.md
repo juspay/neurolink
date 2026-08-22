@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ToolIntegrationManager
 
-Defined in: [mcp/toolIntegration.ts:386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L386)
+Defined in: [mcp/toolIntegration.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L386)
 
 Tool Integration Manager
 
@@ -18,7 +18,7 @@ Manages tool execution with middleware and elicitation support.
 
 > **new ToolIntegrationManager**(`elicitationManager?`): `ToolIntegrationManager`
 
-Defined in: [mcp/toolIntegration.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L391)
+Defined in: [mcp/toolIntegration.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L391)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [mcp/toolIntegration.ts:391](https://github.com/juspay/neurolink/blo
 
 > **setElicitationHandler**(`handler`): `void`
 
-Defined in: [mcp/toolIntegration.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L398)
+Defined in: [mcp/toolIntegration.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L398)
 
 Set the elicitation handler
 
@@ -56,7 +56,7 @@ Set the elicitation handler
 
 > **use**(`middleware`): `this`
 
-Defined in: [mcp/toolIntegration.ts:405](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L405)
+Defined in: [mcp/toolIntegration.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L405)
 
 Add middleware
 
@@ -76,7 +76,7 @@ Add middleware
 
 > **registerTool**(`tool`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/toolIntegration.ts:413](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L413)
+Defined in: [mcp/toolIntegration.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L413)
 
 Register a tool with integration
 
@@ -96,7 +96,7 @@ Register a tool with integration
 
 > **executeTool**(`toolName`, `params`, `context?`): `Promise`\<`unknown`\>
 
-Defined in: [mcp/toolIntegration.ts:425](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L425)
+Defined in: [mcp/toolIntegration.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L425)
 
 Execute a tool with full middleware chain
 
@@ -124,7 +124,7 @@ Execute a tool with full middleware chain
 
 > **getTool**(`name`): [`MCPServerTool`](../type-aliases/MCPServerTool.md) \| `undefined`
 
-Defined in: [mcp/toolIntegration.ts:477](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L477)
+Defined in: [mcp/toolIntegration.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L477)
 
 Get registered tool
 
@@ -144,7 +144,7 @@ Get registered tool
 
 > **getAllTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/toolIntegration.ts:484](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L484)
+Defined in: [mcp/toolIntegration.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L484)
 
 Get all registered tools
 
@@ -158,7 +158,7 @@ Get all registered tools
 
 > **getElicitationManager**(): [`ElicitationManager`](ElicitationManager.md)
 
-Defined in: [mcp/toolIntegration.ts:491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolIntegration.ts#L491)
+Defined in: [mcp/toolIntegration.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolIntegration.ts#L491)
 
 Get the elicitation manager
 

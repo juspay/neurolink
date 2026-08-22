@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkWorkflow** = `object`
 
-Defined in: [types/agentNetwork.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L212)
+Defined in: [types/agentNetwork.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L212)
 
 Workflow definition for network integration
 
@@ -18,7 +18,7 @@ Workflow definition for network integration
 
 > **execute**(`input`): `Promise`\<\{ `output`: `unknown`; \}\>
 
-Defined in: [types/agentNetwork.ts:214](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L214)
+Defined in: [types/agentNetwork.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L214)
 
 Execute the workflow with given input
 
@@ -38,7 +38,7 @@ Execute the workflow with given input
 
 > `optional` **stream**(`input`): `AsyncIterable`\<`unknown`\>
 
-Defined in: [types/agentNetwork.ts:217](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L217)
+Defined in: [types/agentNetwork.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L217)
 
 Optional streaming support
 

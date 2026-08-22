@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KnowledgeContextConfig** = `object`
 
-Defined in: [types/knowledge.ts:200](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L200)
+Defined in: [types/knowledge.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L200)
 
 Ephemeral-context assembly limits.
 
@@ -18,7 +18,7 @@ Ephemeral-context assembly limits.
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/knowledge.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L202)
+Defined in: [types/knowledge.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L202)
 
 Hard token budget for the assembled grounding block. Default: 4000.
 
@@ -28,6 +28,6 @@ Hard token budget for the assembled grounding block. Default: 4000.
 
 > `optional` **includeCitations?**: `boolean`
 
-Defined in: [types/knowledge.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L204)
+Defined in: [types/knowledge.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L204)
 
 Emit `[KB:<id>@<version>]` citations. Default: true.

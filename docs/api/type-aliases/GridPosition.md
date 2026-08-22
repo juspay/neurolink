@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GridPosition** = `object`
 
-Defined in: [types/ppt.ts:1312](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1312)
+Defined in: [types/ppt.ts:1312](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1312)
 
 Grid position for zones
 
@@ -18,7 +18,7 @@ Grid position for zones
 
 > **x**: `number`
 
-Defined in: [types/ppt.ts:1313](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1313)
+Defined in: [types/ppt.ts:1313](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1313)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1313](https://github.com/juspay/neurolink/blob/49032fc
 
 > **y**: `number`
 
-Defined in: [types/ppt.ts:1314](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1314)
+Defined in: [types/ppt.ts:1314](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1314)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1314](https://github.com/juspay/neurolink/blob/49032fc
 
 > **w**: `number`
 
-Defined in: [types/ppt.ts:1315](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1315)
+Defined in: [types/ppt.ts:1315](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1315)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/ppt.ts:1315](https://github.com/juspay/neurolink/blob/49032fc
 
 > **h**: `number`
 
-Defined in: [types/ppt.ts:1316](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1316)
+Defined in: [types/ppt.ts:1316](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1316)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAICompatSSEResult** = `object`
 
-Defined in: [types/openaiCompatible.ts:255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L255)
+Defined in: [types/openaiCompatible.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L255)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:255](https://github.com/juspay/neurolink/
 
 > **text**: `string`
 
-Defined in: [types/openaiCompatible.ts:256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L256)
+Defined in: [types/openaiCompatible.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L256)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:256](https://github.com/juspay/neurolink/
 
 > **reasoning**: `string`
 
-Defined in: [types/openaiCompatible.ts:258](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L258)
+Defined in: [types/openaiCompatible.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L258)
 
 Accumulated reasoner-model output (`reasoning_content` / `reasoning` deltas).
 
@@ -34,7 +34,7 @@ Accumulated reasoner-model output (`reasoning_content` / `reasoning` deltas).
 
 > **toolCalls**: `Map`\<`number`, \{ `id`: `string`; `name`: `string`; `argsBuffered`: `string`; \}\>
 
-Defined in: [types/openaiCompatible.ts:259](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L259)
+Defined in: [types/openaiCompatible.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L259)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/openaiCompatible.ts:259](https://github.com/juspay/neurolink/
 
 > **finishReason**: `"stop"` \| `"length"` \| `"tool_calls"` \| `"function_call"` \| `"content_filter"` \| `null`
 
-Defined in: [types/openaiCompatible.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L260)
+Defined in: [types/openaiCompatible.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L260)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/openaiCompatible.ts:260](https://github.com/juspay/neurolink/
 
 > `optional` **usage?**: [`OpenAICompatUsage`](OpenAICompatUsage.md)
 
-Defined in: [types/openaiCompatible.ts:267](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L267)
+Defined in: [types/openaiCompatible.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L267)

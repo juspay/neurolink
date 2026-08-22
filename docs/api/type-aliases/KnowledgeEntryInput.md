@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KnowledgeEntryInput** = `object`
 
-Defined in: [types/knowledge.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L81)
+Defined in: [types/knowledge.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L81)
 
 The record a host author writes. `id`, `title`, `summary`, `domain`, and
 `integrations` are required; every other field is optional and omitted
@@ -20,7 +20,7 @@ optionals fall back to SDK defaults during normalization.
 
 > **id**: `string`
 
-Defined in: [types/knowledge.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L83)
+Defined in: [types/knowledge.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L83)
 
 Stable unique id (e.g. "account.multi-step-flow"). Drives exact-match lookup and citations.
 
@@ -30,7 +30,7 @@ Stable unique id (e.g. "account.multi-step-flow"). Drives exact-match lookup and
 
 > **title**: `string`
 
-Defined in: [types/knowledge.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L85)
+Defined in: [types/knowledge.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L85)
 
 Human-readable name of the concept/setting. Highest-weighted search field.
 
@@ -40,7 +40,7 @@ Human-readable name of the concept/setting. Highest-weighted search field.
 
 > **summary**: `string`
 
-Defined in: [types/knowledge.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L87)
+Defined in: [types/knowledge.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L87)
 
 One-line searchable description — the short answer when a full body is unnecessary.
 
@@ -50,7 +50,7 @@ One-line searchable description — the short answer when a full body is unneces
 
 > **domain**: `string`
 
-Defined in: [types/knowledge.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L89)
+Defined in: [types/knowledge.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L89)
 
 Primary grouping and the main retrieval filter (e.g. "account-settings").
 
@@ -60,7 +60,7 @@ Primary grouping and the main retrieval filter (e.g. "account-settings").
 
 > **integrations**: `string`[]
 
-Defined in: [types/knowledge.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L91)
+Defined in: [types/knowledge.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L91)
 
 Integration identifiers this entry applies to. Empty array = applies to all integrations.
 
@@ -70,7 +70,7 @@ Integration identifiers this entry applies to. Empty array = applies to all inte
 
 > `optional` **kind?**: [`KnowledgeEntryKind`](KnowledgeEntryKind.md)
 
-Defined in: [types/knowledge.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L93)
+Defined in: [types/knowledge.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L93)
 
 What the entry is (concept, configuration, procedure, …). Default "text". Labels context, not ranking.
 
@@ -80,7 +80,7 @@ What the entry is (concept, configuration, procedure, …). Default "text". Labe
 
 > `optional` **status?**: [`KnowledgeStatus`](KnowledgeStatus.md)
 
-Defined in: [types/knowledge.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L95)
+Defined in: [types/knowledge.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L95)
 
 Lifecycle state. Default "active"; only active entries are retrievable.
 
@@ -90,7 +90,7 @@ Lifecycle state. Default "active"; only active entries are retrievable.
 
 > `optional` **body?**: `string`
 
-Defined in: [types/knowledge.ts:97](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L97)
+Defined in: [types/knowledge.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L97)
 
 Full explanatory content (Markdown). Use only when the summary is insufficient.
 
@@ -100,7 +100,7 @@ Full explanatory content (Markdown). Use only when the summary is insufficient.
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/knowledge.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L99)
+Defined in: [types/knowledge.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L99)
 
 Reviewed alternate phrasings or raw identifiers that resolve to exact and alias matches.
 
@@ -110,7 +110,7 @@ Reviewed alternate phrasings or raw identifiers that resolve to exact and alias 
 
 > `optional` **keywords?**: `string`[]
 
-Defined in: [types/knowledge.ts:101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L101)
+Defined in: [types/knowledge.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L101)
 
 Extra search terms that aid recall but are not full aliases.
 
@@ -120,7 +120,7 @@ Extra search terms that aid recall but are not full aliases.
 
 > `optional` **relatedEntryIds?**: `string`[]
 
-Defined in: [types/knowledge.ts:103](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L103)
+Defined in: [types/knowledge.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L103)
 
 Ids of directly related entries, pulled in by bounded relationship expansion.
 
@@ -130,6 +130,6 @@ Ids of directly related entries, pulled in by bounded relationship expansion.
 
 > `optional` **parentEntryId?**: `string`
 
-Defined in: [types/knowledge.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L105)
+Defined in: [types/knowledge.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L105)
 
 Id of the parent entry when this is a subtype or child.

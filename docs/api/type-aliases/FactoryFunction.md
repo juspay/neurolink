@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FactoryFunction**\<`TInstance`, `TConfig`\> = (`config?`) => `Promise`\<`TInstance`\>
 
-Defined in: [types/common.ts:436](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L436)
+Defined in: [types/common.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L436)
 
 Factory function type for creating instances.
 

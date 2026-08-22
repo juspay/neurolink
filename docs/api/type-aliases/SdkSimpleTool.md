@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SdkSimpleTool**\<`TArgs`, `TResult`\> = `Omit`\<[`SimpleTool`](SimpleTool.md)\<`TArgs`, `TResult`\>, `"execute"`\> & `object`
 
-Defined in: [types/tools.ts:443](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L443)
+Defined in: [types/tools.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L443)
 
 Simple tool type accepted by the SDK registerTool() helper. Uses
 SDKToolContext (richer tool context with request metadata).

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: KlingVideoHandler
 
-Defined in: [adapters/video/klingVideoHandler.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L42)
+Defined in: [adapters/video/klingVideoHandler.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L42)
 
 Kling Video Handler.
 
@@ -23,7 +23,7 @@ Models: kling-1.6-i2v (default), kling-1.5-i2v, kling-1.0.
 
 > **new KlingVideoHandler**(`apiKey?`): `KlingVideoHandler`
 
-Defined in: [adapters/video/klingVideoHandler.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L54)
+Defined in: [adapters/video/klingVideoHandler.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L54)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [adapters/video/klingVideoHandler.ts:54](https://github.com/juspay/n
 
 > `readonly` **maxDurationSeconds**: `10` = `10`
 
-Defined in: [adapters/video/klingVideoHandler.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L43)
+Defined in: [adapters/video/klingVideoHandler.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L43)
 
 Maximum video duration in seconds supported by this provider.
 
@@ -55,7 +55,7 @@ Maximum video duration in seconds supported by this provider.
 
 > `readonly` **supportedAspectRatios**: readonly (`"9:16"` \| `"16:9"` \| `"1:1"`)[]
 
-Defined in: [adapters/video/klingVideoHandler.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L44)
+Defined in: [adapters/video/klingVideoHandler.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L44)
 
 Supported aspect ratios.
 
@@ -69,7 +69,7 @@ Supported aspect ratios.
 
 > `readonly` **supportedResolutions**: readonly (`"720p"` \| `"1080p"`)[]
 
-Defined in: [adapters/video/klingVideoHandler.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L46)
+Defined in: [adapters/video/klingVideoHandler.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L46)
 
 Supported output resolutions.
 
@@ -83,7 +83,7 @@ Supported output resolutions.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [adapters/video/klingVideoHandler.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L63)
+Defined in: [adapters/video/klingVideoHandler.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L63)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -101,7 +101,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`image`, `prompt`, `options`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
 
-Defined in: [adapters/video/klingVideoHandler.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/klingVideoHandler.ts#L67)
+Defined in: [adapters/video/klingVideoHandler.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/klingVideoHandler.ts#L67)
 
 Generate a single video clip from an input image and prompt.
 

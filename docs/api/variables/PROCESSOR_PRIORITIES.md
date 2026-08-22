@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > `const` **PROCESSOR_PRIORITIES**: `object`
 
-Defined in: [types/processor.ts:405](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L405)
+Defined in: [types/processor.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L405)
 
 Priority levels for file processors.
 Lower number = higher priority = matched first.

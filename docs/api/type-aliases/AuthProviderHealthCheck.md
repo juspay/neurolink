@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthProviderHealthCheck** = `object`
 
-Defined in: [types/auth.ts:1004](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1004)
+Defined in: [types/auth.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1004)
 
 Health check result for auth providers (detailed)
 
@@ -18,7 +18,7 @@ Health check result for auth providers (detailed)
 
 > **healthy**: `boolean`
 
-Defined in: [types/auth.ts:1006](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1006)
+Defined in: [types/auth.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1006)
 
 Provider is healthy
 
@@ -28,7 +28,7 @@ Provider is healthy
 
 > **provider**: [`AuthProviderType`](AuthProviderType.md)
 
-Defined in: [types/auth.ts:1008](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1008)
+Defined in: [types/auth.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1008)
 
 Provider type
 
@@ -38,7 +38,7 @@ Provider type
 
 > `optional` **latency?**: `number`
 
-Defined in: [types/auth.ts:1010](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1010)
+Defined in: [types/auth.ts:1010](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1010)
 
 Response time in ms
 
@@ -48,7 +48,7 @@ Response time in ms
 
 > `optional` **lastCheck?**: `Date`
 
-Defined in: [types/auth.ts:1012](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1012)
+Defined in: [types/auth.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1012)
 
 Last successful check
 
@@ -58,7 +58,7 @@ Last successful check
 
 > `optional` **error?**: `string`
 
-Defined in: [types/auth.ts:1014](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1014)
+Defined in: [types/auth.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1014)
 
 Error message if unhealthy
 
@@ -68,6 +68,6 @@ Error message if unhealthy
 
 > `optional` **details?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/auth.ts:1016](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1016)
+Defined in: [types/auth.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1016)
 
 Additional details

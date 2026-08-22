@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConversationSummary** = [`ConversationBase`](ConversationBase.md) & `object`
 
-Defined in: [types/conversation.ts:695](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L695)
+Defined in: [types/conversation.ts:695](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L695)
 
 Conversation summary for listing and selection
 Contains conversation preview information without heavy message arrays

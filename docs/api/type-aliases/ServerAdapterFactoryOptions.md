@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerAdapterFactoryOptions** = `object`
 
-Defined in: [types/server.ts:800](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L800)
+Defined in: [types/server.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L800)
 
 Server adapter factory options
 
@@ -18,7 +18,7 @@ Server adapter factory options
 
 > **framework**: [`ServerFramework`](ServerFramework.md)
 
-Defined in: [types/server.ts:802](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L802)
+Defined in: [types/server.ts:802](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L802)
 
 Framework to use
 
@@ -28,7 +28,7 @@ Framework to use
 
 > **neurolink**: [`NeuroLink`](../classes/NeuroLink.md)
 
-Defined in: [types/server.ts:805](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L805)
+Defined in: [types/server.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L805)
 
 NeuroLink instance
 
@@ -38,6 +38,6 @@ NeuroLink instance
 
 > `optional` **config?**: [`ServerAdapterConfig`](ServerAdapterConfig.md)
 
-Defined in: [types/server.ts:808](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L808)
+Defined in: [types/server.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L808)
 
 Server configuration

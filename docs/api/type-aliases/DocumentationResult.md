@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DocumentationResult** = `object`
 
-Defined in: [types/mcp.ts:2615](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2615)
+Defined in: [types/mcp.ts:2615](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2615)
 
 Result of the AI documentation-generation workflow.
 
@@ -18,7 +18,7 @@ Result of the AI documentation-generation workflow.
 
 > **documentation**: `string`
 
-Defined in: [types/mcp.ts:2616](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2616)
+Defined in: [types/mcp.ts:2616](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2616)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2616](https://github.com/juspay/neurolink/blob/49032fc
 
 > **sections**: `string`[]
 
-Defined in: [types/mcp.ts:2617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2617)
+Defined in: [types/mcp.ts:2617](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2617)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2617](https://github.com/juspay/neurolink/blob/49032fc
 
 > **examples**: `string`[]
 
-Defined in: [types/mcp.ts:2618](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2618)
+Defined in: [types/mcp.ts:2618](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2618)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:2618](https://github.com/juspay/neurolink/blob/49032fc
 
 > **coverage**: `number`
 
-Defined in: [types/mcp.ts:2619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2619)
+Defined in: [types/mcp.ts:2619](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2619)

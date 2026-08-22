@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RealtimeProcessor
 
-Defined in: [voice/RealtimeVoiceAPI.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L53)
+Defined in: [voice/RealtimeVoiceAPI.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L53)
 
 Realtime Processor class for orchestrating realtime voice operations
 
@@ -49,7 +49,7 @@ await RealtimeProcessor.disconnect("openai-realtime");
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L72)
+Defined in: [voice/RealtimeVoiceAPI.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L72)
 
 Register a Realtime handler for a specific provider
 
@@ -77,7 +77,7 @@ Realtime handler implementation
 
 > `static` **getHandler**(`providerName`): [`RealtimeHandler`](../type-aliases/RealtimeHandler.md) \| `undefined`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L88)
+Defined in: [voice/RealtimeVoiceAPI.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L88)
 
 Get a registered Realtime handler by provider name.
 
@@ -100,7 +100,7 @@ already-registered primary handler when backfilling its aliases.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L95)
+Defined in: [voice/RealtimeVoiceAPI.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L95)
 
 Check if a provider is supported
 
@@ -120,7 +120,7 @@ Check if a provider is supported
 
 > `static` **getProviders**(): `string`[]
 
-Defined in: [voice/RealtimeVoiceAPI.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L102)
+Defined in: [voice/RealtimeVoiceAPI.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L102)
 
 Get list of all registered providers
 
@@ -134,7 +134,7 @@ Get list of all registered providers
 
 > `static` **connect**(`provider`, `config`, `handlers?`): `Promise`\<[`RealtimeSession`](../type-aliases/RealtimeSession.md)\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:114](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L114)
+Defined in: [voice/RealtimeVoiceAPI.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L114)
 
 Connect to a realtime session
 
@@ -170,7 +170,7 @@ Session information
 
 > `static` **disconnect**(`provider`): `Promise`\<`void`\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L180)
+Defined in: [voice/RealtimeVoiceAPI.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L180)
 
 Disconnect from a realtime session
 
@@ -192,7 +192,7 @@ Provider identifier
 
 > `static` **sendAudio**(`provider`, `audio`): `Promise`\<`void`\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:221](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L221)
+Defined in: [voice/RealtimeVoiceAPI.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L221)
 
 Send audio to a realtime session
 
@@ -220,7 +220,7 @@ Audio data
 
 > `static` **sendText**(`provider`, `text`): `Promise`\<`void`\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L254)
+Defined in: [voice/RealtimeVoiceAPI.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L254)
 
 Send text to a realtime session
 
@@ -248,7 +248,7 @@ Text to send
 
 > `static` **triggerResponse**(`provider`): `Promise`\<`void`\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:302](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L302)
+Defined in: [voice/RealtimeVoiceAPI.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L302)
 
 Trigger a response from the model (manual turn detection)
 
@@ -270,7 +270,7 @@ Provider identifier
 
 > `static` **cancelResponse**(`provider`): `Promise`\<`void`\>
 
-Defined in: [voice/RealtimeVoiceAPI.ts:338](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L338)
+Defined in: [voice/RealtimeVoiceAPI.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L338)
 
 Cancel the current response
 
@@ -292,7 +292,7 @@ Provider identifier
 
 > `static` **getSession**(`provider`): [`RealtimeSession`](../type-aliases/RealtimeSession.md) \| `null`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:375](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L375)
+Defined in: [voice/RealtimeVoiceAPI.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L375)
 
 Get current session for a provider
 
@@ -316,7 +316,7 @@ Session or null
 
 > `static` **isConnected**(`provider`): `boolean`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L385)
+Defined in: [voice/RealtimeVoiceAPI.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L385)
 
 Check if a provider has an active session
 
@@ -338,7 +338,7 @@ Provider identifier
 
 > `static` **getSupportedFormats**(`provider`): [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
 
-Defined in: [voice/RealtimeVoiceAPI.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L395)
+Defined in: [voice/RealtimeVoiceAPI.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L395)
 
 Get supported formats for a provider
 
@@ -360,7 +360,7 @@ Provider identifier
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [voice/RealtimeVoiceAPI.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/RealtimeVoiceAPI.ts#L403)
+Defined in: [voice/RealtimeVoiceAPI.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/voice/RealtimeVoiceAPI.ts#L403)
 
 Clear all handlers and sessions (for testing)
 

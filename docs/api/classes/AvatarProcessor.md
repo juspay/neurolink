@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AvatarProcessor
 
-Defined in: [utils/avatarProcessor.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L72)
+Defined in: [utils/avatarProcessor.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L72)
 
 Static processor managing the avatar handler registry.
 
@@ -26,7 +26,7 @@ Static processor managing the avatar handler registry.
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [utils/avatarProcessor.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L80)
+Defined in: [utils/avatarProcessor.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L80)
 
 Register an avatar handler for a specific provider.
 
@@ -50,7 +50,7 @@ Register an avatar handler for a specific provider.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/avatarProcessor.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L89)
+Defined in: [utils/avatarProcessor.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L89)
 
 Check if a provider has a registered avatar handler.
 
@@ -70,7 +70,7 @@ Check if a provider has a registered avatar handler.
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/avatarProcessor.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L96)
+Defined in: [utils/avatarProcessor.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L96)
 
 List the names of all registered providers.
 
@@ -84,7 +84,7 @@ List the names of all registered providers.
 
 > `static` **getHandler**(`providerName`): [`AvatarHandler`](../type-aliases/AvatarHandler.md) \| `undefined`
 
-Defined in: [utils/avatarProcessor.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L106)
+Defined in: [utils/avatarProcessor.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L106)
 
 Get a registered avatar handler by provider name.
 
@@ -107,7 +107,7 @@ already-registered primary handler when backfilling its aliases.
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [utils/avatarProcessor.ts:113](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L113)
+Defined in: [utils/avatarProcessor.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L113)
 
 Clear all registered handlers (for testing).
 
@@ -121,7 +121,7 @@ Clear all registered handlers (for testing).
 
 > `static` **generate**(`provider`, `options`): `Promise`\<[`AvatarResult`](../type-aliases/AvatarResult.md)\>
 
-Defined in: [utils/avatarProcessor.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/avatarProcessor.ts#L137)
+Defined in: [utils/avatarProcessor.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/utils/avatarProcessor.ts#L137)
 
 Generate an avatar video via the registered handler.
 

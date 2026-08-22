@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MusicProcessor
 
-Defined in: [utils/musicProcessor.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L71)
+Defined in: [utils/musicProcessor.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L71)
 
 Static processor managing the music handler registry.
 
@@ -26,7 +26,7 @@ Static processor managing the music handler registry.
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [utils/musicProcessor.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L79)
+Defined in: [utils/musicProcessor.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L79)
 
 Register a music handler for a specific provider.
 
@@ -50,7 +50,7 @@ Register a music handler for a specific provider.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/musicProcessor.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L88)
+Defined in: [utils/musicProcessor.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L88)
 
 Check if a provider has a registered music handler.
 
@@ -70,7 +70,7 @@ Check if a provider has a registered music handler.
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/musicProcessor.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L95)
+Defined in: [utils/musicProcessor.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L95)
 
 List the names of all registered providers.
 
@@ -84,7 +84,7 @@ List the names of all registered providers.
 
 > `static` **getHandler**(`providerName`): [`MusicHandler`](../type-aliases/MusicHandler.md) \| `undefined`
 
-Defined in: [utils/musicProcessor.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L105)
+Defined in: [utils/musicProcessor.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L105)
 
 Get a registered music handler by provider name.
 
@@ -107,7 +107,7 @@ already-registered primary handler when backfilling its aliases.
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [utils/musicProcessor.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L112)
+Defined in: [utils/musicProcessor.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L112)
 
 Clear all registered handlers (for testing).
 
@@ -121,7 +121,7 @@ Clear all registered handlers (for testing).
 
 > `static` **generate**(`provider`, `options`): `Promise`\<[`MusicResult`](../type-aliases/MusicResult.md)\>
 
-Defined in: [utils/musicProcessor.ts:136](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/musicProcessor.ts#L136)
+Defined in: [utils/musicProcessor.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/utils/musicProcessor.ts#L136)
 
 Generate a music track via the registered handler.
 

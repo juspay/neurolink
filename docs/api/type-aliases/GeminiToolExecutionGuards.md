@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GeminiToolExecutionGuards** = `object`
 
-Defined in: [types/loopEngine.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L365)
+Defined in: [types/loopEngine.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L365)
 
 The three things a native Gemini loop wraps around every tool call that the
 shared engine does not do itself.
@@ -25,7 +25,7 @@ its hand-rolled loops never had.
 
 > `optional` **toolTimeoutMs?**: `number`
 
-Defined in: [types/loopEngine.ts:367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L367)
+Defined in: [types/loopEngine.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L367)
 
 Upper bound on a single execute(); omit for no bound.
 
@@ -35,7 +35,7 @@ Upper bound on a single execute(); omit for no bound.
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/loopEngine.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L372)
+Defined in: [types/loopEngine.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L372)
 
 Turn-level abort, raced against the call so a deadline or caller cancel is
 observed immediately instead of after the tool settles.
@@ -46,7 +46,7 @@ observed immediately instead of after the tool settles.
 
 > `optional` **onProgress?**: () => `void`
 
-Defined in: [types/loopEngine.ts:378](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L378)
+Defined in: [types/loopEngine.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L378)
 
 Stall-watchdog ping, called either side of the await. The watchdog is a
 whole-turn interval measuring wall-clock since the last mark, so a
@@ -62,7 +62,7 @@ legitimately slow tool reads as a stalled turn without this.
 
 > `optional` **withToolSpan?**: \<`T`\>(`name`, `run`) => `Promise`\<`T`\>
 
-Defined in: [types/loopEngine.ts:393](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L393)
+Defined in: [types/loopEngine.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L393)
 
 Wrap one tool call in the provider's own observability.
 

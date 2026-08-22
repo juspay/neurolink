@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelPricingInfo** = `object`
 
-Defined in: [types/model.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L137)
+Defined in: [types/model.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L137)
 
 Model pricing information
 
@@ -18,7 +18,7 @@ Model pricing information
 
 > **inputCostPer1K**: `number`
 
-Defined in: [types/model.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L138)
+Defined in: [types/model.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L138)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:138](https://github.com/juspay/neurolink/blob/49032f
 
 > **outputCostPer1K**: `number`
 
-Defined in: [types/model.ts:139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L139)
+Defined in: [types/model.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L139)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/model.ts:139](https://github.com/juspay/neurolink/blob/49032f
 
 > **currency**: `string`
 
-Defined in: [types/model.ts:140](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L140)
+Defined in: [types/model.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L140)

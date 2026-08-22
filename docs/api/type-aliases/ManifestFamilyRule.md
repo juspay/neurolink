@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ManifestFamilyRule** = `object`
 
-Defined in: [types/model.ts:332](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L332)
+Defined in: [types/model.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L332)
 
 A regex-driven patch applied to an unlisted, gateway-shaped model id that
 matches `pattern` (e.g. "vertex_ai/claude-sonnet-5@20260203"). Generalizes
@@ -22,7 +22,7 @@ already use independently, keyed per-provider instead of globally.
 
 > **pattern**: `RegExp`
 
-Defined in: [types/model.ts:333](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L333)
+Defined in: [types/model.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L333)
 
 ---
 
@@ -30,4 +30,4 @@ Defined in: [types/model.ts:333](https://github.com/juspay/neurolink/blob/49032f
 
 > **patch**: `Partial`\<[`ProviderModelManifestEntry`](ProviderModelManifestEntry.md)\>
 
-Defined in: [types/model.ts:334](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L334)
+Defined in: [types/model.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L334)

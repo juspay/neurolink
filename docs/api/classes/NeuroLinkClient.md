@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: NeuroLinkClient
 
-Defined in: [client/httpClient.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L137)
+Defined in: [client/httpClient.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L137)
 
 HTTP Client for NeuroLink API
 
@@ -46,7 +46,7 @@ client.use(async (request, next) => {
 
 > **new NeuroLinkClient**(`config`): `NeuroLinkClient`
 
-Defined in: [client/httpClient.ts:145](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L145)
+Defined in: [client/httpClient.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L145)
 
 #### Parameters
 
@@ -64,7 +64,7 @@ Defined in: [client/httpClient.ts:145](https://github.com/juspay/neurolink/blob/
 
 > **use**(`middleware`): `this`
 
-Defined in: [client/httpClient.ts:188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L188)
+Defined in: [client/httpClient.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L188)
 
 Add middleware to the client
 
@@ -88,7 +88,7 @@ Client instance for chaining
 
 > **clearMiddleware**(): `this`
 
-Defined in: [client/httpClient.ts:196](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L196)
+Defined in: [client/httpClient.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L196)
 
 Clear all middleware
 
@@ -102,7 +102,7 @@ Clear all middleware
 
 > **generate**(`options`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientGenerateResponse`](../type-aliases/ClientGenerateResponse.md)\>\>
 
-Defined in: [client/httpClient.ts:485](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L485)
+Defined in: [client/httpClient.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L485)
 
 Generate text using AI models
 
@@ -138,7 +138,7 @@ console.log(response.data.content);
 
 > **stream**(`options`, `callbacks?`, `requestOptions?`): `Promise`\<[`ClientStreamResult`](../type-aliases/ClientStreamResult.md)\>
 
-Defined in: [client/httpClient.ts:506](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L506)
+Defined in: [client/httpClient.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L506)
 
 Stream text generation
 
@@ -178,7 +178,7 @@ await client.stream(
 
 > **executeAgent**(`options`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientAgentExecuteResult`](../type-aliases/ClientAgentExecuteResult.md)\>\>
 
-Defined in: [client/httpClient.ts:686](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L686)
+Defined in: [client/httpClient.ts:686](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L686)
 
 Execute an agent
 
@@ -213,7 +213,7 @@ console.log(result.data.content);
 
 > **streamAgent**(`options`, `callbacks?`, `requestOptions?`): `Promise`\<[`ClientStreamResult`](../type-aliases/ClientStreamResult.md)\>
 
-Defined in: [client/httpClient.ts:701](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L701)
+Defined in: [client/httpClient.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L701)
 
 Stream agent execution
 
@@ -241,7 +241,7 @@ Stream agent execution
 
 > **listAgents**(`requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientAgentInfo`](../type-aliases/ClientAgentInfo.md)[]\>\>
 
-Defined in: [client/httpClient.ts:720](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L720)
+Defined in: [client/httpClient.ts:720](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L720)
 
 List available agents
 
@@ -261,7 +261,7 @@ List available agents
 
 > **getAgent**(`agentId`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientAgentInfo`](../type-aliases/ClientAgentInfo.md)\>\>
 
-Defined in: [client/httpClient.ts:729](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L729)
+Defined in: [client/httpClient.ts:729](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L729)
 
 Get agent details
 
@@ -285,7 +285,7 @@ Get agent details
 
 > **executeWorkflow**(`options`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientWorkflowExecuteResult`](../type-aliases/ClientWorkflowExecuteResult.md)\>\>
 
-Defined in: [client/httpClient.ts:764](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L764)
+Defined in: [client/httpClient.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L764)
 
 Execute a workflow
 
@@ -326,7 +326,7 @@ if (result.data.status === 'running') {
 
 > **resumeWorkflow**(`workflowId`, `resumeToken`, `resumeData?`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientWorkflowExecuteResult`](../type-aliases/ClientWorkflowExecuteResult.md)\>\>
 
-Defined in: [client/httpClient.ts:779](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L779)
+Defined in: [client/httpClient.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L779)
 
 Resume a suspended workflow
 
@@ -358,7 +358,7 @@ Resume a suspended workflow
 
 > **getWorkflowStatus**(`workflowId`, `runId`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientWorkflowExecuteResult`](../type-aliases/ClientWorkflowExecuteResult.md)\>\>
 
-Defined in: [client/httpClient.ts:796](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L796)
+Defined in: [client/httpClient.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L796)
 
 Get workflow execution status
 
@@ -386,7 +386,7 @@ Get workflow execution status
 
 > **cancelWorkflow**(`workflowId`, `runId`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<\{ `success`: `boolean`; \}\>\>
 
-Defined in: [client/httpClient.ts:812](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L812)
+Defined in: [client/httpClient.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L812)
 
 Cancel workflow execution
 
@@ -414,7 +414,7 @@ Cancel workflow execution
 
 > **listWorkflows**(`requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientWorkflowInfo`](../type-aliases/ClientWorkflowInfo.md)[]\>\>
 
-Defined in: [client/httpClient.ts:828](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L828)
+Defined in: [client/httpClient.ts:828](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L828)
 
 List available workflows
 
@@ -434,7 +434,7 @@ List available workflows
 
 > **getWorkflow**(`workflowId`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientWorkflowInfo`](../type-aliases/ClientWorkflowInfo.md)\>\>
 
-Defined in: [client/httpClient.ts:837](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L837)
+Defined in: [client/httpClient.ts:837](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L837)
 
 Get workflow details
 
@@ -458,7 +458,7 @@ Get workflow details
 
 > **listTools**(`options?`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientToolInfo`](../type-aliases/ClientToolInfo.md)[]\>\>
 
-Defined in: [client/httpClient.ts:862](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L862)
+Defined in: [client/httpClient.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L862)
 
 List available tools
 
@@ -495,7 +495,7 @@ console.log(tools.data);
 
 > **executeTool**(`toolName`, `params`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<`unknown`\>\>
 
-Defined in: [client/httpClient.ts:886](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L886)
+Defined in: [client/httpClient.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L886)
 
 Execute a tool
 
@@ -523,7 +523,7 @@ Execute a tool
 
 > **getTool**(`toolName`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientToolInfo`](../type-aliases/ClientToolInfo.md)\>\>
 
-Defined in: [client/httpClient.ts:902](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L902)
+Defined in: [client/httpClient.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L902)
 
 Get tool details
 
@@ -547,7 +547,7 @@ Get tool details
 
 > **listProviders**(`requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientProviderStatus`](../type-aliases/ClientProviderStatus.md)[]\>\>
 
-Defined in: [client/httpClient.ts:921](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L921)
+Defined in: [client/httpClient.ts:921](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L921)
 
 List available providers
 
@@ -567,7 +567,7 @@ List available providers
 
 > **getProviderStatus**(`providerName`, `requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<[`ClientProviderStatus`](../type-aliases/ClientProviderStatus.md)\>\>
 
-Defined in: [client/httpClient.ts:930](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L930)
+Defined in: [client/httpClient.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L930)
 
 Get provider status
 
@@ -591,7 +591,7 @@ Get provider status
 
 > **health**(`requestOptions?`): `Promise`\<[`ClientApiResponse`](../type-aliases/ClientApiResponse.md)\<\{ `status`: `string`; `version`: `string`; \}\>\>
 
-Defined in: [client/httpClient.ts:949](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L949)
+Defined in: [client/httpClient.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L949)
 
 Health check
 
@@ -611,7 +611,7 @@ Health check
 
 > **connectWebSocket**(`options?`): `void`
 
-Defined in: [client/httpClient.ts:974](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L974)
+Defined in: [client/httpClient.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L974)
 
 Connect to WebSocket for real-time communication
 
@@ -644,7 +644,7 @@ client.onWebSocketMessage("chat", (data) => {
 
 > **disconnectWebSocket**(): `void`
 
-Defined in: [client/httpClient.ts:1043](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L1043)
+Defined in: [client/httpClient.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1043)
 
 Disconnect WebSocket
 
@@ -658,7 +658,7 @@ Disconnect WebSocket
 
 > **sendWebSocketMessage**(`data`): `void`
 
-Defined in: [client/httpClient.ts:1054](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L1054)
+Defined in: [client/httpClient.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1054)
 
 Send message over WebSocket
 
@@ -678,7 +678,7 @@ Send message over WebSocket
 
 > **onWebSocketMessage**(`messageType`, `handler`): () => `void`
 
-Defined in: [client/httpClient.ts:1065](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L1065)
+Defined in: [client/httpClient.ts:1065](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1065)
 
 Register WebSocket message handler
 
@@ -702,7 +702,7 @@ Register WebSocket message handler
 
 > **getWebSocketState**(): [`ClientWebSocketState`](../type-aliases/ClientWebSocketState.md)
 
-Defined in: [client/httpClient.ts:1086](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L1086)
+Defined in: [client/httpClient.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1086)
 
 Get WebSocket connection state
 
@@ -716,7 +716,7 @@ Get WebSocket connection state
 
 > **updateConfig**(`config`): `void`
 
-Defined in: [client/httpClient.ts:1097](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L1097)
+Defined in: [client/httpClient.ts:1097](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1097)
 
 Update client configuration
 
@@ -736,7 +736,7 @@ Update client configuration
 
 > **getConfig**(): `Readonly`\<[`ClientConfig`](../type-aliases/ClientConfig.md)\>
 
-Defined in: [client/httpClient.ts:1124](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/httpClient.ts#L1124)
+Defined in: [client/httpClient.ts:1124](https://github.com/juspay/neurolink/blob/release/src/lib/client/httpClient.ts#L1124)
 
 Get current configuration (readonly)
 

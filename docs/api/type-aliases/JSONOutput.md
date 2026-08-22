@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **JSONOutput** = `object`
 
-Defined in: [types/cli.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L540)
+Defined in: [types/cli.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L540)
 
 JSON output structure
 
@@ -18,7 +18,7 @@ JSON output structure
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:541](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L541)
+Defined in: [types/cli.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L541)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:541](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **data?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/cli.ts:542](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L542)
+Defined in: [types/cli.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L542)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:542](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:543](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L543)
+Defined in: [types/cli.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L543)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:543](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/cli.ts:544](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L544)
+Defined in: [types/cli.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L544)
 
 #### timestamp
 

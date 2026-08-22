@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthEvents** = `object`
 
-Defined in: [types/auth.ts:928](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L928)
+Defined in: [types/auth.ts:928](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L928)
 
 Auth events for EventEmitter
 
@@ -18,7 +18,7 @@ Auth events for EventEmitter
 
 > **auth:login**: (`user`) => `void`
 
-Defined in: [types/auth.ts:929](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L929)
+Defined in: [types/auth.ts:929](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L929)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/auth.ts:929](https://github.com/juspay/neurolink/blob/49032fc
 
 > **auth:logout**: (`userId`) => `void`
 
-Defined in: [types/auth.ts:930](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L930)
+Defined in: [types/auth.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L930)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [types/auth.ts:930](https://github.com/juspay/neurolink/blob/49032fc
 
 > **auth:tokenRefresh**: (`session`) => `void`
 
-Defined in: [types/auth.ts:931](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L931)
+Defined in: [types/auth.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L931)
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: [types/auth.ts:931](https://github.com/juspay/neurolink/blob/49032fc
 
 > **auth:unauthorized**: (`context`, `reason`) => `void`
 
-Defined in: [types/auth.ts:932](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L932)
+Defined in: [types/auth.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L932)
 
 #### Parameters
 
@@ -94,7 +94,7 @@ Defined in: [types/auth.ts:932](https://github.com/juspay/neurolink/blob/49032fc
 
 > **auth:error**: (`error`, `context?`) => `void`
 
-Defined in: [types/auth.ts:933](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L933)
+Defined in: [types/auth.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L933)
 
 #### Parameters
 

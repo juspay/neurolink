@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchEvaluationItem** = `object`
 
-Defined in: [types/evaluation.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L400)
+Defined in: [types/evaluation.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L400)
 
 Input item for BatchEvaluator.
 
@@ -18,7 +18,7 @@ Input item for BatchEvaluator.
 
 > **id**: `string`
 
-Defined in: [types/evaluation.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L401)
+Defined in: [types/evaluation.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L401)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:401](https://github.com/juspay/neurolink/blob/4
 
 > **options**: `LanguageModelV3CallOptions`
 
-Defined in: [types/evaluation.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L402)
+Defined in: [types/evaluation.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L402)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:402](https://github.com/juspay/neurolink/blob/4
 
 > **result**: [`GenerateResult`](GenerateResult.md)
 
-Defined in: [types/evaluation.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L403)
+Defined in: [types/evaluation.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L403)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/evaluation.ts:403](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **threshold?**: `number`
 
-Defined in: [types/evaluation.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L404)
+Defined in: [types/evaluation.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L404)

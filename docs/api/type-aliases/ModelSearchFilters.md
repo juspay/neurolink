@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelSearchFilters** = `object`
 
-Defined in: [types/model.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L198)
+Defined in: [types/model.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L198)
 
 Model search filters
 
@@ -18,7 +18,7 @@ Model search filters
 
 > `optional` **provider?**: [`AIProviderName`](../enumerations/AIProviderName.md) \| [`AIProviderName`](../enumerations/AIProviderName.md)[]
 
-Defined in: [types/model.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L199)
+Defined in: [types/model.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L199)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/model.ts:199](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **capability?**: keyof [`ModelCapabilities`](ModelCapabilities.md) \| keyof [`ModelCapabilities`](ModelCapabilities.md)[]
 
-Defined in: [types/model.ts:200](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L200)
+Defined in: [types/model.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L200)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/model.ts:200](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **useCase?**: keyof [`UseCaseSuitability`](UseCaseSuitability.md)
 
-Defined in: [types/model.ts:201](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L201)
+Defined in: [types/model.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L201)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/model.ts:201](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **maxCost?**: `number`
 
-Defined in: [types/model.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L202)
+Defined in: [types/model.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L202)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/model.ts:202](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **minContextSize?**: `number`
 
-Defined in: [types/model.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L203)
+Defined in: [types/model.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L203)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/model.ts:203](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **maxContextSize?**: `number`
 
-Defined in: [types/model.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L204)
+Defined in: [types/model.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L204)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/model.ts:204](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **performance?**: [`ModelPerformance`](ModelPerformance.md)\[`"speed"`\] \| [`ModelPerformance`](ModelPerformance.md)\[`"quality"`\]
 
-Defined in: [types/model.ts:205](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L205)
+Defined in: [types/model.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L205)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/model.ts:205](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **category?**: [`ModelInfo`](ModelInfo.md)\[`"category"`\] \| [`ModelInfo`](ModelInfo.md)\[`"category"`\][]
 
-Defined in: [types/model.ts:206](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/model.ts#L206)
+Defined in: [types/model.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/model.ts#L206)

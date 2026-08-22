@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AggregatedUsage** = `object`
 
-Defined in: [types/workflow.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L398)
+Defined in: [types/workflow.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L398)
 
 Aggregated token usage across all models
 
@@ -18,7 +18,7 @@ Aggregated token usage across all models
 
 > **totalInputTokens**: `number`
 
-Defined in: [types/workflow.ts:399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L399)
+Defined in: [types/workflow.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L399)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:399](https://github.com/juspay/neurolink/blob/490
 
 > **totalOutputTokens**: `number`
 
-Defined in: [types/workflow.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L400)
+Defined in: [types/workflow.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L400)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:400](https://github.com/juspay/neurolink/blob/490
 
 > **totalTokens**: `number`
 
-Defined in: [types/workflow.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L401)
+Defined in: [types/workflow.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L401)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:401](https://github.com/juspay/neurolink/blob/490
 
 > **byModel**: `object`[]
 
-Defined in: [types/workflow.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L404)
+Defined in: [types/workflow.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L404)
 
 #### provider
 
@@ -74,7 +74,7 @@ Defined in: [types/workflow.ts:404](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **judgeUsage?**: `object`
 
-Defined in: [types/workflow.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L414)
+Defined in: [types/workflow.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L414)
 
 #### inputTokens
 

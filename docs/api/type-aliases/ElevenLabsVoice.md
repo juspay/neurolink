@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ElevenLabsVoice** = `object`
 
-Defined in: [types/stt.ts:596](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L596)
+Defined in: [types/stt.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L596)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:596](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **voice_id**: `string`
 
-Defined in: [types/stt.ts:597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L597)
+Defined in: [types/stt.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L597)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:597](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **name**: `string`
 
-Defined in: [types/stt.ts:598](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L598)
+Defined in: [types/stt.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L598)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:598](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **category**: `string`
 
-Defined in: [types/stt.ts:599](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L599)
+Defined in: [types/stt.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L599)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:599](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **labels?**: `object`
 
-Defined in: [types/stt.ts:600](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L600)
+Defined in: [types/stt.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L600)
 
 #### accent?
 
@@ -68,4 +68,4 @@ Defined in: [types/stt.ts:600](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **preview_url?**: `string`
 
-Defined in: [types/stt.ts:607](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L607)
+Defined in: [types/stt.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L607)

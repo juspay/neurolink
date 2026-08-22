@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **StreamChannel**\<`T`\> = `object`
 
-Defined in: [types/streaming.ts:8](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/streaming.ts#L8)
+Defined in: [types/streaming.ts:8](https://github.com/juspay/neurolink/blob/release/src/lib/types/streaming.ts#L8)
 
 Shared push-based channel bridging a background producer (an agentic
 tool-calling loop) with an async-iterable consumer. Replaces the two
@@ -28,7 +28,7 @@ Gemini-family `createTextChannel` (push-based, out-of-band close/error).
 
 > `readonly` **iterable**: `AsyncIterable`\<`T`\>
 
-Defined in: [types/streaming.ts:12](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/streaming.ts#L12)
+Defined in: [types/streaming.ts:12](https://github.com/juspay/neurolink/blob/release/src/lib/types/streaming.ts#L12)
 
 ## Methods
 
@@ -36,7 +36,7 @@ Defined in: [types/streaming.ts:12](https://github.com/juspay/neurolink/blob/490
 
 > **push**(`value`): `void`
 
-Defined in: [types/streaming.ts:9](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/streaming.ts#L9)
+Defined in: [types/streaming.ts:9](https://github.com/juspay/neurolink/blob/release/src/lib/types/streaming.ts#L9)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [types/streaming.ts:9](https://github.com/juspay/neurolink/blob/4903
 
 > **close**(): `void`
 
-Defined in: [types/streaming.ts:10](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/streaming.ts#L10)
+Defined in: [types/streaming.ts:10](https://github.com/juspay/neurolink/blob/release/src/lib/types/streaming.ts#L10)
 
 #### Returns
 
@@ -66,7 +66,7 @@ Defined in: [types/streaming.ts:10](https://github.com/juspay/neurolink/blob/490
 
 > **error**(`err`): `void`
 
-Defined in: [types/streaming.ts:11](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/streaming.ts#L11)
+Defined in: [types/streaming.ts:11](https://github.com/juspay/neurolink/blob/release/src/lib/types/streaming.ts#L11)
 
 #### Parameters
 

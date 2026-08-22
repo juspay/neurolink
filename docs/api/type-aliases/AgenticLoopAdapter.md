@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopAdapter**\<`TConversation`, `TRaw`\> = `object`
 
-Defined in: [types/loopEngine.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L174)
+Defined in: [types/loopEngine.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L174)
 
 DESIGN DECISION — mid-turn tool-discovery hydration (Plan 08 blocker 2,
 Task 7): resolved by the single optional `resolveToolOnMiss` field below,
@@ -65,7 +65,7 @@ suite rather than asserted here.
 
 > `readonly` **providerLabel**: `string`
 
-Defined in: [types/loopEngine.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L175)
+Defined in: [types/loopEngine.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L175)
 
 ---
 
@@ -73,7 +73,7 @@ Defined in: [types/loopEngine.ts:175](https://github.com/juspay/neurolink/blob/4
 
 > `readonly` **maxSteps**: `number`
 
-Defined in: [types/loopEngine.ts:176](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L176)
+Defined in: [types/loopEngine.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L176)
 
 ---
 
@@ -81,7 +81,7 @@ Defined in: [types/loopEngine.ts:176](https://github.com/juspay/neurolink/blob/4
 
 > `readonly` `optional` **toolFailureBreaker?**: [`AgenticLoopToolFailureBreaker`](AgenticLoopToolFailureBreaker.md)
 
-Defined in: [types/loopEngine.ts:193](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L193)
+Defined in: [types/loopEngine.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L193)
 
 Set only for adapter instances whose client has the TOOL_NOT_FOUND strike breaker today: both Gemini adapters (AI Studio, Vertex+Gemini) AND the Vertex+Claude call to createAnthropicLoopAdapter — NOT the native-Anthropic call to that same factory, and not Bedrock. See Verified Fact 4.
 
@@ -91,7 +91,7 @@ Set only for adapter instances whose client has the TOOL_NOT_FOUND strike breake
 
 > `readonly` `optional` **resolveToolOnMiss?**: (`name`) => \{ `execute`: (`args`, `opts`) => `Promise`\<`unknown`\>; \} \| `undefined`
 
-Defined in: [types/loopEngine.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L203)
+Defined in: [types/loopEngine.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L203)
 
 Second lookup path, consulted when a tool call names nothing executable
 in the caller's `options.tools` — used by adapters supporting mid-turn
@@ -117,7 +117,7 @@ override.
 
 > **buildStepRequest**(`conversation`, `step`): [`AgenticLoopStepRequest`](AgenticLoopStepRequest.md)
 
-Defined in: [types/loopEngine.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L212)
+Defined in: [types/loopEngine.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L212)
 
 #### Parameters
 
@@ -139,7 +139,7 @@ Defined in: [types/loopEngine.ts:212](https://github.com/juspay/neurolink/blob/4
 
 > **executeStep**(`request`, `channel`, `signal`): `Promise`\<[`AgenticLoopStepResult`](AgenticLoopStepResult.md)\<`TRaw`\>\>
 
-Defined in: [types/loopEngine.ts:216](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L216)
+Defined in: [types/loopEngine.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L216)
 
 #### Parameters
 
@@ -165,7 +165,7 @@ Defined in: [types/loopEngine.ts:216](https://github.com/juspay/neurolink/blob/4
 
 > **buildToolResultMessages**(`conversation`, `stepResult`, `toolResults`, `step`): `TConversation`
 
-Defined in: [types/loopEngine.ts:229](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L229)
+Defined in: [types/loopEngine.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L229)
 
 `step` is the engine's own zero-based step index, not a count of times
 this hook ran. Adapters persist tool activity keyed by it, and the two
@@ -202,7 +202,7 @@ row after the first one.
 
 > **mapFinishReason**(`rawStopReason`, `hadToolCalls`): `string`
 
-Defined in: [types/loopEngine.ts:235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L235)
+Defined in: [types/loopEngine.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L235)
 
 #### Parameters
 
@@ -224,7 +224,7 @@ Defined in: [types/loopEngine.ts:235](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **planReclaim**(`conversation`, `step`): [`AgenticLoopReclaimResult`](AgenticLoopReclaimResult.md)\<`TConversation`\> \| `undefined`
 
-Defined in: [types/loopEngine.ts:241](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L241)
+Defined in: [types/loopEngine.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L241)
 
 Optional: in-turn context-budget reclaim, called once per step before buildStepRequest.
 
@@ -248,7 +248,7 @@ Optional: in-turn context-budget reclaim, called once per step before buildStepR
 
 > `optional` **isMalformedStep**(`stepResult`): `boolean`
 
-Defined in: [types/loopEngine.ts:246](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L246)
+Defined in: [types/loopEngine.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L246)
 
 Optional: Vertex+Gemini-only single-retry-on-malformed-call.
 
@@ -268,7 +268,7 @@ Optional: Vertex+Gemini-only single-retry-on-malformed-call.
 
 > `optional` **buildMalformedRetryNote**(`conversation`, `step`): `TConversation`
 
-Defined in: [types/loopEngine.ts:247](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L247)
+Defined in: [types/loopEngine.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L247)
 
 #### Parameters
 

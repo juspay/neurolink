@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SSEEventOptions** = `object`
 
-Defined in: [types/server.ts:1454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1454)
+Defined in: [types/server.ts:1454](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1454)
 
 Options for a single SSE message.
 
@@ -18,7 +18,7 @@ Options for a single SSE message.
 
 > `optional` **event?**: `string`
 
-Defined in: [types/server.ts:1455](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1455)
+Defined in: [types/server.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1455)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/server.ts:1455](https://github.com/juspay/neurolink/blob/4903
 
 > **data**: `string`
 
-Defined in: [types/server.ts:1456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1456)
+Defined in: [types/server.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1456)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/server.ts:1456](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **id?**: `string`
 
-Defined in: [types/server.ts:1457](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1457)
+Defined in: [types/server.ts:1457](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1457)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/server.ts:1457](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **retry?**: `number`
 
-Defined in: [types/server.ts:1458](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1458)
+Defined in: [types/server.ts:1458](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1458)

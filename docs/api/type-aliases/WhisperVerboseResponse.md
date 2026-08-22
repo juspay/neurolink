@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WhisperVerboseResponse** = `object`
 
-Defined in: [types/stt.ts:581](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L581)
+Defined in: [types/stt.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L581)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:581](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **task**: `string`
 
-Defined in: [types/stt.ts:582](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L582)
+Defined in: [types/stt.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L582)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:582](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **language**: `string`
 
-Defined in: [types/stt.ts:583](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L583)
+Defined in: [types/stt.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L583)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:583](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **duration**: `number`
 
-Defined in: [types/stt.ts:584](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L584)
+Defined in: [types/stt.ts:584](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L584)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:584](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **text**: `string`
 
-Defined in: [types/stt.ts:585](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L585)
+Defined in: [types/stt.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L585)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/stt.ts:585](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **segments?**: [`WhisperTranscriptionSegment`](WhisperTranscriptionSegment.md)[]
 
-Defined in: [types/stt.ts:586](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L586)
+Defined in: [types/stt.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L586)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/stt.ts:586](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **words?**: [`WhisperTranscriptionWord`](WhisperTranscriptionWord.md)[]
 
-Defined in: [types/stt.ts:587](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L587)
+Defined in: [types/stt.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L587)

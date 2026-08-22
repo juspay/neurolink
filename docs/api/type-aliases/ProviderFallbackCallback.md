@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderFallbackCallback** = (`error`) => `Promise`\<\{ `provider?`: `string`; `model?`: `string`; \} \| `null`\>
 
-Defined in: [types/config.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L60)
+Defined in: [types/config.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L60)
 
 Curator P2-3: callback signature for centralized fallback policy. When an
 explicit callback is configured (per-call or instance), it is invoked for

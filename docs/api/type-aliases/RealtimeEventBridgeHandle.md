@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RealtimeEventBridgeHandle** = `object`
 
-Defined in: [types/livekit.ts:521](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L521)
+Defined in: [types/livekit.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L521)
 
 Handle returned by `attachRealtimeEventBridge`.
 
@@ -18,7 +18,7 @@ Handle returned by `attachRealtimeEventBridge`.
 
 > **publishEvent**: [`RealtimeEventPublisher`](RealtimeEventPublisher.md)
 
-Defined in: [types/livekit.ts:523](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L523)
+Defined in: [types/livekit.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L523)
 
 Publish an outbound event to the browser (data packet or text stream).
 
@@ -28,7 +28,7 @@ Publish an outbound event to the browser (data packet or text stream).
 
 > **requestConfirmation**: [`RealtimeConfirmationRequester`](RealtimeConfirmationRequester.md)
 
-Defined in: [types/livekit.ts:525](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L525)
+Defined in: [types/livekit.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L525)
 
 Open a HITL prompt and await the browser's decision (timeout = decline).
 
@@ -38,7 +38,7 @@ Open a HITL prompt and await the browser's decision (timeout = decline).
 
 > **dispose**: () => `void`
 
-Defined in: [types/livekit.ts:527](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L527)
+Defined in: [types/livekit.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L527)
 
 Remove the control-channel listener and clear pending confirmations.
 

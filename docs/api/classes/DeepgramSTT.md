@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: DeepgramSTT
 
-Defined in: [voice/providers/DeepgramSTT.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L30)
+Defined in: [voice/providers/DeepgramSTT.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L30)
 
 Deepgram Speech-to-Text Handler
 
@@ -26,7 +26,7 @@ https://developers.deepgram.com/docs
 
 > **new DeepgramSTT**(`apiKey?`): `DeepgramSTT`
 
-Defined in: [voice/providers/DeepgramSTT.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L44)
+Defined in: [voice/providers/DeepgramSTT.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L44)
 
 #### Parameters
 
@@ -44,7 +44,7 @@ Defined in: [voice/providers/DeepgramSTT.ts:44](https://github.com/juspay/neurol
 
 > `readonly` **maxAudioDuration**: `7200` = `7200`
 
-Defined in: [voice/providers/DeepgramSTT.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L37)
+Defined in: [voice/providers/DeepgramSTT.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L37)
 
 Maximum audio duration in seconds (2 hours)
 
@@ -58,7 +58,7 @@ Maximum audio duration in seconds (2 hours)
 
 > `readonly` **supportsStreaming**: `true` = `true`
 
-Defined in: [voice/providers/DeepgramSTT.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L42)
+Defined in: [voice/providers/DeepgramSTT.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L42)
 
 Deepgram supports streaming
 
@@ -72,7 +72,7 @@ Deepgram supports streaming
 
 > **isConfigured**(): `boolean`
 
-Defined in: [voice/providers/DeepgramSTT.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L52)
+Defined in: [voice/providers/DeepgramSTT.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L52)
 
 #### Returns
 
@@ -88,7 +88,7 @@ Defined in: [voice/providers/DeepgramSTT.ts:52](https://github.com/juspay/neurol
 
 > **getSupportedFormats**(): [`TTSAudioFormat`](../type-aliases/TTSAudioFormat.md)[]
 
-Defined in: [voice/providers/DeepgramSTT.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L56)
+Defined in: [voice/providers/DeepgramSTT.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L56)
 
 #### Returns
 
@@ -104,7 +104,7 @@ Defined in: [voice/providers/DeepgramSTT.ts:56](https://github.com/juspay/neurol
 
 > **getSupportedLanguages**(): `Promise`\<[`STTLanguage`](../type-aliases/STTLanguage.md)[]\>
 
-Defined in: [voice/providers/DeepgramSTT.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L60)
+Defined in: [voice/providers/DeepgramSTT.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L60)
 
 #### Returns
 
@@ -120,7 +120,7 @@ Defined in: [voice/providers/DeepgramSTT.ts:60](https://github.com/juspay/neurol
 
 > **transcribe**(`audio`, `options?`): `Promise`\<[`STTResult`](../type-aliases/STTResult.md)\>
 
-Defined in: [voice/providers/DeepgramSTT.ts:150](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L150)
+Defined in: [voice/providers/DeepgramSTT.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L150)
 
 #### Parameters
 
@@ -146,7 +146,7 @@ Defined in: [voice/providers/DeepgramSTT.ts:150](https://github.com/juspay/neuro
 
 > **transcribeStream**(`audioStream`, `options`): `AsyncIterable`\<[`TranscriptionSegment`](../type-aliases/TranscriptionSegment.md)\>
 
-Defined in: [voice/providers/DeepgramSTT.ts:380](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/providers/DeepgramSTT.ts#L380)
+Defined in: [voice/providers/DeepgramSTT.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/voice/providers/DeepgramSTT.ts#L380)
 
 Streaming transcription using WebSocket
 

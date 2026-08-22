@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AutoresearchMetricImprovedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L175)
+Defined in: [types/autoresearch.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L175)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/autoresearch.ts:175](https://github.com/juspay/neurolink/blob
 
 > **tag**: `string`
 
-Defined in: [types/autoresearch.ts:176](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L176)
+Defined in: [types/autoresearch.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L176)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/autoresearch.ts:176](https://github.com/juspay/neurolink/blob
 
 > **previousBest**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L177)
+Defined in: [types/autoresearch.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L177)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/autoresearch.ts:177](https://github.com/juspay/neurolink/blob
 
 > **newBest**: `number`
 
-Defined in: [types/autoresearch.ts:178](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L178)
+Defined in: [types/autoresearch.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L178)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/autoresearch.ts:178](https://github.com/juspay/neurolink/blob
 
 > **commit**: `string`
 
-Defined in: [types/autoresearch.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L179)
+Defined in: [types/autoresearch.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L179)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/autoresearch.ts:179](https://github.com/juspay/neurolink/blob
 
 > **direction**: [`MetricDirection`](MetricDirection.md)
 
-Defined in: [types/autoresearch.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L180)
+Defined in: [types/autoresearch.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L180)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/autoresearch.ts:180](https://github.com/juspay/neurolink/blob
 
 > **runCount**: `number`
 
-Defined in: [types/autoresearch.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L181)
+Defined in: [types/autoresearch.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L181)

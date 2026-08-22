@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResponseValidationConfig** = `object`
 
-Defined in: [types/ioProcessor.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L56)
+Defined in: [types/ioProcessor.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L56)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/ioProcessor.ts:56](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **minLength?**: `number`
 
-Defined in: [types/ioProcessor.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L58)
+Defined in: [types/ioProcessor.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L58)
 
 Minimum required character length for the response
 
@@ -26,7 +26,7 @@ Minimum required character length for the response
 
 > `optional` **maxLength?**: `number`
 
-Defined in: [types/ioProcessor.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L60)
+Defined in: [types/ioProcessor.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L60)
 
 Maximum allowed character length for the response
 
@@ -36,7 +36,7 @@ Maximum allowed character length for the response
 
 > `optional` **requiredPhrases?**: `string`[]
 
-Defined in: [types/ioProcessor.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L62)
+Defined in: [types/ioProcessor.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L62)
 
 Phrases that must appear in the response (case-insensitive)
 
@@ -46,7 +46,7 @@ Phrases that must appear in the response (case-insensitive)
 
 > `optional` **forbiddenPhrases?**: `string`[]
 
-Defined in: [types/ioProcessor.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L64)
+Defined in: [types/ioProcessor.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L64)
 
 Phrases that must NOT appear in the response (case-insensitive)
 
@@ -56,7 +56,7 @@ Phrases that must NOT appear in the response (case-insensitive)
 
 > `optional` **jsonSchema?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/ioProcessor.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L66)
+Defined in: [types/ioProcessor.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L66)
 
 JSON Schema to validate the response against (response must be valid JSON)
 
@@ -66,7 +66,7 @@ JSON Schema to validate the response against (response must be valid JSON)
 
 > `optional` **customValidator?**: (`text`) => [`ValidationIssue`](ValidationIssue.md) \| `null`
 
-Defined in: [types/ioProcessor.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L68)
+Defined in: [types/ioProcessor.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L68)
 
 Custom validation function; return a ValidationIssue to signal failure, null to pass
 
@@ -86,7 +86,7 @@ Custom validation function; return a ValidationIssue to signal failure, null to 
 
 > `optional` **truncationAction?**: `"abort"` \| `"retry"` \| `"truncate"` \| `"warn"`
 
-Defined in: [types/ioProcessor.ts:76](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L76)
+Defined in: [types/ioProcessor.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L76)
 
 Action to take when maxLength is exceeded:
 
@@ -101,7 +101,7 @@ Action to take when maxLength is exceeded:
 
 > `optional` **truncationSuffix?**: `string`
 
-Defined in: [types/ioProcessor.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L78)
+Defined in: [types/ioProcessor.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L78)
 
 Suffix appended when truncating (default: "..."). Never causes the final string to exceed maxLength.
 
@@ -111,7 +111,7 @@ Suffix appended when truncating (default: "..."). Never causes the final string 
 
 > `optional` **retryOnFailure?**: `boolean`
 
-Defined in: [types/ioProcessor.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L80)
+Defined in: [types/ioProcessor.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L80)
 
 Return action:"retry" when any error-severity issue is found
 
@@ -121,6 +121,6 @@ Return action:"retry" when any error-severity issue is found
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/ioProcessor.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L82)
+Defined in: [types/ioProcessor.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L82)
 
 Maximum allowed retry count (informational — caller enforces the loop)

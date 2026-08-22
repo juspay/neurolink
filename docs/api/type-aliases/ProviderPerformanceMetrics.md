@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProviderPerformanceMetrics** = `object`
 
-Defined in: [types/evaluationProviders.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L31)
+Defined in: [types/evaluationProviders.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L31)
 
 Real-time provider performance tracking metrics
 
@@ -18,7 +18,7 @@ Real-time provider performance tracking metrics
 
 > **responseTime**: `number`[]
 
-Defined in: [types/evaluationProviders.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L32)
+Defined in: [types/evaluationProviders.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L32)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluationProviders.ts:32](https://github.com/juspay/neurolin
 
 > **successRate**: `number`
 
-Defined in: [types/evaluationProviders.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L33)
+Defined in: [types/evaluationProviders.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L33)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluationProviders.ts:33](https://github.com/juspay/neurolin
 
 > **tokenThroughput**: `number`
 
-Defined in: [types/evaluationProviders.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L34)
+Defined in: [types/evaluationProviders.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L34)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluationProviders.ts:34](https://github.com/juspay/neurolin
 
 > **costEfficiency**: `number`
 
-Defined in: [types/evaluationProviders.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L35)
+Defined in: [types/evaluationProviders.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L35)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/evaluationProviders.ts:35](https://github.com/juspay/neurolin
 
 > **lastUpdated**: `Date`
 
-Defined in: [types/evaluationProviders.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L36)
+Defined in: [types/evaluationProviders.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L36)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/evaluationProviders.ts:36](https://github.com/juspay/neurolin
 
 > **sampleCount**: `number`
 
-Defined in: [types/evaluationProviders.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluationProviders.ts#L37)
+Defined in: [types/evaluationProviders.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluationProviders.ts#L37)

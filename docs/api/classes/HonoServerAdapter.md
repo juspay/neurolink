@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: HonoServerAdapter
 
-Defined in: [server/adapters/honoAdapter.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L39)
+Defined in: [server/adapters/honoAdapter.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L39)
 
 Hono-specific server adapter
 Supports multiple runtimes: Bun, Deno, Node.js
@@ -21,7 +21,7 @@ Supports multiple runtimes: Bun, Deno, Node.js
 
 > **new HonoServerAdapter**(`neurolink`, `config?`): `HonoServerAdapter`
 
-Defined in: [server/adapters/honoAdapter.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L47)
+Defined in: [server/adapters/honoAdapter.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L47)
 
 #### Parameters
 
@@ -47,7 +47,7 @@ Defined in: [server/adapters/honoAdapter.ts:47](https://github.com/juspay/neurol
 
 > `protected` `readonly` **config**: [`RequiredServerAdapterConfig`](../type-aliases/RequiredServerAdapterConfig.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:45](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L45)
+Defined in: [server/abstract/baseServerAdapter.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L45)
 
 #### Inherited from
 
@@ -59,7 +59,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:45](https://github.com/juspay/
 
 > `protected` `readonly` `optional` **redactionConfig?**: [`RedactionConfig`](../type-aliases/RedactionConfig.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L46)
+Defined in: [server/abstract/baseServerAdapter.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L46)
 
 #### Inherited from
 
@@ -71,7 +71,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:46](https://github.com/juspay/
 
 > `protected` `readonly` **neurolink**: [`NeuroLink`](NeuroLink.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L47)
+Defined in: [server/abstract/baseServerAdapter.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L47)
 
 #### Inherited from
 
@@ -83,7 +83,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:47](https://github.com/juspay/
 
 > `protected` `readonly` **toolRegistry**: [`MCPToolRegistry`](MCPToolRegistry.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L48)
+Defined in: [server/abstract/baseServerAdapter.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L48)
 
 #### Inherited from
 
@@ -95,7 +95,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:48](https://github.com/juspay/
 
 > `protected` `readonly` `optional` **externalServerManager?**: [`ExternalServerManager`](ExternalServerManager.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L49)
+Defined in: [server/abstract/baseServerAdapter.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L49)
 
 #### Inherited from
 
@@ -107,7 +107,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:49](https://github.com/juspay/
 
 > `protected` **routes**: `Map`\<`string`, [`RouteDefinition`](../type-aliases/RouteDefinition.md)\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L50)
+Defined in: [server/abstract/baseServerAdapter.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L50)
 
 #### Inherited from
 
@@ -119,7 +119,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:50](https://github.com/juspay/
 
 > `protected` **middlewares**: [`MiddlewareDefinition`](../type-aliases/MiddlewareDefinition.md)[] = `[]`
 
-Defined in: [server/abstract/baseServerAdapter.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L51)
+Defined in: [server/abstract/baseServerAdapter.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L51)
 
 #### Inherited from
 
@@ -131,7 +131,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:51](https://github.com/juspay/
 
 > `protected` **isRunning**: `boolean` = `false`
 
-Defined in: [server/abstract/baseServerAdapter.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L52)
+Defined in: [server/abstract/baseServerAdapter.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L52)
 
 #### Inherited from
 
@@ -143,7 +143,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:52](https://github.com/juspay/
 
 > `protected` `optional` **startTime?**: `Date`
 
-Defined in: [server/abstract/baseServerAdapter.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L53)
+Defined in: [server/abstract/baseServerAdapter.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L53)
 
 #### Inherited from
 
@@ -155,7 +155,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:53](https://github.com/juspay/
 
 > `protected` **lifecycleState**: [`ServerLifecycleState`](../type-aliases/ServerLifecycleState.md) = `"uninitialized"`
 
-Defined in: [server/abstract/baseServerAdapter.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L56)
+Defined in: [server/abstract/baseServerAdapter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L56)
 
 #### Inherited from
 
@@ -167,7 +167,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:56](https://github.com/juspay/
 
 > `protected` **activeConnections**: `Map`\<`string`, [`TrackedConnection`](../type-aliases/TrackedConnection.md)\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L57)
+Defined in: [server/abstract/baseServerAdapter.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L57)
 
 #### Inherited from
 
@@ -179,7 +179,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:57](https://github.com/juspay/
 
 > `protected` `readonly` **shutdownConfig**: [`RequiredShutdownConfig`](../type-aliases/RequiredShutdownConfig.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L58)
+Defined in: [server/abstract/baseServerAdapter.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L58)
 
 #### Inherited from
 
@@ -191,7 +191,7 @@ Defined in: [server/abstract/baseServerAdapter.ts:58](https://github.com/juspay/
 
 > `protected` **importFrameworkDependency**\<`T`\>(`pkg`, `framework`): `Promise`\<`T`\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:206](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L206)
+Defined in: [server/abstract/baseServerAdapter.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L206)
 
 Import an optional framework dependency (express/fastify/koa and their
 plugins), converting a missing package into a [MissingDependencyError](MissingDependencyError.md)
@@ -234,7 +234,7 @@ unchanged, matching `tryImport`'s own contract.
 
 > **initialize**(): `Promise`\<`void`\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L224)
+Defined in: [server/abstract/baseServerAdapter.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L224)
 
 Initialize the server adapter
 Sets up routes, middleware, and framework
@@ -253,7 +253,7 @@ Sets up routes, middleware, and framework
 
 > **registerRoute**(`route`): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L295)
+Defined in: [server/abstract/baseServerAdapter.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L295)
 
 Register a custom route
 
@@ -277,7 +277,7 @@ Register a custom route
 
 > **registerRouteGroup**(`group`): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:317](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L317)
+Defined in: [server/abstract/baseServerAdapter.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L317)
 
 Register multiple routes from a route group
 
@@ -311,7 +311,7 @@ Register multiple routes from a route group
 
 > **registerMiddleware**(`middleware`): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L363)
+Defined in: [server/abstract/baseServerAdapter.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L363)
 
 Register custom middleware
 
@@ -335,7 +335,7 @@ Register custom middleware
 
 > `protected` **createContext**(`options`): [`ServerContext`](../type-aliases/ServerContext.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L376)
+Defined in: [server/abstract/baseServerAdapter.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L376)
 
 Create request context from incoming request
 
@@ -385,7 +385,7 @@ Create request context from incoming request
 
 > `protected` **registerBuiltInMiddleware**(): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:405](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L405)
+Defined in: [server/abstract/baseServerAdapter.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L405)
 
 Register built-in middleware
 
@@ -403,7 +403,7 @@ Register built-in middleware
 
 > `protected` **registerBuiltInRoutes**(): `Promise`\<`void`\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L444)
+Defined in: [server/abstract/baseServerAdapter.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L444)
 
 Register built-in routes
 Only registers health routes if disableBuiltInHealth is false (default)
@@ -422,7 +422,7 @@ Only registers health routes if disableBuiltInHealth is false (default)
 
 > `protected` **generateRequestId**(): `string`
 
-Defined in: [server/abstract/baseServerAdapter.ts:536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L536)
+Defined in: [server/abstract/baseServerAdapter.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L536)
 
 Generate unique request ID
 
@@ -440,7 +440,7 @@ Generate unique request ID
 
 > **getLifecycleState**(): [`ServerLifecycleState`](../type-aliases/ServerLifecycleState.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:547](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L547)
+Defined in: [server/abstract/baseServerAdapter.ts:547](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L547)
 
 Get the current lifecycle state
 
@@ -458,7 +458,7 @@ Get the current lifecycle state
 
 > `protected` **trackConnection**(`id`, `socket?`, `requestId?`): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:557](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L557)
+Defined in: [server/abstract/baseServerAdapter.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L557)
 
 Track a new connection
 
@@ -496,7 +496,7 @@ Optional associated request ID
 
 > `protected` **untrackConnection**(`id`): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:580](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L580)
+Defined in: [server/abstract/baseServerAdapter.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L580)
 
 Untrack a connection (when it's completed)
 
@@ -522,7 +522,7 @@ Connection identifier to remove
 
 > **getActiveConnectionCount**(): `number`
 
-Defined in: [server/abstract/baseServerAdapter.ts:594](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L594)
+Defined in: [server/abstract/baseServerAdapter.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L594)
 
 Get the number of active connections
 
@@ -540,7 +540,7 @@ Get the number of active connections
 
 > `protected` **gracefulShutdown**(): `Promise`\<`void`\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:602](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L602)
+Defined in: [server/abstract/baseServerAdapter.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L602)
 
 Perform graceful shutdown with connection draining
 This method handles the complete shutdown lifecycle
@@ -559,7 +559,7 @@ This method handles the complete shutdown lifecycle
 
 > `protected` **drainConnections**(): `Promise`\<`void`\>
 
-Defined in: [server/abstract/baseServerAdapter.ts:737](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L737)
+Defined in: [server/abstract/baseServerAdapter.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L737)
 
 Wait for all active connections to drain
 Resolves when activeConnections is empty
@@ -578,7 +578,7 @@ Resolves when activeConnections is empty
 
 > `protected` **resetServerState**(): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:763](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L763)
+Defined in: [server/abstract/baseServerAdapter.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L763)
 
 Reset server state for restart capability
 Call this after stop() completes to allow restart
@@ -597,7 +597,7 @@ Call this after stop() completes to allow restart
 
 > `protected` **validateLifecycleState**(`operation`, `allowedStates`): `void`
 
-Defined in: [server/abstract/baseServerAdapter.ts:777](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L777)
+Defined in: [server/abstract/baseServerAdapter.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L777)
 
 Validate lifecycle state transition
 
@@ -629,7 +629,7 @@ States that allow the operation
 
 > **getStatus**(): [`ServerStatus`](../type-aliases/ServerStatus.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:793](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L793)
+Defined in: [server/abstract/baseServerAdapter.ts:793](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L793)
 
 Get server status
 
@@ -647,7 +647,7 @@ Get server status
 
 > **listRoutes**(): [`RouteDefinition`](../type-aliases/RouteDefinition.md)[]
 
-Defined in: [server/abstract/baseServerAdapter.ts:809](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L809)
+Defined in: [server/abstract/baseServerAdapter.ts:809](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L809)
 
 List all registered routes
 
@@ -665,7 +665,7 @@ List all registered routes
 
 > **getConfig**(): [`RequiredServerAdapterConfig`](../type-aliases/RequiredServerAdapterConfig.md)
 
-Defined in: [server/abstract/baseServerAdapter.ts:816](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/abstract/baseServerAdapter.ts#L816)
+Defined in: [server/abstract/baseServerAdapter.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/server/abstract/baseServerAdapter.ts#L816)
 
 Get configuration
 
@@ -683,7 +683,7 @@ Get configuration
 
 > `protected` **initializeFramework**(): `void`
 
-Defined in: [server/adapters/honoAdapter.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L153)
+Defined in: [server/adapters/honoAdapter.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L153)
 
 Initialize Hono framework
 
@@ -701,7 +701,7 @@ Initialize Hono framework
 
 > `protected` **registerFrameworkRoute**(`route`): `void`
 
-Defined in: [server/adapters/honoAdapter.ts:257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L257)
+Defined in: [server/adapters/honoAdapter.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L257)
 
 Register route with Hono
 
@@ -725,7 +725,7 @@ Register route with Hono
 
 > `protected` **registerFrameworkMiddleware**(`middleware`): `void`
 
-Defined in: [server/adapters/honoAdapter.ts:522](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L522)
+Defined in: [server/adapters/honoAdapter.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L522)
 
 Register middleware with Hono
 
@@ -749,7 +749,7 @@ Register middleware with Hono
 
 > **start**(): `Promise`\<`void`\>
 
-Defined in: [server/adapters/honoAdapter.ts:567](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L567)
+Defined in: [server/adapters/honoAdapter.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L567)
 
 Start the Hono server
 
@@ -767,7 +767,7 @@ Start the Hono server
 
 > **stop**(): `Promise`\<`void`\>
 
-Defined in: [server/adapters/honoAdapter.ts:625](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L625)
+Defined in: [server/adapters/honoAdapter.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L625)
 
 Stop the Hono server with graceful shutdown
 
@@ -785,7 +785,7 @@ Stop the Hono server with graceful shutdown
 
 > `protected` **stopAcceptingConnections**(): `Promise`\<`void`\>
 
-Defined in: [server/adapters/honoAdapter.ts:666](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L666)
+Defined in: [server/adapters/honoAdapter.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L666)
 
 Stop accepting new connections
 
@@ -803,7 +803,7 @@ Stop accepting new connections
 
 > `protected` **closeServer**(): `Promise`\<`void`\>
 
-Defined in: [server/adapters/honoAdapter.ts:674](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L674)
+Defined in: [server/adapters/honoAdapter.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L674)
 
 Close the underlying server
 
@@ -821,7 +821,7 @@ Close the underlying server
 
 > `protected` **forceCloseConnections**(): `Promise`\<`void`\>
 
-Defined in: [server/adapters/honoAdapter.ts:710](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L710)
+Defined in: [server/adapters/honoAdapter.ts:710](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L710)
 
 Force close all active connections
 
@@ -839,7 +839,7 @@ Force close all active connections
 
 > **getFrameworkInstance**(): `unknown`
 
-Defined in: [server/adapters/honoAdapter.ts:731](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/server/adapters/honoAdapter.ts#L731)
+Defined in: [server/adapters/honoAdapter.ts:731](https://github.com/juspay/neurolink/blob/release/src/lib/server/adapters/honoAdapter.ts#L731)
 
 Get the Hono app instance
 

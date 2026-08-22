@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../../../../README.md)
+[**NeuroLink API Reference**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MistralSetupArgs** = `object`
 
-Defined in: [types/cli.ts:900](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L900)
+Defined in: [types/cli.ts:900](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L900)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:900](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:901](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L901)
+Defined in: [types/cli.ts:901](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L901)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:901](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:902](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L902)
+Defined in: [types/cli.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L902)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/cli.ts:902](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **help?**: `boolean`
 
-Defined in: [types/cli.ts:903](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L903)
+Defined in: [types/cli.ts:903](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L903)

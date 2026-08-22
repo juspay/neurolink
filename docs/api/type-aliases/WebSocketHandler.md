@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **WebSocketHandler** = `object`
 
-Defined in: [types/server.ts:966](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L966)
+Defined in: [types/server.ts:966](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L966)
 
 WebSocket handler interface
 
@@ -18,7 +18,7 @@ WebSocket handler interface
 
 > `optional` **onOpen?**: (`connection`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:967](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L967)
+Defined in: [types/server.ts:967](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L967)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/server.ts:967](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **onMessage?**: (`connection`, `message`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:968](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L968)
+Defined in: [types/server.ts:968](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L968)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [types/server.ts:968](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **onClose?**: (`connection`, `code`, `reason`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:972](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L972)
+Defined in: [types/server.ts:972](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L972)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [types/server.ts:972](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **onError?**: (`connection`, `error`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/server.ts:977](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L977)
+Defined in: [types/server.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L977)
 
 #### Parameters
 

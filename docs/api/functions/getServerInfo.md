@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **getServerInfo**(`server`): `object`
 
-Defined in: [mcp/factory.ts:156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/factory.ts#L156)
+Defined in: [mcp/factory.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/factory.ts#L156)
 
 Utility function to get server info
 

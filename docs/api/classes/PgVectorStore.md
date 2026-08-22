@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: PgVectorStore
 
-Defined in: [rag/stores/pgvector.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pgvector.ts#L82)
+Defined in: [rag/stores/pgvector.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L82)
 
 RAG (Retrieval-Augmented Generation) Document Processing
 
@@ -47,7 +47,7 @@ console.log(response.answer);
 
 > **new PgVectorStore**(`client`, `options?`): `PgVectorStore`
 
-Defined in: [rag/stores/pgvector.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pgvector.ts#L88)
+Defined in: [rag/stores/pgvector.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L88)
 
 #### Parameters
 
@@ -69,7 +69,7 @@ Defined in: [rag/stores/pgvector.ts:88](https://github.com/juspay/neurolink/blob
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/pgvector.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pgvector.ts#L154)
+Defined in: [rag/stores/pgvector.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L154)
 
 Upsert vectors into an index, creating its table on first use.
 Mirrors `InMemoryVectorStore.upsert` (metadata defaults to `{}`).
@@ -94,7 +94,7 @@ Mirrors `InMemoryVectorStore.upsert` (metadata defaults to `{}`).
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
 
-Defined in: [rag/stores/pgvector.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pgvector.ts#L203)
+Defined in: [rag/stores/pgvector.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L203)
 
 Query by cosine similarity. Returns `[]` if the index's table doesn't
 exist yet (mirrors `InMemoryVectorStore.query` on an unknown index)
@@ -138,7 +138,7 @@ rather than throwing.
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/pgvector.ts:261](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pgvector.ts#L261)
+Defined in: [rag/stores/pgvector.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pgvector.ts#L261)
 
 Delete vectors by id. No-op if the index's table doesn't exist yet
 (mirrors `InMemoryVectorStore.delete`).

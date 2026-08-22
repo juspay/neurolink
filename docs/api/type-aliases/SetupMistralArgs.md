@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SetupMistralArgs** = `object`
 
-Defined in: [types/cli.ts:1663](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1663)
+Defined in: [types/cli.ts:1663](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1663)
 
 Arguments for `neurolink setup mistral`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink setup mistral`.
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:1664](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1664)
+Defined in: [types/cli.ts:1664](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1664)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1664](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **non-interactive?**: `boolean`
 
-Defined in: [types/cli.ts:1665](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1665)
+Defined in: [types/cli.ts:1665](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1665)

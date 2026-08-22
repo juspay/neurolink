@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TaskDistributor
 
-Defined in: [agent/coordination/task-distributor.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L39)
+Defined in: [agent/coordination/task-distributor.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L39)
 
 Task Distributor - Manages task distribution across agents
 
@@ -16,7 +16,7 @@ Task Distributor - Manages task distribution across agents
 
 > **new TaskDistributor**(`config`): `TaskDistributor`
 
-Defined in: [agent/coordination/task-distributor.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L48)
+Defined in: [agent/coordination/task-distributor.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L48)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [agent/coordination/task-distributor.ts:48](https://github.com/juspa
 
 > **registerAgent**(`agent`, `capability?`): `void`
 
-Defined in: [agent/coordination/task-distributor.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L68)
+Defined in: [agent/coordination/task-distributor.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L68)
 
 Register an agent with capabilities
 
@@ -58,7 +58,7 @@ Register an agent with capabilities
 
 > **unregisterAgent**(`agentId`): `void`
 
-Defined in: [agent/coordination/task-distributor.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L91)
+Defined in: [agent/coordination/task-distributor.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L91)
 
 Unregister an agent
 
@@ -78,7 +78,7 @@ Unregister an agent
 
 > **updateCapability**(`agentId`, `update`): `void`
 
-Defined in: [agent/coordination/task-distributor.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L99)
+Defined in: [agent/coordination/task-distributor.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L99)
 
 Update agent capability
 
@@ -102,7 +102,7 @@ Update agent capability
 
 > **submitTask**(`task`): `Promise`\<[`DistributionResult`](../type-aliases/DistributionResult.md)\>
 
-Defined in: [agent/coordination/task-distributor.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L109)
+Defined in: [agent/coordination/task-distributor.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L109)
 
 Submit a task for distribution
 
@@ -122,7 +122,7 @@ Submit a task for distribution
 
 > **submitTasks**(`tasks`): `Promise`\<[`DistributionResult`](../type-aliases/DistributionResult.md)[]\>
 
-Defined in: [agent/coordination/task-distributor.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L168)
+Defined in: [agent/coordination/task-distributor.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L168)
 
 Submit multiple tasks
 
@@ -142,7 +142,7 @@ Submit multiple tasks
 
 > **decomposeTask**(`task`, `analysis`): `Promise`\<[`DistributableTask`](../type-aliases/DistributableTask.md)[]\>
 
-Defined in: [agent/coordination/task-distributor.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L175)
+Defined in: [agent/coordination/task-distributor.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L175)
 
 Decompose a complex task into subtasks
 
@@ -166,7 +166,7 @@ Decompose a complex task into subtasks
 
 > **broadcastTask**(`task`): `Promise`\<`Map`\<`string`, [`DistributionResult`](../type-aliases/DistributionResult.md)\>\>
 
-Defined in: [agent/coordination/task-distributor.ts:583](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L583)
+Defined in: [agent/coordination/task-distributor.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L583)
 
 Broadcast a task to all agents
 
@@ -186,7 +186,7 @@ Broadcast a task to all agents
 
 > **getTaskResult**(`taskId`): [`DistributionResult`](../type-aliases/DistributionResult.md) \| `undefined`
 
-Defined in: [agent/coordination/task-distributor.ts:624](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L624)
+Defined in: [agent/coordination/task-distributor.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L624)
 
 Get task result
 
@@ -206,7 +206,7 @@ Get task result
 
 > **getQueueStatus**(): `object`
 
-Defined in: [agent/coordination/task-distributor.ts:631](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L631)
+Defined in: [agent/coordination/task-distributor.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L631)
 
 Get queue status
 
@@ -236,7 +236,7 @@ Get queue status
 
 > **clearCompleted**(): `void`
 
-Defined in: [agent/coordination/task-distributor.ts:666](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L666)
+Defined in: [agent/coordination/task-distributor.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L666)
 
 Clear completed/failed tasks
 
@@ -250,7 +250,7 @@ Clear completed/failed tasks
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: [agent/coordination/task-distributor.ts:702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L702)
+Defined in: [agent/coordination/task-distributor.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L702)
 
 Subscribe to distributor events
 
@@ -274,7 +274,7 @@ Subscribe to distributor events
 
 > **off**(`event`, `handler`): `void`
 
-Defined in: [agent/coordination/task-distributor.ts:709](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/task-distributor.ts#L709)
+Defined in: [agent/coordination/task-distributor.ts:709](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/task-distributor.ts#L709)
 
 Unsubscribe from distributor events
 

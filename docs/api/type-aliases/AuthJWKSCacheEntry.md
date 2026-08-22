@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthJWKSCacheEntry** = `object`
 
-Defined in: [types/auth.ts:1255](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1255)
+Defined in: [types/auth.ts:1255](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1255)
 
 Cached JWKS entry with TTL. Used by Cognito and Keycloak providers.
 
@@ -18,7 +18,7 @@ Cached JWKS entry with TTL. Used by Cognito and Keycloak providers.
 
 > **jwks**: [`JWKS`](JWKS.md)
 
-Defined in: [types/auth.ts:1256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1256)
+Defined in: [types/auth.ts:1256](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1256)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/auth.ts:1256](https://github.com/juspay/neurolink/blob/49032f
 
 > **expiresAt**: `number`
 
-Defined in: [types/auth.ts:1257](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L1257)
+Defined in: [types/auth.ts:1257](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L1257)

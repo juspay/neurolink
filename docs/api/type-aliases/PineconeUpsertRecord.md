@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PineconeUpsertRecord** = `object`
 
-Defined in: [types/vectorStorePinecone.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L35)
+Defined in: [types/vectorStorePinecone.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L35)
 
 A single record accepted by `PineconeIndexLike.upsert()`.
 
@@ -18,7 +18,7 @@ A single record accepted by `PineconeIndexLike.upsert()`.
 
 > **id**: `string`
 
-Defined in: [types/vectorStorePinecone.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L36)
+Defined in: [types/vectorStorePinecone.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L36)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/vectorStorePinecone.ts:36](https://github.com/juspay/neurolin
 
 > **values**: `number`[]
 
-Defined in: [types/vectorStorePinecone.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L37)
+Defined in: [types/vectorStorePinecone.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L37)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/vectorStorePinecone.ts:37](https://github.com/juspay/neurolin
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/vectorStorePinecone.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L38)
+Defined in: [types/vectorStorePinecone.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L38)

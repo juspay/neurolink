@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ModelAccessError
 
-Defined in: [types/errors.ts:227](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L227)
+Defined in: [types/errors.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L227)
 
 Error thrown when model access is denied based on subscription tier
 
@@ -20,7 +20,7 @@ Error thrown when model access is denied based on subscription tier
 
 > **new ModelAccessError**(`model`, `tier`, `requiredTier`): `ModelAccessError`
 
-Defined in: [types/errors.ts:232](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L232)
+Defined in: [types/errors.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L232)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [types/errors.ts:232](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` **model**: `string`
 
-Defined in: [types/errors.ts:228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L228)
+Defined in: [types/errors.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L228)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/errors.ts:228](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` **tier**: `string`
 
-Defined in: [types/errors.ts:229](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L229)
+Defined in: [types/errors.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L229)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/errors.ts:229](https://github.com/juspay/neurolink/blob/49032
 
 > `readonly` **requiredTier**: `string`
 
-Defined in: [types/errors.ts:230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L230)
+Defined in: [types/errors.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L230)

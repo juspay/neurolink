@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnalyticsQualityScore** = `object`
 
-Defined in: [types/analytics.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L106)
+Defined in: [types/analytics.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L106)
 
 Quality score subset captured on an analytics telemetry record.
 
@@ -18,7 +18,7 @@ Quality score subset captured on an analytics telemetry record.
 
 > **overall**: `number`
 
-Defined in: [types/analytics.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L107)
+Defined in: [types/analytics.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L107)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/analytics.ts:107](https://github.com/juspay/neurolink/blob/49
 
 > **relevance**: `number`
 
-Defined in: [types/analytics.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L108)
+Defined in: [types/analytics.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L108)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/analytics.ts:108](https://github.com/juspay/neurolink/blob/49
 
 > **accuracy**: `number`
 
-Defined in: [types/analytics.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L109)
+Defined in: [types/analytics.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L109)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/analytics.ts:109](https://github.com/juspay/neurolink/blob/49
 
 > **completeness**: `number`
 
-Defined in: [types/analytics.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L110)
+Defined in: [types/analytics.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L110)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/analytics.ts:110](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/analytics.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L111)
+Defined in: [types/analytics.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L111)

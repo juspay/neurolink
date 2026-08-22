@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: HITLManager
 
-Defined in: [hitl/hitlManager.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L39)
+Defined in: [hitl/hitlManager.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L39)
 
 HITLManager - Central orchestrator for Human-in-the-Loop safety mechanisms
 
@@ -29,7 +29,7 @@ Features:
 
 > **new HITLManager**(`config`): `HITLManager`
 
-Defined in: [hitl/hitlManager.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L51)
+Defined in: [hitl/hitlManager.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L51)
 
 #### Parameters
 
@@ -51,7 +51,7 @@ Defined in: [hitl/hitlManager.ts:51](https://github.com/juspay/neurolink/blob/49
 
 > **requiresConfirmation**(`toolName`, `args?`): `boolean`
 
-Defined in: [hitl/hitlManager.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L111)
+Defined in: [hitl/hitlManager.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L111)
 
 Check if a tool requires confirmation based on configuration
 
@@ -75,7 +75,7 @@ Check if a tool requires confirmation based on configuration
 
 > **requestConfirmation**(`toolName`, `arguments_`, `context?`): `Promise`\<[`ConfirmationResult`](../type-aliases/ConfirmationResult.md)\>
 
-Defined in: [hitl/hitlManager.ts:150](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L150)
+Defined in: [hitl/hitlManager.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L150)
 
 Request confirmation for a tool execution
 
@@ -113,7 +113,7 @@ Request confirmation for a tool execution
 
 > **processUserResponse**(`confirmationId`, `response`): `void`
 
-Defined in: [hitl/hitlManager.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L226)
+Defined in: [hitl/hitlManager.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L226)
 
 Process user response to confirmation request
 
@@ -155,7 +155,7 @@ Process user response to confirmation request
 
 > **getStatistics**(): [`HITLStatistics`](../type-aliases/HITLStatistics.md)
 
-Defined in: [hitl/hitlManager.ts:519](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L519)
+Defined in: [hitl/hitlManager.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L519)
 
 Get current HITL usage statistics
 
@@ -169,7 +169,7 @@ Get current HITL usage statistics
 
 > **getConfig**(): [`HITLConfig`](../type-aliases/HITLConfig.md)
 
-Defined in: [hitl/hitlManager.ts:526](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L526)
+Defined in: [hitl/hitlManager.ts:526](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L526)
 
 Get current configuration
 
@@ -183,7 +183,7 @@ Get current configuration
 
 > **updateConfig**(`newConfig`): `void`
 
-Defined in: [hitl/hitlManager.ts:533](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L533)
+Defined in: [hitl/hitlManager.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L533)
 
 Update configuration (for dynamic reconfiguration)
 
@@ -203,7 +203,7 @@ Update configuration (for dynamic reconfiguration)
 
 > **cleanup**(): `void`
 
-Defined in: [hitl/hitlManager.ts:548](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L548)
+Defined in: [hitl/hitlManager.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L548)
 
 Clean up resources and reject pending confirmations
 
@@ -217,7 +217,7 @@ Clean up resources and reject pending confirmations
 
 > **isEnabled**(): `boolean`
 
-Defined in: [hitl/hitlManager.ts:570](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L570)
+Defined in: [hitl/hitlManager.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L570)
 
 Check if manager is currently enabled
 
@@ -231,7 +231,7 @@ Check if manager is currently enabled
 
 > **getPendingCount**(): `number`
 
-Defined in: [hitl/hitlManager.ts:577](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/hitl/hitlManager.ts#L577)
+Defined in: [hitl/hitlManager.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L577)
 
 Get count of pending confirmations
 

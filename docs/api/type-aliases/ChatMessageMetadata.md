@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ChatMessageMetadata** = `object`
 
-Defined in: [types/conversation.ts:260](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L260)
+Defined in: [types/conversation.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L260)
 
 Metadata associated with a ChatMessage.
 
@@ -18,7 +18,7 @@ Metadata associated with a ChatMessage.
 
 > `optional` **isSummary?**: `boolean`
 
-Defined in: [types/conversation.ts:262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L262)
+Defined in: [types/conversation.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L262)
 
 Is this a summary message?
 
@@ -28,7 +28,7 @@ Is this a summary message?
 
 > `optional` **summarizesFrom?**: `string`
 
-Defined in: [types/conversation.ts:264](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L264)
+Defined in: [types/conversation.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L264)
 
 First message ID that this summary covers
 
@@ -38,7 +38,7 @@ First message ID that this summary covers
 
 > `optional` **summarizesTo?**: `string`
 
-Defined in: [types/conversation.ts:266](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L266)
+Defined in: [types/conversation.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L266)
 
 Last message ID that this summary covers
 
@@ -48,7 +48,7 @@ Last message ID that this summary covers
 
 > `optional` **truncated?**: `boolean`
 
-Defined in: [types/conversation.ts:268](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L268)
+Defined in: [types/conversation.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L268)
 
 Was this message truncated due to token limits?
 
@@ -58,7 +58,7 @@ Was this message truncated due to token limits?
 
 > `optional` **source?**: `string`
 
-Defined in: [types/conversation.ts:270](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L270)
+Defined in: [types/conversation.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L270)
 
 Source of the message (e.g., provider name, user input)
 
@@ -68,7 +68,7 @@ Source of the message (e.g., provider name, user input)
 
 > `optional` **language?**: `string`
 
-Defined in: [types/conversation.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L272)
+Defined in: [types/conversation.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L272)
 
 Language of the message content
 
@@ -78,7 +78,7 @@ Language of the message content
 
 > `optional` **confidence?**: `number`
 
-Defined in: [types/conversation.ts:274](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L274)
+Defined in: [types/conversation.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L274)
 
 Confidence score for AI-generated content
 
@@ -88,7 +88,7 @@ Confidence score for AI-generated content
 
 > `optional` **timestamp?**: `number`
 
-Defined in: [types/conversation.ts:281](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L281)
+Defined in: [types/conversation.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L281)
 
 Numeric timestamp for internal tracking and efficient comparisons.
 Format: Unix epoch milliseconds (number).
@@ -101,7 +101,7 @@ Use this for sorting, filtering, and performance-critical operations.
 
 > `optional` **modelUsed?**: `string`
 
-Defined in: [types/conversation.ts:283](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L283)
+Defined in: [types/conversation.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L283)
 
 Model used to generate this message
 
@@ -111,7 +111,7 @@ Model used to generate this message
 
 > `optional` **thoughtSignature?**: `string`
 
-Defined in: [types/conversation.ts:285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L285)
+Defined in: [types/conversation.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L285)
 
 Unique signature identifying thought/reasoning patterns
 
@@ -121,7 +121,7 @@ Unique signature identifying thought/reasoning patterns
 
 > `optional` **thoughtHash?**: `string`
 
-Defined in: [types/conversation.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L287)
+Defined in: [types/conversation.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L287)
 
 Hash of the thinking/reasoning content for deduplication
 
@@ -131,7 +131,7 @@ Hash of the thinking/reasoning content for deduplication
 
 > `optional` **thinkingExpanded?**: `boolean`
 
-Defined in: [types/conversation.ts:289](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L289)
+Defined in: [types/conversation.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L289)
 
 Whether extended thinking was used for this message
 
@@ -141,7 +141,7 @@ Whether extended thinking was used for this message
 
 > `optional` **stepIndex?**: `number`
 
-Defined in: [types/conversation.ts:291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L291)
+Defined in: [types/conversation.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L291)
 
 Step index for reconstructing parallel vs sequential tool calls
 
@@ -151,7 +151,7 @@ Step index for reconstructing parallel vs sequential tool calls
 
 > `optional` **toolOutputPreview?**: `string`
 
-Defined in: [types/conversation.ts:301](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L301)
+Defined in: [types/conversation.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L301)
 
 Head/tail preview of a large tool output.
 Only present on tool_result messages where the output exceeded truncation limits.
@@ -164,7 +164,7 @@ this value as the message content instead of the full output.
 
 > `optional` **originalSize?**: `number`
 
-Defined in: [types/conversation.ts:303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L303)
+Defined in: [types/conversation.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L303)
 
 Original byte size of the full tool output before any truncation
 
@@ -174,7 +174,7 @@ Original byte size of the full tool output before any truncation
 
 > `optional` **artifactId?**: `string`
 
-Defined in: [types/conversation.ts:310](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L310)
+Defined in: [types/conversation.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L310)
 
 Artifact store ID for an externalized MCP tool output.
 Set when `mcp.outputLimits.strategy = "externalize"` and the tool output
@@ -187,7 +187,7 @@ payload from the local artifact store.
 
 > `optional` **isSkill?**: `boolean`
 
-Defined in: [types/conversation.ts:321](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L321)
+Defined in: [types/conversation.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L321)
 
 Marks a pinned skill-activation message: the full instructions of a
 skill loaded via use_skill, persisted into session history so later
@@ -201,7 +201,7 @@ re-included after memory summarization.
 
 > `optional` **skillId?**: `string`
 
-Defined in: [types/conversation.ts:323](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L323)
+Defined in: [types/conversation.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L323)
 
 Skill id of a pinned skill-activation message.
 
@@ -211,7 +211,7 @@ Skill id of a pinned skill-activation message.
 
 > `optional` **skillName?**: `string`
 
-Defined in: [types/conversation.ts:325](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L325)
+Defined in: [types/conversation.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L325)
 
 Skill name of a pinned skill-activation message.
 
@@ -221,6 +221,6 @@ Skill name of a pinned skill-activation message.
 
 > `optional` **skillVersion?**: `number`
 
-Defined in: [types/conversation.ts:327](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L327)
+Defined in: [types/conversation.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L327)
 
 Skill version captured at activation (sessions pin the activated version).

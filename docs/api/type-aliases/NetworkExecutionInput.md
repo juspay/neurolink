@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkExecutionInput** = `object`
 
-Defined in: [types/agentNetwork.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L377)
+Defined in: [types/agentNetwork.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L377)
 
 Input for network execution
 
@@ -18,7 +18,7 @@ Input for network execution
 
 > **message**: `string` \| [`CoreMessage`](CoreMessage.md)[]
 
-Defined in: [types/agentNetwork.ts:379](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L379)
+Defined in: [types/agentNetwork.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L379)
 
 The task or message to process
 
@@ -28,7 +28,7 @@ The task or message to process
 
 > `optional` **threadId?**: `string`
 
-Defined in: [types/agentNetwork.ts:382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L382)
+Defined in: [types/agentNetwork.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L382)
 
 Thread ID for conversation context
 
@@ -38,7 +38,7 @@ Thread ID for conversation context
 
 > `optional` **resourceId?**: `string`
 
-Defined in: [types/agentNetwork.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L385)
+Defined in: [types/agentNetwork.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L385)
 
 User/resource identifier
 
@@ -48,6 +48,6 @@ User/resource identifier
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L388)
+Defined in: [types/agentNetwork.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L388)
 
 Additional context

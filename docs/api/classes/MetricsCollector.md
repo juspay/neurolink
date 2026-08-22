@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MetricsCollector
 
-Defined in: [evaluation/reporting/metricsCollector.ts:17](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L17)
+Defined in: [evaluation/reporting/metricsCollector.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L17)
 
 Metrics collector for evaluation data
 
@@ -26,7 +26,7 @@ Metrics collector for evaluation data
 
 > **recordScorer**(`scorerId`, `scorerName`, `result`): `void`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L34)
+Defined in: [evaluation/reporting/metricsCollector.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L34)
 
 Record a scorer execution
 
@@ -54,7 +54,7 @@ Record a scorer execution
 
 > **recordPipeline**(`result`): `void`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L53)
+Defined in: [evaluation/reporting/metricsCollector.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L53)
 
 Record a pipeline execution
 
@@ -74,7 +74,7 @@ Record a pipeline execution
 
 > **getMetrics**(): [`AggregatedMetrics`](../type-aliases/AggregatedMetrics.md)
 
-Defined in: [evaluation/reporting/metricsCollector.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L72)
+Defined in: [evaluation/reporting/metricsCollector.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L72)
 
 Get aggregated metrics
 
@@ -88,7 +88,7 @@ Get aggregated metrics
 
 > **getScorerMetrics**(`scorerId`): [`ScorerMetrics`](../type-aliases/ScorerMetrics.md) \| `undefined`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L102)
+Defined in: [evaluation/reporting/metricsCollector.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L102)
 
 Get metrics for a specific scorer
 
@@ -108,7 +108,7 @@ Get metrics for a specific scorer
 
 > **getPipelineMetrics**(`pipelineName`): [`PipelineMetrics`](../type-aliases/PipelineMetrics.md) \| `undefined`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L109)
+Defined in: [evaluation/reporting/metricsCollector.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L109)
 
 Get metrics for a specific pipeline
 
@@ -128,7 +128,7 @@ Get metrics for a specific pipeline
 
 > **getSummary**(): `object`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L116)
+Defined in: [evaluation/reporting/metricsCollector.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L116)
 
 Get summary statistics
 
@@ -162,7 +162,7 @@ Get summary statistics
 
 > **exportJson**(): `string`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:150](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L150)
+Defined in: [evaluation/reporting/metricsCollector.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L150)
 
 Export metrics as JSON
 
@@ -176,7 +176,7 @@ Export metrics as JSON
 
 > **reset**(): `void`
 
-Defined in: [evaluation/reporting/metricsCollector.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/reporting/metricsCollector.ts#L192)
+Defined in: [evaluation/reporting/metricsCollector.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/reporting/metricsCollector.ts#L192)
 
 Reset all metrics
 

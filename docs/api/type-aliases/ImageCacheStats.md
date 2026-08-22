@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageCacheStats** = `object`
 
-Defined in: [types/utilities.ts:266](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L266)
+Defined in: [types/utilities.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L266)
 
 Cache statistics for monitoring
 
@@ -18,7 +18,7 @@ Cache statistics for monitoring
 
 > **hits**: `number`
 
-Defined in: [types/utilities.ts:268](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L268)
+Defined in: [types/utilities.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L268)
 
 Number of cache hits
 
@@ -28,7 +28,7 @@ Number of cache hits
 
 > **misses**: `number`
 
-Defined in: [types/utilities.ts:270](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L270)
+Defined in: [types/utilities.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L270)
 
 Number of cache misses
 
@@ -38,7 +38,7 @@ Number of cache misses
 
 > **evictions**: `number`
 
-Defined in: [types/utilities.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L272)
+Defined in: [types/utilities.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L272)
 
 Number of entries evicted due to size limits
 
@@ -48,7 +48,7 @@ Number of entries evicted due to size limits
 
 > **expirations**: `number`
 
-Defined in: [types/utilities.ts:274](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L274)
+Defined in: [types/utilities.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L274)
 
 Number of entries expired due to TTL
 
@@ -58,7 +58,7 @@ Number of entries expired due to TTL
 
 > **totalRequests**: `number`
 
-Defined in: [types/utilities.ts:276](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L276)
+Defined in: [types/utilities.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L276)
 
 Total number of requests
 
@@ -68,7 +68,7 @@ Total number of requests
 
 > **size**: `number`
 
-Defined in: [types/utilities.ts:278](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L278)
+Defined in: [types/utilities.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L278)
 
 Current number of entries in cache
 
@@ -78,7 +78,7 @@ Current number of entries in cache
 
 > **totalBytes**: `number`
 
-Defined in: [types/utilities.ts:280](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L280)
+Defined in: [types/utilities.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L280)
 
 Total size of cached images in bytes
 
@@ -88,6 +88,6 @@ Total size of cached images in bytes
 
 > **hitRate**: `number`
 
-Defined in: [types/utilities.ts:282](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L282)
+Defined in: [types/utilities.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L282)
 
 Cache hit rate as percentage

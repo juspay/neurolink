@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MusicProviderName** = `"beatoven"` \| `"elevenlabs-music"` \| `"elevenlabs-sound"` \| `"lyria"` \| `"replicate"` \| `"musicgen"` \| `string` & `object`
 
-Defined in: [types/music.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/music.ts#L40)
+Defined in: [types/music.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/music.ts#L40)
 
 Known music provider identifiers shipped with NeuroLink.
 

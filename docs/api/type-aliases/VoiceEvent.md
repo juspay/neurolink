@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VoiceEvent**\<`T`\> = `object`
 
-Defined in: [types/voice.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L166)
+Defined in: [types/voice.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L166)
 
 Voice event for event-driven operations
 
@@ -24,7 +24,7 @@ Voice event for event-driven operations
 
 > **type**: [`VoiceEventType`](VoiceEventType.md)
 
-Defined in: [types/voice.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L167)
+Defined in: [types/voice.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L167)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/voice.ts:167](https://github.com/juspay/neurolink/blob/49032f
 
 > **timestamp**: `Date`
 
-Defined in: [types/voice.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L168)
+Defined in: [types/voice.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L168)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/voice.ts:168](https://github.com/juspay/neurolink/blob/49032f
 
 > **provider**: [`VoiceProviderName`](VoiceProviderName.md)
 
-Defined in: [types/voice.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L169)
+Defined in: [types/voice.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L169)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/voice.ts:169](https://github.com/juspay/neurolink/blob/49032f
 
 > **data**: `T`
 
-Defined in: [types/voice.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L170)
+Defined in: [types/voice.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L170)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/voice.ts:170](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/voice.ts:171](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L171)
+Defined in: [types/voice.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L171)

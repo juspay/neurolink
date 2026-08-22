@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProcessedFileBase** = `object`
 
-Defined in: [types/processor.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L79)
+Defined in: [types/processor.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L79)
 
 Base interface for processed file data.
 All specific processed types should extend this interface.
@@ -19,7 +19,7 @@ All specific processed types should extend this interface.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/processor.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L81)
+Defined in: [types/processor.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L81)
 
 File content as a Buffer
 
@@ -29,7 +29,7 @@ File content as a Buffer
 
 > **mimetype**: `string`
 
-Defined in: [types/processor.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L83)
+Defined in: [types/processor.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L83)
 
 MIME type of the processed content
 
@@ -39,7 +39,7 @@ MIME type of the processed content
 
 > **size**: `number`
 
-Defined in: [types/processor.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L85)
+Defined in: [types/processor.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L85)
 
 Size of the processed content in bytes
 
@@ -49,6 +49,6 @@ Size of the processed content in bytes
 
 > **filename**: `string`
 
-Defined in: [types/processor.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L87)
+Defined in: [types/processor.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L87)
 
 Filename (may be normalized or sanitized)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchItemResult** = `object`
 
-Defined in: [types/evaluation.ts:422](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L422)
+Defined in: [types/evaluation.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L422)
 
 Result of a single item in the pipeline batchStrategy.
 
@@ -18,7 +18,7 @@ Result of a single item in the pipeline batchStrategy.
 
 > **index**: `number`
 
-Defined in: [types/evaluation.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L423)
+Defined in: [types/evaluation.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L423)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:423](https://github.com/juspay/neurolink/blob/4
 
 > **input**: [`ScorerInput`](ScorerInput.md)
 
-Defined in: [types/evaluation.ts:424](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L424)
+Defined in: [types/evaluation.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L424)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:424](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **result?**: [`PipelineResult`](PipelineResult.md)
 
-Defined in: [types/evaluation.ts:425](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L425)
+Defined in: [types/evaluation.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L425)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluation.ts:425](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **error?**: `string`
 
-Defined in: [types/evaluation.ts:426](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L426)
+Defined in: [types/evaluation.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L426)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/evaluation.ts:426](https://github.com/juspay/neurolink/blob/4
 
 > **duration**: `number`
 
-Defined in: [types/evaluation.ts:427](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L427)
+Defined in: [types/evaluation.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L427)

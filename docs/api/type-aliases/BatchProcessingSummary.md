@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BatchProcessingSummary**\<`T`\> = `object`
 
-Defined in: [types/processor.ts:286](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L286)
+Defined in: [types/processor.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L286)
 
 Summary of batch file processing operations.
 
@@ -24,7 +24,7 @@ Summary of batch file processing operations.
 
 > **totalFiles**: `number`
 
-Defined in: [types/processor.ts:290](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L290)
+Defined in: [types/processor.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L290)
 
 Total number of files attempted
 
@@ -34,7 +34,7 @@ Total number of files attempted
 
 > **processedFiles**: [`ProcessedFileInfo`](ProcessedFileInfo.md)[]
 
-Defined in: [types/processor.ts:292](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L292)
+Defined in: [types/processor.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L292)
 
 Successfully processed files
 
@@ -44,7 +44,7 @@ Successfully processed files
 
 > **failedFiles**: [`FailedFileInfo`](FailedFileInfo.md)[]
 
-Defined in: [types/processor.ts:294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L294)
+Defined in: [types/processor.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L294)
 
 Files that failed to process
 
@@ -54,7 +54,7 @@ Files that failed to process
 
 > **skippedFiles**: [`SkippedFileInfo`](SkippedFileInfo.md)[]
 
-Defined in: [types/processor.ts:296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L296)
+Defined in: [types/processor.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L296)
 
 Files that were skipped (e.g., unsupported format)
 
@@ -64,7 +64,7 @@ Files that were skipped (e.g., unsupported format)
 
 > **warnings**: [`FileWarning`](FileWarning.md)[]
 
-Defined in: [types/processor.ts:298](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L298)
+Defined in: [types/processor.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L298)
 
 Non-fatal warnings
 
@@ -74,6 +74,6 @@ Non-fatal warnings
 
 > **results**: `T`[]
 
-Defined in: [types/processor.ts:300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L300)
+Defined in: [types/processor.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L300)
 
 Processed results (parallel array with processedFiles)

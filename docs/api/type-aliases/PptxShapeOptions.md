@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PptxShapeOptions** = `object`
 
-Defined in: [types/ppt.ts:1085](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1085)
+Defined in: [types/ppt.ts:1085](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1085)
 
 Shape options for addShape method
 
@@ -18,7 +18,7 @@ Shape options for addShape method
 
 > `optional` **x?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1086](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1086)
+Defined in: [types/ppt.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1086)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1086](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **y?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1087](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1087)
+Defined in: [types/ppt.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1087)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1087](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **w?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1088](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1088)
+Defined in: [types/ppt.ts:1088](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1088)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/ppt.ts:1088](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **h?**: `number` \| `string`
 
-Defined in: [types/ppt.ts:1089](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1089)
+Defined in: [types/ppt.ts:1089](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1089)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/ppt.ts:1089](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **fill?**: `object`
 
-Defined in: [types/ppt.ts:1090](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1090)
+Defined in: [types/ppt.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1090)
 
 #### color
 
@@ -66,7 +66,7 @@ Defined in: [types/ppt.ts:1090](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **line?**: `object`
 
-Defined in: [types/ppt.ts:1091](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1091)
+Defined in: [types/ppt.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1091)
 
 #### color?
 
@@ -86,7 +86,7 @@ Defined in: [types/ppt.ts:1091](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **rectRadius?**: `number`
 
-Defined in: [types/ppt.ts:1092](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1092)
+Defined in: [types/ppt.ts:1092](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1092)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [types/ppt.ts:1092](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **rotate?**: `number`
 
-Defined in: [types/ppt.ts:1093](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1093)
+Defined in: [types/ppt.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1093)
 
 ---
 
@@ -102,4 +102,4 @@ Defined in: [types/ppt.ts:1093](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **shadow?**: [`ShadowProps`](ShadowProps.md)
 
-Defined in: [types/ppt.ts:1094](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1094)
+Defined in: [types/ppt.ts:1094](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1094)

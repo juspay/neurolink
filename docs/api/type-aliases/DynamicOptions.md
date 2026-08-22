@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DynamicOptions** = `object`
 
-Defined in: [types/dynamic.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L59)
+Defined in: [types/dynamic.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L59)
 
 Dynamic options for generate() and stream() — pass functions
 instead of static values for context-aware resolution.
@@ -19,7 +19,7 @@ instead of static values for context-aware resolution.
 
 > `optional` **useKnowledgeGrounding?**: `boolean`
 
-Defined in: [types/dynamic.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L65)
+Defined in: [types/dynamic.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L65)
 
 Opt this call into the knowledge grounding configured on the NeuroLink
 instance. This flag is intentionally static because grounding runs before
@@ -31,7 +31,7 @@ dynamic arguments are resolved.
 
 > `optional` **knowledgeContext?**: [`KnowledgeRequestScope`](KnowledgeRequestScope.md)
 
-Defined in: [types/dynamic.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L70)
+Defined in: [types/dynamic.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L70)
 
 Enabled integrations used to scope knowledge retrieval for this turn.
 This scope is intentionally static for the same reason.
@@ -42,7 +42,7 @@ This scope is intentionally static for the same reason.
 
 > `optional` **model?**: [`DynamicArgument`](DynamicArgument.md)\<`string`\>
 
-Defined in: [types/dynamic.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L71)
+Defined in: [types/dynamic.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L71)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/dynamic.ts:71](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **provider?**: [`DynamicArgument`](DynamicArgument.md)\<[`AIProviderName`](../enumerations/AIProviderName.md) \| `string`\>
 
-Defined in: [types/dynamic.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L72)
+Defined in: [types/dynamic.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L72)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/dynamic.ts:72](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **temperature?**: [`DynamicArgument`](DynamicArgument.md)\<`number`\>
 
-Defined in: [types/dynamic.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L73)
+Defined in: [types/dynamic.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L73)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/dynamic.ts:73](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **maxTokens?**: [`DynamicArgument`](DynamicArgument.md)\<`number`\>
 
-Defined in: [types/dynamic.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L74)
+Defined in: [types/dynamic.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L74)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/dynamic.ts:74](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **systemPrompt?**: [`DynamicArgument`](DynamicArgument.md)\<`string`\>
 
-Defined in: [types/dynamic.ts:75](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L75)
+Defined in: [types/dynamic.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L75)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/dynamic.ts:75](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **tools?**: [`DynamicArgument`](DynamicArgument.md)\<`string`[]\>
 
-Defined in: [types/dynamic.ts:82](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L82)
+Defined in: [types/dynamic.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L82)
 
 Resolves to a `string[]` of tool names to enable.
 The resolved array is merged into `enabledToolNames` (and from there
@@ -95,7 +95,7 @@ which is a `Record<string, Tool>` map of tool definitions.
 
 > `optional` **timeout?**: [`DynamicArgument`](DynamicArgument.md)\<`number`\>
 
-Defined in: [types/dynamic.ts:83](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L83)
+Defined in: [types/dynamic.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L83)
 
 ---
 
@@ -103,7 +103,7 @@ Defined in: [types/dynamic.ts:83](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **thinkingLevel?**: [`DynamicArgument`](DynamicArgument.md)\<`"minimal"` \| `"low"` \| `"medium"` \| `"high"`\>
 
-Defined in: [types/dynamic.ts:84](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L84)
+Defined in: [types/dynamic.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L84)
 
 ---
 
@@ -111,7 +111,7 @@ Defined in: [types/dynamic.ts:84](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **disableTools?**: [`DynamicArgument`](DynamicArgument.md)\<`boolean`\>
 
-Defined in: [types/dynamic.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L85)
+Defined in: [types/dynamic.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L85)
 
 ---
 
@@ -119,7 +119,7 @@ Defined in: [types/dynamic.ts:85](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **enableAnalytics?**: [`DynamicArgument`](DynamicArgument.md)\<`boolean`\>
 
-Defined in: [types/dynamic.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L86)
+Defined in: [types/dynamic.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L86)
 
 ---
 
@@ -127,7 +127,7 @@ Defined in: [types/dynamic.ts:86](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **enableEvaluation?**: [`DynamicArgument`](DynamicArgument.md)\<`boolean`\>
 
-Defined in: [types/dynamic.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L87)
+Defined in: [types/dynamic.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L87)
 
 ---
 
@@ -135,7 +135,7 @@ Defined in: [types/dynamic.ts:87](https://github.com/juspay/neurolink/blob/49032
 
 > **input**: `object`
 
-Defined in: [types/dynamic.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L88)
+Defined in: [types/dynamic.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L88)
 
 #### text
 
@@ -155,7 +155,7 @@ Defined in: [types/dynamic.ts:88](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **dynamicContext?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/dynamic.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L100)
+Defined in: [types/dynamic.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L100)
 
 Context passed to dynamic resolver functions — any shape you want.
 

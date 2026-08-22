@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: WebLoader
 
-Defined in: [rag/document/loaders.ts:452](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L452)
+Defined in: [rag/document/loaders.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L452)
 
 Web page loader
 
@@ -33,7 +33,7 @@ Supports basic HTML parsing without external dependencies.
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](MDocument.md)\>
 
-Defined in: [rag/document/loaders.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L456)
+Defined in: [rag/document/loaders.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L456)
 
 Load document from source
 
@@ -67,7 +67,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [rag/document/loaders.ts:505](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/document/loaders.ts#L505)
+Defined in: [rag/document/loaders.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/rag/document/loaders.ts#L505)
 
 Check if loader can handle the source
 

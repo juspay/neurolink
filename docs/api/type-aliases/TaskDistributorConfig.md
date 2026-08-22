@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TaskDistributorConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:1435](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1435)
+Defined in: [types/agentNetwork.ts:1435](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1435)
 
 Task Distributor configuration
 
@@ -18,7 +18,7 @@ Task Distributor configuration
 
 > **strategy**: [`DistributionStrategy`](DistributionStrategy.md)
 
-Defined in: [types/agentNetwork.ts:1437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1437)
+Defined in: [types/agentNetwork.ts:1437](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1437)
 
 Distribution strategy
 
@@ -28,7 +28,7 @@ Distribution strategy
 
 > `optional` **maxQueueSize?**: `number`
 
-Defined in: [types/agentNetwork.ts:1440](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1440)
+Defined in: [types/agentNetwork.ts:1440](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1440)
 
 Maximum queue size
 
@@ -38,7 +38,7 @@ Maximum queue size
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/agentNetwork.ts:1443](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1443)
+Defined in: [types/agentNetwork.ts:1443](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1443)
 
 Maximum retries per task
 
@@ -48,7 +48,7 @@ Maximum retries per task
 
 > `optional` **retryDelay?**: `number`
 
-Defined in: [types/agentNetwork.ts:1446](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1446)
+Defined in: [types/agentNetwork.ts:1446](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1446)
 
 Retry delay in ms
 
@@ -58,7 +58,7 @@ Retry delay in ms
 
 > `optional` **taskTimeout?**: `number`
 
-Defined in: [types/agentNetwork.ts:1449](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1449)
+Defined in: [types/agentNetwork.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1449)
 
 Task timeout in ms
 
@@ -68,7 +68,7 @@ Task timeout in ms
 
 > `optional` **enableDecomposition?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1452](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1452)
+Defined in: [types/agentNetwork.ts:1452](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1452)
 
 Enable task decomposition
 
@@ -78,7 +78,7 @@ Enable task decomposition
 
 > `optional` **skillMatcher?**: (`task`, `agent`) => `number`
 
-Defined in: [types/agentNetwork.ts:1455](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1455)
+Defined in: [types/agentNetwork.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1455)
 
 Custom skill matcher
 

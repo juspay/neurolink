@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AutoresearchRevertFailedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:191](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L191)
+Defined in: [types/autoresearch.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L191)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/autoresearch.ts:191](https://github.com/juspay/neurolink/blob
 
 > **tag**: `string`
 
-Defined in: [types/autoresearch.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L192)
+Defined in: [types/autoresearch.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L192)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/autoresearch.ts:192](https://github.com/juspay/neurolink/blob
 
 > **targetCommit**: `string`
 
-Defined in: [types/autoresearch.ts:193](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L193)
+Defined in: [types/autoresearch.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L193)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/autoresearch.ts:193](https://github.com/juspay/neurolink/blob
 
 > **error**: `string`
 
-Defined in: [types/autoresearch.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L194)
+Defined in: [types/autoresearch.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L194)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/autoresearch.ts:194](https://github.com/juspay/neurolink/blob
 
 > **runCount**: `number`
 
-Defined in: [types/autoresearch.ts:195](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L195)
+Defined in: [types/autoresearch.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L195)

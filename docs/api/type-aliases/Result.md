@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Result**\<`T`, `E`\> = `object`
 
-Defined in: [types/common.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L70)
+Defined in: [types/common.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L70)
 
 Generic success/error result type
 
@@ -28,7 +28,7 @@ Generic success/error result type
 
 > **success**: `boolean`
 
-Defined in: [types/common.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L71)
+Defined in: [types/common.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L71)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/common.ts:71](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **data?**: `T`
 
-Defined in: [types/common.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L72)
+Defined in: [types/common.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L72)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/common.ts:72](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **error?**: `E`
 
-Defined in: [types/common.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L73)
+Defined in: [types/common.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L73)

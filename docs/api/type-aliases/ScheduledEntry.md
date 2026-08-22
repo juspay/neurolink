@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScheduledEntry** = `object`
 
-Defined in: [types/task.ts:313](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L313)
+Defined in: [types/task.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L313)
 
 Internal scheduling entry used by NodeTimeoutBackend
 
@@ -18,7 +18,7 @@ Internal scheduling entry used by NodeTimeoutBackend
 
 > **taskId**: `string`
 
-Defined in: [types/task.ts:314](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L314)
+Defined in: [types/task.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L314)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/task.ts:314](https://github.com/juspay/neurolink/blob/49032fc
 
 > **executor**: [`TaskExecutorFn`](TaskExecutorFn.md)
 
-Defined in: [types/task.ts:315](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L315)
+Defined in: [types/task.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L315)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/task.ts:315](https://github.com/juspay/neurolink/blob/49032fc
 
 > **task**: [`Task`](Task.md)
 
-Defined in: [types/task.ts:316](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L316)
+Defined in: [types/task.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L316)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/task.ts:316](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **cronJob?**: `Cron`
 
-Defined in: [types/task.ts:318](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L318)
+Defined in: [types/task.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L318)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/task.ts:318](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **intervalId?**: `ReturnType`\<_typeof_ `setInterval`\>
 
-Defined in: [types/task.ts:319](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L319)
+Defined in: [types/task.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L319)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/task.ts:319](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **timeoutId?**: `ReturnType`\<_typeof_ `setTimeout`\>
 
-Defined in: [types/task.ts:320](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/task.ts#L320)
+Defined in: [types/task.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/task.ts#L320)

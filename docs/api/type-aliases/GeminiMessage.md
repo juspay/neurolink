@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GeminiMessage** = `object`
 
-Defined in: [types/stt.ts:724](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L724)
+Defined in: [types/stt.ts:724](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L724)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:724](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **setup?**: `object`
 
-Defined in: [types/stt.ts:725](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L725)
+Defined in: [types/stt.ts:725](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L725)
 
 #### model
 
@@ -64,7 +64,7 @@ Defined in: [types/stt.ts:725](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **realtimeInput?**: `object`
 
-Defined in: [types/stt.ts:742](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L742)
+Defined in: [types/stt.ts:742](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L742)
 
 #### mediaChunks
 
@@ -76,7 +76,7 @@ Defined in: [types/stt.ts:742](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **clientContent?**: `object`
 
-Defined in: [types/stt.ts:748](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L748)
+Defined in: [types/stt.ts:748](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L748)
 
 #### turns
 

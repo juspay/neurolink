@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TTSOptions** = `object`
 
-Defined in: [types/tts.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L55)
+Defined in: [types/tts.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L55)
 
 TTS configuration options
 
@@ -18,7 +18,7 @@ TTS configuration options
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/tts.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L57)
+Defined in: [types/tts.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L57)
 
 Enable TTS output
 
@@ -28,7 +28,7 @@ Enable TTS output
 
 > `optional` **useAiResponse?**: `boolean`
 
-Defined in: [types/tts.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L86)
+Defined in: [types/tts.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L86)
 
 Use the AI-generated response for TTS instead of the input text
 
@@ -67,7 +67,7 @@ const result = await neurolink.generate({
 
 > `optional` **voice?**: `string`
 
-Defined in: [types/tts.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L88)
+Defined in: [types/tts.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L88)
 
 Voice identifier (e.g., "en-US-Neural2-C")
 
@@ -77,7 +77,7 @@ Voice identifier (e.g., "en-US-Neural2-C")
 
 > `optional` **format?**: [`TTSAudioFormat`](TTSAudioFormat.md)
 
-Defined in: [types/tts.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L90)
+Defined in: [types/tts.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L90)
 
 Audio format (default: mp3)
 
@@ -87,7 +87,7 @@ Audio format (default: mp3)
 
 > `optional` **speed?**: `number`
 
-Defined in: [types/tts.ts:92](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L92)
+Defined in: [types/tts.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L92)
 
 Speaking rate 0.25-4.0 (default: 1.0)
 
@@ -97,7 +97,7 @@ Speaking rate 0.25-4.0 (default: 1.0)
 
 > `optional` **pitch?**: `number`
 
-Defined in: [types/tts.ts:94](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L94)
+Defined in: [types/tts.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L94)
 
 Voice pitch adjustment -20.0 to 20.0 semitones (default: 0.0)
 
@@ -107,7 +107,7 @@ Voice pitch adjustment -20.0 to 20.0 semitones (default: 0.0)
 
 > `optional` **volumeGainDb?**: `number`
 
-Defined in: [types/tts.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L96)
+Defined in: [types/tts.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L96)
 
 Volume gain in dB -96.0 to 16.0 (default: 0.0)
 
@@ -117,7 +117,7 @@ Volume gain in dB -96.0 to 16.0 (default: 0.0)
 
 > `optional` **quality?**: [`TTSQuality`](TTSQuality.md)
 
-Defined in: [types/tts.ts:98](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L98)
+Defined in: [types/tts.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L98)
 
 Audio quality (default: standard)
 
@@ -127,7 +127,7 @@ Audio quality (default: standard)
 
 > `optional` **output?**: `string`
 
-Defined in: [types/tts.ts:100](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L100)
+Defined in: [types/tts.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L100)
 
 Output file path (optional)
 
@@ -137,7 +137,7 @@ Output file path (optional)
 
 > `optional` **play?**: `boolean`
 
-Defined in: [types/tts.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L102)
+Defined in: [types/tts.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L102)
 
 Auto-play audio after generation (default: false)
 
@@ -147,6 +147,6 @@ Auto-play audio after generation (default: false)
 
 > `optional` **provider?**: [`TTSProviderName`](TTSProviderName.md)
 
-Defined in: [types/tts.ts:104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tts.ts#L104)
+Defined in: [types/tts.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L104)
 
 Override TTS provider (e.g., "elevenlabs", "openai-tts", "azure-tts")

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ScoreScale** = `object`
 
-Defined in: [types/scorer.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L29)
+Defined in: [types/scorer.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L29)
 
 Score scale configuration
 
@@ -18,7 +18,7 @@ Score scale configuration
 
 > **min**: `number`
 
-Defined in: [types/scorer.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L31)
+Defined in: [types/scorer.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L31)
 
 Minimum score value
 
@@ -28,7 +28,7 @@ Minimum score value
 
 > **max**: `number`
 
-Defined in: [types/scorer.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L33)
+Defined in: [types/scorer.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L33)
 
 Maximum score value
 
@@ -38,6 +38,6 @@ Maximum score value
 
 > **precision**: `number`
 
-Defined in: [types/scorer.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L35)
+Defined in: [types/scorer.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L35)
 
 Decimal precision for scores

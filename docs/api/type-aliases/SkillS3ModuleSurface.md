@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SkillS3ModuleSurface** = `object`
 
-Defined in: [types/skills.ts:187](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L187)
+Defined in: [types/skills.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L187)
 
 Structural surface of the lazily-required @aws-sdk/client-s3 module —
 only the pieces the S3 skill store touches (same pattern as
@@ -20,7 +20,7 @@ HippocampusModule for the optional memory peer).
 
 > **S3Client**: (`config`) => `object`
 
-Defined in: [types/skills.ts:188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L188)
+Defined in: [types/skills.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L188)
 
 #### Parameters
 
@@ -52,7 +52,7 @@ Defined in: [types/skills.ts:188](https://github.com/juspay/neurolink/blob/49032
 
 > **GetObjectCommand**: (`input`) => `unknown`
 
-Defined in: [types/skills.ts:191](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L191)
+Defined in: [types/skills.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L191)
 
 #### Parameters
 
@@ -70,7 +70,7 @@ Defined in: [types/skills.ts:191](https://github.com/juspay/neurolink/blob/49032
 
 > **PutObjectCommand**: (`input`) => `unknown`
 
-Defined in: [types/skills.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L192)
+Defined in: [types/skills.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L192)
 
 #### Parameters
 
@@ -88,7 +88,7 @@ Defined in: [types/skills.ts:192](https://github.com/juspay/neurolink/blob/49032
 
 > **DeleteObjectCommand**: (`input`) => `unknown`
 
-Defined in: [types/skills.ts:193](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L193)
+Defined in: [types/skills.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L193)
 
 #### Parameters
 
@@ -106,7 +106,7 @@ Defined in: [types/skills.ts:193](https://github.com/juspay/neurolink/blob/49032
 
 > **ListObjectsV2Command**: (`input`) => `unknown`
 
-Defined in: [types/skills.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L194)
+Defined in: [types/skills.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L194)
 
 #### Parameters
 

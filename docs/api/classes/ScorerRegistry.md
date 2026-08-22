@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ScorerRegistry
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:383](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L383)
+Defined in: [evaluation/scorers/scorerRegistry.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L383)
 
 Central registry for all scorers
 Manages registration, discovery, and instantiation
@@ -29,7 +29,7 @@ Manages registration, discovery, and instantiation
 
 > **get** `static` **size**(): `number`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L617)
+Defined in: [evaluation/scorers/scorerRegistry.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L617)
 
 Get the number of registered scorers (excluding aliases)
 
@@ -43,7 +43,7 @@ Get the number of registered scorers (excluding aliases)
 
 > `static` **register**(`entry`): `void`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L391)
+Defined in: [evaluation/scorers/scorerRegistry.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L391)
 
 Register a scorer with the registry
 
@@ -63,7 +63,7 @@ Register a scorer with the registry
 
 > `static` **registerScorer**(`metadata`, `factory`, `aliases?`): `void`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:418](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L418)
+Defined in: [evaluation/scorers/scorerRegistry.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L418)
 
 Register a scorer using a simple configuration
 
@@ -91,7 +91,7 @@ Register a scorer using a simple configuration
 
 > `static` **registerBuiltInScorers**(): `Promise`\<`void`\>
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:454](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L454)
+Defined in: [evaluation/scorers/scorerRegistry.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L454)
 
 Register built-in scorers using dynamic imports
 
@@ -105,7 +105,7 @@ Register built-in scorers using dynamic imports
 
 > `static` **getScorer**(`scorerId`, `config?`): `Promise`\<[`Scorer`](../type-aliases/Scorer.md) \| `undefined`\>
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:483](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L483)
+Defined in: [evaluation/scorers/scorerRegistry.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L483)
 
 Get a scorer instance by ID
 
@@ -129,7 +129,7 @@ Get a scorer instance by ID
 
 > `static` **getScorersByCategory**(`category`): [`ScorerRegistryEntry`](../type-aliases/ScorerRegistryEntry.md)[]
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:509](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L509)
+Defined in: [evaluation/scorers/scorerRegistry.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L509)
 
 Get scorers by category
 
@@ -149,7 +149,7 @@ Get scorers by category
 
 > `static` **getScorersByType**(`type`): [`ScorerRegistryEntry`](../type-aliases/ScorerRegistryEntry.md)[]
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:529](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L529)
+Defined in: [evaluation/scorers/scorerRegistry.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L529)
 
 Get scorers by type
 
@@ -169,7 +169,7 @@ Get scorers by type
 
 > `static` **list**(): [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)[]
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:546](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L546)
+Defined in: [evaluation/scorers/scorerRegistry.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L546)
 
 List all registered scorer metadata
 
@@ -183,7 +183,7 @@ List all registered scorer metadata
 
 > `static` **has**(`scorerId`): `boolean`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:563](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L563)
+Defined in: [evaluation/scorers/scorerRegistry.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L563)
 
 Check if a scorer is registered
 
@@ -203,7 +203,7 @@ Check if a scorer is registered
 
 > `static` **unregister**(`scorerId`): `boolean`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:570](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L570)
+Defined in: [evaluation/scorers/scorerRegistry.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L570)
 
 Unregister a scorer
 
@@ -223,7 +223,7 @@ Unregister a scorer
 
 > `static` **clear**(): `void`
 
-Defined in: [evaluation/scorers/scorerRegistry.ts:595](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/scorerRegistry.ts#L595)
+Defined in: [evaluation/scorers/scorerRegistry.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/scorerRegistry.ts#L595)
 
 Clear all registered scorers
 

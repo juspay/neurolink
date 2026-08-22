@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelFilterConfig** = `object`
 
-Defined in: [types/guardrails.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L105)
+Defined in: [types/guardrails.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L105)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/guardrails.ts:105](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/guardrails.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L106)
+Defined in: [types/guardrails.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L106)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/guardrails.ts:106](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **filterModel?**: `LanguageModel`
 
-Defined in: [types/guardrails.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L107)
+Defined in: [types/guardrails.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L107)

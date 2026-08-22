@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientChatMessage** = `object`
 
-Defined in: [types/client.ts:536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L536)
+Defined in: [types/client.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L536)
 
 Chat message for useChat hook
 
@@ -18,7 +18,7 @@ Chat message for useChat hook
 
 > **id**: `string`
 
-Defined in: [types/client.ts:538](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L538)
+Defined in: [types/client.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L538)
 
 Unique message ID
 
@@ -28,7 +28,7 @@ Unique message ID
 
 > **role**: `"user"` \| `"assistant"` \| `"system"` \| `"tool"`
 
-Defined in: [types/client.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L540)
+Defined in: [types/client.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L540)
 
 Message role
 
@@ -38,7 +38,7 @@ Message role
 
 > **content**: `string`
 
-Defined in: [types/client.ts:542](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L542)
+Defined in: [types/client.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L542)
 
 Message content
 
@@ -48,7 +48,7 @@ Message content
 
 > `optional` **toolCalls?**: [`StreamToolCall`](StreamToolCall.md)[]
 
-Defined in: [types/client.ts:544](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L544)
+Defined in: [types/client.ts:544](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L544)
 
 Tool calls in this message
 
@@ -58,7 +58,7 @@ Tool calls in this message
 
 > `optional` **toolResults?**: [`StreamToolResult`](StreamToolResult.md)[]
 
-Defined in: [types/client.ts:546](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L546)
+Defined in: [types/client.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L546)
 
 Tool results in this message
 
@@ -68,7 +68,7 @@ Tool results in this message
 
 > **createdAt**: `Date`
 
-Defined in: [types/client.ts:548](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L548)
+Defined in: [types/client.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L548)
 
 Message timestamp
 
@@ -78,6 +78,6 @@ Message timestamp
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/client.ts:550](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L550)
+Defined in: [types/client.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L550)
 
 Additional metadata

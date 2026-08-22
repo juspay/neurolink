@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RouterInputContext** = `object`
 
-Defined in: [types/requestRouter.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/requestRouter.ts#L20)
+Defined in: [types/requestRouter.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L20)
 
 Lightweight characteristics of the incoming request available to the router
 without executing the full call.
@@ -19,7 +19,7 @@ without executing the full call.
 
 > **prompt**: `string`
 
-Defined in: [types/requestRouter.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/requestRouter.ts#L22)
+Defined in: [types/requestRouter.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L22)
 
 The text prompt (or first text segment of a multi-modal input).
 
@@ -29,7 +29,7 @@ The text prompt (or first text segment of a multi-modal input).
 
 > `optional` **estimatedInputTokens?**: `number`
 
-Defined in: [types/requestRouter.ts:24](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/requestRouter.ts#L24)
+Defined in: [types/requestRouter.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L24)
 
 Rough token estimate for the input, if known by the caller.
 
@@ -39,7 +39,7 @@ Rough token estimate for the input, if known by the caller.
 
 > `optional` **hasTools?**: `boolean`
 
-Defined in: [types/requestRouter.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/requestRouter.ts#L26)
+Defined in: [types/requestRouter.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L26)
 
 True when the call includes at least one tool definition.
 
@@ -49,7 +49,7 @@ True when the call includes at least one tool definition.
 
 > `optional` **requiresVision?**: `boolean`
 
-Defined in: [types/requestRouter.ts:28](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/requestRouter.ts#L28)
+Defined in: [types/requestRouter.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L28)
 
 True when the call includes at least one image/vision attachment.
 
@@ -59,6 +59,6 @@ True when the call includes at least one image/vision attachment.
 
 > `optional` **thinkingLevel?**: `string`
 
-Defined in: [types/requestRouter.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/requestRouter.ts#L30)
+Defined in: [types/requestRouter.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/requestRouter.ts#L30)
 
 Thinking level passed to the call ("minimal" | "low" | "medium" | "high").

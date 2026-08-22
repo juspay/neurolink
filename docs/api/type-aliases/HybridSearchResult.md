@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HybridSearchResult** = `object`
 
-Defined in: [types/rag.ts:1320](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1320)
+Defined in: [types/rag.ts:1320](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1320)
 
 Hybrid search result
 
@@ -18,7 +18,7 @@ Hybrid search result
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1322](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1322)
+Defined in: [types/rag.ts:1322](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1322)
 
 Document ID
 
@@ -28,7 +28,7 @@ Document ID
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1324](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1324)
+Defined in: [types/rag.ts:1324](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1324)
 
 Combined score
 
@@ -38,7 +38,7 @@ Combined score
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1326](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1326)
+Defined in: [types/rag.ts:1326](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1326)
 
 Document text
 
@@ -48,7 +48,7 @@ Document text
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1328](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1328)
+Defined in: [types/rag.ts:1328](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1328)
 
 Associated metadata
 
@@ -58,7 +58,7 @@ Associated metadata
 
 > `optional` **scores?**: `object`
 
-Defined in: [types/rag.ts:1330](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1330)
+Defined in: [types/rag.ts:1330](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1330)
 
 Score breakdown
 

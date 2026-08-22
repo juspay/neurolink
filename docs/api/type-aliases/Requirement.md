@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **Requirement** = `object`
 
-Defined in: [types/agentNetwork.ts:884](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L884)
+Defined in: [types/agentNetwork.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L884)
 
 Requirement for task completion
 
@@ -18,7 +18,7 @@ Requirement for task completion
 
 > **type**: `"tool"` \| `"capability"` \| `"data"`
 
-Defined in: [types/agentNetwork.ts:886](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L886)
+Defined in: [types/agentNetwork.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L886)
 
 Requirement type
 
@@ -28,7 +28,7 @@ Requirement type
 
 > **description**: `string`
 
-Defined in: [types/agentNetwork.ts:889](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L889)
+Defined in: [types/agentNetwork.ts:889](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L889)
 
 Requirement description
 
@@ -38,6 +38,6 @@ Requirement description
 
 > **mandatory**: `boolean`
 
-Defined in: [types/agentNetwork.ts:892](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L892)
+Defined in: [types/agentNetwork.ts:892](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L892)
 
 Whether it's mandatory

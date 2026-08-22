@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NormalizedKnowledgeEntry** = `object`
 
-Defined in: [types/knowledge.ts:114](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L114)
+Defined in: [types/knowledge.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L114)
 
 The complete, defaults-resolved record NeuroLink indexes and injects. Omitted
 optionals are materialized (arrays to `[]`, `body` to `""`, `kind` to "text",
@@ -21,7 +21,7 @@ Field meanings mirror `KnowledgeEntryInput`.
 
 > **id**: `string`
 
-Defined in: [types/knowledge.ts:115](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L115)
+Defined in: [types/knowledge.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L115)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/knowledge.ts:115](https://github.com/juspay/neurolink/blob/49
 
 > **title**: `string`
 
-Defined in: [types/knowledge.ts:116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L116)
+Defined in: [types/knowledge.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L116)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/knowledge.ts:116](https://github.com/juspay/neurolink/blob/49
 
 > **summary**: `string`
 
-Defined in: [types/knowledge.ts:117](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L117)
+Defined in: [types/knowledge.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L117)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/knowledge.ts:117](https://github.com/juspay/neurolink/blob/49
 
 > **domain**: `string`
 
-Defined in: [types/knowledge.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L118)
+Defined in: [types/knowledge.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L118)
 
 ---
 
@@ -53,7 +53,7 @@ Defined in: [types/knowledge.ts:118](https://github.com/juspay/neurolink/blob/49
 
 > **integrations**: `string`[]
 
-Defined in: [types/knowledge.ts:119](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L119)
+Defined in: [types/knowledge.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L119)
 
 ---
 
@@ -61,7 +61,7 @@ Defined in: [types/knowledge.ts:119](https://github.com/juspay/neurolink/blob/49
 
 > **kind**: [`KnowledgeEntryKind`](KnowledgeEntryKind.md)
 
-Defined in: [types/knowledge.ts:120](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L120)
+Defined in: [types/knowledge.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L120)
 
 ---
 
@@ -69,7 +69,7 @@ Defined in: [types/knowledge.ts:120](https://github.com/juspay/neurolink/blob/49
 
 > **status**: [`KnowledgeStatus`](KnowledgeStatus.md)
 
-Defined in: [types/knowledge.ts:121](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L121)
+Defined in: [types/knowledge.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L121)
 
 ---
 
@@ -77,7 +77,7 @@ Defined in: [types/knowledge.ts:121](https://github.com/juspay/neurolink/blob/49
 
 > **body**: `string`
 
-Defined in: [types/knowledge.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L122)
+Defined in: [types/knowledge.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L122)
 
 ---
 
@@ -85,7 +85,7 @@ Defined in: [types/knowledge.ts:122](https://github.com/juspay/neurolink/blob/49
 
 > **aliases**: `string`[]
 
-Defined in: [types/knowledge.ts:123](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L123)
+Defined in: [types/knowledge.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L123)
 
 ---
 
@@ -93,7 +93,7 @@ Defined in: [types/knowledge.ts:123](https://github.com/juspay/neurolink/blob/49
 
 > **keywords**: `string`[]
 
-Defined in: [types/knowledge.ts:124](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L124)
+Defined in: [types/knowledge.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L124)
 
 ---
 
@@ -101,7 +101,7 @@ Defined in: [types/knowledge.ts:124](https://github.com/juspay/neurolink/blob/49
 
 > **relatedEntryIds**: `string`[]
 
-Defined in: [types/knowledge.ts:125](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L125)
+Defined in: [types/knowledge.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L125)
 
 ---
 
@@ -109,7 +109,7 @@ Defined in: [types/knowledge.ts:125](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **parentEntryId?**: `string`
 
-Defined in: [types/knowledge.ts:126](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L126)
+Defined in: [types/knowledge.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L126)
 
 ---
 
@@ -117,6 +117,6 @@ Defined in: [types/knowledge.ts:126](https://github.com/juspay/neurolink/blob/49
 
 > **version**: `string`
 
-Defined in: [types/knowledge.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/knowledge.ts#L128)
+Defined in: [types/knowledge.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L128)
 
 Content version from the source/manifest; appears in citations as [KB:id@version].

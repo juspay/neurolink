@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientModelOptions** = `object`
 
-Defined in: [types/client.ts:936](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L936)
+Defined in: [types/client.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L936)
 
 Model creation options for AI SDK adapter
 
@@ -18,7 +18,7 @@ Model creation options for AI SDK adapter
 
 > `optional` **modelId?**: `string`
 
-Defined in: [types/client.ts:938](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L938)
+Defined in: [types/client.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L938)
 
 Model ID
 
@@ -28,7 +28,7 @@ Model ID
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/client.ts:940](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L940)
+Defined in: [types/client.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L940)
 
 Provider name
 
@@ -38,7 +38,7 @@ Provider name
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/client.ts:942](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L942)
+Defined in: [types/client.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L942)
 
 Temperature
 
@@ -48,6 +48,6 @@ Temperature
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/client.ts:944](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L944)
+Defined in: [types/client.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L944)
 
 Maximum tokens

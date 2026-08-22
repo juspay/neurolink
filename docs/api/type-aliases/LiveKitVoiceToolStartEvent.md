@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitVoiceToolStartEvent** = `object`
 
-Defined in: [types/livekit.ts:262](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L262)
+Defined in: [types/livekit.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L262)
 
 A tool invocation has started (best-effort status; may not always fire).
 
@@ -18,7 +18,7 @@ A tool invocation has started (best-effort status; may not always fire).
 
 > **type**: `"tool-start"`
 
-Defined in: [types/livekit.ts:263](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L263)
+Defined in: [types/livekit.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L263)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/livekit.ts:263](https://github.com/juspay/neurolink/blob/4903
 
 > **data**: `object`
 
-Defined in: [types/livekit.ts:264](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L264)
+Defined in: [types/livekit.ts:264](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L264)
 
 #### id?
 

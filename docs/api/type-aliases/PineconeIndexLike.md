@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PineconeIndexLike** = `object`
 
-Defined in: [types/vectorStorePinecone.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L47)
+Defined in: [types/vectorStorePinecone.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L47)
 
 Minimal structural interface modeled on the `@pinecone-database/pinecone`
 `Index` object. Satisfied by the real SDK's `Index` without modification;
@@ -21,7 +21,7 @@ package — they bring their own already-constructed client instance.
 
 > `optional` **namespace**(`ns`): `PineconeIndexLike`
 
-Defined in: [types/vectorStorePinecone.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L49)
+Defined in: [types/vectorStorePinecone.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L49)
 
 Returns a client scoped to the given namespace, if the client supports namespacing.
 
@@ -41,7 +41,7 @@ Returns a client scoped to the given namespace, if the client supports namespaci
 
 > **query**(`request`): `Promise`\<[`PineconeQueryResponse`](PineconeQueryResponse.md)\>
 
-Defined in: [types/vectorStorePinecone.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L50)
+Defined in: [types/vectorStorePinecone.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L50)
 
 #### Parameters
 
@@ -59,7 +59,7 @@ Defined in: [types/vectorStorePinecone.ts:50](https://github.com/juspay/neurolin
 
 > **upsert**(`records`): `Promise`\<`unknown`\>
 
-Defined in: [types/vectorStorePinecone.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L51)
+Defined in: [types/vectorStorePinecone.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L51)
 
 #### Parameters
 
@@ -77,7 +77,7 @@ Defined in: [types/vectorStorePinecone.ts:51](https://github.com/juspay/neurolin
 
 > **deleteMany**(`ids`): `Promise`\<`unknown`\>
 
-Defined in: [types/vectorStorePinecone.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStorePinecone.ts#L52)
+Defined in: [types/vectorStorePinecone.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStorePinecone.ts#L52)
 
 #### Parameters
 

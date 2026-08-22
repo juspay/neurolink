@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MultimodalInput** = `object`
 
-Defined in: [types/multimodal.ts:437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L437)
+Defined in: [types/multimodal.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L437)
 
 Multimodal input type for options that may contain images or content arrays
 This is the primary interface for users to provide multimodal content
@@ -19,7 +19,7 @@ This is the primary interface for users to provide multimodal content
 
 > **text**: `string`
 
-Defined in: [types/multimodal.ts:438](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L438)
+Defined in: [types/multimodal.ts:438](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L438)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/multimodal.ts:438](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **images?**: (`Buffer` \| `string` \| [`ImageWithAltText`](ImageWithAltText.md))[]
 
-Defined in: [types/multimodal.ts:456](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L456)
+Defined in: [types/multimodal.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L456)
 
 Images to include in the request.
 Can be simple image data (Buffer, string) or objects with alt text for accessibility.
@@ -51,7 +51,7 @@ images: [
 
 > `optional` **content?**: [`Content`](Content.md)[]
 
-Defined in: [types/multimodal.ts:457](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L457)
+Defined in: [types/multimodal.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L457)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/multimodal.ts:457](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **csvFiles?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/multimodal.ts:458](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L458)
+Defined in: [types/multimodal.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L458)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/multimodal.ts:458](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **pdfFiles?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/multimodal.ts:459](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L459)
+Defined in: [types/multimodal.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L459)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/multimodal.ts:459](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **files?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/multimodal.ts:460](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L460)
+Defined in: [types/multimodal.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L460)
 
 ---
 
@@ -83,7 +83,7 @@ Defined in: [types/multimodal.ts:460](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **audioFiles?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/multimodal.ts:463](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L463)
+Defined in: [types/multimodal.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L463)
 
 Audio files for file-based audio processing (future)
 
@@ -93,7 +93,7 @@ Audio files for file-based audio processing (future)
 
 > `optional` **videoFiles?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/multimodal.ts:466](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L466)
+Defined in: [types/multimodal.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L466)
 
 Video files for file-based video processing (future)
 
@@ -103,7 +103,7 @@ Video files for file-based video processing (future)
 
 > `optional` **segments?**: [`DirectorSegment`](DirectorSegment.md)[]
 
-Defined in: [types/multimodal.ts:482](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L482)
+Defined in: [types/multimodal.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L482)
 
 Director Mode segments for multi-clip video generation.
 Each segment contains a prompt and image for generating one video clip.

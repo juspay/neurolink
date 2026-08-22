@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VoiceTurn** = `object`
 
-Defined in: [types/voice.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L182)
+Defined in: [types/voice.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L182)
 
 Voice conversation turn
 
@@ -18,7 +18,7 @@ Voice conversation turn
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/voice.ts:183](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L183)
+Defined in: [types/voice.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L183)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/voice.ts:183](https://github.com/juspay/neurolink/blob/49032f
 
 > **text**: `string`
 
-Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L184)
+Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L184)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/voice.ts:184](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **audio?**: `Buffer`
 
-Defined in: [types/voice.ts:185](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L185)
+Defined in: [types/voice.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L185)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/voice.ts:185](https://github.com/juspay/neurolink/blob/49032f
 
 > **timestamp**: `Date`
 
-Defined in: [types/voice.ts:186](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L186)
+Defined in: [types/voice.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L186)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/voice.ts:186](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/voice.ts:187](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L187)
+Defined in: [types/voice.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L187)
 
 #### Index Signature
 

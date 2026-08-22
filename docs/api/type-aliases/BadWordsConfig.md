@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BadWordsConfig** = `object`
 
-Defined in: [types/guardrails.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L88)
+Defined in: [types/guardrails.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L88)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/guardrails.ts:88](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/guardrails.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L89)
+Defined in: [types/guardrails.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L89)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/guardrails.ts:89](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **list?**: `string`[]
 
-Defined in: [types/guardrails.ts:90](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L90)
+Defined in: [types/guardrails.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L90)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/guardrails.ts:90](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **regexPatterns?**: `string`[]
 
-Defined in: [types/guardrails.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L91)
+Defined in: [types/guardrails.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L91)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/guardrails.ts:91](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **replacementText?**: `string`
 
-Defined in: [types/guardrails.ts:102](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/guardrails.ts#L102)
+Defined in: [types/guardrails.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L102)
 
 Text to use when replacing filtered content.
 

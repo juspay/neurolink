@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RecursiveChunker
 
-Defined in: [rag/chunking/recursiveChunker.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/recursiveChunker.ts#L22)
+Defined in: [rag/chunking/recursiveChunker.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/recursiveChunker.ts#L22)
 
 Recursive chunker implementation
 Smart splitting based on content structure using hierarchical separators
@@ -31,7 +31,7 @@ Smart splitting based on content structure using hierarchical separators
 
 > `readonly` **strategy**: `"recursive"`
 
-Defined in: [rag/chunking/recursiveChunker.ts:23](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/recursiveChunker.ts#L23)
+Defined in: [rag/chunking/recursiveChunker.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/recursiveChunker.ts#L23)
 
 Strategy name for identification
 
@@ -45,7 +45,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/chunking/recursiveChunker.ts:27](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/recursiveChunker.ts#L27)
+Defined in: [rag/chunking/recursiveChunker.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/recursiveChunker.ts#L27)
 
 Split text into chunks
 
@@ -79,7 +79,7 @@ Array of chunks
 
 > **validateConfig**(`config`): [`ChunkerValidationResult`](../type-aliases/ChunkerValidationResult.md)
 
-Defined in: [rag/chunking/recursiveChunker.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/chunking/recursiveChunker.ts#L175)
+Defined in: [rag/chunking/recursiveChunker.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/rag/chunking/recursiveChunker.ts#L175)
 
 #### Parameters
 

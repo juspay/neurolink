@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **GoogleSynthesisInput** = `object`
 
-Defined in: [types/stt.ts:648](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L648)
+Defined in: [types/stt.ts:648](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L648)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:648](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **text?**: `string`
 
-Defined in: [types/stt.ts:649](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L649)
+Defined in: [types/stt.ts:649](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L649)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/stt.ts:649](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **ssml?**: `string`
 
-Defined in: [types/stt.ts:650](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L650)
+Defined in: [types/stt.ts:650](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L650)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AgentNetwork
 
-Defined in: [agent/agentNetwork.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L65)
+Defined in: [agent/agentNetwork.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L65)
 
 AgentNetwork - Multi-agent orchestration using the ai SDK tool loop
 
@@ -36,7 +36,7 @@ const result = await network.execute({
 
 > **new AgentNetwork**(`config`, `neurolink`): `AgentNetwork`
 
-Defined in: [agent/agentNetwork.ts:81](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L81)
+Defined in: [agent/agentNetwork.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L81)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [agent/agentNetwork.ts:81](https://github.com/juspay/neurolink/blob/
 
 > `readonly` **id**: `string`
 
-Defined in: [agent/agentNetwork.ts:66](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L66)
+Defined in: [agent/agentNetwork.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L66)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [agent/agentNetwork.ts:66](https://github.com/juspay/neurolink/blob/
 
 > `readonly` **name**: `string`
 
-Defined in: [agent/agentNetwork.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L67)
+Defined in: [agent/agentNetwork.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L67)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [agent/agentNetwork.ts:67](https://github.com/juspay/neurolink/blob/
 
 > `readonly` `optional` **description?**: `string`
 
-Defined in: [agent/agentNetwork.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L68)
+Defined in: [agent/agentNetwork.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L68)
 
 ## Methods
 
@@ -82,7 +82,7 @@ Defined in: [agent/agentNetwork.ts:68](https://github.com/juspay/neurolink/blob/
 
 > **execute**(`input`, `options?`): `Promise`\<[`NetworkExecutionResult`](../type-aliases/NetworkExecutionResult.md)\>
 
-Defined in: [agent/agentNetwork.ts:378](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L378)
+Defined in: [agent/agentNetwork.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L378)
 
 Execute the network with intelligent routing via the ai SDK tool loop.
 
@@ -110,7 +110,7 @@ agent tool(s) to call; the SDK executes them and loops until `stop` or
 
 > **stream**(`input`, `options?`): `AsyncIterable`\<[`NetworkStreamChunk`](../type-aliases/NetworkStreamChunk.md)\>
 
-Defined in: [agent/agentNetwork.ts:467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L467)
+Defined in: [agent/agentNetwork.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L467)
 
 Stream network execution using the ai SDK tool loop.
 
@@ -137,7 +137,7 @@ tool results are forwarded as typed NetworkStreamChunk events.
 
 > **getAgent**(`id`): [`Agent`](Agent.md) \| `undefined`
 
-Defined in: [agent/agentNetwork.ts:597](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L597)
+Defined in: [agent/agentNetwork.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L597)
 
 #### Parameters
 
@@ -155,7 +155,7 @@ Defined in: [agent/agentNetwork.ts:597](https://github.com/juspay/neurolink/blob
 
 > **getAllAgents**(): [`Agent`](Agent.md)[]
 
-Defined in: [agent/agentNetwork.ts:601](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L601)
+Defined in: [agent/agentNetwork.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L601)
 
 #### Returns
 
@@ -167,7 +167,7 @@ Defined in: [agent/agentNetwork.ts:601](https://github.com/juspay/neurolink/blob
 
 > **getAllPrimitives**(): [`Primitive`](../type-aliases/Primitive.md)[]
 
-Defined in: [agent/agentNetwork.ts:605](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L605)
+Defined in: [agent/agentNetwork.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L605)
 
 #### Returns
 
@@ -179,7 +179,7 @@ Defined in: [agent/agentNetwork.ts:605](https://github.com/juspay/neurolink/blob
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: [agent/agentNetwork.ts:609](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L609)
+Defined in: [agent/agentNetwork.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L609)
 
 #### Parameters
 
@@ -201,7 +201,7 @@ Defined in: [agent/agentNetwork.ts:609](https://github.com/juspay/neurolink/blob
 
 > **off**(`event`, `handler`): `void`
 
-Defined in: [agent/agentNetwork.ts:613](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/agentNetwork.ts#L613)
+Defined in: [agent/agentNetwork.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/agent/agentNetwork.ts#L613)
 
 #### Parameters
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **UnsupportedFileError** = `object`
 
-Defined in: [types/processor.ts:357](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L357)
+Defined in: [types/processor.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L357)
 
 Detailed error information for unsupported file types.
 Provides helpful suggestions for the user.
@@ -19,7 +19,7 @@ Provides helpful suggestions for the user.
 
 > **code**: `"NO_PROCESSOR_FOUND"` \| `"PROCESSING_FAILED"`
 
-Defined in: [types/processor.ts:359](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L359)
+Defined in: [types/processor.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L359)
 
 Error code for programmatic handling
 
@@ -29,7 +29,7 @@ Error code for programmatic handling
 
 > **message**: `string`
 
-Defined in: [types/processor.ts:362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L362)
+Defined in: [types/processor.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L362)
 
 Human-readable error message
 
@@ -39,7 +39,7 @@ Human-readable error message
 
 > **filename**: `string`
 
-Defined in: [types/processor.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L365)
+Defined in: [types/processor.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L365)
 
 Original filename
 
@@ -49,7 +49,7 @@ Original filename
 
 > **mimetype**: `string`
 
-Defined in: [types/processor.ts:368](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L368)
+Defined in: [types/processor.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L368)
 
 MIME type of the file
 
@@ -59,7 +59,7 @@ MIME type of the file
 
 > **suggestion**: `string`
 
-Defined in: [types/processor.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L371)
+Defined in: [types/processor.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L371)
 
 Helpful suggestion for the user
 
@@ -69,6 +69,6 @@ Helpful suggestion for the user
 
 > **supportedTypes**: `string`[]
 
-Defined in: [types/processor.ts:374](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L374)
+Defined in: [types/processor.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L374)
 
 List of supported file types

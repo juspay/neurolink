@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **createContextRelevancyScorer**(`config?`): `Promise`\<[`ContextRelevancyScorer`](../classes/ContextRelevancyScorer.md)\>
 
-Defined in: [evaluation/scorers/llm/contextRelevancyScorer.ts:130](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/llm/contextRelevancyScorer.ts#L130)
+Defined in: [evaluation/scorers/llm/contextRelevancyScorer.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/llm/contextRelevancyScorer.ts#L130)
 
 Evaluation System Exports
 

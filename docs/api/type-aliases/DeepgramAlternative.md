@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DeepgramAlternative** = `object`
 
-Defined in: [types/stt.ts:443](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L443)
+Defined in: [types/stt.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L443)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:443](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **transcript**: `string`
 
-Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L444)
+Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L444)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:444](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **confidence**: `number`
 
-Defined in: [types/stt.ts:445](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L445)
+Defined in: [types/stt.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L445)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:445](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **words**: [`DeepgramWord`](DeepgramWord.md)[]
 
-Defined in: [types/stt.ts:446](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L446)
+Defined in: [types/stt.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L446)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:446](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **paragraphs?**: `object`
 
-Defined in: [types/stt.ts:447](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L447)
+Defined in: [types/stt.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L447)
 
 #### transcript
 

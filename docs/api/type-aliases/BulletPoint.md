@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BulletPoint** = `object`
 
-Defined in: [types/ppt.ts:268](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L268)
+Defined in: [types/ppt.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L268)
 
 Bullet point with optional sub-bullets and styling
 Maps to: addText with bullet: true option
@@ -22,7 +22,7 @@ Priority: bullet-level > slide-level > type-defaults > theme-defaults
 
 > **text**: `string`
 
-Defined in: [types/ppt.ts:269](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L269)
+Defined in: [types/ppt.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L269)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/ppt.ts:269](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **subBullets?**: `string`[]
 
-Defined in: [types/ppt.ts:270](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L270)
+Defined in: [types/ppt.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L270)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/ppt.ts:270](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **icon?**: `string`
 
-Defined in: [types/ppt.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L272)
+Defined in: [types/ppt.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L272)
 
 Icon code for custom bullet (Unicode). Ex: "2713" for checkmark
 
@@ -48,7 +48,7 @@ Icon code for custom bullet (Unicode). Ex: "2713" for checkmark
 
 > `optional` **emphasis?**: `boolean`
 
-Defined in: [types/ppt.ts:274](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L274)
+Defined in: [types/ppt.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L274)
 
 Highlight/emphasis for this bullet
 
@@ -58,7 +58,7 @@ Highlight/emphasis for this bullet
 
 > `optional` **fontSize?**: `number`
 
-Defined in: [types/ppt.ts:278](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L278)
+Defined in: [types/ppt.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L278)
 
 Font size override (default calculated based on bullet count)
 
@@ -68,7 +68,7 @@ Font size override (default calculated based on bullet count)
 
 > `optional` **bulletStyle?**: [`BulletStyle`](BulletStyle.md)
 
-Defined in: [types/ppt.ts:280](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L280)
+Defined in: [types/ppt.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L280)
 
 Bullet style override (default based on slide type)
 
@@ -78,7 +78,7 @@ Bullet style override (default based on slide type)
 
 > `optional` **color?**: `string`
 
-Defined in: [types/ppt.ts:282](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L282)
+Defined in: [types/ppt.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L282)
 
 Text color override (hex, e.g., "#FF0000")
 
@@ -88,6 +88,6 @@ Text color override (hex, e.g., "#FF0000")
 
 > `optional` **bold?**: `boolean`
 
-Defined in: [types/ppt.ts:284](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L284)
+Defined in: [types/ppt.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L284)
 
 Bold text override

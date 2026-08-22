@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BudgetCheckParams** = `object`
 
-Defined in: [types/context.ts:684](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L684)
+Defined in: [types/context.ts:684](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L684)
 
 Parameters for budget checking.
 
@@ -18,7 +18,7 @@ Parameters for budget checking.
 
 > **provider**: `string`
 
-Defined in: [types/context.ts:685](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L685)
+Defined in: [types/context.ts:685](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L685)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:685](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **model?**: `string`
 
-Defined in: [types/context.ts:686](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L686)
+Defined in: [types/context.ts:686](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L686)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:686](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/context.ts:687](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L687)
+Defined in: [types/context.ts:687](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L687)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/context.ts:687](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/context.ts:688](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L688)
+Defined in: [types/context.ts:688](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L688)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/context.ts:688](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **conversationMessages?**: `object`[]
 
-Defined in: [types/context.ts:689](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L689)
+Defined in: [types/context.ts:689](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L689)
 
 #### role
 
@@ -66,7 +66,7 @@ Defined in: [types/context.ts:689](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **currentPrompt?**: `string`
 
-Defined in: [types/context.ts:690](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L690)
+Defined in: [types/context.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L690)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/context.ts:690](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **toolDefinitions?**: `unknown`[]
 
-Defined in: [types/context.ts:691](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L691)
+Defined in: [types/context.ts:691](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L691)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/context.ts:691](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **fileAttachments?**: `object`[]
 
-Defined in: [types/context.ts:692](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L692)
+Defined in: [types/context.ts:692](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L692)
 
 #### content
 
@@ -94,6 +94,6 @@ Defined in: [types/context.ts:692](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **compactionThreshold?**: `number`
 
-Defined in: [types/context.ts:694](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L694)
+Defined in: [types/context.ts:694](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L694)
 
 Compaction trigger threshold (0.0-1.0). Default: 0.80

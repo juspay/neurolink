@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RankedNode** = `object`
 
-Defined in: [types/rag.ts:1391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1391)
+Defined in: [types/rag.ts:1391](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1391)
 
 Ranked node result from graph query
 
@@ -18,7 +18,7 @@ Ranked node result from graph query
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1393](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1393)
+Defined in: [types/rag.ts:1393](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1393)
 
 Node ID
 
@@ -28,7 +28,7 @@ Node ID
 
 > **content**: `string`
 
-Defined in: [types/rag.ts:1395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1395)
+Defined in: [types/rag.ts:1395](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1395)
 
 Node content
 
@@ -38,7 +38,7 @@ Node content
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1397)
+Defined in: [types/rag.ts:1397](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1397)
 
 Node metadata
 
@@ -48,6 +48,6 @@ Node metadata
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1399)
+Defined in: [types/rag.ts:1399](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1399)
 
 Relevance score

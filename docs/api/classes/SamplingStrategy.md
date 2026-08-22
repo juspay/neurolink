@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: SamplingStrategy
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L38)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L38)
 
 Sampling strategy for evaluation
 
@@ -16,7 +16,7 @@ Sampling strategy for evaluation
 
 > **new SamplingStrategy**(`config?`): `SamplingStrategy`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L44)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L44)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:44](https://gith
 
 > **get** **config**(): [`SamplingConfig`](../type-aliases/SamplingConfig.md)
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:78](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L78)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L78)
 
 Get current sampling configuration
 
@@ -52,7 +52,7 @@ Get current sampling configuration
 
 > **get** **currentRate**(): `number`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L85)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L85)
 
 Get current sampling rate
 
@@ -66,7 +66,7 @@ Get current sampling rate
 
 > **shouldSample**(`context?`): [`SamplingDecision`](../type-aliases/SamplingDecision.md)
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:92](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L92)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L92)
 
 Decide whether to sample a request
 
@@ -86,7 +86,7 @@ Decide whether to sample a request
 
 > **recordScore**(`score`): `void`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L144)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L144)
 
 Record a score for adaptive sampling
 
@@ -106,7 +106,7 @@ Record a score for adaptive sampling
 
 > **reset**(): `void`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:191](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L191)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L191)
 
 Reset sampling state
 
@@ -120,7 +120,7 @@ Reset sampling state
 
 > **configure**(`config`): `void`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L199)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L199)
 
 Update sampling configuration
 
@@ -140,7 +140,7 @@ Update sampling configuration
 
 > **getStats**(): `object`
 
-Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:235](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L235)
+Defined in: [evaluation/pipeline/strategies/samplingStrategy.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/pipeline/strategies/samplingStrategy.ts#L235)
 
 Get sampling statistics
 

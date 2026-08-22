@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAICompatTextContent** = `object`
 
-Defined in: [types/openaiCompatible.ts:16](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L16)
+Defined in: [types/openaiCompatible.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L16)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:16](https://github.com/juspay/neurolink/b
 
 > **type**: `"text"`
 
-Defined in: [types/openaiCompatible.ts:17](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L17)
+Defined in: [types/openaiCompatible.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L17)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/openaiCompatible.ts:17](https://github.com/juspay/neurolink/b
 
 > **text**: `string`
 
-Defined in: [types/openaiCompatible.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/openaiCompatible.ts#L18)
+Defined in: [types/openaiCompatible.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L18)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **mcpProtocolToolToServerTool**(`protocolTool`, `executor`, `options?`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)
 
-Defined in: [mcp/toolConverter.ts:125](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/toolConverter.ts#L125)
+Defined in: [mcp/toolConverter.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/toolConverter.ts#L125)
 
 Convert MCP protocol tool to MCPServerTool
 (For tools received from external MCP servers)

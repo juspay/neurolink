@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TokenRefreshError
 
-Defined in: [client/auth.ts:463](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L463)
+Defined in: [client/auth.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L463)
 
 Error thrown when token refresh fails
 
@@ -20,7 +20,7 @@ Error thrown when token refresh fails
 
 > **new TokenRefreshError**(`message`, `cause?`): `TokenRefreshError`
 
-Defined in: [client/auth.ts:466](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L466)
+Defined in: [client/auth.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L466)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [client/auth.ts:466](https://github.com/juspay/neurolink/blob/49032f
 
 > `readonly` `optional` **cause?**: `Error`
 
-Defined in: [client/auth.ts:464](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/auth.ts#L464)
+Defined in: [client/auth.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/client/auth.ts#L464)
 
 #### Overrides
 

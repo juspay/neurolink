@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NeuroLinkProviderOptions** = `object`
 
-Defined in: [types/client.ts:918](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L918)
+Defined in: [types/client.ts:918](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L918)
 
 NeuroLink provider options for AI SDK adapter
 
@@ -18,7 +18,7 @@ NeuroLink provider options for AI SDK adapter
 
 > **baseUrl**: `string`
 
-Defined in: [types/client.ts:920](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L920)
+Defined in: [types/client.ts:920](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L920)
 
 Base URL for the NeuroLink API
 
@@ -28,7 +28,7 @@ Base URL for the NeuroLink API
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/client.ts:922](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L922)
+Defined in: [types/client.ts:922](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L922)
 
 API key for authentication
 
@@ -38,7 +38,7 @@ API key for authentication
 
 > `optional` **token?**: `string`
 
-Defined in: [types/client.ts:924](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L924)
+Defined in: [types/client.ts:924](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L924)
 
 Bearer token for authentication
 
@@ -48,7 +48,7 @@ Bearer token for authentication
 
 > `optional` **defaultModel?**: `string`
 
-Defined in: [types/client.ts:926](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L926)
+Defined in: [types/client.ts:926](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L926)
 
 Default model to use
 
@@ -58,7 +58,7 @@ Default model to use
 
 > `optional` **defaultProvider?**: `string`
 
-Defined in: [types/client.ts:928](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L928)
+Defined in: [types/client.ts:928](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L928)
 
 Default provider
 
@@ -68,6 +68,6 @@ Default provider
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:930](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L930)
+Defined in: [types/client.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L930)
 
 Custom headers

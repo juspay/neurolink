@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluateScorersArgs** = `object`
 
-Defined in: [types/cli.ts:1520](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1520)
+Defined in: [types/cli.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1520)
 
 Arguments for `neurolink evaluate scorers` (list-scorers).
 
@@ -18,7 +18,7 @@ Arguments for `neurolink evaluate scorers` (list-scorers).
 
 > `optional` **category?**: `string`
 
-Defined in: [types/cli.ts:1521](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1521)
+Defined in: [types/cli.ts:1521](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1521)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1521](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **type?**: `string`
 
-Defined in: [types/cli.ts:1522](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1522)
+Defined in: [types/cli.ts:1522](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1522)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1522](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/cli.ts:1523](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1523)
+Defined in: [types/cli.ts:1523](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1523)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1523](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **detailed?**: `boolean`
 
-Defined in: [types/cli.ts:1524](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1524)
+Defined in: [types/cli.ts:1524](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1524)

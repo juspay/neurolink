@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HippocampusConfig** = `object`
 
-Defined in: [types/memory.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L71)
+Defined in: [types/memory.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L71)
 
 Constructor config accepted by the Hippocampus class.
 
@@ -18,7 +18,7 @@ Constructor config accepted by the Hippocampus class.
 
 > `optional` **storage?**: [`HippocampusStorageConfig`](HippocampusStorageConfig.md)
 
-Defined in: [types/memory.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L72)
+Defined in: [types/memory.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L72)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/memory.ts:72](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **prompt?**: `string`
 
-Defined in: [types/memory.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L73)
+Defined in: [types/memory.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L73)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/memory.ts:73](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **neurolink?**: `object`
 
-Defined in: [types/memory.ts:74](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L74)
+Defined in: [types/memory.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L74)
 
 #### provider?
 
@@ -54,4 +54,4 @@ Defined in: [types/memory.ts:74](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **maxWords?**: `number`
 
-Defined in: [types/memory.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/memory.ts#L79)
+Defined in: [types/memory.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/memory.ts#L79)

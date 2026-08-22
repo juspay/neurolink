@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentRoutingDecision** = `object`
 
-Defined in: [types/agentNetwork.ts:515](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L515)
+Defined in: [types/agentNetwork.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L515)
 
 Routing decision record
 
@@ -18,7 +18,7 @@ Routing decision record
 
 > **stepIndex**: `number`
 
-Defined in: [types/agentNetwork.ts:517](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L517)
+Defined in: [types/agentNetwork.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L517)
 
 Step at which decision was made
 
@@ -28,7 +28,7 @@ Step at which decision was made
 
 > **taskDescription**: `string`
 
-Defined in: [types/agentNetwork.ts:520](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L520)
+Defined in: [types/agentNetwork.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L520)
 
 Task description analyzed
 
@@ -38,7 +38,7 @@ Task description analyzed
 
 > **selectedPrimitive**: `object`
 
-Defined in: [types/agentNetwork.ts:523](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L523)
+Defined in: [types/agentNetwork.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L523)
 
 Selected primitive
 
@@ -60,7 +60,7 @@ Selected primitive
 
 > **confidence**: `number`
 
-Defined in: [types/agentNetwork.ts:530](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L530)
+Defined in: [types/agentNetwork.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L530)
 
 Confidence score (0-1)
 
@@ -70,7 +70,7 @@ Confidence score (0-1)
 
 > **reasoning**: `string`
 
-Defined in: [types/agentNetwork.ts:533](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L533)
+Defined in: [types/agentNetwork.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L533)
 
 Reasoning for the decision
 
@@ -80,7 +80,7 @@ Reasoning for the decision
 
 > `optional` **alternatives?**: `object`[]
 
-Defined in: [types/agentNetwork.ts:536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L536)
+Defined in: [types/agentNetwork.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L536)
 
 Alternative primitives considered
 
@@ -102,6 +102,6 @@ Alternative primitives considered
 
 > `optional` **formattedInput?**: `string`
 
-Defined in: [types/agentNetwork.ts:543](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L543)
+Defined in: [types/agentNetwork.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L543)
 
 Formatted input for the selected primitive

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConditionResult** = `object`
 
-Defined in: [types/workflow.ts:616](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L616)
+Defined in: [types/workflow.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L616)
 
 Result of response conditioning
 
@@ -18,7 +18,7 @@ Result of response conditioning
 
 > **content**: `string`
 
-Defined in: [types/workflow.ts:617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L617)
+Defined in: [types/workflow.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L617)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:617](https://github.com/juspay/neurolink/blob/490
 
 > **conditioningTime**: `number`
 
-Defined in: [types/workflow.ts:618](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L618)
+Defined in: [types/workflow.ts:618](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L618)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:618](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/workflow.ts:619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L619)
+Defined in: [types/workflow.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L619)
 
 #### conditioningApplied
 

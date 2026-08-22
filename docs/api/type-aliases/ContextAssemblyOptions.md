@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ContextAssemblyOptions** = `object`
 
-Defined in: [types/rag.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L42)
+Defined in: [types/rag.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L42)
 
 Context assembly options
 
@@ -18,7 +18,7 @@ Context assembly options
 
 > `optional` **maxChars?**: `number`
 
-Defined in: [types/rag.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L44)
+Defined in: [types/rag.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L44)
 
 Maximum characters in assembled context
 
@@ -28,7 +28,7 @@ Maximum characters in assembled context
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/rag.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L46)
+Defined in: [types/rag.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L46)
 
 Maximum tokens (approximate, 4 chars/token)
 
@@ -38,7 +38,7 @@ Maximum tokens (approximate, 4 chars/token)
 
 > `optional` **citationFormat?**: [`CitationFormat`](CitationFormat.md)
 
-Defined in: [types/rag.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L48)
+Defined in: [types/rag.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L48)
 
 Citation format to use
 
@@ -48,7 +48,7 @@ Citation format to use
 
 > `optional` **separator?**: `string`
 
-Defined in: [types/rag.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L50)
+Defined in: [types/rag.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L50)
 
 Separator between chunks
 
@@ -58,7 +58,7 @@ Separator between chunks
 
 > `optional` **includeMetadata?**: `boolean`
 
-Defined in: [types/rag.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L52)
+Defined in: [types/rag.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L52)
 
 Include chunk metadata in context
 
@@ -68,7 +68,7 @@ Include chunk metadata in context
 
 > `optional` **deduplicate?**: `boolean`
 
-Defined in: [types/rag.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L54)
+Defined in: [types/rag.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L54)
 
 Deduplicate overlapping content
 
@@ -78,7 +78,7 @@ Deduplicate overlapping content
 
 > `optional` **dedupeThreshold?**: `number`
 
-Defined in: [types/rag.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L56)
+Defined in: [types/rag.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L56)
 
 Similarity threshold for deduplication (0-1)
 
@@ -88,7 +88,7 @@ Similarity threshold for deduplication (0-1)
 
 > `optional` **orderByRelevance?**: `boolean`
 
-Defined in: [types/rag.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L58)
+Defined in: [types/rag.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L58)
 
 Order by relevance score
 
@@ -98,7 +98,7 @@ Order by relevance score
 
 > `optional` **includeSectionHeaders?**: `boolean`
 
-Defined in: [types/rag.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L60)
+Defined in: [types/rag.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L60)
 
 Include section headers
 
@@ -108,6 +108,6 @@ Include section headers
 
 > `optional` **headerTemplate?**: `string`
 
-Defined in: [types/rag.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L62)
+Defined in: [types/rag.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L62)
 
 Header template (use {index}, {source}, {score} placeholders)

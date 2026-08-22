@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CostAnalysisOptions** = `object`
 
-Defined in: [types/analytics.ts:189](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L189)
+Defined in: [types/analytics.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L189)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/analytics.ts:189](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **timeRange?**: [`TimeRangeOption`](TimeRangeOption.md) \| `string`
 
-Defined in: [types/analytics.ts:190](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L190)
+Defined in: [types/analytics.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L190)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/analytics.ts:190](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **groupBy?**: `string` \| `string`[]
 
-Defined in: [types/analytics.ts:191](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L191)
+Defined in: [types/analytics.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L191)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/analytics.ts:191](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **includeProjections?**: `boolean`
 
-Defined in: [types/analytics.ts:192](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/analytics.ts#L192)
+Defined in: [types/analytics.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/analytics.ts#L192)

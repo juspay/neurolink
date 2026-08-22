@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **BM25Result** = `object`
 
-Defined in: [types/rag.ts:1286](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1286)
+Defined in: [types/rag.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1286)
 
 BM25 search result
 
@@ -18,7 +18,7 @@ BM25 search result
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1288](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1288)
+Defined in: [types/rag.ts:1288](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1288)
 
 Document ID
 
@@ -28,7 +28,7 @@ Document ID
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1290](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1290)
+Defined in: [types/rag.ts:1290](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1290)
 
 BM25 score
 
@@ -38,7 +38,7 @@ BM25 score
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1292](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1292)
+Defined in: [types/rag.ts:1292](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1292)
 
 Document text
 
@@ -48,6 +48,6 @@ Document text
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1294](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1294)
+Defined in: [types/rag.ts:1294](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1294)
 
 Associated metadata

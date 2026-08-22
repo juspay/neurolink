@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitToolEventFields** = `object`
 
-Defined in: [types/livekit.ts:383](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L383)
+Defined in: [types/livekit.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L383)
 
 Normalized tool fields extracted from a `tool:start` / `tool:end` emitter
 payload, used internally by the event bridge.
@@ -19,7 +19,7 @@ payload, used internally by the event bridge.
 
 > **name**: `string`
 
-Defined in: [types/livekit.ts:384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L384)
+Defined in: [types/livekit.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L384)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/livekit.ts:384](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **id?**: `string`
 
-Defined in: [types/livekit.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L385)
+Defined in: [types/livekit.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L385)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/livekit.ts:385](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **input?**: `unknown`
 
-Defined in: [types/livekit.ts:386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L386)
+Defined in: [types/livekit.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L386)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/livekit.ts:386](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **result?**: `unknown`
 
-Defined in: [types/livekit.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L387)
+Defined in: [types/livekit.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L387)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/livekit.ts:387](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **success?**: `boolean`
 
-Defined in: [types/livekit.ts:388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L388)
+Defined in: [types/livekit.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L388)
 
 ---
 
@@ -59,4 +59,4 @@ Defined in: [types/livekit.ts:388](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **error?**: `string`
 
-Defined in: [types/livekit.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L389)
+Defined in: [types/livekit.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L389)

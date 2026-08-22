@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FallbackOptions** = `object`
 
-Defined in: [types/tools.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L108)
+Defined in: [types/tools.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L108)
 
 Fallback configuration options
 Moved from src/lib/mcp/contracts/mcpContract.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/contracts/mcpContract.ts
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/tools.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L109)
+Defined in: [types/tools.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L109)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/tools.ts:109](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L110)
+Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L110)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/tools.ts:110](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **delayMs?**: `number`
 
-Defined in: [types/tools.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L111)
+Defined in: [types/tools.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L111)
 
 ---
 
@@ -43,4 +43,4 @@ Defined in: [types/tools.ts:111](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **circuitBreaker?**: `boolean`
 
-Defined in: [types/tools.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L112)
+Defined in: [types/tools.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L112)

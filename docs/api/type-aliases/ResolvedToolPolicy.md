@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ResolvedToolPolicy** = `object`
 
-Defined in: [types/toolResolution.ts:19](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L19)
+Defined in: [types/toolResolution.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L19)
 
 The resolved, merged tool policy for one request. Produced by
 `resolveToolPolicy()` (src/lib/tools/toolPolicy.ts) and consumed by
@@ -20,7 +20,7 @@ The resolved, merged tool policy for one request. Produced by
 
 > **enabled**: `boolean`
 
-Defined in: [types/toolResolution.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L21)
+Defined in: [types/toolResolution.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L21)
 
 false = no tools at all for this request (drops caller-supplied tools too).
 
@@ -30,7 +30,7 @@ false = no tools at all for this request (drops caller-supplied tools too).
 
 > `optional` **include?**: `string`[]
 
-Defined in: [types/toolResolution.ts:29](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L29)
+Defined in: [types/toolResolution.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L29)
 
 Allowlist of tool-name patterns (exact names or `*` globs).
 `undefined` = all tools pass. An empty array means "no tools" — it can
@@ -44,7 +44,7 @@ historical behavior) before it reaches here.
 
 > `optional` **includeBound?**: `string`[]
 
-Defined in: [types/toolResolution.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L37)
+Defined in: [types/toolResolution.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L37)
 
 Secondary allowlist clause ANDed with `include` — set when both a
 legacy per-call allowlist and the instance `tools.include` are present.
@@ -58,7 +58,7 @@ match BOTH lists to pass).
 
 > **exclude**: `string`[]
 
-Defined in: [types/toolResolution.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L39)
+Defined in: [types/toolResolution.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L39)
 
 Denylist of tool-name patterns (exact names or `*` globs), applied after include.
 
@@ -68,7 +68,7 @@ Denylist of tool-name patterns (exact names or `*` globs), applied after include
 
 > **discovery**: `boolean`
 
-Defined in: [types/toolResolution.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L41)
+Defined in: [types/toolResolution.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L41)
 
 Defer external MCP tool schemas behind the search_tools meta-tool.
 
@@ -78,6 +78,6 @@ Defer external MCP tool schemas behind the search_tools meta-tool.
 
 > **sources**: `string`[]
 
-Defined in: [types/toolResolution.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/toolResolution.ts#L43)
+Defined in: [types/toolResolution.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L43)
 
 Which option/config sources contributed to this policy (telemetry/debugging).

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CompactionResult** = `object`
 
-Defined in: [types/context.ts:613](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L613)
+Defined in: [types/context.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L613)
 
 Result of multi-stage context compaction.
 
@@ -18,7 +18,7 @@ Result of multi-stage context compaction.
 
 > **compacted**: `boolean`
 
-Defined in: [types/context.ts:614](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L614)
+Defined in: [types/context.ts:614](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L614)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:614](https://github.com/juspay/neurolink/blob/4903
 
 > **stagesUsed**: [`CompactionStage`](CompactionStage.md)[]
 
-Defined in: [types/context.ts:615](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L615)
+Defined in: [types/context.ts:615](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L615)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:615](https://github.com/juspay/neurolink/blob/4903
 
 > **tokensBefore**: `number`
 
-Defined in: [types/context.ts:616](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L616)
+Defined in: [types/context.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L616)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/context.ts:616](https://github.com/juspay/neurolink/blob/4903
 
 > **tokensAfter**: `number`
 
-Defined in: [types/context.ts:617](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L617)
+Defined in: [types/context.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L617)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/context.ts:617](https://github.com/juspay/neurolink/blob/4903
 
 > **tokensSaved**: `number`
 
-Defined in: [types/context.ts:618](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L618)
+Defined in: [types/context.ts:618](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L618)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/context.ts:618](https://github.com/juspay/neurolink/blob/4903
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L619)
+Defined in: [types/context.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L619)

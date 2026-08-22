@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentToolRegistrationOptions** = `object`
 
-Defined in: [types/isolatedAgent.ts:467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L467)
+Defined in: [types/isolatedAgent.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L467)
 
 Options for `NeuroLink.registerAgentTool()` — wraps an isolated agent as a
 tool on the HOST instance so its existing generate() loop delegates
@@ -20,7 +20,7 @@ without a second router generate.
 
 > `optional` **name?**: `string`
 
-Defined in: [types/isolatedAgent.ts:469](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L469)
+Defined in: [types/isolatedAgent.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L469)
 
 Tool name (default: the agent definition id).
 
@@ -30,7 +30,7 @@ Tool name (default: the agent definition id).
 
 > `optional` **maxDelegationsPerTurn?**: `number`
 
-Defined in: [types/isolatedAgent.ts:475](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L475)
+Defined in: [types/isolatedAgent.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L475)
 
 Max delegations to this tool per top-level generate() turn, counted in
 the loop itself. A refused call returns a recovery instruction, never a
@@ -42,7 +42,7 @@ silent failure.
 
 > `optional` **maxDepth?**: `number`
 
-Defined in: [types/isolatedAgent.ts:480](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L480)
+Defined in: [types/isolatedAgent.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L480)
 
 Max delegation depth (via tool context `agentDepth`). At the limit the
 tool is withheld from the request entirely.
@@ -53,7 +53,7 @@ tool is withheld from the request entirely.
 
 > `optional` **maxConcurrent?**: `number`
 
-Defined in: [types/isolatedAgent.ts:489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L489)
+Defined in: [types/isolatedAgent.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L489)
 
 Process-wide concurrent delegation pool size. The pool is shared across
 all registered agent tools; the largest registered value wins (default 4) — registering raises the pool and can never lower it, so this is NOT
@@ -67,7 +67,7 @@ work behind a full pool would deadlock it.
 
 > `optional` **poolQueueTimeoutMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L491)
+Defined in: [types/isolatedAgent.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L491)
 
 Queue timeout when the pool is saturated (ms, default 30_000).
 
@@ -77,7 +77,7 @@ Queue timeout when the pool is saturated (ms, default 30_000).
 
 > `optional` **leg?**: [`AgentLegOptions`](AgentLegOptions.md)
 
-Defined in: [types/isolatedAgent.ts:493](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L493)
+Defined in: [types/isolatedAgent.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L493)
 
 Leashed-by-default leg budget for this tool.
 
@@ -87,7 +87,7 @@ Leashed-by-default leg budget for this tool.
 
 > `optional` **handleTtlMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L495)
+Defined in: [types/isolatedAgent.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L495)
 
 Handle TTL for leashed delegations (ms, default 600_000).
 
@@ -97,7 +97,7 @@ Handle TTL for leashed delegations (ms, default 600_000).
 
 > `optional` **waste?**: [`AgentWasteThresholds`](AgentWasteThresholds.md)
 
-Defined in: [types/isolatedAgent.ts:497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L497)
+Defined in: [types/isolatedAgent.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L497)
 
 Waste thresholds forwarded to each delegated run.
 
@@ -107,6 +107,6 @@ Waste thresholds forwarded to each delegated run.
 
 > `optional` **overrides?**: [`AgentRunOverrides`](AgentRunOverrides.md)
 
-Defined in: [types/isolatedAgent.ts:499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/isolatedAgent.ts#L499)
+Defined in: [types/isolatedAgent.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L499)
 
 Per-run overrides forwarded to each delegated run.

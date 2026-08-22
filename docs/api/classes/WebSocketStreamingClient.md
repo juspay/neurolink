@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: WebSocketStreamingClient
 
-Defined in: [client/streamingClient.ts:463](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L463)
+Defined in: [client/streamingClient.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L463)
 
 WebSocket Streaming Client
 
@@ -33,7 +33,7 @@ ws.send({ type: "chat", content: "Hello" });
 
 > **new WebSocketStreamingClient**(`options`): `WebSocketStreamingClient`
 
-Defined in: [client/streamingClient.ts:472](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L472)
+Defined in: [client/streamingClient.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L472)
 
 #### Parameters
 
@@ -51,7 +51,7 @@ Defined in: [client/streamingClient.ts:472](https://github.com/juspay/neurolink/
 
 > **connect**(): `Promise`\<`void`\>
 
-Defined in: [client/streamingClient.ts:485](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L485)
+Defined in: [client/streamingClient.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L485)
 
 Connect to WebSocket server
 
@@ -65,7 +65,7 @@ Connect to WebSocket server
 
 > **disconnect**(): `void`
 
-Defined in: [client/streamingClient.ts:567](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L567)
+Defined in: [client/streamingClient.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L567)
 
 Disconnect from WebSocket server
 
@@ -79,7 +79,7 @@ Disconnect from WebSocket server
 
 > **send**(`data`): `void`
 
-Defined in: [client/streamingClient.ts:580](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L580)
+Defined in: [client/streamingClient.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L580)
 
 Send message to server
 
@@ -99,7 +99,7 @@ Send message to server
 
 > **request**\<`T`\>(`data`, `timeout?`): `Promise`\<`T`\>
 
-Defined in: [client/streamingClient.ts:591](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L591)
+Defined in: [client/streamingClient.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L591)
 
 Send message and wait for response
 
@@ -129,7 +129,7 @@ Send message and wait for response
 
 > **on**(`event`, `callback`): `void`
 
-Defined in: [client/streamingClient.ts:690](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L690)
+Defined in: [client/streamingClient.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L690)
 
 Register event handler
 
@@ -153,7 +153,7 @@ Register event handler
 
 > **off**(`event`, `callback`): `void`
 
-Defined in: [client/streamingClient.ts:702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L702)
+Defined in: [client/streamingClient.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L702)
 
 Remove event handler
 
@@ -177,7 +177,7 @@ Remove event handler
 
 > **getState**(): [`ClientWebSocketState`](../type-aliases/ClientWebSocketState.md)
 
-Defined in: [client/streamingClient.ts:721](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L721)
+Defined in: [client/streamingClient.ts:721](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L721)
 
 Get current connection state
 
@@ -191,7 +191,7 @@ Get current connection state
 
 > **messages**(): `AsyncGenerator`\<`unknown`, `void`, `unknown`\>
 
-Defined in: [client/streamingClient.ts:728](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/client/streamingClient.ts#L728)
+Defined in: [client/streamingClient.ts:728](https://github.com/juspay/neurolink/blob/release/src/lib/client/streamingClient.ts#L728)
 
 Create async iterator for messages
 

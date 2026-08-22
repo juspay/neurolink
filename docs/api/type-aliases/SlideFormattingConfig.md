@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SlideFormattingConfig** = `object`
 
-Defined in: [types/ppt.ts:291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L291)
+Defined in: [types/ppt.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L291)
 
 Slide-level formatting config (can be specified by AI or use defaults)
 Applied to all bullets in the slide unless overridden at bullet level
@@ -19,7 +19,7 @@ Applied to all bullets in the slide unless overridden at bullet level
 
 > `optional` **baseFontSize?**: `number`
 
-Defined in: [types/ppt.ts:293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L293)
+Defined in: [types/ppt.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L293)
 
 Base font size for bullets (default calculated based on bullet count)
 
@@ -29,7 +29,7 @@ Base font size for bullets (default calculated based on bullet count)
 
 > `optional` **bulletStyle?**: [`BulletStyle`](BulletStyle.md)
 
-Defined in: [types/ppt.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L295)
+Defined in: [types/ppt.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L295)
 
 Default bullet style for this slide
 
@@ -39,6 +39,6 @@ Default bullet style for this slide
 
 > `optional` **lineSpacing?**: `number`
 
-Defined in: [types/ppt.ts:297](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L297)
+Defined in: [types/ppt.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L297)
 
 Line spacing multiplier (default 1.2)

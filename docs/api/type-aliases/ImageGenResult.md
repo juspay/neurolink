@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageGenResult** = `object`
 
-Defined in: [types/imageGen.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L118)
+Defined in: [types/imageGen.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L118)
 
 Result of an image generation request
 
@@ -18,7 +18,7 @@ Result of an image generation request
 
 > **success**: `boolean`
 
-Defined in: [types/imageGen.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L122)
+Defined in: [types/imageGen.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L122)
 
 Whether generation was successful
 
@@ -28,7 +28,7 @@ Whether generation was successful
 
 > `optional` **imageBuffer?**: `Buffer`
 
-Defined in: [types/imageGen.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L127)
+Defined in: [types/imageGen.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L127)
 
 Generated image as Buffer (if successful)
 
@@ -38,7 +38,7 @@ Generated image as Buffer (if successful)
 
 > `optional` **base64?**: `string`
 
-Defined in: [types/imageGen.ts:132](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L132)
+Defined in: [types/imageGen.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L132)
 
 Generated image as base64 string (if successful)
 
@@ -48,7 +48,7 @@ Generated image as base64 string (if successful)
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/imageGen.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L138)
+Defined in: [types/imageGen.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L138)
 
 MIME type of the generated image
 e.g., "image/png", "image/jpeg"
@@ -59,7 +59,7 @@ e.g., "image/png", "image/jpeg"
 
 > `optional` **model?**: `string`
 
-Defined in: [types/imageGen.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L143)
+Defined in: [types/imageGen.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L143)
 
 Model used for generation
 
@@ -69,7 +69,7 @@ Model used for generation
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/imageGen.ts:148](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L148)
+Defined in: [types/imageGen.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L148)
 
 Provider used for generation
 
@@ -79,7 +79,7 @@ Provider used for generation
 
 > `optional` **error?**: `string`
 
-Defined in: [types/imageGen.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L153)
+Defined in: [types/imageGen.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L153)
 
 Error message if generation failed
 
@@ -89,7 +89,7 @@ Error message if generation failed
 
 > `optional` **generationTimeMs?**: `number`
 
-Defined in: [types/imageGen.ts:158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L158)
+Defined in: [types/imageGen.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L158)
 
 Time taken for generation in milliseconds
 
@@ -99,6 +99,6 @@ Time taken for generation in milliseconds
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/imageGen.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/imageGen.ts#L163)
+Defined in: [types/imageGen.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/imageGen.ts#L163)
 
 Additional metadata from the provider

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CloakingContext** = `object`
 
-Defined in: [types/proxy.ts:370](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L370)
+Defined in: [types/proxy.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L370)
 
 Context passed through the cloaking pipeline.
 
@@ -18,7 +18,7 @@ Context passed through the cloaking pipeline.
 
 > **request**: [`CloakingRequest`](CloakingRequest.md)
 
-Defined in: [types/proxy.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L371)
+Defined in: [types/proxy.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L371)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:371](https://github.com/juspay/neurolink/blob/49032f
 
 > **account**: [`CloakingAccount`](CloakingAccount.md)
 
-Defined in: [types/proxy.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L372)
+Defined in: [types/proxy.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L372)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:372](https://github.com/juspay/neurolink/blob/49032f
 
 > **config**: `object`
 
-Defined in: [types/proxy.ts:373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L373)
+Defined in: [types/proxy.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L373)
 
 #### mode
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:373](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **response?**: `object`
 
-Defined in: [types/proxy.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L377)
+Defined in: [types/proxy.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L377)
 
 #### headers
 

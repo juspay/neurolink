@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentInstance** = `object`
 
-Defined in: [types/agentNetwork.ts:608](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L608)
+Defined in: [types/agentNetwork.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L608)
 
 Interface for agent instances
 
@@ -18,7 +18,7 @@ Interface for agent instances
 
 > `readonly` **id**: `string`
 
-Defined in: [types/agentNetwork.ts:610](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L610)
+Defined in: [types/agentNetwork.ts:610](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L610)
 
 Agent ID
 
@@ -28,7 +28,7 @@ Agent ID
 
 > `readonly` **name**: `string`
 
-Defined in: [types/agentNetwork.ts:613](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L613)
+Defined in: [types/agentNetwork.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L613)
 
 Agent name
 
@@ -38,7 +38,7 @@ Agent name
 
 > `readonly` **description**: `string`
 
-Defined in: [types/agentNetwork.ts:616](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L616)
+Defined in: [types/agentNetwork.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L616)
 
 Agent description
 
@@ -48,7 +48,7 @@ Agent description
 
 > `readonly` **instructions**: `string`
 
-Defined in: [types/agentNetwork.ts:619](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L619)
+Defined in: [types/agentNetwork.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L619)
 
 Agent instructions
 
@@ -58,7 +58,7 @@ Agent instructions
 
 > **execute**(`input`, `options?`): `Promise`\<[`AgentResult`](AgentResult.md)\>
 
-Defined in: [types/agentNetwork.ts:622](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L622)
+Defined in: [types/agentNetwork.ts:622](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L622)
 
 Execute the agent
 
@@ -82,7 +82,7 @@ Execute the agent
 
 > **stream**(`input`, `options?`): `AsyncIterable`\<[`AgentStreamChunk`](AgentStreamChunk.md)\>
 
-Defined in: [types/agentNetwork.ts:628](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L628)
+Defined in: [types/agentNetwork.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L628)
 
 Stream execution results
 
@@ -106,7 +106,7 @@ Stream execution results
 
 > **getStatus**(): [`AgentStatus`](AgentStatus.md)
 
-Defined in: [types/agentNetwork.ts:634](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L634)
+Defined in: [types/agentNetwork.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L634)
 
 Get agent status
 

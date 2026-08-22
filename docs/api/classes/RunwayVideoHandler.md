@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: RunwayVideoHandler
 
-Defined in: [adapters/video/runwayVideoHandler.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L35)
+Defined in: [adapters/video/runwayVideoHandler.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L35)
 
 Runway Video Handler.
 
@@ -23,7 +23,7 @@ header. Models: gen3a_turbo (Gen-3 Alpha Turbo, default), gen4_turbo.
 
 > **new RunwayVideoHandler**(`apiKey?`): `RunwayVideoHandler`
 
-Defined in: [adapters/video/runwayVideoHandler.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L50)
+Defined in: [adapters/video/runwayVideoHandler.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L50)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [adapters/video/runwayVideoHandler.ts:50](https://github.com/juspay/
 
 > `readonly` **maxDurationSeconds**: `10` = `10`
 
-Defined in: [adapters/video/runwayVideoHandler.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L36)
+Defined in: [adapters/video/runwayVideoHandler.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L36)
 
 Maximum video duration in seconds supported by this provider.
 
@@ -55,7 +55,7 @@ Maximum video duration in seconds supported by this provider.
 
 > `readonly` **supportedAspectRatios**: readonly (`"9:16"` \| `"16:9"`)[]
 
-Defined in: [adapters/video/runwayVideoHandler.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L37)
+Defined in: [adapters/video/runwayVideoHandler.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L37)
 
 Supported aspect ratios.
 
@@ -69,7 +69,7 @@ Supported aspect ratios.
 
 > `readonly` **supportedResolutions**: readonly (`"720p"` \| `"1080p"`)[]
 
-Defined in: [adapters/video/runwayVideoHandler.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L41)
+Defined in: [adapters/video/runwayVideoHandler.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L41)
 
 Supported output resolutions.
 
@@ -83,7 +83,7 @@ Supported output resolutions.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [adapters/video/runwayVideoHandler.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L60)
+Defined in: [adapters/video/runwayVideoHandler.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L60)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -101,7 +101,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`image`, `prompt`, `options`): `Promise`\<[`VideoGenerationResult`](../type-aliases/VideoGenerationResult.md)\>
 
-Defined in: [adapters/video/runwayVideoHandler.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/adapters/video/runwayVideoHandler.ts#L64)
+Defined in: [adapters/video/runwayVideoHandler.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/adapters/video/runwayVideoHandler.ts#L64)
 
 Generate a single video clip from an input image and prompt.
 

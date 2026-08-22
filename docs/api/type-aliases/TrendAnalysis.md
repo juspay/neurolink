@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TrendAnalysis** = `object`
 
-Defined in: [types/evaluation.ts:496](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L496)
+Defined in: [types/evaluation.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L496)
 
 Trend analysis results.
 
@@ -18,7 +18,7 @@ Trend analysis results.
 
 > **direction**: `"improving"` \| `"declining"` \| `"stable"`
 
-Defined in: [types/evaluation.ts:497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L497)
+Defined in: [types/evaluation.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L497)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:497](https://github.com/juspay/neurolink/blob/4
 
 > **slope**: `number`
 
-Defined in: [types/evaluation.ts:498](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L498)
+Defined in: [types/evaluation.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L498)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:498](https://github.com/juspay/neurolink/blob/4
 
 > **rSquared**: `number`
 
-Defined in: [types/evaluation.ts:499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L499)
+Defined in: [types/evaluation.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L499)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluation.ts:499](https://github.com/juspay/neurolink/blob/4
 
 > **percentChange**: `number`
 
-Defined in: [types/evaluation.ts:500](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L500)
+Defined in: [types/evaluation.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L500)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/evaluation.ts:500](https://github.com/juspay/neurolink/blob/4
 
 > **movingAverage**: `number`
 
-Defined in: [types/evaluation.ts:501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L501)
+Defined in: [types/evaluation.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L501)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RoutingDecision** = `object`
 
-Defined in: [types/mcp.ts:2497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2497)
+Defined in: [types/mcp.ts:2497](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2497)
 
 Routing decision result
 
@@ -18,7 +18,7 @@ Routing decision result
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:2498](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2498)
+Defined in: [types/mcp.ts:2498](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2498)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2498](https://github.com/juspay/neurolink/blob/49032fc
 
 > **strategy**: [`RoutingStrategy`](RoutingStrategy.md)
 
-Defined in: [types/mcp.ts:2499](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2499)
+Defined in: [types/mcp.ts:2499](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2499)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2499](https://github.com/juspay/neurolink/blob/49032fc
 
 > **confidence**: `number`
 
-Defined in: [types/mcp.ts:2500](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2500)
+Defined in: [types/mcp.ts:2500](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2500)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2500](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **alternates?**: `string`[]
 
-Defined in: [types/mcp.ts:2501](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2501)
+Defined in: [types/mcp.ts:2501](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2501)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:2501](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/mcp.ts:2502](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2502)
+Defined in: [types/mcp.ts:2502](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2502)

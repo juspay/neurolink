@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnthropicLoopAdapterConfig**\<`TMessage`\> = `object`
 
-Defined in: [types/loopEngine.ts:275](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L275)
+Defined in: [types/loopEngine.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L275)
 
 Construction input for `createAnthropicLoopAdapter`, shared by direct
 Anthropic and Claude-on-Vertex.
@@ -34,7 +34,7 @@ the adapter config match.
 
 > **client**: `object`
 
-Defined in: [types/loopEngine.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L287)
+Defined in: [types/loopEngine.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L287)
 
 Only `messages.create` is ever called, so only that is required.
 
@@ -54,7 +54,7 @@ can drive perfectly, rejected for members it never touches.
 
 > **maxSteps**: `number`
 
-Defined in: [types/loopEngine.ts:290](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L290)
+Defined in: [types/loopEngine.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L290)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/loopEngine.ts:290](https://github.com/juspay/neurolink/blob/4
 
 > **buildParams**: (`conversation`, `step`) => `Anthropic.Messages.MessageCreateParamsNonStreaming`
 
-Defined in: [types/loopEngine.ts:303](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L303)
+Defined in: [types/loopEngine.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L303)
 
 Returns the NON-streaming params. The adapter adds `stream: true` itself,
 so requiring the streaming variant here would force every caller to
@@ -90,7 +90,7 @@ the adapter is about to overwrite.
 
 > **toolsRecord**: `Record`\<`string`, `Tool`\>
 
-Defined in: [types/loopEngine.ts:308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L308)
+Defined in: [types/loopEngine.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L308)
 
 The turn's live tool record, used for deferred-catalog resolution.
 
@@ -100,7 +100,7 @@ The turn's live tool record, used for deferred-catalog resolution.
 
 > `optional` **finalResultToolName?**: `string`
 
-Defined in: [types/loopEngine.ts:315](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L315)
+Defined in: [types/loopEngine.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L315)
 
 Name of the terminal structured-output tool when one is in play. A call
 to it ends the turn: its arguments ARE the answer, so it is reported as
@@ -113,7 +113,7 @@ ordinary zero-tool-calls exit.
 
 > `optional` **onTerminalResult?**: (`text`) => `void`
 
-Defined in: [types/loopEngine.ts:327](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L327)
+Defined in: [types/loopEngine.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L327)
 
 Called with the terminal tool's payload when one was actually detected.
 
@@ -141,7 +141,7 @@ tell them apart would be guesswork, so the adapter says which happened.
 
 > `optional` **toolFailureBreaker?**: [`AgenticLoopToolFailureBreaker`](AgenticLoopToolFailureBreaker.md)
 
-Defined in: [types/loopEngine.ts:328](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L328)
+Defined in: [types/loopEngine.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L328)
 
 ---
 
@@ -149,7 +149,7 @@ Defined in: [types/loopEngine.ts:328](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **planReclaim?**: (`conversation`, `step`) => [`AgenticLoopReclaimResult`](AgenticLoopReclaimResult.md)\<`TMessage`[]\> \| `undefined`
 
-Defined in: [types/loopEngine.ts:341](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L341)
+Defined in: [types/loopEngine.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L341)
 
 In-turn context reclaim, run once per step before the request is built.
 Returns the rebuilt conversation when it reclaimed, undefined while the
@@ -182,7 +182,7 @@ drops this overflows the window mid-turn.
 
 > `optional` **noteObservedPromptTokens?**: (`promptTokens`) => `void`
 
-Defined in: [types/loopEngine.ts:351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L351)
+Defined in: [types/loopEngine.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L351)
 
 Calibration feedback for the provider's reclaim guard: the FULL prompt
 size for the step just made — uncached input plus both cache tiers.
@@ -205,4 +205,4 @@ guard drift far under the real cost.
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/loopEngine.ts:352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L352)
+Defined in: [types/loopEngine.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L352)

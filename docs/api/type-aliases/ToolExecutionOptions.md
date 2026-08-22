@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolExecutionOptions** = `object`
 
-Defined in: [types/tools.ts:157](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L157)
+Defined in: [types/tools.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L157)
 
 Tool execution options for enhanced control
 Extracted from toolRegistry.ts for centralized type management
@@ -19,7 +19,7 @@ Extracted from toolRegistry.ts for centralized type management
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/tools.ts:163](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L163)
+Defined in: [types/tools.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L163)
 
 Caller-specified execution timeout in milliseconds.
 Used by executeTool() callers to override the default timeout for a
@@ -31,7 +31,7 @@ single invocation. Takes precedence over `timeoutMs` when both are set.
 
 > `optional` **retries?**: `number`
 
-Defined in: [types/tools.ts:164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L164)
+Defined in: [types/tools.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L164)
 
 ---
 
@@ -39,7 +39,7 @@ Defined in: [types/tools.ts:164](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **context?**: `unknown`
 
-Defined in: [types/tools.ts:165](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L165)
+Defined in: [types/tools.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L165)
 
 ---
 
@@ -47,7 +47,7 @@ Defined in: [types/tools.ts:165](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **preferredSource?**: `string`
 
-Defined in: [types/tools.ts:166](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L166)
+Defined in: [types/tools.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L166)
 
 ---
 
@@ -55,7 +55,7 @@ Defined in: [types/tools.ts:166](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **fallbackEnabled?**: `boolean`
 
-Defined in: [types/tools.ts:167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L167)
+Defined in: [types/tools.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L167)
 
 ---
 
@@ -63,7 +63,7 @@ Defined in: [types/tools.ts:167](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **validateBeforeExecution?**: `boolean`
 
-Defined in: [types/tools.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L168)
+Defined in: [types/tools.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L168)
 
 ---
 
@@ -71,7 +71,7 @@ Defined in: [types/tools.ts:168](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/tools.ts:177](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L177)
+Defined in: [types/tools.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L177)
 
 Per-tool timeout in milliseconds, copied from ToolInfo at registration
 time. Acts as the tool-level default; overridden by `timeout` when the
@@ -89,4 +89,4 @@ may be consolidated in a future release.
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/tools.ts:178](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/tools.ts#L178)
+Defined in: [types/tools.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L178)

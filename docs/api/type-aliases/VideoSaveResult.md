@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **VideoSaveResult** = `object`
 
-Defined in: [types/cli.ts:1745](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1745)
+Defined in: [types/cli.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1745)
 
 Result of saving video to file.
 
@@ -18,7 +18,7 @@ Result of saving video to file.
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:1746](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1746)
+Defined in: [types/cli.ts:1746](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1746)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1746](https://github.com/juspay/neurolink/blob/49032fc
 
 > **path**: `string`
 
-Defined in: [types/cli.ts:1747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1747)
+Defined in: [types/cli.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1747)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1747](https://github.com/juspay/neurolink/blob/49032fc
 
 > **size**: `number`
 
-Defined in: [types/cli.ts:1748](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1748)
+Defined in: [types/cli.ts:1748](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1748)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1748](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:1749](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1749)
+Defined in: [types/cli.ts:1749](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1749)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SonioxToken** = `object`
 
-Defined in: [types/server.ts:1466](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1466)
+Defined in: [types/server.ts:1466](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1466)
 
 Single token emitted by the Soniox STT stream.
 
@@ -18,7 +18,7 @@ Single token emitted by the Soniox STT stream.
 
 > `optional` **is_final?**: `boolean`
 
-Defined in: [types/server.ts:1467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1467)
+Defined in: [types/server.ts:1467](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1467)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/server.ts:1467](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **text?**: `string`
 
-Defined in: [types/server.ts:1468](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1468)
+Defined in: [types/server.ts:1468](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1468)

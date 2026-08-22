@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DeepgramUtterance** = `object`
 
-Defined in: [types/stt.ts:463](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L463)
+Defined in: [types/stt.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L463)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/stt.ts:463](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **start**: `number`
 
-Defined in: [types/stt.ts:464](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L464)
+Defined in: [types/stt.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L464)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/stt.ts:464](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **end**: `number`
 
-Defined in: [types/stt.ts:465](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L465)
+Defined in: [types/stt.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L465)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/stt.ts:465](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **confidence**: `number`
 
-Defined in: [types/stt.ts:466](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L466)
+Defined in: [types/stt.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L466)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/stt.ts:466](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **channel**: `number`
 
-Defined in: [types/stt.ts:467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L467)
+Defined in: [types/stt.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L467)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/stt.ts:467](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **transcript**: `string`
 
-Defined in: [types/stt.ts:468](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L468)
+Defined in: [types/stt.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L468)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/stt.ts:468](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **words**: [`DeepgramWord`](DeepgramWord.md)[]
 
-Defined in: [types/stt.ts:469](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L469)
+Defined in: [types/stt.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L469)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/stt.ts:469](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **speaker?**: `number`
 
-Defined in: [types/stt.ts:470](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L470)
+Defined in: [types/stt.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L470)
 
 ---
 
@@ -72,4 +72,4 @@ Defined in: [types/stt.ts:470](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **id?**: `string`
 
-Defined in: [types/stt.ts:471](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/stt.ts#L471)
+Defined in: [types/stt.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/stt.ts#L471)

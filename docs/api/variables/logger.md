@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > `const` **logger**: `object`
 
-Defined in: [utils/logger.ts:495](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/logger.ts#L495)
+Defined in: [utils/logger.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/utils/logger.ts#L495)
 
 Main unified logger export that provides a simplified API for logging.
 This is the primary interface that should be used by application code.

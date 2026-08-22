@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerResponse**\<`T`\> = `object`
 
-Defined in: [types/server.ts:324](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L324)
+Defined in: [types/server.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L324)
 
 Server response object
 
@@ -24,7 +24,7 @@ Server response object
 
 > `optional` **data?**: `T`
 
-Defined in: [types/server.ts:326](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L326)
+Defined in: [types/server.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L326)
 
 Response data
 
@@ -34,7 +34,7 @@ Response data
 
 > `optional` **error?**: `object`
 
-Defined in: [types/server.ts:329](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L329)
+Defined in: [types/server.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L329)
 
 Error information
 
@@ -56,7 +56,7 @@ Error information
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/server.ts:336](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L336)
+Defined in: [types/server.ts:336](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L336)
 
 Response metadata
 

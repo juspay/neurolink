@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: InMemorySessionStorage
 
-Defined in: [auth/providers/BaseAuthProvider.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L53)
+Defined in: [auth/providers/BaseAuthProvider.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L53)
 
 Default in-memory session storage
 
@@ -32,7 +32,7 @@ Default in-memory session storage
 
 > **get** **size**(): `number`
 
-Defined in: [auth/providers/BaseAuthProvider.ts:154](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L154)
+Defined in: [auth/providers/BaseAuthProvider.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L154)
 
 Get session count (for testing/monitoring)
 
@@ -46,7 +46,7 @@ Get session count (for testing/monitoring)
 
 > **get**(`sessionId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md) \| `null`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L57)
+Defined in: [auth/providers/BaseAuthProvider.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L57)
 
 Get a session by ID
 
@@ -70,7 +70,7 @@ Get a session by ID
 
 > **save**(`session`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L61)
+Defined in: [auth/providers/BaseAuthProvider.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L61)
 
 Save a session
 
@@ -94,7 +94,7 @@ Save a session
 
 > **delete**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L70)
+Defined in: [auth/providers/BaseAuthProvider.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L70)
 
 Delete a session
 
@@ -118,7 +118,7 @@ Delete a session
 
 > **deleteAllForUser**(`userId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L86)
+Defined in: [auth/providers/BaseAuthProvider.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L86)
 
 Delete all sessions for a user
 
@@ -142,7 +142,7 @@ Delete all sessions for a user
 
 > **getForUser**(`userId`): `Promise`\<[`AuthSession`](../type-aliases/AuthSession.md)[]\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:96](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L96)
+Defined in: [auth/providers/BaseAuthProvider.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L96)
 
 Get all sessions for a user
 
@@ -166,7 +166,7 @@ Get all sessions for a user
 
 > **exists**(`sessionId`): `Promise`\<`boolean`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:134](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L134)
+Defined in: [auth/providers/BaseAuthProvider.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L134)
 
 Check if a session exists
 
@@ -190,7 +190,7 @@ Check if a session exists
 
 > **touch**(`sessionId`): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L138)
+Defined in: [auth/providers/BaseAuthProvider.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L138)
 
 Update session last activity
 
@@ -214,7 +214,7 @@ Update session last activity
 
 > **clear**(): `Promise`\<`void`\>
 
-Defined in: [auth/providers/BaseAuthProvider.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/providers/BaseAuthProvider.ts#L146)
+Defined in: [auth/providers/BaseAuthProvider.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/auth/providers/BaseAuthProvider.ts#L146)
 
 Clear all sessions
 

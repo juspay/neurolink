@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FormatValidationResult** = `object`
 
-Defined in: [types/scorer.ts:555](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L555)
+Defined in: [types/scorer.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L555)
 
 Format validation result.
 
@@ -18,7 +18,7 @@ Format validation result.
 
 > **isValid**: `boolean`
 
-Defined in: [types/scorer.ts:556](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L556)
+Defined in: [types/scorer.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L556)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/scorer.ts:556](https://github.com/juspay/neurolink/blob/49032
 
 > **detectedFormat**: [`FormatType`](FormatType.md) \| `null`
 
-Defined in: [types/scorer.ts:557](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L557)
+Defined in: [types/scorer.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L557)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/scorer.ts:557](https://github.com/juspay/neurolink/blob/49032
 
 > **issues**: `string`[]
 
-Defined in: [types/scorer.ts:558](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L558)
+Defined in: [types/scorer.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L558)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/scorer.ts:558](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **structureAnalysis?**: `object`
 
-Defined in: [types/scorer.ts:559](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/scorer.ts#L559)
+Defined in: [types/scorer.ts:559](https://github.com/juspay/neurolink/blob/release/src/lib/types/scorer.ts#L559)

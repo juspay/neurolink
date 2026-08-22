@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TopologyStats** = `object`
 
-Defined in: [types/agentNetwork.ts:1627](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1627)
+Defined in: [types/agentNetwork.ts:1627](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1627)
 
 Topology statistics
 
@@ -18,7 +18,7 @@ Topology statistics
 
 > **nodeCount**: `number`
 
-Defined in: [types/agentNetwork.ts:1628](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1628)
+Defined in: [types/agentNetwork.ts:1628](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1628)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/agentNetwork.ts:1628](https://github.com/juspay/neurolink/blo
 
 > **edgeCount**: `number`
 
-Defined in: [types/agentNetwork.ts:1629](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1629)
+Defined in: [types/agentNetwork.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1629)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/agentNetwork.ts:1629](https://github.com/juspay/neurolink/blo
 
 > **avgConnections**: `number`
 
-Defined in: [types/agentNetwork.ts:1630](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1630)
+Defined in: [types/agentNetwork.ts:1630](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1630)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/agentNetwork.ts:1630](https://github.com/juspay/neurolink/blo
 
 > **maxConnections**: `number`
 
-Defined in: [types/agentNetwork.ts:1631](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1631)
+Defined in: [types/agentNetwork.ts:1631](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1631)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/agentNetwork.ts:1631](https://github.com/juspay/neurolink/blo
 
 > **minConnections**: `number`
 
-Defined in: [types/agentNetwork.ts:1632](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1632)
+Defined in: [types/agentNetwork.ts:1632](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1632)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/agentNetwork.ts:1632](https://github.com/juspay/neurolink/blo
 
 > **diameter**: `number`
 
-Defined in: [types/agentNetwork.ts:1633](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1633)
+Defined in: [types/agentNetwork.ts:1633](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1633)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/agentNetwork.ts:1633](https://github.com/juspay/neurolink/blo
 
 > **density**: `number`
 
-Defined in: [types/agentNetwork.ts:1634](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1634)
+Defined in: [types/agentNetwork.ts:1634](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1634)

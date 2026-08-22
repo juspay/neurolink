@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **registerDefaultRealtimeHandlers**(): `void`
 
-Defined in: [voice/index.ts:300](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/index.ts#L300)
+Defined in: [voice/index.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/voice/index.ts#L300)
 
 Register every shipped Realtime handler. Realtime handlers don't gate
 registration on isConfigured() because session-time API keys can be

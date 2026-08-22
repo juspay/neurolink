@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClassificationStats** = `object`
 
-Defined in: [types/taskClassification.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/taskClassification.ts#L38)
+Defined in: [types/taskClassification.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L38)
 
 Statistics for batch classification analysis
 
@@ -18,7 +18,7 @@ Statistics for batch classification analysis
 
 > **total**: `number`
 
-Defined in: [types/taskClassification.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/taskClassification.ts#L40)
+Defined in: [types/taskClassification.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L40)
 
 Total number of prompts analyzed
 
@@ -28,7 +28,7 @@ Total number of prompts analyzed
 
 > **fast**: `number`
 
-Defined in: [types/taskClassification.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/taskClassification.ts#L42)
+Defined in: [types/taskClassification.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L42)
 
 Number of prompts classified as fast
 
@@ -38,7 +38,7 @@ Number of prompts classified as fast
 
 > **reasoning**: `number`
 
-Defined in: [types/taskClassification.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/taskClassification.ts#L44)
+Defined in: [types/taskClassification.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L44)
 
 Number of prompts classified as reasoning
 
@@ -48,6 +48,6 @@ Number of prompts classified as reasoning
 
 > **averageConfidence**: `number`
 
-Defined in: [types/taskClassification.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/taskClassification.ts#L46)
+Defined in: [types/taskClassification.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/taskClassification.ts#L46)
 
 Average confidence across all classifications

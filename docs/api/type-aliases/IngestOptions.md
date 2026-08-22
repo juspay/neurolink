@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **IngestOptions** = `object`
 
-Defined in: [types/rag.ts:285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L285)
+Defined in: [types/rag.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L285)
 
 Ingestion options
 
@@ -18,7 +18,7 @@ Ingestion options
 
 > `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L287)
+Defined in: [types/rag.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L287)
 
 Chunking strategy override
 
@@ -28,7 +28,7 @@ Chunking strategy override
 
 > `optional` **chunkSize?**: `number`
 
-Defined in: [types/rag.ts:289](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L289)
+Defined in: [types/rag.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L289)
 
 Chunk size override
 
@@ -38,7 +38,7 @@ Chunk size override
 
 > `optional` **chunkOverlap?**: `number`
 
-Defined in: [types/rag.ts:291](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L291)
+Defined in: [types/rag.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L291)
 
 Chunk overlap override
 
@@ -48,7 +48,7 @@ Chunk overlap override
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L293)
+Defined in: [types/rag.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L293)
 
 Custom metadata to add
 
@@ -58,6 +58,6 @@ Custom metadata to add
 
 > `optional` **extractMetadata?**: `boolean`
 
-Defined in: [types/rag.ts:295](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L295)
+Defined in: [types/rag.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L295)
 
 Extract metadata using LLM

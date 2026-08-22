@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NeuroLinkEvents** = `object`
 
-Defined in: [types/common.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L172)
+Defined in: [types/common.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L172)
 
 Enhanced NeuroLink event types
 Flexible type to support both typed and legacy event patterns
@@ -23,7 +23,7 @@ Flexible type to support both typed and legacy event patterns
 
 > **tool:start**: `unknown`
 
-Defined in: [types/common.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L174)
+Defined in: [types/common.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L174)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/common.ts:174](https://github.com/juspay/neurolink/blob/49032
 
 > **tool:end**: `unknown`
 
-Defined in: [types/common.ts:175](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L175)
+Defined in: [types/common.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L175)
 
 ---
 
@@ -39,7 +39,7 @@ Defined in: [types/common.ts:175](https://github.com/juspay/neurolink/blob/49032
 
 > **stream:start**: `unknown`
 
-Defined in: [types/common.ts:178](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L178)
+Defined in: [types/common.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L178)
 
 ---
 
@@ -47,7 +47,7 @@ Defined in: [types/common.ts:178](https://github.com/juspay/neurolink/blob/49032
 
 > **stream:end**: `unknown`
 
-Defined in: [types/common.ts:179](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L179)
+Defined in: [types/common.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L179)
 
 ---
 
@@ -55,7 +55,7 @@ Defined in: [types/common.ts:179](https://github.com/juspay/neurolink/blob/49032
 
 > **stream:chunk**: `unknown`
 
-Defined in: [types/common.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L180)
+Defined in: [types/common.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L180)
 
 ---
 
@@ -63,7 +63,7 @@ Defined in: [types/common.ts:180](https://github.com/juspay/neurolink/blob/49032
 
 > **stream:complete**: `unknown`
 
-Defined in: [types/common.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L181)
+Defined in: [types/common.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L181)
 
 ---
 
@@ -71,7 +71,7 @@ Defined in: [types/common.ts:181](https://github.com/juspay/neurolink/blob/49032
 
 > **stream:error**: `unknown`
 
-Defined in: [types/common.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L182)
+Defined in: [types/common.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L182)
 
 ---
 
@@ -79,7 +79,7 @@ Defined in: [types/common.ts:182](https://github.com/juspay/neurolink/blob/49032
 
 > **generation:start**: `unknown`
 
-Defined in: [types/common.ts:185](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L185)
+Defined in: [types/common.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L185)
 
 ---
 
@@ -87,7 +87,7 @@ Defined in: [types/common.ts:185](https://github.com/juspay/neurolink/blob/49032
 
 > **generation:end**: `unknown`
 
-Defined in: [types/common.ts:186](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L186)
+Defined in: [types/common.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L186)
 
 ---
 
@@ -95,7 +95,7 @@ Defined in: [types/common.ts:186](https://github.com/juspay/neurolink/blob/49032
 
 > **response:start**: `unknown`
 
-Defined in: [types/common.ts:189](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L189)
+Defined in: [types/common.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L189)
 
 ---
 
@@ -103,7 +103,7 @@ Defined in: [types/common.ts:189](https://github.com/juspay/neurolink/blob/49032
 
 > **response:end**: `unknown`
 
-Defined in: [types/common.ts:190](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L190)
+Defined in: [types/common.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L190)
 
 ---
 
@@ -111,7 +111,7 @@ Defined in: [types/common.ts:190](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:serverConnected**: `unknown`
 
-Defined in: [types/common.ts:193](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L193)
+Defined in: [types/common.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L193)
 
 ---
 
@@ -119,7 +119,7 @@ Defined in: [types/common.ts:193](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:serverDisconnected**: `unknown`
 
-Defined in: [types/common.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L194)
+Defined in: [types/common.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L194)
 
 ---
 
@@ -127,7 +127,7 @@ Defined in: [types/common.ts:194](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:serverFailed**: `unknown`
 
-Defined in: [types/common.ts:195](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L195)
+Defined in: [types/common.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L195)
 
 ---
 
@@ -135,7 +135,7 @@ Defined in: [types/common.ts:195](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:toolDiscovered**: `unknown`
 
-Defined in: [types/common.ts:196](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L196)
+Defined in: [types/common.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L196)
 
 ---
 
@@ -143,7 +143,7 @@ Defined in: [types/common.ts:196](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:toolRemoved**: `unknown`
 
-Defined in: [types/common.ts:197](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L197)
+Defined in: [types/common.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L197)
 
 ---
 
@@ -151,7 +151,7 @@ Defined in: [types/common.ts:197](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:serverAdded**: `unknown`
 
-Defined in: [types/common.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L198)
+Defined in: [types/common.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L198)
 
 ---
 
@@ -159,7 +159,7 @@ Defined in: [types/common.ts:198](https://github.com/juspay/neurolink/blob/49032
 
 > **externalMCP:serverRemoved**: `unknown`
 
-Defined in: [types/common.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L199)
+Defined in: [types/common.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L199)
 
 ---
 
@@ -167,7 +167,7 @@ Defined in: [types/common.ts:199](https://github.com/juspay/neurolink/blob/49032
 
 > **tools-register:start**: `unknown`
 
-Defined in: [types/common.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L202)
+Defined in: [types/common.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L202)
 
 ---
 
@@ -175,7 +175,7 @@ Defined in: [types/common.ts:202](https://github.com/juspay/neurolink/blob/49032
 
 > **tools-register:end**: `unknown`
 
-Defined in: [types/common.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L203)
+Defined in: [types/common.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L203)
 
 ---
 
@@ -183,7 +183,7 @@ Defined in: [types/common.ts:203](https://github.com/juspay/neurolink/blob/49032
 
 > **connected**: `unknown`
 
-Defined in: [types/common.ts:206](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L206)
+Defined in: [types/common.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L206)
 
 ---
 
@@ -191,7 +191,7 @@ Defined in: [types/common.ts:206](https://github.com/juspay/neurolink/blob/49032
 
 > **message**: `unknown`
 
-Defined in: [types/common.ts:207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L207)
+Defined in: [types/common.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L207)
 
 ---
 
@@ -199,7 +199,7 @@ Defined in: [types/common.ts:207](https://github.com/juspay/neurolink/blob/49032
 
 > **error**: `unknown`
 
-Defined in: [types/common.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L208)
+Defined in: [types/common.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L208)
 
 ---
 
@@ -207,7 +207,7 @@ Defined in: [types/common.ts:208](https://github.com/juspay/neurolink/blob/49032
 
 > **log**: `unknown`
 
-Defined in: [types/common.ts:209](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L209)
+Defined in: [types/common.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L209)
 
 ---
 
@@ -215,7 +215,7 @@ Defined in: [types/common.ts:209](https://github.com/juspay/neurolink/blob/49032
 
 > **log-event**: `unknown`
 
-Defined in: [types/common.ts:212](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L212)
+Defined in: [types/common.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L212)
 
 ---
 
@@ -223,7 +223,7 @@ Defined in: [types/common.ts:212](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:initialized**: [`AutoresearchInitializedEvent`](AutoresearchInitializedEvent.md)
 
-Defined in: [types/common.ts:215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L215)
+Defined in: [types/common.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L215)
 
 ---
 
@@ -231,7 +231,7 @@ Defined in: [types/common.ts:215](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:resumed**: [`AutoresearchResumedEvent`](AutoresearchResumedEvent.md)
 
-Defined in: [types/common.ts:216](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L216)
+Defined in: [types/common.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L216)
 
 ---
 
@@ -239,7 +239,7 @@ Defined in: [types/common.ts:216](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:phase-changed**: [`AutoresearchPhaseChangedEvent`](AutoresearchPhaseChangedEvent.md)
 
-Defined in: [types/common.ts:217](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L217)
+Defined in: [types/common.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L217)
 
 ---
 
@@ -247,7 +247,7 @@ Defined in: [types/common.ts:217](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:experiment-started**: [`AutoresearchExperimentStartedEvent`](AutoresearchExperimentStartedEvent.md)
 
-Defined in: [types/common.ts:218](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L218)
+Defined in: [types/common.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L218)
 
 ---
 
@@ -255,7 +255,7 @@ Defined in: [types/common.ts:218](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:experiment-completed**: [`AutoresearchExperimentCompletedEvent`](AutoresearchExperimentCompletedEvent.md)
 
-Defined in: [types/common.ts:219](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L219)
+Defined in: [types/common.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L219)
 
 ---
 
@@ -263,7 +263,7 @@ Defined in: [types/common.ts:219](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:metric-improved**: [`AutoresearchMetricImprovedEvent`](AutoresearchMetricImprovedEvent.md)
 
-Defined in: [types/common.ts:220](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L220)
+Defined in: [types/common.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L220)
 
 ---
 
@@ -271,7 +271,7 @@ Defined in: [types/common.ts:220](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:revert**: [`AutoresearchRevertEvent`](AutoresearchRevertEvent.md)
 
-Defined in: [types/common.ts:221](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L221)
+Defined in: [types/common.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L221)
 
 ---
 
@@ -279,7 +279,7 @@ Defined in: [types/common.ts:221](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:revert-failed**: [`AutoresearchRevertFailedEvent`](AutoresearchRevertFailedEvent.md)
 
-Defined in: [types/common.ts:222](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L222)
+Defined in: [types/common.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L222)
 
 ---
 
@@ -287,7 +287,7 @@ Defined in: [types/common.ts:222](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:state-updated**: [`AutoresearchStateUpdatedEvent`](AutoresearchStateUpdatedEvent.md)
 
-Defined in: [types/common.ts:223](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L223)
+Defined in: [types/common.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L223)
 
 ---
 
@@ -295,4 +295,4 @@ Defined in: [types/common.ts:223](https://github.com/juspay/neurolink/blob/49032
 
 > **autoresearch:error**: [`AutoresearchErrorEvent`](AutoresearchErrorEvent.md)
 
-Defined in: [types/common.ts:224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/common.ts#L224)
+Defined in: [types/common.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L224)

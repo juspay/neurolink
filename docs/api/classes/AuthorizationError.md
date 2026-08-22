@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AuthorizationError
 
-Defined in: [types/errors.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L42)
+Defined in: [types/errors.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L42)
 
 Thrown for authorization errors, where the user does not have permission.
 
@@ -20,7 +20,7 @@ Thrown for authorization errors, where the user does not have permission.
 
 > **new AuthorizationError**(`message`, `provider?`): `AuthorizationError`
 
-Defined in: [types/errors.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L43)
+Defined in: [types/errors.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L43)
 
 #### Parameters
 
@@ -46,7 +46,7 @@ Defined in: [types/errors.ts:43](https://github.com/juspay/neurolink/blob/49032f
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/errors.ts#L18)
+Defined in: [types/errors.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/errors.ts#L18)
 
 #### Inherited from
 

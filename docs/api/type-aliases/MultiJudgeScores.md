@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MultiJudgeScores** = `object`
 
-Defined in: [types/workflow.ts:366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L366)
+Defined in: [types/workflow.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L366)
 
 Multi-judge voting results
 
@@ -18,7 +18,7 @@ Multi-judge voting results
 
 > **judges**: [`JudgeScores`](JudgeScores.md)[]
 
-Defined in: [types/workflow.ts:368](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L368)
+Defined in: [types/workflow.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L368)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:368](https://github.com/juspay/neurolink/blob/490
 
 > **averageScores**: `Record`\<`string`, `number`\>
 
-Defined in: [types/workflow.ts:371](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L371)
+Defined in: [types/workflow.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L371)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:371](https://github.com/juspay/neurolink/blob/490
 
 > **aggregatedRanking**: `string`[]
 
-Defined in: [types/workflow.ts:372](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L372)
+Defined in: [types/workflow.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L372)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:372](https://github.com/juspay/neurolink/blob/490
 
 > **consensusLevel**: `number`
 
-Defined in: [types/workflow.ts:373](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L373)
+Defined in: [types/workflow.ts:373](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L373)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/workflow.ts:373](https://github.com/juspay/neurolink/blob/490
 
 > **bestResponse**: `string`
 
-Defined in: [types/workflow.ts:376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L376)
+Defined in: [types/workflow.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L376)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/workflow.ts:376](https://github.com/juspay/neurolink/blob/490
 
 > **confidence**: `number`
 
-Defined in: [types/workflow.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L377)
+Defined in: [types/workflow.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L377)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/workflow.ts:377](https://github.com/juspay/neurolink/blob/490
 
 > **votingStrategy**: `"average"` \| `"median"` \| `"majority"`
 
-Defined in: [types/workflow.ts:380](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L380)
+Defined in: [types/workflow.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L380)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/workflow.ts:380](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/workflow.ts:381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L381)
+Defined in: [types/workflow.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L381)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/workflow.ts:381](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **judgeProvider?**: `string`
 
-Defined in: [types/workflow.ts:384](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L384)
+Defined in: [types/workflow.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L384)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/workflow.ts:384](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **judgeModel?**: `string`
 
-Defined in: [types/workflow.ts:385](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L385)
+Defined in: [types/workflow.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L385)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/workflow.ts:385](https://github.com/juspay/neurolink/blob/490
 
 > **scores**: `Record`\<`string`, `number`\>
 
-Defined in: [types/workflow.ts:386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L386)
+Defined in: [types/workflow.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L386)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/workflow.ts:386](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **ranking?**: `string`[]
 
-Defined in: [types/workflow.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L387)
+Defined in: [types/workflow.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L387)
 
 ---
 
@@ -114,7 +114,7 @@ Defined in: [types/workflow.ts:387](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/workflow.ts:388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L388)
+Defined in: [types/workflow.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L388)
 
 ---
 
@@ -122,7 +122,7 @@ Defined in: [types/workflow.ts:388](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **confidenceInJudgment?**: `number`
 
-Defined in: [types/workflow.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L389)
+Defined in: [types/workflow.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L389)
 
 ---
 
@@ -130,7 +130,7 @@ Defined in: [types/workflow.ts:389](https://github.com/juspay/neurolink/blob/490
 
 > **criteria**: `string`[]
 
-Defined in: [types/workflow.ts:390](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L390)
+Defined in: [types/workflow.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L390)
 
 ---
 
@@ -138,7 +138,7 @@ Defined in: [types/workflow.ts:390](https://github.com/juspay/neurolink/blob/490
 
 > **judgeTime**: `number`
 
-Defined in: [types/workflow.ts:391](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L391)
+Defined in: [types/workflow.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L391)
 
 ---
 
@@ -146,4 +146,4 @@ Defined in: [types/workflow.ts:391](https://github.com/juspay/neurolink/blob/490
 
 > **timestamp**: `string`
 
-Defined in: [types/workflow.ts:392](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L392)
+Defined in: [types/workflow.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L392)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyAnalysisAccount** = `object`
 
-Defined in: [types/proxy.ts:1858](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1858)
+Defined in: [types/proxy.ts:1858](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1858)
 
 Per-account request and rate-limit totals reconstructed from JSONL logs.
 
@@ -18,7 +18,7 @@ Per-account request and rate-limit totals reconstructed from JSONL logs.
 
 > **account**: `string`
 
-Defined in: [types/proxy.ts:1859](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1859)
+Defined in: [types/proxy.ts:1859](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1859)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1859](https://github.com/juspay/neurolink/blob/49032
 
 > **accountType**: `string`
 
-Defined in: [types/proxy.ts:1860](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1860)
+Defined in: [types/proxy.ts:1860](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1860)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1860](https://github.com/juspay/neurolink/blob/49032
 
 > **attempts**: `number`
 
-Defined in: [types/proxy.ts:1861](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1861)
+Defined in: [types/proxy.ts:1861](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1861)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:1861](https://github.com/juspay/neurolink/blob/49032
 
 > **attemptErrors**: `number`
 
-Defined in: [types/proxy.ts:1862](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1862)
+Defined in: [types/proxy.ts:1862](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1862)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:1862](https://github.com/juspay/neurolink/blob/49032
 
 > **finalRequests**: `number`
 
-Defined in: [types/proxy.ts:1863](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1863)
+Defined in: [types/proxy.ts:1863](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1863)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:1863](https://github.com/juspay/neurolink/blob/49032
 
 > **finalErrors**: `number`
 
-Defined in: [types/proxy.ts:1864](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1864)
+Defined in: [types/proxy.ts:1864](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1864)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:1864](https://github.com/juspay/neurolink/blob/49032
 
 > **transientRateLimits**: `number`
 
-Defined in: [types/proxy.ts:1865](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1865)
+Defined in: [types/proxy.ts:1865](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1865)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:1865](https://github.com/juspay/neurolink/blob/49032
 
 > **quotaRateLimits**: `number`
 
-Defined in: [types/proxy.ts:1866](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1866)
+Defined in: [types/proxy.ts:1866](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1866)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/proxy.ts:1866](https://github.com/juspay/neurolink/blob/49032
 
 > **unclassifiedRateLimits**: `number`
 
-Defined in: [types/proxy.ts:1867](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L1867)
+Defined in: [types/proxy.ts:1867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1867)

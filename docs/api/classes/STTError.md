@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: STTError
 
-Defined in: [voice/errors.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L42)
+Defined in: [voice/errors.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L42)
 
 STT Error class for speech-to-text specific errors
 
@@ -20,7 +20,7 @@ STT Error class for speech-to-text specific errors
 
 > **new STTError**(`options`): `STTError`
 
-Defined in: [voice/errors.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L43)
+Defined in: [voice/errors.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L43)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [voice/errors.ts:43](https://github.com/juspay/neurolink/blob/49032f
 
 > `readonly` **code**: `string`
 
-Defined in: [utils/errorHandling.ts:105](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L105)
+Defined in: [utils/errorHandling.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L105)
 
 #### Inherited from
 
@@ -54,7 +54,7 @@ Defined in: [utils/errorHandling.ts:105](https://github.com/juspay/neurolink/blo
 
 > `readonly` **category**: `ErrorCategory`
 
-Defined in: [utils/errorHandling.ts:106](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L106)
+Defined in: [utils/errorHandling.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L106)
 
 #### Inherited from
 
@@ -66,7 +66,7 @@ Defined in: [utils/errorHandling.ts:106](https://github.com/juspay/neurolink/blo
 
 > `readonly` **severity**: `ErrorSeverity`
 
-Defined in: [utils/errorHandling.ts:107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L107)
+Defined in: [utils/errorHandling.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L107)
 
 #### Inherited from
 
@@ -78,7 +78,7 @@ Defined in: [utils/errorHandling.ts:107](https://github.com/juspay/neurolink/blo
 
 > `readonly` **retriable**: `boolean`
 
-Defined in: [utils/errorHandling.ts:108](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L108)
+Defined in: [utils/errorHandling.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L108)
 
 #### Inherited from
 
@@ -90,7 +90,7 @@ Defined in: [utils/errorHandling.ts:108](https://github.com/juspay/neurolink/blo
 
 > `readonly` `optional` **retryAfterMs?**: `number`
 
-Defined in: [utils/errorHandling.ts:109](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L109)
+Defined in: [utils/errorHandling.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L109)
 
 #### Inherited from
 
@@ -102,7 +102,7 @@ Defined in: [utils/errorHandling.ts:109](https://github.com/juspay/neurolink/blo
 
 > `readonly` **context**: `Record`\<`string`, `unknown`\>
 
-Defined in: [utils/errorHandling.ts:110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L110)
+Defined in: [utils/errorHandling.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L110)
 
 #### Inherited from
 
@@ -114,7 +114,7 @@ Defined in: [utils/errorHandling.ts:110](https://github.com/juspay/neurolink/blo
 
 > `readonly` **timestamp**: `Date`
 
-Defined in: [utils/errorHandling.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L111)
+Defined in: [utils/errorHandling.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L111)
 
 #### Inherited from
 
@@ -126,7 +126,7 @@ Defined in: [utils/errorHandling.ts:111](https://github.com/juspay/neurolink/blo
 
 > `readonly` `optional` **toolName?**: `string`
 
-Defined in: [utils/errorHandling.ts:112](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L112)
+Defined in: [utils/errorHandling.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L112)
 
 #### Inherited from
 
@@ -138,7 +138,7 @@ Defined in: [utils/errorHandling.ts:112](https://github.com/juspay/neurolink/blo
 
 > `readonly` `optional` **serverId?**: `string`
 
-Defined in: [utils/errorHandling.ts:113](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L113)
+Defined in: [utils/errorHandling.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L113)
 
 #### Inherited from
 
@@ -150,7 +150,7 @@ Defined in: [utils/errorHandling.ts:113](https://github.com/juspay/neurolink/blo
 
 > **toJSON**(): [`StructuredError`](../type-aliases/StructuredError.md)
 
-Defined in: [utils/errorHandling.ts:149](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L149)
+Defined in: [utils/errorHandling.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L149)
 
 Convert to JSON for logging and serialization
 
@@ -168,7 +168,7 @@ Convert to JSON for logging and serialization
 
 > `static` **audioEmpty**(`provider?`): `STTError`
 
-Defined in: [voice/errors.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L56)
+Defined in: [voice/errors.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L56)
 
 Create an error for empty audio input
 
@@ -188,7 +188,7 @@ Create an error for empty audio input
 
 > `static` **audioTooLong**(`durationSeconds`, `maxDurationSeconds`, `provider?`): `STTError`
 
-Defined in: [voice/errors.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L70)
+Defined in: [voice/errors.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L70)
 
 Create an error for audio that exceeds maximum duration
 
@@ -216,7 +216,7 @@ Create an error for audio that exceeds maximum duration
 
 > `static` **invalidFormat**(`format`, `supportedFormatsOrProvider?`, `provider?`): `STTError`
 
-Defined in: [voice/errors.ts:88](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L88)
+Defined in: [voice/errors.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L88)
 
 Create an error for invalid audio format
 
@@ -244,7 +244,7 @@ Create an error for invalid audio format
 
 > `static` **languageNotSupported**(`language`, `supportedLanguages?`, `provider?`): `STTError`
 
-Defined in: [voice/errors.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L122)
+Defined in: [voice/errors.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L122)
 
 Create an error for unsupported language
 
@@ -272,7 +272,7 @@ Create an error for unsupported language
 
 > `static` **transcriptionFailed**(`reason`, `providerOrError?`, `originalErrorOrProvider?`): `STTError`
 
-Defined in: [voice/errors.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L146)
+Defined in: [voice/errors.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L146)
 
 Create an error for transcription failure
 Supports two signatures:
@@ -304,7 +304,7 @@ Supports two signatures:
 
 > `static` **providerNotConfigured**(`provider`): `STTError`
 
-Defined in: [voice/errors.ts:184](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L184)
+Defined in: [voice/errors.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L184)
 
 Create an error for unconfigured provider
 
@@ -324,7 +324,7 @@ Create an error for unconfigured provider
 
 > `static` **providerNotSupported**(`provider`, `availableProviders?`): `STTError`
 
-Defined in: [voice/errors.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L198)
+Defined in: [voice/errors.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L198)
 
 Create an error for unsupported provider
 
@@ -348,7 +348,7 @@ Create an error for unsupported provider
 
 > `static` **streamError**(`reason`, `provider?`): `STTError`
 
-Defined in: [voice/errors.ts:215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L215)
+Defined in: [voice/errors.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L215)
 
 Create an error for stream processing failure
 
@@ -372,7 +372,7 @@ Create an error for stream processing failure
 
 > `static` **notConfigured**(`provider`): `STTError`
 
-Defined in: [voice/errors.ts:229](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L229)
+Defined in: [voice/errors.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L229)
 
 Alias for providerNotConfigured
 
@@ -392,7 +392,7 @@ Alias for providerNotConfigured
 
 > `static` **emptyAudio**(`provider?`): `STTError`
 
-Defined in: [voice/errors.ts:236](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/voice/errors.ts#L236)
+Defined in: [voice/errors.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/voice/errors.ts#L236)
 
 Alias for audioEmpty
 

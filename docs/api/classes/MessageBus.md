@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MessageBus
 
-Defined in: [agent/communication/message-bus.ts:26](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L26)
+Defined in: [agent/communication/message-bus.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L26)
 
 Message Bus - Central hub for agent communication
 
@@ -16,7 +16,7 @@ Message Bus - Central hub for agent communication
 
 > **new MessageBus**(`config?`): `MessageBus`
 
-Defined in: [agent/communication/message-bus.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L41)
+Defined in: [agent/communication/message-bus.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L41)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [agent/communication/message-bus.ts:41](https://github.com/juspay/ne
 
 > **subscribe**(`topic`, `subscriberId`, `handler`, `options?`): `string`
 
-Defined in: [agent/communication/message-bus.ts:64](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L64)
+Defined in: [agent/communication/message-bus.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L64)
 
 Subscribe to a topic
 
@@ -66,7 +66,7 @@ Subscribe to a topic
 
 > **unsubscribe**(`subscriptionId`): `boolean`
 
-Defined in: [agent/communication/message-bus.ts:101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L101)
+Defined in: [agent/communication/message-bus.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L101)
 
 Unsubscribe from a topic
 
@@ -86,7 +86,7 @@ Unsubscribe from a topic
 
 > **unsubscribeAll**(`subscriberId`): `number`
 
-Defined in: [agent/communication/message-bus.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L122)
+Defined in: [agent/communication/message-bus.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L122)
 
 Unsubscribe all subscriptions for an agent
 
@@ -106,7 +106,7 @@ Unsubscribe all subscriptions for an agent
 
 > **publish**(`topic`, `senderId`, `payload`, `options?`): `Promise`\<`void`\>
 
-Defined in: [agent/communication/message-bus.ts:139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L139)
+Defined in: [agent/communication/message-bus.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L139)
 
 Publish a message to a topic
 
@@ -138,7 +138,7 @@ Publish a message to a topic
 
 > **sendDirect**(`senderId`, `recipientId`, `payload`, `options?`): `Promise`\<`void`\>
 
-Defined in: [agent/communication/message-bus.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L168)
+Defined in: [agent/communication/message-bus.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L168)
 
 Send a direct message to a specific agent
 
@@ -170,7 +170,7 @@ Send a direct message to a specific agent
 
 > **request**(`topic`, `senderId`, `payload`, `timeout?`): `Promise`\<[`AgentMessage`](../type-aliases/AgentMessage.md)\>
 
-Defined in: [agent/communication/message-bus.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L199)
+Defined in: [agent/communication/message-bus.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L199)
 
 Send a request and wait for response
 
@@ -202,7 +202,7 @@ Send a request and wait for response
 
 > **reply**(`originalMessage`, `senderId`, `payload`): `Promise`\<`void`\>
 
-Defined in: [agent/communication/message-bus.ts:248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L248)
+Defined in: [agent/communication/message-bus.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L248)
 
 Reply to a request
 
@@ -230,7 +230,7 @@ Reply to a request
 
 > **broadcast**(`senderId`, `payload`, `excludeTopics?`): `Promise`\<`void`\>
 
-Defined in: [agent/communication/message-bus.ts:266](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L266)
+Defined in: [agent/communication/message-bus.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L266)
 
 Broadcast a message to all subscribers
 
@@ -258,7 +258,7 @@ Broadcast a message to all subscribers
 
 > **getHistory**(`topic?`, `limit?`): [`AgentMessage`](../type-aliases/AgentMessage.md)[]
 
-Defined in: [agent/communication/message-bus.ts:415](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L415)
+Defined in: [agent/communication/message-bus.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L415)
 
 Get message history for a topic
 
@@ -282,7 +282,7 @@ Get message history for a topic
 
 > **getDeadLetterQueue**(): [`AgentMessage`](../type-aliases/AgentMessage.md)[]
 
-Defined in: [agent/communication/message-bus.ts:430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L430)
+Defined in: [agent/communication/message-bus.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L430)
 
 Get dead letter queue messages
 
@@ -296,7 +296,7 @@ Get dead letter queue messages
 
 > **clearDeadLetterQueue**(): `void`
 
-Defined in: [agent/communication/message-bus.ts:437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L437)
+Defined in: [agent/communication/message-bus.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L437)
 
 Clear dead letter queue
 
@@ -310,7 +310,7 @@ Clear dead letter queue
 
 > **replayHistory**(`topic`, `subscriberId`, `since?`): `Promise`\<`void`\>
 
-Defined in: [agent/communication/message-bus.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L444)
+Defined in: [agent/communication/message-bus.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L444)
 
 Replay messages from history
 
@@ -338,7 +338,7 @@ Replay messages from history
 
 > **getTopics**(): `string`[]
 
-Defined in: [agent/communication/message-bus.ts:472](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L472)
+Defined in: [agent/communication/message-bus.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L472)
 
 Get all topics
 
@@ -352,7 +352,7 @@ Get all topics
 
 > **getSubscriberCount**(`topic`): `number`
 
-Defined in: [agent/communication/message-bus.ts:479](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L479)
+Defined in: [agent/communication/message-bus.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L479)
 
 Get subscriber count for a topic
 
@@ -372,7 +372,7 @@ Get subscriber count for a topic
 
 > **getStats**(): `object`
 
-Defined in: [agent/communication/message-bus.ts:486](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L486)
+Defined in: [agent/communication/message-bus.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L486)
 
 Get statistics
 
@@ -406,7 +406,7 @@ Get statistics
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: [agent/communication/message-bus.ts:510](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L510)
+Defined in: [agent/communication/message-bus.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L510)
 
 Subscribe to bus events
 
@@ -430,7 +430,7 @@ Subscribe to bus events
 
 > **off**(`event`, `handler`): `void`
 
-Defined in: [agent/communication/message-bus.ts:517](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L517)
+Defined in: [agent/communication/message-bus.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L517)
 
 Unsubscribe from bus events
 
@@ -454,7 +454,7 @@ Unsubscribe from bus events
 
 > **shutdown**(): `void`
 
-Defined in: [agent/communication/message-bus.ts:524](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/communication/message-bus.ts#L524)
+Defined in: [agent/communication/message-bus.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/agent/communication/message-bus.ts#L524)
 
 Shutdown the message bus
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentNetworkConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:273](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L273)
+Defined in: [types/agentNetwork.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L273)
 
 Configuration for creating an agent network
 
@@ -18,7 +18,7 @@ Configuration for creating an agent network
 
 > `optional` **id?**: `string`
 
-Defined in: [types/agentNetwork.ts:275](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L275)
+Defined in: [types/agentNetwork.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L275)
 
 Unique identifier for the network (auto-generated if not provided)
 
@@ -28,7 +28,7 @@ Unique identifier for the network (auto-generated if not provided)
 
 > **name**: `string`
 
-Defined in: [types/agentNetwork.ts:278](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L278)
+Defined in: [types/agentNetwork.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L278)
 
 Human-readable name
 
@@ -38,7 +38,7 @@ Human-readable name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/agentNetwork.ts:281](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L281)
+Defined in: [types/agentNetwork.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L281)
 
 Description of the network's purpose
 
@@ -48,7 +48,7 @@ Description of the network's purpose
 
 > **agents**: [`AgentDefinition`](AgentDefinition.md)[]
 
-Defined in: [types/agentNetwork.ts:284](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L284)
+Defined in: [types/agentNetwork.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L284)
 
 Agents in the network
 
@@ -58,7 +58,7 @@ Agents in the network
 
 > `optional` **workflows?**: [`NetworkWorkflowDefinition`](NetworkWorkflowDefinition.md)[]
 
-Defined in: [types/agentNetwork.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L287)
+Defined in: [types/agentNetwork.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L287)
 
 Workflows available in the network
 
@@ -68,7 +68,7 @@ Workflows available in the network
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/agentNetwork.ts:290](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L290)
+Defined in: [types/agentNetwork.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L290)
 
 Additional tools available to all agents (tool names)
 
@@ -78,7 +78,7 @@ Additional tools available to all agents (tool names)
 
 > `optional` **router?**: [`RouterConfig`](RouterConfig.md)
 
-Defined in: [types/agentNetwork.ts:293](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L293)
+Defined in: [types/agentNetwork.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L293)
 
 Routing agent configuration
 
@@ -88,7 +88,7 @@ Routing agent configuration
 
 > `optional` **defaults?**: [`NetworkDefaults`](NetworkDefaults.md)
 
-Defined in: [types/agentNetwork.ts:296](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L296)
+Defined in: [types/agentNetwork.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L296)
 
 Default execution options
 
@@ -98,6 +98,6 @@ Default execution options
 
 > `optional` **memory?**: [`NetworkMemoryConfig`](NetworkMemoryConfig.md)
 
-Defined in: [types/agentNetwork.ts:299](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L299)
+Defined in: [types/agentNetwork.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L299)
 
 Memory configuration for the network

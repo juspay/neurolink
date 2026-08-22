@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Abstract Class: BaseRuleScorer
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L33)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L33)
 
 Abstract base class for rule-based scorers
 
@@ -24,7 +24,7 @@ Abstract base class for rule-based scorers
 
 > **new BaseRuleScorer**(`metadata`, `config?`): `BaseRuleScorer`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L36)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L36)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:36](https://github.com/ju
 
 > `protected` **\_config**: [`ScorerConfig`](../type-aliases/ScorerConfig.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L43)
+Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L43)
 
 #### Inherited from
 
@@ -62,7 +62,7 @@ Defined in: [evaluation/scorers/baseScorer.ts:43](https://github.com/juspay/neur
 
 > `protected` **\_metadata**: [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L44)
+Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L44)
 
 #### Inherited from
 
@@ -74,7 +74,7 @@ Defined in: [evaluation/scorers/baseScorer.ts:44](https://github.com/juspay/neur
 
 > `protected` **\_ruleConfig**: [`RuleScorerConfig`](../type-aliases/RuleScorerConfig.md)
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L34)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L34)
 
 ## Accessors
 
@@ -84,7 +84,7 @@ Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:34](https://github.com/ju
 
 > **get** **metadata**(): [`ScorerMetadata`](../type-aliases/ScorerMetadata.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L58)
+Defined in: [evaluation/scorers/baseScorer.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L58)
 
 Get scorer metadata
 
@@ -108,7 +108,7 @@ Get scorer metadata
 
 > **get** **config**(): [`ScorerConfig`](../type-aliases/ScorerConfig.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L65)
+Defined in: [evaluation/scorers/baseScorer.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L65)
 
 Get current configuration
 
@@ -132,7 +132,7 @@ Get current configuration
 
 > **get** **ruleConfig**(): [`RuleScorerConfig`](../type-aliases/RuleScorerConfig.md)
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L48)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L48)
 
 Get rule-specific configuration
 
@@ -150,7 +150,7 @@ Get rule-specific configuration
 
 > **validateInput**(`input`): `object`
 
-Defined in: [evaluation/scorers/baseScorer.ts:77](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L77)
+Defined in: [evaluation/scorers/baseScorer.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L77)
 
 Validate input has required fields
 
@@ -186,7 +186,7 @@ Validate input has required fields
 
 > **configure**(`config`): `void`
 
-Defined in: [evaluation/scorers/baseScorer.ts:122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L122)
+Defined in: [evaluation/scorers/baseScorer.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L122)
 
 Update configuration
 
@@ -214,7 +214,7 @@ Update configuration
 
 > `protected` **normalizeScore**(`score`, `scale?`): `number`
 
-Defined in: [evaluation/scorers/baseScorer.ts:135](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L135)
+Defined in: [evaluation/scorers/baseScorer.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L135)
 
 Normalize a score to 0-1 scale
 
@@ -242,7 +242,7 @@ Normalize a score to 0-1 scale
 
 > `protected` **denormalizeScore**(`normalizedScore`, `scale?`): `number`
 
-Defined in: [evaluation/scorers/baseScorer.ts:161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L161)
+Defined in: [evaluation/scorers/baseScorer.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L161)
 
 Convert normalized score back to scale
 
@@ -270,7 +270,7 @@ Convert normalized score back to scale
 
 > `protected` **checkThreshold**(`normalizedScore`): `boolean`
 
-Defined in: [evaluation/scorers/baseScorer.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L172)
+Defined in: [evaluation/scorers/baseScorer.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L172)
 
 Check if score passes threshold
 
@@ -294,7 +294,7 @@ Check if score passes threshold
 
 > `protected` **createScoreResult**(`score`, `reasoning`, `options?`): [`ScoreResult`](../type-aliases/ScoreResult.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L180)
+Defined in: [evaluation/scorers/baseScorer.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L180)
 
 Create a standardized score result
 
@@ -340,7 +340,7 @@ Create a standardized score result
 
 > `protected` **createErrorResult**(`error`): [`ScoreResult`](../type-aliases/ScoreResult.md)
 
-Defined in: [evaluation/scorers/baseScorer.ts:225](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L225)
+Defined in: [evaluation/scorers/baseScorer.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L225)
 
 Create an error score result
 
@@ -364,7 +364,7 @@ Create an error score result
 
 > `protected` **executeWithTiming**(`scoringFn`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L244)
+Defined in: [evaluation/scorers/baseScorer.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L244)
 
 Execute scoring with timing and error handling
 
@@ -388,7 +388,7 @@ Execute scoring with timing and error handling
 
 > `protected` **executeWithTimeout**\<`T`\>(`fn`, `timeoutMs`, `operationName`): `Promise`\<`T`\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L272)
+Defined in: [evaluation/scorers/baseScorer.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L272)
 
 Execute scoring with timeout
 
@@ -426,7 +426,7 @@ Execute scoring with timeout
 
 > `protected` **executeWithRetry**\<`T`\>(`operation`, `retries?`): `Promise`\<`T`\>
 
-Defined in: [evaluation/scorers/baseScorer.ts:287](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/baseScorer.ts#L287)
+Defined in: [evaluation/scorers/baseScorer.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/baseScorer.ts#L287)
 
 Execute with retry logic
 
@@ -460,7 +460,7 @@ Execute with retry logic
 
 > `abstract` **getRules**(): [`ScorerRule`](../type-aliases/ScorerRule.md)[]
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L55)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L55)
 
 Get all rules for this scorer - must be implemented by subclasses
 
@@ -478,7 +478,7 @@ Get all rules for this scorer - must be implemented by subclasses
 
 > `abstract` **evaluateRule**(`rule`, `input`): `object`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L60)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L60)
 
 Evaluate a single rule - must be implemented by subclasses
 
@@ -514,7 +514,7 @@ Evaluate a single rule - must be implemented by subclasses
 
 > **score**(`input`): `Promise`\<[`ScoreResult`](../type-aliases/ScoreResult.md)\>
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L68)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L68)
 
 Main scoring method
 
@@ -542,7 +542,7 @@ Main scoring method
 
 > `protected` **combineRuleResults**(`results`, `rules`): `number`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:134](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L134)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L134)
 
 Combine rule results based on configuration
 
@@ -566,7 +566,7 @@ Combine rule results based on configuration
 
 > `protected` **generateReasoning**(`results`): `string`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:181](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L181)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L181)
 
 Generate reasoning from rule results
 
@@ -586,7 +586,7 @@ Generate reasoning from rule results
 
 > `protected` **matchesRegex**(`text`, `pattern`, `flags?`): `boolean`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:210](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L210)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L210)
 
 Helper: Check if text matches a regex pattern
 
@@ -614,7 +614,7 @@ Helper: Check if text matches a regex pattern
 
 > `protected` **containsKeyword**(`text`, `keyword`, `caseInsensitive?`): `boolean`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:231](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L231)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L231)
 
 Helper: Check if text contains keyword with word boundaries
 
@@ -642,7 +642,7 @@ Helper: Check if text contains keyword with word boundaries
 
 > `protected` **countOccurrences**(`text`, `pattern`, `caseInsensitive?`): `number`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L245)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L245)
 
 Helper: Count occurrences of a pattern
 
@@ -670,7 +670,7 @@ Helper: Count occurrences of a pattern
 
 > `protected` **getWordCount**(`text`): `number`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:272](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L272)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L272)
 
 Helper: Get word count
 
@@ -690,7 +690,7 @@ Helper: Get word count
 
 > `protected` **getCharacterCount**(`text`, `includeWhitespace?`): `number`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:282](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L282)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L282)
 
 Helper: Get character count (excluding whitespace)
 
@@ -714,7 +714,7 @@ Helper: Get character count (excluding whitespace)
 
 > `protected` **isWithinLengthBounds**(`text`, `minWords?`, `maxWords?`, `minChars?`, `maxChars?`): `object`
 
-Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:292](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L292)
+Defined in: [evaluation/scorers/rule/baseRuleScorer.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/evaluation/scorers/rule/baseRuleScorer.ts#L292)
 
 Helper: Check text length is within bounds
 

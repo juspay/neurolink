@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **MessageBusConfig** = `object`
 
-Defined in: [types/agentNetwork.ts:1156](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1156)
+Defined in: [types/agentNetwork.ts:1156](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1156)
 
 Message bus configuration
 
@@ -18,7 +18,7 @@ Message bus configuration
 
 > `optional` **maxHistorySize?**: `number`
 
-Defined in: [types/agentNetwork.ts:1158](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1158)
+Defined in: [types/agentNetwork.ts:1158](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1158)
 
 Maximum messages to retain in history
 
@@ -28,7 +28,7 @@ Maximum messages to retain in history
 
 > `optional` **defaultTtl?**: `number`
 
-Defined in: [types/agentNetwork.ts:1161](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1161)
+Defined in: [types/agentNetwork.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1161)
 
 Default message TTL in ms
 
@@ -38,7 +38,7 @@ Default message TTL in ms
 
 > `optional` **enablePersistence?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1164](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1164)
+Defined in: [types/agentNetwork.ts:1164](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1164)
 
 Enable message persistence
 
@@ -48,7 +48,7 @@ Enable message persistence
 
 > `optional` **enableDeadLetterQueue?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:1167](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1167)
+Defined in: [types/agentNetwork.ts:1167](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1167)
 
 Dead letter queue for failed messages
 
@@ -58,6 +58,6 @@ Dead letter queue for failed messages
 
 > `optional` **requestTimeout?**: `number`
 
-Defined in: [types/agentNetwork.ts:1170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1170)
+Defined in: [types/agentNetwork.ts:1170](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1170)
 
 Request timeout for request-response pattern

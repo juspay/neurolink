@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OpenAICompatCredentials** = `object`
 
-Defined in: [types/providers.ts:708](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L708)
+Defined in: [types/providers.ts:708](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L708)
 
 Minimal credential shape accepted by resolveOpenAICompatConfig() and
 ConfiguredOpenAICompatProvider. A structural superset of every real
@@ -23,7 +23,7 @@ accountId) here is always structurally valid.
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/providers.ts:709](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L709)
+Defined in: [types/providers.ts:709](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L709)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/providers.ts:709](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **baseURL?**: `string`
 
-Defined in: [types/providers.ts:710](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L710)
+Defined in: [types/providers.ts:710](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L710)
 
 ---
 
@@ -39,4 +39,4 @@ Defined in: [types/providers.ts:710](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **accountId?**: `string`
 
-Defined in: [types/providers.ts:711](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L711)
+Defined in: [types/providers.ts:711](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L711)

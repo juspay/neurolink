@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ChromaQueryResponse** = `object`
 
-Defined in: [types/vectorStoreChroma.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L38)
+Defined in: [types/vectorStoreChroma.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L38)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/vectorStoreChroma.ts:38](https://github.com/juspay/neurolink/
 
 > **ids**: `string`[][]
 
-Defined in: [types/vectorStoreChroma.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L39)
+Defined in: [types/vectorStoreChroma.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L39)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/vectorStoreChroma.ts:39](https://github.com/juspay/neurolink/
 
 > `optional` **embeddings?**: (`number`[] \| `null`)[][] \| `null`
 
-Defined in: [types/vectorStoreChroma.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L40)
+Defined in: [types/vectorStoreChroma.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L40)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/vectorStoreChroma.ts:40](https://github.com/juspay/neurolink/
 
 > `optional` **metadatas?**: ([`ChromaMetadata`](ChromaMetadata.md) \| `null`)[][] \| `null`
 
-Defined in: [types/vectorStoreChroma.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L41)
+Defined in: [types/vectorStoreChroma.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L41)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/vectorStoreChroma.ts:41](https://github.com/juspay/neurolink/
 
 > `optional` **documents?**: (`string` \| `null`)[][] \| `null`
 
-Defined in: [types/vectorStoreChroma.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L42)
+Defined in: [types/vectorStoreChroma.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L42)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/vectorStoreChroma.ts:42](https://github.com/juspay/neurolink/
 
 > `optional` **distances?**: (`number` \| `null`)[][] \| `null`
 
-Defined in: [types/vectorStoreChroma.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L43)
+Defined in: [types/vectorStoreChroma.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L43)

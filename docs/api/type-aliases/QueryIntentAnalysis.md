@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **QueryIntentAnalysis** = `object`
 
-Defined in: [types/evaluation.ts:168](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L168)
+Defined in: [types/evaluation.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L168)
 
 Represents the analysis of the user's query intent.
 This provides a basic understanding of what the user is trying to achieve.
@@ -19,7 +19,7 @@ This provides a basic understanding of what the user is trying to achieve.
 
 > **type**: `"question"` \| `"command"` \| `"greeting"` \| `"unknown"`
 
-Defined in: [types/evaluation.ts:170](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L170)
+Defined in: [types/evaluation.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L170)
 
 The type of query, e.g., asking a question or giving a command.
 
@@ -29,7 +29,7 @@ The type of query, e.g., asking a question or giving a command.
 
 > **complexity**: `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/evaluation.ts:172](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L172)
+Defined in: [types/evaluation.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L172)
 
 The estimated complexity of the query.
 
@@ -39,6 +39,6 @@ The estimated complexity of the query.
 
 > **shouldHaveUsedTools**: `boolean`
 
-Defined in: [types/evaluation.ts:174](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L174)
+Defined in: [types/evaluation.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L174)
 
 Whether the query likely required the use of tools to be answered correctly.

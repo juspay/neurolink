@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ElicitationResponse** = `object`
 
-Defined in: [types/elicitation.ts:219](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L219)
+Defined in: [types/elicitation.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L219)
 
 Elicitation response
 
@@ -18,7 +18,7 @@ Elicitation response
 
 > **requestId**: `string`
 
-Defined in: [types/elicitation.ts:223](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L223)
+Defined in: [types/elicitation.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L223)
 
 Request ID this responds to
 
@@ -28,7 +28,7 @@ Request ID this responds to
 
 > **responded**: `boolean`
 
-Defined in: [types/elicitation.ts:228](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L228)
+Defined in: [types/elicitation.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L228)
 
 Whether the user provided a response
 
@@ -38,7 +38,7 @@ Whether the user provided a response
 
 > `optional` **value?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/elicitation.ts:233](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L233)
+Defined in: [types/elicitation.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L233)
 
 The user's response value
 
@@ -48,7 +48,7 @@ The user's response value
 
 > `optional` **cancelled?**: `boolean`
 
-Defined in: [types/elicitation.ts:238](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L238)
+Defined in: [types/elicitation.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L238)
 
 Whether the request was cancelled
 
@@ -58,7 +58,7 @@ Whether the request was cancelled
 
 > `optional` **timedOut?**: `boolean`
 
-Defined in: [types/elicitation.ts:243](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L243)
+Defined in: [types/elicitation.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L243)
 
 Whether the request timed out
 
@@ -68,7 +68,7 @@ Whether the request timed out
 
 > `optional` **error?**: `string`
 
-Defined in: [types/elicitation.ts:248](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L248)
+Defined in: [types/elicitation.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L248)
 
 Error message if response failed
 
@@ -78,6 +78,6 @@ Error message if response failed
 
 > **timestamp**: `number`
 
-Defined in: [types/elicitation.ts:253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/elicitation.ts#L253)
+Defined in: [types/elicitation.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/elicitation.ts#L253)
 
 Response timestamp

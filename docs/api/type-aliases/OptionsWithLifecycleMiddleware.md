@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **OptionsWithLifecycleMiddleware** = `object`
 
-Defined in: [types/middleware.ts:387](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L387)
+Defined in: [types/middleware.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L387)
 
 Structural view of the nested lifecycle config buried inside a request's
 middleware blob. Extracted so call sites that need to read it (e.g.
@@ -22,7 +22,7 @@ three-level cast.
 
 > `optional` **middleware?**: `object`
 
-Defined in: [types/middleware.ts:388](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L388)
+Defined in: [types/middleware.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L388)
 
 #### middlewareConfig?
 

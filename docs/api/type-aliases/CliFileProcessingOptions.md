@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CliFileProcessingOptions** = `object`
 
-Defined in: [types/processor.ts:974](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L974)
+Defined in: [types/processor.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L974)
 
 Options for CLI file processing
 
@@ -18,7 +18,7 @@ Options for CLI file processing
 
 > `optional` **verbose?**: `boolean`
 
-Defined in: [types/processor.ts:976](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L976)
+Defined in: [types/processor.ts:976](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L976)
 
 Verbose output - shows processing details
 
@@ -28,7 +28,7 @@ Verbose output - shows processing details
 
 > `optional` **processor?**: `string`
 
-Defined in: [types/processor.ts:978](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L978)
+Defined in: [types/processor.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L978)
 
 Processor to use (bypasses auto-detection)
 
@@ -38,6 +38,6 @@ Processor to use (bypasses auto-detection)
 
 > `optional` **outputFormat?**: `"json"` \| `"text"` \| `"raw"`
 
-Defined in: [types/processor.ts:980](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/processor.ts#L980)
+Defined in: [types/processor.ts:980](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L980)
 
 Output format: json, text, or raw

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SkillsManagerLike** = `object`
 
-Defined in: [types/skills.ts:398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L398)
+Defined in: [types/skills.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L398)
 
 Structural view of SkillsManager consumed by the skill tools factory —
 keeps skillTools.ts decoupled from the concrete manager class.
@@ -19,7 +19,7 @@ keeps skillTools.ts decoupled from the concrete manager class.
 
 > **search**: (`query`) => `Promise`\<[`SkillDefinition`](SkillDefinition.md)[]\>
 
-Defined in: [types/skills.ts:399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L399)
+Defined in: [types/skills.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L399)
 
 #### Parameters
 
@@ -37,7 +37,7 @@ Defined in: [types/skills.ts:399](https://github.com/juspay/neurolink/blob/49032
 
 > **list**: (`scopeId?`) => `Promise`\<[`SkillIndexItem`](SkillIndexItem.md)[]\>
 
-Defined in: [types/skills.ts:400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L400)
+Defined in: [types/skills.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L400)
 
 #### Parameters
 
@@ -55,7 +55,7 @@ Defined in: [types/skills.ts:400](https://github.com/juspay/neurolink/blob/49032
 
 > **get**: (`idOrName`) => `Promise`\<[`SkillDefinition`](SkillDefinition.md) \| `null`\>
 
-Defined in: [types/skills.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L401)
+Defined in: [types/skills.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L401)
 
 #### Parameters
 
@@ -73,7 +73,7 @@ Defined in: [types/skills.ts:401](https://github.com/juspay/neurolink/blob/49032
 
 > **getResource**: (`idOrName`, `resourcePath`) => `Promise`\<`string` \| `null`\>
 
-Defined in: [types/skills.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L402)
+Defined in: [types/skills.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L402)
 
 #### Parameters
 
@@ -95,7 +95,7 @@ Defined in: [types/skills.ts:402](https://github.com/juspay/neurolink/blob/49032
 
 > **sessions**: [`SkillSessionStateLike`](SkillSessionStateLike.md)
 
-Defined in: [types/skills.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L406)
+Defined in: [types/skills.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L406)
 
 ---
 
@@ -103,7 +103,7 @@ Defined in: [types/skills.ts:406](https://github.com/juspay/neurolink/blob/49032
 
 > **requestMutation**: (`action`) => `Promise`\<[`SkillMutationResult`](SkillMutationResult.md)\>
 
-Defined in: [types/skills.ts:407](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/skills.ts#L407)
+Defined in: [types/skills.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/skills.ts#L407)
 
 #### Parameters
 

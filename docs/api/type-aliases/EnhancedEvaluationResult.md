@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedEvaluationResult** = [`EvaluationData`](EvaluationData.md) & `object`
 
-Defined in: [types/evaluation.ts:120](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L120)
+Defined in: [types/evaluation.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L120)
 
 Evaluation result type
 Extends EvaluationData with additional fields

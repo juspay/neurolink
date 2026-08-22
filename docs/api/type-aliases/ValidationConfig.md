@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ValidationConfig** = `object`
 
-Defined in: [types/middleware.ts:484](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L484)
+Defined in: [types/middleware.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L484)
 
 Validation configuration for the request-validation middleware.
 
@@ -18,7 +18,7 @@ Validation configuration for the request-validation middleware.
 
 > `optional` **bodySchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:485](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L485)
+Defined in: [types/middleware.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L485)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:485](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **querySchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:486](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L486)
+Defined in: [types/middleware.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L486)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:486](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **paramsSchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:487](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L487)
+Defined in: [types/middleware.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L487)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/middleware.ts:487](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **headersSchema?**: [`MiddlewareRequestSchema`](MiddlewareRequestSchema.md)
 
-Defined in: [types/middleware.ts:488](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L488)
+Defined in: [types/middleware.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L488)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/middleware.ts:488](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **customValidator?**: (`ctx`) => `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:489](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L489)
+Defined in: [types/middleware.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L489)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [types/middleware.ts:489](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/middleware.ts:490](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L490)
+Defined in: [types/middleware.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L490)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/middleware.ts:490](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **errorFormatter?**: (`errors`) => `unknown`
 
-Defined in: [types/middleware.ts:491](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L491)
+Defined in: [types/middleware.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L491)
 
 #### Parameters
 

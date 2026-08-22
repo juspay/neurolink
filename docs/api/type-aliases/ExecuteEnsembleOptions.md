@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ExecuteEnsembleOptions** = `object`
 
-Defined in: [types/workflow.ts:535](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L535)
+Defined in: [types/workflow.ts:535](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L535)
 
 Options for ensemble execution
 
@@ -18,7 +18,7 @@ Options for ensemble execution
 
 > **prompt**: `string`
 
-Defined in: [types/workflow.ts:536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L536)
+Defined in: [types/workflow.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L536)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:536](https://github.com/juspay/neurolink/blob/490
 
 > **models**: [`WorkflowModelConfig`](WorkflowModelConfig.md)[]
 
-Defined in: [types/workflow.ts:537](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L537)
+Defined in: [types/workflow.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L537)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:537](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **executionConfig?**: [`ExecutionConfig`](ExecutionConfig.md)
 
-Defined in: [types/workflow.ts:538](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L538)
+Defined in: [types/workflow.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L538)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:538](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/workflow.ts:539](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L539)
+Defined in: [types/workflow.ts:539](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L539)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/workflow.ts:539](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **workflowDefaults?**: `object`
 
-Defined in: [types/workflow.ts:540](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L540)
+Defined in: [types/workflow.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L540)
 
 #### systemPrompt?
 

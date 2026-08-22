@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SSEConnectionOptions** = `object`
 
-Defined in: [types/client.ts:1465](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1465)
+Defined in: [types/client.ts:1465](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1465)
 
 SSE connection options
 
@@ -18,7 +18,7 @@ SSE connection options
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/client.ts:1467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1467)
+Defined in: [types/client.ts:1467](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1467)
 
 Request headers
 
@@ -28,7 +28,7 @@ Request headers
 
 > `optional` **credentials?**: `RequestCredentials`
 
-Defined in: [types/client.ts:1469](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1469)
+Defined in: [types/client.ts:1469](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1469)
 
 Request credentials
 
@@ -38,7 +38,7 @@ Request credentials
 
 > `optional` **autoReconnect?**: `boolean`
 
-Defined in: [types/client.ts:1471](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1471)
+Defined in: [types/client.ts:1471](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1471)
 
 Reconnect on disconnect
 
@@ -48,7 +48,7 @@ Reconnect on disconnect
 
 > `optional` **reconnectDelay?**: `number`
 
-Defined in: [types/client.ts:1473](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1473)
+Defined in: [types/client.ts:1473](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1473)
 
 Reconnect delay in milliseconds
 
@@ -58,7 +58,7 @@ Reconnect delay in milliseconds
 
 > `optional` **maxReconnectAttempts?**: `number`
 
-Defined in: [types/client.ts:1475](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1475)
+Defined in: [types/client.ts:1475](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1475)
 
 Maximum reconnect attempts
 
@@ -68,6 +68,6 @@ Maximum reconnect attempts
 
 > `optional` **signal?**: `AbortSignal`
 
-Defined in: [types/client.ts:1477](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1477)
+Defined in: [types/client.ts:1477](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1477)
 
 Signal for request cancellation

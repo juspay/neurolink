@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: MetricsAggregator
 
-Defined in: [observability/metricsAggregator.ts:18](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L18)
+Defined in: [observability/metricsAggregator.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L18)
 
 Metrics Aggregator for comprehensive telemetry analysis
 Provides latency percentiles, token aggregation, and cost tracking
@@ -17,7 +17,7 @@ Provides latency percentiles, token aggregation, and cost tracking
 
 > **new MetricsAggregator**(`config?`): `MetricsAggregator`
 
-Defined in: [observability/metricsAggregator.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L34)
+Defined in: [observability/metricsAggregator.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L34)
 
 #### Parameters
 
@@ -35,7 +35,7 @@ Defined in: [observability/metricsAggregator.ts:34](https://github.com/juspay/ne
 
 > **recordSpan**(`span`): `void`
 
-Defined in: [observability/metricsAggregator.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L47)
+Defined in: [observability/metricsAggregator.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L47)
 
 Record a span for metrics aggregation
 
@@ -55,7 +55,7 @@ Record a span for metrics aggregation
 
 > **getLatencyStats**(): [`LatencyStats`](../type-aliases/LatencyStats.md)
 
-Defined in: [observability/metricsAggregator.ts:274](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L274)
+Defined in: [observability/metricsAggregator.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L274)
 
 Get comprehensive latency statistics
 
@@ -69,7 +69,7 @@ Get comprehensive latency statistics
 
 > **getTokenStats**(): [`TokenUsageStats`](../type-aliases/TokenUsageStats.md)
 
-Defined in: [observability/metricsAggregator.ts:301](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L301)
+Defined in: [observability/metricsAggregator.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L301)
 
 Get token usage statistics
 
@@ -83,7 +83,7 @@ Get token usage statistics
 
 > **getCostByProvider**(): [`ProviderCostStats`](../type-aliases/ProviderCostStats.md)[]
 
-Defined in: [observability/metricsAggregator.ts:308](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L308)
+Defined in: [observability/metricsAggregator.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L308)
 
 Get cost breakdown by provider
 
@@ -97,7 +97,7 @@ Get cost breakdown by provider
 
 > **getCostByModel**(): [`ModelCostStats`](../type-aliases/ModelCostStats.md)[]
 
-Defined in: [observability/metricsAggregator.ts:315](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L315)
+Defined in: [observability/metricsAggregator.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L315)
 
 Get cost breakdown by model
 
@@ -111,7 +111,7 @@ Get cost breakdown by model
 
 > **getTotalCost**(): `number`
 
-Defined in: [observability/metricsAggregator.ts:322](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L322)
+Defined in: [observability/metricsAggregator.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L322)
 
 Get total cost across all providers
 
@@ -125,7 +125,7 @@ Get total cost across all providers
 
 > **getTimeWindows**(): [`TimeWindowStats`](../type-aliases/TimeWindowStats.md)[]
 
-Defined in: [observability/metricsAggregator.ts:334](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L334)
+Defined in: [observability/metricsAggregator.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L334)
 
 Get time window statistics
 
@@ -139,7 +139,7 @@ Get time window statistics
 
 > **getStatsForTimeRange**(`startTime`, `endTime`): [`TimeWindowStats`](../type-aliases/TimeWindowStats.md)
 
-Defined in: [observability/metricsAggregator.ts:343](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L343)
+Defined in: [observability/metricsAggregator.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L343)
 
 Get statistics for a specific time range
 
@@ -163,7 +163,7 @@ Get statistics for a specific time range
 
 > **recordLatency**(`operation`, `latencyMs`): `void`
 
-Defined in: [observability/metricsAggregator.ts:382](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L382)
+Defined in: [observability/metricsAggregator.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L382)
 
 Record a latency measurement for an operation
 Use this for standalone latency tracking without a full span
@@ -188,7 +188,7 @@ Use this for standalone latency tracking without a full span
 
 > **getMetrics**(): [`MetricsSummary`](../type-aliases/MetricsSummary.md)
 
-Defined in: [observability/metricsAggregator.ts:403](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L403)
+Defined in: [observability/metricsAggregator.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L403)
 
 Get comprehensive metrics summary (alias for getSummary)
 
@@ -202,7 +202,7 @@ Get comprehensive metrics summary (alias for getSummary)
 
 > **getSummary**(): [`MetricsSummary`](../type-aliases/MetricsSummary.md)
 
-Defined in: [observability/metricsAggregator.ts:410](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L410)
+Defined in: [observability/metricsAggregator.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L410)
 
 Get comprehensive metrics summary
 
@@ -216,7 +216,7 @@ Get comprehensive metrics summary
 
 > **getSpans**(): [`SpanData`](../type-aliases/SpanData.md)[]
 
-Defined in: [observability/metricsAggregator.ts:436](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L436)
+Defined in: [observability/metricsAggregator.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L436)
 
 Get all recorded spans (returns a copy)
 
@@ -230,7 +230,7 @@ Get all recorded spans (returns a copy)
 
 > **getTraces**(): [`TraceView`](../type-aliases/TraceView.md)[]
 
-Defined in: [observability/metricsAggregator.ts:443](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L443)
+Defined in: [observability/metricsAggregator.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L443)
 
 Get spans grouped by traceId as hierarchical trace views
 
@@ -244,7 +244,7 @@ Get spans grouped by traceId as hierarchical trace views
 
 > **getTokenTracker**(): [`TokenTracker`](TokenTracker.md)
 
-Defined in: [observability/metricsAggregator.ts:490](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L490)
+Defined in: [observability/metricsAggregator.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L490)
 
 Get the underlying token tracker for custom pricing configuration
 
@@ -258,7 +258,7 @@ Get the underlying token tracker for custom pricing configuration
 
 > **reset**(): `void`
 
-Defined in: [observability/metricsAggregator.ts:497](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L497)
+Defined in: [observability/metricsAggregator.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L497)
 
 Reset all metrics
 
@@ -272,7 +272,7 @@ Reset all metrics
 
 > **toJSON**(): `Record`\<`string`, `unknown`\>
 
-Defined in: [observability/metricsAggregator.ts:514](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L514)
+Defined in: [observability/metricsAggregator.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L514)
 
 Export metrics as JSON
 
@@ -286,7 +286,7 @@ Export metrics as JSON
 
 > **formatCost**(`cost`, `currency?`): `string`
 
-Defined in: [observability/metricsAggregator.ts:546](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L546)
+Defined in: [observability/metricsAggregator.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L546)
 
 Format cost as currency string
 
@@ -310,7 +310,7 @@ Format cost as currency string
 
 > **getFormattedSummary**(): `string`
 
-Defined in: [observability/metricsAggregator.ts:557](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/observability/metricsAggregator.ts#L557)
+Defined in: [observability/metricsAggregator.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/observability/metricsAggregator.ts#L557)
 
 Get a formatted summary string
 

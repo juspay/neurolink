@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: TripwireEvaluator
 
-Defined in: [utils/tripwireEvaluator.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/tripwireEvaluator.ts#L42)
+Defined in: [utils/tripwireEvaluator.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L42)
 
 Manages and evaluates tripwire conditions against LLM response data.
 
@@ -42,7 +42,7 @@ if (result.triggered && result.action === "abort") {
 
 > **register**(`tripwire`): `void`
 
-Defined in: [utils/tripwireEvaluator.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/tripwireEvaluator.ts#L48)
+Defined in: [utils/tripwireEvaluator.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L48)
 
 Register a tripwire. Replaces any existing tripwire with the same id.
 
@@ -62,7 +62,7 @@ Register a tripwire. Replaces any existing tripwire with the same id.
 
 > **unregister**(`id`): `boolean`
 
-Defined in: [utils/tripwireEvaluator.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/tripwireEvaluator.ts#L61)
+Defined in: [utils/tripwireEvaluator.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L61)
 
 Remove a registered tripwire by id.
 
@@ -84,7 +84,7 @@ true if the tripwire was found and removed, false otherwise.
 
 > **evaluate**(`data`): [`TripwireResult`](../type-aliases/TripwireResult.md)
 
-Defined in: [utils/tripwireEvaluator.ts:80](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/tripwireEvaluator.ts#L80)
+Defined in: [utils/tripwireEvaluator.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L80)
 
 Evaluate all tripwires and return the highest-priority triggered result.
 
@@ -111,7 +111,7 @@ and promotes the highest-severity action.
 
 > **evaluateAll**(`data`): [`TripwireResult`](../type-aliases/TripwireResult.md)[]
 
-Defined in: [utils/tripwireEvaluator.ts:135](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/tripwireEvaluator.ts#L135)
+Defined in: [utils/tripwireEvaluator.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L135)
 
 Evaluate all tripwires and return every triggered result.
 
@@ -131,7 +131,7 @@ Evaluate all tripwires and return every triggered result.
 
 > **getTripwires**(): [`TripwireConfig`](../type-aliases/TripwireConfig.md)[]
 
-Defined in: [utils/tripwireEvaluator.ts:169](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/tripwireEvaluator.ts#L169)
+Defined in: [utils/tripwireEvaluator.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/utils/tripwireEvaluator.ts#L169)
 
 Return a shallow copy of all registered tripwires.
 

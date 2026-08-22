@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **getAuthContext**(): [`AuthenticatedContext`](../type-aliases/AuthenticatedContext.md) \| `undefined`
 
-Defined in: [auth/authContext.ts:63](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/auth/authContext.ts#L63)
+Defined in: [auth/authContext.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/auth/authContext.ts#L63)
 
 Get the current authentication context
 

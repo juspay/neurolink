@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ServerServerAuthConfig** = `object`
 
-Defined in: [types/server.ts:1207](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1207)
+Defined in: [types/server.ts:1207](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1207)
 
 Authentication configuration
 
@@ -18,7 +18,7 @@ Authentication configuration
 
 > **type**: `"bearer"` \| `"api-key"` \| `"basic"` \| `"custom"`
 
-Defined in: [types/server.ts:1209](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1209)
+Defined in: [types/server.ts:1209](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1209)
 
 Authentication type
 
@@ -28,7 +28,7 @@ Authentication type
 
 > **validate**: (`token`, `ctx`) => `Promise`\<[`AuthResult`](AuthResult.md) \| `null`\>
 
-Defined in: [types/server.ts:1215](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1215)
+Defined in: [types/server.ts:1215](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1215)
 
 Token validation function
 Returns user information if valid, throws or returns null if invalid
@@ -53,7 +53,7 @@ Returns user information if valid, throws or returns null if invalid
 
 > `optional` **headerName?**: `string`
 
-Defined in: [types/server.ts:1218](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1218)
+Defined in: [types/server.ts:1218](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1218)
 
 Header name for token (default: "Authorization" for bearer, "X-API-Key" for api-key)
 
@@ -63,7 +63,7 @@ Header name for token (default: "Authorization" for bearer, "X-API-Key" for api-
 
 > `optional` **skipPaths?**: `string`[]
 
-Defined in: [types/server.ts:1221](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1221)
+Defined in: [types/server.ts:1221](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1221)
 
 Skip authentication for certain paths
 
@@ -73,7 +73,7 @@ Skip authentication for certain paths
 
 > `optional` **errorMessage?**: `string`
 
-Defined in: [types/server.ts:1224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1224)
+Defined in: [types/server.ts:1224](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1224)
 
 Custom error message
 
@@ -83,7 +83,7 @@ Custom error message
 
 > `optional` **extractToken?**: (`ctx`) => `string` \| `null`
 
-Defined in: [types/server.ts:1230](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1230)
+Defined in: [types/server.ts:1230](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1230)
 
 Optional token extractor for custom authentication schemes
 Only used when type is "custom"
@@ -104,7 +104,7 @@ Only used when type is "custom"
 
 > `optional` **skipDevPlayground?**: `boolean`
 
-Defined in: [types/server.ts:1242](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/server.ts#L1242)
+Defined in: [types/server.ts:1242](https://github.com/juspay/neurolink/blob/release/src/lib/types/server.ts#L1242)
 
 Skip authentication for dev playground requests in non-production.
 When true (default), requests with x-neurolink-dev-playground or

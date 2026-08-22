@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClientRetryConfig** = `object`
 
-Defined in: [types/client.ts:46](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L46)
+Defined in: [types/client.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L46)
 
 Retry configuration for failed requests
 
@@ -18,7 +18,7 @@ Retry configuration for failed requests
 
 > **maxAttempts**: `number`
 
-Defined in: [types/client.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L48)
+Defined in: [types/client.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L48)
 
 Maximum number of retry attempts (default: 3)
 
@@ -28,7 +28,7 @@ Maximum number of retry attempts (default: 3)
 
 > **initialDelayMs**: `number`
 
-Defined in: [types/client.ts:50](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L50)
+Defined in: [types/client.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L50)
 
 Initial delay in milliseconds before first retry (default: 1000)
 
@@ -38,7 +38,7 @@ Initial delay in milliseconds before first retry (default: 1000)
 
 > **maxDelayMs**: `number`
 
-Defined in: [types/client.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L52)
+Defined in: [types/client.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L52)
 
 Maximum delay in milliseconds between retries (default: 10000)
 
@@ -48,7 +48,7 @@ Maximum delay in milliseconds between retries (default: 10000)
 
 > **backoffMultiplier**: `number`
 
-Defined in: [types/client.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L54)
+Defined in: [types/client.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L54)
 
 Backoff multiplier for exponential backoff (default: 2)
 
@@ -58,7 +58,7 @@ Backoff multiplier for exponential backoff (default: 2)
 
 > `optional` **retryableStatusCodes?**: `number`[]
 
-Defined in: [types/client.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L56)
+Defined in: [types/client.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L56)
 
 HTTP status codes to retry on (default: [408, 429, 500, 502, 503, 504])
 
@@ -68,6 +68,6 @@ HTTP status codes to retry on (default: [408, 429, 500, 502, 503, 504])
 
 > `optional` **retryOnNetworkError?**: `boolean`
 
-Defined in: [types/client.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L58)
+Defined in: [types/client.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L58)
 
 Whether to retry on network errors (default: true)

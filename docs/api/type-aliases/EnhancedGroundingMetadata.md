@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancedGroundingMetadata** = `object`
 
-Defined in: [types/grounding.ts:130](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L130)
+Defined in: [types/grounding.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L130)
 
 Comprehensive grounding metadata containing all information about how
 an AI response is grounded in external sources. This is the primary
@@ -41,7 +41,7 @@ const metadata: EnhancedGroundingMetadata = {
 
 > **query**: `string`
 
-Defined in: [types/grounding.ts:132](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L132)
+Defined in: [types/grounding.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L132)
 
 The original user query that triggered the grounded response
 
@@ -51,7 +51,7 @@ The original user query that triggered the grounded response
 
 > `optional` **webSearchQueries?**: `string`[]
 
-Defined in: [types/grounding.ts:134](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L134)
+Defined in: [types/grounding.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L134)
 
 Array of search queries used to find grounding sources
 
@@ -61,7 +61,7 @@ Array of search queries used to find grounding sources
 
 > **searchResults**: [`EnhancedSearchResult`](EnhancedSearchResult.md)[]
 
-Defined in: [types/grounding.ts:136](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L136)
+Defined in: [types/grounding.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L136)
 
 Array of search results returned from web search
 
@@ -71,7 +71,7 @@ Array of search results returned from web search
 
 > `optional` **segmentAttributions?**: [`SegmentAttribution`](SegmentAttribution.md)[]
 
-Defined in: [types/grounding.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L138)
+Defined in: [types/grounding.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L138)
 
 Fine-grained attributions mapping response segments to sources
 
@@ -81,7 +81,7 @@ Fine-grained attributions mapping response segments to sources
 
 > **sources**: [`EnhancedGroundingSource`](EnhancedGroundingSource.md)[]
 
-Defined in: [types/grounding.ts:140](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L140)
+Defined in: [types/grounding.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L140)
 
 Array of all sources used to ground the response
 
@@ -91,7 +91,7 @@ Array of all sources used to ground the response
 
 > `optional` **averageConfidence?**: `number`
 
-Defined in: [types/grounding.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L142)
+Defined in: [types/grounding.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L142)
 
 Average confidence score across all grounding attributions (0-1)
 
@@ -101,6 +101,6 @@ Average confidence score across all grounding attributions (0-1)
 
 > **grounded**: `boolean`
 
-Defined in: [types/grounding.ts:144](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/grounding.ts#L144)
+Defined in: [types/grounding.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/grounding.ts#L144)
 
 Whether the response is successfully grounded in sources

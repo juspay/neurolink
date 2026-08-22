@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **TTSProvider** = `object`
 
-Defined in: [types/voice.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L204)
+Defined in: [types/voice.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L204)
 
 TTS-capable voice provider type
 
@@ -18,7 +18,7 @@ TTS-capable voice provider type
 
 > `readonly` **maxTextLength**: `number`
 
-Defined in: [types/voice.ts:226](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L226)
+Defined in: [types/voice.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L226)
 
 Maximum text length supported
 
@@ -28,7 +28,7 @@ Maximum text length supported
 
 > **synthesize**(`text`, `options`): `Promise`\<[`TTSResult`](TTSResult.md)\>
 
-Defined in: [types/voice.ts:208](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L208)
+Defined in: [types/voice.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L208)
 
 Synthesize text to speech
 
@@ -52,7 +52,7 @@ Synthesize text to speech
 
 > `optional` **synthesizeStream**(`text`, `options`): `AsyncIterable`\<[`TTSStreamChunk`](TTSStreamChunk.md)\>
 
-Defined in: [types/voice.ts:213](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L213)
+Defined in: [types/voice.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L213)
 
 Stream synthesized audio chunks
 
@@ -76,7 +76,7 @@ Stream synthesized audio chunks
 
 > **getVoices**(`languageCode?`): `Promise`\<[`TTSVoice`](TTSVoice.md)[]\>
 
-Defined in: [types/voice.ts:221](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/voice.ts#L221)
+Defined in: [types/voice.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L221)
 
 Get available voices
 

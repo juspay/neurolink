@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RegistryStats** = `object`
 
-Defined in: [types/workflow.ts:702](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L702)
+Defined in: [types/workflow.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L702)
 
 Registry statistics
 
@@ -18,7 +18,7 @@ Registry statistics
 
 > **totalWorkflows**: `number`
 
-Defined in: [types/workflow.ts:703](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L703)
+Defined in: [types/workflow.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L703)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/workflow.ts:703](https://github.com/juspay/neurolink/blob/490
 
 > **byType**: `Record`\<`string`, `number`\>
 
-Defined in: [types/workflow.ts:704](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L704)
+Defined in: [types/workflow.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L704)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/workflow.ts:704](https://github.com/juspay/neurolink/blob/490
 
 > **totalUsage**: `number`
 
-Defined in: [types/workflow.ts:705](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L705)
+Defined in: [types/workflow.ts:705](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L705)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/workflow.ts:705](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **mostUsed?**: `object`
 
-Defined in: [types/workflow.ts:706](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L706)
+Defined in: [types/workflow.ts:706](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L706)
 
 #### id
 

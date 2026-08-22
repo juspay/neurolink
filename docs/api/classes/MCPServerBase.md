@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Abstract Class: MCPServerBase
 
-Defined in: [mcp/mcpServerBase.ts:67](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L67)
+Defined in: [mcp/mcpServerBase.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L67)
 
 Abstract base class for MCP servers
 
@@ -51,7 +51,7 @@ class MyCustomServer extends MCPServerBase {
 
 > **new MCPServerBase**(`config`): `MCPServerBase`
 
-Defined in: [mcp/mcpServerBase.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L73)
+Defined in: [mcp/mcpServerBase.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L73)
 
 #### Parameters
 
@@ -73,7 +73,7 @@ Defined in: [mcp/mcpServerBase.ts:73](https://github.com/juspay/neurolink/blob/4
 
 > `protected` `readonly` **config**: `Required`\<[`MCPServerBaseConfig`](../type-aliases/MCPServerBaseConfig.md)\>
 
-Defined in: [mcp/mcpServerBase.ts:68](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L68)
+Defined in: [mcp/mcpServerBase.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L68)
 
 ---
 
@@ -81,7 +81,7 @@ Defined in: [mcp/mcpServerBase.ts:68](https://github.com/juspay/neurolink/blob/4
 
 > `protected` `readonly` **tools**: `Map`\<`string`, [`MCPServerTool`](../type-aliases/MCPServerTool.md)\>
 
-Defined in: [mcp/mcpServerBase.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L69)
+Defined in: [mcp/mcpServerBase.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L69)
 
 ---
 
@@ -89,7 +89,7 @@ Defined in: [mcp/mcpServerBase.ts:69](https://github.com/juspay/neurolink/blob/4
 
 > `protected` **isInitialized**: `boolean` = `false`
 
-Defined in: [mcp/mcpServerBase.ts:70](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L70)
+Defined in: [mcp/mcpServerBase.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L70)
 
 ---
 
@@ -97,7 +97,7 @@ Defined in: [mcp/mcpServerBase.ts:70](https://github.com/juspay/neurolink/blob/4
 
 > `protected` **isRunning**: `boolean` = `false`
 
-Defined in: [mcp/mcpServerBase.ts:71](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L71)
+Defined in: [mcp/mcpServerBase.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L71)
 
 ## Accessors
 
@@ -107,7 +107,7 @@ Defined in: [mcp/mcpServerBase.ts:71](https://github.com/juspay/neurolink/blob/4
 
 > **get** **id**(): `string`
 
-Defined in: [mcp/mcpServerBase.ts:451](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L451)
+Defined in: [mcp/mcpServerBase.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L451)
 
 Server identification
 
@@ -123,7 +123,7 @@ Server identification
 
 > **get** **name**(): `string`
 
-Defined in: [mcp/mcpServerBase.ts:455](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L455)
+Defined in: [mcp/mcpServerBase.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L455)
 
 ##### Returns
 
@@ -137,7 +137,7 @@ Defined in: [mcp/mcpServerBase.ts:455](https://github.com/juspay/neurolink/blob/
 
 > **get** **description**(): `string`
 
-Defined in: [mcp/mcpServerBase.ts:459](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L459)
+Defined in: [mcp/mcpServerBase.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L459)
 
 ##### Returns
 
@@ -151,7 +151,7 @@ Defined in: [mcp/mcpServerBase.ts:459](https://github.com/juspay/neurolink/blob/
 
 > **get** **version**(): `string`
 
-Defined in: [mcp/mcpServerBase.ts:463](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L463)
+Defined in: [mcp/mcpServerBase.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L463)
 
 ##### Returns
 
@@ -165,7 +165,7 @@ Defined in: [mcp/mcpServerBase.ts:463](https://github.com/juspay/neurolink/blob/
 
 > **get** **category**(): [`MCPServerCategory`](../type-aliases/MCPServerCategory.md)
 
-Defined in: [mcp/mcpServerBase.ts:467](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L467)
+Defined in: [mcp/mcpServerBase.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L467)
 
 ##### Returns
 
@@ -179,7 +179,7 @@ Defined in: [mcp/mcpServerBase.ts:467](https://github.com/juspay/neurolink/blob/
 
 > **get** **initialized**(): `boolean`
 
-Defined in: [mcp/mcpServerBase.ts:474](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L474)
+Defined in: [mcp/mcpServerBase.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L474)
 
 Check if server is initialized
 
@@ -195,7 +195,7 @@ Check if server is initialized
 
 > **get** **running**(): `boolean`
 
-Defined in: [mcp/mcpServerBase.ts:481](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L481)
+Defined in: [mcp/mcpServerBase.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L481)
 
 Check if server is running
 
@@ -209,7 +209,7 @@ Check if server is running
 
 > **init**(): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpServerBase.ts:94](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L94)
+Defined in: [mcp/mcpServerBase.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L94)
 
 Initialize the server
 Override in subclasses for async initialization
@@ -224,7 +224,7 @@ Override in subclasses for async initialization
 
 > `protected` **onInit**(): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpServerBase.ts:111](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L111)
+Defined in: [mcp/mcpServerBase.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L111)
 
 Hook for subclass initialization
 Override to perform async setup
@@ -239,7 +239,7 @@ Override to perform async setup
 
 > **start**(): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpServerBase.ts:118](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L118)
+Defined in: [mcp/mcpServerBase.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L118)
 
 Start the server
 
@@ -253,7 +253,7 @@ Start the server
 
 > `protected` **onStart**(): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpServerBase.ts:134](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L134)
+Defined in: [mcp/mcpServerBase.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L134)
 
 Hook for subclass start logic
 
@@ -267,7 +267,7 @@ Hook for subclass start logic
 
 > **stop**(`reason?`): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpServerBase.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L141)
+Defined in: [mcp/mcpServerBase.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L141)
 
 Stop the server
 
@@ -287,7 +287,7 @@ Stop the server
 
 > `protected` **onStop**(): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpServerBase.ts:155](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L155)
+Defined in: [mcp/mcpServerBase.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L155)
 
 Hook for subclass stop logic
 
@@ -301,7 +301,7 @@ Hook for subclass stop logic
 
 > **registerTool**(`tool`): `this`
 
-Defined in: [mcp/mcpServerBase.ts:162](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L162)
+Defined in: [mcp/mcpServerBase.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L162)
 
 Register a tool with the server
 
@@ -321,7 +321,7 @@ Register a tool with the server
 
 > **registerTools**(`tools`): `this`
 
-Defined in: [mcp/mcpServerBase.ts:188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L188)
+Defined in: [mcp/mcpServerBase.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L188)
 
 Register multiple tools at once
 
@@ -341,7 +341,7 @@ Register multiple tools at once
 
 > `protected` **validateTool**(`tool`): `void`
 
-Defined in: [mcp/mcpServerBase.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L198)
+Defined in: [mcp/mcpServerBase.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L198)
 
 Validate tool configuration
 
@@ -361,7 +361,7 @@ Validate tool configuration
 
 > **executeTool**(`toolName`, `params`, `context?`): `Promise`\<[`ToolResult`](../type-aliases/ToolResult.md)\>
 
-Defined in: [mcp/mcpServerBase.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L250)
+Defined in: [mcp/mcpServerBase.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L250)
 
 Execute a tool by name
 
@@ -389,7 +389,7 @@ Execute a tool by name
 
 > **getTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/mcpServerBase.ts:348](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L348)
+Defined in: [mcp/mcpServerBase.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L348)
 
 Get all registered tools
 
@@ -403,7 +403,7 @@ Get all registered tools
 
 > **getTool**(`name`): [`MCPServerTool`](../type-aliases/MCPServerTool.md) \| `undefined`
 
-Defined in: [mcp/mcpServerBase.ts:355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L355)
+Defined in: [mcp/mcpServerBase.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L355)
 
 Get a specific tool by name
 
@@ -423,7 +423,7 @@ Get a specific tool by name
 
 > **hasTool**(`name`): `boolean`
 
-Defined in: [mcp/mcpServerBase.ts:362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L362)
+Defined in: [mcp/mcpServerBase.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L362)
 
 Check if a tool exists
 
@@ -443,7 +443,7 @@ Check if a tool exists
 
 > **removeTool**(`name`): `boolean`
 
-Defined in: [mcp/mcpServerBase.ts:369](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L369)
+Defined in: [mcp/mcpServerBase.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L369)
 
 Remove a tool
 
@@ -463,7 +463,7 @@ Remove a tool
 
 > **toServerInfo**(): [`MCPServerInfo`](../type-aliases/MCPServerInfo.md)
 
-Defined in: [mcp/mcpServerBase.ts:376](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L376)
+Defined in: [mcp/mcpServerBase.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L376)
 
 Get server info in MCPServerInfo format
 
@@ -477,7 +477,7 @@ Get server info in MCPServerInfo format
 
 > **getToolsByAnnotation**(`annotation`, `value`): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/mcpServerBase.ts:405](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L405)
+Defined in: [mcp/mcpServerBase.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L405)
 
 Get tools filtered by annotations
 
@@ -501,7 +501,7 @@ keyof [`MCPToolAnnotations`](../type-aliases/MCPToolAnnotations.md)
 
 > **getReadOnlyTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/mcpServerBase.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L423)
+Defined in: [mcp/mcpServerBase.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L423)
 
 Get read-only tools
 
@@ -515,7 +515,7 @@ Get read-only tools
 
 > **getDestructiveTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/mcpServerBase.ts:430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L430)
+Defined in: [mcp/mcpServerBase.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L430)
 
 Get destructive tools
 
@@ -529,7 +529,7 @@ Get destructive tools
 
 > **getIdempotentTools**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/mcpServerBase.ts:437](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L437)
+Defined in: [mcp/mcpServerBase.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L437)
 
 Get idempotent tools
 
@@ -543,7 +543,7 @@ Get idempotent tools
 
 > **getToolsRequiringConfirmation**(): [`MCPServerTool`](../type-aliases/MCPServerTool.md)[]
 
-Defined in: [mcp/mcpServerBase.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/mcp/mcpServerBase.ts#L444)
+Defined in: [mcp/mcpServerBase.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpServerBase.ts#L444)
 
 Get tools that require confirmation
 

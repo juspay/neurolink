@@ -1,8 +1,8 @@
-**NeuroLink API Reference v11.2.3**
+**NeuroLink API Reference**
 
 ---
 
-# NeuroLink API Reference v11.2.3
+# NeuroLink API Reference
 
 NeuroLink AI Toolkit
 

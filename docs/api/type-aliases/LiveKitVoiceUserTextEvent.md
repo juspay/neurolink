@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitVoiceUserTextEvent** = `object`
 
-Defined in: [types/livekit.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L250)
+Defined in: [types/livekit.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L250)
 
 A user STT transcript for display. Interim partials stream with
 `final: false`; the end-of-utterance result has `final: true`. The client
@@ -25,7 +25,7 @@ so the merged utterance shows as one bubble.
 
 > **type**: `"user-text"`
 
-Defined in: [types/livekit.ts:251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L251)
+Defined in: [types/livekit.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L251)
 
 ---
 
@@ -33,7 +33,7 @@ Defined in: [types/livekit.ts:251](https://github.com/juspay/neurolink/blob/4903
 
 > **data**: `object`
 
-Defined in: [types/livekit.ts:252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L252)
+Defined in: [types/livekit.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L252)
 
 #### text
 

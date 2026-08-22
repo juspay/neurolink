@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LifecycleMiddlewareConfig** = `object`
 
-Defined in: [types/middleware.ts:363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L363)
+Defined in: [types/middleware.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L363)
 
 Configuration for the lifecycle middleware.
 Pass callbacks to observe generation/streaming lifecycle events.
@@ -19,7 +19,7 @@ Pass callbacks to observe generation/streaming lifecycle events.
 
 > `optional` **onFinish?**: [`OnFinishCallback`](OnFinishCallback.md)
 
-Defined in: [types/middleware.ts:364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L364)
+Defined in: [types/middleware.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L364)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/middleware.ts:364](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **onError?**: [`OnErrorCallback`](OnErrorCallback.md)
 
-Defined in: [types/middleware.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L365)
+Defined in: [types/middleware.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L365)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/middleware.ts:365](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **onChunk?**: [`OnChunkCallback`](OnChunkCallback.md)
 
-Defined in: [types/middleware.ts:366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L366)
+Defined in: [types/middleware.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L366)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/middleware.ts:366](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/middleware.ts:377](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/middleware.ts#L377)
+Defined in: [types/middleware.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L377)
 
 Per-callback deadline in milliseconds applied to every
 `onChunk` / `onFinish` / `onError` invocation. When a callback

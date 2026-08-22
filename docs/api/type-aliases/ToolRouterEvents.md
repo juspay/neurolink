@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ToolRouterEvents** = `object`
 
-Defined in: [types/mcp.ts:2509](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2509)
+Defined in: [types/mcp.ts:2509](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2509)
 
 Tool Router events
 
@@ -18,7 +18,7 @@ Tool Router events
 
 > **routeDecision**: `object`
 
-Defined in: [types/mcp.ts:2510](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2510)
+Defined in: [types/mcp.ts:2510](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2510)
 
 #### toolName
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2510](https://github.com/juspay/neurolink/blob/49032fc
 
 > **routeFailed**: `object`
 
-Defined in: [types/mcp.ts:2514](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2514)
+Defined in: [types/mcp.ts:2514](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2514)
 
 #### toolName
 
@@ -54,7 +54,7 @@ Defined in: [types/mcp.ts:2514](https://github.com/juspay/neurolink/blob/49032fc
 
 > **affinitySet**: `object`
 
-Defined in: [types/mcp.ts:2519](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2519)
+Defined in: [types/mcp.ts:2519](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2519)
 
 #### key
 
@@ -70,7 +70,7 @@ Defined in: [types/mcp.ts:2519](https://github.com/juspay/neurolink/blob/49032fc
 
 > **affinityExpired**: `object`
 
-Defined in: [types/mcp.ts:2523](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2523)
+Defined in: [types/mcp.ts:2523](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2523)
 
 #### key
 
@@ -82,7 +82,7 @@ Defined in: [types/mcp.ts:2523](https://github.com/juspay/neurolink/blob/49032fc
 
 > **healthUpdate**: `object`
 
-Defined in: [types/mcp.ts:2526](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2526)
+Defined in: [types/mcp.ts:2526](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2526)
 
 #### serverId
 

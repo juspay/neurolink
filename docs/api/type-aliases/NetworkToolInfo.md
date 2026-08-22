@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkToolInfo** = `object`
 
-Defined in: [types/agentNetwork.ts:244](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L244)
+Defined in: [types/agentNetwork.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L244)
 
 Tool info for network integration
 
@@ -18,7 +18,7 @@ Tool info for network integration
 
 > **name**: `string`
 
-Defined in: [types/agentNetwork.ts:245](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L245)
+Defined in: [types/agentNetwork.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L245)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/agentNetwork.ts:245](https://github.com/juspay/neurolink/blob
 
 > `optional` **description?**: `string`
 
-Defined in: [types/agentNetwork.ts:246](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L246)
+Defined in: [types/agentNetwork.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L246)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/agentNetwork.ts:246](https://github.com/juspay/neurolink/blob
 
 > `optional` **inputSchema?**: `unknown`
 
-Defined in: [types/agentNetwork.ts:247](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L247)
+Defined in: [types/agentNetwork.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L247)

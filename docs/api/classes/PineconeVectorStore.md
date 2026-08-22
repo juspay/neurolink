@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: PineconeVectorStore
 
-Defined in: [rag/stores/pinecone.ts:137](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pinecone.ts#L137)
+Defined in: [rag/stores/pinecone.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L137)
 
 Pinecone-backed implementation of the `VectorStore` contract.
 
@@ -33,7 +33,7 @@ const results = await store.query({ indexName: 'tenant-a', queryVector: [...], t
 
 > **new PineconeVectorStore**(`client`): `PineconeVectorStore`
 
-Defined in: [rag/stores/pinecone.ts:138](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pinecone.ts#L138)
+Defined in: [rag/stores/pinecone.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L138)
 
 #### Parameters
 
@@ -51,7 +51,7 @@ Defined in: [rag/stores/pinecone.ts:138](https://github.com/juspay/neurolink/blo
 
 > **query**(`params`): `Promise`\<[`VectorQueryResult`](../type-aliases/VectorQueryResult.md)[]\>
 
-Defined in: [rag/stores/pinecone.ts:147](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pinecone.ts#L147)
+Defined in: [rag/stores/pinecone.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L147)
 
 #### Parameters
 
@@ -91,7 +91,7 @@ Defined in: [rag/stores/pinecone.ts:147](https://github.com/juspay/neurolink/blo
 
 > **upsert**(`indexName`, `items`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/pinecone.ts:185](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pinecone.ts#L185)
+Defined in: [rag/stores/pinecone.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L185)
 
 Add or update vectors in the namespace mapped from `indexName`.
 
@@ -115,7 +115,7 @@ Add or update vectors in the namespace mapped from `indexName`.
 
 > **delete**(`indexName`, `ids`): `Promise`\<`void`\>
 
-Defined in: [rag/stores/pinecone.ts:204](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/rag/stores/pinecone.ts#L204)
+Defined in: [rag/stores/pinecone.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/rag/stores/pinecone.ts#L204)
 
 Delete vectors by id from the namespace mapped from `indexName`.
 

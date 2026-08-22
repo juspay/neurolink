@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,6 +8,6 @@
 
 > **SupportedModelName** = [`BedrockModels`](../enumerations/BedrockModels.md) \| `DeepSeekModels` \| [`OpenAIModels`](../enumerations/OpenAIModels.md) \| [`VertexModels`](../enumerations/VertexModels.md) \| `GoogleAIModels` \| `AnthropicModels` \| `NvidiaNimModels` \| `LMStudioModels` \| `LlamaCppModels`
 
-Defined in: [types/providers.ts:85](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/providers.ts#L85)
+Defined in: [types/providers.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L85)
 
 Union type of all supported model names

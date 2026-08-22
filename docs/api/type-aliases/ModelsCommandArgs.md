@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelsCommandArgs** = `Omit`\<[`BaseCommandArgs`](BaseCommandArgs.md), `"format"`\> & `object`
 
-Defined in: [types/cli.ts:239](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L239)
+Defined in: [types/cli.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L239)
 
 Models command arguments - Enhanced for model management
 

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LiveKitVoiceStatusEvent** = `object`
 
-Defined in: [types/livekit.ts:283](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L283)
+Defined in: [types/livekit.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L283)
 
 Coarse agent state, useful for UI indicators (e.g. "thinking…").
 
@@ -18,7 +18,7 @@ Coarse agent state, useful for UI indicators (e.g. "thinking…").
 
 > **type**: `"status"`
 
-Defined in: [types/livekit.ts:284](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L284)
+Defined in: [types/livekit.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L284)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/livekit.ts:284](https://github.com/juspay/neurolink/blob/4903
 
 > **data**: `object`
 
-Defined in: [types/livekit.ts:285](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/livekit.ts#L285)
+Defined in: [types/livekit.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/livekit.ts#L285)
 
 #### state
 

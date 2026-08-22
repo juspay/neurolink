@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PPTGenerationContext** = `object`
 
-Defined in: [types/ppt.ts:780](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L780)
+Defined in: [types/ppt.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L780)
 
 Context extracted from GenerateOptions for PPT generation
 
@@ -18,7 +18,7 @@ Context extracted from GenerateOptions for PPT generation
 
 > **topic**: `string`
 
-Defined in: [types/ppt.ts:782](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L782)
+Defined in: [types/ppt.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L782)
 
 Original topic/prompt from user
 
@@ -28,7 +28,7 @@ Original topic/prompt from user
 
 > **pages**: `number`
 
-Defined in: [types/ppt.ts:784](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L784)
+Defined in: [types/ppt.ts:784](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L784)
 
 Number of slides requested (required)
 
@@ -38,7 +38,7 @@ Number of slides requested (required)
 
 > **theme**: `string`
 
-Defined in: [types/ppt.ts:786](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L786)
+Defined in: [types/ppt.ts:786](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L786)
 
 Selected theme name ("AI will decide" means AI chooses)
 
@@ -48,7 +48,7 @@ Selected theme name ("AI will decide" means AI chooses)
 
 > **audience**: `string`
 
-Defined in: [types/ppt.ts:788](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L788)
+Defined in: [types/ppt.ts:788](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L788)
 
 Target audience ("AI will decide" means AI chooses)
 
@@ -58,7 +58,7 @@ Target audience ("AI will decide" means AI chooses)
 
 > **tone**: `string`
 
-Defined in: [types/ppt.ts:790](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L790)
+Defined in: [types/ppt.ts:790](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L790)
 
 Presentation tone ("AI will decide" means AI chooses)
 
@@ -68,7 +68,7 @@ Presentation tone ("AI will decide" means AI chooses)
 
 > **generateAIImages**: `boolean`
 
-Defined in: [types/ppt.ts:792](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L792)
+Defined in: [types/ppt.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L792)
 
 Whether to generate AI images (user-provided images via input.images are always used)
 
@@ -78,7 +78,7 @@ Whether to generate AI images (user-provided images via input.images are always 
 
 > **aspectRatio**: [`AspectRatioOption`](AspectRatioOption.md)
 
-Defined in: [types/ppt.ts:794](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L794)
+Defined in: [types/ppt.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L794)
 
 Aspect ratio
 
@@ -88,7 +88,7 @@ Aspect ratio
 
 > `optional` **outputPath?**: `string`
 
-Defined in: [types/ppt.ts:796](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L796)
+Defined in: [types/ppt.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L796)
 
 Custom output path
 
@@ -98,7 +98,7 @@ Custom output path
 
 > `optional` **logo?**: `Buffer` \| `string`
 
-Defined in: [types/ppt.ts:798](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L798)
+Defined in: [types/ppt.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L798)
 
 Logo data or path if provided
 
@@ -108,7 +108,7 @@ Logo data or path if provided
 
 > `optional` **images?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/ppt.ts:800](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L800)
+Defined in: [types/ppt.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L800)
 
 User-provided images for slides (from input.images)
 
@@ -118,7 +118,7 @@ User-provided images for slides (from input.images)
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/ppt.ts:802](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L802)
+Defined in: [types/ppt.ts:802](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L802)
 
 Provider name (for logging)
 
@@ -128,6 +128,6 @@ Provider name (for logging)
 
 > `optional` **model?**: `string`
 
-Defined in: [types/ppt.ts:804](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L804)
+Defined in: [types/ppt.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L804)
 
 Model name (for logging)

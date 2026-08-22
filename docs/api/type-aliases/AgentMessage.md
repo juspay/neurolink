@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgentMessage** = `object`
 
-Defined in: [types/agentNetwork.ts:1090](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1090)
+Defined in: [types/agentNetwork.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1090)
 
 Message structure for agent communication
 
@@ -18,7 +18,7 @@ Message structure for agent communication
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:1092](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1092)
+Defined in: [types/agentNetwork.ts:1092](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1092)
 
 Unique message ID
 
@@ -28,7 +28,7 @@ Unique message ID
 
 > **type**: [`MessageType`](MessageType.md)
 
-Defined in: [types/agentNetwork.ts:1095](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1095)
+Defined in: [types/agentNetwork.ts:1095](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1095)
 
 Message type
 
@@ -38,7 +38,7 @@ Message type
 
 > **topic**: `string`
 
-Defined in: [types/agentNetwork.ts:1098](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1098)
+Defined in: [types/agentNetwork.ts:1098](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1098)
 
 Topic/channel for the message
 
@@ -48,7 +48,7 @@ Topic/channel for the message
 
 > **senderId**: `string`
 
-Defined in: [types/agentNetwork.ts:1101](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1101)
+Defined in: [types/agentNetwork.ts:1101](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1101)
 
 Sender agent ID
 
@@ -58,7 +58,7 @@ Sender agent ID
 
 > `optional` **recipientId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1104](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1104)
+Defined in: [types/agentNetwork.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1104)
 
 Recipient agent ID (for direct messages)
 
@@ -68,7 +68,7 @@ Recipient agent ID (for direct messages)
 
 > **payload**: `unknown`
 
-Defined in: [types/agentNetwork.ts:1107](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1107)
+Defined in: [types/agentNetwork.ts:1107](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1107)
 
 Message payload
 
@@ -78,7 +78,7 @@ Message payload
 
 > `optional` **correlationId?**: `string`
 
-Defined in: [types/agentNetwork.ts:1110](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1110)
+Defined in: [types/agentNetwork.ts:1110](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1110)
 
 Correlation ID (for request-response)
 
@@ -88,7 +88,7 @@ Correlation ID (for request-response)
 
 > `optional` **replyTo?**: `string`
 
-Defined in: [types/agentNetwork.ts:1113](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1113)
+Defined in: [types/agentNetwork.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1113)
 
 Reply-to topic (for request-response)
 
@@ -98,7 +98,7 @@ Reply-to topic (for request-response)
 
 > **priority**: [`MessagePriority`](MessagePriority.md)
 
-Defined in: [types/agentNetwork.ts:1116](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1116)
+Defined in: [types/agentNetwork.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1116)
 
 Message priority
 
@@ -108,7 +108,7 @@ Message priority
 
 > **timestamp**: `number`
 
-Defined in: [types/agentNetwork.ts:1119](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1119)
+Defined in: [types/agentNetwork.ts:1119](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1119)
 
 Timestamp
 
@@ -118,7 +118,7 @@ Timestamp
 
 > `optional` **ttl?**: `number`
 
-Defined in: [types/agentNetwork.ts:1122](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1122)
+Defined in: [types/agentNetwork.ts:1122](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1122)
 
 Time-to-live in ms (after which message expires)
 
@@ -128,6 +128,6 @@ Time-to-live in ms (after which message expires)
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:1125](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L1125)
+Defined in: [types/agentNetwork.ts:1125](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L1125)
 
 Message metadata

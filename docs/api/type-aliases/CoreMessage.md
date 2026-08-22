@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CoreMessage** = `object`
 
-Defined in: [types/agentNetwork.ts:394](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L394)
+Defined in: [types/agentNetwork.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L394)
 
 Core message format (simplified)
 
@@ -18,7 +18,7 @@ Core message format (simplified)
 
 > **role**: `"user"` \| `"assistant"` \| `"system"`
 
-Defined in: [types/agentNetwork.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L395)
+Defined in: [types/agentNetwork.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L395)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/agentNetwork.ts:395](https://github.com/juspay/neurolink/blob
 
 > **content**: `string`
 
-Defined in: [types/agentNetwork.ts:396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L396)
+Defined in: [types/agentNetwork.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L396)

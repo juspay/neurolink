@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnvUpdateResult** = `object`
 
-Defined in: [types/cli.ts:630](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L630)
+Defined in: [types/cli.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L630)
 
 Environment file update result
 
@@ -18,7 +18,7 @@ Environment file update result
 
 > **backup**: [`EnvBackupResult`](EnvBackupResult.md)
 
-Defined in: [types/cli.ts:631](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L631)
+Defined in: [types/cli.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L631)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:631](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **updated**: `string`[]
 
-Defined in: [types/cli.ts:632](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L632)
+Defined in: [types/cli.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L632)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:632](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **added**: `string`[]
 
-Defined in: [types/cli.ts:633](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L633)
+Defined in: [types/cli.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L633)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:633](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **unchanged**: `string`[]
 
-Defined in: [types/cli.ts:634](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L634)
+Defined in: [types/cli.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L634)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/cli.ts:634](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **deleted**: `string`[]
 
-Defined in: [types/cli.ts:635](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L635)
+Defined in: [types/cli.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L635)

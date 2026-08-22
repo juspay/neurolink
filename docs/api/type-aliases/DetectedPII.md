@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DetectedPII** = `object`
 
-Defined in: [types/ioProcessor.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L35)
+Defined in: [types/ioProcessor.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L35)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/ioProcessor.ts:35](https://github.com/juspay/neurolink/blob/4
 
 > **type**: [`PiiType`](PiiType.md) \| `"custom"`
 
-Defined in: [types/ioProcessor.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L36)
+Defined in: [types/ioProcessor.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L36)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/ioProcessor.ts:36](https://github.com/juspay/neurolink/blob/4
 
 > **value**: `string`
 
-Defined in: [types/ioProcessor.ts:37](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L37)
+Defined in: [types/ioProcessor.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L37)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/ioProcessor.ts:37](https://github.com/juspay/neurolink/blob/4
 
 > **position**: `object`
 
-Defined in: [types/ioProcessor.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L38)
+Defined in: [types/ioProcessor.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L38)
 
 #### start
 
@@ -48,6 +48,6 @@ Defined in: [types/ioProcessor.ts:38](https://github.com/juspay/neurolink/blob/4
 
 > **field**: `string`
 
-Defined in: [types/ioProcessor.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ioProcessor.ts#L40)
+Defined in: [types/ioProcessor.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/ioProcessor.ts#L40)
 
 Which field the PII was found in (e.g. "text", "messages[2]")

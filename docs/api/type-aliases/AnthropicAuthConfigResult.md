@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnthropicAuthConfigResult** = `object`
 
-Defined in: [types/subscription.ts:1055](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1055)
+Defined in: [types/subscription.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1055)
 
 Anthropic authentication configuration result for providerConfig
 Extended version with OAuth token details for configuration detection
@@ -19,7 +19,7 @@ Extended version with OAuth token details for configuration detection
 
 > **method**: [`AnthropicAuthMethod`](AnthropicAuthMethod.md)
 
-Defined in: [types/subscription.ts:1056](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1056)
+Defined in: [types/subscription.ts:1056](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1056)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/subscription.ts:1056](https://github.com/juspay/neurolink/blo
 
 > **tier**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:1057](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1057)
+Defined in: [types/subscription.ts:1057](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1057)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/subscription.ts:1057](https://github.com/juspay/neurolink/blo
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/subscription.ts:1058](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1058)
+Defined in: [types/subscription.ts:1058](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1058)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/subscription.ts:1058](https://github.com/juspay/neurolink/blo
 
 > `optional` **accessToken?**: `string`
 
-Defined in: [types/subscription.ts:1059](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1059)
+Defined in: [types/subscription.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1059)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/subscription.ts:1059](https://github.com/juspay/neurolink/blo
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/subscription.ts:1060](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1060)
+Defined in: [types/subscription.ts:1060](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1060)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/subscription.ts:1060](https://github.com/juspay/neurolink/blo
 
 > **isConfigured**: `boolean`
 
-Defined in: [types/subscription.ts:1061](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1061)
+Defined in: [types/subscription.ts:1061](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1061)
 
 ---
 
@@ -67,4 +67,4 @@ Defined in: [types/subscription.ts:1061](https://github.com/juspay/neurolink/blo
 
 > `optional` **error?**: `string`
 
-Defined in: [types/subscription.ts:1062](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L1062)
+Defined in: [types/subscription.ts:1062](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1062)

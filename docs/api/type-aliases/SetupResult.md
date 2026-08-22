@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SetupResult** = `object`
 
-Defined in: [types/cli.ts:1396](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1396)
+Defined in: [types/cli.ts:1396](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1396)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:1396](https://github.com/juspay/neurolink/blob/49032fc
 
 > **selectedProviders**: [`AIProviderName`](../enumerations/AIProviderName.md)[]
 
-Defined in: [types/cli.ts:1397](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1397)
+Defined in: [types/cli.ts:1397](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1397)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:1397](https://github.com/juspay/neurolink/blob/49032fc
 
 > **credentials**: `Record`\<`string`, `string`\>
 
-Defined in: [types/cli.ts:1398](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1398)
+Defined in: [types/cli.ts:1398](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1398)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:1398](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **envFileBackup?**: `string`
 
-Defined in: [types/cli.ts:1399](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1399)
+Defined in: [types/cli.ts:1399](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1399)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:1399](https://github.com/juspay/neurolink/blob/49032fc
 
 > **testResults**: `object`[]
 
-Defined in: [types/cli.ts:1400](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1400)
+Defined in: [types/cli.ts:1400](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1400)
 
 #### provider
 

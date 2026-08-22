@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ImageValidationResult** = `object`
 
-Defined in: [types/ppt.ts:1250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1250)
+Defined in: [types/ppt.ts:1250](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1250)
 
 Result of image buffer validation
 
@@ -18,7 +18,7 @@ Result of image buffer validation
 
 > **isValid**: `boolean`
 
-Defined in: [types/ppt.ts:1251](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1251)
+Defined in: [types/ppt.ts:1251](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1251)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:1251](https://github.com/juspay/neurolink/blob/49032fc
 
 > **mimeType**: `string`
 
-Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1252)
+Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1252)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:1252](https://github.com/juspay/neurolink/blob/49032fc
 
 > **format**: `string`
 
-Defined in: [types/ppt.ts:1253](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1253)
+Defined in: [types/ppt.ts:1253](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1253)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/ppt.ts:1253](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **error?**: `string`
 
-Defined in: [types/ppt.ts:1254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L1254)
+Defined in: [types/ppt.ts:1254](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L1254)

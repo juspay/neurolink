@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClipResult** = `object`
 
-Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L730)
+Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L730)
 
 Result of a single director-mode clip generation.
 
@@ -18,7 +18,7 @@ Result of a single director-mode clip generation.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L730)
+Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L730)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/4
 
 > **processingTime**: `number`
 
-Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/multimodal.ts#L730)
+Defined in: [types/multimodal.ts:730](https://github.com/juspay/neurolink/blob/release/src/lib/types/multimodal.ts#L730)

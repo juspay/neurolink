@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **DynamicCacheEntry**\<`T`\> = `object`
 
-Defined in: [types/dynamic.ts:139](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L139)
+Defined in: [types/dynamic.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L139)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: [types/dynamic.ts:139](https://github.com/juspay/neurolink/blob/4903
 
 > **value**: `T`
 
-Defined in: [types/dynamic.ts:140](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L140)
+Defined in: [types/dynamic.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L140)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/dynamic.ts:140](https://github.com/juspay/neurolink/blob/4903
 
 > **resolvedAt**: `number`
 
-Defined in: [types/dynamic.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L141)
+Defined in: [types/dynamic.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L141)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/dynamic.ts:141](https://github.com/juspay/neurolink/blob/4903
 
 > **expiresAt**: `number`
 
-Defined in: [types/dynamic.ts:142](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L142)
+Defined in: [types/dynamic.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L142)
 
 ---
 
@@ -46,4 +46,4 @@ Defined in: [types/dynamic.ts:142](https://github.com/juspay/neurolink/blob/4903
 
 > **key**: `string`
 
-Defined in: [types/dynamic.ts:143](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/dynamic.ts#L143)
+Defined in: [types/dynamic.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/dynamic.ts#L143)

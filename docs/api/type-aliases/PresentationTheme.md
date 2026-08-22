@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PresentationTheme** = `object`
 
-Defined in: [types/ppt.ts:765](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L765)
+Defined in: [types/ppt.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L765)
 
 Complete theme definition
 
@@ -18,7 +18,7 @@ Complete theme definition
 
 > **name**: `string`
 
-Defined in: [types/ppt.ts:766](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L766)
+Defined in: [types/ppt.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L766)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/ppt.ts:766](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **displayName**: `string`
 
-Defined in: [types/ppt.ts:767](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L767)
+Defined in: [types/ppt.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L767)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/ppt.ts:767](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **description**: `string`
 
-Defined in: [types/ppt.ts:768](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L768)
+Defined in: [types/ppt.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L768)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/ppt.ts:768](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **colors**: [`ThemeColors`](ThemeColors.md)
 
-Defined in: [types/ppt.ts:769](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L769)
+Defined in: [types/ppt.ts:769](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L769)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/ppt.ts:769](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **fonts**: [`ThemeFonts`](ThemeFonts.md)
 
-Defined in: [types/ppt.ts:770](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/ppt.ts#L770)
+Defined in: [types/ppt.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/ppt.ts#L770)

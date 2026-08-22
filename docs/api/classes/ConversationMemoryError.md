@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ConversationMemoryError
 
-Defined in: [types/conversation.ts:441](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L441)
+Defined in: [types/conversation.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L441)
 
 Error types specific to conversation memory
 
@@ -20,7 +20,7 @@ Error types specific to conversation memory
 
 > **new ConversationMemoryError**(`message`, `code`, `details?`): `ConversationMemoryError`
 
-Defined in: [types/conversation.ts:442](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L442)
+Defined in: [types/conversation.ts:442](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L442)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [types/conversation.ts:442](https://github.com/juspay/neurolink/blob
 
 > **code**: `"STORAGE_ERROR"` \| `"CONFIG_ERROR"` \| `"SESSION_NOT_FOUND"` \| `"CLEANUP_ERROR"`
 
-Defined in: [types/conversation.ts:444](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L444)
+Defined in: [types/conversation.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L444)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/conversation.ts:444](https://github.com/juspay/neurolink/blob
 
 > `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/conversation.ts:449](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/conversation.ts#L449)
+Defined in: [types/conversation.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L449)

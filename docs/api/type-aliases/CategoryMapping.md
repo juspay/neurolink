@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CategoryMapping** = `object`
 
-Defined in: [types/mcp.ts:2431](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2431)
+Defined in: [types/mcp.ts:2431](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2431)
 
 Category to server mapping
 
@@ -18,7 +18,7 @@ Category to server mapping
 
 > **category**: `string`
 
-Defined in: [types/mcp.ts:2432](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2432)
+Defined in: [types/mcp.ts:2432](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2432)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2432](https://github.com/juspay/neurolink/blob/49032fc
 
 > **serverIds**: `string`[]
 
-Defined in: [types/mcp.ts:2433](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2433)
+Defined in: [types/mcp.ts:2433](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2433)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:2433](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **priority?**: `number`
 
-Defined in: [types/mcp.ts:2434](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L2434)
+Defined in: [types/mcp.ts:2434](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2434)

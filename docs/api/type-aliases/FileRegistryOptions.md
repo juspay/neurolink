@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **FileRegistryOptions** = `object`
 
-Defined in: [types/fileReference.ts:250](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L250)
+Defined in: [types/fileReference.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L250)
 
 Options for the file reference registry
 
@@ -18,7 +18,7 @@ Options for the file reference registry
 
 > `optional` **tempDir?**: `string`
 
-Defined in: [types/fileReference.ts:252](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L252)
+Defined in: [types/fileReference.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L252)
 
 Directory for persisting file buffers (default: os.tmpdir()/neurolink-files/)
 
@@ -28,7 +28,7 @@ Directory for persisting file buffers (default: os.tmpdir()/neurolink-files/)
 
 > `optional` **maxFiles?**: `number`
 
-Defined in: [types/fileReference.ts:254](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L254)
+Defined in: [types/fileReference.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L254)
 
 Maximum number of file references to keep (LRU eviction, default: 100)
 
@@ -38,7 +38,7 @@ Maximum number of file references to keep (LRU eviction, default: 100)
 
 > `optional` **maxTempBytes?**: `number`
 
-Defined in: [types/fileReference.ts:256](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L256)
+Defined in: [types/fileReference.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L256)
 
 Maximum total bytes to persist to temp (default: 1GB)
 
@@ -48,6 +48,6 @@ Maximum total bytes to persist to temp (default: 1GB)
 
 > `optional` **defaultPreviewChars?**: `number`
 
-Defined in: [types/fileReference.ts:258](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/fileReference.ts#L258)
+Defined in: [types/fileReference.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/fileReference.ts#L258)
 
 Default preview length in characters (default: 2000)

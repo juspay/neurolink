@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkExecutionOptions** = `object`
 
-Defined in: [types/agentNetwork.ts:402](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L402)
+Defined in: [types/agentNetwork.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L402)
 
 Options for network execution
 
@@ -18,7 +18,7 @@ Options for network execution
 
 > `optional` **maxSteps?**: `number`
 
-Defined in: [types/agentNetwork.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L404)
+Defined in: [types/agentNetwork.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L404)
 
 Maximum execution steps across the network
 
@@ -28,7 +28,7 @@ Maximum execution steps across the network
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/agentNetwork.ts:407](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L407)
+Defined in: [types/agentNetwork.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L407)
 
 Timeout in milliseconds
 
@@ -38,7 +38,7 @@ Timeout in milliseconds
 
 > `optional` **stream?**: `boolean`
 
-Defined in: [types/agentNetwork.ts:410](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L410)
+Defined in: [types/agentNetwork.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L410)
 
 Enable streaming
 
@@ -48,7 +48,7 @@ Enable streaming
 
 > `optional` **context?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/agentNetwork.ts:413](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L413)
+Defined in: [types/agentNetwork.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L413)
 
 Additional context
 
@@ -58,7 +58,7 @@ Additional context
 
 > `optional` **tracing?**: `object`
 
-Defined in: [types/agentNetwork.ts:416](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L416)
+Defined in: [types/agentNetwork.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L416)
 
 Tracing configuration
 
@@ -80,7 +80,7 @@ Tracing configuration
 
 > `optional` **modelSettings?**: `object`
 
-Defined in: [types/agentNetwork.ts:423](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L423)
+Defined in: [types/agentNetwork.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L423)
 
 Model settings override
 
@@ -102,6 +102,6 @@ Model settings override
 
 > `optional` **outputSchema?**: `z.ZodSchema`
 
-Defined in: [types/agentNetwork.ts:430](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L430)
+Defined in: [types/agentNetwork.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L430)
 
 Output schema for structured output

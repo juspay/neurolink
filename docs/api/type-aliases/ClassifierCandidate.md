@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ClassifierCandidate** = `object`
 
-Defined in: [types/classifierRouter.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L56)
+Defined in: [types/classifierRouter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L56)
 
 Lightweight model descriptor handed to the LLM classifier so it can select a
 model directly from the pool by `id` — the generic path for custom models.
@@ -19,7 +19,7 @@ model directly from the pool by `id` — the generic path for custom models.
 
 > **id**: `string`
 
-Defined in: [types/classifierRouter.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L57)
+Defined in: [types/classifierRouter.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L57)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/classifierRouter.ts:57](https://github.com/juspay/neurolink/b
 
 > **provider**: `string`
 
-Defined in: [types/classifierRouter.ts:58](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L58)
+Defined in: [types/classifierRouter.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L58)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/classifierRouter.ts:58](https://github.com/juspay/neurolink/b
 
 > `optional` **model?**: `string`
 
-Defined in: [types/classifierRouter.ts:59](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L59)
+Defined in: [types/classifierRouter.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L59)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/classifierRouter.ts:59](https://github.com/juspay/neurolink/b
 
 > `optional` **description?**: `string`
 
-Defined in: [types/classifierRouter.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L60)
+Defined in: [types/classifierRouter.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L60)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/classifierRouter.ts:60](https://github.com/juspay/neurolink/b
 
 > `optional` **tiers?**: [`ClassifierDifficulty`](ClassifierDifficulty.md)[]
 
-Defined in: [types/classifierRouter.ts:61](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L61)
+Defined in: [types/classifierRouter.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L61)
 
 ---
 
@@ -59,4 +59,4 @@ Defined in: [types/classifierRouter.ts:61](https://github.com/juspay/neurolink/b
 
 > `optional` **capabilities?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:62](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/classifierRouter.ts#L62)
+Defined in: [types/classifierRouter.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L62)

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: AgentCoordinator
 
-Defined in: [agent/coordination/coordinator.ts:30](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L30)
+Defined in: [agent/coordination/coordinator.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L30)
 
 Agent Coordinator - Orchestrates multi-agent execution
 
@@ -16,7 +16,7 @@ Agent Coordinator - Orchestrates multi-agent execution
 
 > **new AgentCoordinator**(`config?`): `AgentCoordinator`
 
-Defined in: [agent/coordination/coordinator.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L38)
+Defined in: [agent/coordination/coordinator.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L38)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [agent/coordination/coordinator.ts:38](https://github.com/juspay/neu
 
 > **registerAgent**(`agent`): `void`
 
-Defined in: [agent/coordination/coordinator.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L57)
+Defined in: [agent/coordination/coordinator.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L57)
 
 Register an agent with the coordinator
 
@@ -54,7 +54,7 @@ Register an agent with the coordinator
 
 > **unregisterAgent**(`agentId`): `void`
 
-Defined in: [agent/coordination/coordinator.ts:65](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L65)
+Defined in: [agent/coordination/coordinator.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L65)
 
 Unregister an agent
 
@@ -74,7 +74,7 @@ Unregister an agent
 
 > **getAgents**(): [`Agent`](Agent.md)[]
 
-Defined in: [agent/coordination/coordinator.ts:72](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L72)
+Defined in: [agent/coordination/coordinator.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L72)
 
 Get all registered agents
 
@@ -88,7 +88,7 @@ Get all registered agents
 
 > **getAgentStatus**(`agentId`): [`AgentStatus`](../type-aliases/AgentStatus.md) \| `undefined`
 
-Defined in: [agent/coordination/coordinator.ts:79](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L79)
+Defined in: [agent/coordination/coordinator.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L79)
 
 Get agent status
 
@@ -108,7 +108,7 @@ Get agent status
 
 > **coordinate**(`task`, `options?`): `Promise`\<[`CoordinationResult`](../type-aliases/CoordinationResult.md)\>
 
-Defined in: [agent/coordination/coordinator.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L87)
+Defined in: [agent/coordination/coordinator.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L87)
 
 Execute a coordinated task across agents
 
@@ -132,7 +132,7 @@ Execute a coordinated task across agents
 
 > **executeWithDependencies**(`assignments`): `Promise`\<[`CoordinationResult`](../type-aliases/CoordinationResult.md)\>
 
-Defined in: [agent/coordination/coordinator.ts:554](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L554)
+Defined in: [agent/coordination/coordinator.ts:554](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L554)
 
 Execute multiple task assignments with dependencies
 
@@ -152,7 +152,7 @@ Execute multiple task assignments with dependencies
 
 > **updateConfig**(`config`): `void`
 
-Defined in: [agent/coordination/coordinator.ts:711](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L711)
+Defined in: [agent/coordination/coordinator.ts:711](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L711)
 
 Update coordinator configuration
 
@@ -172,7 +172,7 @@ Update coordinator configuration
 
 > **on**(`event`, `handler`): `void`
 
-Defined in: [agent/coordination/coordinator.ts:718](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L718)
+Defined in: [agent/coordination/coordinator.ts:718](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L718)
 
 Subscribe to coordinator events
 
@@ -196,7 +196,7 @@ Subscribe to coordinator events
 
 > **off**(`event`, `handler`): `void`
 
-Defined in: [agent/coordination/coordinator.ts:725](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/agent/coordination/coordinator.ts#L725)
+Defined in: [agent/coordination/coordinator.ts:725](https://github.com/juspay/neurolink/blob/release/src/lib/agent/coordination/coordinator.ts#L725)
 
 Unsubscribe from coordinator events
 

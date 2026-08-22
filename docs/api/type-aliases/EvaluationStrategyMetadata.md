@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EvaluationStrategyMetadata** = `object`
 
-Defined in: [types/evaluation.ts:580](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L580)
+Defined in: [types/evaluation.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L580)
 
 Metadata for registered evaluation strategies.
 
@@ -18,7 +18,7 @@ Metadata for registered evaluation strategies.
 
 > **name**: `string`
 
-Defined in: [types/evaluation.ts:581](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L581)
+Defined in: [types/evaluation.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L581)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/evaluation.ts:581](https://github.com/juspay/neurolink/blob/4
 
 > **description**: `string`
 
-Defined in: [types/evaluation.ts:582](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L582)
+Defined in: [types/evaluation.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L582)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/evaluation.ts:582](https://github.com/juspay/neurolink/blob/4
 
 > **requiresLLM**: `boolean`
 
-Defined in: [types/evaluation.ts:583](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L583)
+Defined in: [types/evaluation.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L583)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/evaluation.ts:583](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **defaultModel?**: `string`
 
-Defined in: [types/evaluation.ts:584](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L584)
+Defined in: [types/evaluation.ts:584](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L584)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/evaluation.ts:584](https://github.com/juspay/neurolink/blob/4
 
 > `optional` **defaultProvider?**: `string`
 
-Defined in: [types/evaluation.ts:585](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L585)
+Defined in: [types/evaluation.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L585)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/evaluation.ts:585](https://github.com/juspay/neurolink/blob/4
 
 > **version**: `string`
 
-Defined in: [types/evaluation.ts:586](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L586)
+Defined in: [types/evaluation.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L586)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/evaluation.ts:586](https://github.com/juspay/neurolink/blob/4
 
 > **features**: `string`[]
 
-Defined in: [types/evaluation.ts:587](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/evaluation.ts#L587)
+Defined in: [types/evaluation.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/evaluation.ts#L587)

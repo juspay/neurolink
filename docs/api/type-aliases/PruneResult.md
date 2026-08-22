@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PruneResult** = `object`
 
-Defined in: [types/context.ts:996](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L996)
+Defined in: [types/context.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L996)
 
 Result of tool output pruning (Stage 1).
 
@@ -18,7 +18,7 @@ Result of tool output pruning (Stage 1).
 
 > **pruned**: `boolean`
 
-Defined in: [types/context.ts:997](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L997)
+Defined in: [types/context.ts:997](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L997)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:997](https://github.com/juspay/neurolink/blob/4903
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:998](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L998)
+Defined in: [types/context.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L998)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:998](https://github.com/juspay/neurolink/blob/4903
 
 > **tokensSaved**: `number`
 
-Defined in: [types/context.ts:999](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L999)
+Defined in: [types/context.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L999)

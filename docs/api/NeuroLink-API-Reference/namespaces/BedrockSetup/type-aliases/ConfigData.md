@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../../../../README.md)
+[**NeuroLink API Reference**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ConfigData** = `object`
 
-Defined in: [types/cli.ts:848](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L848)
+Defined in: [types/cli.ts:848](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L848)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:848](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **region?**: `string`
 
-Defined in: [types/cli.ts:849](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L849)
+Defined in: [types/cli.ts:849](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L849)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:849](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **accessKeyId?**: `string`
 
-Defined in: [types/cli.ts:850](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L850)
+Defined in: [types/cli.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L850)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:850](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **secretAccessKey?**: `string`
 
-Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L851)
+Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L851)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:852](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L852)
+Defined in: [types/cli.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L852)

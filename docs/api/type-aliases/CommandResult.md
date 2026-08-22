@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CommandResult** = `object`
 
-Defined in: [types/cli.ts:404](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L404)
+Defined in: [types/cli.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L404)
 
 CLI command result
 
@@ -18,7 +18,7 @@ CLI command result
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:406](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L406)
+Defined in: [types/cli.ts:406](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L406)
 
 Command success status
 
@@ -28,7 +28,7 @@ Command success status
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/cli.ts:408](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L408)
+Defined in: [types/cli.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L408)
 
 Result data
 
@@ -38,7 +38,7 @@ Result data
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:410](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L410)
+Defined in: [types/cli.ts:410](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L410)
 
 Error message if failed
 
@@ -48,7 +48,7 @@ Error message if failed
 
 > `optional` **content?**: `string`
 
-Defined in: [types/cli.ts:412](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L412)
+Defined in: [types/cli.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L412)
 
 Output content
 
@@ -58,7 +58,7 @@ Output content
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/cli.ts:414](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L414)
+Defined in: [types/cli.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L414)
 
 Execution metadata
 

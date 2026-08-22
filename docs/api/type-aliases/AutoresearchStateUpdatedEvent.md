@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AutoresearchStateUpdatedEvent** = `object`
 
-Defined in: [types/autoresearch.ts:198](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L198)
+Defined in: [types/autoresearch.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L198)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/autoresearch.ts:198](https://github.com/juspay/neurolink/blob
 
 > **tag**: `string`
 
-Defined in: [types/autoresearch.ts:199](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L199)
+Defined in: [types/autoresearch.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L199)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/autoresearch.ts:199](https://github.com/juspay/neurolink/blob
 
 > **phase**: [`ExperimentPhase`](ExperimentPhase.md)
 
-Defined in: [types/autoresearch.ts:200](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L200)
+Defined in: [types/autoresearch.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L200)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/autoresearch.ts:200](https://github.com/juspay/neurolink/blob
 
 > **runCount**: `number`
 
-Defined in: [types/autoresearch.ts:201](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L201)
+Defined in: [types/autoresearch.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L201)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/autoresearch.ts:201](https://github.com/juspay/neurolink/blob
 
 > **keepCount**: `number`
 
-Defined in: [types/autoresearch.ts:202](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L202)
+Defined in: [types/autoresearch.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L202)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/autoresearch.ts:202](https://github.com/juspay/neurolink/blob
 
 > **bestMetric**: `number` \| `null`
 
-Defined in: [types/autoresearch.ts:203](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/autoresearch.ts#L203)
+Defined in: [types/autoresearch.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/autoresearch.ts#L203)

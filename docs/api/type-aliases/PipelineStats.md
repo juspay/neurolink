@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **PipelineStats** = `object`
 
-Defined in: [types/rag.ts:349](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L349)
+Defined in: [types/rag.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L349)
 
 Pipeline statistics
 
@@ -18,7 +18,7 @@ Pipeline statistics
 
 > **totalDocuments**: `number`
 
-Defined in: [types/rag.ts:350](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L350)
+Defined in: [types/rag.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L350)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:350](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **totalChunks**: `number`
 
-Defined in: [types/rag.ts:351](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L351)
+Defined in: [types/rag.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L351)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:351](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **indexName**: `string`
 
-Defined in: [types/rag.ts:352](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L352)
+Defined in: [types/rag.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L352)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/rag.ts:352](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **embeddingDimension?**: `number`
 
-Defined in: [types/rag.ts:353](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L353)
+Defined in: [types/rag.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L353)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/rag.ts:353](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **hybridSearchEnabled**: `boolean`
 
-Defined in: [types/rag.ts:354](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L354)
+Defined in: [types/rag.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L354)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/rag.ts:354](https://github.com/juspay/neurolink/blob/49032fc5
 
 > **graphRAGEnabled**: `boolean`
 
-Defined in: [types/rag.ts:355](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L355)
+Defined in: [types/rag.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L355)

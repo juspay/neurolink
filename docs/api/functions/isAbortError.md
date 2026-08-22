@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **isAbortError**(`error`): `boolean`
 
-Defined in: [utils/errorHandling.ts:1392](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/utils/errorHandling.ts#L1392)
+Defined in: [utils/errorHandling.ts:1392](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L1392)
 
 Detect AbortError from any source (DOMException, plain Error, or message-based).
 Used to short-circuit retry/fallback loops when an abort signal fires.

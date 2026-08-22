@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AuthenticationState** = `object`
 
-Defined in: [types/subscription.ts:636](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L636)
+Defined in: [types/subscription.ts:636](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L636)
 
 Authentication state for tracking auth status
 
@@ -22,7 +22,7 @@ Represents the current authentication state
 
 > **isAuthenticated**: `boolean`
 
-Defined in: [types/subscription.ts:638](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L638)
+Defined in: [types/subscription.ts:638](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L638)
 
 Whether the user is authenticated
 
@@ -32,7 +32,7 @@ Whether the user is authenticated
 
 > `optional` **method?**: [`AnthropicAuthMethod`](AnthropicAuthMethod.md)
 
-Defined in: [types/subscription.ts:640](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L640)
+Defined in: [types/subscription.ts:640](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L640)
 
 Current authentication method in use
 
@@ -42,7 +42,7 @@ Current authentication method in use
 
 > `optional` **tier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:642](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L642)
+Defined in: [types/subscription.ts:642](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L642)
 
 Current subscription tier
 
@@ -52,7 +52,7 @@ Current subscription tier
 
 > **needsRefresh**: `boolean`
 
-Defined in: [types/subscription.ts:644](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L644)
+Defined in: [types/subscription.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L644)
 
 Whether tokens need to be refreshed
 
@@ -62,7 +62,7 @@ Whether tokens need to be refreshed
 
 > `optional` **error?**: `string`
 
-Defined in: [types/subscription.ts:646](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L646)
+Defined in: [types/subscription.ts:646](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L646)
 
 Error message if authentication failed
 
@@ -72,6 +72,6 @@ Error message if authentication failed
 
 > `optional` **lastAuthenticatedAt?**: `number`
 
-Defined in: [types/subscription.ts:648](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/subscription.ts#L648)
+Defined in: [types/subscription.ts:648](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L648)
 
 Timestamp of last successful authentication

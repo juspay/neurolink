@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **HealthMetrics** = `object`
 
-Defined in: [types/observability.ts:470](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L470)
+Defined in: [types/observability.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L470)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/observability.ts:470](https://github.com/juspay/neurolink/blo
 
 > **timestamp**: `number`
 
-Defined in: [types/observability.ts:471](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L471)
+Defined in: [types/observability.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L471)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/observability.ts:471](https://github.com/juspay/neurolink/blo
 
 > **memoryUsage**: `NodeJS.MemoryUsage`
 
-Defined in: [types/observability.ts:472](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L472)
+Defined in: [types/observability.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L472)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/observability.ts:472](https://github.com/juspay/neurolink/blo
 
 > **uptime**: `number`
 
-Defined in: [types/observability.ts:473](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L473)
+Defined in: [types/observability.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L473)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/observability.ts:473](https://github.com/juspay/neurolink/blo
 
 > **activeConnections**: `number`
 
-Defined in: [types/observability.ts:474](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L474)
+Defined in: [types/observability.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L474)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/observability.ts:474](https://github.com/juspay/neurolink/blo
 
 > **errorRate**: `number`
 
-Defined in: [types/observability.ts:475](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L475)
+Defined in: [types/observability.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L475)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/observability.ts:475](https://github.com/juspay/neurolink/blo
 
 > **averageResponseTime**: `number`
 
-Defined in: [types/observability.ts:476](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/observability.ts#L476)
+Defined in: [types/observability.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/observability.ts#L476)

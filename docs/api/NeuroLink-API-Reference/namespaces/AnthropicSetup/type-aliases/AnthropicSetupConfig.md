@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../../../../README.md)
+[**NeuroLink API Reference**](../../../../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnthropicSetupConfig** = `object`
 
-Defined in: [types/cli.ts:782](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L782)
+Defined in: [types/cli.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L782)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:782](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:783](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L783)
+Defined in: [types/cli.ts:783](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L783)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:783](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:784](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L784)
+Defined in: [types/cli.ts:784](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L784)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/cli.ts:784](https://github.com/juspay/neurolink/blob/49032fc5
 
 > `optional` **isReconfiguring?**: `boolean`
 
-Defined in: [types/cli.ts:785](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L785)
+Defined in: [types/cli.ts:785](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L785)

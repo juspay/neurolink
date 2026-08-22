@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopReclaimResult**\<`TConversation`\> = `object`
 
-Defined in: [types/loopEngine.ts:86](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L86)
+Defined in: [types/loopEngine.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L86)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: [types/loopEngine.ts:86](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **conversation?**: `TConversation`
 
-Defined in: [types/loopEngine.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L87)
+Defined in: [types/loopEngine.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L87)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/loopEngine.ts:87](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **stop?**: `boolean`
 
-Defined in: [types/loopEngine.ts:103](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L103)
+Defined in: [types/loopEngine.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L103)
 
 End the turn now, BEFORE this step's request is issued.
 

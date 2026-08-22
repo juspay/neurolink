@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **CloakingPlugin** = `object`
 
-Defined in: [types/proxy.ts:381](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L381)
+Defined in: [types/proxy.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L381)
 
 Plugin interface for cloaking pipeline.
 
@@ -18,7 +18,7 @@ Plugin interface for cloaking pipeline.
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:383](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L383)
+Defined in: [types/proxy.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L383)
 
 Human-readable name for logging / debugging.
 
@@ -28,7 +28,7 @@ Human-readable name for logging / debugging.
 
 > **order**: `number`
 
-Defined in: [types/proxy.ts:386](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L386)
+Defined in: [types/proxy.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L386)
 
 Execution order -- lower numbers run first in processRequest.
 
@@ -38,7 +38,7 @@ Execution order -- lower numbers run first in processRequest.
 
 > **enabled**: `boolean`
 
-Defined in: [types/proxy.ts:389](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L389)
+Defined in: [types/proxy.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L389)
 
 Whether this plugin is active. Disabled plugins are skipped.
 
@@ -48,7 +48,7 @@ Whether this plugin is active. Disabled plugins are skipped.
 
 > **transformRequest**: (`ctx`) => `Promise`\<[`CloakingContext`](CloakingContext.md)\>
 
-Defined in: [types/proxy.ts:395](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L395)
+Defined in: [types/proxy.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L395)
 
 Transform the outgoing request before it reaches the upstream API.
 Must return a (possibly mutated) context.
@@ -69,7 +69,7 @@ Must return a (possibly mutated) context.
 
 > `optional` **transformResponse?**: (`ctx`) => `Promise`\<[`CloakingContext`](CloakingContext.md)\>
 
-Defined in: [types/proxy.ts:401](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/proxy.ts#L401)
+Defined in: [types/proxy.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L401)
 
 Transform the incoming response before it reaches the client.
 Optional -- plugins that only touch requests can skip this.

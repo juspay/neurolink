@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **KeycloakConfig** = `object`
 
-Defined in: [types/auth.ts:741](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L741)
+Defined in: [types/auth.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L741)
 
 Keycloak provider configuration
 
@@ -18,7 +18,7 @@ Keycloak provider configuration
 
 > **serverUrl**: `string`
 
-Defined in: [types/auth.ts:743](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L743)
+Defined in: [types/auth.ts:743](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L743)
 
 Keycloak server URL
 
@@ -28,7 +28,7 @@ Keycloak server URL
 
 > **realm**: `string`
 
-Defined in: [types/auth.ts:745](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L745)
+Defined in: [types/auth.ts:745](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L745)
 
 Keycloak realm
 
@@ -38,7 +38,7 @@ Keycloak realm
 
 > **clientId**: `string`
 
-Defined in: [types/auth.ts:747](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L747)
+Defined in: [types/auth.ts:747](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L747)
 
 Client ID
 
@@ -48,7 +48,7 @@ Client ID
 
 > `optional` **clientSecret?**: `string`
 
-Defined in: [types/auth.ts:749](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L749)
+Defined in: [types/auth.ts:749](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L749)
 
 Client secret
 
@@ -58,6 +58,6 @@ Client secret
 
 > `optional` **verifyToken?**: `boolean`
 
-Defined in: [types/auth.ts:751](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/auth.ts#L751)
+Defined in: [types/auth.ts:751](https://github.com/juspay/neurolink/blob/release/src/lib/types/auth.ts#L751)
 
 Verify token signature

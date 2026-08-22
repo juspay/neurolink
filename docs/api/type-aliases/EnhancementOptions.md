@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **EnhancementOptions** = `object`
 
-Defined in: [types/utilities.ts:127](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L127)
+Defined in: [types/utilities.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L127)
 
 Enhancement options for modifying GenerateOptions
 
@@ -18,7 +18,7 @@ Enhancement options for modifying GenerateOptions
 
 > **enhancementType**: [`EnhancementType`](EnhancementType.md)
 
-Defined in: [types/utilities.ts:128](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L128)
+Defined in: [types/utilities.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L128)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/utilities.ts:128](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **streamingOptions?**: `object`
 
-Defined in: [types/utilities.ts:129](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L129)
+Defined in: [types/utilities.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L129)
 
 #### enabled?
 
@@ -54,7 +54,7 @@ Defined in: [types/utilities.ts:129](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **mcpOptions?**: `object`
 
-Defined in: [types/utilities.ts:136](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L136)
+Defined in: [types/utilities.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L136)
 
 #### enableToolRegistry?
 
@@ -74,7 +74,7 @@ Defined in: [types/utilities.ts:136](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **legacyMigration?**: `object`
 
-Defined in: [types/utilities.ts:141](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L141)
+Defined in: [types/utilities.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L141)
 
 #### legacyContext?
 
@@ -94,7 +94,7 @@ Defined in: [types/utilities.ts:141](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **domainConfiguration?**: `object`
 
-Defined in: [types/utilities.ts:146](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L146)
+Defined in: [types/utilities.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L146)
 
 #### domainType
 
@@ -122,7 +122,7 @@ Defined in: [types/utilities.ts:146](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **performance?**: `object`
 
-Defined in: [types/utilities.ts:153](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/utilities.ts#L153)
+Defined in: [types/utilities.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L153)
 
 #### enableAnalytics?
 

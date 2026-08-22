@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RegistrySearchResult** = `object`
 
-Defined in: [types/mcp.ts:1709](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1709)
+Defined in: [types/mcp.ts:1709](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1709)
 
 Search result
 
@@ -18,7 +18,7 @@ Search result
 
 > **entries**: [`McpRegistryEntry`](McpRegistryEntry.md)[]
 
-Defined in: [types/mcp.ts:1710](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1710)
+Defined in: [types/mcp.ts:1710](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1710)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1710](https://github.com/juspay/neurolink/blob/49032fc
 
 > **totalCount**: `number`
 
-Defined in: [types/mcp.ts:1711](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1711)
+Defined in: [types/mcp.ts:1711](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1711)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1711](https://github.com/juspay/neurolink/blob/49032fc
 
 > **page**: `number`
 
-Defined in: [types/mcp.ts:1712](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1712)
+Defined in: [types/mcp.ts:1712](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1712)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:1712](https://github.com/juspay/neurolink/blob/49032fc
 
 > **pageSize**: `number`
 
-Defined in: [types/mcp.ts:1713](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1713)
+Defined in: [types/mcp.ts:1713](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1713)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:1713](https://github.com/juspay/neurolink/blob/49032fc
 
 > **hasMore**: `boolean`
 
-Defined in: [types/mcp.ts:1714](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/mcp.ts#L1714)
+Defined in: [types/mcp.ts:1714](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1714)

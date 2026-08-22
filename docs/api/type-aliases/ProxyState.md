@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ProxyState** = `object`
 
-Defined in: [types/cli.ts:1016](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1016)
+Defined in: [types/cli.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1016)
 
 Persisted state for a running proxy instance
 
@@ -18,7 +18,7 @@ Persisted state for a running proxy instance
 
 > **pid**: `number`
 
-Defined in: [types/cli.ts:1017](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1017)
+Defined in: [types/cli.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1017)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1017](https://github.com/juspay/neurolink/blob/49032fc
 
 > **port**: `number`
 
-Defined in: [types/cli.ts:1018](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1018)
+Defined in: [types/cli.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1018)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1018](https://github.com/juspay/neurolink/blob/49032fc
 
 > **host**: `string`
 
-Defined in: [types/cli.ts:1019](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1019)
+Defined in: [types/cli.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1019)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1019](https://github.com/juspay/neurolink/blob/49032fc
 
 > **strategy**: `string`
 
-Defined in: [types/cli.ts:1020](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1020)
+Defined in: [types/cli.ts:1020](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1020)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:1020](https://github.com/juspay/neurolink/blob/49032fc
 
 > **startTime**: `string`
 
-Defined in: [types/cli.ts:1021](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1021)
+Defined in: [types/cli.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1021)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1021](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **ready?**: `boolean`
 
-Defined in: [types/cli.ts:1022](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1022)
+Defined in: [types/cli.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1022)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1022](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **readyAt?**: `string`
 
-Defined in: [types/cli.ts:1023](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1023)
+Defined in: [types/cli.ts:1023](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1023)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/cli.ts:1023](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **healthPath?**: `string`
 
-Defined in: [types/cli.ts:1024](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1024)
+Defined in: [types/cli.ts:1024](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1024)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/cli.ts:1024](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **statusPath?**: `string`
 
-Defined in: [types/cli.ts:1025](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1025)
+Defined in: [types/cli.ts:1025](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1025)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/cli.ts:1025](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **envFile?**: `string`
 
-Defined in: [types/cli.ts:1026](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1026)
+Defined in: [types/cli.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1026)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/cli.ts:1026](https://github.com/juspay/neurolink/blob/49032fc
 
 > `optional` **fallbackChain?**: [`FallbackInfo`](FallbackInfo.md)[]
 
-Defined in: [types/cli.ts:1028](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1028)
+Defined in: [types/cli.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1028)
 
 Fallback chain from proxy config (persisted at start time)
 
@@ -108,7 +108,7 @@ Fallback chain from proxy config (persisted at start time)
 
 > `optional` **accountAllowlist?**: `string`[]
 
-Defined in: [types/cli.ts:1030](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1030)
+Defined in: [types/cli.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1030)
 
 Normalized Anthropic account keys allowed for this proxy process.
 
@@ -118,7 +118,7 @@ Normalized Anthropic account keys allowed for this proxy process.
 
 > `optional` **guardPid?**: `number`
 
-Defined in: [types/cli.ts:1032](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1032)
+Defined in: [types/cli.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1032)
 
 Optional fail-open guard PID that reverts Claude settings if proxy dies
 
@@ -128,7 +128,7 @@ Optional fail-open guard PID that reverts Claude settings if proxy dies
 
 > `optional` **updaterPid?**: `number`
 
-Defined in: [types/cli.ts:1034](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1034)
+Defined in: [types/cli.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1034)
 
 Dedicated updater PID for launchd-managed proxy installations.
 
@@ -138,7 +138,7 @@ Dedicated updater PID for launchd-managed proxy installations.
 
 > `optional` **supervisorPid?**: `number`
 
-Defined in: [types/cli.ts:1036](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1036)
+Defined in: [types/cli.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1036)
 
 Stable listener supervisor PID when requests are served by socket workers.
 
@@ -148,7 +148,7 @@ Stable listener supervisor PID when requests are served by socket workers.
 
 > `optional` **managedBy?**: `"launchd"` \| `"manual"`
 
-Defined in: [types/cli.ts:1038](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1038)
+Defined in: [types/cli.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1038)
 
 How the proxy was launched — "launchd" if installed as service, "manual" otherwise
 
@@ -158,7 +158,7 @@ How the proxy was launched — "launchd" if installed as service, "manual" other
 
 > `optional` **passthrough?**: `boolean`
 
-Defined in: [types/cli.ts:1040](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1040)
+Defined in: [types/cli.ts:1040](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1040)
 
 Whether the proxy is running in transparent passthrough mode
 
@@ -168,7 +168,7 @@ Whether the proxy is running in transparent passthrough mode
 
 > `optional` **configGeneration?**: `number`
 
-Defined in: [types/cli.ts:1042](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1042)
+Defined in: [types/cli.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1042)
 
 Active hot-reload configuration generation.
 
@@ -178,7 +178,7 @@ Active hot-reload configuration generation.
 
 > `optional` **configLoadedAt?**: `string`
 
-Defined in: [types/cli.ts:1044](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1044)
+Defined in: [types/cli.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1044)
 
 Timestamp when the active configuration generation was loaded.
 
@@ -188,7 +188,7 @@ Timestamp when the active configuration generation was loaded.
 
 > `optional` **lastConfigReloadError?**: `string`
 
-Defined in: [types/cli.ts:1046](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1046)
+Defined in: [types/cli.ts:1046](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1046)
 
 Last rejected hot-reload error, when any.
 
@@ -198,6 +198,6 @@ Last rejected hot-reload error, when any.
 
 > `optional` **configFile?**: `string`
 
-Defined in: [types/cli.ts:1048](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/cli.ts#L1048)
+Defined in: [types/cli.ts:1048](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1048)
 
 Absolute path watched for proxy routing configuration changes.

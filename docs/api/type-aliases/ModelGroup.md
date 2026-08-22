@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ModelGroup** = `object`
 
-Defined in: [types/workflow.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L41)
+Defined in: [types/workflow.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L41)
 
 Model group for layer-based execution
 Enables sequential vs parallel control at group level
@@ -19,7 +19,7 @@ Enables sequential vs parallel control at group level
 
 > **id**: `string`
 
-Defined in: [types/workflow.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L43)
+Defined in: [types/workflow.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L43)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/workflow.ts:43](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **name?**: `string`
 
-Defined in: [types/workflow.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L44)
+Defined in: [types/workflow.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L44)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/workflow.ts:44](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **description?**: `string`
 
-Defined in: [types/workflow.ts:45](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L45)
+Defined in: [types/workflow.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L45)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/workflow.ts:45](https://github.com/juspay/neurolink/blob/4903
 
 > **models**: [`WorkflowModelConfig`](WorkflowModelConfig.md)[]
 
-Defined in: [types/workflow.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L48)
+Defined in: [types/workflow.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L48)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/workflow.ts:48](https://github.com/juspay/neurolink/blob/4903
 
 > **executionStrategy**: [`ExecutionStrategy`](ExecutionStrategy.md)
 
-Defined in: [types/workflow.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L51)
+Defined in: [types/workflow.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L51)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/workflow.ts:51](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **continueOnFailure?**: `boolean`
 
-Defined in: [types/workflow.ts:52](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L52)
+Defined in: [types/workflow.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L52)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/workflow.ts:52](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **minSuccessful?**: `number`
 
-Defined in: [types/workflow.ts:53](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L53)
+Defined in: [types/workflow.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L53)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/workflow.ts:53](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **parallelism?**: `number`
 
-Defined in: [types/workflow.ts:56](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L56)
+Defined in: [types/workflow.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L56)
 
 ---
 
@@ -83,7 +83,7 @@ Defined in: [types/workflow.ts:56](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/workflow.ts:57](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L57)
+Defined in: [types/workflow.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L57)
 
 ---
 
@@ -91,4 +91,4 @@ Defined in: [types/workflow.ts:57](https://github.com/juspay/neurolink/blob/4903
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/workflow.ts:60](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/workflow.ts#L60)
+Defined in: [types/workflow.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/workflow.ts#L60)

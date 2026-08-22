@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ReplicatePrediction** = `object`
 
-Defined in: [types/replicate.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L32)
+Defined in: [types/replicate.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L32)
 
 Replicate prediction object as returned by /v1/predictions POST and
 /v1/predictions/:id GET. Output shape varies by model — caller narrows.
@@ -19,7 +19,7 @@ Replicate prediction object as returned by /v1/predictions POST and
 
 > **id**: `string`
 
-Defined in: [types/replicate.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L33)
+Defined in: [types/replicate.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L33)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/replicate.ts:33](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **model?**: `string`
 
-Defined in: [types/replicate.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L34)
+Defined in: [types/replicate.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L34)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/replicate.ts:34](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **version?**: `string`
 
-Defined in: [types/replicate.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L35)
+Defined in: [types/replicate.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L35)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/replicate.ts:35](https://github.com/juspay/neurolink/blob/490
 
 > **status**: [`ReplicatePredictionStatus`](ReplicatePredictionStatus.md)
 
-Defined in: [types/replicate.ts:36](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L36)
+Defined in: [types/replicate.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L36)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/replicate.ts:36](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **output?**: `unknown`
 
-Defined in: [types/replicate.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L38)
+Defined in: [types/replicate.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L38)
 
 URL string, array of URL strings, base64, or model-specific JSON.
 
@@ -61,7 +61,7 @@ URL string, array of URL strings, base64, or model-specific JSON.
 
 > `optional` **error?**: `string` \| `null`
 
-Defined in: [types/replicate.ts:39](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L39)
+Defined in: [types/replicate.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L39)
 
 ---
 
@@ -69,7 +69,7 @@ Defined in: [types/replicate.ts:39](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **metrics?**: `object`
 
-Defined in: [types/replicate.ts:40](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L40)
+Defined in: [types/replicate.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L40)
 
 #### predict_time?
 
@@ -81,7 +81,7 @@ Defined in: [types/replicate.ts:40](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **urls?**: `object`
 
-Defined in: [types/replicate.ts:41](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L41)
+Defined in: [types/replicate.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L41)
 
 #### get
 
@@ -97,7 +97,7 @@ Defined in: [types/replicate.ts:41](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **logs?**: `string`
 
-Defined in: [types/replicate.ts:42](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L42)
+Defined in: [types/replicate.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L42)
 
 ---
 
@@ -105,7 +105,7 @@ Defined in: [types/replicate.ts:42](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **created_at?**: `string`
 
-Defined in: [types/replicate.ts:43](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L43)
+Defined in: [types/replicate.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L43)
 
 ---
 
@@ -113,7 +113,7 @@ Defined in: [types/replicate.ts:43](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **started_at?**: `string`
 
-Defined in: [types/replicate.ts:44](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L44)
+Defined in: [types/replicate.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L44)
 
 ---
 
@@ -121,4 +121,4 @@ Defined in: [types/replicate.ts:44](https://github.com/juspay/neurolink/blob/490
 
 > `optional` **completed_at?**: `string`
 
-Defined in: [types/replicate.ts:45](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/replicate.ts#L45)
+Defined in: [types/replicate.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/replicate.ts#L45)

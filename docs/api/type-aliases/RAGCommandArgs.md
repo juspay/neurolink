@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **RAGCommandArgs** = `object`
 
-Defined in: [types/rag.ts:1510](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1510)
+Defined in: [types/rag.ts:1510](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1510)
 
 RAG CLI command arguments
 
@@ -18,7 +18,7 @@ RAG CLI command arguments
 
 > `optional` **file?**: `string`
 
-Defined in: [types/rag.ts:1512](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1512)
+Defined in: [types/rag.ts:1512](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1512)
 
 Input file path
 
@@ -28,7 +28,7 @@ Input file path
 
 > `optional` **query?**: `string`
 
-Defined in: [types/rag.ts:1514](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1514)
+Defined in: [types/rag.ts:1514](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1514)
 
 Query string
 
@@ -38,7 +38,7 @@ Query string
 
 > `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:1516](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1516)
+Defined in: [types/rag.ts:1516](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1516)
 
 Chunking strategy
 
@@ -48,7 +48,7 @@ Chunking strategy
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/rag.ts:1518](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1518)
+Defined in: [types/rag.ts:1518](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1518)
 
 Maximum chunk size
 
@@ -58,7 +58,7 @@ Maximum chunk size
 
 > `optional` **overlap?**: `number`
 
-Defined in: [types/rag.ts:1520](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1520)
+Defined in: [types/rag.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1520)
 
 Chunk overlap
 
@@ -68,7 +68,7 @@ Chunk overlap
 
 > `optional` **format?**: `"json"` \| `"text"` \| `"table"`
 
-Defined in: [types/rag.ts:1522](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1522)
+Defined in: [types/rag.ts:1522](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1522)
 
 Output format
 
@@ -78,7 +78,7 @@ Output format
 
 > `optional` **verbose?**: `boolean`
 
-Defined in: [types/rag.ts:1524](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1524)
+Defined in: [types/rag.ts:1524](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1524)
 
 Enable verbose output
 
@@ -88,7 +88,7 @@ Enable verbose output
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/rag.ts:1526](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1526)
+Defined in: [types/rag.ts:1526](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1526)
 
 Provider for embeddings
 
@@ -98,7 +98,7 @@ Provider for embeddings
 
 > `optional` **model?**: `string`
 
-Defined in: [types/rag.ts:1528](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1528)
+Defined in: [types/rag.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1528)
 
 Model for embeddings
 
@@ -108,7 +108,7 @@ Model for embeddings
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1530](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1530)
+Defined in: [types/rag.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1530)
 
 Number of results
 
@@ -118,7 +118,7 @@ Number of results
 
 > `optional` **index?**: `string`
 
-Defined in: [types/rag.ts:1532](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1532)
+Defined in: [types/rag.ts:1532](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1532)
 
 Index name
 
@@ -128,7 +128,7 @@ Index name
 
 > `optional` **hybrid?**: `boolean`
 
-Defined in: [types/rag.ts:1534](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1534)
+Defined in: [types/rag.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1534)
 
 Enable hybrid search
 
@@ -138,6 +138,6 @@ Enable hybrid search
 
 > `optional` **graph?**: `boolean`
 
-Defined in: [types/rag.ts:1536](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/rag.ts#L1536)
+Defined in: [types/rag.ts:1536](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1536)
 
 Use Graph RAG

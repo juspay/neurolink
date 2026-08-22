@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **SpeechGrammar** = `object`
 
-Defined in: [types/client.ts:1222](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1222)
+Defined in: [types/client.ts:1222](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1222)
 
 Speech grammar interface
 
@@ -18,7 +18,7 @@ Speech grammar interface
 
 > **src**: `string`
 
-Defined in: [types/client.ts:1223](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1223)
+Defined in: [types/client.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1223)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/client.ts:1223](https://github.com/juspay/neurolink/blob/4903
 
 > **weight**: `number`
 
-Defined in: [types/client.ts:1224](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/client.ts#L1224)
+Defined in: [types/client.ts:1224](https://github.com/juspay/neurolink/blob/release/src/lib/types/client.ts#L1224)

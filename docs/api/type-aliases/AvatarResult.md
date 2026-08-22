@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AvatarResult** = `object`
 
-Defined in: [types/avatar.ts:87](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L87)
+Defined in: [types/avatar.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L87)
 
 Result of an avatar generation request.
 
@@ -18,7 +18,7 @@ Result of an avatar generation request.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/avatar.ts:89](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L89)
+Defined in: [types/avatar.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L89)
 
 Generated video buffer.
 
@@ -28,7 +28,7 @@ Generated video buffer.
 
 > **format**: [`AvatarVideoFormat`](AvatarVideoFormat.md)
 
-Defined in: [types/avatar.ts:91](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L91)
+Defined in: [types/avatar.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L91)
 
 Output format.
 
@@ -38,7 +38,7 @@ Output format.
 
 > **size**: `number`
 
-Defined in: [types/avatar.ts:93](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L93)
+Defined in: [types/avatar.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L93)
 
 File size in bytes.
 
@@ -48,7 +48,7 @@ File size in bytes.
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/avatar.ts:95](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L95)
+Defined in: [types/avatar.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L95)
 
 Duration in seconds (when reported by the provider).
 
@@ -58,7 +58,7 @@ Duration in seconds (when reported by the provider).
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/avatar.ts:97](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L97)
+Defined in: [types/avatar.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L97)
 
 Provider used.
 
@@ -68,7 +68,7 @@ Provider used.
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/avatar.ts:99](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/avatar.ts#L99)
+Defined in: [types/avatar.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/avatar.ts#L99)
 
 Performance / request metadata.
 

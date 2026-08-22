@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **ChromaQueryParams** = `object`
 
-Defined in: [types/vectorStoreChroma.ts:31](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L31)
+Defined in: [types/vectorStoreChroma.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L31)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/vectorStoreChroma.ts:31](https://github.com/juspay/neurolink/
 
 > **queryEmbeddings**: `number`[][]
 
-Defined in: [types/vectorStoreChroma.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L32)
+Defined in: [types/vectorStoreChroma.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L32)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/vectorStoreChroma.ts:32](https://github.com/juspay/neurolink/
 
 > `optional` **nResults?**: `number`
 
-Defined in: [types/vectorStoreChroma.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L33)
+Defined in: [types/vectorStoreChroma.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L33)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/vectorStoreChroma.ts:33](https://github.com/juspay/neurolink/
 
 > `optional` **where?**: [`ChromaWhere`](ChromaWhere.md)
 
-Defined in: [types/vectorStoreChroma.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L34)
+Defined in: [types/vectorStoreChroma.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L34)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/vectorStoreChroma.ts:34](https://github.com/juspay/neurolink/
 
 > `optional` **include?**: [`ChromaIncludeField`](ChromaIncludeField.md)[]
 
-Defined in: [types/vectorStoreChroma.ts:35](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/vectorStoreChroma.ts#L35)
+Defined in: [types/vectorStoreChroma.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/vectorStoreChroma.ts#L35)

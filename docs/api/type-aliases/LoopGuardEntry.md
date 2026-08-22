@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **LoopGuardEntry** = `object`
 
-Defined in: [types/context.ts:872](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L872)
+Defined in: [types/context.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L872)
 
 Provider-neutral view of ONE message in an agent loop's history.
 
@@ -24,7 +24,7 @@ do, and apply the answer themselves.
 
 > **kind**: `"other"` \| `"toolCall"` \| `"toolResult"`
 
-Defined in: [types/context.ts:874](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L874)
+Defined in: [types/context.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L874)
 
 `toolCall` and `toolResult` form the batches the policy keeps intact.
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:874](https://github.com/juspay/neurolink/blob/4903
 
 > **tokens**: `number`
 
-Defined in: [types/context.ts:876](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L876)
+Defined in: [types/context.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L876)
 
 Estimated tokens this entry currently costs.
 
@@ -44,7 +44,7 @@ Estimated tokens this entry currently costs.
 
 > `optional` **previewTokens?**: `number`
 
-Defined in: [types/context.ts:882](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/context.ts#L882)
+Defined in: [types/context.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L882)
 
 Tokens this entry would cost with its payload replaced by a head/tail
 preview. Omitted when the entry cannot usefully shrink — which is exactly

@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: ReplicateMusic
 
-Defined in: [music/providers/ReplicateMusic.ts:32](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/ReplicateMusic.ts#L32)
+Defined in: [music/providers/ReplicateMusic.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ReplicateMusic.ts#L32)
 
 ## Implements
 
@@ -28,7 +28,7 @@ Defined in: [music/providers/ReplicateMusic.ts:32](https://github.com/juspay/neu
 
 > `readonly` **maxDurationSeconds**: `30` = `30`
 
-Defined in: [music/providers/ReplicateMusic.ts:33](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/ReplicateMusic.ts#L33)
+Defined in: [music/providers/ReplicateMusic.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ReplicateMusic.ts#L33)
 
 Maximum supported track duration in seconds (provider-specific).
 
@@ -42,7 +42,7 @@ Maximum supported track duration in seconds (provider-specific).
 
 > `readonly` **supportedFormats**: readonly [`MusicAudioFormat`](../type-aliases/MusicAudioFormat.md)[]
 
-Defined in: [music/providers/ReplicateMusic.ts:34](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/ReplicateMusic.ts#L34)
+Defined in: [music/providers/ReplicateMusic.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ReplicateMusic.ts#L34)
 
 Output formats supported by this handler.
 
@@ -56,7 +56,7 @@ Output formats supported by this handler.
 
 > `readonly` **supportedGenres**: readonly `string`[]
 
-Defined in: [music/providers/ReplicateMusic.ts:38](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/ReplicateMusic.ts#L38)
+Defined in: [music/providers/ReplicateMusic.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ReplicateMusic.ts#L38)
 
 Genres / styles the upstream advertises (informational).
 
@@ -70,7 +70,7 @@ Genres / styles the upstream advertises (informational).
 
 > **isConfigured**(): `boolean`
 
-Defined in: [music/providers/ReplicateMusic.ts:51](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/ReplicateMusic.ts#L51)
+Defined in: [music/providers/ReplicateMusic.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ReplicateMusic.ts#L51)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -88,7 +88,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`options`): `Promise`\<[`MusicResult`](../type-aliases/MusicResult.md)\>
 
-Defined in: [music/providers/ReplicateMusic.ts:55](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/music/providers/ReplicateMusic.ts#L55)
+Defined in: [music/providers/ReplicateMusic.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/music/providers/ReplicateMusic.ts#L55)
 
 Generate a music track from prompt + options.
 

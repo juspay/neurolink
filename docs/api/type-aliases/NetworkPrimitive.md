@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **NetworkPrimitive** = `object`
 
-Defined in: [types/agentNetwork.ts:180](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L180)
+Defined in: [types/agentNetwork.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L180)
 
 Base primitive type for all orchestrable components
 
@@ -18,7 +18,7 @@ Base primitive type for all orchestrable components
 
 > **id**: `string`
 
-Defined in: [types/agentNetwork.ts:182](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L182)
+Defined in: [types/agentNetwork.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L182)
 
 Unique identifier
 
@@ -28,7 +28,7 @@ Unique identifier
 
 > **type**: [`NetworkPrimitiveType`](NetworkPrimitiveType.md)
 
-Defined in: [types/agentNetwork.ts:185](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L185)
+Defined in: [types/agentNetwork.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L185)
 
 Type of primitive
 
@@ -38,7 +38,7 @@ Type of primitive
 
 > **name**: `string`
 
-Defined in: [types/agentNetwork.ts:188](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L188)
+Defined in: [types/agentNetwork.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L188)
 
 Human-readable name
 
@@ -48,7 +48,7 @@ Human-readable name
 
 > **description**: `string`
 
-Defined in: [types/agentNetwork.ts:191](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L191)
+Defined in: [types/agentNetwork.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L191)
 
 Description for routing decisions
 
@@ -58,7 +58,7 @@ Description for routing decisions
 
 > `optional` **inputSchema?**: `z.ZodSchema`
 
-Defined in: [types/agentNetwork.ts:194](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L194)
+Defined in: [types/agentNetwork.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L194)
 
 Input schema for validation
 
@@ -68,6 +68,6 @@ Input schema for validation
 
 > `optional` **outputSchema?**: `z.ZodSchema`
 
-Defined in: [types/agentNetwork.ts:197](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/agentNetwork.ts#L197)
+Defined in: [types/agentNetwork.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/agentNetwork.ts#L197)
 
 Output schema for validation

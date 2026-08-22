@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -6,7 +6,7 @@
 
 # Class: DIDAvatar
 
-Defined in: [avatar/providers/DIDAvatar.ts:47](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/DIDAvatar.ts#L47)
+Defined in: [avatar/providers/DIDAvatar.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L47)
 
 D-ID Avatar Handler.
 
@@ -25,7 +25,7 @@ Env vars: `DID_API_KEY` (preferred) / `D_ID_API_KEY` (legacy alias).
 
 > **new DIDAvatar**(`apiKey?`): `DIDAvatar`
 
-Defined in: [avatar/providers/DIDAvatar.ts:54](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/DIDAvatar.ts#L54)
+Defined in: [avatar/providers/DIDAvatar.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L54)
 
 #### Parameters
 
@@ -43,7 +43,7 @@ Defined in: [avatar/providers/DIDAvatar.ts:54](https://github.com/juspay/neuroli
 
 > `readonly` **maxAudioDurationSeconds**: `60` = `60`
 
-Defined in: [avatar/providers/DIDAvatar.ts:48](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/DIDAvatar.ts#L48)
+Defined in: [avatar/providers/DIDAvatar.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L48)
 
 Maximum supported audio length in seconds (provider-specific).
 
@@ -57,7 +57,7 @@ Maximum supported audio length in seconds (provider-specific).
 
 > `readonly` **supportedFormats**: readonly [`AvatarVideoFormat`](../type-aliases/AvatarVideoFormat.md)[]
 
-Defined in: [avatar/providers/DIDAvatar.ts:49](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/DIDAvatar.ts#L49)
+Defined in: [avatar/providers/DIDAvatar.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L49)
 
 Output formats supported by this handler.
 
@@ -71,7 +71,7 @@ Output formats supported by this handler.
 
 > **isConfigured**(): `boolean`
 
-Defined in: [avatar/providers/DIDAvatar.ts:69](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/DIDAvatar.ts#L69)
+Defined in: [avatar/providers/DIDAvatar.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L69)
 
 Validate the provider is configured (auth, base URL, etc.).
 
@@ -89,7 +89,7 @@ Validate the provider is configured (auth, base URL, etc.).
 
 > **generate**(`options`): `Promise`\<[`AvatarResult`](../type-aliases/AvatarResult.md)\>
 
-Defined in: [avatar/providers/DIDAvatar.ts:73](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/avatar/providers/DIDAvatar.ts#L73)
+Defined in: [avatar/providers/DIDAvatar.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/avatar/providers/DIDAvatar.ts#L73)
 
 Generate a talking-head video from an image + audio (or pre-rendered text).
 

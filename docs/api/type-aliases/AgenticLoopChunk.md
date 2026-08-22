@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AgenticLoopChunk** = `object`
 
-Defined in: [types/loopEngine.ts:20](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L20)
+Defined in: [types/loopEngine.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L20)
 
 One chunk on the engine's stream.
 
@@ -25,7 +25,7 @@ silently, since the text path would keep working.
 
 > **content**: `string`
 
-Defined in: [types/loopEngine.ts:21](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L21)
+Defined in: [types/loopEngine.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L21)
 
 ---
 
@@ -33,4 +33,4 @@ Defined in: [types/loopEngine.ts:21](https://github.com/juspay/neurolink/blob/49
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/loopEngine.ts:22](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/loopEngine.ts#L22)
+Defined in: [types/loopEngine.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L22)

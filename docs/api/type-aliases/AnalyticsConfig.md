@@ -1,4 +1,4 @@
-[**NeuroLink API Reference v11.2.3**](../README.md)
+[**NeuroLink API Reference**](../README.md)
 
 ---
 
@@ -8,7 +8,7 @@
 
 > **AnalyticsConfig** = `object`
 
-Defined in: [types/config.ts:362](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L362)
+Defined in: [types/config.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L362)
 
 Analytics configuration
 
@@ -18,7 +18,7 @@ Analytics configuration
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:363](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L363)
+Defined in: [types/config.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L363)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:363](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **trackTokens?**: `boolean`
 
-Defined in: [types/config.ts:364](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L364)
+Defined in: [types/config.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L364)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:364](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **trackCosts?**: `boolean`
 
-Defined in: [types/config.ts:365](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L365)
+Defined in: [types/config.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L365)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/config.ts:365](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **trackPerformance?**: `boolean`
 
-Defined in: [types/config.ts:366](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L366)
+Defined in: [types/config.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L366)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/config.ts:366](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **trackErrors?**: `boolean`
 
-Defined in: [types/config.ts:367](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L367)
+Defined in: [types/config.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L367)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/config.ts:367](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **exportFormat?**: `"json"` \| `"csv"` \| `"prometheus"`
 
-Defined in: [types/config.ts:368](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L368)
+Defined in: [types/config.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L368)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/config.ts:368](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **exportPath?**: `string`
 
-Defined in: [types/config.ts:369](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L369)
+Defined in: [types/config.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L369)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/config.ts:369](https://github.com/juspay/neurolink/blob/49032
 
 > `optional` **retention?**: `object`
 
-Defined in: [types/config.ts:370](https://github.com/juspay/neurolink/blob/49032fc5b1df7b90bfda013d9be71423e358001e/src/lib/types/config.ts#L370)
+Defined in: [types/config.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L370)
 
 #### days?
 
