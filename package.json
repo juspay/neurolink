@@ -123,6 +123,7 @@
     "test:music:unit": "npx tsx test/continuous-test-suite-music-unit.ts",
     "test:image-gen": "npx tsx test/continuous-test-suite-image-gen-extras.ts",
     "test:credentials": "npx tsx test/continuous-test-suite-credentials.ts",
+    "test:local-usage": "npx tsx test/continuous-test-suite-local-usage.ts",
     "test:dynamic": "npx tsx test/continuous-test-suite-dynamic.ts",
     "test:proxy": "npx tsx test/continuous-test-suite-proxy.ts",
     "test:codex": "npx tsx test/continuous-test-suite-codex.ts",
