@@ -61,7 +61,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { defineSuite, assert, tempDir, Skip } from "./helpers/harness.js";
 import { docxMembers, writeOfficeZip } from "./helpers/officeBombFixtures.js";
-import { makeDocxRaw, makeXlsxRaw } from "./helpers/officeFixtures.js";
+import {
+  makeDocxRaw,
+  makeXlsxRaw,
+  hasPackage,
+} from "./helpers/officeFixtures.js";
 import {
   startMockChatServer,
   mockOpenAICredentials,
@@ -118,7 +122,31 @@ function hasCredentials(): boolean {
   }
 }
 
+/**
+ * These payloads only prove anything if the extractor that parses them is
+ * actually installed. mammoth and exceljs are optionalDependencies, and
+ * WordProcessor/ExcelProcessor funnel a missing-dependency tryImport failure
+ * into the same generic "Could not extract content" placeholder that a genuine
+ * parser-level rejection produces. The assertions below cannot tell those two
+ * apart: with mammoth removed, the docx XXE test still passes with zero lines
+ * of XML-parsing code executed and zero bytes of payload reaching a parser.
+ *
+ * That is not hypothetical — ci.yml already runs `pnpm install --no-optional`
+ * for the CLI smoke job, and any platform where the native build fails lands in
+ * the same state. A security test that is green because it never ran is worse
+ * than no test, so gate on the extractor being present and skip loudly when it
+ * is not.
+ */
+async function requireExtractor(pkg: string): Promise<void> {
+  if (!(await hasPackage(pkg))) {
+    throw new Skip(
+      `${pkg} is not installed — the payload would never reach an XML parser, so this test cannot prove anything`,
+    );
+  }
+}
+
 await test("an ordinary Word document still reaches the model through generate()", async () => {
+  await requireExtractor("mammoth");
   if (!hasCredentials()) {
     throw new Skip(
       `no credentials for provider "${PROVIDER}" — skipping live assertion`,
@@ -163,6 +191,7 @@ ${rootOpen}&${LOL_MARKER}3;${rootClose}`;
 }
 
 await test("a docx external-entity (XXE) payload never leaks its target into the outbound request — generate()", async () => {
+  await requireExtractor("mammoth");
   const maliciousDoc = `<?xml version="1.0"?>
 <!DOCTYPE w:document [ <!ENTITY xxe SYSTEM "${secretUri}"> ]>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
@@ -199,6 +228,7 @@ await test("a docx external-entity (XXE) payload never leaks its target into the
 });
 
 await test("a docx billion-laughs payload does not hang and does not expand into the outbound request — generate()", async () => {
+  await requireExtractor("mammoth");
   const maliciousDoc = billionLaughsXml(
     '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>',
     "</w:t></w:r></w:p></w:body></w:document>",
@@ -235,6 +265,7 @@ await test("a docx billion-laughs payload does not hang and does not expand into
 });
 
 await test("an xlsx external-entity (XXE) payload never leaks its target into the outbound request — generate()", async () => {
+  await requireExtractor("exceljs");
   const maliciousSheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!DOCTYPE worksheet [ <!ENTITY xxe SYSTEM "${secretUri}"> ]>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
@@ -273,6 +304,7 @@ await test("an xlsx external-entity (XXE) payload never leaks its target into th
 });
 
 await test("an xlsx billion-laughs payload does not hang and does not expand into the outbound request — generate()", async () => {
+  await requireExtractor("exceljs");
   const maliciousSheet = billionLaughsXml(
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="A1" t="str"><v>',
     "</v></c></row></sheetData></worksheet>",
