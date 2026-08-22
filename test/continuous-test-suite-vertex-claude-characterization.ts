@@ -33,6 +33,7 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
+import { z } from "zod";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -445,6 +446,251 @@ await test("the generate path reaches the same endpoint with the same credential
   assert(
     server.calls[0]?.authorization === "Bearer express-key",
     "the generate request did not carry the express key as its bearer credential",
+  );
+});
+
+section("caller-supplied tools");
+
+await test("a caller's tool is declared, executed, and its result returns to the model", async () => {
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn("lookup", { q: "x" }) : textTurn("done"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let text = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      text += (chunk as { content?: string })?.content ?? "";
+    }
+  } catch {
+    // Counts are what is pinned, not the outcome.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude caller tools: calls=${server.calls.length} executed=${counter.calls} chars=${text.length}`,
+  );
+  assert(
+    declaredToolNames(server.calls[0]).includes("lookup"),
+    "the caller's tool was not declared to the model",
+  );
+  assert(
+    server.calls.length === 2,
+    `a tool round trip should take exactly two calls, took ${server.calls.length}`,
+  );
+  assert(counter.calls === 1, "the caller's tool did not execute once");
+  assert(
+    toolResults(server.calls[1]).length === 1,
+    "the tool result was not carried back to the model",
+  );
+});
+
+section("step cap");
+
+await test("a model that never stops calling tools is bounded by maxSteps", async () => {
+  const server = await startStandIn(() => toolTurn("lookup", { q: "x" }));
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "loop forever" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The dispatch count is what is pinned.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude step cap: calls=${server.calls.length} executed=${counter.calls}`,
+  );
+  // Bounded, and bounded BY THE CAP: a model that always asks for a tool
+  // cannot drive more requests than the budget allows.
+  assert(
+    server.calls.length <= 4,
+    `the loop issued ${server.calls.length} requests against a 3-step budget`,
+  );
+  assert(
+    counter.calls > 0,
+    "the tool never ran, so the cap was not reached by looping",
+  );
+});
+
+section("repeatedly failing tool");
+
+await test("a tool that always throws is dispatched a bounded number of times", async () => {
+  const server = await startStandIn(() => toolTurn("flaky", {}));
+  const restore = withVertexEnv();
+  let attempts = 0;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "keep trying" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: {
+        flaky: {
+          description: "always fails",
+          inputSchema: {
+            type: "object",
+            properties: {},
+            additionalProperties: true,
+          },
+          execute: async () => {
+            attempts++;
+            throw new Error("synthetic tool failure");
+          },
+        },
+      },
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // The dispatch count is what is pinned.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude failing tool: attempts=${attempts} calls=${server.calls.length}`,
+  );
+  assert(
+    attempts === 2,
+    `the failing tool was dispatched ${attempts} times, not the 2 this loop performs`,
+  );
+});
+
+section("reserved finalization step");
+
+await test("a structured turn that never calls final_result is forced to", async () => {
+  // The behaviour that distinguishes this loop from the Gemini ones. When a
+  // schema is in play the loop reserves a step: if the model reaches the cap
+  // without calling final_result, ONE more request goes out with tool_choice
+  // pinned to it, because Anthropic guarantees a tool_use for a pinned tool.
+  // Without that reservation a structured turn can end with no structured
+  // output at all.
+  const server = await startStandIn(() => toolTurn("lookup", { q: "x" }));
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let reservedFailure = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "answer with structure" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 2,
+      disableTools: false,
+      disableInternalFallback: true,
+      schema: z.object({ answer: z.string() }),
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch (error) {
+    reservedFailure =
+      error instanceof Error ? error.message.slice(0, 200) : String(error);
+  } finally {
+    restore();
+    await server.close();
+  }
+  const pinned = server.calls.filter((call) => {
+    const choice = call.body?.tool_choice as { name?: string } | undefined;
+    return choice?.name === "final_result";
+  });
+  console.log(
+    `    [diagnostic] vertex-claude reserved step: calls=${server.calls.length} pinned=${pinned.length} outcome=${reservedFailure || "ok"}`,
+  );
+  assert(
+    pinned.length === 1,
+    `the loop pinned final_result on ${pinned.length} requests, not the single reserved one`,
+  );
+  // And it is the LAST request, not one of the ordinary loop steps.
+  assert(
+    server.calls[server.calls.length - 1] === pinned[0],
+    "the pinned finalization was not the turn's final request",
+  );
+});
+
+section("generate path");
+
+await test("the generate path declares and executes a caller's tools", async () => {
+  // A second, near-duplicate hand-rolled loop lives inside generate(). Pinning
+  // it separately matters because the migration touches both.
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn("lookup", { q: "x" }) : textTurn("generated answer"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let content = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.generate({
+      input: { text: "look something up" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    content = (result as { content?: string })?.content ?? "";
+  } catch {
+    // Counts are what is pinned.
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] vertex-claude generate: calls=${server.calls.length} executed=${counter.calls} chars=${content.length} results=${server.calls.map((c) => toolResults(c).length).join(",")}`,
+  );
+  assert(
+    server.calls.length === 2,
+    `the generate path took ${server.calls.length} calls, not the 2 a tool round trip needs`,
+  );
+  assert(
+    counter.calls === 1,
+    "the generate path did not execute the tool once",
+  );
+  assert(
+    content.includes("generated answer"),
+    "the generate path did not return the final turn's text",
   );
 });
 
