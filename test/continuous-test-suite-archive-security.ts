@@ -155,14 +155,54 @@ await test("an ordinary archive still reaches the model through stream()", async
 const SAFE_MARKER = "SAFE_SIBLING_ENTRY_CONTENT";
 const SLIP_MARKER = "SECRET_SLIPPED_ENTRY_CONTENT";
 
+/**
+ * A zip-slip entry name paired with the absolute path a naive extractor would
+ * resolve it to.
+ *
+ * The two have to be derived from each other. This suite used to hard-code the
+ * canary at `path.join(dir, "..", <name>)` while the entry itself traversed six
+ * levels up into /tmp, so `!fs.existsSync(outside)` watched a location the
+ * entry never pointed at. It could not have failed even against an extractor
+ * that did write the file.
+ *
+ * The basename is unique per run because /tmp is shared: a canary left behind
+ * by another run would fail this suite for a reason unrelated to the code under
+ * test.
+ */
+function zipSlipCanary(label: string): { entry: string; resolved: string } {
+  const entry = `../../../../../../tmp/juspay-zip-slip-${label}-${process.pid}.txt`;
+  return { entry, resolved: path.resolve(dir, entry) };
+}
+
+/**
+ * Assert the traversal entry was *detected and rejected*, not merely absent.
+ *
+ * Checking that SLIP_MARKER never appears is necessary but not sufficient: it
+ * passes just as happily if the processor stopped reading archive entries at
+ * all, or failed to open that entry by accident. The summary the processor
+ * emits names the traversal as skipped and counts the surviving entries, so
+ * assert on both — that is what distinguishes a deliberate strip from a
+ * coincidence.
+ *
+ * Keep the payload out of these messages: defineSuite downgrades a throw to
+ * SKIP when the text matches isExpectedProviderError().
+ */
+function assertTraversalRejected(body: string): void {
+  assert(
+    /Path traversal detected/.test(body) && /entry skipped/.test(body),
+    "the processor did not report the path-traversal entry as detected and skipped",
+  );
+  assert(
+    /Total entries:\**\s*1\b/.test(body),
+    "the archive summary counted more than the one safe entry",
+  );
+}
+
 await test("a zip-slip entry is stripped before the request leaves — generate()", async () => {
-  const outside = path.join(dir, "..", "juspay-zip-slip-canary.txt");
+  const canary = zipSlipCanary("generate");
   const fixture = writeZipSlipZip(path.join(dir, "zip-slip-generate.zip"), [
     { name: "readme.txt", content: SAFE_MARKER },
-    {
-      name: "../../../../../../tmp/juspay-zip-slip-canary.txt",
-      content: SLIP_MARKER,
-    },
+    { name: canary.entry, content: SLIP_MARKER },
   ]);
   const server = await startMockChatServer();
   try {
@@ -186,14 +226,20 @@ await test("a zip-slip entry is stripped before the request leaves — generate(
       !body.includes(SLIP_MARKER),
       "the path-traversal entry's content must never reach the outbound request body",
     );
+    assertTraversalRejected(body);
+    // Forward guard, not live coverage. ArchiveProcessor parses entries in
+    // memory and makes no fs writes at all today, so this cannot fail against
+    // the current implementation; it is here for the day an on-disk extraction
+    // path is added. Watching the path the entry actually resolves to is what
+    // makes it worth keeping.
     assert(
-      !fs.existsSync(outside),
+      !fs.existsSync(canary.resolved),
       "the path-traversal entry must never be written outside the archive's own directory",
     );
   } finally {
     await server.close();
     try {
-      fs.rmSync(outside, { force: true });
+      fs.rmSync(canary.resolved, { force: true });
     } catch {
       /* ignore */
     }
@@ -201,13 +247,10 @@ await test("a zip-slip entry is stripped before the request leaves — generate(
 });
 
 await test("a zip-slip entry is stripped before the request leaves — stream()", async () => {
-  const outside = path.join(dir, "..", "juspay-zip-slip-canary-stream.txt");
+  const canary = zipSlipCanary("stream");
   const fixture = writeZipSlipZip(path.join(dir, "zip-slip-stream.zip"), [
     { name: "readme.txt", content: SAFE_MARKER },
-    {
-      name: "../../../../../../tmp/juspay-zip-slip-canary-stream.txt",
-      content: SLIP_MARKER,
-    },
+    { name: canary.entry, content: SLIP_MARKER },
   ]);
   const server = await startMockChatServer();
   try {
@@ -234,14 +277,20 @@ await test("a zip-slip entry is stripped before the request leaves — stream()"
       !body.includes(SLIP_MARKER),
       "the path-traversal entry's content must never reach the outbound request body",
     );
+    assertTraversalRejected(body);
+    // Forward guard, not live coverage. ArchiveProcessor parses entries in
+    // memory and makes no fs writes at all today, so this cannot fail against
+    // the current implementation; it is here for the day an on-disk extraction
+    // path is added. Watching the path the entry actually resolves to is what
+    // makes it worth keeping.
     assert(
-      !fs.existsSync(outside),
+      !fs.existsSync(canary.resolved),
       "the path-traversal entry must never be written outside the archive's own directory",
     );
   } finally {
     await server.close();
     try {
-      fs.rmSync(outside, { force: true });
+      fs.rmSync(canary.resolved, { force: true });
     } catch {
       /* ignore */
     }
