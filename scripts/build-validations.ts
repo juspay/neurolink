@@ -18,6 +18,9 @@ import ts from "typescript";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/** Ceiling for the security-check subprocess. See the note at its call site. */
+const SECURITY_SCAN_TIMEOUT_MS = 300_000;
+
 class NeuroLinkBuildValidator {
   errors: string[];
   warnings: string[];
@@ -138,6 +141,32 @@ class NeuroLinkBuildValidator {
         cwd: this.rootDir,
         encoding: "utf8",
         stdio: "pipe",
+        // This runs inside `validate:all`, which CI's `test` job gates on, and
+        // the child shells out to external scanners (gitleaks, ripgrep). With
+        // no bound, one wedged scanner hangs the job to its own limit with
+        // stdio piped, so nothing is printed while it hangs.
+        //
+        // 300s against a measured 3s locally: deliberately far above a normal
+        // run, because a cold CI runner fetching gitleaks and walking full git
+        // history is legitimately slower, and it must also stay above the
+        // per-scanner bounds inside security-check.ts so a healthy child is
+        // never killed by its parent.
+        //
+        // SIGKILL because a timeout otherwise sends SIGTERM and keeps waiting.
+        //
+        // WHAT THIS DOES NOT DO: the signal goes to the shell this spawns, not
+        // to the tree beneath it — npx, tsx, node, and whatever scanner that
+        // node process has running. Those are not in this process group and can
+        // outlive the kill as orphans. So this bound guarantees that THIS
+        // validator returns; it does not guarantee the machine is idle
+        // afterwards.
+        //
+        // Bounding the descendants is the child's own job, and security-check.ts
+        // does it at the point where the scanners are actually spawned, which is
+        // the only place their pids are known. Treat this as the outer of two
+        // independent bounds rather than as complete cleanup on its own.
+        timeout: SECURITY_SCAN_TIMEOUT_MS,
+        killSignal: "SIGKILL",
       });
 
       // Parse security check results for critical secrets
@@ -166,13 +195,35 @@ class NeuroLinkBuildValidator {
       }
     } catch (error: unknown) {
       // Security validation failed - this is critical for build validation
-      const execError = error as { status?: number; message?: string };
+      const execError = error as {
+        status?: number;
+        message?: string;
+        code?: string;
+        signal?: string;
+      };
+      const timedOut =
+        execError.code === "ETIMEDOUT" || execError.signal === "SIGKILL";
       if (execError.status === 1) {
         this.errors.push(
           "Security validation failed - critical issues detected",
         );
         this.errors.push(
           "   Fix security issues before building: pnpm run validate:security",
+        );
+      } else if (timedOut) {
+        // An ERROR, not a warning, and the distinction is the whole point of
+        // the bound above. Only `errors` fail this validator; `warnings` print
+        // and the build proceeds. A killed scan reports no findings, so
+        // classifying it as a warning would mean adding the timeout had
+        // converted a hung security gate into a passing one — the same trap
+        // the gitleaks path inside security-check.ts had to be fixed for.
+        //
+        // A scan that did not finish is not a scan that found nothing.
+        this.errors.push(
+          `Security validation exceeded ${SECURITY_SCAN_TIMEOUT_MS / 1000}s and was killed - the scan did not complete, so its result cannot be trusted`,
+        );
+        this.errors.push(
+          "   Investigate with: pnpm run validate:security",
         );
       } else {
         this.warnings.push(
