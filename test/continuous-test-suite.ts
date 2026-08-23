@@ -3853,24 +3853,40 @@ run();
       );
       return true;
     }
-    // Inner process timed out or crashed without printing anything useful —
-    // treat as SKIP because we cannot distinguish a real schema regression
-    // from a transient resource starvation under heavy concurrent test load.
-    if (result.code === -1 || result.stdout.trim() === "") {
+    // Only a child that left nothing to judge may be skipped.
+    //
+    // `runCommand` reports `code === -1` when the close event carried a signal
+    // instead of an exit code — an outside kill, e.g. the OOM killer under
+    // heavy concurrent load. That carries no verdict, and neither does a child
+    // that died before writing to either stream. Both stay SKIP.
+    //
+    // The old guard also skipped on `stdout === ""` alone. That is how a Node
+    // process normally fails: exit non-zero, stack trace on stderr, nothing on
+    // stdout. Every such crash — including a genuine schema regression — was
+    // reported green. A child that explained itself on stderr is diagnosable,
+    // so it is a failure.
+    //
+    // A timeout never reaches here: `runCommand` rejects on timeout, so it
+    // lands in the catch below and is reported as a FAIL with its own message.
+    const killedBySignal = result.code === -1;
+    const silent = result.stdout.trim() === "" && result.stderr.trim() === "";
+    if (killedBySignal || silent) {
       logTest(
         "Schema Output with 3+ Images (SDK)",
         "SKIP",
-        `inner process produced no output (exit=${result.code}); stderr=${(result.stderr || "").slice(0, 200)}`,
+        killedBySignal
+          ? "inner process was killed by a signal, so it produced no verdict"
+          : `inner process wrote nothing to either stream (exit=${result.code})`,
       );
       return null;
     }
-    const failLine = subprocessFailureDetail(result);
-    const detail =
-      `${failLine} | stderr=${(result.stderr || "").slice(0, 200)}`.slice(
-        0,
-        500,
-      );
-    logTest("Schema Output with 3+ Images (SDK)", "FAIL", detail);
+    // subprocessFailureDetail() already appends the tail of stderr when the
+    // child printed no FAIL line, so do not append it a second time here.
+    logTest(
+      "Schema Output with 3+ Images (SDK)",
+      "FAIL",
+      subprocessFailureDetail(result).slice(0, 500),
+    );
     return false;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
