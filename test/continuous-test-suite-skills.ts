@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 
+import { withCaseTimeout } from "./helpers/harness.js";
+
 /**
  * Continuous Test Suite: Skills
  *
@@ -93,7 +95,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 async function runTest(name: string, fn: () => Promise<void>): Promise<void> {
   try {
-    await fn();
+    await withCaseTimeout(name, fn);
     logTest(name, "PASS");
   } catch (error) {
     logTest(

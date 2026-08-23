@@ -102,7 +102,13 @@ type TestResult = {
 // Color helpers — provided by shared harness
 // ============================================================================
 
-import { defineSuite, log, logSection } from "./helpers/harness.js";
+import {
+  defineSuite,
+  log,
+  logSection,
+  withCaseTimeout,
+  isCaseTimeout,
+} from "./helpers/harness.js";
 
 const { recordTest, runSuite } = defineSuite("Claude Proxy");
 
@@ -6879,51 +6885,21 @@ const tests: TestFunction[] = [
 // Test Runner
 // ============================================================================
 
-/**
- * Bound every case in this suite.
- *
- * This suite drives its own runner — it destructures `recordTest`/`runSuite`
- * from `defineSuite` and calls `test.fn()` directly — so it never passes
- * through the harness's own `Promise.race` per-case timeout
- * (test/helpers/harness.ts:411). Any case that hangs hangs the whole run, with
- * nothing to distinguish it from slow work: a spawned proxy that never becomes
- * healthy, an upstream that accepts a connection and never answers, a fetch
- * with no signal.
- *
- * Reported as a failure rather than a skip, deliberately. The harness's own
- * timeout raises a `SKIP:`-prefixed message, which is right for a live-provider
- * suite where a hung upstream is not the code's fault — but every case here
- * talks to a proxy this repo builds and spawns, so a hang is a defect and must
- * not go green.
- */
+// 180s rather than the shared 240s default, because the proxy under test is
+// one this repo builds and spawns rather than a remote endpoint that deserves
+// the benefit of the doubt.
+//
+// That is not the whole picture and the earlier wording here was wrong: nine
+// cases gate on `hasValidCredentials()` and, when it is true, do reach
+// Anthropic through the spawned proxy. So a breach is USUALLY a defect and
+// occasionally a slow upstream. 180s is still comfortably above a live
+// round-trip; a case that legitimately needs longer should carry its own bound
+// rather than have this one raised for everyone.
+//
+// `withCaseTimeout` rejects, and the message was checked against
+// isExpectedProviderError() so it reports as a FAILURE rather than being
+// swallowed as a skip.
 const CASE_TIMEOUT_MS = 180_000;
-
-async function withCaseTimeout(
-  name: string,
-  fn: () => Promise<boolean | null>,
-): Promise<boolean | null> {
-  let timer: NodeJS.Timeout | undefined;
-  try {
-    return await Promise.race([
-      fn(),
-      new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () =>
-            reject(
-              new Error(
-                `case exceeded ${CASE_TIMEOUT_MS}ms and was aborted — treat as a hang, not slowness`,
-              ),
-            ),
-          CASE_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer) {
-      clearTimeout(timer);
-    }
-  }
-}
 
 async function runAllTests(): Promise<void> {
   if (!fs.existsSync("dist") || !fs.existsSync("dist/cli/index.js")) {
@@ -6949,7 +6925,11 @@ async function runAllTests(): Promise<void> {
         continue;
       }
       try {
-        const result = await withCaseTimeout(test.name, test.fn);
+        const result = await withCaseTimeout(
+          test.name,
+          test.fn,
+          CASE_TIMEOUT_MS,
+        );
         recordTest(
           test.name,
           result === true,
@@ -6959,6 +6939,19 @@ async function runAllTests(): Promise<void> {
       } catch (error) {
         const msg = error instanceof Error ? error.message : String(error);
         recordTest(test.name, false, false, msg);
+
+        // A case bound is not an ordinary failure: Promise.race cannot cancel, so
+        // the abandoned case is still running. Continuing would run the loop's
+        // cleanup and inter-case delay underneath live work, and record every
+        // remaining case as "not run". Stop at the first one.
+        if (isCaseTimeout(error)) {
+          log(
+            `\n\u{1F6D1} ABORTING: "${test.name}" was abandoned by its timeout and is still executing. ` +
+              `Remaining cases are NOT run — this process no longer has clean state.`,
+            "red",
+          );
+          break;
+        }
       }
       if (test.category === "proxy-api") {
         await new Promise((r) => setTimeout(r, 2000));

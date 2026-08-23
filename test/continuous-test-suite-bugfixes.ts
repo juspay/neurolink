@@ -230,7 +230,13 @@ type TestFunction = {
 
 import { tryImport } from "../src/lib/utils/tryImport.js";
 import { assertFluentFfmpegShape } from "../src/lib/processors/media/VideoProcessor.js";
-import { defineSuite, log, logSection } from "./helpers/harness.js";
+import {
+  defineSuite,
+  log,
+  logSection,
+  withCaseTimeout,
+  isCaseTimeout,
+} from "./helpers/harness.js";
 
 const { recordTest, runSuite } = defineSuite("Production Bugfix Verification");
 
@@ -10354,7 +10360,7 @@ async function runAllBugfixTests(): Promise<void> {
   log(`Running ${tests.length} tests...\n`);
   for (const test of tests) {
     try {
-      const result = await test.fn();
+      const result = await withCaseTimeout(test.name, test.fn);
       if (result === null) {
         recordTest(test.name, false, true, "skipped");
       } else {
@@ -10367,6 +10373,19 @@ async function runAllBugfixTests(): Promise<void> {
       }
     } catch (error) {
       recordTest(test.name, false, false, getErrorMessage(error));
+
+      // A case bound is not an ordinary failure: Promise.race cannot cancel, so
+      // the abandoned case is still running. Continuing would run the loop's
+      // cleanup and inter-case delay underneath live work, and record every
+      // remaining case as "not run". Stop at the first one.
+      if (isCaseTimeout(error)) {
+        log(
+          `\n\u{1F6D1} ABORTING: "${test.name}" was abandoned by its timeout and is still executing. ` +
+            `Remaining cases are NOT run — this process no longer has clean state.`,
+          "red",
+        );
+        break;
+      }
     }
   }
 }

@@ -18,6 +18,8 @@
  */
 
 import * as fs from "fs";
+import { withCaseTimeout } from "./helpers/harness.js";
+
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { execFileSync } from "child_process";
@@ -229,7 +231,7 @@ async function runTest(
 ): Promise<TestResult> {
   const startTime = Date.now();
   try {
-    await testFn();
+    await withCaseTimeout(name, testFn);
     const duration = Date.now() - startTime;
     logTest(name, "PASS", `(${duration}ms)`);
     return { name, status: "PASS", duration };

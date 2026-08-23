@@ -49,7 +49,7 @@ async function test(
   fn: () => Promise<void> | void,
 ): Promise<void> {
   try {
-    await fn();
+    await withCaseTimeout(name, fn);
     recordTest(name, true);
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : String(err);
@@ -61,7 +61,12 @@ async function test(
   }
 }
 
-import { assert, assertEqual, assertNotNull } from "./helpers/harness.js";
+import {
+  assert,
+  assertEqual,
+  assertNotNull,
+  withCaseTimeout,
+} from "./helpers/harness.js";
 
 // =============================================================================
 // CONFIG
