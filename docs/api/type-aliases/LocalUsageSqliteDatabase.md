@@ -37,7 +37,13 @@ Defined in: [types/localUsage.ts:195](https://github.com/juspay/neurolink/blob/r
 
 ##### all
 
-> **all**: () => `unknown`[]
+> **all**: (...`params`) => `unknown`[]
+
+###### Parameters
+
+###### params
+
+...`unknown`[]
 
 ###### Returns
 

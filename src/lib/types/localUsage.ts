@@ -150,7 +150,7 @@ export type LocalUsageAggregateReport = {
   generatedAt: string;
   /** Only CLIs whose store was detected AND scanned appear here. */
   totals: Partial<Record<LocalUsageCliId, LocalUsageTotals>>;
-  /** CLIs that were registered but produced nothing, and why. */
+  /** CLIs whose reader could not be created, detected, or scanned, and why. */
   failures: LocalUsageReaderFailure[];
   /** CLIs with no local store on this machine — absent, not failed. */
   notInstalled: LocalUsageCliId[];
@@ -192,7 +192,7 @@ export type LocalUsageCodexSessionRollup = {
  * called keeps that check small and honest.
  */
 export type LocalUsageSqliteDatabase = {
-  prepare: (sql: string) => { all: () => unknown[] };
+  prepare: (sql: string) => { all: (...params: unknown[]) => unknown[] };
   close: () => void;
 };
 

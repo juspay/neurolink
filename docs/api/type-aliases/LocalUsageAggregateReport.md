@@ -38,7 +38,7 @@ Only CLIs whose store was detected AND scanned appear here.
 
 Defined in: [types/localUsage.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L154)
 
-CLIs that were registered but produced nothing, and why.
+CLIs whose reader could not be created, detected, or scanned, and why.
 
 ---
 

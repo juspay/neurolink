@@ -140,11 +140,29 @@ export async function createOpenCodeReader(): Promise<LocalUsageReader> {
         return { cliId: CLI_ID, totals, filesScanned: 0, errors };
       }
 
-      const sinceDays = options?.sinceDays ?? DEFAULT_SINCE_DAYS;
+      // Only Infinity means "no time filter". A non-positive sinceDays used to
+      // leave the cutoff undefined and read EVERYTHING — measured at 17,534
+      // files and 35.9s for `sinceDays: 0`, which is the widest possible scan
+      // in answer to the narrowest possible request. Zero now means a
+      // zero-length window, which is what it reads as.
+      // NaN is not a window, and it is the case the previous fix missed:
+      // Math.max(0, NaN) is NaN, every comparison against NaN is false, so the
+      // filter passes EVERY file. Measured: sinceDays NaN read 17,537 files in
+      // 32.8s — the same unbounded sweep this guard exists to prevent, reached
+      // by a different door. The old guard caught it with Number.isFinite and
+      // the replacement dropped that check.
+      //
+      // On this reader NaN was worse than an unbounded scan: the value went
+      // into the SQL text, and SQLite parses a bare NaN as an identifier —
+      // "no such column: NaN" — so the whole scan failed rather than
+      // over-reading. The cutoff is a bound parameter now, so a value can
+      // never be SQL syntax whatever it is.
+      const requestedDays = options?.sinceDays ?? DEFAULT_SINCE_DAYS;
+      const sinceDays = Number.isNaN(requestedDays) ? 0 : requestedDays;
       const cutoffMs =
-        Number.isFinite(sinceDays) && sinceDays > 0
-          ? Date.now() - sinceDays * 86_400_000
-          : 0;
+        sinceDays === Infinity
+          ? 0
+          : Date.now() - Math.max(0, sinceDays) * 86_400_000;
 
       let db: LocalUsageSqliteDatabase | undefined;
       try {
@@ -153,9 +171,13 @@ export async function createOpenCodeReader(): Promise<LocalUsageReader> {
         // Filtered in SQL rather than in JS. `time_created` is epoch ms, and
         // the table holds thousands of rows whose `data` blobs are large — the
         // point of the time window is not reading them at all.
+        // Bound parameter, not interpolation. A number spliced into SQL text
+        // is still SQL text: NaN parsed as an identifier and failed the whole
+        // scan with "no such column: NaN". A bound value cannot become syntax
+        // whatever it holds.
         const rows = db
-          .prepare(`SELECT data FROM message WHERE time_created >= ${cutoffMs}`)
-          .all() as Array<{ data?: string }>;
+          .prepare("SELECT data FROM message WHERE time_created >= ?")
+          .all(cutoffMs) as Array<{ data?: string }>;
 
         for (const row of rows) {
           if (typeof row.data !== "string") {
