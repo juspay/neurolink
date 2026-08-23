@@ -18,6 +18,19 @@ import type { AllowedCommand } from "../../lib/types/index.js";
 /**
  * Factory for creating Ollama CLI commands using the Factory Pattern
  */
+/** See the note on the identically-named constant in cli/utils/ollamaUtils.ts. */
+const OLLAMA_QUERY_TIMEOUT_MS = 15_000;
+
+/**
+ * Explicit opt-out from the query bound, for commands that are long by design.
+ *
+ * `spawnSync` treats 0 as "no timeout" (verified: a 3s child under
+ * `timeout: 0` runs to completion with no error, while `timeout: 1000` returns
+ * at 1.0s with ETIMEDOUT). Named rather than written as a bare 0 at the call
+ * site, because `timeout: 0` reads like "expire immediately".
+ */
+const OLLAMA_NO_TIMEOUT = 0;
+
 export class OllamaCommandFactory {
   /**
    * Secure wrapper around spawnSync to prevent command injection.
@@ -29,6 +42,12 @@ export class OllamaCommandFactory {
   ): SpawnSyncReturns<string> {
     // Command validation is now handled by TypeScript with AllowedCommand type
     const defaultOptions: SpawnSyncOptionsWithStringEncoding = {
+      // spawnSync blocks the event loop, so an unresponsive daemon hangs the
+      // whole CLI with no output and no error. SIGKILL because spawnSync's
+      // timeout otherwise sends SIGTERM and keeps waiting. Callers with
+      // legitimately long commands override via `options`.
+      timeout: OLLAMA_QUERY_TIMEOUT_MS,
+      killSignal: "SIGKILL",
       ...options,
       encoding: "utf8", // Always enforce utf8 encoding
     };
@@ -37,6 +56,17 @@ export class OllamaCommandFactory {
 
   /**
    * Create the Ollama command group
+   */
+  /**
+   * Every handler is registered `.bind(this)`.
+   *
+   * yargs invokes the handler as a plain function, so a bare `this.xHandler`
+   * reference arrives with `this` unset and the first `this.safeSpawn(...)`
+   * throws `TypeError: this.safeSpawn is not a function`. That made EVERY
+   * subcommand here fail on its first line — list-models, pull, remove, status
+   * and stop all reported their generic "Failed to ..." message regardless of
+   * whether Ollama was installed or running, which is exactly why the real
+   * cause stayed hidden.
    */
   public static createOllamaCommands(): CommandModule {
     return {
@@ -48,7 +78,7 @@ export class OllamaCommandFactory {
             "list-models",
             "List installed Ollama models",
             {},
-            this.listModelsHandler,
+            this.listModelsHandler.bind(this),
           )
           .command(
             "pull <model>",
@@ -60,7 +90,7 @@ export class OllamaCommandFactory {
                 demandOption: true,
               },
             },
-            this.pullModelHandler,
+            this.pullModelHandler.bind(this),
           )
           .command(
             "remove <model>",
@@ -72,17 +102,32 @@ export class OllamaCommandFactory {
                 demandOption: true,
               },
             },
-            this.removeModelHandler,
+            this.removeModelHandler.bind(this),
           )
           .command(
             "status",
             "Check Ollama service status",
             {},
-            this.statusHandler,
+            this.statusHandler.bind(this),
           )
-          .command("start", "Start Ollama service", {}, this.startHandler)
-          .command("stop", "Stop Ollama service", {}, this.stopHandler)
-          .command("setup", "Interactive Ollama setup", {}, this.setupHandler)
+          .command(
+            "start",
+            "Start Ollama service",
+            {},
+            this.startHandler.bind(this),
+          )
+          .command(
+            "stop",
+            "Stop Ollama service",
+            {},
+            this.stopHandler.bind(this),
+          )
+          .command(
+            "setup",
+            "Interactive Ollama setup",
+            {},
+            this.setupHandler.bind(this),
+          )
           .demandCommand(1, "Please specify a command");
       },
       handler: () => {}, // No-op handler as subcommands handle everything
@@ -131,8 +176,16 @@ export class OllamaCommandFactory {
     logger.always(chalk.gray("This may take several minutes..."));
 
     try {
+      // A model pull is hundreds of megabytes and legitimately runs for many
+      // minutes, so it MUST opt out of safeSpawn's default query bound.
+      // Passing only `stdio` here is what made the first revision of this
+      // change kill downloads at 15s: the wrapper spreads `options` over its
+      // defaults, so an unmentioned `timeout` keeps the default rather than
+      // being absent. It inherits stdio, so the user sees progress and can
+      // interrupt it — the two things a wedged query lacks.
       const res = this.safeSpawn("ollama", ["pull", model], {
         stdio: "inherit",
+        timeout: OLLAMA_NO_TIMEOUT,
       });
       if (res.error || res.status !== 0) {
         throw res.error || new Error("pull failed");
@@ -276,21 +329,41 @@ export class OllamaCommandFactory {
   private static async stopHandler() {
     const spinner = ora("Stopping Ollama service...").start();
 
+    // `safeSpawn` RETURNS a result; it does not throw on a failed command. So
+    // the try/catch fallbacks that used to sit here never fired — `killall`
+    // and the pkill fallback were unreachable, and the handler reported
+    // "stopped" whatever happened. Bounding these calls made that worse rather
+    // than better: a timeout now yields `error: ETIMEDOUT` with `status: null`,
+    // which is still not a throw, so a wedged kill would be reported as a
+    // successful stop while Ollama stayed up.
+    //
+    // Branch on the result instead, which both restores the fallback and makes
+    // the success message conditional on something actually succeeding.
+    const ok = (r: SpawnSyncReturns<string>): boolean =>
+      !r.error && r.status === 0;
+
     try {
+      let stopped: boolean;
       if (process.platform === "darwin") {
-        try {
-          this.safeSpawn("pkill", ["ollama"]);
-        } catch {
-          this.safeSpawn("killall", ["Ollama"]);
-        }
+        stopped =
+          ok(this.safeSpawn("pkill", ["ollama"])) ||
+          ok(this.safeSpawn("killall", ["Ollama"]));
       } else if (process.platform === "linux") {
-        try {
-          this.safeSpawn("systemctl", ["stop", "ollama"]);
-        } catch {
-          this.safeSpawn("pkill", ["ollama"]);
-        }
+        stopped =
+          ok(this.safeSpawn("systemctl", ["stop", "ollama"])) ||
+          ok(this.safeSpawn("pkill", ["ollama"]));
       } else {
-        this.safeSpawn("taskkill", ["/F", "/IM", "ollama.exe"]);
+        stopped = ok(this.safeSpawn("taskkill", ["/F", "/IM", "ollama.exe"]));
+      }
+
+      if (!stopped) {
+        spinner.fail("Could not confirm Ollama service stopped");
+        logger.error(
+          chalk.red(
+            "No stop command succeeded — it may not have been running, or it may still be up. Check with: ollama list",
+          ),
+        );
+        return;
       }
 
       spinner.succeed("Ollama service stopped");
