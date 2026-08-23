@@ -993,6 +993,68 @@ async function runAllTests(): Promise<void> {
     );
   });
 
+  await test("a non-positive sinceDays is an empty window, not a full sweep", async () => {
+    // The guard used to be `sinceDays > 0`, which left the cutoff undefined
+    // for 0 and for negatives and read every transcript on the machine.
+    // Measured on release before the fix: sinceDays 0 scanned 17,534 files in
+    // 35.9s — the widest possible scan in answer to the narrowest possible
+    // request, and on a 9.7 GB store that is not a harmless surprise.
+    //
+    // Infinity is the only full-sweep signal now. The CLI's `--since 0`
+    // still means all history, because the command translates it to Infinity
+    // before it reaches a reader — that is a CLI convention, not a reader
+    // one, and the two no longer have to agree by accident.
+    const home = writeFixtureHome([
+      assistantLine("msg_W", "claude-sonnet-4-5", {
+        input_tokens: 5,
+        output_tokens: 9,
+      }),
+    ]);
+    try {
+      const [zero, negative, notANumber, negInfinite, infinite] =
+        await withHome(home, async () => [
+          await readAllLocalUsage({ sinceDays: 0 }),
+          await readAllLocalUsage({ sinceDays: -5 }),
+          // NaN is the case the first version of this fix missed:
+          // Math.max(0, NaN) is NaN and every comparison against NaN is false,
+          // so the filter passed every file — 17,537 of them, measured. The
+          // guard it replaced caught this with Number.isFinite.
+          await readAllLocalUsage({ sinceDays: NaN }),
+          await readAllLocalUsage({ sinceDays: -Infinity }),
+          await readAllLocalUsage({ sinceDays: Infinity }),
+        ]);
+
+      assert(
+        (zero.totals["claude-code"]?.requests ?? 0) === 0,
+        `sinceDays 0 read transcripts — got ${zero.totals["claude-code"]?.requests} turns instead of 0`,
+      );
+      assert(
+        (negative.totals["claude-code"]?.requests ?? 0) === 0,
+        `a negative sinceDays read transcripts — got ${negative.totals["claude-code"]?.requests} turns instead of 0`,
+      );
+      assert(
+        (notANumber.totals["claude-code"]?.requests ?? 0) === 0,
+        "a NaN sinceDays read transcripts instead of nothing",
+      );
+      assert(
+        (negInfinite.totals["claude-code"]?.requests ?? 0) === 0,
+        "a -Infinity sinceDays read transcripts instead of nothing",
+      );
+      // The control: without this, a reader that simply returned nothing for
+      // every window would pass every assertion above.
+      assert(
+        (infinite.totals["claude-code"]?.requests ?? 0) === 1,
+        `Infinity stopped being a full sweep — expected 1 turn, got ${infinite.totals["claude-code"]?.requests}`,
+      );
+      log(
+        "a non-positive window reads nothing; Infinity still reads everything",
+        "green",
+      );
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   await test("repeated scans of the same data agree", async () => {
     // The reader keeps a per-file dedup map. If any of it leaked across calls,
     // a second scan of identical input would drift.

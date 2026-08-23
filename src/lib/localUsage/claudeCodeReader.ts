@@ -219,11 +219,23 @@ export async function createClaudeCodeReader(): Promise<LocalUsageReader> {
       const files: string[] = [];
       await collectTranscripts(projectsRoot(), files);
 
-      const sinceDays = options?.sinceDays ?? DEFAULT_SINCE_DAYS;
+      // Only Infinity means "no time filter". A non-positive sinceDays used to
+      // leave the cutoff undefined and read EVERYTHING — measured at 17,534
+      // files and 35.9s for `sinceDays: 0`, which is the widest possible scan
+      // in answer to the narrowest possible request. Zero now means a
+      // zero-length window, which is what it reads as.
+      // NaN is not a window, and it is the case the previous fix missed:
+      // Math.max(0, NaN) is NaN, every comparison against NaN is false, so the
+      // filter passes EVERY file. Measured: sinceDays NaN read 17,537 files in
+      // 32.8s — the same unbounded sweep this guard exists to prevent, reached
+      // by a different door. The old guard caught it with Number.isFinite and
+      // the replacement dropped that check.
+      const requestedDays = options?.sinceDays ?? DEFAULT_SINCE_DAYS;
+      const sinceDays = Number.isNaN(requestedDays) ? 0 : requestedDays;
       const cutoff =
-        Number.isFinite(sinceDays) && sinceDays > 0
-          ? Date.now() - sinceDays * 86_400_000
-          : undefined;
+        sinceDays === Infinity
+          ? undefined
+          : Date.now() - Math.max(0, sinceDays) * 86_400_000;
 
       let filesScanned = 0;
       for (const file of files) {
