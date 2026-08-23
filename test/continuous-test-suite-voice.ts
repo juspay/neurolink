@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
+import { withCaseTimeout, isCaseTimeout } from "./helpers/harness.js";
 
 /**
  * Continuous Test Suite: Voice / Speech Integration
@@ -2198,12 +2199,25 @@ async function runAllTests(): Promise<void> {
   for (const test of tests) {
     logSection(test.name);
     try {
-      const result = await test.fn();
+      const result = await withCaseTimeout(test.name, test.fn);
       testResults.push({ name: test.name, result, error: null });
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       logTest(test.name, "FAIL", `Uncaught: ${msg}`);
       testResults.push({ name: test.name, result: false, error: msg });
+
+      // A case bound is not an ordinary failure: Promise.race cannot cancel, so
+      // the abandoned case is still running. Continuing would run the loop's
+      // cleanup and inter-case delay underneath live work, and record every
+      // remaining case as "not run". Stop at the first one.
+      if (isCaseTimeout(error)) {
+        log(
+          `\n\u{1F6D1} ABORTING: "${test.name}" was abandoned by its timeout and is still executing. ` +
+            `Remaining cases are NOT run — this process no longer has clean state.`,
+          "red",
+        );
+        break;
+      }
     }
     await globalCleanup();
     await new Promise((r) => setTimeout(r, TEST_CONFIG.interTestDelay));

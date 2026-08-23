@@ -129,6 +129,8 @@ import {
   log as harnessLog,
   logSection,
   type ColorName,
+  withCaseTimeout,
+  isCaseTimeout,
 } from "./helpers/harness.js";
 import { isExpectedProviderError } from "./helpers/envGuard.js";
 
@@ -1282,7 +1284,7 @@ async function group1_sdkPath(): Promise<void> {
       continue;
     }
     try {
-      const result = await test.fn();
+      const result = await withCaseTimeout(test.name, test.fn);
       if (result === null) {
         recordTest(`SDK Path — ${test.name}`, false, true, "skip from test fn");
         if (PREREQUISITE_NAMES.has(test.name)) {
@@ -1305,6 +1307,19 @@ async function group1_sdkPath(): Promise<void> {
       recordTest(`SDK Path — ${test.name}`, false, false, `Uncaught: ${msg}`);
       if (PREREQUISITE_NAMES.has(test.name)) {
         prerequisiteFailed = true;
+      }
+
+      // A case bound is not an ordinary failure: Promise.race cannot cancel, so
+      // the abandoned case is still running. Continuing would run the loop's
+      // cleanup and inter-case delay underneath live work, and record every
+      // remaining case as "not run". Stop at the first one.
+      if (isCaseTimeout(error)) {
+        log(
+          `\n\u{1F6D1} ABORTING: "${test.name}" was abandoned by its timeout and is still executing. ` +
+            `Remaining cases are NOT run — this process no longer has clean state.`,
+          "red",
+        );
+        break;
       }
     }
   }
@@ -1583,7 +1598,7 @@ async function group2_taskManagerPath(): Promise<void> {
       continue;
     }
     try {
-      const result = await test.fn();
+      const result = await withCaseTimeout(test.name, test.fn);
       if (result === null) {
         recordTest(
           `TaskManager Path — ${test.name}`,

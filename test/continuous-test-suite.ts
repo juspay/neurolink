@@ -207,7 +207,65 @@ import {
   defineSuite,
   log,
   logSection as harnessLogSection,
+  isCaseTimeout,
+  withCaseTimeout,
 } from "./helpers/harness.js";
+
+/**
+ * 600s rather than the shared 240s default.
+ *
+ * This file is the orchestrator: its cases are end-to-end journeys against live
+ * providers — several models, tool round-trips and file processing inside a
+ * single case — where the shared default is a plausible honest duration rather
+ * than a hang. Firing there would be a false positive, and a false positive
+ * here is unusually expensive: the bound is fail-closed, so one wrong timeout
+ * turns every later case into "not run" and the run reports nothing usable.
+ *
+ * A case that needs longer than ten minutes is a hang worth failing on, which
+ * is the line this number is meant to draw.
+ *
+ * This number is measured, not guessed. Three runs of the same commit:
+ *
+ *   240s  ->  21 passed / 14 failed
+ *   600s  ->  35 passed /  0 failed / 2 skipped, no timeout trace at all
+ *   240s  ->  23 passed / 12 failed, and the reason, in the log:
+ *
+ *     Model Alias Redirect exceeded 240000ms and was aborted
+ *     not run — "Model Alias Redirect" was abandoned by its timeout ...   (x18)
+ *
+ * So in-suite that case takes between 240s and 600s, and at 240s it does not
+ * merely fail itself — it fail-closes the 18 cases behind it. That is the bound
+ * working as designed (never publish results from a process with dirty state),
+ * and it is why the orchestrator's number cannot be the shared one: here a
+ * single false positive costs half the suite.
+ *
+ * Do NOT read that as "the case is slow" — it is INTERMITTENT, which is the
+ * whole reason this bound has to be generous. Measured four ways:
+ *
+ *   standalone, three runs          6.2s / 6.3s / 6.9s
+ *   in-suite, profiled run          5.1s
+ *   in-suite, two other runs        >240s (aborted by the bound)
+ *
+ * So the same call is normally ~5-7s in this very suite and occasionally hangs
+ * past four minutes. Ruled out as causes: provider throttling (no 429s; the 36
+ * "rate limit" strings in the log are this suite's own "waiting 10s" notice),
+ * undisposed per-case NeuroLink instances (six retained instances changed it by
+ * 1.01x), and handle leakage (active handles plateau at 14-16 and do not grow).
+ * The remaining candidate is a provider-side stall on an individual request,
+ * which no bound can prevent and only a generous one can survive.
+ *
+ * And it is NOT specific to this case, so do not go optimising it by name.
+ * Across four runs the stall landed on a different case each time — Model Alias
+ * Redirect twice, and once on "SDK Mimetype Hint — extension-less Buffer",
+ * which sat 180s inside its own spawned subprocess and passed cleanly in the
+ * run before. Roughly one stall per run over ~37 live calls, with the same call
+ * completing in 2-6s when re-run alone. Treat a single slow case here as a
+ * sample of that, not as a property of the case.
+ *
+ * That is what this number buys: a rare stall fails one case instead of
+ * aborting the run. It is not a claim that ten minutes is reasonable work.
+ */
+const ORCHESTRATOR_CASE_TIMEOUT_MS = 600_000;
 const { recordTest, runSuite } = defineSuite("Continuous Test Suite (root)");
 
 // `ColorName` is imported elsewhere in this file from `./types/mcp.js`;
@@ -4916,6 +4974,8 @@ async function runAllTests(): Promise<void> {
     },
   ];
 
+  let suiteAborted = false;
+
   for (const test of tests) {
     try {
       // Check if this test should be skipped (e.g., streaming tests for gpt-5/o3)
@@ -4940,7 +5000,11 @@ async function runAllTests(): Promise<void> {
         log("✅ Cleanup complete, starting SDK Stream test\n", "cyan");
       }
 
-      const result = await test.fn();
+      const result = await withCaseTimeout(
+        test.name,
+        test.fn,
+        ORCHESTRATOR_CASE_TIMEOUT_MS,
+      );
       recordTest(
         test.name,
         result === true,
@@ -4951,6 +5015,23 @@ async function runAllTests(): Promise<void> {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       recordTest(test.name, false, false, errorMessage);
+
+      // A case bound is not an ordinary failure: the abandoned case is STILL
+      // RUNNING, because Promise.race cannot cancel it. Carrying on would run
+      // globalCleanup() and dispose shared resources underneath live work, and
+      // would burn the inter-test delay once per remaining case to report each
+      // as "not run" — 18 of those, and three minutes of waiting, in the run
+      // that motivated this. Stop at the first one instead.
+      if (isCaseTimeout(error)) {
+        suiteAborted = true;
+        log(
+          `\n🛑 ABORTING: "${test.name}" was abandoned by its ${ORCHESTRATOR_CASE_TIMEOUT_MS / 1000}s bound and is still executing.` +
+            `\n   Remaining cases are NOT run and shared resources are NOT disposed —` +
+            `\n   this process no longer has clean state, so any further result would be a guess.`,
+          "red",
+        );
+        break;
+      }
     }
 
     // Global cleanup after each test to prevent resource contamination
@@ -4976,7 +5057,19 @@ async function runAllTests(): Promise<void> {
     }
   }
 
-  // Cleanup shared SDK instance
+  // Cleanup shared SDK instance.
+  //
+  // Skipped after an abort: the abandoned case may still be mid-generate on
+  // this very instance, and disposing it underneath would turn one clear
+  // timeout into a second, unrelated-looking failure. The process is exiting
+  // regardless, so leaking it here is the cheaper of the two.
+  if (suiteAborted) {
+    log(
+      "\n[CLEANUP] Shared SDK NOT disposed — a case is still running on it",
+      "yellow",
+    );
+    return;
+  }
   try {
     await sharedSdk.dispose();
     log("\n[CLEANUP] Shared SDK instance disposed", "cyan");

@@ -378,6 +378,139 @@ export type SuiteHandle = {
   runSuite: (body?: () => Promise<void> | void) => Promise<void>;
 };
 
+/**
+ * Default bound for a single case in a suite that runs its own loop.
+ *
+ * Matches `defineSuite`'s per-test default so the two paths cannot drift.
+ */
+export const CASE_TIMEOUT_MS = 240_000;
+
+/**
+ * Thrown by `withCaseTimeout` when a case exceeds its bound.
+ *
+ * Distinguishable on purpose. A timed-out case is still RUNNING — see the note
+ * on `withCaseTimeout` — so anything it holds globally is still held, and every
+ * result after it is suspect. A runner that can tell this error apart can stop
+ * rather than publish results it cannot stand behind.
+ */
+export class CaseTimeoutError extends Error {
+  readonly caseName: string;
+  constructor(caseName: string, timeoutMs: number) {
+    super(
+      `${caseName} exceeded ${timeoutMs}ms and was aborted — treat as a hang, not slowness`,
+    );
+    this.name = "CaseTimeoutError";
+    this.caseName = caseName;
+  }
+}
+
+/** Whether an error came from a case bound rather than the case itself. */
+export function isCaseTimeout(error: unknown): error is CaseTimeoutError {
+  return error instanceof CaseTimeoutError;
+}
+
+let abandonedCase: string | undefined;
+
+/** The case that was abandoned by its bound, if any. */
+export function getAbandonedCase(): string | undefined {
+  return abandonedCase;
+}
+
+/** Reset between independent runs in one process (used by self-tests). */
+export function resetAbandonedCase(): void {
+  abandonedCase = undefined;
+}
+
+/**
+ * Bound one case from a suite that iterates its own `tests[]` array.
+ *
+ * `defineSuite`'s per-test timeout lives in the `test(name, fn)` helper it
+ * hands back. A suite that instead keeps its own array and loops
+ * `await test.fn()` never touches that helper, so its cases are UNBOUNDED —
+ * `runSuite(body)` only awaits the body, it adds no timeout of its own. One
+ * hung case then hangs the whole run until the CI job is killed, and the
+ * report says nothing about which case it was.
+ *
+ * Rejects rather than resolving, so the suite's existing catch records a
+ * failure for the named case. The message deliberately says "hang, not
+ * slowness": a case that legitimately needs longer than this should be given
+ * its own bound, not have this one raised.
+ *
+ * WHAT THIS CANNOT BOUND, because assuming otherwise is worse than having no
+ * bound at all: anything that blocks the event loop. This is `Promise.race`,
+ * so the timer only fires when the loop is free to run it. A case that calls
+ * `spawnSync`, `execSync`, `readFileSync` on a slow device, or any other
+ * synchronous blocking call is NOT protected — the rejection cannot be
+ * delivered until the blocking call returns, and if it never returns, never.
+ * Measured: a 300ms bound around a 3s `spawnSync` returned at 3025ms without
+ * firing.
+ *
+ * The corollary matters more than the caveat. `spawnSync`'s own `timeout`
+ * option is not a guarantee either: it sends `killSignal` (SIGTERM by default)
+ * and keeps waiting, so a child that ignores SIGTERM hangs it forever. Every
+ * `spawnSync` in a suite therefore needs `killSignal: "SIGKILL"` to be
+ * bounded at all — this helper cannot supply that for you.
+ *
+ * `Promise.race` also does not CANCEL the losing promise. A case abandoned
+ * here keeps running, so its `finally` has not executed: anything it mutated
+ * globally is still mutated while later cases run. A case that patches a
+ * global should scope the patch as narrowly as it can, precisely so that
+ * window is harmless.
+ *
+ * `fn` returns `Promise<T> | T`, not `Promise<T>`, so that a suite whose case
+ * type is the harness's own `TestFn` (`() => Promise<void> | void`) can be
+ * bounded. The narrower signature rejected those at compile time — which is
+ * safe, but it quietly left such suites unbounded, since the only way to keep
+ * them compiling was not to wrap them. `continuous-test-suite-auth.ts` was
+ * exactly that case.
+ *
+ * A synchronous `fn` is not a hazard here: `Promise.race` coerces a non-promise
+ * to an immediately-resolved one, so a sync case simply wins its own race. It
+ * also cannot hang except by blocking the event loop, which this helper already
+ * documents as beyond what it can bound.
+ */
+export async function withCaseTimeout<T>(
+  name: string,
+  fn: () => Promise<T> | T,
+  timeoutMs: number = CASE_TIMEOUT_MS,
+): Promise<T> {
+  // Once a case has been abandoned, do not START another one.
+  //
+  // `Promise.race` cannot cancel: the abandoned case is still running and still
+  // holds whatever it mutated — a patched global, an open server, a temp dir it
+  // has not cleaned. Every later case then runs in a process it does not own,
+  // and its PASS or FAIL means nothing. This was not theoretical: one hang in
+  // continuous-test-suite-bugfixes produced a second, unrelated CI failure 176
+  // lines further down the same file.
+  //
+  // Refusing loudly is the only honest option. Reporting the rest as skips
+  // would be the false green this whole change exists to remove, and running
+  // them anyway publishes results that cannot be stood behind.
+  if (abandonedCase !== undefined) {
+    throw new Error(
+      `not run — "${abandonedCase}" was abandoned by its timeout and is still ` +
+        `executing, so this process no longer has clean state. Fix that case; ` +
+        `results after it cannot be trusted.`,
+    );
+  }
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      fn(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          abandonedCase = name;
+          reject(new CaseTimeoutError(name, timeoutMs));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export function defineSuite(
   name: string,
   defs: DefineSuiteOpts = {},

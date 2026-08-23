@@ -36,6 +36,7 @@ import {
   log,
   logSection as section,
   isExpectedProviderError as harnessIsExpectedError,
+  withCaseTimeout,
 } from "./helpers/harness.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -58,7 +59,7 @@ async function test(
   fn: () => Promise<boolean | null>,
 ): Promise<void> {
   try {
-    const result = await fn();
+    const result = await withCaseTimeout(name, fn);
     if (result === null) {
       recordTest(name, false, true, "skipped");
     } else {

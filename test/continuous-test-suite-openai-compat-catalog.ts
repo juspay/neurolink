@@ -1,6 +1,8 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 
+import { withCaseTimeout } from "./helpers/harness.js";
+
 /**
  * OpenAI-Compat Catalog — E2E contract + regression suite.
  *
@@ -181,7 +183,7 @@ function newNL(): InstanceType<typeof NeuroLink> {
 
 async function runCase(name: string, fn: () => Promise<void>): Promise<void> {
   try {
-    await fn();
+    await withCaseTimeout(name, fn);
     record(results, name, true);
   } catch (err) {
     record(
