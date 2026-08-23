@@ -1310,6 +1310,8 @@ console.log(result.content);
 - [LocalUsageCodexSessionRollup](type-aliases/LocalUsageCodexSessionRollup.md)
 - [LocalUsageSqliteDatabase](type-aliases/LocalUsageSqliteDatabase.md)
 - [LocalUsageSqliteDatabaseCtor](type-aliases/LocalUsageSqliteDatabaseCtor.md)
+- [LocalUsageCommandArgs](type-aliases/LocalUsageCommandArgs.md)
+- [LocalUsageAggregateOptions](type-aliases/LocalUsageAggregateOptions.md)
 - [AgenticLoopChunk](type-aliases/AgenticLoopChunk.md)
 - [AgenticLoopToolCall](type-aliases/AgenticLoopToolCall.md)
 - [AgenticLoopUsage](type-aliases/AgenticLoopUsage.md)

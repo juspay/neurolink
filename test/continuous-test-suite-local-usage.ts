@@ -23,6 +23,7 @@
  *      shapes a fixture author thought of.
  */
 
+import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
@@ -246,6 +247,35 @@ function openCodeMessage(tokens: {
         tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite,
       cache: { read: tokens.cacheRead, write: tokens.cacheWrite },
     },
+  };
+}
+
+/**
+ * Run the built CLI as a subprocess.
+ *
+ * SIGKILL rather than the default SIGTERM: spawnSync's `timeout` sends
+ * killSignal and then keeps waiting, so a child that ignores SIGTERM hangs it
+ * forever — and because spawnSync blocks the event loop, no Promise.race bound
+ * can fire to rescue it.
+ */
+function runCli(
+  args: string[],
+  env?: Record<string, string>,
+): { status: number | null; stdout: string; stderr: string } {
+  const result = spawnSync(
+    process.execPath,
+    ["--no-warnings", path.resolve("dist/cli/index.js"), ...args],
+    {
+      encoding: "utf8",
+      timeout: 180_000,
+      killSignal: "SIGKILL",
+      env: { ...process.env, ...(env ?? {}) },
+    },
+  );
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
   };
 }
 
@@ -816,6 +846,152 @@ async function runAllTests(): Promise<void> {
     );
     log(
       `real OpenCode scan: ${all.totals.requests} turns, models ${all.totals.unpricedModels.slice(0, 3).join(", ")}`,
+      "green",
+    );
+  });
+
+  await test("CLI: `usage local --json` reports the same shape as the SDK", async () => {
+    // The CLI is the surface most people will actually use, and it is a
+    // separate process from the SDK path every other case here drives — a
+    // registry that failed to load, or an export that did not survive the
+    // build, would show up here and nowhere else.
+    //
+    // Driven against a FIXTURE home, not this machine's. A clean CI worker has
+    // no CLI stores at all, and the first version of this case asserted that
+    // at least one CLI reported usage — which passes on a developer laptop and
+    // fails on the runner. Verified by pointing it at an empty HOME: totals is
+    // {} and every reader lands in notInstalled.
+    const home = writeFixtureHome([
+      assistantLine("msg_CLI", "claude-sonnet-4-5", {
+        input_tokens: 12,
+        output_tokens: 34,
+      }),
+    ]);
+    try {
+      const run = runCli(["usage", "local", "--since", "0", "--json"], {
+        HOME: home,
+        USERPROFILE: home,
+      });
+      assert(run.status === 0, "usage local --json did not exit 0");
+      let parsed: {
+        totals?: Record<string, { requests?: number; outputTokens?: number }>;
+        notInstalled?: string[];
+      };
+      try {
+        parsed = JSON.parse(run.stdout);
+      } catch {
+        throw new Error("usage local --json did not emit parseable JSON");
+      }
+      assert(
+        parsed.totals !== undefined,
+        "the CLI's JSON report carried no totals",
+      );
+      const claude = parsed.totals?.["claude-code"];
+      assert(
+        claude !== undefined,
+        "the CLI did not report the fixture store it was pointed at",
+      );
+      assert(
+        claude?.outputTokens === 34,
+        // No recovered value interpolated: the harness classifies a thrown
+        // message with isExpectedProviderError(), so a payload that happens to
+        // read like a provider error turns a real failure into a SKIP. These
+        // particular strings do not match today — measured — but the next
+        // value to land here might, and the check is on the message text, not
+        // on what produced it.
+        "the CLI reported different output totals than the fixture holds",
+      );
+      log(
+        `CLI reported the fixture store: ${Object.keys(parsed.totals ?? {}).join(", ")}`,
+      );
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  await test("CLI: an empty --cli is rejected, not treated as absent", async () => {
+    // `--cli ""` is a mistake, and a truthiness check reads it as "flag not
+    // given" — so the command scanned every reader and reported all usage for
+    // a request that named nothing.
+    const home = writeFixtureHome([
+      assistantLine("msg_E", "claude-sonnet-4-5", {
+        input_tokens: 1,
+        output_tokens: 2,
+      }),
+    ]);
+    try {
+      const run = runCli(["usage", "local", "--cli", "", "--since", "0"], {
+        HOME: home,
+        USERPROFILE: home,
+      });
+      assert(
+        run.status === 1,
+        `an empty --cli exited ${run.status} instead of 1`,
+      );
+      assert(
+        (run.stdout + run.stderr).includes("Unknown CLI"),
+        "an empty --cli was accepted instead of being rejected",
+      );
+      log("an empty --cli value is rejected", "green");
+    } finally {
+      fs.rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  await test("CLI: an unknown --cli fails fast without scanning", async () => {
+    // Validation happens before any store is opened. Getting this wrong is not
+    // a correctness bug but it is a real one: the same typo used to cost a
+    // full 28s sweep of every store before printing the error.
+    const started = Date.now();
+    const run = runCli(["usage", "local", "--cli", "definitely-not-a-cli"]);
+    const elapsedMs = Date.now() - started;
+
+    assert(run.status === 1, `expected exit 1, got ${run.status}`);
+    assert(
+      (run.stderr + run.stdout).includes("Unknown CLI"),
+      "the error did not name the unknown CLI",
+    );
+    // Generous bound: this only has to prove no store was read. A full scan of
+    // this machine's stores takes tens of seconds.
+    assert(
+      elapsedMs < 15_000,
+      "an unknown CLI took long enough that stores were scanned before validating",
+    );
+    log(`unknown --cli rejected in ${elapsedMs}ms without scanning`, "green");
+  });
+
+  await test("CLI: --cli scans only the requested reader", async () => {
+    // `only` must filter which readers are CONSTRUCTED, not which results are
+    // printed. Filtering after the fact gives the same output while reading
+    // every other store — which is what it did first, at 28s for a query that
+    // needs 3.
+    const one = runCli([
+      "usage",
+      "local",
+      "--cli",
+      "codex",
+      "--since",
+      "0",
+      "--json",
+    ]);
+    assert(one.status === 0, "--cli codex did not exit 0");
+    const parsed = JSON.parse(one.stdout) as {
+      totals: Record<string, unknown>;
+      notInstalled?: string[];
+    };
+    const reported = Object.keys(parsed.totals);
+    assert(
+      reported.length <= 1,
+      "--cli codex reported more than one CLI; other readers were still run",
+    );
+    if (reported.length === 1) {
+      assert(
+        reported[0] === "codex",
+        "--cli codex reported a different CLI instead",
+      );
+    }
+    log(
+      "--cli restricts which readers run, not just which rows print",
       "green",
     );
   });

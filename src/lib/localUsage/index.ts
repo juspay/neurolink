@@ -8,10 +8,10 @@
  */
 
 import type {
+  LocalUsageAggregateOptions,
   LocalUsageAggregateReport,
   LocalUsageCliId,
   LocalUsageReaderFailure,
-  LocalUsageScanOptions,
 } from "../types/index.js";
 import {
   createLocalUsageReader,
@@ -33,13 +33,21 @@ export {
  * a broken reader indistinguishable from an absent one.
  */
 export async function readAllLocalUsage(
-  options?: LocalUsageScanOptions,
+  options?: LocalUsageAggregateOptions,
 ): Promise<LocalUsageAggregateReport> {
   const totals: LocalUsageAggregateReport["totals"] = {};
   const failures: LocalUsageReaderFailure[] = [];
   const notInstalled: LocalUsageCliId[] = [];
 
-  for (const cliId of getRegisteredLocalUsageCliIds()) {
+  // Filtered BEFORE construction, not after: `only` decides which stores are
+  // opened at all. Reading all of them and discarding the rest cost 28s for a
+  // single-CLI query that needs 10.
+  const requested = options?.only;
+  const cliIds = requested
+    ? getRegisteredLocalUsageCliIds().filter((id) => requested.includes(id))
+    : getRegisteredLocalUsageCliIds();
+
+  for (const cliId of cliIds) {
     try {
       const reader = await createLocalUsageReader(cliId);
       if (!(await reader.detect())) {

@@ -68,21 +68,6 @@ runQuickTest('pnpm run test:providers', 'Continuous Test Suite');
 console.log('\n💻 TESTING CLI');
 runQuickTest('pnpm cli generate "test" --provider google-ai', 'CLI Generation');
 
-// Check demo files
-console.log('\n🎭 CHECKING DEMO FILES');
-const demoFiles = [
-  'scripts/examples/healthMonitoring-demo.ts',
-  'scripts/examples/dynamic-chain-demo.ts'
-];
-
-demoFiles.forEach(file => {
-  if (existsSync(file)) {
-    log(`Demo available: ${file}`);
-  } else {
-    log(`Demo missing: ${file}`, false);
-  }
-});
-
 // Generate report
 const report = {
   timestamp: TIMESTAMP,
