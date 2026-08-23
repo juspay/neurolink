@@ -347,6 +347,43 @@ type SecurityResults = {
   bestPractices: { status: string; details: unknown[] };
 };
 
+/**
+ * Ceiling for an external scanner subprocess (gitleaks, ripgrep).
+ *
+ * What this catches is a scanner that wedges, which without a bound takes the
+ * entire CI job down silently, since spawnSync blocks the event loop and
+ * produces no output while stuck.
+ *
+ * On the headroom, measured rather than assumed: gitleaks is invoked with
+ * `--no-git` (see gitleaksArgs below), so it scans the working tree and does
+ * NOT walk history — repo age and commit count do not enter into its runtime.
+ * The whole of this script, gitleaks and `pnpm audit` and license checks
+ * together, completes in about 1.4s here. 120s is therefore ~85x the observed
+ * cost of everything, not a tight fit around one scanner.
+ *
+ * It is still overridable, because that headroom is measured on one repository
+ * and a much larger working tree, a cold CI runner fetching the binary, or a
+ * future switch away from `--no-git` could all move it:
+ *
+ *   NEUROLINK_SCANNER_TIMEOUT_MS=300000 pnpm run validate:security
+ *
+ * A non-numeric or non-positive value is ignored in favour of the default,
+ * since a bound of zero would fail every scan instantly and an unbounded one
+ * reintroduces the hang this exists to prevent.
+ */
+const SCANNER_TIMEOUT_DEFAULT_MS = 120_000;
+const SCANNER_TIMEOUT_MS = (() => {
+  const raw = process.env.NEUROLINK_SCANNER_TIMEOUT_MS;
+  if (raw === undefined) {
+    return SCANNER_TIMEOUT_DEFAULT_MS;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0
+    ? parsed
+    : SCANNER_TIMEOUT_DEFAULT_MS;
+})();
+
+
 class SecurityValidator {
   errors: SecurityIssue[];
   warnings: SecurityIssue[];
@@ -644,12 +681,21 @@ class SecurityValidator {
       }
 
       let gitleaksResult: string;
+      let gitleaksScanFailed = false;
+      let gitleaksUnavailable = false;
       try {
         // Use spawnSync for safer command execution without shell interpretation
         const result = spawnSync(gitleaksCommand, gitleaksArgs, {
           encoding: "utf8",
           maxBuffer: 10 * 1024 * 1024,
           cwd: this.projectRoot,
+          // This script gates CI, and spawnSync blocks the event loop: an
+          // external scanner that wedges takes the whole job down with it and
+          // reports nothing. SIGKILL because spawnSync's timeout sends SIGTERM
+          // and then keeps waiting — verified: against a child that ignores
+          // SIGTERM the call never returns at all.
+          timeout: SCANNER_TIMEOUT_MS,
+          killSignal: "SIGKILL",
         });
 
         if (result.error) {
@@ -663,12 +709,39 @@ class SecurityValidator {
         const err = gitleaksError as {
           stderr?: string;
           message?: string;
+          code?: string;
         };
         if (err.stderr) {
           this.log(`Gitleaks stderr: ${err.stderr.toString()}`, "yellow");
         }
         this.log(`Gitleaks error: ${err.message}`, "yellow");
         gitleaksResult = "[]";
+
+        // "[]" means "gitleaks found nothing", and below that becomes
+        // status = "passed". But a scan that was STARTED AND THEN KILLED did
+        // not find nothing — it found nothing *yet*. Adding the bound above
+        // made that case reachable in seconds rather than never, which without
+        // this would have quietly converted a hung security gate into a green
+        // one. Same standard as the pnpm-audit path: a scan with no result
+        // cannot be reported as a clean result.
+        //
+        // Scoped deliberately to the killed case. Gitleaks being ABSENT
+        // (ENOENT) is a different and already-handled situation: this repo
+        // treats it as "fall back to basic detection", CI runners do not all
+        // install it, and promoting that to a hard failure is a policy change
+        // this file has no business making as a side effect of adding a
+        // timeout. An earlier revision of this commit did exactly that and
+        // turned the `test` job red on a repo whose only fault was not having
+        // gitleaks on PATH.
+        gitleaksUnavailable = true;
+        if (err.code === "ETIMEDOUT" || err.code === "ERR_CHILD_KILLED") {
+          gitleaksScanFailed = true;
+          this.addIssue(
+            "error",
+            "secrets",
+            `Gitleaks exceeded ${SCANNER_TIMEOUT_MS / 1000}s and was killed — the secret scan did not complete, so its result cannot be trusted`,
+          );
+        }
         // Do not throw, fallback to empty findings and continue with basic detection
       }
 
@@ -750,6 +823,37 @@ class SecurityValidator {
         }
 
         this.results.secrets.details = findings;
+      } else if (gitleaksScanFailed) {
+        // Empty findings here came from a scan that never completed, not from
+        // a clean tree. Reported as failed so CI cannot go green on it.
+        this.log(
+          "Gitleaks produced no result — not reporting the tree as clean",
+          "red",
+        );
+        this.results.secrets.status = "failed";
+      } else if (gitleaksUnavailable) {
+        // Gitleaks never ran, so "no findings" is an artefact of the empty
+        // "[]" assigned in the catch above, not an observation about the tree.
+        // Reporting "No secrets detected by Gitleaks" here was simply untrue,
+        // and it is what CI has been printing all along, since runners do not
+        // install gitleaks: the professional scan was skipped AND the fallback
+        // the catch below promises was never reached, because that catch only
+        // fires on a throw and the inner one swallows the error.
+        //
+        // Run the fallback that was always intended. Escalating to a hard
+        // failure instead is the other obvious option and it is wrong: absent
+        // tooling is a runner-configuration fact this project already tolerates
+        // by design, and turning it fatal broke the `test` job once already.
+        this.log(
+          "Gitleaks unavailable — running basic pattern detection instead",
+          "yellow",
+        );
+        this.addIssue(
+          "warning",
+          "secrets",
+          "Gitleaks not installed - using basic pattern detection only",
+        );
+        await this.basicSecretDetection();
       } else {
         this.log("No secrets detected by Gitleaks", "green");
         this.results.secrets.status = "passed";
@@ -771,6 +875,12 @@ class SecurityValidator {
   }
 
   async basicSecretDetection(): Promise<void> {
+    // Set when a pattern scan is killed mid-run. The finding count below then
+    // describes an INCOMPLETE sweep, so it must not be allowed to produce a
+    // "passed" status — the run already fails via the recorded error, but the
+    // status field is what a reader trusts.
+    let patternScanKilled = false;
+
     const criticalPatterns: Array<{
       pattern: string;
       type: string;
@@ -822,8 +932,27 @@ class SecurityValidator {
             {
               encoding: "utf8",
               maxBuffer: 5 * 1024 * 1024,
+              timeout: SCANNER_TIMEOUT_MS,
+              killSignal: "SIGKILL",
             },
           );
+          // rg exits 1 on "no matches", which is a real result. A spawn
+          // failure or a timeout is not — it produces empty stdout that is
+          // indistinguishable from "clean" unless the error is inspected.
+          // Only a killed scan is escalated, for the same reason as the
+          // gitleaks path above: `rg` being absent is a runner-configuration
+          // fact this file already tolerates, while a scan that started and
+          // was killed leaves a pattern genuinely unchecked behind empty
+          // output that is indistinguishable from "no matches".
+          const rgErr = result.error as NodeJS.ErrnoException | undefined;
+          if (rgErr?.code === "ETIMEDOUT" || rgErr?.code === "ERR_CHILD_KILLED") {
+            patternScanKilled = true;
+            this.addIssue(
+              "error",
+              "secrets",
+              `Pattern scan exceeded ${SCANNER_TIMEOUT_MS / 1000}s for /${pattern}/ and was killed — that pattern was not checked`,
+            );
+          }
           output = result.stdout || "";
         } catch (_err: unknown) {
           // If rg returns non-zero (no matches), output remains empty
@@ -888,10 +1017,31 @@ class SecurityValidator {
         "secrets",
         "Install official gitleaks for enhanced detection: https://github.com/gitleaks/gitleaks",
       );
-      this.results.secrets.status =
-        totalFindings > 0 ? "warning" : "passed";
+      this.results.secrets.status = patternScanKilled
+        ? "failed"
+        : totalFindings > 0
+          ? "warning"
+          : "passed";
+    } else if (patternScanKilled) {
+      this.log(
+        "A pattern scan was killed — not reporting the tree as clean",
+        "red",
+      );
+      this.results.secrets.status = "failed";
     } else {
-      this.log("No critical secrets detected (basic scan)", "green");
+      // Wording matters here, not just tone. build-validations.ts decides
+      // whether this script failed by SUBSTRING-MATCHING its stdout for
+      // "critical secrets" — so the obvious phrasing, "No critical secrets
+      // detected", makes the parent report a critical-secret failure on a
+      // clean scan. That stayed hidden while this line was unreachable in CI
+      // (gitleaks absent meant the fallback never ran at all); routing the
+      // fallback correctly is what surfaced it, as a red `test` job on a repo
+      // with no secrets in it.
+      //
+      // Phrased to avoid the matched substring entirely. The parent's
+      // log-scraping is the real fragility and is filed separately; this line
+      // must not depend on that being fixed first.
+      this.log("Basic scan found no matching secret patterns", "green");
       this.results.secrets.status = "passed";
     }
   }

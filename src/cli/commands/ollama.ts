@@ -54,10 +54,17 @@ export function addOllamaCommands(cli: Argv) {
   );
 }
 
+/** See the note on the identically-named constant in ../utils/ollamaUtils.ts. */
+const OLLAMA_QUERY_TIMEOUT_MS = 15_000;
+
 async function listModelsHandler() {
   const spinner = ora("Fetching installed models...").start();
   try {
-    const res = spawnSync("ollama", ["list"], { encoding: "utf8" });
+    const res = spawnSync("ollama", ["list"], {
+      encoding: "utf8",
+      timeout: OLLAMA_QUERY_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
     if (res.error) {
       throw res.error;
     }
@@ -88,6 +95,9 @@ async function pullModelHandler(argv: { model: string }) {
   logger.always(chalk.gray("This may take several minutes..."));
 
   try {
+    // Deliberately unbounded: a model pull is hundreds of megabytes and
+    // legitimately runs for many minutes. It also inherits stdio, so the user
+    // sees progress and can Ctrl-C — the two things a wedged query lacks.
     const res = spawnSync("ollama", ["pull", model], { stdio: "inherit" });
     if (res.error) {
       throw res.error;
@@ -129,7 +139,11 @@ async function removeModelHandler(argv: { model: string }) {
 
   const spinner = ora(`Removing model ${model}...`).start();
   try {
-    const res = spawnSync("ollama", ["rm", model], { encoding: "utf8" });
+    const res = spawnSync("ollama", ["rm", model], {
+      encoding: "utf8",
+      timeout: OLLAMA_QUERY_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
     if (res.error) {
       throw res.error;
     }
@@ -151,7 +165,11 @@ async function statusHandler() {
   const spinner = ora("Checking Ollama service status...").start();
 
   try {
-    const res = spawnSync("ollama", ["list"], { encoding: "utf8" });
+    const res = spawnSync("ollama", ["list"], {
+      encoding: "utf8",
+      timeout: OLLAMA_QUERY_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
     if (res.error) {
       throw res.error;
     }
@@ -178,18 +196,38 @@ async function stopHandler() {
   try {
     if (process.platform === "darwin") {
       try {
-        spawnSync("pkill", ["ollama"], { encoding: "utf8" });
+        spawnSync("pkill", ["ollama"], {
+          encoding: "utf8",
+          timeout: OLLAMA_QUERY_TIMEOUT_MS,
+          killSignal: "SIGKILL",
+        });
       } catch {
-        spawnSync("killall", ["Ollama"], { encoding: "utf8" });
+        spawnSync("killall", ["Ollama"], {
+          encoding: "utf8",
+          timeout: OLLAMA_QUERY_TIMEOUT_MS,
+          killSignal: "SIGKILL",
+        });
       }
     } else if (process.platform === "linux") {
       try {
-        spawnSync("systemctl", ["stop", "ollama"], { encoding: "utf8" });
+        spawnSync("systemctl", ["stop", "ollama"], {
+          encoding: "utf8",
+          timeout: OLLAMA_QUERY_TIMEOUT_MS,
+          killSignal: "SIGKILL",
+        });
       } catch {
-        spawnSync("pkill", ["ollama"], { encoding: "utf8" });
+        spawnSync("pkill", ["ollama"], {
+          encoding: "utf8",
+          timeout: OLLAMA_QUERY_TIMEOUT_MS,
+          killSignal: "SIGKILL",
+        });
       }
     } else {
-      spawnSync("taskkill", ["/F", "/IM", "ollama.exe"], { encoding: "utf8" });
+      spawnSync("taskkill", ["/F", "/IM", "ollama.exe"], {
+        encoding: "utf8",
+        timeout: OLLAMA_QUERY_TIMEOUT_MS,
+        killSignal: "SIGKILL",
+      });
     }
 
     spinner.succeed("Ollama service stopped");
@@ -208,7 +246,11 @@ async function setupHandler() {
   let isInstalled = false;
 
   try {
-    spawnSync("ollama", ["--version"], { encoding: "utf8" });
+    spawnSync("ollama", ["--version"], {
+      encoding: "utf8",
+      timeout: OLLAMA_QUERY_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
     isInstalled = true;
     checkSpinner.succeed("Ollama is installed");
   } catch {
@@ -251,7 +293,11 @@ async function setupHandler() {
   // Check if service is running
   let serviceRunning = false;
   try {
-    spawnSync("ollama", ["list"], { encoding: "utf8" });
+    spawnSync("ollama", ["list"], {
+      encoding: "utf8",
+      timeout: OLLAMA_QUERY_TIMEOUT_MS,
+      killSignal: "SIGKILL",
+    });
     serviceRunning = true;
     logger.always(chalk.green("\n✅ Ollama service is running"));
   } catch {
