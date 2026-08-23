@@ -3823,6 +3823,20 @@ async function executeClaudeFallbackTranslation(args: {
   ) => void;
   options: Parameters<ServerContext["neurolink"]["stream"]>[0];
   providerLabel: string;
+  /**
+   * Idle timeout for the fallback stream, in ms. Defaults to
+   * FALLBACK_STREAM_IDLE_TIMEOUT_MS.
+   *
+   * Injectable purely so a test can drive the timeout path in milliseconds
+   * instead of two minutes. The alternative the coverage used before was
+   * patching `globalThis.setTimeout` to fire every timer at 0ms for the
+   * duration of an await — which rewrites the delay of ANY timer created in
+   * that window, not just this one's, inside a 280-case suite sharing a single
+   * process. That is not a hypothetical: an attempt to measure the patched
+   * case with its own `setTimeout`-based watchdog had the watchdog rewritten
+   * out from under it and reported an instant false hang.
+   */
+  idleTimeoutMs?: number;
 }): Promise<unknown> {
   const {
     ctx,
@@ -3833,6 +3847,7 @@ async function executeClaudeFallbackTranslation(args: {
     logFinalRequest,
     options,
     providerLabel,
+    idleTimeoutMs = FALLBACK_STREAM_IDLE_TIMEOUT_MS,
   } = args;
   const fallbackAbortController = new AbortController();
   let streamResult: StreamResult;
@@ -3842,8 +3857,8 @@ async function executeClaudeFallbackTranslation(args: {
         ...options,
         abortSignal: fallbackAbortController.signal,
       }),
-      FALLBACK_STREAM_IDLE_TIMEOUT_MS,
-      `Fallback ${providerLabel} initialization timed out after ${FALLBACK_STREAM_IDLE_TIMEOUT_MS}ms`,
+      idleTimeoutMs,
+      `Fallback ${providerLabel} initialization timed out after ${idleTimeoutMs}ms`,
     );
   } catch (error) {
     fallbackAbortController.abort(error);
@@ -3858,8 +3873,8 @@ async function executeClaudeFallbackTranslation(args: {
       while (true) {
         const { value: chunk, done } = await withTimeout(
           iterator.next(),
-          FALLBACK_STREAM_IDLE_TIMEOUT_MS,
-          `Fallback ${providerLabel} stream timed out after ${FALLBACK_STREAM_IDLE_TIMEOUT_MS}ms of inactivity`,
+          idleTimeoutMs,
+          `Fallback ${providerLabel} stream timed out after ${idleTimeoutMs}ms of inactivity`,
         );
         if (done) {
           return collectedText;

@@ -3680,6 +3680,7 @@ exit 127
         execFileSync("sh", ["-n", scriptPath], {
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 5_000,
+          killSignal: "SIGKILL" as const,
         });
         return true; // No syntax errors
       } catch (err) {
@@ -3739,6 +3740,7 @@ exit 127
         execFileSync("sh", ["-n", scriptPath], {
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 5_000,
+          killSignal: "SIGKILL" as const,
         });
         return true;
       } catch {
@@ -9954,17 +9956,25 @@ exit 127
     name: "proxy fallback: an idle stream is aborted without ambiguous replay",
     category: "proxy",
     fn: async () => {
-      const originalSetTimeout = globalThis.setTimeout;
       let cancelled = false;
       const cancel = async (): Promise<void> => {
         cancelled = true;
       };
       const abortSignals: AbortSignal[] = [];
       let streamCalls = 0;
-      globalThis.setTimeout = ((callback, _delay, ...args) =>
-        originalSetTimeout(callback, 0, ...args)) as typeof setTimeout;
       try {
         await claudeProxyTestHooks.executeClaudeFallbackWithRetry({
+          // Injected rather than reached by patching `globalThis.setTimeout`
+          // to fire every timer at 0ms, which is how this case used to force
+          // the timeout path. That patch stayed installed across an await
+          // inside a 280-case suite sharing one process, so it rewrote the
+          // delay of every timer created in that window — including ones
+          // belonging to other cases' pending work. The hazard is not
+          // theoretical: an attempt to measure this very case with its own
+          // setTimeout-based watchdog had the watchdog rewritten by the patch
+          // and reported an instant false hang, twice, before the instrument
+          // was blamed instead of the code.
+          idleTimeoutMs: 1,
           ctx: {
             neurolink: {
               stream: async (options: { abortSignal?: AbortSignal }) => {
@@ -10006,8 +10016,6 @@ exit 127
           abortSignals.length === 1 &&
           abortSignals[0]?.aborted === true
         );
-      } finally {
-        globalThis.setTimeout = originalSetTimeout;
       }
     },
   },
@@ -10148,6 +10156,19 @@ exit 127
           env,
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 10_000,
+          // SIGKILL, not the default SIGTERM. spawnSync's `timeout` sends
+          // killSignal and then keeps waiting: a child that ignores SIGTERM is
+          // never killed and spawnSync never returns. Verified directly — a
+          // child with `process.on("SIGTERM",()=>{})` and a live interval hangs
+          // spawnSync past any bound, while killSignal SIGKILL returns at the
+          // timeout with ETIMEDOUT.
+          //
+          // This matters more than an ordinary hygiene fix because spawnSync
+          // blocks the event loop, so the suite's own Promise.race per-case
+          // bound cannot fire while it is stuck. A hung child here is the one
+          // failure mode that defeats the timeout added to protect against
+          // hung cases.
+          killSignal: "SIGKILL" as const,
         },
       );
       const combined = `${r.stdout}${r.stderr}`;
@@ -10181,6 +10202,7 @@ exit 127
           env,
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 10_000,
+          killSignal: "SIGKILL" as const,
         });
       const viaFlag = run(["setup", "--provider", "openai", "--check"]);
       const viaSubcommand = run(["setup", "openai", "--check"]);
@@ -10217,6 +10239,7 @@ exit 127
           env,
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 10_000,
+          killSignal: "SIGKILL" as const,
         },
       );
       const combined = `${r.stdout}${r.stderr}`;
@@ -10257,6 +10280,7 @@ exit 127
           env: { ...process.env, NO_COLOR: "1" },
           stdio: ["ignore", "pipe", "pipe"],
           timeout: 10_000,
+          killSignal: "SIGKILL" as const,
         },
       );
       const combined = `${r.stdout}${r.stderr}`;
@@ -10301,6 +10325,7 @@ exit 127
             env,
             stdio: ["ignore", "pipe", "pipe"],
             timeout: 20_000,
+            killSignal: "SIGKILL" as const,
           },
         );
         const elapsed = Date.now() - start;
