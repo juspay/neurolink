@@ -9,7 +9,7 @@
  * Part of Build Rule Enforcement System - Phase 1
  */
 
-import { execSync } from "child_process";
+import { execSync, spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -20,6 +20,76 @@ const __dirname = path.dirname(__filename);
 
 /** Ceiling for the security-check subprocess. See the note at its call site. */
 const SECURITY_SCAN_TIMEOUT_MS = 300_000;
+
+type BoundedRun = {
+  stdout: string;
+  status: number | null;
+  timedOut: boolean;
+};
+
+/**
+ * Run a command in its OWN PROCESS GROUP and kill the whole group on timeout.
+ *
+ * Why not `execSync` with a `timeout`: that signal reaches only the shell it
+ * spawned. The work here is `npx -> tsx -> node -> gitleaks`, none of which are
+ * in the parent's group, so they survive the kill as orphans and keep scanning
+ * a repo nobody is waiting on any more. `spawnSync` has the same limit — its
+ * timeout kills the child pid alone.
+ *
+ * `detached: true` makes the child a group leader, which is what allows
+ * `process.kill(-pid)` to signal every descendant it went on to spawn. That
+ * requires an async spawn, which is why this validator's run path is async.
+ *
+ * Windows has no process groups in this sense and rejects a negative pid, so
+ * there it falls back to killing the child directly — the same guarantee
+ * `execSync` already gave, rather than a regression.
+ */
+function runBounded(
+  command: string,
+  args: string[],
+  options: { cwd: string; timeoutMs: number },
+): Promise<BoundedRun> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: options.cwd,
+      detached: process.platform !== "win32",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let timedOut = false;
+    child.stdout?.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr?.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        if (process.platform === "win32" || child.pid === undefined) {
+          child.kill("SIGKILL");
+        } else {
+          // Negative pid = the whole group this child leads.
+          process.kill(-child.pid, "SIGKILL");
+        }
+      } catch {
+        // Already gone; nothing to clean up.
+      }
+    }, options.timeoutMs);
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+
+    child.on("close", (status) => {
+      clearTimeout(timer);
+      resolve({ stdout, status, timedOut });
+    });
+  });
+}
 
 class NeuroLinkBuildValidator {
   errors: string[];
@@ -131,43 +201,42 @@ class NeuroLinkBuildValidator {
   }
 
   // Use consolidated security validation for professional secret detection
-  checkApiKeyLeaks(): void {
+  async checkApiKeyLeaks(): Promise<void> {
     this.log("Running professional secret detection...");
 
     try {
       // Use the consolidated security-check.ts for professional secret detection
       const securityCheckScript = path.join(__dirname, "security-check.ts");
-      const securityResult = execSync(`npx tsx "${securityCheckScript}"`, {
-        cwd: this.rootDir,
-        encoding: "utf8",
-        stdio: "pipe",
-        // This runs inside `validate:all`, which CI's `test` job gates on, and
-        // the child shells out to external scanners (gitleaks, ripgrep). With
-        // no bound, one wedged scanner hangs the job to its own limit with
-        // stdio piped, so nothing is printed while it hangs.
-        //
-        // 300s against a measured 3s locally: deliberately far above a normal
-        // run, because a cold CI runner fetching gitleaks and walking full git
-        // history is legitimately slower, and it must also stay above the
-        // per-scanner bounds inside security-check.ts so a healthy child is
-        // never killed by its parent.
-        //
-        // SIGKILL because a timeout otherwise sends SIGTERM and keeps waiting.
-        //
-        // WHAT THIS DOES NOT DO: the signal goes to the shell this spawns, not
-        // to the tree beneath it — npx, tsx, node, and whatever scanner that
-        // node process has running. Those are not in this process group and can
-        // outlive the kill as orphans. So this bound guarantees that THIS
-        // validator returns; it does not guarantee the machine is idle
-        // afterwards.
-        //
-        // Bounding the descendants is the child's own job, and security-check.ts
-        // does it at the point where the scanners are actually spawned, which is
-        // the only place their pids are known. Treat this as the outer of two
-        // independent bounds rather than as complete cleanup on its own.
-        timeout: SECURITY_SCAN_TIMEOUT_MS,
-        killSignal: "SIGKILL",
-      });
+      const run = await runBounded(
+        "npx",
+        ["tsx", securityCheckScript],
+        { cwd: this.rootDir, timeoutMs: SECURITY_SCAN_TIMEOUT_MS },
+      );
+      const securityResult = run.stdout;
+
+      if (run.timedOut) {
+        // An ERROR, not a warning, and the distinction is the whole point of
+        // the bound. Only `errors` fail this validator; `warnings` print and
+        // the build proceeds. A killed scan reports no findings, so calling it
+        // a warning would mean the timeout had converted a hung security gate
+        // into a passing one. A scan that did not finish is not a scan that
+        // found nothing.
+        this.errors.push(
+          `Security validation exceeded ${SECURITY_SCAN_TIMEOUT_MS / 1000}s and its process group was killed - the scan did not complete, so its result cannot be trusted`,
+        );
+        this.errors.push("   Investigate with: pnpm run validate:security");
+        return;
+      }
+
+      if (run.status === 1) {
+        this.errors.push(
+          "Security validation failed - critical issues detected",
+        );
+        this.errors.push(
+          "   Fix security issues before building: pnpm run validate:security",
+        );
+        return;
+      }
 
       // Parse security check results for critical secrets
       if (
@@ -194,45 +263,13 @@ class NeuroLinkBuildValidator {
         this.log("No critical secrets detected by professional scan");
       }
     } catch (error: unknown) {
-      // Security validation failed - this is critical for build validation
-      const execError = error as {
-        status?: number;
-        message?: string;
-        code?: string;
-        signal?: string;
-      };
-      const timedOut =
-        execError.code === "ETIMEDOUT" || execError.signal === "SIGKILL";
-      if (execError.status === 1) {
-        this.errors.push(
-          "Security validation failed - critical issues detected",
-        );
-        this.errors.push(
-          "   Fix security issues before building: pnpm run validate:security",
-        );
-      } else if (timedOut) {
-        // An ERROR, not a warning, and the distinction is the whole point of
-        // the bound above. Only `errors` fail this validator; `warnings` print
-        // and the build proceeds. A killed scan reports no findings, so
-        // classifying it as a warning would mean adding the timeout had
-        // converted a hung security gate into a passing one — the same trap
-        // the gitleaks path inside security-check.ts had to be fixed for.
-        //
-        // A scan that did not finish is not a scan that found nothing.
-        this.errors.push(
-          `Security validation exceeded ${SECURITY_SCAN_TIMEOUT_MS / 1000}s and was killed - the scan did not complete, so its result cannot be trusted`,
-        );
-        this.errors.push(
-          "   Investigate with: pnpm run validate:security",
-        );
-      } else {
-        this.warnings.push(
-          `Could not run security validation: ${execError.message}`,
-        );
-        this.warnings.push(
-          "   Consider running: pnpm run validate:security",
-        );
-      }
+      // Only reachable now if the child could not be spawned at all; exit
+      // status and timeout are both handled above, where they can be told
+      // apart. Kept as a warning to match the long-standing behaviour for a
+      // missing toolchain, rather than silently changing that policy here.
+      const message = error instanceof Error ? error.message : String(error);
+      this.warnings.push(`Could not run security validation: ${message}`);
+      this.warnings.push("   Consider running: pnpm run validate:security");
     }
   }
 
@@ -593,7 +630,7 @@ class NeuroLinkBuildValidator {
   }
 
   // Main validation runner
-  run(): void {
+  async run(): Promise<void> {
     console.log("Running NeuroLink Build Validations...\n");
     console.log("================================================\n");
 
@@ -602,7 +639,7 @@ class NeuroLinkBuildValidator {
     // Run all validation checks
     this.checkProjectStructure();
     this.checkConsoleStatements();
-    this.checkApiKeyLeaks();
+    await this.checkApiKeyLeaks();
     this.validatePackageJson();
     this.checkErrorHandling();
     this.checkTodoReferences();
@@ -661,6 +698,15 @@ class NeuroLinkBuildValidator {
 
 // Run validation if script is called directly
 const validator = new NeuroLinkBuildValidator();
-validator.run();
+// `run()` is async now (the security scan is spawned rather than exec'd so its
+// process group can be killed). An unhandled rejection here would exit 0 on
+// some Node versions, which for a build gate is the worst possible failure
+// mode, so it is turned into an explicit non-zero exit.
+validator.run().catch((error: unknown) => {
+  console.error(
+    `Build validation crashed: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exit(1);
+});
 
 export default NeuroLinkBuildValidator;
