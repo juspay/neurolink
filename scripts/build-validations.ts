@@ -200,6 +200,30 @@ class NeuroLinkBuildValidator {
     }
   }
 
+  /**
+   * Print the child's own report.
+   *
+   * `runBounded` captures stdout and stderr so the parent can bound the child,
+   * and that capture means nothing reaches the terminal on its own. Without
+   * this the only thing a failing security scan produced was "Security
+   * validation failed - critical issues detected" plus an instruction to go and
+   * run it again by hand — which in CI means the log contains the verdict and
+   * not one word of the evidence for it.
+   *
+   * Printed for failures only. A passing scan's output is noise in a green
+   * build, and the child can always be run directly when it is wanted.
+   */
+  private reportChildOutput(output: string): void {
+    const trimmed = output.trim();
+    if (!trimmed) {
+      this.log("(the security scan produced no output)");
+      return;
+    }
+    console.log("\n--- security scan output ---");
+    console.log(trimmed);
+    console.log("--- end security scan output ---\n");
+  }
+
   // Use consolidated security validation for professional secret detection
   async checkApiKeyLeaks(): Promise<void> {
     this.log("Running professional secret detection...");
@@ -212,7 +236,6 @@ class NeuroLinkBuildValidator {
         ["tsx", securityCheckScript],
         { cwd: this.rootDir, timeoutMs: SECURITY_SCAN_TIMEOUT_MS },
       );
-      const securityResult = run.stdout;
 
       if (run.timedOut) {
         // An ERROR, not a warning, and the distinction is the whole point of
@@ -225,43 +248,60 @@ class NeuroLinkBuildValidator {
           `Security validation exceeded ${SECURITY_SCAN_TIMEOUT_MS / 1000}s and its process group was killed - the scan did not complete, so its result cannot be trusted`,
         );
         this.errors.push("   Investigate with: pnpm run validate:security");
+        this.reportChildOutput(run.stdout);
         return;
       }
 
-      if (run.status === 1) {
+      // Anything other than a clean exit fails the build. Matching only
+      // `status === 1` was fail-open on a security gate, and in two ways:
+      //
+      //   any other non-zero status — a crash, a bad invocation, tsx failing to
+      //     start — is not "no findings", but was reported as a pass.
+      //
+      //   `status === null` means the child was killed by a SIGNAL WE DID NOT
+      //     SEND (the OOM killer, an operator, a CI runner reclaiming the box).
+      //     `run.timedOut` is false there, because our own bound never fired,
+      //     so it fell through to the success path as well.
+      //
+      // The rule is that only a scan which ran to completion and said it was
+      // clean counts as clean. Everything else is untrusted, which is the same
+      // standard the timeout branch above already applies.
+      if (run.status !== 0) {
         this.errors.push(
-          "Security validation failed - critical issues detected",
+          run.status === null
+            ? "Security validation was killed by a signal - the scan did not complete, so its result cannot be trusted"
+            : `Security validation exited ${run.status} - the scan did not report success, so its result cannot be trusted`,
         );
+        this.reportChildOutput(run.stdout);
         this.errors.push(
           "   Fix security issues before building: pnpm run validate:security",
         );
         return;
       }
 
-      // Parse security check results for critical secrets
-      if (
-        securityResult.includes("critical secrets") ||
-        securityResult.includes("SECURITY VALIDATION FAILED")
-      ) {
-        this.errors.push(
-          "Critical secrets detected by professional security scan",
-        );
-        this.errors.push(
-          "   Run `pnpm run validate:security` for detailed analysis",
-        );
-      } else if (
-        securityResult.includes("potential secrets") ||
-        securityResult.includes("warnings")
-      ) {
-        this.warnings.push(
-          "Potential secrets detected - review security scan results",
-        );
-        this.warnings.push(
-          "   Run `pnpm run validate:security` for full analysis",
-        );
-      } else {
-        this.log("No critical secrets detected by professional scan");
-      }
+      // The child's verdict is its EXIT STATUS, handled above. Nothing is
+      // inferred from its prose here, and that is a deliberate removal rather
+      // than an omission.
+      //
+      // This block used to substring-match the captured stdout, and both
+      // branches were wrong in a way that only ever produced false positives:
+      //
+      //   includes("critical secrets")  matched the child's SUCCESS line,
+      //     "No critical secrets detected (basic scan)", and failed the build
+      //     on a clean repo. It turned the `test` job red the first time that
+      //     line was ever reachable in CI.
+      //
+      //   includes("warnings")  matched "Security validation completed with 1
+      //     warnings." — a best-practices warning, nothing to do with secrets —
+      //     and reported "Potential secrets detected" on every clean run.
+      //
+      // Neither branch could ever fire on a real failure, because a failing
+      // child exits 1 and returns above before reaching here. So the block was
+      // unreachable for its stated purpose and reachable only for false alarms.
+      //
+      // The child already prints its own detailed report; re-deriving a verdict
+      // from that text is guesswork the exit code makes unnecessary.
+      this.log("Security scan passed (see its own output for detail)");
     } catch (error: unknown) {
       // Only reachable now if the child could not be spawned at all; exit
       // status and timeout are both handled above, where they can be told
