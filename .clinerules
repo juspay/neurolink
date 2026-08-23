@@ -456,7 +456,7 @@ memory-bank/research/NEW-FEATURE-ANALYSIS.md
 memory-bank/development/new-workflow-guide.md
 
 # ✅ Demo scripts
-scripts/examples/new-demo.js
+examples/new-demo.ts
 
 # ✅ Test files
 test/continuous-test-suite.ts
@@ -1055,7 +1055,7 @@ scripts/
 ### **File Organization Rules**
 - **Provider Files**: `src/lib/providers/{providerName}.ts`
 - **Test Files**: `test/{feature}.test.ts`
-- **Demo Scripts**: `scripts/examples/{demo}.js`
+- **Demo Scripts**: `examples/{demo}.ts`
 - **Research Docs**: `memory-bank/research/{TOPIC}-ANALYSIS.md`
 - **Development Guides**: `memory-bank/development/{guide}.md`
 
