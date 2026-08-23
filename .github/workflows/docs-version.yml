@@ -58,8 +58,10 @@ jobs:
 
       - name: Extract version from tag
         id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="$RELEASE_TAG"
           # Remove 'v' prefix if present
           VERSION="${TAG#v}"
           # Extract major.minor (e.g., "8.39.0" -> "8.39")
@@ -69,8 +71,10 @@ jobs:
 
       - name: Check if version already exists
         id: check
+        env:
+          OUT_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="$OUT_VERSION"
           if [ -f versions.json ] && grep -q "\"$VERSION\"" versions.json; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "Version $VERSION already exists in versions.json"
@@ -81,8 +85,10 @@ jobs:
 
       - name: Create documentation version
         if: steps.check.outputs.exists != 'true'
+        env:
+          OUT_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="$OUT_VERSION"
           echo "Creating documentation version: $VERSION"
           pnpm exec docusaurus docs:version "$VERSION"
 

@@ -13,9 +13,13 @@ jobs:
           ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
       - name: Update major version tag
+        env:
+          # A release tag is user-supplied text. Interpolated into the script
+          # it is program text, not data — see single-commit-enforcement.yml.
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="$RELEASE_TAG"
           if [[ $TAG =~ ^v([0-9]+)\. ]]; then
             MAJOR="v${BASH_REMATCH[1]}"
             git config user.name "github-actions[bot]"

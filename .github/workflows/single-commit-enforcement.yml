@@ -29,36 +29,50 @@ jobs:
 
       - name: Validate Single Commit Policy
         id: validate
+        env:
+          # Passed through env, never interpolated into the script body: an
+          # expression is substituted into the script TEXT before the shell
+          # parses it, so a backtick or $( ) in any of these executes on the
+          # runner. Reachable by anyone who can open a PR — a commit subject is
+          # free text, and git accepts backticks, $( ) and ; in branch names.
+          # https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_REPO_ID: ${{ github.event.pull_request.head.repo.id }}
+          BASE_REPO_ID: ${{ github.event.repository.id }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           # Determine the base branch and current branch
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_BRANCH="origin/${{ github.base_ref }}"
-            BRANCH_NAME="${{ github.head_ref }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            BASE_BRANCH="origin/$BASE_REF"
+            BRANCH_NAME="$HEAD_REF"
             
             # Handle external vs internal contributors differently using repository IDs for security
-            if [ "${{ github.event.pull_request.head.repo.id }}" != "${{ github.event.repository.id }}" ]; then
+            if [ "$HEAD_REPO_ID" != "$BASE_REPO_ID" ]; then
               # External contributor - use the PR head SHA directly
               CURRENT_BRANCH="HEAD"
               echo "📡 External contributor detected"
-              echo "🔍 Head repository ID: ${{ github.event.pull_request.head.repo.id }}"
-              echo "🔍 Base repository ID: ${{ github.event.repository.id }}"
-              echo "🔍 Using PR head SHA: ${{ github.event.pull_request.head.sha }}"
+              echo "🔍 Head repository ID: $HEAD_REPO_ID"
+              echo "🔍 Base repository ID: $BASE_REPO_ID"
+              echo "🔍 Using PR head SHA: $HEAD_SHA"
               
               # For external PRs, checkout the actual PR commit (not the merge commit)
               echo "🔄 Checking out PR head commit for validation..."
-              git checkout "${{ github.event.pull_request.head.sha }}"
+              git checkout "$HEAD_SHA"
               CURRENT_BRANCH="HEAD"
             else
               # Internal branch - can checkout the actual branch
               echo "🏠 Internal contributor detected"
               echo "🔄 Switching to actual PR head branch for validation..."
-              git checkout "origin/${{ github.head_ref }}"
-              CURRENT_BRANCH="origin/${{ github.head_ref }}"
+              git checkout "origin/$HEAD_REF"
+              CURRENT_BRANCH="origin/$HEAD_REF"
             fi
           else
             BASE_BRANCH="origin/release"
             CURRENT_BRANCH="HEAD"
-            BRANCH_NAME="${{ github.ref_name }}"
+            BRANCH_NAME="$REF_NAME"
           fi
 
           echo "🔍 Validating single commit policy..."
@@ -109,8 +123,14 @@ jobs:
 
       - name: Validate Commit Message Format
         if: steps.validate.outputs.status == 'compliant'
+        env:
+          # A commit subject is free text. Interpolated directly it became a
+          # shell fragment: a subject containing backticks ran their contents
+          # on the runner and the step died with exit 127 -- reported as
+          # "commit message doesn't follow semantic format", which is both a
+          # false verdict and a command execution.
+          COMMIT_MSG: ${{ steps.validate.outputs.commit_message }}
         run: |
-          COMMIT_MSG="${{ steps.validate.outputs.commit_message }}"
           echo "🔍 Validating commit message format: '$COMMIT_MSG'"
 
           # Check semantic commit format: type(scope): description  
@@ -130,8 +150,9 @@ jobs:
 
       - name: Reject CI-Skip Directives
         if: steps.validate.outputs.status == 'compliant'
+        env:
+          COMMIT_HASH: ${{ steps.validate.outputs.commit_hash }}
         run: |
-          COMMIT_HASH="${{ steps.validate.outputs.commit_hash }}"
           # The format check above reads only the subject line (%s). GitHub reads
           # the WHOLE message, body included, so a skip directive quoted in a body
           # -- e.g. while documenting semantic-release's own commit template --
@@ -171,8 +192,10 @@ jobs:
 
       - name: Check for Merge Commits
         if: steps.validate.outputs.status == 'compliant'
+        env:
+          OUT_BASE_BRANCH: ${{ steps.validate.outputs.base_branch }}
         run: |
-          BASE_BRANCH="${{ steps.validate.outputs.base_branch }}"
+          BASE_BRANCH="$OUT_BASE_BRANCH"
 
           # Check for merge commits in the branch
           MERGE_COMMITS=$(git rev-list --merges HEAD ^$BASE_BRANCH)
@@ -191,9 +214,12 @@ jobs:
 
       - name: Provide Squash Instructions
         if: steps.validate.outputs.status == 'violation'
+        env:
+          OUT_COMMIT_COUNT: ${{ steps.validate.outputs.commits_ahead }}
+          OUT_BRANCH_NAME: ${{ steps.validate.outputs.branch_name }}
         run: |
-          COMMIT_COUNT="${{ steps.validate.outputs.commits_ahead }}"
-          BRANCH_NAME="${{ steps.validate.outputs.branch_name }}"
+          COMMIT_COUNT="$OUT_COMMIT_COUNT"
+          BRANCH_NAME="$OUT_BRANCH_NAME"
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🚫 SINGLE COMMIT POLICY VIOLATION"
@@ -227,10 +253,13 @@ jobs:
 
       - name: Check Comment Permissions
         if: steps.validate.outputs.status == 'compliant'
+        env:
+          HEAD_REPO_ID_CHECK: ${{ github.event.pull_request.head.repo.id }}
+          BASE_REPO_ID_CHECK: ${{ github.event.repository.id }}
         id: check-permissions
         run: |
           # Check if this is an external contributor PR using repository IDs for security
-          if [ "${{ github.event.pull_request.head.repo.id }}" != "${{ github.event.repository.id }}" ]; then
+          if [ "$HEAD_REPO_ID_CHECK" != "$BASE_REPO_ID_CHECK" ]; then
             echo "🔒 External contributor PR detected - comment posting will be skipped due to GitHub security restrictions"
             echo "can_comment=false" >> $GITHUB_OUTPUT
           else
@@ -283,12 +312,14 @@ jobs:
 
       - name: Generate Policy Summary
         if: always()
+        env:
+          OUT_STATUS: ${{ steps.validate.outputs.status }}
         run: |
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🔒 NEUROLINK SINGLE COMMIT POLICY ENFORCEMENT SUMMARY"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          STATUS="${{ steps.validate.outputs.status }}"
+          STATUS="$OUT_STATUS"
           case $STATUS in
             "compliant")
               echo "✅ STATUS: POLICY COMPLIANT"
