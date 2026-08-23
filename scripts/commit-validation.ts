@@ -54,6 +54,20 @@ const SEMANTIC_TYPES = [
  */
 const SEMANTIC_COMMIT_PATTERN = /^([a-z]+)(\([a-zA-Z0-9\-\/]+\)):\s(.+)$/i;
 
+/**
+ * Ceiling for the local git queries below.
+ *
+ * This script runs from a husky hook on every commit AND in two workflows, so
+ * an unbounded git call blocks committing entirely and stalls the Single Commit
+ * Policy check with it. `execSync` blocks the event loop, so the symptom is a
+ * frozen terminal with no output rather than a slow one. Ten seconds matches
+ * the bound already used for the same purpose in scripts/security-check.ts.
+ *
+ * Both call sites already sit in a try/catch that reports "Unable to retrieve
+ * commit message", so a timeout surfaces as that rather than as a crash.
+ */
+const GIT_TIMEOUT_MS = 10_000;
+
 class CommitValidator {
   errors: string[];
   warnings: string[];
@@ -99,6 +113,8 @@ class CommitValidator {
       // Try to get from git commit message file
       const gitDir = execSync("git rev-parse --git-dir", {
         encoding: "utf8",
+        timeout: GIT_TIMEOUT_MS,
+        killSignal: "SIGKILL",
       }).trim();
       const commitMsgFile = path.join(gitDir, "COMMIT_EDITMSG");
 
@@ -111,6 +127,8 @@ class CommitValidator {
       // Try to get the last commit message
       const lastCommit = execSync('git log -1 --pretty=format:"%s"', {
         encoding: "utf8",
+        timeout: GIT_TIMEOUT_MS,
+        killSignal: "SIGKILL",
       });
       return lastCommit.trim();
     } catch (_error: unknown) {
