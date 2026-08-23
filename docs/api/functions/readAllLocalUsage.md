@@ -20,7 +20,7 @@ a broken reader indistinguishable from an absent one.
 
 ### options?
 
-[`LocalUsageScanOptions`](../type-aliases/LocalUsageScanOptions.md)
+[`LocalUsageAggregateOptions`](../type-aliases/LocalUsageAggregateOptions.md)
 
 ## Returns
 

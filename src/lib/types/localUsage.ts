@@ -201,3 +201,22 @@ export type LocalUsageSqliteDatabaseCtor = new (
   path: string,
   options?: { readOnly?: boolean },
 ) => LocalUsageSqliteDatabase;
+
+/** Arguments for the `neurolink usage local` command. */
+export type LocalUsageCommandArgs = {
+  since: number;
+  json: boolean;
+  cli?: string;
+};
+
+/**
+ * Options for scanning every registered reader at once.
+ *
+ * `only` is not a convenience filter applied to the results — it decides which
+ * readers are constructed and run at all. Scanning everything and discarding
+ * the rest turned a 10s single-CLI query into 28s of reading two other stores
+ * nobody asked for, one of them 742 MB.
+ */
+export type LocalUsageAggregateOptions = LocalUsageScanOptions & {
+  only?: LocalUsageCliId[];
+};

@@ -37,6 +37,7 @@ import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
 import { voiceServerCommand } from "./commands/voiceServer.js";
 import { DocsCommandFactory } from "./commands/docs.js";
+import { UsageCommandFactory } from "./commands/usage.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -184,6 +185,8 @@ export function initializeCliParser() {
       .command(CLICommandFactory.createGenerateCommand())
       // Docs MCP Server Command
       .command(DocsCommandFactory.createDocsCommand())
+
+      .command(UsageCommandFactory.createUsageCommands())
 
       // Stream Text Command - Using CLICommandFactory
       .command(CLICommandFactory.createStreamCommand())
