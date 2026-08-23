@@ -1,4 +1,4 @@
-import { getGlobalDispatcher, interceptors } from "undici";
+import { Agent, getGlobalDispatcher, interceptors } from "undici";
 import type { Dispatcher } from "undici";
 
 /**
@@ -11,7 +11,7 @@ import type { Dispatcher } from "undici";
 const NPM_UNDICI_MAJOR = 7;
 
 /**
- * A dispatcher that follows redirects, when composing one is safe here.
+ * A dispatcher that follows redirects.
  *
  * `getGlobalDispatcher()` returns Node's **built-in** undici dispatcher, whose
  * major tracks the runtime rather than this package's dependency. The composed
@@ -21,31 +21,42 @@ const NPM_UNDICI_MAJOR = 7;
  *   node 24   built-in 7.24.4 + npm 7.28.0   request() succeeds
  *   node 22   built-in 6.28.0 + npm 7.28.0   throws "invalid onError method"
  *
- * Node 22 is this package's declared minimum, so the broken combination is not
- * exotic — it is the floor. The throw happens at request time rather than at
- * compose(), which is why it surfaces as an opaque runtime error instead of
- * something recognisably about versions.
+ * Node 22 is this package's declared minimum, so the broken combination is the
+ * floor, not an edge case.
  *
- * When the majors disagree, return the global dispatcher uncomposed. That drops
- * redirect-following from the pre-flight HEAD only. Callers already treat any
- * non-2xx HEAD — a redirect included — as untrustworthy and fall through to the
- * streaming size guard on the GET, so the size protection is unchanged and the
- * cost is one extra round trip.
+ * When the majors match, compose onto the global dispatcher — that preserves
+ * whatever the host application configured globally, such as a corporate
+ * ProxyAgent.
  *
- * Composing onto the global dispatcher rather than a fresh `Agent` is
- * deliberate: it preserves whatever the host application configured globally,
- * such as a corporate ProxyAgent.
+ * When they do not, compose onto a fresh `Agent` that npm undici owns, so the
+ * handler contract is self-consistent. Redirects still get followed.
+ *
+ * The earlier version of this function returned the global dispatcher
+ * *uncomposed* in the mismatch case, on the stated grounds that it "drops
+ * redirect-following from the pre-flight HEAD only". That was wrong: the same
+ * dispatcher feeds the real GET in fileDetector.ts and messageBuilder.ts, and
+ * that path treats any non-200 as fatal — so on Node 22 a redirecting URL threw
+ * `HTTP 302 fetching …` instead of downloading. Verified against a local
+ * redirecting server: node 24 -> 200 (followed), node 22 -> 302 (not followed).
+ *
+ * The cost of the fresh Agent is narrow and worth naming: on a runtime whose
+ * built-in undici major differs from ours, a globally-configured dispatcher
+ * (e.g. a ProxyAgent set via setGlobalDispatcher) is not inherited for these
+ * requests. Losing a proxy on one Node version is recoverable; silently failing
+ * every redirecting download is not.
+ *
+ * @param maxRedirections How many redirects to follow before giving up.
  */
 export function redirectFollowingDispatcher(
   maxRedirections: number,
 ): Dispatcher {
-  const globalDispatcher = getGlobalDispatcher();
   const builtinMajor = Number.parseInt(
     process.versions.undici?.split(".")[0] ?? "",
     10,
   );
-  if (!Number.isFinite(builtinMajor) || builtinMajor !== NPM_UNDICI_MAJOR) {
-    return globalDispatcher;
-  }
-  return globalDispatcher.compose(interceptors.redirect({ maxRedirections }));
+  const base =
+    Number.isFinite(builtinMajor) && builtinMajor === NPM_UNDICI_MAJOR
+      ? getGlobalDispatcher()
+      : new Agent();
+  return base.compose(interceptors.redirect({ maxRedirections }));
 }
