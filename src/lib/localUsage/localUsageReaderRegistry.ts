@@ -74,3 +74,18 @@ registerLocalUsageReader({
     return createCodexReader();
   },
 });
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "opencode",
+    displayName: "OpenCode",
+    verified: true,
+    dedupStrategy: "rowid-high-water-mark",
+    costConfidence: "unavailable",
+    requiresSqlite: true,
+  },
+  factory: async () => {
+    const { createOpenCodeReader } = await import("./openCodeReader.js");
+    return createOpenCodeReader();
+  },
+});

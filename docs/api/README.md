@@ -1308,6 +1308,8 @@ console.log(result.content);
 - [LocalUsageAggregateReport](type-aliases/LocalUsageAggregateReport.md)
 - [LocalUsageClaudeRawUsage](type-aliases/LocalUsageClaudeRawUsage.md)
 - [LocalUsageCodexSessionRollup](type-aliases/LocalUsageCodexSessionRollup.md)
+- [LocalUsageSqliteDatabase](type-aliases/LocalUsageSqliteDatabase.md)
+- [LocalUsageSqliteDatabaseCtor](type-aliases/LocalUsageSqliteDatabaseCtor.md)
 - [AgenticLoopChunk](type-aliases/AgenticLoopChunk.md)
 - [AgenticLoopToolCall](type-aliases/AgenticLoopToolCall.md)
 - [AgenticLoopUsage](type-aliases/AgenticLoopUsage.md)

@@ -194,6 +194,61 @@ function codexTurnContext(model: string): string {
   });
 }
 
+/**
+ * Build a temp HOME containing an OpenCode SQLite store.
+ *
+ * Written with the same `node:sqlite` the reader uses, so the fixture cannot
+ * drift from the shape the reader expects by using a different writer.
+ */
+async function writeOpenCodeFixtureHome(
+  messages: Array<Record<string, unknown>>,
+): Promise<string> {
+  const { DatabaseSync } = await import("node:sqlite");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-ocusage-"));
+  const dir = path.join(home, ".local", "share", "opencode");
+  fs.mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(path.join(dir, "opencode.db"));
+  db.exec(
+    "CREATE TABLE message (id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)",
+  );
+  const insert = db.prepare(
+    "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
+  );
+  messages.forEach((m, index) => {
+    insert.run(
+      `msg_${index}`,
+      "ses_fixture",
+      Date.now(),
+      Date.now(),
+      JSON.stringify(m),
+    );
+  });
+  db.close();
+  return home;
+}
+
+function openCodeMessage(tokens: {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+}): Record<string, unknown> {
+  return {
+    role: "assistant",
+    modelID: "claude-opus-4.6",
+    providerID: "github-copilot",
+    cost: 0,
+    tokens: {
+      input: tokens.input,
+      output: tokens.output,
+      reasoning: 0,
+      total:
+        tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite,
+      cache: { read: tokens.cacheRead, write: tokens.cacheWrite },
+    },
+  };
+}
+
 async function runAllTests(): Promise<void> {
   await test("the SDK exports the local-usage surface", async () => {
     assert(
@@ -650,6 +705,117 @@ async function runAllTests(): Promise<void> {
     );
     log(
       `real Codex scan: ${month.totals.requests} turns over ${month.filesScanned} rollouts in 30d`,
+      "green",
+    );
+  });
+
+  await test("OpenCode: cache tokens are disjoint from input, not subtracted", async () => {
+    // The convention differs per CLI and cannot be inferred from a sibling
+    // reader. Verified across all 4,674 usage-bearing messages on a real
+    // store: `total` equals input + output + cache.read + cache.write, so
+    // cache is DISJOINT from input here. Codex is the opposite — its
+    // `cached_input_tokens` is a SUBSET of `input_tokens` and the reader
+    // subtracts it back out.
+    //
+    // This fixture is built so applying Codex's rule here is visible:
+    // subtracting cache from input would report 700 input instead of 1000.
+    const home = await writeOpenCodeFixtureHome([
+      openCodeMessage({
+        input: 1000,
+        output: 200,
+        cacheRead: 300,
+        cacheWrite: 50,
+      }),
+    ]);
+
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["opencode"];
+    assert(totals !== undefined, "the opencode reader produced no totals");
+    assert(
+      totals!.inputTokens === 1000,
+      `cache was subtracted from input as if this were Codex — expected 1000, got ${totals!.inputTokens}`,
+    );
+    assert(
+      totals!.cacheReadTokens === 300 && totals!.cacheCreationTokens === 50,
+      `cache read/write were not carried through — expected 300/50, got ${totals!.cacheReadTokens}/${totals!.cacheCreationTokens}`,
+    );
+    assert(
+      totals!.outputTokens === 200,
+      `output tokens were altered — expected 200, got ${totals!.outputTokens}`,
+    );
+    log(
+      "OpenCode cache tokens are added alongside input, not subtracted from it",
+      "green",
+    );
+  });
+
+  await test("OpenCode: assistant rows with no tokens are not counted as turns", async () => {
+    // 56 of 4,674 rows on a real store are assistant messages whose token
+    // fields are all zero. Counting them inflates the turn count while
+    // adding nothing, which makes an average-tokens-per-turn figure wrong
+    // without making any total wrong — the kind of error that survives a
+    // glance at the headline number.
+    const home = await writeOpenCodeFixtureHome([
+      openCodeMessage({ input: 10, output: 5, cacheRead: 0, cacheWrite: 0 }),
+      openCodeMessage({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }),
+      { role: "user", modelID: "claude-opus-4.6", tokens: { input: 999 } },
+    ]);
+
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["opencode"];
+    assert(totals !== undefined, "the opencode reader produced no totals");
+    assert(
+      totals!.requests === 1,
+      `empty or non-assistant rows were counted as turns — expected 1, got ${totals!.requests}`,
+    );
+    assert(
+      totals!.inputTokens === 10,
+      `a non-assistant row's tokens were counted — expected 10, got ${totals!.inputTokens}`,
+    );
+    log("empty and non-assistant OpenCode rows are skipped", "green");
+  });
+
+  await test("OpenCode: this machine's real store scans coherently", async () => {
+    const realDb = path.join(
+      os.homedir(),
+      ".local",
+      "share",
+      "opencode",
+      "opencode.db",
+    );
+    if (!fs.existsSync(realDb)) {
+      throw new Error("SKIP: no OpenCode store on this machine");
+    }
+    const reader = await createLocalUsageReader("opencode");
+    assert(await reader.detect(), "detect() denied a store that exists");
+
+    const all = await reader.scan({ sinceDays: Infinity });
+    if (all.totals.requests === 0) {
+      throw new Error("SKIP: OpenCode store has no usage-bearing messages");
+    }
+
+    assert(
+      all.errors.length === 0,
+      "reading the real OpenCode store reported an error",
+    );
+    assert(
+      all.totals.costConfidence === "unavailable" && all.totals.costUsd === 0,
+      "OpenCode invented a cost despite reporting none of its own",
+    );
+    assert(
+      all.totals.unpricedRequests === all.totals.requests,
+      "not every OpenCode turn was reported as unpriced",
+    );
+    assert(
+      all.totals.unpricedModels.length > 0,
+      "no models were named behind the unpriced turns",
+    );
+    log(
+      `real OpenCode scan: ${all.totals.requests} turns, models ${all.totals.unpricedModels.slice(0, 3).join(", ")}`,
       "green",
     );
   });

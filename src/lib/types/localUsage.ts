@@ -182,3 +182,22 @@ export type LocalUsageCodexSessionRollup = {
   /** token_count events where the cumulative total actually advanced. */
   billableEvents: number;
 };
+
+/**
+ * The slice of `node:sqlite`'s `DatabaseSync` the OpenCode reader uses.
+ *
+ * Deliberately minimal. `node:sqlite` is still flagged experimental and may
+ * change shape between Node releases, so the reader validates this much at
+ * runtime rather than trusting a type assertion — naming only what is actually
+ * called keeps that check small and honest.
+ */
+export type LocalUsageSqliteDatabase = {
+  prepare: (sql: string) => { all: () => unknown[] };
+  close: () => void;
+};
+
+/** Constructor shape for the same. */
+export type LocalUsageSqliteDatabaseCtor = new (
+  path: string,
+  options?: { readOnly?: boolean },
+) => LocalUsageSqliteDatabase;
