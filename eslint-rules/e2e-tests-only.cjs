@@ -38,16 +38,31 @@
  *          turning a required check red across every open pull request.
  *          That block is closed: it should shrink, never grow.
  *
- * Why `../dist/lib/...` is flagged as well as `../src/lib/...`:
+ * Why `../dist/core/...` is flagged as well as `../src/lib/...`:
  *
- *     import { MANIFEST } from "../dist/lib/models/manifestRegistry.js";  // ✗
+ *     import { MANIFEST } from "../dist/models/manifestRegistry.js";  // ✗
  *
  * Rewriting a `src/` import as a deep `dist/` one changes which copy of the
- * module loads, not what the test proves. `dist/lib/models/manifestRegistry.js`
+ * module loads, not what the test proves. `dist/models/manifestRegistry.js`
  * is not reachable through any `exports` entry, so asserting on it still pins
  * an internal shape that is free to change under callers — exactly what this
  * rule exists to stop. Depth is the signal: `../dist/index.js` is the package,
- * `../dist/lib/anything` is its inside.
+ * `../dist/anything-else` is its inside.
+ *
+ * `../dist/lib/...` is a STRICTER case and gets its own message. That directory
+ * does not survive a build at all: `scripts/collapse-cli-lib-duplicate.mjs`
+ * collapses it to the `dist/` top level and then `rmSync`s it, so
+ * `dist/lib/models/manifestRegistry.js` is `ERR_MODULE_NOT_FOUND` rather than
+ * merely internal. The distinction is not pedantry — it changes what the fix
+ * is. For every other deep path the `allow` list is a real escape hatch, and
+ * the import keeps working; for a `dist/lib/**` path allow-listing only
+ * silences the lint and leaves a suite that cannot load. Those must be
+ * repointed (`../dist/lib/x/y.js` → `../dist/x/y.js`), never allow-listed.
+ *
+ * Note that `exports` gates package specifiers, not the relative paths tests
+ * actually write — `../dist/models/foo.js` resolves regardless of the map.
+ * That is why the deep-dist case is about pinning an internal shape, while
+ * only the `dist/lib/**` case is about the file being absent.
  *
  * ⚠️ Do not "fix" a violation by moving the import to `../dist/` if the file
  * also stubs or spies on that module: `dist/index.js` is a separate bundled
@@ -146,6 +161,21 @@ function isPublicDistPath(value) {
   );
 }
 
+/**
+ * A `dist/lib/**` path — deleted by the build, so unresolvable at runtime.
+ *
+ * Reuses `distSubpath` for its `..` normalization, which is load-bearing here
+ * too: `../dist/processors/../lib/internal.js` does not start with `dist/lib`
+ * as written, yet that is exactly the file Node would fail to find.
+ */
+function isDeletedDistLibPath(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const sub = distSubpath(value);
+  return sub !== undefined && (sub === "lib" || sub.startsWith("lib/"));
+}
+
 function isDeepDistPath(value) {
   return (
     typeof value === "string" &&
@@ -188,6 +218,8 @@ module.exports = {
     messages: {
       srcImport:
         "Rule 15: tests are end-to-end only — '{{source}}' reaches into src/. Drive the surface via NeuroLink/generate/stream or the built CLI, or import the shipped symbol from '../dist/index.js'. If this genuinely needs deterministic control a live call cannot give, add the file to the rule's `allow` list in eslint.config.js and say why in its header.",
+      missingDistLibImport:
+        "Rule 15: '{{source}}' cannot load. The build collapses dist/lib into the dist/ top level and deletes it, so this path does not exist after `pnpm run build` — it is ERR_MODULE_NOT_FOUND, not merely internal. Do NOT add this file to the rule's `allow` list: that silences the lint and leaves a suite that still cannot load. Repoint the import instead — drop the 'lib/' segment ('../dist/lib/x/y.js' → '../dist/x/y.js') — and prefer a shipped entry point ('../dist/index.js' or a declared subpath), since the collapsed path is still the package's inside.",
       deepDistImport:
         "Rule 15: tests are end-to-end only — '{{source}}' reaches inside the build output. No package.json `exports` entry resolves it, so asserting on it pins an internal shape callers cannot reach and that is free to change under them. Drive the surface via NeuroLink/generate/stream or the built CLI, or import from a shipped entry point ('../dist/index.js' or a declared subpath). If this genuinely needs deterministic control a live call cannot give, add the file to the rule's `allow` list in eslint.config.js and say why in its header.",
     },
@@ -202,11 +234,21 @@ module.exports = {
     const allow = (context.options?.[0]?.allow ?? []).map((p) =>
       p.split("\\").join("/"),
     );
-    if (allow.some((p) => normalized.endsWith(p))) {
-      return {};
-    }
+    // An allow-listed file is exempt from the *judgement* calls — "this pins an
+    // internal shape" is a tradeoff a header can justify. It is not exempt from
+    // `missingDistLibImport`, which is not a judgement: that path is deleted by
+    // the build, so the suite cannot load however well the exception is argued.
+    // Returning `{}` here would let an allow-list entry hide a broken import,
+    // which is precisely the mistake the message warns against.
+    const allowed = allow.some((p) => normalized.endsWith(p));
 
     function messageIdFor(value) {
+      if (isDeletedDistLibPath(value)) {
+        return "missingDistLibImport";
+      }
+      if (allowed) {
+        return undefined;
+      }
       if (isSrcPath(value)) {
         return "srcImport";
       }
