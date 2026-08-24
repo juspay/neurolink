@@ -326,9 +326,22 @@ export class ChunkerFactory extends BaseFactory<Chunker, ChunkerConfig> {
   }
 
   /**
-   * Get metadata for a chunker
+   * Get metadata for a chunker.
+   *
+   * Awaits registration first. `metadataMap` and the alias map are populated by
+   * `registerAll()`, which only runs via the async `ensureInitialized()` — and
+   * the only place that awaited it was `create()`. So on a fresh process this
+   * returned `undefined` for every strategy until something happened to build a
+   * chunker first, and returned real metadata after. Order-dependent, silent,
+   * and `undefined` rather than a throw.
+   *
+   * `createChunker()` and `getAvailableStrategies()` were already async for
+   * exactly this reason; these readers were the ones that had not caught up.
    */
-  getChunkerMetadata(strategyOrAlias: string): ChunkerMetadata | undefined {
+  async getChunkerMetadata(
+    strategyOrAlias: string,
+  ): Promise<ChunkerMetadata | undefined> {
+    await this.ensureInitialized();
     const resolvedName = this.resolveName(strategyOrAlias);
     return this.metadataMap.get(resolvedName);
   }
@@ -336,8 +349,10 @@ export class ChunkerFactory extends BaseFactory<Chunker, ChunkerConfig> {
   /**
    * Get default configuration for a chunker
    */
-  getDefaultConfig(strategyOrAlias: string): ChunkerConfig | undefined {
-    const metadata = this.getChunkerMetadata(strategyOrAlias);
+  async getDefaultConfig(
+    strategyOrAlias: string,
+  ): Promise<ChunkerConfig | undefined> {
+    const metadata = await this.getChunkerMetadata(strategyOrAlias);
     return metadata?.defaultConfig;
   }
 
@@ -352,14 +367,16 @@ export class ChunkerFactory extends BaseFactory<Chunker, ChunkerConfig> {
   /**
    * Get all aliases mapped to their strategies
    */
-  getStrategyAliases(): Map<string, string> {
+  async getStrategyAliases(): Promise<Map<string, string>> {
+    await this.ensureInitialized();
     return this.getAliases();
   }
 
   /**
    * Check if a strategy exists
    */
-  hasStrategy(strategyOrAlias: string): boolean {
+  async hasStrategy(strategyOrAlias: string): Promise<boolean> {
+    await this.ensureInitialized();
     const resolved = this.resolveName(strategyOrAlias);
     return this.has(resolved);
   }
@@ -367,7 +384,8 @@ export class ChunkerFactory extends BaseFactory<Chunker, ChunkerConfig> {
   /**
    * Get chunkers suitable for a use case
    */
-  getChunkersForUseCase(useCase: string): ChunkingStrategy[] {
+  async getChunkersForUseCase(useCase: string): Promise<ChunkingStrategy[]> {
+    await this.ensureInitialized();
     const matches: ChunkingStrategy[] = [];
     const useCaseLower = useCase.toLowerCase();
 
@@ -387,7 +405,8 @@ export class ChunkerFactory extends BaseFactory<Chunker, ChunkerConfig> {
   /**
    * Get all chunker metadata
    */
-  getAllMetadata(): Map<string, ChunkerMetadata> {
+  async getAllMetadata(): Promise<Map<string, ChunkerMetadata>> {
+    await this.ensureInitialized();
     return new Map(this.metadataMap);
   }
 
@@ -427,7 +446,7 @@ export async function getAvailableStrategies(): Promise<ChunkingStrategy[]> {
  */
 export function getChunkerMetadata(
   strategyOrAlias: string,
-): ChunkerMetadata | undefined {
+): Promise<ChunkerMetadata | undefined> {
   return chunkerFactory.getChunkerMetadata(strategyOrAlias);
 }
 
@@ -436,6 +455,6 @@ export function getChunkerMetadata(
  */
 export function getDefaultConfig(
   strategyOrAlias: string,
-): ChunkerConfig | undefined {
+): Promise<ChunkerConfig | undefined> {
   return chunkerFactory.getDefaultConfig(strategyOrAlias);
 }
