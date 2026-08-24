@@ -211,7 +211,7 @@ await test("fails open when pick is fully hallucinated", async () => {
 
 await test("fails open when the router call throws", async () => {
   const generateFn = async () => {
-    throw new Error("network error");
+    throw new Error("synthetic transport fault (fixture)");
   };
   const excluded = await resolveToolRoutingExclusions(
     baseParams({
@@ -373,7 +373,7 @@ await test("emitDecision fires with outcome=failed-open-error when router throws
   };
 
   const generateFn = async () => {
-    throw new Error("network failure");
+    throw new Error("synthetic transport fault (fixture)");
   };
   await resolveToolRoutingExclusions(
     baseParams({

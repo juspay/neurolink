@@ -666,7 +666,7 @@ await test("granularity:server + embedding (large catalog): excludes entire unpi
 
 await test("fail open: embedFn that throws → resolveToolRoutingExclusions does NOT throw", async () => {
   const throwingEmbedFn = async (): Promise<number[][]> => {
-    throw new Error("embedding service unavailable");
+    throw new Error("synthetic embedding fault (fixture)");
   };
 
   let llmCalled = false;
