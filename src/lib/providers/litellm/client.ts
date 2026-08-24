@@ -340,6 +340,21 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
   }
 
   /**
+   * generate() rides the SSE wire for LiteLLM: deployments commonly sit
+   * behind proxies/tunnels (e.g. Cloudflare, which 524s an origin that is
+   * silent for ~100s), and a non-streaming completion from a slow model
+   * sends nothing until it is fully done. Streaming keeps bytes flowing for
+   * the whole generation while the base class aggregates into the same
+   * complete result — structuredData coercion, tool calls, stopReason,
+   * usage and the JSON damage flags are unchanged for callers.
+   * Escape hatch: NEUROLINK_LITELLM_SSE_GENERATE=false restores the plain
+   * JSON wire.
+   */
+  protected useStreamingWireForGenerate(): boolean {
+    return process.env.NEUROLINK_LITELLM_SSE_GENERATE !== "false";
+  }
+
+  /**
    * Gemini 2.5 models on LiteLLM have a known compatibility issue with
    * `max_tokens` — strip it before the wire body is built. Applies to
    * both streaming and non-streaming paths.

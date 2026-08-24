@@ -431,6 +431,13 @@ export function createTimeoutController(
 ): {
   controller: AbortController;
   cleanup: () => void;
+  /**
+   * Re-arm the timeout window from now. Streaming consumers call this on
+   * every chunk so the timeout bounds *idle* time rather than total
+   * duration — a slow-but-alive upstream is not killed mid-generation.
+   * No-op once the controller has already aborted.
+   */
+  reset: () => void;
   timeoutMs: number;
 } | null {
   const timeoutMs = parseTimeout(timeout);
@@ -441,7 +448,7 @@ export function createTimeoutController(
 
   const controller = new AbortController();
 
-  const timer = setTimeout(() => {
+  const fire = () => {
     // NOTE: we cannot stamp the AI SDK's ai.streamText/ai.generateText span
     // from here — the setTimeout callback runs in the async context captured
     // at schedule time, which is BEFORE the AI SDK span exists. Instead we
@@ -456,13 +463,23 @@ export function createTimeoutController(
         operation,
       ),
     );
-  }, timeoutMs);
+  };
+
+  let timer = setTimeout(fire, timeoutMs);
 
   const cleanup = () => {
     clearTimeout(timer);
   };
 
-  return { controller, cleanup, timeoutMs };
+  const reset = () => {
+    if (controller.signal.aborted) {
+      return;
+    }
+    clearTimeout(timer);
+    timer = setTimeout(fire, timeoutMs);
+  };
+
+  return { controller, cleanup, reset, timeoutMs };
 }
 
 /**

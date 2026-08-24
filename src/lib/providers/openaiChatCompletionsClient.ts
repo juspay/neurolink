@@ -665,6 +665,12 @@ export const parseSSEStream = async (
     if (chunk.usage) {
       result.usage = chunk.usage;
     }
+    if (chunk.id && !result.id) {
+      result.id = chunk.id;
+    }
+    if (chunk.model && !result.model) {
+      result.model = chunk.model;
+    }
     const choice = chunk.choices?.[0];
     if (!choice) {
       return;

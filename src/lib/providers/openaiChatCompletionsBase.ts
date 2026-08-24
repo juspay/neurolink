@@ -200,6 +200,22 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   }
 
   /**
+   * When true, `doGenerate` puts `stream: true` on the wire and aggregates
+   * the SSE stream into the SAME complete result the JSON wire returns —
+   * callers still get one awaited result with structuredData coercion, tool
+   * calls, finish reason and usage intact. Bytes then flow continuously, so
+   * proxy/tunnel idle limits (e.g. Cloudflare's ~100s 524 on tunneled
+   * gateways) cannot kill a slow completion, and the request timeout is
+   * re-armed on every chunk (idle semantics) instead of capping total
+   * duration. Default false: some OpenAI-compatible backends mishandle
+   * `stream_options` or omit usage on streams, so each provider opts in
+   * deliberately. LiteLLM overrides this to true.
+   */
+  protected useStreamingWireForGenerate(): boolean {
+    return false;
+  }
+
+  /**
    * Hook to adjust the fully-built wire request body before it is sent, on
    * both the streaming and non-streaming paths. Default identity. Override for
    * provider/model quirks that can't be expressed through buildBody options —
@@ -541,6 +557,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const resolveWireMaxTokens = this.resolveWireMaxTokens.bind(this);
     const suppressResponseFormatWithTools =
       this.suppressResponseFormatWithTools.bind(this);
+    const useStreamingWireForGenerate =
+      this.useStreamingWireForGenerate.bind(this);
     const getTimeoutForOptions = (
       opts: Record<string, unknown> | undefined,
     ): number => this.getTimeout((opts ?? {}) as never);
@@ -606,6 +624,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           baseMessages,
           wireTools,
         );
+        // SSE wire for generate (opt-in per provider): stream on the wire,
+        // aggregate below into the same complete response the JSON wire
+        // yields. See useStreamingWireForGenerate.
+        const sseWire = useStreamingWireForGenerate();
         const body = ensureJsonWordInBody(
           adjustRequestBody(
             buildBody({
@@ -629,7 +651,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
                     ),
                   }
                 : {}),
-              streaming: false,
+              streaming: sseWire,
               ...(responseFormat ? { responseFormat } : {}),
             }),
             modelId,
@@ -663,6 +685,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             timeoutController?.controller.signal,
           );
         let json: OpenAICompatChatResponse;
+        // Whether the response we end up consuming is SSE. Starts as the
+        // provider's wire preference; the 400 fallback below can flip it
+        // when a backend rejects `stream`/`stream_options` outright.
+        let wireIsStreaming = sseWire;
         try {
           let res = await fetchImpl(url, {
             method: "POST",
@@ -686,13 +712,13 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             // attempt, so the configured timeout caps the overall call —
             // matching the streaming path, which reuses its composed signal
             // for the retry.
-            const retryBody =
+            const typedErr = apiErr as Error & {
+              statusCode?: number;
+              responseBody?: string;
+            };
+            let retryBody =
               res.status === 400
                 ? (() => {
-                    const typedErr = apiErr as Error & {
-                      statusCode?: number;
-                      responseBody?: string;
-                    };
                     const overflowCorrected = correctBodyAfterContextOverflow(
                       body,
                       typedErr,
@@ -703,6 +729,24 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
                     );
                   })()
                 : undefined;
+            // SSE-wire net: a backend that rejects streaming itself (the 400
+            // names `stream`/`stream_options`) gets ONE retry on the plain
+            // JSON wire. Gated on the error text so a genuine bad request
+            // isn't replayed just to fail identically a second time.
+            if (
+              !retryBody &&
+              sseWire &&
+              res.status === 400 &&
+              /stream/i.test(typedErr.responseBody ?? "")
+            ) {
+              const {
+                stream: _stream,
+                stream_options: _streamOptions,
+                ...jsonWireBody
+              } = body;
+              retryBody = jsonWireBody;
+              wireIsStreaming = false;
+            }
             if (!retryBody) {
               throw apiErr;
             }
@@ -723,7 +767,62 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           // after cleanup(), so a response whose headers arrived but whose
           // body stalled mid-transfer was bounded by nothing but the caller's
           // outer wall-clock.
-          json = (await res.json()) as OpenAICompatChatResponse;
+          if (wireIsStreaming) {
+            if (!res.body) {
+              throw new Error(
+                `${providerName}: streaming generate response had no body`,
+              );
+            }
+            // Idle-timeout semantics: every raw chunk re-arms the timeout,
+            // so the configured window bounds silence, not total duration —
+            // the whole point of the SSE wire is that a slow-but-alive
+            // completion keeps the connection (and the timer) fed.
+            const monitored = timeoutController
+              ? res.body.pipeThrough(
+                  new TransformStream<Uint8Array, Uint8Array>({
+                    transform(chunk, controller) {
+                      timeoutController.reset();
+                      controller.enqueue(chunk);
+                    },
+                  }),
+                )
+              : res.body;
+            const sse = await parseSSEStream(monitored, () => {});
+            // Re-shape the aggregate into the JSON-wire response so every
+            // line below this point (content parts, finish-reason mapping,
+            // usage clamping, response metadata) is shared verbatim between
+            // the two wires and cannot drift.
+            json = {
+              ...(sse.id ? { id: sse.id } : {}),
+              ...(sse.model ? { model: sse.model } : {}),
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: "assistant",
+                    content: sse.text.length > 0 ? sse.text : null,
+                    ...(sse.reasoning ? { reasoning: sse.reasoning } : {}),
+                    ...(sse.toolCalls.size > 0
+                      ? {
+                          tool_calls: [...sse.toolCalls.values()].map((tc) => ({
+                            id: tc.id,
+                            type: "function" as const,
+                            function: {
+                              name: tc.name,
+                              arguments: tc.argsBuffered,
+                            },
+                          })),
+                        }
+                      : {}),
+                  },
+                  finish_reason: sse.finishReason ?? "stop",
+                },
+              ],
+              ...(sse.usage ? { usage: sse.usage } : {}),
+            };
+          } else {
+            json = (await res.json()) as OpenAICompatChatResponse;
+          }
         } finally {
           timeoutController?.cleanup();
           disposeComposedSignal();
