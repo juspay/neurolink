@@ -35,11 +35,25 @@ import "dotenv/config";
 import { createServer, type Server } from "node:http";
 import { z } from "zod";
 import { jsonSchema } from "ai";
+import {
+  InMemorySpanExporter,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import type { Tool } from "../src/lib/types/index.js";
 
 assertDistFresh();
+
+// Registered BEFORE the dist import so NeuroLink adopts this provider instead
+// of initializing its own — the documented external-TracerProvider path. The
+// hydration-observability case reads its spans out of this exporter; the
+// other cases are unaffected (they pin calls and counters, not spans).
+const spanExporter = new InMemorySpanExporter();
+new NodeTracerProvider({
+  spanProcessors: [new SimpleSpanProcessor(spanExporter)],
+}).register();
 
 const { test, section, runSuite } = defineSuite(
   "Vertex Claude loop characterization",
@@ -691,6 +705,192 @@ await test("the generate path declares and executes a caller's tools", async () 
   assert(
     content.includes("generated answer"),
     "the generate path did not return the final turn's text",
+  );
+});
+
+section("mid-turn tool hydration observability");
+
+/**
+ * A minimal streamable-HTTP MCP server carrying one tool. Discovery only
+ * defers EXTERNAL MCP tools, so reaching the deferred-hydration path needs a
+ * real registered server — caller-supplied tools always stay hot.
+ */
+async function startMockMcpServer(): Promise<{
+  url: string;
+  toolCalls: number[];
+  close: () => Promise<void>;
+}> {
+  const toolCalls: number[] = [];
+  const handle = (msg: {
+    method?: string;
+    id?: number | string | null;
+  }): Record<string, unknown> | null => {
+    if (msg.method === "initialize") {
+      return {
+        jsonrpc: "2.0",
+        id: msg.id,
+        result: {
+          protocolVersion: "2025-03-26",
+          capabilities: { tools: {} },
+          serverInfo: { name: "mock-late-server", version: "1.0.0" },
+        },
+      };
+    }
+    if (msg.method === "tools/list") {
+      return {
+        jsonrpc: "2.0",
+        id: msg.id,
+        result: {
+          tools: [
+            {
+              name: "late_probe",
+              description: "a tool that is deferred behind search_tools",
+              inputSchema: { type: "object" as const, properties: {} },
+            },
+          ],
+        },
+      };
+    }
+    if (msg.method === "tools/call") {
+      toolCalls.push(Date.now());
+      return {
+        jsonrpc: "2.0",
+        id: msg.id,
+        result: { content: [{ type: "text", text: "probe ok" }] },
+      };
+    }
+    if (msg.method?.startsWith("notifications/")) {
+      return null;
+    }
+    return {
+      jsonrpc: "2.0",
+      id: msg.id ?? null,
+      error: { code: -32601, message: "method not found" },
+    };
+  };
+  const server: Server = createServer((req, res) => {
+    if (req.method !== "POST") {
+      res.writeHead(req.method === "DELETE" ? 200 : 405);
+      res.end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as
+          | Record<string, unknown>
+          | Array<Record<string, unknown>>;
+        const messages = Array.isArray(body) ? body : [body];
+        const responses = messages
+          .map((m) => handle(m as { method?: string; id?: number }))
+          .filter((r): r is Record<string, unknown> => r !== null);
+        res.writeHead(200, {
+          "content-type": "application/json",
+          "mcp-session-id": "late-session",
+        });
+        res.end(
+          responses.length === 1
+            ? JSON.stringify(responses[0])
+            : responses.length > 1
+              ? JSON.stringify(responses)
+              : undefined,
+        );
+      } catch {
+        res.writeHead(400);
+        res.end();
+      }
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  return {
+    url: `http://127.0.0.1:${port}/mcp`,
+    toolCalls,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      }),
+  };
+}
+
+await test("a deferred tool hydrated mid-turn is executed and observed with a tool span", async () => {
+  // The engine's tool record is snapshotted before the turn starts, and a
+  // deferred external tool is not an enumerable entry of the live record, so
+  // calling it always dispatches through resolveToolOnMiss — auto-hydration
+  // from the deferred catalog. This pins that the hydrated execution carries
+  // the same ai.toolCall observation as an up-front one: the hand-rolled loop
+  // opened the span after the executor lookup, so a hydrated call was never
+  // the one unobserved execution in a turn.
+  let deferredName = "";
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn(deferredName, { q: "x" }, "toolu_h1") : textTurn("done"),
+  );
+  const mcp = await startMockMcpServer();
+  const restore = withVertexEnv();
+  let externalToolCount = 0;
+  try {
+    const nl = new NeuroLink({ tools: { discovery: true } });
+    await nl.addExternalMCPServer("late-server", {
+      id: "late-server",
+      name: "late-server",
+      description: "mock server whose tool is deferred",
+      transport: "http",
+      url: mcp.url,
+      status: "initializing",
+      tools: [],
+      command: "",
+      args: [],
+    });
+    // The advertised name is whatever the registry exposes — read it rather
+    // than guessing the namespacing, and hand it to the stand-in script.
+    const externalTools = nl.getExternalMCPTools();
+    externalToolCount = externalTools.length;
+    deferredName = externalTools[0]?.name ?? "late_probe";
+    spanExporter.reset();
+    const result = await nl.stream({
+      input: { text: "call the late tool" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+  } catch {
+    // Counts and spans are what is pinned, not the outcome.
+  } finally {
+    restore();
+    await server.close();
+    await mcp.close();
+  }
+  const toolSpanNames = spanExporter
+    .getFinishedSpans()
+    .filter((s) => s.name === "ai.toolCall")
+    .map((s) => s.attributes["ai.toolCall.name"]);
+  console.log(
+    `    [diagnostic] vertex-claude hydration spans: externalTools=${externalToolCount} standInCalls=${server.calls.length} mcpToolCalls=${mcp.toolCalls.length} toolSpans=${toolSpanNames.length}`,
+  );
+  assert(
+    externalToolCount === 1,
+    "the mock MCP server's tool was not registered as an external tool",
+  );
+  assert(
+    !declaredToolNames(server.calls[0]).includes(deferredName),
+    "the deferred tool was declared up front, so no hydration was exercised",
+  );
+  assert(
+    mcp.toolCalls.length === 1,
+    "the hydrated tool did not execute exactly once",
+  );
+  assert(
+    toolSpanNames.filter((n) => n === deferredName).length === 1,
+    "the hydrated tool's execution was not observed with a tool span",
   );
 });
 
