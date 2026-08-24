@@ -204,6 +204,22 @@ jobs:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
+      # A cache HIT restores dist/ with the mtimes it was SAVED with, while
+      # actions/checkout stamps src/ with checkout time — so the repo's
+      # assertDistFresh guard reads a genuinely current dist as stale and kills
+      # every suite that imports it. The key above hashes src/** and every
+      # build input, so a hit proves dist matches this exact tree; re-stamping
+      # its mtimes is truthful, not a freshness bypass.
+      #
+      # That truth DEPENDS on the key being exact: never add `restore-keys`
+      # to the cache step above. A prefix match would restore a dist built
+      # from DIFFERENT sources, and this touch would then make
+      # assertDistFresh certify stale code as fresh — converting the guard's
+      # loud, correct abort into silently testing the wrong build.
+      - name: Stamp restored dist as fresh
+        if: matrix.group == 'types' && steps.dist-cache.outputs.cache-hit == 'true'
+        run: find dist -exec touch {} +
+
       - name: Build package
         if: matrix.group == 'types' && steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
@@ -291,6 +307,22 @@ jobs:
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
+      # A cache HIT restores dist/ with the mtimes it was SAVED with, while
+      # actions/checkout stamps src/ with checkout time — so the repo's
+      # assertDistFresh guard reads a genuinely current dist as stale and kills
+      # every suite that imports it. The key above hashes src/** and every
+      # build input, so a hit proves dist matches this exact tree; re-stamping
+      # its mtimes is truthful, not a freshness bypass.
+      #
+      # That truth DEPENDS on the key being exact: never add `restore-keys`
+      # to the cache step above. A prefix match would restore a dist built
+      # from DIFFERENT sources, and this touch would then make
+      # assertDistFresh certify stale code as fresh — converting the guard's
+      # loud, correct abort into silently testing the wrong build.
+      - name: Stamp restored dist as fresh
+        if: steps.dist-cache.outputs.cache-hit == 'true'
+        run: find dist -exec touch {} +
 
       - name: Build package
         if: steps.dist-cache.outputs.cache-hit != 'true'
@@ -388,6 +420,22 @@ jobs:
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
+      # A cache HIT restores dist/ with the mtimes it was SAVED with, while
+      # actions/checkout stamps src/ with checkout time — so the repo's
+      # assertDistFresh guard reads a genuinely current dist as stale and kills
+      # every suite that imports it. The key above hashes src/** and every
+      # build input, so a hit proves dist matches this exact tree; re-stamping
+      # its mtimes is truthful, not a freshness bypass.
+      #
+      # That truth DEPENDS on the key being exact: never add `restore-keys`
+      # to the cache step above. A prefix match would restore a dist built
+      # from DIFFERENT sources, and this touch would then make
+      # assertDistFresh certify stale code as fresh — converting the guard's
+      # loud, correct abort into silently testing the wrong build.
+      - name: Stamp restored dist as fresh
+        if: steps.dist-cache.outputs.cache-hit == 'true'
+        run: find dist -exec touch {} +
 
       - name: Build package
         if: steps.dist-cache.outputs.cache-hit != 'true'
@@ -584,6 +632,22 @@ jobs:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
 
+      # A cache HIT restores dist/ with the mtimes it was SAVED with, while
+      # actions/checkout stamps src/ with checkout time — so the repo's
+      # assertDistFresh guard reads a genuinely current dist as stale and kills
+      # every suite that imports it. The key above hashes src/** and every
+      # build input, so a hit proves dist matches this exact tree; re-stamping
+      # its mtimes is truthful, not a freshness bypass.
+      #
+      # That truth DEPENDS on the key being exact: never add `restore-keys`
+      # to the cache step above. A prefix match would restore a dist built
+      # from DIFFERENT sources, and this touch would then make
+      # assertDistFresh certify stale code as fresh — converting the guard's
+      # loud, correct abort into silently testing the wrong build.
+      - name: Stamp restored dist as fresh
+        if: steps.dist-cache.outputs.cache-hit == 'true'
+        run: find dist -exec touch {} +
+
       - name: Build (full — the CLI's collapse step needs the SDK output)
         if: steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
@@ -694,6 +758,22 @@ jobs:
         with:
           path: dist
           key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
+      # A cache HIT restores dist/ with the mtimes it was SAVED with, while
+      # actions/checkout stamps src/ with checkout time — so the repo's
+      # assertDistFresh guard reads a genuinely current dist as stale and kills
+      # every suite that imports it. The key above hashes src/** and every
+      # build input, so a hit proves dist matches this exact tree; re-stamping
+      # its mtimes is truthful, not a freshness bypass.
+      #
+      # That truth DEPENDS on the key being exact: never add `restore-keys`
+      # to the cache step above. A prefix match would restore a dist built
+      # from DIFFERENT sources, and this touch would then make
+      # assertDistFresh certify stale code as fresh — converting the guard's
+      # loud, correct abort into silently testing the wrong build.
+      - name: Stamp restored dist as fresh
+        if: steps.dist-cache.outputs.cache-hit == 'true'
+        run: find dist -exec touch {} +
 
       - name: Build
         if: steps.dist-cache.outputs.cache-hit != 'true'
