@@ -615,4 +615,76 @@ await test("a native loop turn records the provider attempt count on the active 
   );
 });
 
+section("step cap vs internal fallback");
+
+await test("fallbackOnMaxSteps: false surfaces a capped turn instead of retrying it", async () => {
+  // A step-capped turn produces no text, so the SDK's no-output gate would
+  // retry the whole request on the fallback route — spending a second turn
+  // to exceed a budget the caller set deliberately. fallbackOnMaxSteps:
+  // false marks the cap as the caller's own bound and keeps the turn.
+  //
+  // The fallback route is pinned back at this same stand-in, so a fired
+  // fallback is directly visible as a SECOND capped turn: exactly 3 calls
+  // proves the gate never fired (removing the gate clause flips this to 6).
+  const server = await startStandIn((i) =>
+    toolTurn("lookup", { n: i }, `toolu_${i}`),
+  );
+  const restore = withAnthropicEnv(server.port);
+  // The per-call route below outranks these, but clear them anyway so a
+  // developer .env cannot change what a *fired* fallback would do.
+  const savedFallbackEnv = {
+    provider: process.env.FALLBACK_PROVIDER,
+    model: process.env.FALLBACK_MODEL,
+  };
+  delete process.env.FALLBACK_PROVIDER;
+  delete process.env.FALLBACK_MODEL;
+  const counter = { calls: 0 };
+  let resolvedStopReason: unknown;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "keep going" },
+      provider: "anthropic",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 3,
+      disableTools: false,
+      tools: customTool(counter),
+      fallbackOnMaxSteps: false,
+      // Deterministic route: if the gate fires anyway, the retry lands back
+      // on this stand-in and doubles the call count.
+      fallbackProvider: "anthropic",
+      fallbackModel: MODEL,
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    // metadata is the mutable-reference contract: the loop resolves
+    // stopReason onto this same object by the time the stream is drained.
+    resolvedStopReason = result.metadata?.stopReason;
+  } catch {
+    // The call count is what is pinned.
+  } finally {
+    restore();
+    if (savedFallbackEnv.provider !== undefined) {
+      process.env.FALLBACK_PROVIDER = savedFallbackEnv.provider;
+    }
+    if (savedFallbackEnv.model !== undefined) {
+      process.env.FALLBACK_MODEL = savedFallbackEnv.model;
+    }
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] capped-no-fallback: calls=${server.calls.length} toolExecs=${counter.calls} stopReason=${String(resolvedStopReason)}`,
+  );
+  assert(
+    server.calls.length === 3,
+    `a capped turn with fallbackOnMaxSteps:false should stop at 3 calls, made ${server.calls.length}`,
+  );
+  assert(
+    resolvedStopReason === "step-cap",
+    "the capped turn should surface stopReason step-cap to the caller",
+  );
+});
+
 await runSuite();

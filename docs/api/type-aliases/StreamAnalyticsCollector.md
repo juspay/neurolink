@@ -8,7 +8,7 @@
 
 > **StreamAnalyticsCollector** = `object`
 
-Defined in: [types/stream.ts:917](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L917)
+Defined in: [types/stream.ts:929](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L929)
 
 Stream analytics collector type
 
@@ -18,7 +18,7 @@ Stream analytics collector type
 
 > **collectUsage**(`result`): `Promise`\<[`TokenUsage`](TokenUsage.md)\>
 
-Defined in: [types/stream.ts:918](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L918)
+Defined in: [types/stream.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L930)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/stream.ts:918](https://github.com/juspay/neurolink/blob/relea
 
 > **collectMetadata**(`result`): `Promise`\<[`ResponseMetadata`](ResponseMetadata.md)\>
 
-Defined in: [types/stream.ts:919](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L919)
+Defined in: [types/stream.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L931)
 
 #### Parameters
 
@@ -54,7 +54,7 @@ Defined in: [types/stream.ts:919](https://github.com/juspay/neurolink/blob/relea
 
 > **createAnalytics**(`provider`, `model`, `result`, `startTime`, `context?`): `Promise`\<[`AnalyticsData`](AnalyticsData.md)\>
 
-Defined in: [types/stream.ts:920](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L920)
+Defined in: [types/stream.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L932)
 
 #### Parameters
 
