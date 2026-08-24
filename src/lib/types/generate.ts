@@ -951,6 +951,20 @@ export type GenerateResult = {
    * ```
    */
   audio?: TTSResult;
+  /**
+   * What happened during TTS synthesis, including why it failed.
+   *
+   * `generate()` degrades gracefully when synthesis fails: it returns the text
+   * and omits `audio`. Without this field a caller cannot tell a request that
+   * never asked for audio from one whose provider rejected the credentials —
+   * an invalid key produces a silent, indistinguishable absence.
+   *
+   * BaseProvider has always recorded this on EnhancedGenerateResult; it was
+   * declared there but never forwarded by the result builders, so callers
+   * reading it got `undefined`. Same defect the `reasoning` comment in
+   * neurolink.ts describes, on a different field.
+   */
+  ttsMetadata?: TTSMetadata;
 
   /**
    * Video generation result
@@ -1641,6 +1655,8 @@ export type TextGenerationResult = {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
   audio?: TTSResult;
+  /** Outcome of TTS synthesis, including the failure reason. */
+  ttsMetadata?: TTSMetadata;
   /** STT transcription result (present when stt input was processed) */
   transcription?: STTResult;
   /** Video generation result */
@@ -1688,7 +1704,6 @@ export type EnhancedGenerateResult = GenerateResult & {
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
   /** Outcome metadata when TTS was enabled for this generation. */
-  ttsMetadata?: TTSMetadata;
 };
 
 /**
