@@ -7,6 +7,7 @@
  * or the file path (for filesystem / naming rules).
  *
  * Rules:
+ *   neurolink/format-provider-error-returns → Rule 6: formatProviderError returns, never throws.
  *   neurolink/no-interface                → Rule 7: No `interface` (except declare merging).
  *   neurolink/no-types-suffix-filename    → Rule 8: No "Types"/"Type" suffix in filenames.
  *   neurolink/unique-type-names           → Rule 9: Globally unique names in src/lib/types/.
@@ -23,6 +24,7 @@
 
 module.exports = {
   rules: {
+    "format-provider-error-returns": require("./format-provider-error-returns.cjs"),
     "no-interface": require("./no-interface.cjs"),
     "no-types-suffix-filename": require("./no-types-suffix-filename.cjs"),
     "unique-type-names": require("./unique-type-names.cjs"),

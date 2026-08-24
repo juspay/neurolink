@@ -93,6 +93,7 @@ export default [
       // NeuroLink custom type-engineering rules (CLAUDE.md Critical Rules)
       // All rules (7-13) enforced via ESLint — zero shell scripts.
       // ======================================================================
+      "neurolink/format-provider-error-returns": "error", // Rule 6
       "neurolink/no-interface": "error", // Rule 7
       "neurolink/no-types-suffix-filename": "error", // Rule 8
       "neurolink/unique-type-names": "error", // Rule 9
