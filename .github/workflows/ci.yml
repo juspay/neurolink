@@ -616,37 +616,74 @@ jobs:
       # pnpm-lock.yaml and were getting zero audit coverage — exactly how two
       # critical advisories sat there unnoticed. This step gives them one.
       #
-      # Deliberately non-blocking for now (continue-on-error): both trees
-      # currently carry several more high/moderate advisories beyond their
-      # one critical each, so a hard-failing gate here would red-line every
-      # PR immediately. The two criticals are being fixed on a separate
-      # branch (fix/subpackage-critical-advisories) not yet merged, so this
-      # step is still expected to report findings today — that's the point,
-      # visibility without blocking.
+      # NOW BLOCKING, at critical severity only. The groundwork this step's
+      # earlier note was waiting on has landed: #1415 raised the stale pnpm
+      # overrides and both lockfiles cleared their criticals. Measured before
+      # promoting, rather than assumed:
       #
-      # To promote this to a real (required) gate once that groundwork is
-      # done: (1) let fix/subpackage-critical-advisories land, (2) triage or
-      # override the remaining high/moderate findings in each tree so a
-      # clean run is achievable, then (3) drop `continue-on-error` and add
-      # `--audit-level=critical` (or higher) to each `pnpm audit` call below
-      # so it fails only on genuinely new criticals, not on the long tail.
+      #   landing     critical=0  high=6   moderate=2
+      #   docs-site   critical=0  high=17  moderate=15  low=3
+      #
+      #   pnpm audit --audit-level=critical   -> exit 0 in both trees
+      #   pnpm audit (no flag)                -> exit 1 in both trees
+      #
+      # So `--audit-level=critical` is what makes a hard gate achievable today:
+      # it fails on a genuinely new critical and stays quiet for the existing
+      # high/moderate long tail, which is exactly the trade the earlier note
+      # described. Without the flag this step would red-line every PR.
+      #
+      # The long tail is deliberately still unaudited-by-gate. Raising the bar
+      # to `high` needs those 23 high findings triaged or overridden first;
+      # doing it now would just reinstate continue-on-error under a new name.
       - name: 🔒 Subpackage Dependency Audit (landing/, docs-site/)
-        continue-on-error: true
         run: |
           set +e
-          echo "🔍 Auditing landing/ dependencies..."
-          (cd landing && pnpm audit)
-          landing_status=$?
-          echo ""
-          echo "🔍 Auditing docs-site/ dependencies..."
-          (cd docs-site && pnpm audit)
-          docs_status=$?
-          echo ""
-          if [ "$landing_status" -ne 0 ] || [ "$docs_status" -ne 0 ]; then
-            echo "⚠️ Subpackage audit(s) reported findings — non-blocking for now, see step notes in ci.yml."
-            exit 1
-          fi
-          echo "✅ No subpackage audit findings."
+          # Counts criticals from --json rather than trusting the exit code.
+          #
+          # `pnpm audit` exits non-zero both when it FINDS advisories and when it
+          # fails to run at all, and those are different facts. A gate that
+          # cannot tell them apart reports "a critical advisory is present"
+          # whenever the registry is unreachable, the audit endpoint changes, or
+          # the tool breaks — sending someone to hunt a vulnerability that does
+          # not exist while the real problem is infrastructure.
+          #
+          # So: parse the report. No parseable report means the scan did not
+          # run, which still fails the gate (a scan that did not look is not a
+          # clean result) but says so accurately.
+          audit_criticals() {
+            local dir="$1" out
+            out=$(cd "$dir" && pnpm audit --json 2>/dev/null)
+            printf '%s' "$out" | node -e '
+              let s = "";
+              process.stdin.on("data", (d) => (s += d)).on("end", () => {
+                try {
+                  const v = JSON.parse(s).metadata.vulnerabilities;
+                  if (typeof v.critical !== "number") process.exit(3);
+                  console.log(v.critical);
+                } catch { process.exit(3); }
+              });'
+          }
+
+          failed=0
+          for tree in landing docs-site; do
+            echo "🔍 Auditing $tree/ dependencies..."
+            criticals=$(audit_criticals "$tree")
+            if [ $? -ne 0 ]; then
+              echo "❌ $tree/: pnpm audit produced no usable report — the scan did NOT run."
+              echo "   This is an infrastructure failure, not a vulnerability. Check the"
+              echo "   registry and the pnpm audit client before reading anything into it."
+              failed=1
+            elif [ "$criticals" -ne 0 ]; then
+              echo "❌ $tree/: $criticals CRITICAL advisory/advisories present."
+              echo "   Fix it, or raise the pnpm override, before merging."
+              failed=1
+            else
+              echo "✅ $tree/: no critical advisories."
+            fi
+            echo ""
+          done
+          [ "$failed" -ne 0 ] && exit 1
+          echo "✅ No critical subpackage advisories."
 
       - name: 📊 ESLint Quality Report
         run: |
