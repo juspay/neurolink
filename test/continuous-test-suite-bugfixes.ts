@@ -7075,7 +7075,7 @@ exit 127
       const originalFetch = globalThis.fetch;
       const secretUrl = "https://example.com/img.png?token=SUPERSECRET123";
       globalThis.fetch = (async () => {
-        throw new Error("simulated network failure");
+        throw new Error("synthetic fetch fault (fixture)");
       }) as typeof fetch;
       try {
         await imageUtils.urlToBase64DataUri(secretUrl, { maxAttempts: 1 });
@@ -7087,7 +7087,7 @@ exit 127
         // pins down the full redacted message, not just a fragment of it.
         return (
           msg ===
-          "Failed to download and convert URL to base64 (https://example.com/img.png): simulated network failure"
+          "Failed to download and convert URL to base64 (https://example.com/img.png): synthetic fetch fault (fixture)"
         );
       } finally {
         globalThis.fetch = originalFetch;
