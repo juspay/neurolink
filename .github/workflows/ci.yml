@@ -62,27 +62,29 @@ jobs:
           echo "🔍 Running ESLint validation with controlled warning limits..."
           npx eslint src/ --max-warnings=300
           npx eslint test/continuous-test-suite*.ts test/zod-schema-test-function.ts --max-warnings=10
-          # Everything else, errors only.
+          # Everything else ESLint is configured to see, errors only.
           #
-          # The two runs above cover src/ and the continuous-test-suite glob, and
-          # nothing else in the repo was linted by CI at all: scripts/, tools/,
-          # eslint-rules/, test/helpers/ (18 files) and any test file outside that
-          # glob. `pnpm run lint` does lint the whole project, but CI never calls
-          # it — it is a pre-commit hook only, and `--no-verify` skips that.
+          # The two runs above cover src/ and the continuous-test-suite glob.
+          # `eslint .` adds 46 files CI never linted, measured by diffing the
+          # file lists rather than guessed:
           #
-          # This mattered beyond coverage: the custom rules assume a full-project
-          # view. unique-type-names can only detect a duplicate if it sees both
-          # declarations, and its own comment claimed "the pre-push/CI run on the
-          # full project catches everything" — pre-push does not lint, and CI did
-          # not run on the full project, so that net did not exist.
+          #   eslint-rules 13 | test 25 (outside the glob) | docs-site 5
+          #   tools 1 | landing 1 | .pnpmfile.cjs 1
           #
-          # No warning ceiling here on purpose: the scoped runs above already own
-          # the warning budgets, and duplicating one would let a warning limit be
-          # tightened in one place and silently loosened in another. This run
-          # exists to catch ERRORS anywhere, which is what the custom rules emit.
+          # Note what this does NOT add. `scripts/**` is in the ignores list in
+          # eslint.config.js, so no ESLint run covers it. And every custom
+          # `neurolink/*` rule is enabled only for `files: ["src/**/*.ts", ...]`,
+          # so those rules were never short of coverage — `eslint src/` already
+          # gave them everything they inspect. The value here is the generic
+          # rules reaching the lint rules themselves and the untested test files,
+          # not rescuing a custom rule from a partial view.
           #
-          # Free to add today, measured rather than assumed: `npx eslint .`
-          # currently reports 0 errors / 56 warnings and exits 0.
+          # No warning ceiling on purpose: the scoped runs above own the warning
+          # budgets, and duplicating one would let a limit be tightened in one
+          # place and silently loosened in another.
+          #
+          # Free to add, measured: `npx eslint .` reports 0 errors / 56 warnings
+          # and exits 0.
           npx eslint .
 
       - name: 🔒 Security & Environment Validation
