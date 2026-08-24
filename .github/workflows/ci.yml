@@ -9,10 +9,18 @@ on:
 # Cancel a run that a newer push to the same ref has superseded. Without this
 # an amend-and-force-push — routine under the single-commit-per-branch policy —
 # leaves the old run executing to completion, competing for runners with the
-# run whose result anyone actually wants. copilot-review.yml already does this;
-# ci.yml did not.
+# run whose result anyone actually wants.
 #
 # Keyed on the ref, not the PR number, so pushes to release are covered too.
+# That has a consequence worth knowing before debugging a cache miss: a
+# cancelled run saves no cache. When several merges land on release in quick
+# succession, only the surviving run writes the dist cache, so PRs opened in
+# the gap miss and build from scratch. That is correct but slower — and it
+# means a green run in that window is no evidence either way about the
+# restore-and-stamp path. The cache step itself still runs on a miss; it finds
+# no entry for the key and restores nothing, so the stamp step is skipped and
+# nothing depending on a restored dist was exercised. A cache step that ran is
+# not a cache that was restored.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
