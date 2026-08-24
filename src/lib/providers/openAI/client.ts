@@ -33,6 +33,7 @@ import { assertSafeUrl } from "../../utils/ssrfGuard.js";
 import { createTimeoutController } from "../../utils/timeout.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
+import { isOpenAIQuotaExhaustedError } from "../../utils/providerRetry.js";
 
 const OPENAI_DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
@@ -165,6 +166,24 @@ export class OpenAIProvider extends OpenAIChatCompletionsProvider {
           /Incorrect API key|Invalid API key/i.test(ctx.message)
             ? ctx.message
             : "Invalid OpenAI API key. Please check your OPENAI_API_KEY environment variable.",
+      },
+      // MUST precede the 429 rule below. OpenAI returns 429 for two
+      // unrelated conditions: transient throttling, and a permanently
+      // exhausted quota (out of credit, or a spend cap reached). Matching on
+      // the status code alone collapses them, and the resulting advice —
+      // "try again later" — is the one thing that can never resolve the
+      // second. The signal is the error TYPE, not the wording.
+      {
+        // One definition of "permanent billing state", in the helper. The
+        // earlier cut also tested `errorType === "insufficient_quota"` here,
+        // which is precisely the helper's own first branch — two places to
+        // keep in step for no benefit.
+        match: (ctx) => isOpenAIQuotaExhaustedError(ctx.error),
+        errorClass: ProviderError,
+        message:
+          "OpenAI quota exhausted — this will not resolve by retrying. " +
+          "Check your plan and billing details at " +
+          "https://platform.openai.com/account/billing",
       },
       {
         match: (ctx) =>

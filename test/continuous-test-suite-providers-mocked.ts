@@ -1717,6 +1717,204 @@ async function runOpenAISection(): Promise<void> {
       err instanceof Error ? err.message : String(err),
     );
   }
+
+  // ── 429 + insufficient_quota. OpenAI reuses 429 for a PERMANENT billing
+  // state, so this must not be reported as a rate limit and must not be
+  // retried. Two assertions, because the failures are independent: the advice
+  // given to the caller, and the work done before giving it.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 429,
+            json: {
+              error: {
+                message:
+                  "You exceeded your current quota, please check your plan and billing details.",
+                type: "insufficient_quota",
+                code: "insufficient_quota",
+              },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: insufficient_quota is not reported as a rate limit`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          record(
+            results,
+            `${section}: insufficient_quota is not reported as a rate limit`,
+            msg.includes("OpenAI quota exhausted") &&
+              !msg.includes("rate limit exceeded"),
+            `msg='${msg.slice(0, 120)}'`,
+          );
+        }
+        // A permanent condition must cost exactly one upstream call. Before
+        // this fix the ladder ran 3 attempts with ~20s of backoff every time.
+        record(
+          results,
+          `${section}: insufficient_quota is not retried`,
+          calls.length === 1,
+          `upstream attempts=${calls.length}`,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: insufficient_quota is not reported as a rate limit`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── Guard on the fix above. The quota check keys on the error TYPE, never
+  // on the word "quota", because other providers use that word for ordinary
+  // throttling — Google's 429 reads "Quota exceeded for quota metric ...".
+  // A plain throttle whose MESSAGE mentions a quota must stay retryable; if
+  // this regresses, throttling silently stops being retried.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 429,
+            json: {
+              error: {
+                message:
+                  "Quota exceeded for quota metric 'requests per minute'",
+                type: "rate_limit_error",
+              },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+        } catch {
+          // The error is expected; only the retry count is under test here.
+        }
+        record(
+          results,
+          `${section}: a throttle whose text mentions quota is still retried`,
+          calls.length > 1,
+          `upstream attempts=${calls.length}`,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a throttle whose text mentions quota is still retried`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── The streaming path has its OWN withProviderRetry call site
+  // (openaiChatCompletionsBase.ts:1438), so a retry fix proven only on the
+  // non-streaming path says nothing about it. This pins that it holds there.
+  //
+  // Only the retry is asserted, deliberately. The streaming path never runs
+  // formatProviderError at all — openaiChatCompletionsBase declares it
+  // abstract and throws the raw provider error instead, so NO error of any
+  // type or provider is classified on that path. That is a pre-existing,
+  // provider-wide gap rather than anything about quota, and asserting the
+  // classified message here would be asserting a fix this change does not
+  // make. Measured: a streaming quota 429 surfaces "You have no credits
+  // remaining ..." verbatim.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 429,
+            json: {
+              error: {
+                message:
+                  "You have no credits remaining. Add credits to continue using the API.",
+                type: "insufficient_quota",
+                code: "credit_balance_exhausted",
+              },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        // null means nothing was thrown, which is itself a failure for this
+        // case — a 429 must not stream successfully. Keeping it distinct from
+        // a message stops the assertion below passing vacuously on a
+        // placeholder string.
+        let msg: string | null = null;
+        try {
+          const r = await nl.stream({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          // The rejection may surface on the call or on first iteration.
+          for await (const chunk of r.stream) {
+            void chunk;
+          }
+        } catch (err) {
+          msg = err instanceof Error ? err.message : String(err);
+        }
+        // Whatever wording surfaces, it must not claim this is a rate limit.
+        record(
+          results,
+          `${section}: streaming quota error is never called a rate limit`,
+          msg !== null && !/rate\s*limit/i.test(msg),
+          msg === null ? "no error thrown" : `msg='${msg.slice(0, 120)}'`,
+        );
+        record(
+          results,
+          `${section}: streaming insufficient_quota is not retried`,
+          calls.length === 1,
+          `upstream attempts=${calls.length}`,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: streaming quota error is never called a rate limit`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
 }
 
 // ───────────────────────────────────────────────────────────────────────
