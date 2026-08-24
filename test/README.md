@@ -46,14 +46,32 @@ npx tsx test/continuous-test-suite-<name>.ts [--provider=vertex] [--model=gpt-4o
 
 | Tier               | Frequency         | Suites                                                                                                                                                                                                                                                                | Cost                  |
 | ------------------ | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
-| **`test:unit`**    | local / pre-push  | `bugfixes`, `mcp:infra`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `model-not-found-retryable`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
+| **`test:unit`**    | local only        | `bugfixes`, `mcp:infra`, `mcp:spans`, `tool-routing`, `tool-routing-cli`, `tool-dedup`, `model-pool`, `tool-routing-semantic`, `mcp-result-cache`, `model-not-found-retryable`, `archive:security`, `office:security`, the three `vector-*` stores, `provider-wiring` | $0                    |
 | **`test:live`**    | when keys present | `providers`, `mcp:http`, `mcp:sdk`, `mcp:cli`, `observability`, `context`, `memory`, `tool-reliability`, `evaluation`, `autoresearch`                                                                                                                                 | small per-call        |
 | **`test:product`** | release gate      | `media` (image+video), `tts`, `ppt`, `proxy`                                                                                                                                                                                                                          | metered (image/video) |
 
-**What CI actually runs.** Not `test:unit`. The `provider-safety-net` job in
-`.github/workflows/ci.yml` runs `build` + `test:providers-mocked` +
-`test:provider-structure` on every PR, and the same pair is the `pre-push`
-hook. The `test` job is format-check, eslint, `validate:all` and the builds.
+**What CI actually runs.** Not `test:unit`. Two required jobs in
+`.github/workflows/ci.yml` cover this directory, and both are sharded behind an
+aggregator of the same name — branch protection checks the aggregator, so the
+name it requires is never the name of a job that runs a suite.
+
+`provider-safety-net` builds the package, then splits two ways. `contract` runs
+`test:providers-mocked`. `rest` runs `test:provider-structure`,
+`test:error-classifier-contract`, `test:bedrock-inference-profile`,
+`test:bedrock-loop-characterization`, `test:sagemaker-streaming`,
+`test:anthropic-loop-characterization`, `test:aistudio-loop-characterization`
+and `verify:provider-onboarding`.
+
+`test` splits three ways: `lint` (format-check, eslint), `validate`
+(`validate:all`, the generated-API-docs currency check, `check:deps`) and
+`types` (`check:ci-scripts`, `check:test-parse`, `check:tools-tests`, and both
+builds).
+
+The `pre-push` hook is a **different** set, not a subset: `check:deps`,
+`build`, `test:provider-structure`, `test:model-manifests`.
+`test:providers-mocked` is deliberately not among them — at 259s it dominated
+push latency, and `provider-safety-net` already gates it on every PR.
+
 Everything else in this directory runs when someone runs it, so a suite you
 add here is not automatically a gate.
 

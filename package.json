@@ -198,7 +198,7 @@
     "validate:commit": "tsx scripts/commit-validation.ts",
     "quality:metrics": "tsx scripts/quality-metrics.ts",
     "quality:report": "pnpm run quality:metrics && echo 'Quality metrics saved to quality-metrics.json'",
-    "pre-push": "pnpm run check:deps && pnpm run build && pnpm run test:providers-mocked && pnpm run test:provider-structure && pnpm run test:model-manifests",
+    "pre-push": "pnpm run check:deps && pnpm run build && pnpm run test:provider-structure && pnpm run test:model-manifests",
     "check:all": "pnpm run lint && pnpm run format --check && pnpm run validate && pnpm run validate:commit",
     "test:file-formats": "pnpm exec tsx test/continuous-test-suite-file-formats.ts",
     "test:multimodal": "pnpm run test:file-formats && pnpm run test:multimodal:sdk",

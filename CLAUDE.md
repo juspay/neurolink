@@ -273,11 +273,21 @@ pnpm run test:middleware
 pnpm run test:autoresearch       # E2E + live (live half skips without keys)
 
 # What CI actually gates — NOT test:unit.
-# .github/workflows/ci.yml has a `provider-safety-net` job running
-#   build + test:providers-mocked + test:provider-structure
-# on every PR; the same pair is the pre-push hook. The job named `test` is
-# format-check, eslint, validate:all and the builds. Everything else in test/
-# runs only when someone runs it, so adding a suite does not make it a gate.
+# .github/workflows/ci.yml has two required jobs over test/, and both are
+# sharded behind an aggregator of the same name. Branch protection requires the
+# aggregator, so the required name is never a job that runs a suite:
+#   provider-safety-net → build, then `contract` (test:providers-mocked) and
+#     `rest` (test:provider-structure, test:error-classifier-contract, the
+#     bedrock/sagemaker/anthropic/aistudio characterization suites, and
+#     verify:provider-onboarding).
+#   test → `lint` (format-check, eslint), `validate` (validate:all, docs:api
+#     currency, check:deps), `types` (check:ci-scripts, check:test-parse,
+#     check:tools-tests, both builds).
+# The pre-push hook is a DIFFERENT set, not a subset: check:deps, build,
+# test:provider-structure, test:model-manifests. test:providers-mocked is
+# deliberately not in it — 259s, and provider-safety-net already gates it.
+# Everything else in test/ runs only when someone runs it, so adding a suite
+# does not make it a gate.
 
 # Run a single suite directly
 npx tsx test/continuous-test-suite-<name>.ts
