@@ -496,6 +496,12 @@ jobs:
   # into nothing is documentation, not a test.
   extended-suites:
     runs-on: ubuntu-latest
+    # This job checks out and executes repository code on pull_request.
+    # The repository default is a WRITE-scoped token (and one that may
+    # approve reviews); nothing here needs either. Read is enough to
+    # checkout, install and run suites.
+    permissions:
+      contents: read
     name: Extended Suites (non-blocking)
     steps:
       - name: Checkout code
@@ -529,6 +535,36 @@ jobs:
           # each of these suites drives the public API against stubs, local
           # fixtures or mocked fetch, so a suite that starts making real network
           # calls fails here rather than silently costing money and flaking.
+          #
+          # The list below grew from 8 to 28. The 20 added were not picked by
+          # reading them: every suite script that CI never invoked was run with
+          # the environment fully stripped — `env -i` plus
+          # DOTENV_CONFIG_PATH=/dev/null, checked to actually suppress .env —
+          # and only the ones that passed that way are here. They contribute
+          # 373 assertions.
+          #
+          # test:middleware is held back despite passing that sweep. Run inside
+          # this 21-suite sequence it failed 2 of 2 times; run alone, or
+          # immediately after test:mcp, it passed 3 of 3 at 7/7. So it is
+          # reproducible in context rather than flaky, and the cause is not the
+          # suite that precedes it — that hypothesis was tested and refuted. It
+          # has a 60s per-test bound, which is the likeliest thing to give way
+          # under a long sequence. Worth 7 assertions to whoever diagnoses it.
+          #
+          # Two candidates that pass locally are deliberately absent, and the
+          # reason is the whole point of measuring rather than assuming:
+          # test:proxy passes with credentials (74 passed / 6 skipped) and
+          # FAILS without them (68 passed / 5 failed / 7 skipped), and
+          # test:multimodal:sdk exits non-zero with no summary. Either would
+          # have looked safe from a run on a developer machine.
+          #
+          # test:model-not-found-retryable is also absent: it skips entirely
+          # without credentials, so it could only ever no-op here — the same
+          # reason it is held out of the security-suites job.
+          #
+          # This job is non-blocking on purpose. These are measured once, not
+          # proven stable, and `security-suites` is a required check that
+          # blocks every open pull request when it breaks.
           SUITES="
             test:openai-compat-catalog
             test:handler-registry
@@ -538,6 +574,26 @@ jobs:
             test:music:unit
             test:video:unit
             test:realtime:unit
+            test:adjust-body-after-400
+            test:anthropic-streaming-retry
+            test:auth
+            test:autoresearch
+            test:codex
+            test:credentials
+            test:dynamic
+            test:local-usage
+            test:loop-engine
+            test:mcp
+            test:model-manifests
+            test:openai-compat-streaming-retry
+            test:provider-descriptors
+            test:provider-fallback
+            test:provider-fallback-latency
+            test:servers
+            test:tool-reliability
+            test:tool-resolution
+            test:vertex-claude-characterization
+            test:vertex-loop-characterization
           "
           FAILED=""
           for s in $SUITES; do
