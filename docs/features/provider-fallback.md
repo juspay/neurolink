@@ -112,6 +112,31 @@ type ModelChain = string[];
 
 ---
 
+## Internal no-output fallback (`disableInternalFallback`, `fallbackOnMaxSteps`)
+
+Separate from the orchestration above, `stream()` carries an internal safety
+net: when the drained stream produced no non-sentinel text, audio, or image
+chunks and recorded no tool calls or tool results, NeuroLink retries the
+request once on a fallback route. An audio-only or image-only stream counts
+as real output and does not trigger the retry. The route's provider and
+model are resolved independently: the per-call `fallbackProvider` /
+`fallbackModel` options each override their matching `FALLBACK_PROVIDER` /
+`FALLBACK_MODEL` environment variable, which overrides the corresponding
+model-router value. Two per-call knobs control the retry:
+
+- `disableInternalFallback: true` — turn the safety net off entirely. The
+  Claude proxy does this so the proxy itself can own fallback order.
+- `fallbackOnMaxSteps: false` — keep the safety net, but exempt turns that
+  ended at your own `maxSteps` bound. A tool-looping turn that runs out of
+  step budget produces no final text, which otherwise looks exactly like a
+  failed stream to the no-output check — and the retry spends a second
+  provider's tokens to exceed a budget you set deliberately. With this set,
+  the capped turn is surfaced as-is and reports
+  `metadata.stopReason === "step-cap"` after the stream is drained. Default
+  (unset) preserves the retry.
+
+---
+
 ## Observability
 
 When the orchestrator advances past an access-denial, it emits a `model.fallback` event on the SDK's internal emitter:
