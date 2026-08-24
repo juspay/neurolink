@@ -471,9 +471,39 @@ class SecurityValidator {
       output = execSync("pnpm audit --prod --json", {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
+        // `pnpm audit` talks to the registry, so this is the one call in this
+        // file that can hang on something outside the machine. It matters more
+        // than it looks: CI runs `pnpm run validate:security` DIRECTLY (ci.yml,
+        // "🔒 Security Validation"), not through build-validations.ts, so the
+        // process-group bound added there does not cover this path at all.
+        // Unbounded, an unreachable registry hangs the job to its own limit.
+        //
+        // 1s measured locally against a 120s ceiling. SIGKILL because execSync's
+        // timeout otherwise sends SIGTERM and keeps waiting.
+        timeout: SCANNER_TIMEOUT_MS,
+        killSignal: "SIGKILL",
       });
     } catch (pnpmError: unknown) {
-      const execErr = pnpmError as { stdout?: string };
+      const execErr = pnpmError as {
+        stdout?: string;
+        code?: string;
+        signal?: string;
+      };
+      // `pnpm audit` exits non-zero when it FINDS advisories, so landing here is
+      // the normal path and `stdout` carries the real report. A timeout lands
+      // here too, and the branches below already fail closed on the empty and
+      // unparseable output it leaves. What they cannot do is SAY it was a
+      // timeout — they would report "produced no output", which sends whoever
+      // reads it looking for a broken pnpm rather than a slow registry.
+      if (execErr.code === "ETIMEDOUT" || execErr.signal === "SIGKILL") {
+        this.addIssue(
+          "error",
+          "dependencies",
+          `pnpm audit exceeded ${SCANNER_TIMEOUT_MS / 1000}s and was killed — the vulnerability scan did not complete, so its result cannot be trusted (registry unreachable or slow?)`,
+        );
+        this.results.dependencies.status = "failed";
+        return;
+      }
       output = execErr.stdout || "";
     }
 
@@ -1074,10 +1104,56 @@ class SecurityValidator {
 
       // Check for license-checker package availability
       try {
-        execSync("pnpm exec license-checker --summary", { stdio: "pipe" });
-        this.log("License compliance check available", "green");
-        this.results.licenses.status = "passed";
-      } catch (_error: unknown) {
+        // Bounded for the same reason as the audit above, and it is not
+        // hypothetical: license-checker walks the whole installed dependency
+        // tree from disk and resolves licence metadata, so on a cold or very
+        // large node_modules it is I/O-bound and can sit for a long time. It is
+        // also `pnpm exec`, which will try to FETCH the package if it is not
+        // already installed — a network operation, and the same registry-hang
+        // exposure the audit call has.
+        //
+        // SIGKILL rather than the default SIGTERM because execSync's timeout
+        // sends SIGTERM and then keeps waiting, so a child that ignores it
+        // hangs forever and the bound buys nothing.
+        execSync("pnpm exec license-checker --summary", {
+          stdio: "pipe",
+          timeout: SCANNER_TIMEOUT_MS,
+          killSignal: "SIGKILL",
+        });
+        // The tool RAN. Nothing read its output, so no licence has been
+        // evaluated and "passed" would be a claim this code cannot support —
+        // the same shape as the secret- and dependency-scan branches that had
+        // to be corrected: a status that means "the tool exists", printed where
+        // a reader sees "compliance verified".
+        //
+        // Reported as a warning with the reason stated. Deliberately NOT
+        // upgraded to a real check here: deciding which licences are acceptable
+        // is policy, and inventing that policy inside a status assignment would
+        // be worse than admitting the gap.
+        this.log(
+          "license-checker is available but its output is not evaluated — no licence was checked",
+          "yellow",
+        );
+        this.addIssue(
+          "warning",
+          "licenses",
+          "Licence compliance is NOT verified: license-checker runs but its summary is discarded, so no licence is evaluated. Treat this check as a tooling probe, not a compliance result.",
+        );
+        this.results.licenses.status = "warning";
+      } catch (licenseError: unknown) {
+        const lcErr = licenseError as { code?: string; signal?: string };
+        // A timeout is not the same fact as "not installed", and saying
+        // "Install license-checker" to someone whose scan was killed is
+        // actively misleading — they have it, it did not finish.
+        if (lcErr.code === "ETIMEDOUT" || lcErr.signal === "SIGKILL") {
+          this.addIssue(
+            "warning",
+            "licenses",
+            `license-checker exceeded ${SCANNER_TIMEOUT_MS / 1000}s and was killed — the licence probe did not complete`,
+          );
+          this.results.licenses.status = "warning";
+          return;
+        }
         this.addIssue(
           "info",
           "licenses",
