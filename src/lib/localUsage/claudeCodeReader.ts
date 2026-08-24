@@ -36,9 +36,9 @@ import type {
   LocalUsageTotals,
 } from "../types/index.js";
 import { calculateCost, hasPricing } from "../utils/pricing.js";
+import { resolveScanCutoffMs } from "./scanWindow.js";
 
 const CLI_ID = "claude-code" as const;
-const DEFAULT_SINCE_DAYS = 30;
 const PROVIDER = "anthropic";
 
 function projectsRoot(): string {
@@ -230,12 +230,7 @@ export async function createClaudeCodeReader(): Promise<LocalUsageReader> {
       // 32.8s — the same unbounded sweep this guard exists to prevent, reached
       // by a different door. The old guard caught it with Number.isFinite and
       // the replacement dropped that check.
-      const requestedDays = options?.sinceDays ?? DEFAULT_SINCE_DAYS;
-      const sinceDays = Number.isNaN(requestedDays) ? 0 : requestedDays;
-      const cutoff =
-        sinceDays === Infinity
-          ? undefined
-          : Date.now() - Math.max(0, sinceDays) * 86_400_000;
+      const cutoff = resolveScanCutoffMs(options?.sinceDays);
 
       let filesScanned = 0;
       for (const file of files) {

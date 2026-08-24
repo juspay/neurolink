@@ -45,9 +45,9 @@ import type {
   LocalUsageScanResult,
   LocalUsageTotals,
 } from "../types/index.js";
+import { resolveScanCutoffMs } from "./scanWindow.js";
 
 const CLI_ID = "opencode" as const;
-const DEFAULT_SINCE_DAYS = 30;
 
 function databasePath(): string {
   return join(homedir(), ".local", "share", "opencode", "opencode.db");
@@ -157,12 +157,9 @@ export async function createOpenCodeReader(): Promise<LocalUsageReader> {
       // "no such column: NaN" — so the whole scan failed rather than
       // over-reading. The cutoff is a bound parameter now, so a value can
       // never be SQL syntax whatever it is.
-      const requestedDays = options?.sinceDays ?? DEFAULT_SINCE_DAYS;
-      const sinceDays = Number.isNaN(requestedDays) ? 0 : requestedDays;
-      const cutoffMs =
-        sinceDays === Infinity
-          ? 0
-          : Date.now() - Math.max(0, sinceDays) * 86_400_000;
+      // `?? 0` because this value becomes a SQL parameter: an unbounded scan
+      // is expressed as "since the epoch", never as a non-finite number.
+      const cutoffMs = resolveScanCutoffMs(options?.sinceDays) ?? 0;
 
       let db: LocalUsageSqliteDatabase | undefined;
       try {
