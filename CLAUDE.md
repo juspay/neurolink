@@ -341,8 +341,28 @@ directive in the body — that gap is exactly how this got through.
 
 ### ⚠️ Required status checks and the release bot
 
-`release` carries required status checks (`test`, `provider-safety-net`,
-`build-check`, `🔒 Single Commit Policy Validation`) with **no bypass actors**.
+`release` carries **five** required status checks, and they live on **two
+different layers** that GitHub enforces as a union:
+
+| check                                | ruleset `11413189` | classic branch protection |
+| ------------------------------------ | ------------------ | ------------------------- |
+| `test`                               | ✅                 | ✅                        |
+| `provider-safety-net`                | ✅                 | ✅                        |
+| `build-check`                        | ✅                 | ✅                        |
+| `🔒 Single Commit Policy Validation` | ✅                 | ✅                        |
+| `security-suites`                    | ❌                 | ✅                        |
+
+**Querying only the ruleset API under-reports the list.** `gh api
+repos/juspay/neurolink/rulesets/11413189` returns four contexts and no mention
+of `security-suites`; `gh api repos/juspay/neurolink/branches/release/protection`
+returns all five. Check both, or you will conclude a required check is optional
+— and a red `security-suites` will block a merge you were sure it could not.
+
+The two layers also differ in who can bypass them. The ruleset has
+`bypass_actors: []`, so its four are unbypassable by anyone. Classic protection
+has `enforce_admins: false`, so the classic layer — which is the only place
+`security-suites` is required — does not apply to admins. Net effect: four
+checks nobody can bypass, plus a fifth that a repository admin can.
 
 Anything that pushes **directly** to `release` — rather than through a PR —
 carries no check runs, so every required check reads as missing and the push is
@@ -353,6 +373,9 @@ GH013: Repository rule violations found for refs/heads/release
 - 4 of 4 required status checks are expected.
 ! [remote rejected]   HEAD -> release
 ```
+
+(That message is quoted verbatim from the original failure and counts only the
+ruleset's four — another reason the ruleset view alone is misleading.)
 
 This blocked publishing entirely when the checks were first enabled, because
 `@semantic-release/git` pushed the version bump back to the branch. The usual
