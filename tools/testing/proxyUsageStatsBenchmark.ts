@@ -24,7 +24,20 @@ const MAX_FLUSH_MS = Number(process.env.PROXY_STATS_MAX_FLUSH_MS ?? 250);
  * touched nothing near the proxy. A budget with that much headroom failing does
  * not mean the code regressed, it means one disk write got descheduled.
  */
-const FLUSH_SAMPLES = Number(process.env.PROXY_STATS_FLUSH_SAMPLES ?? 7);
+// Floored like every other sample count in this file, and for a reason worth
+// stating: `percentile([])` returns 0, so a run configured with 0 flush samples
+// reports flushMs = 0, which SATISFIES the flush budget below. The benchmark
+// would pass its flush gate having never timed a flush. Someone trimming this
+// down to speed CI up would silently disable a budget rather than loosen it.
+const configuredFlushSamples = Number(
+  process.env.PROXY_STATS_FLUSH_SAMPLES ?? 7,
+);
+const FLUSH_SAMPLES = Math.max(
+  1,
+  Number.isFinite(configuredFlushSamples)
+    ? Math.floor(configuredFlushSamples)
+    : 7,
+);
 const MAX_HEAP_GROWTH_BYTES = Number(
   process.env.PROXY_STATS_MAX_HEAP_GROWTH_BYTES ?? 16 * 1024 * 1024,
 );
