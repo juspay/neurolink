@@ -1843,14 +1843,15 @@ async function runOpenAISection(): Promise<void> {
   // (openaiChatCompletionsBase.ts:1438), so a retry fix proven only on the
   // non-streaming path says nothing about it. This pins that it holds there.
   //
-  // Only the retry is asserted, deliberately. The streaming path never runs
-  // formatProviderError at all — openaiChatCompletionsBase declares it
-  // abstract and throws the raw provider error instead, so NO error of any
-  // type or provider is classified on that path. That is a pre-existing,
-  // provider-wide gap rather than anything about quota, and asserting the
-  // classified message here would be asserting a fix this change does not
-  // make. Measured: a streaming quota 429 surfaces "You have no credits
-  // remaining ..." verbatim.
+  // The classification assertion below used to be weaker, with a note claiming
+  // the streaming path never classified anything. That note named the wrong
+  // mechanism. What actually happened: BaseProvider.stream() awaits only the
+  // CONSTRUCTION of the provider's stream, and a provider that discovers its
+  // failure lazily throws on first pull instead — and
+  // wrapStreamWithLifecycleCallbacks early-returned the provider's own generator
+  // BY REFERENCE whenever no lifecycle callbacks were registered, so no layer
+  // downstream ever held a catch it could classify in. That early return is gone
+  // and this case now pins the classified message.
   // ─────────────────────────────────────────────────────────────────────
   try {
     await withMocks(
@@ -1892,11 +1893,14 @@ async function runOpenAISection(): Promise<void> {
         } catch (err) {
           msg = err instanceof Error ? err.message : String(err);
         }
-        // Whatever wording surfaces, it must not claim this is a rate limit.
+        // The same classified message the non-streaming path produces. This
+        // fails against the raw upstream text streaming used to surface.
         record(
           results,
-          `${section}: streaming quota error is never called a rate limit`,
-          msg !== null && !/rate\s*limit/i.test(msg),
+          `${section}: streaming quota error is classified like generate()`,
+          msg !== null &&
+            msg.includes("OpenAI quota exhausted") &&
+            !/rate\s*limit/i.test(msg),
           msg === null ? "no error thrown" : `msg='${msg.slice(0, 120)}'`,
         );
         record(
@@ -1910,7 +1914,64 @@ async function runOpenAISection(): Promise<void> {
   } catch (err) {
     record(
       results,
-      `${section}: streaming quota error is never called a rate limit`,
+      `${section}: streaming quota error is classified like generate()`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── Guard on the streaming classification above. Classifying stream errors
+  // means running a provider's rule table over whatever escapes the iterator,
+  // and classifyProviderError ends in an UNCONDITIONAL catch-all
+  // (`if (!rule) return new ProviderError(...)`) that is not gated on the
+  // error having come off the wire. Without a status check, an ordinary bug
+  // is relabelled as a provider failure and hidden behind a plausible
+  // message — measured, with the guard removed:
+  //   TypeError "Cannot read properties of undefined (reading 'content')"
+  //     became ProviderError "[openai] openai error: Cannot read properties..."
+  // This case fails if that guard is ever dropped.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    const boom = () => {
+      throw new TypeError(
+        "Cannot read properties of undefined (reading 'content')",
+      );
+    };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async () => boom()) as typeof globalThis.fetch;
+    try {
+      const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+      let name: string | null = null;
+      let msg: string | null = null;
+      try {
+        const r = await nl.stream({
+          provider: "openai",
+          model,
+          input: { text: "ping" },
+          disableTools: true,
+        });
+        for await (const chunk of r.stream) {
+          void chunk;
+        }
+      } catch (err) {
+        name = err instanceof Error ? err.constructor.name : typeof err;
+        msg = err instanceof Error ? err.message : String(err);
+      }
+      record(
+        results,
+        `${section}: a bug with no HTTP status is not relabelled as a provider error`,
+        name !== null &&
+          name !== "ProviderError" &&
+          !/^\[openai\]/.test(msg ?? ""),
+        name === null ? "no error thrown" : `surfaced as ${name}`,
+      );
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  } catch (err) {
+    record(
+      results,
+      `${section}: a bug with no HTTP status is not relabelled as a provider error`,
       false,
       err instanceof Error ? err.message : String(err),
     );

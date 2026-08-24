@@ -31,6 +31,7 @@ import {
   isAbortError,
   NeuroLinkError,
 } from "../utils/errorHandling.js";
+import { ProviderError } from "../types/index.js";
 import { sanitizeErrorCause } from "../utils/logSanitize.js";
 import { createAnalytics as buildAnalytics } from "./analytics.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
@@ -113,6 +114,51 @@ function getLifecycleMiddlewareConfig(
  * Abstract base class for all AI providers
  * Tools are integrated as first-class citizens - always available by default
  */
+/**
+ * Marks an error as already run through `formatProviderError`.
+ *
+ * `handleProviderError` is NOT idempotent — measured: feeding its own output back in
+ * degrades a specific classification into a generic one, because it copies `statusCode`
+ * onto the formatted error, so a second pass re-matches the bare 429 rule while the more
+ * specific rule (which keyed on the raw body) no longer can:
+ *
+ *   pass 1  ProviderError  "[openai] OpenAI quota exhausted — this will not resolve by retrying..."
+ *   pass 2  RateLimitError "[openai] OpenAI rate limit exceeded. Please try again later."
+ *
+ * Since the stream path can now reach a classifier that other paths already reached, that
+ * second pass became possible and had to be made impossible.
+ *
+ * Same `Symbol.for` stamping technique as `utils/lifecycleCallbacks.ts` and for the same
+ * reason: it survives across module copies where a closed-over WeakSet would not, and a
+ * frozen error degrades to one extra classification rather than a throw.
+ */
+const PROVIDER_ERROR_CLASSIFIED = Symbol.for(
+  "neurolink.providerErrorClassified",
+);
+
+function markProviderErrorClassified(error: unknown): void {
+  if (error === null || typeof error !== "object") {
+    return;
+  }
+  try {
+    Object.defineProperty(error, PROVIDER_ERROR_CLASSIFIED, {
+      value: true,
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+  } catch {
+    // Non-extensible error — worst case is one redundant classification.
+  }
+}
+
+function isProviderErrorClassified(error: unknown): boolean {
+  if (error === null || typeof error !== "object") {
+    return false;
+  }
+  return (error as Record<symbol, unknown>)[PROVIDER_ERROR_CLASSIFIED] === true;
+}
+
 export abstract class BaseProvider implements AIProvider {
   // Not `readonly` because providers that auto-discover the model from a
   // /v1/models endpoint (lm-studio, llamacpp) need to update modelName after
@@ -503,11 +549,14 @@ export abstract class BaseProvider implements AIProvider {
   ): StreamResult {
     const lifecycle = getLifecycleMiddlewareConfig(options);
 
-    if (!lifecycle?.onChunk && !lifecycle?.onFinish && !lifecycle?.onError) {
-      return result;
-    }
-
-    const { onChunk, onFinish, onError } = lifecycle;
+    // No early return when there are no callbacks. This wrapper is the only point
+    // every provider's stream passes through unconditionally (the real-streaming path
+    // plus all three fake-streaming paths), and returning `result` untouched here is
+    // exactly why a provider error that surfaces during ITERATION reached the consumer
+    // unclassified: the object handed back was the provider's own generator, by
+    // reference, and every layer below is a proven passthrough. The callbacks below are
+    // each individually guarded, so with none registered this only adds the catch.
+    const { onChunk, onFinish, onError } = lifecycle ?? {};
     const startTime = Date.now();
     const originalStream = result.stream;
     // Lifecycle callbacks are awaited with a bounded deadline so callers
@@ -537,6 +586,11 @@ export abstract class BaseProvider implements AIProvider {
         logger.warn(`[lifecycle] ${label} callback error:`, e);
       }
     };
+
+    // Arrow, like `safeFire` above: the generator is a plain function expression, so
+    // `this` is not bound inside it.
+    const classifyStreamError = (e: unknown): Error =>
+      this.classifyStreamError(e);
 
     const wrappedStream = (async function* () {
       let accumulated = "";
@@ -598,7 +652,7 @@ export abstract class BaseProvider implements AIProvider {
             "onError",
           );
         }
-        throw err;
+        throw classifyStreamError(err);
       }
     })();
 
@@ -2230,6 +2284,66 @@ export abstract class BaseProvider implements AIProvider {
    * original identity so that isAbortError() can detect them in
    * retry/fallback loops (directProviderGeneration, performMCPGenerationRetries).
    */
+  /**
+   * Classify an error that escaped while the consumer was ITERATING a stream.
+   *
+   * `stream()` only awaits the CONSTRUCTION of the provider's stream object, and a provider
+   * that discovers its failure lazily throws on first pull instead — so the raw upstream
+   * error reached the consumer with no provider tag and no classification, while the same
+   * failure through `generate()` was classified normally. Measured on OpenAI:
+   *
+   *   streaming      "You have no credits remaining."
+   *   non-streaming  "[openai] OpenAI quota exhausted — this will not resolve by retrying..."
+   *
+   * Three guards. Only the third is load-bearing against today's code; the first two are
+   * deliberate depth against a hazard that is real but not currently reachable. Measured,
+   * rather than assumed — see the note after the list.
+   *
+   * 1. ALREADY STAMPED — everything that went through `handleProviderError` carries the mark,
+   *    including the two formatters whose results escape the ProviderError hierarchy
+   *    (`amazonSagemaker` returns SageMakerError, `replicate` returns NeuroLinkError; both
+   *    extend Error directly). Without this they would be classified a second time and
+   *    degraded.
+   * 2. ALREADY A ProviderError — covers providers that call `formatProviderError` DIRECTLY,
+   *    bypassing `handleProviderError` and therefore the stamp. Anthropic does this in its
+   *    own streaming catch (`anthropic/client.ts`), and its result is a ProviderError.
+   * 3. HAS AN HTTP STATUS — without this, an ordinary bug is relabelled as a provider
+   *    failure. `classifyProviderError` ends in an unconditional catch-all
+   *    (`utils/errorClassifier.ts`: `if (!rule) return new ProviderError(...)`) that is not
+   *    gated on the error having come off the wire. Measured with the guard absent:
+   *      TypeError "Cannot read properties of undefined (reading 'content')"
+   *        became  ProviderError "[openai] openai error: Cannot read properties of undefined..."
+   *    which would hide a real defect behind a plausible provider message.
+   *
+   * WHY 1 AND 2 ARE NOT CURRENTLY REACHABLE, and why they stay anyway. A statusCode is
+   * attached to a formatted error in exactly one place — `handleProviderError` below — and
+   * that same method applies the stamp. So a ProviderError carrying a status is always
+   * stamped (caught by guard 1's own condition), and a ProviderError produced by a direct
+   * `formatProviderError` call carries no status, so guard 3 already returns it untouched.
+   * Verified by disabling guards 1 and 2 together, rebuilding, and re-running: the mocked
+   * provider contract suite stayed 64/64 and a mocked Anthropic streaming 429 was
+   * byte-identical (`RateLimitError`, one `[anthropic]` prefix).
+   *
+   * They remain because the hazard they cover is measured and real: `handleProviderError`
+   * is NOT idempotent — it copies statusCode onto its own output, so a second pass
+   * re-matches the bare 429 rule and DEGRADES the classification:
+   *   pass 1  ProviderError  "...quota exhausted — this will not resolve by retrying..."
+   *   pass 2  RateLimitError "...rate limit exceeded..."
+   * The day any provider attaches a status to an error it formats itself, guard 3 stops
+   * covering that case and this degradation becomes live. Cheap insurance, not dead code —
+   * but do not cite guards 1 and 2 as proven-by-failure the way guard 3 is.
+   */
+  protected classifyStreamError(error: unknown): Error {
+    const err = error instanceof Error ? error : new Error(String(error));
+    if (isProviderErrorClassified(err) || err instanceof ProviderError) {
+      return err;
+    }
+    if (duckTypedStatusCode(err) === undefined) {
+      return err;
+    }
+    return this.handleProviderError(err);
+  }
+
   protected handleProviderError(error: unknown): Error {
     if (isAbortError(error)) {
       // Preserve AbortError identity — never wrap in provider-specific formatting
@@ -2309,6 +2423,10 @@ export abstract class BaseProvider implements AIProvider {
       // Non-blocking — telemetry failures shouldn't mask the original error
     }
 
+    // Stamp AFTER formatting so any later catch site can tell this error has
+    // already been classified. Deliberately not applied to the AbortError
+    // passthrough above — that returns the original error untouched.
+    markProviderErrorClassified(formatted);
     return formatted;
   }
 
