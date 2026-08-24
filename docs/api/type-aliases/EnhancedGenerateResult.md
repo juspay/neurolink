@@ -8,7 +8,7 @@
 
 > **EnhancedGenerateResult** = [`GenerateResult`](GenerateResult.md) & `object`
 
-Defined in: [types/generate.ts:1687](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1687)
+Defined in: [types/generate.ts:1703](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1703)
 
 ## Type Declaration
 
@@ -19,9 +19,3 @@ Defined in: [types/generate.ts:1687](https://github.com/juspay/neurolink/blob/re
 ### evaluation?
 
 > `optional` **evaluation?**: [`EvaluationData`](EvaluationData.md)
-
-### ttsMetadata?
-
-> `optional` **ttsMetadata?**: [`TTSMetadata`](TTSMetadata.md)
-
-Outcome metadata when TTS was enabled for this generation.

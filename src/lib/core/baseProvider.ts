@@ -31,6 +31,7 @@ import {
   isAbortError,
   NeuroLinkError,
 } from "../utils/errorHandling.js";
+import { sanitizeErrorCause } from "../utils/logSanitize.js";
 import { createAnalytics as buildAnalytics } from "./analytics.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
 import {
@@ -1745,13 +1746,26 @@ export abstract class BaseProvider implements AIProvider {
     }
   }
 
+  /**
+   * Build the public TTS failure detail.
+   *
+   * The message is redacted through the shared `sanitizeErrorCause` before it
+   * leaves this method. It used to be an internal value that only reached the
+   * logger; it is now carried on `result.ttsMetadata` and therefore reaches
+   * SDK callers, who may forward it to an end user. Provider errors quote the
+   * request URL often enough that a key in a query string is a real vector —
+   * `redactUrlsInText` strips exactly that while leaving a bare URL readable,
+   * so the diagnosis survives and the credential does not.
+   */
   private getTTSErrorDetails(
     error: unknown,
   ): NonNullable<TTSMetadata["error"]> {
+    const safeMessage = sanitizeErrorCause(error).message;
+
     if (error instanceof AsyncTimeoutError) {
       return {
         code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
-        message: error.message,
+        message: safeMessage,
         retriable: true,
       };
     }
@@ -1759,14 +1773,14 @@ export abstract class BaseProvider implements AIProvider {
     if (error instanceof NeuroLinkError) {
       return {
         code: error.code,
-        message: error.message,
+        message: safeMessage,
         retriable: error.retriable,
       };
     }
 
     return {
       code: TTS_ERROR_CODES.SYNTHESIS_FAILED,
-      message: error instanceof Error ? error.message : String(error),
+      message: safeMessage,
     };
   }
 

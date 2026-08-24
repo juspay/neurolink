@@ -94,11 +94,31 @@ if (result.audio) {
 
 ---
 
+### ttsMetadata?
+
+> `optional` **ttsMetadata?**: [`TTSMetadata`](TTSMetadata.md)
+
+Defined in: [types/generate.ts:967](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L967)
+
+What happened during TTS synthesis, including why it failed.
+
+`generate()` degrades gracefully when synthesis fails: it returns the text
+and omits `audio`. Without this field a caller cannot tell a request that
+never asked for audio from one whose provider rejected the credentials —
+an invalid key produces a silent, indistinguishable absence.
+
+BaseProvider has always recorded this on EnhancedGenerateResult; it was
+declared there but never forwarded by the result builders, so callers
+reading it got `undefined`. Same defect the `reasoning` comment in
+neurolink.ts describes, on a different field.
+
+---
+
 ### video?
 
 > `optional` **video?**: [`VideoGenerationResult`](VideoGenerationResult.md)
 
-Defined in: [types/generate.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L977)
+Defined in: [types/generate.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L991)
 
 Video generation result
 
@@ -130,7 +150,7 @@ if (result.video) {
 
 > `optional` **avatar?**: [`AvatarResult`](AvatarResult.md)
 
-Defined in: [types/generate.ts:981](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L981)
+Defined in: [types/generate.ts:995](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L995)
 
 Avatar (talking-head) generation result (present when output.mode is "avatar")
 
@@ -140,7 +160,7 @@ Avatar (talking-head) generation result (present when output.mode is "avatar")
 
 > `optional` **music?**: [`MusicResult`](MusicResult.md)
 
-Defined in: [types/generate.ts:985](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L985)
+Defined in: [types/generate.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L999)
 
 Music generation result (present when output.mode is "music")
 
@@ -150,7 +170,7 @@ Music generation result (present when output.mode is "music")
 
 > `optional` **ppt?**: [`PPTGenerationResult`](PPTGenerationResult.md)
 
-Defined in: [types/generate.ts:1003](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1003)
+Defined in: [types/generate.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1017)
 
 PowerPoint generation result (present when output.mode is "ppt")
 
@@ -175,7 +195,7 @@ if (result.ppt) {
 
 > `optional` **imageOutput?**: \{ `base64`: `string`; \} \| `null`
 
-Defined in: [types/generate.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1004)
+Defined in: [types/generate.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1018)
 
 ---
 
@@ -183,7 +203,7 @@ Defined in: [types/generate.ts:1004](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/generate.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1007)
+Defined in: [types/generate.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1021)
 
 ---
 
@@ -191,7 +211,7 @@ Defined in: [types/generate.ts:1007](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **model?**: `string`
 
-Defined in: [types/generate.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1008)
+Defined in: [types/generate.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1022)
 
 ---
 
@@ -199,7 +219,7 @@ Defined in: [types/generate.ts:1008](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/generate.ts:1011](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1011)
+Defined in: [types/generate.ts:1025](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1025)
 
 ---
 
@@ -207,7 +227,7 @@ Defined in: [types/generate.ts:1011](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **stopReason?**: [`GenerateStopReason`](GenerateStopReason.md)
 
-Defined in: [types/generate.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1019)
+Defined in: [types/generate.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1033)
 
 Why the agentic turn ended, independent of the provider-shaped
 `finishReason`. Populated by the native Vertex loops (Gemini + Claude);
@@ -220,7 +240,7 @@ undefined on providers that don't run a native loop — fall back to
 
 > `optional` **rawFinishReason?**: `string`
 
-Defined in: [types/generate.ts:1024](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1024)
+Defined in: [types/generate.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1038)
 
 Verbatim provider finish/stop reason for the turn's terminal model call
 (e.g. "MALFORMED_FUNCTION_CALL", "MAX_TOKENS", "max_tokens", "tool_use").
@@ -231,7 +251,7 @@ Verbatim provider finish/stop reason for the turn's terminal model call
 
 > `optional` **stepsUsed?**: `number`
 
-Defined in: [types/generate.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1026)
+Defined in: [types/generate.ts:1040](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1040)
 
 Number of agentic steps (model calls) the turn used.
 
@@ -241,7 +261,7 @@ Number of agentic steps (model calls) the turn used.
 
 > `optional` **jsonRepaired?**: `boolean`
 
-Defined in: [types/generate.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1032)
+Defined in: [types/generate.ts:1046](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1046)
 
 True when the schema JSON in `content`/`structuredData` was repaired from
 malformed model text (jsonrepair ran). The result is still valid JSON.
@@ -252,7 +272,7 @@ malformed model text (jsonrepair ran). The result is still valid JSON.
 
 > `optional` **jsonTruncated?**: `boolean`
 
-Defined in: [types/generate.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1038)
+Defined in: [types/generate.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1052)
 
 True when the schema JSON appears truncated — the model hit the output
 token cap (finishReason="length") or the recovered object came from an
@@ -264,7 +284,7 @@ unclosed span. `structuredData` may be incomplete; raise `maxTokens`.
 
 > `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/generate.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1041)
+Defined in: [types/generate.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1055)
 
 ---
 
@@ -272,7 +292,7 @@ Defined in: [types/generate.ts:1041](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **responseTime?**: `number`
 
-Defined in: [types/generate.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1042)
+Defined in: [types/generate.ts:1056](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1056)
 
 ---
 
@@ -280,7 +300,7 @@ Defined in: [types/generate.ts:1042](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **toolCalls?**: `object`[]
 
-Defined in: [types/generate.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1045)
+Defined in: [types/generate.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1059)
 
 #### toolCallId
 
@@ -300,7 +320,7 @@ Defined in: [types/generate.ts:1045](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **toolResults?**: `unknown`[]
 
-Defined in: [types/generate.ts:1050](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1050)
+Defined in: [types/generate.ts:1064](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1064)
 
 ---
 
@@ -308,7 +328,7 @@ Defined in: [types/generate.ts:1050](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **toolsUsed?**: `string`[]
 
-Defined in: [types/generate.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1051)
+Defined in: [types/generate.ts:1065](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1065)
 
 ---
 
@@ -316,7 +336,7 @@ Defined in: [types/generate.ts:1051](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **toolExecutions?**: [`ToolExecutionRecord`](ToolExecutionRecord.md)[]
 
-Defined in: [types/generate.ts:1058](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1058)
+Defined in: [types/generate.ts:1072](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1072)
 
 Real per-call tool execution records captured in the tool loop —
 params, bounded serialized result, error flag, and timing per call.
@@ -329,7 +349,7 @@ Bounded by `toolExecutionCapture` (default on, ~8KB per result).
 
 > `optional` **enhancedWithTools?**: `boolean`
 
-Defined in: [types/generate.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1059)
+Defined in: [types/generate.ts:1073](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1073)
 
 ---
 
@@ -337,7 +357,7 @@ Defined in: [types/generate.ts:1059](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **availableTools?**: `object`[]
 
-Defined in: [types/generate.ts:1060](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1060)
+Defined in: [types/generate.ts:1074](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1074)
 
 #### name
 
@@ -357,7 +377,7 @@ Defined in: [types/generate.ts:1060](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **analytics?**: [`AnalyticsData`](AnalyticsData.md)
 
-Defined in: [types/generate.ts:1067](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1067)
+Defined in: [types/generate.ts:1081](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1081)
 
 ---
 
@@ -365,7 +385,7 @@ Defined in: [types/generate.ts:1067](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **evaluation?**: [`EvaluationData`](EvaluationData.md)
 
-Defined in: [types/generate.ts:1068](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1068)
+Defined in: [types/generate.ts:1082](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1082)
 
 ---
 
@@ -373,7 +393,7 @@ Defined in: [types/generate.ts:1068](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **factoryMetadata?**: `object`
 
-Defined in: [types/generate.ts:1071](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1071)
+Defined in: [types/generate.ts:1085](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1085)
 
 #### enhancementApplied
 
@@ -409,7 +429,7 @@ Defined in: [types/generate.ts:1071](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **streamingMetadata?**: `object`
 
-Defined in: [types/generate.ts:1082](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1082)
+Defined in: [types/generate.ts:1096](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1096)
 
 #### streamingUsed
 
@@ -441,7 +461,7 @@ Defined in: [types/generate.ts:1082](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **workflow?**: `object`
 
-Defined in: [types/generate.ts:1092](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1092)
+Defined in: [types/generate.ts:1106](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1106)
 
 #### originalResponse
 
@@ -509,7 +529,7 @@ Defined in: [types/generate.ts:1092](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/generate.ts:1120](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1120)
+Defined in: [types/generate.ts:1134](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1134)
 
 Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought parts)
 
@@ -519,7 +539,7 @@ Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought
 
 > `optional` **reasoningTokens?**: `number`
 
-Defined in: [types/generate.ts:1122](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1122)
+Defined in: [types/generate.ts:1136](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1136)
 
 Token count for reasoning content
 
@@ -529,7 +549,7 @@ Token count for reasoning content
 
 > `optional` **transcription?**: [`STTResult`](STTResult.md)
 
-Defined in: [types/generate.ts:1125](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1125)
+Defined in: [types/generate.ts:1139](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1139)
 
 STT transcription result (present when stt.enabled is true and audio input was provided)
 
@@ -539,7 +559,7 @@ STT transcription result (present when stt.enabled is true and audio input was p
 
 > `optional` **retries?**: `object`
 
-Defined in: [types/generate.ts:1128](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1128)
+Defined in: [types/generate.ts:1142](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1142)
 
 #### count
 
@@ -555,7 +575,7 @@ Defined in: [types/generate.ts:1128](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **limits?**: [`ClaudeLimitSnapshot`](ClaudeLimitSnapshot.md)
 
-Defined in: [types/generate.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1143)
+Defined in: [types/generate.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1157)
 
 Account limit state for this request, parsed from Anthropic's
 `anthropic-ratelimit-*` response headers (plus the NeuroLink Claude
