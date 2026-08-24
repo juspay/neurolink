@@ -14,18 +14,16 @@
  * partial diff), this rule only checks that subset — a duplicate is invisible
  * unless BOTH declarations are in the same run.
  *
- * This comment used to say "the pre-push/CI run on the full project catches
- * everything". That was not true in either half. `.husky/pre-push` runs
- * check:deps, build and three test suites, and lints nothing. CI ran
- * `eslint src/` and `eslint test/continuous-test-suite*.ts`, never
- * `pnpm run lint`, so scripts/, tools/, eslint-rules/ and test/helpers/ were
- * not linted at all and no run saw the whole project. The only full-project
- * lint was the pre-commit hook, which `--no-verify` skips.
+ * What that means in practice, checked rather than assumed: this rule returns
+ * early for any file outside `src/lib/types/` (see `isInsideTypesFolder`), and
+ * every `neurolink` rule is enabled only for a files glob rooted at `src`.
+ * So CI's `eslint src/` already gives this rule a complete view — a duplicate
+ * introduced in `src/lib/types/` is caught by that run alone, verified by
+ * planting one and watching it fail.
  *
- * CI now also runs a plain `npx eslint .` (errors only) so a whole-project view
- * exists somewhere that a local flag cannot bypass. Keep that in mind before
- * narrowing CI's lint scope again: it is load-bearing for this rule rather
- * than merely thorough.
+ * `.husky/pre-push` lints nothing, and the pre-commit hook's full-project lint
+ * is skippable with `--no-verify`, but neither matters here: the scoped CI run
+ * is sufficient for this rule. The lint-staged caveat above is the real one.
  */
 
 "use strict";
