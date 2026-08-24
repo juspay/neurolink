@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
+import { spawnSync } from "node:child_process";
 
 /**
  * Mocked Contract Test Suite for New Providers
@@ -2106,6 +2107,12 @@ async function runAzureSection(): Promise<void> {
 
 async function runAnthropicSection(): Promise<void> {
   const section = "LLM anthropic";
+  // .href, not pathToFileURL(.pathname): URL.pathname is already
+  // percent-ENCODED, and pathToFileURL treats its argument as a literal
+  // filesystem path and escapes the '%' again. A checkout under a directory
+  // containing a space or a '%' therefore yields a URL the child process
+  // cannot import — measured: "/Users/foo bar" -> file:///Users/foo%2520bar.
+  const distUrl = new URL("../dist/index.js", import.meta.url).href;
   console.log(`\n=== ${section} ===`);
   const fakeKey = "test-fake-anthropic-credential";
   const model = "claude-sonnet-4-6";
@@ -2303,6 +2310,142 @@ async function runAnthropicSection(): Promise<void> {
     record(
       results,
       `${section}: 429 → RateLimitError`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── A streaming failure must not take the caller's PROCESS down.
+  //
+  // The engine's channel is drained by a detached `pump` promise, and the only
+  // `await pump` sits after `await resultPromise`. When the latter rejects the
+  // former is never reached, so pump's rejection stayed unhandled — and an
+  // unhandled rejection terminates the process. Measured before the fix: the
+  // consumer's own try/catch fired correctly AND the process still died with
+  // exit code 1, which no caller can defend against from outside.
+  //
+  // Asserted in a SUBPROCESS on purpose. An in-process unhandledRejection
+  // counter would be polluted by any other case in this file that leaves a
+  // stray rejection, so it could pass for the wrong reason; a child's exit
+  // code cannot.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    const child = `
+      process.env.ANTHROPIC_API_KEY = ${JSON.stringify(fakeKey)};
+      process.env.NEUROLINK_SKIP_MCP = "true";
+      globalThis.fetch = async () => new Response(
+        JSON.stringify({ type: "error", error: { type: "rate_limit_error", message: "Rate limited" } }),
+        { status: 429, headers: { "content-type": "application/json" } },
+      );
+      const { NeuroLink } = await import(${JSON.stringify(distUrl)});
+      const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+      let caught = false;
+      try {
+        const r = await nl.stream({ provider: "anthropic", model: ${JSON.stringify(model)}, input: { text: "ping" }, disableTools: true });
+        for await (const c of r.stream) { void c; }
+      } catch { caught = true; }
+      await new Promise((r) => setTimeout(r, 600));
+      if (!caught) { console.log("NO_ERROR"); process.exit(3); }
+      console.log("SURVIVED");
+    `;
+    const res = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", child],
+      {
+        encoding: "utf8",
+        timeout: 60_000,
+        killSignal: "SIGKILL",
+      },
+    );
+    const survived =
+      res.status === 0 && (res.stdout ?? "").includes("SURVIVED");
+    record(
+      results,
+      `${section}: a streaming error does not kill the caller's process`,
+      survived,
+      `exit=${res.status} signal=${res.signal ?? "none"}`,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a streaming error does not kill the caller's process`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── The same 429, but STREAMED. The OpenAI section covers the path where a
+  // provider throws the raw upstream error and BaseProvider classifies it;
+  // Anthropic is the other shape, calling formatProviderError() ITSELF inside
+  // its streaming catch (client.ts, `throw this.formatProviderError(error)`),
+  // so what escapes the iterator is already a ProviderError. That shape had no
+  // streaming coverage at all.
+  //
+  // THIS CASE CANNOT LIVE WITHOUT THE FIX IN THIS COMMIT. Driving a streaming
+  // 429 through Anthropic is exactly what orphans the detached pump's raw SDK
+  // rejection, and an unhandled rejection terminates the process — so on
+  // unpatched code the suite dies mid-run with no failed assertion to point at:
+  //   RateLimitError: 429 {"type":"error",...}
+  //       at runLoop (dist/providers/anthropic/client.js:1741)
+  //   -> node exits 1
+  // It is a RACE, so it does not reproduce every time: the same commit reported
+  // 65 passed / 0 failed and exit 0 locally while CI's provider-safety-net
+  // exited 1. Controlled probe, same mock both sides:
+  //   without the pump guard   consumer caught RateLimitError · unhandled = 1
+  //   with the pump guard      consumer caught RateLimitError · unhandled = 0
+  // The subprocess test above is the deterministic guard; this one is the
+  // in-suite coverage of the second provider shape (Anthropic calls
+  // formatProviderError ITSELF, so what escapes the iterator is already a
+  // ProviderError), which had no streaming coverage at all.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.anthropic.com/v1/messages",
+          respond: {
+            status: 429,
+            json: {
+              type: "error",
+              error: { type: "rate_limit_error", message: "Rate limited" },
+            },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        let name: string | null = null;
+        let prefixes = -1;
+        try {
+          const r = await nl.stream({
+            provider: "anthropic",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          for await (const chunk of r.stream) {
+            void chunk;
+          }
+        } catch (err) {
+          name = err instanceof Error ? err.constructor.name : typeof err;
+          const m = err instanceof Error ? err.message : String(err);
+          prefixes = m.split("[anthropic]").length - 1;
+        }
+        record(
+          results,
+          `${section}: streaming 429 is classified exactly once`,
+          name === "RateLimitError" && prefixes === 1,
+          name === null
+            ? "no error thrown"
+            : `surfaced as ${name} with ${prefixes} provider tags`,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: streaming 429 is classified exactly once`,
       false,
       err instanceof Error ? err.message : String(err),
     );

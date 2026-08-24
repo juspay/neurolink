@@ -2250,7 +2250,27 @@ export class AnthropicProvider extends BaseProvider {
         }
       })();
 
-      const result = await resultPromise;
+      // `pump` is detached: it starts draining the engine's channel the moment
+      // it is created, and `await pump` below is the only thing that adopts its
+      // rejection. When resultPromise rejects, that line is never reached, so
+      // pump's rejection stays unhandled — and an unhandled rejection
+      // TERMINATES the consumer's process. Measured: a caller that correctly
+      // try/catches a streaming error still died with ERR_UNHANDLED_REJECTION,
+      // exit code 1, with no way to defend against it from outside this
+      // library. The rejection carried the raw SDK error, distinct from the
+      // formatted one the caller received, which is why the existing
+      // `loopPromise.catch` guard below does not cover it.
+      //
+      // Same shape googleAiStudio/client.ts and googleVertex/client.ts already
+      // use at every one of their pump sites; Anthropic was the only provider
+      // missing it.
+      let result;
+      try {
+        result = await resultPromise;
+      } catch (error) {
+        await pump.catch(() => {});
+        throw error;
+      }
       await pump;
 
       totalInput += result.usage.inputTokens;
