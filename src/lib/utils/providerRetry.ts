@@ -130,7 +130,54 @@ export function extractRetryAfterMsFromError(
   return undefined;
 }
 
+/**
+ * An OpenAI-wire `insufficient_quota` error: the account is out of credit or
+ * has hit a spend cap.
+ *
+ * Exported and shared with the OpenAI error table so the retry predicate and
+ * the message a caller sees cannot disagree about what a permanent billing
+ * state looks like. The type is NOT a field on the error — OpenAI puts it
+ * inside the JSON response body, which the SDK keeps as a string — so any
+ * caller that needs it has to parse, and none should do so on its own.
+ *
+ * Deliberately keyed on the error TYPE, never on the word "quota". OpenAI and
+ * xAI send 429 + `type: "insufficient_quota"` for a permanent billing state,
+ * but other providers use "quota" for ordinary throttling — Google's 429 reads
+ * "Quota exceeded for quota metric ...", which IS retryable and must stay that
+ * way. Matching free text here would make Gemini throttling non-retryable and
+ * quietly remove a layer of resilience.
+ */
+export function isOpenAIQuotaExhaustedError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+  const err = error as { type?: unknown; responseBody?: unknown };
+  if (err.type === "insufficient_quota") {
+    return true;
+  }
+  // The SDK keeps the raw payload as a string; the type lives inside it.
+  if (typeof err.responseBody === "string") {
+    try {
+      const parsed: unknown = JSON.parse(err.responseBody);
+      const inner = (parsed as { error?: { type?: unknown } } | null)?.error;
+      return inner?.type === "insufficient_quota";
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 export function isRetryableProviderError(error: unknown): boolean {
+  // Before every other branch, including the SDK's own flag: a 429 carrying
+  // `insufficient_quota` is marked retryable by the AI SDK because it only
+  // looks at the status code. Retrying it burns the full ladder — 3 attempts
+  // and ~20s of backoff, since no Retry-After accompanies these — on a state
+  // that cannot change until someone tops up the account.
+  if (isOpenAIQuotaExhaustedError(error)) {
+    return false;
+  }
+
   // Preferred path: use the AI SDK's own branded type check + isRetryable flag
   if (APICallError.isInstance(error)) {
     return error.isRetryable;

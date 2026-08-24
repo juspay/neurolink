@@ -112,7 +112,14 @@ const PROVIDER_ERROR_FRAMINGS: RegExp[] = [
   /\[ollama\][^.]*?(?:not\s+running|cannot\s+connect|service)/i,
   /\[anthropic\][^.]*?(?:credit\s+balance|insufficient|quota|not\s+found|model.*?not\s+available)/i,
   /\[mistral\][^.]*?(?:authentication|invalid\s+api)/i,
-  /\[openai\][^.]*?(?:exceeded\s+your\s+current\s+quota|insufficient_quota|billing\s+details|tier|rate\s+limit)/i,
+  // `quota\s+exhausted` is the framing NeuroLink emits for OpenAI's
+  // `insufficient_quota` (an empty account or a spend cap). It is listed
+  // because the classifier stopped calling that condition a "rate limit":
+  // until then this entry matched it only by accident, through the word the
+  // misclassification happened to use. Keep it anchored to the `[openai]`
+  // prefix — the bare word "quota" must never match here, since Google's
+  // retryable throttle reads "Quota exceeded for quota metric ...".
+  /\[openai\][^.]*?(?:exceeded\s+your\s+current\s+quota|insufficient_quota|billing\s+details|tier|rate\s+limit|quota\s+exhausted)/i,
   // OpenAI's streaming-with-tools wrapper that NeuroLink emits when the
   // upstream chat-completion stream errors out. The underlying cause is
   // usually quota/billing/policy — surfacing as a generic "API error
