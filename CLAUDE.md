@@ -374,6 +374,20 @@ has `enforce_admins: false`, so the classic layer — which is the only place
 `security-suites` is required — does not apply to admins. Net effect: four
 checks nobody can bypass, plus a fifth that a repository admin can.
 
+**A migration to rulesets would silently drop `security-suites`.** GitHub has
+been steering repositories off classic protection, and the migration is
+per-layer: switching classic off removes every requirement that exists only
+there. Four of the five are duplicated on the ruleset and would survive. The
+fifth is not, and would simply stop gating — no warning, no failed merge, no
+visible change on any pull request. What makes it invisible is that the check
+keeps running and keeps reporting: a green `security-suites` looks identical
+whether it is blocking the merge or merely describing it, and the way you find
+out it stopped blocking is that something red merges. Before disabling classic
+protection, add the context to ruleset `11413189` first and confirm with
+`gh api repos/juspay/neurolink/rulesets/11413189` that it comes back — the same
+call that under-reports the list today is the one that proves the migration is
+safe.
+
 Anything that pushes **directly** to `release` — rather than through a PR —
 carries no check runs, so every required check reads as missing and the push is
 declined:
