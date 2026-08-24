@@ -9979,8 +9979,19 @@ Current user's request: ${currentInput}`;
           // Reviewer follow-up: fire fallback when no *non-sentinel*
           // output was produced — sentinel-only and truly empty streams
           // both qualify, but media-only streams (audio/image) do not.
+          //
+          // fallbackOnMaxSteps: false exempts one no-output shape — a turn
+          // the provider reports as ended at the caller's own maxSteps bound
+          // (metadata.stopReason "step-cap", a mutable reference the native
+          // loops fill by drain time). That bound is the caller's budget,
+          // not a provider failure, and retrying it on another provider
+          // spends that provider's tokens to exceed a budget the caller set.
+          const cappedByCallerBudget =
+            enhancedOptions.fallbackOnMaxSteps === false &&
+            providerStreamMetadata?.stopReason === "step-cap";
           if (
             realOutputChunks === 0 &&
+            !cappedByCallerBudget &&
             !metadata.fallbackAttempted &&
             !enhancedOptions.disableInternalFallback &&
             streamState.toolCalls.length === 0 &&

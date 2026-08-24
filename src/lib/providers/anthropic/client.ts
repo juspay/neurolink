@@ -1878,6 +1878,14 @@ export class AnthropicProvider extends BaseProvider {
     const toolsUsed: string[] = [];
     const streamStartTime = Date.now();
 
+    // Mutable-reference contract from StreamResult.metadata: created before
+    // the loop and filled once the turn drains, because wrapper spreads
+    // snapshot top-level result fields before the loop resolves. This is how
+    // the Gemini/Vertex native paths already report their resolved outcome;
+    // without it a consumer (e.g. the SDK's no-output fallback gate) cannot
+    // tell a step-capped turn from a failed one.
+    const turnMetadata: NonNullable<StreamResult["metadata"]> = {};
+
     // Hoisted out of runLoop so the error path can resolve the usage
     // accumulated by steps that completed BEFORE the failure — those steps
     // were billed and must not be reported as zero.
@@ -2251,6 +2259,23 @@ export class AnthropicProvider extends BaseProvider {
       totalCacheWrite += result.usage.cacheWriteTokens ?? 0;
       lastStop = result.rawStopReason ?? lastStop;
 
+      turnMetadata.finishReason = result.finishReason;
+      if (result.rawStopReason) {
+        turnMetadata.rawFinishReason = result.rawStopReason;
+      }
+      // "tool-calls" after a drained turn means the model still wanted tools
+      // when the step budget ran out — the engine breaks at maxSteps, and a
+      // model turn that finished normally maps to "stop". The one other
+      // producer of stop_reason "tool_use" at turn end is a final_result
+      // call (structured output), which `finalResultText` identifies, so it
+      // must not read as a capped turn.
+      if (
+        result.finishReason === "tool-calls" &&
+        finalResultText === undefined
+      ) {
+        turnMetadata.stopReason = "step-cap";
+      }
+
       resolveUsage(buildDeferredUsage());
       resolveFinish(lastStop ?? "stop");
     };
@@ -2348,6 +2373,7 @@ export class AnthropicProvider extends BaseProvider {
       model: this.modelName,
       toolCalls: [],
       toolResults: [],
+      metadata: turnMetadata,
       // Wire the deferred usage/finish promises into the analytics collector
       // (mirrors openaiChatCompletionsBase). Without this the loop computed a
       // fully correct aggregate that was consumed only by the OTel span —

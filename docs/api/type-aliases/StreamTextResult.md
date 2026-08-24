@@ -8,7 +8,7 @@
 
 > **StreamTextResult** = `object`
 
-Defined in: [types/stream.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L860)
+Defined in: [types/stream.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L872)
 
 Stream text result from AI SDK (compatible with both v4 and v6)
 
@@ -22,7 +22,7 @@ This type accepts either shape so callers don't need casts.
 
 > **textStream**: `AsyncIterable`\<`string`\>
 
-Defined in: [types/stream.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L861)
+Defined in: [types/stream.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L873)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/stream.ts:861](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **fullStream?**: `AsyncIterable`\<`unknown`\>
 
-Defined in: [types/stream.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L862)
+Defined in: [types/stream.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L874)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/stream.ts:862](https://github.com/juspay/neurolink/blob/relea
 
 > **text**: `PromiseLike`\<`string`\>
 
-Defined in: [types/stream.ts:863](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L863)
+Defined in: [types/stream.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L875)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/stream.ts:863](https://github.com/juspay/neurolink/blob/relea
 
 > **usage**: `PromiseLike`\<[`AISDKUsage`](AISDKUsage.md) \| `undefined`\>
 
-Defined in: [types/stream.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L864)
+Defined in: [types/stream.ts:876](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L876)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/stream.ts:864](https://github.com/juspay/neurolink/blob/relea
 
 > **response**: `PromiseLike`\<\{ `id?`: `string`; `model?`: `string`; `timestamp?`: `number` \| `Date`; \} \| `undefined`\>
 
-Defined in: [types/stream.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L865)
+Defined in: [types/stream.ts:877](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L877)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/stream.ts:865](https://github.com/juspay/neurolink/blob/relea
 
 > **finishReason**: `PromiseLike`\<`"stop"` \| `"length"` \| `"content-filter"` \| `"tool-calls"` \| `"error"` \| `"other"` \| `"unknown"`\>
 
-Defined in: [types/stream.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L873)
+Defined in: [types/stream.ts:885](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L885)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/stream.ts:873](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolResults?**: `PromiseLike`\<[`StreamToolResult`](StreamToolResult.md)[] \| `ReadonlyArray`\<`unknown`\>\>
 
-Defined in: [types/stream.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L886)
+Defined in: [types/stream.ts:898](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L898)
 
 Tool results. Accepts both NeuroLink StreamToolResult[] and AI SDK TypedToolResult[],
 since the analytics collector passes them through as `unknown` anyway.
@@ -81,6 +81,6 @@ since the analytics collector passes them through as `unknown` anyway.
 
 > `optional` **toolCalls?**: `PromiseLike`\<[`StreamToolCall`](StreamToolCall.md)[] \| `ReadonlyArray`\<`unknown`\>\>
 
-Defined in: [types/stream.ts:890](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L890)
+Defined in: [types/stream.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L902)
 
 Tool calls. Accepts both NeuroLink StreamToolCall[] and AI SDK TypedToolCall[].

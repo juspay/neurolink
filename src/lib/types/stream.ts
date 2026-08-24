@@ -481,6 +481,18 @@ export type StreamOptions = {
   disableInternalFallback?: boolean;
 
   /**
+   * Whether a turn that ended at the caller's own `maxSteps` bound may still
+   * trigger the internal no-output provider fallback. Reaching `maxSteps` is
+   * a budget the caller set, not a provider failure, but such a turn can end
+   * with no text output and would otherwise be retried on a different
+   * provider — spending that provider's tokens because the caller's own
+   * budget ran out. Set `false` to surface the capped turn as-is
+   * (`metadata.stopReason === "step-cap"`). Default (unset/true) preserves
+   * the existing fallback behaviour.
+   */
+  fallbackOnMaxSteps?: boolean;
+
+  /**
    * Skip injecting tool schemas into the system prompt.
    * When true, tools are ONLY passed natively via the provider's `tools` parameter,
    * avoiding duplicate tool definitions (~30K tokens savings per call).
