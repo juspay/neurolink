@@ -3970,7 +3970,6 @@ CLAUDE.md claims: "All 4 streaming patterns, 24 event types, backpressure"
 
 | Command                                  | Source                              | Subcommands                                               | Key Flags                                            |
 | ---------------------------------------- | ----------------------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
-| `workflow`                               | `src/cli/commands/workflow.ts`      | `list`, `info `, `execute  `          | `--provider`, `--model`, `--timeout`, `--verbose`    |
 | `observability` (aliases: `obs`, `otel`) | `src/cli/commands/observability.ts` | `status`, `metrics`, `exporters`, `costs`                 | —                                                    |
 | `telemetry` (alias: `tel`)               | `src/cli/commands/telemetry.ts`     | `status`, `configure`, `list-exporters`, `flush`, `stats` | 9 exporters                                          |
 | `docs`                                   | `src/cli/commands/docs.ts`          | —                                                         | `--transport` (stdio/http), `--port`                 |
