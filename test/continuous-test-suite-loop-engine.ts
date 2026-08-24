@@ -502,6 +502,115 @@ await test("runAgenticLoop: tool failure breaker trips after maxRetries and stop
   );
 });
 
+await test("runAgenticLoop: hydratedToolNames clears a tripped breaker so a deferred tool becomes callable again", async () => {
+  // The breaker is consulted BEFORE the tool lookup, so a tool whose earlier
+  // strikes were recorded while it genuinely did not resolve yet stays refused
+  // for the rest of the turn at the exact moment it becomes usable. The engine
+  // clears those strikes for any name the adapter reports as freshly declared
+  // (the real producer is refreshNativeToolDeclarations in geminiLoopAdapter).
+  //
+  // This is the mirror of the breaker test above: identical adapter, identical
+  // cap, the ONLY difference is that hydratedToolNames names the tool from step
+  // 1 onward. That test asserts execute runs once; this one asserts it runs
+  // every step. The delta between them is the whole feature — without the
+  // clearing loop this test sees 1 and fails.
+  let executeAttempts = 0;
+  const tools = {
+    flaky_tool: {
+      description: "fails until it is re-declared",
+      execute: async () => {
+        executeAttempts++;
+        throw new Error("boom");
+      },
+    },
+  };
+  const callFlakyTool: AgenticLoopStepResult<unknown> = {
+    text: "",
+    toolCalls: [{ id: "call_flaky", name: "flaky_tool", args: {} }],
+    usage: { inputTokens: 1, outputTokens: 1 },
+    rawStopReason: "tool_use" as const,
+    raw: undefined,
+  };
+  const finalStep: AgenticLoopStepResult<unknown> = {
+    text: "done",
+    toolCalls: [],
+    usage: { inputTokens: 1, outputTokens: 1 },
+    rawStopReason: "end_turn" as const,
+    raw: undefined,
+  };
+  const adapter = fakeAdapter(
+    [callFlakyTool, callFlakyTool, callFlakyTool, finalStep],
+    {
+      toolFailureBreaker: { maxRetries: 1 },
+      buildStepRequest: (conversation, step) => ({
+        raw: conversation,
+        // Step 0 declares nothing, so its failure records a strike exactly as
+        // it would without hydration. Every later step re-declares the tool.
+        ...(step > 0 ? { hydratedToolNames: ["flaky_tool"] } : {}),
+      }),
+    },
+  );
+  const { resultPromise } = runAgenticLoop(adapter, { turns: [] }, { tools });
+  const result = await resultPromise;
+  const permanentlyFailedTurns = result.conversation.turns.filter((t) =>
+    t.includes("TOOL_PERMANENTLY_FAILED"),
+  );
+  assertEqual(
+    executeAttempts,
+    3,
+    "execute ran on every tool-calling step — re-declaring the tool cleared its strike each time",
+  );
+  assertEqual(
+    permanentlyFailedTurns.length,
+    0,
+    "no call was short-circuited as permanently failed while the tool kept being re-declared",
+  );
+});
+
+await test("runAgenticLoop: planReclaim stop ends the turn before the next request is built", async () => {
+  // The contract is ordering, not just termination: a guard that cannot reclaim
+  // room must stop BEFORE buildStepRequest, because stepping into a provider
+  // rejection would lose every completed step of the turn. Counting both hooks
+  // is what distinguishes "stopped early" from "stopped after building one more
+  // request it never should have built".
+  let builds = 0;
+  let executes = 0;
+  const callTool: AgenticLoopStepResult<unknown> = {
+    text: "",
+    toolCalls: [{ id: "call_noop", name: "noop", args: {} }],
+    usage: { inputTokens: 1, outputTokens: 1 },
+    rawStopReason: "tool_use" as const,
+    raw: undefined,
+  };
+  const tools = { noop: { description: "noop", execute: async () => "ok" } };
+  const base = fakeAdapter([callTool]);
+  const adapter: AgenticLoopAdapter<FakeConversation> = {
+    ...base,
+    planReclaim: (_conversation, step) =>
+      step === 1 ? { stop: true } : undefined,
+    buildStepRequest: (conversation, step) => {
+      builds++;
+      return base.buildStepRequest(conversation, step);
+    },
+    executeStep: async (request, channel, signal) => {
+      executes++;
+      return base.executeStep(request, channel, signal);
+    },
+  };
+  const { resultPromise } = runAgenticLoop(adapter, { turns: [] }, { tools });
+  await resultPromise;
+  assertEqual(
+    builds,
+    1,
+    "only step 0 built a request — step 1 stopped before buildStepRequest",
+  );
+  assertEqual(
+    executes,
+    1,
+    "only step 0 reached the provider — the reclaim stop prevented a second round-trip",
+  );
+});
+
 await test("runAgenticLoop: respects maxSteps and stops without a final answer", async () => {
   const alwaysToolCall: AgenticLoopStepResult<unknown> = {
     text: "",
