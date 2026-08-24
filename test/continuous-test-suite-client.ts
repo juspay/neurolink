@@ -1076,7 +1076,21 @@ async function testReactHooksExports(): Promise<boolean | null> {
   logTest("React hooks are importable", "TESTING");
 
   try {
-    const clientModule = await import("../dist/index.js");
+    // Import the way a consumer does, through the published subpath.
+    //
+    // This asserted against "../dist/index.js" — the root barrel — where the
+    // hooks are not exported and should not be: putting React on the default
+    // entry would pull it into every consumer of the package. They are
+    // published under the "./client" subpath, so the test failed permanently
+    // while the code was correct.
+    //
+    // Using the package specifier rather than "../dist/client/index.js" covers
+    // one thing more: it resolves through the "exports" map in package.json, so
+    // a broken or mis-pathed subpath entry fails here too. Node resolves this
+    // by self-reference to this repo's own build — verified as
+    // <repo>/dist/client/index.js, with no @juspay in node_modules to shadow
+    // it — so it is still the built output rule 15 requires, not src.
+    const clientModule = await import("@juspay/neurolink/client");
 
     const hooks = [
       "NeuroLinkProvider",
