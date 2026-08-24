@@ -91,6 +91,10 @@ function readWorkerMetrics(file: string): WorkerMetricSample[] {
       .filter((line) => line.trim().length > 0)
       .map((line) => JSON.parse(line) as WorkerMetricSample);
   } catch {
+    // Callers MUST treat an empty result as "not measured", never as "measured
+    // zero" — see the workerMetricsCollected gate below. The worker is always
+    // spawned with NEUROLINK_PROXY_BENCH_METRICS_FILE set, so nothing here is
+    // the absence of work; it is the absence of a measurement.
     return [];
   }
 }
@@ -381,7 +385,19 @@ try {
   const cpuMicrosPerRequest = Number(
     ((cpu.user + cpu.system + workerCpuMicros) / totalRequests).toFixed(3),
   );
+  // An unreadable or empty metrics file yields zeros for worker CPU, peak heap
+  // and open descriptors — and every one of those zeros SATISFIES its threshold
+  // below, while also flattering cpuMicrosPerRequest. So losing the measurement
+  // made this benchmark greener, not redder: it would report `passed` having
+  // observed nothing at all about the worker.
+  //
+  // The worker is always launched with NEUROLINK_PROXY_BENCH_METRICS_FILE set,
+  // so no samples means the measurement failed, not that the worker was idle.
+  // Gate on having actually measured.
+  const workerMetricsCollected = workerMetrics.length > 0;
+
   const passed =
+    workerMetricsCollected &&
     droppedRequests === 0 &&
     sustainedFailures === 0 &&
     streamPreserved &&
@@ -400,6 +416,8 @@ try {
     `${JSON.stringify(
       {
         fixture: "cross-process-socket-handoff",
+        workerMetricsCollected,
+        workerMetricSamples: workerMetrics.length,
         warmupRequests: WARMUP_REQUESTS,
         measuredRequestsPerPath: REQUESTS,
         direct: { latency: directLatency, ttfb: directFirstByte },
