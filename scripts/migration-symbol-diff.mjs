@@ -59,6 +59,26 @@ function callsIn(source, fileName) {
   );
   const found = new Set();
   /**
+   * Strip the wrappers that change how a callee is spelled but not which
+   * symbol it names: `(trace.getActiveSpan)()`, `(x as Foo).bar()`,
+   * `maybe!.bar()`, `(x satisfies Foo).bar()`. Without this the walker falls
+   * through every branch below and records nothing — a silent drop, which is
+   * the exact failure this tool exists to report.
+   */
+  const unwrap = (expression) => {
+    let current = expression;
+    while (
+      ts.isParenthesizedExpression(current) ||
+      ts.isAsExpression(current) ||
+      ts.isNonNullExpression(current) ||
+      ts.isTypeAssertionExpression?.(current) ||
+      ts.isSatisfiesExpression?.(current)
+    ) {
+      current = current.expression;
+    }
+    return current;
+  };
+  /**
    * The dotted path, but only while every link is a plain name: `trace`,
    * `trace.getActiveSpan`, `a.b.c`. Returns undefined the moment the chain
    * roots in something else — `foo().bar`, `arr[0].bar` — because the printed
@@ -66,7 +86,8 @@ function callsIn(source, fileName) {
    * this happily emitted a thirty-line `withTimeout(...).catch` as a symbol
    * name.
    */
-  const dottedName = (expression) => {
+  const dottedName = (raw) => {
+    const expression = unwrap(raw);
     if (ts.isIdentifier(expression)) {
       return expression.text;
     }
@@ -76,7 +97,8 @@ function callsIn(source, fileName) {
     }
     return undefined;
   };
-  const record = (expression) => {
+  const record = (raw) => {
+    const expression = unwrap(raw);
     if (ts.isIdentifier(expression)) {
       found.add(expression.text);
       return;
@@ -113,9 +135,15 @@ function callsIn(source, fileName) {
  * caller never asked while looking like a clean result.
  */
 function isAbsentPath(err) {
-  const text = `${err?.stderr ?? ""}${err?.message ?? ""}`;
+  // stderr ONLY. Node builds err.message as "Command failed: <argv>\n<stderr>",
+  // so it already contains stderr verbatim and adds nothing but the invocation
+  // text — which is caller-supplied. Matching a diagnostic regex against the
+  // caller's own arguments means a path like "does not exist in here.ts", or a
+  // typo'd revision whose command line happens to contain the wording, is
+  // reported as a clean absence instead of being rethrown. That is precisely
+  // the misread this function's contract above promises not to make.
   return /exists on disk, but not in|does not exist in|path .* does not exist/i.test(
-    text,
+    err?.stderr ?? "",
   );
 }
 
