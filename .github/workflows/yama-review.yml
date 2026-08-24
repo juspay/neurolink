@@ -191,18 +191,21 @@ jobs:
           OUTCOME: ${{ steps.yama.outcome }}
         run: |
           echo "Yama decision: ${DECISION:-<none>} (action outcome: ${OUTCOME})"
-          # No verdict + failed action = the review couldn't complete (build /
-          # MCP / LiteLLM error), not a code judgement. Fail so it's visible;
-          # re-run the job to retry transient failures.
-          if [ "$OUTCOME" != "success" ] && [ -z "$DECISION" ]; then
-            echo "::error::Yama could not complete the review (infrastructure error, not a code verdict). Re-run this job to retry."
+          # No verdict = no review, regardless of the action's exit code. The
+          # old gate only failed when the ACTION also failed, and then defaulted
+          # an empty verdict to APPROVED — so a run whose every model call died
+          # on provider quota exited 0, produced no verdict, and the check went
+          # green having reviewed nothing. A green review check must mean a
+          # review happened; fail and re-run to retry.
+          if [ -z "$DECISION" ]; then
+            echo "::error::Yama produced no verdict — the review did not complete (infrastructure or quota failure, not a code judgement). Re-run this job to retry."
             exit 1
           fi
           if [ "$DECISION" = "BLOCKED" ]; then
             echo "::error::Yama BLOCKED this PR. Resolve the blocking issues flagged in the review, then push an update."
             exit 1
           fi
-          echo "✅ Yama review passed (decision=${DECISION:-APPROVED})."
+          echo "✅ Yama review passed (decision=${DECISION})."
 
       # Persist review state for the next push on this PR (incremental review).
       - name: Save review state
