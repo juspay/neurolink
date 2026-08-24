@@ -7,7 +7,31 @@ on:
     branches: [release]
 
 jobs:
+  # The required check. Same reasoning as provider-safety-net below: `test` is
+  # required by both protection layers AND is a `needs:` of
+  # semantic-release-validation, so the name has to survive verbatim.
   test:
+    needs: [test-shards]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require every shard to have passed
+        run: |
+          result="${{ needs.test-shards.result }}"
+          echo "shards result: $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::test shards did not all succeed (result=$result)"
+            exit 1
+          fi
+          echo "All test shards passed."
+
+  test-shards:
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [lint, validate, types]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -49,6 +73,7 @@ jobs:
           pnpm exec svelte-kit sync
 
       - name: Check code formatting
+        if: matrix.group == 'lint'
         run: |
           echo "🎨 Checking code formatting..."
           pnpm run format:check || {
@@ -58,6 +83,7 @@ jobs:
           }
 
       - name: Run linting
+        if: matrix.group == 'lint'
         run: |
           echo "🔍 Running ESLint validation with controlled warning limits..."
           pnpm exec eslint src/ --max-warnings=300
@@ -88,6 +114,7 @@ jobs:
           pnpm exec eslint .
 
       - name: 🔒 Security & Environment Validation
+        if: matrix.group == 'validate'
         run: |
           echo "🔍 Running build rule enforcement validations..."
           pnpm run validate:all
@@ -112,6 +139,7 @@ jobs:
       # cleanOutputDir, so a real drift can be a file it newly emits or stops
       # emitting, and only status reports untracked additions.
       - name: 📚 Check generated API docs are current
+        if: matrix.group == 'validate'
         run: |
           echo "📚 Regenerating docs/api and checking for drift..."
           pnpm run docs:api
@@ -126,6 +154,7 @@ jobs:
           echo "✅ docs/api matches the source it documents."
 
       - name: 🚫 Check banned dependencies
+        if: matrix.group == 'validate'
         run: |
           echo "🔍 Verifying no banned packages leaked into production dependencies..."
           pnpm run check:deps
@@ -134,6 +163,7 @@ jobs:
       # workflow actually depends on were never typechecked. That is how the
       # provider onboarding gate shipped reading a field that does not exist.
       - name: 🔎 Typecheck CI-critical scripts and tools
+        if: matrix.group == 'types'
         run: pnpm run check:ci-scripts
 
       # test/ is excluded from tsconfig too, so `check` never looks at the
@@ -141,22 +171,79 @@ jobs:
       # a parse check is free and catches the breakage that actually happens
       # when editing them — a stray backtick inside a generated-script template.
       - name: 🔎 Parse-check the test suites
+        if: matrix.group == 'types'
         run: pnpm run check:test-parse
 
+      # Reuse dist when every input to the build is byte-identical.
+      #
+      # There are deliberately NO restore-keys. A partial-prefix match would
+      # serve a dist built from different sources, and a stale build that still
+      # reports green is the precise failure this repo has been removing. An
+      # exact hash miss just rebuilds, which costs what it costs today.
+      # Only the `types` shard builds, so only it may participate in the
+      # cache. Without this guard the lint and validate shards reach the
+      # post-job save with no dist/ on disk — and an empty entry saved under
+      # a valid key would make every later job restore nothing and skip the
+      # build, which is worse than never caching at all.
+      - name: Restore built dist
+        id: dist-cache
+        if: matrix.group == 'types'
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
       - name: Build package
+        if: matrix.group == 'types' && steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
 
       # After the build, deliberately: these suites import ../dist/index.js, so
       # on an unbuilt tree every such import fails and cascades to ~769 errors.
       - name: 🔎 Typecheck tools/ and test/
+        if: matrix.group == 'types'
         run: pnpm run check:tools-tests
 
       - name: Test CLI build
+        if: matrix.group == 'types'
         run: |
           pnpm run build:cli
           node dist/cli/index.js --help
 
+  # The required check. `provider-safety-net` is required by BOTH the ruleset
+  # and classic branch protection, so the context name has to survive verbatim —
+  # a matrix would rename it to "provider-safety-net (contract)" and every PR
+  # would block on a required check that no longer reports. See the GH013 note
+  # in CLAUDE.md for what a missing required context does to this branch.
+  #
+  # `if: always()` is load-bearing. Without it a failed shard makes this job
+  # SKIPPED rather than failed, and GitHub can treat a skipped required check as
+  # satisfied — the exact "green means nothing" failure this repo keeps hitting.
+  # So it always runs and reads the shards' result explicitly.
   provider-safety-net:
+    needs: [provider-safety-net-shards]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require every shard to have passed
+        run: |
+          result="${{ needs.provider-safety-net-shards.result }}"
+          echo "shards result: $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::provider-safety-net shards did not all succeed (result=$result)"
+            exit 1
+          fi
+          echo "All provider-safety-net shards passed."
+
+  # The work. Split by measured duration: test:providers-mocked alone is
+  # 4m13s of this job's 10m14s; the remaining eight suites total roughly the
+  # same. Two shards therefore halve it rather than leaving one long tail.
+  provider-safety-net-shards:
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [contract, rest]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -181,34 +268,57 @@ jobs:
           echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
           pnpm exec svelte-kit sync
 
+      # Reuse dist when every input to the build is byte-identical.
+      #
+      # There are deliberately NO restore-keys. A partial-prefix match would
+      # serve a dist built from different sources, and a stale build that still
+      # reports green is the precise failure this repo has been removing. An
+      # exact hash miss just rebuilds, which costs what it costs today.
+      - name: Restore built dist
+        id: dist-cache
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
       - name: Build package
+        if: steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
 
       - name: Mocked provider contract tests (no API keys required)
+        if: matrix.group == 'contract'
         run: pnpm run test:providers-mocked
 
       - name: Provider structure tests (registry ↔ filesystem, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:provider-structure
 
       - name: Error classifier contract tests (TimeoutError classification per provider, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:error-classifier-contract
 
       - name: Bedrock inference-profile fallback (local HTTP/2 stand-in, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:bedrock-inference-profile
 
       - name: Bedrock loop characterization (local HTTP/2 stand-in, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:bedrock-loop-characterization
 
       - name: SageMaker streaming (local stand-in, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:sagemaker-streaming
 
       - name: Anthropic loop characterization (local SSE stand-in, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:anthropic-loop-characterization
 
       - name: AI Studio loop characterization (local SSE stand-in, no API keys required)
+        if: matrix.group == 'rest'
         run: pnpm run test:aistudio-loop-characterization
 
       - name: 🧩 Provider Onboarding Completeness
+        if: matrix.group == 'rest'
         run: pnpm run verify:provider-onboarding
 
   # Advisory only — deliberately NOT in the required-checks list.
@@ -255,7 +365,21 @@ jobs:
           echo "🔄 Running SvelteKit sync to generate TypeScript configs..."
           pnpm exec svelte-kit sync
 
+      # Reuse dist when every input to the build is byte-identical.
+      #
+      # There are deliberately NO restore-keys. A partial-prefix match would
+      # serve a dist built from different sources, and a stale build that still
+      # reports green is the precise failure this repo has been removing. An
+      # exact hash miss just rebuilds, which costs what it costs today.
+      - name: Restore built dist
+        id: dist-cache
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
       - name: Build package
+        if: steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
 
       - name: Archive security suite (zip bombs, traversal — no API keys required)
@@ -436,7 +560,21 @@ jobs:
       # never once executed. `pnpm run build` runs `vite build` and then
       # prepack, which itself runs build:cli — both halves, in the order the
       # collapse script requires.
+      # Reuse dist when every input to the build is byte-identical.
+      #
+      # There are deliberately NO restore-keys. A partial-prefix match would
+      # serve a dist built from different sources, and a stale build that still
+      # reports green is the precise failure this repo has been removing. An
+      # exact hash miss just rebuilds, which costs what it costs today.
+      - name: Restore built dist
+        id: dist-cache
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
       - name: Build (full — the CLI's collapse step needs the SDK output)
+        if: steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
 
       # dist/ survives this: it lives outside node_modules, so the CLI below
@@ -526,7 +664,21 @@ jobs:
 
       # Every one of these suites imports from ../dist/index.js per rule 15, so
       # the built output is a prerequisite rather than an optimisation.
+      # Reuse dist when every input to the build is byte-identical.
+      #
+      # There are deliberately NO restore-keys. A partial-prefix match would
+      # serve a dist built from different sources, and a stale build that still
+      # reports green is the precise failure this repo has been removing. An
+      # exact hash miss just rebuilds, which costs what it costs today.
+      - name: Restore built dist
+        id: dist-cache
+        uses: actions/cache@v4
+        with:
+          path: dist
+          key: dist-${{ runner.os }}-${{ hashFiles('src/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig*.json', 'vite.config.ts', 'svelte.config.js', 'scripts/build-browser.mjs', 'scripts/collapse-cli-lib-duplicate.mjs') }}
+
       - name: Build
+        if: steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
 
       - name: Run extended suites
