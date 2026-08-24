@@ -98,7 +98,7 @@ jobs:
         run: pnpm run build:action
 
       - name: Release with semantic-release
-        run: npx semantic-release
+        run: pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HUSKY: "0" # Disable git hooks during automated release commits

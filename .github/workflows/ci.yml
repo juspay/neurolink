@@ -60,8 +60,8 @@ jobs:
       - name: Run linting
         run: |
           echo "🔍 Running ESLint validation with controlled warning limits..."
-          npx eslint src/ --max-warnings=300
-          npx eslint test/continuous-test-suite*.ts test/zod-schema-test-function.ts --max-warnings=10
+          pnpm exec eslint src/ --max-warnings=300
+          pnpm exec eslint test/continuous-test-suite*.ts test/zod-schema-test-function.ts --max-warnings=10
           # Everything else ESLint is configured to see, errors only.
           #
           # The two runs above cover src/ and the continuous-test-suite glob.
@@ -83,9 +83,9 @@ jobs:
           # budgets, and duplicating one would let a limit be tightened in one
           # place and silently loosened in another.
           #
-          # Free to add, measured: `npx eslint .` reports 0 errors / 56 warnings
+          # Free to add, measured: `pnpm exec eslint .` reports 0 errors / 56 warnings
           # and exits 0.
-          npx eslint .
+          pnpm exec eslint .
 
       - name: 🔒 Security & Environment Validation
         run: |
@@ -115,11 +115,11 @@ jobs:
         run: |
           echo "📚 Regenerating docs/api and checking for drift..."
           pnpm run docs:api
-          npx prettier --write docs/api
+          pnpm exec prettier --write docs/api
           if [ -n "$(git status --porcelain docs/api)" ]; then
             echo "❌ docs/api is out of date with src/."
             echo "Run locally and commit the result:"
-            echo "    pnpm run docs:api && npx prettier --write docs/api"
+            echo "    pnpm run docs:api && pnpm exec prettier --write docs/api"
             git --no-pager diff --stat docs/api | tail -20
             exit 1
           fi
@@ -712,14 +712,14 @@ jobs:
       - name: 📊 ESLint Quality Report
         run: |
           echo "📊 Generating ESLint quality report..."
-          npx eslint src/ --format=json --output-file=eslint-report.json || true
-          npx eslint src/ --format=stylish
+          pnpm exec eslint src/ --format=json --output-file=eslint-report.json || true
+          pnpm exec eslint src/ --format=stylish
         continue-on-error: true
 
       - name: 📈 TypeScript Compiler Check
         run: |
           echo "📈 Running TypeScript compiler strict checks on source files..."
-          npx tsc --noEmit --strict --project tsconfig.json
+          pnpm exec tsc --noEmit --strict --project tsconfig.json
 
       - name: 📋 Quality Summary
         run: |
@@ -762,7 +762,7 @@ jobs:
 
       - name: Validate semantic-release configuration
         run: |
-          npx semantic-release --dry-run \
+          pnpm exec semantic-release --dry-run \
             --plugins "@semantic-release/commit-analyzer" \
             --plugins "@semantic-release/release-notes-generator"
         env:
