@@ -4386,6 +4386,76 @@ export class GoogleVertexProvider extends BaseProvider {
       >();
 
       try {
+        // Restores the per-tool observation the hand-rolled dispatch had.
+        // The execution runs INSIDE the span's context so spans the tool opens
+        // itself nest under this call rather than dangling beside the turn, and
+        // the settled RESULT is inspected — an MCP tool reports failure in its
+        // payload, so an observation that only watches for throws records a
+        // failed call as successful.
+        //
+        // Stream path only: the generate twin never had per-tool spans, and
+        // giving it them here would be behaviour GAINED under cover of a
+        // migration. Shared with resolveToolOnMiss below: the old dispatch
+        // opened the span before the executor lookup, so a tool hydrated
+        // mid-turn was observed exactly like one declared up front.
+        const withToolSpan = <T>(
+          toolCallName: string,
+          run: () => Promise<T>,
+        ): Promise<T> => {
+          const toolSpan = tracers.mcp.startSpan(
+            "ai.toolCall",
+            {
+              kind: SpanKind.INTERNAL,
+              attributes: {
+                [LANGFUSE_ATTR.OBSERVATION_TYPE]: "tool",
+                [ATTR.GEN_AI_TOOL_NAME]: toolCallName,
+                "ai.toolCall.name": toolCallName,
+              },
+            },
+            turnContext,
+          );
+          const finish = (output: unknown, errorMessage?: string) => {
+            toolSpan.setAttribute(
+              "ai.toolCall.result",
+              spanJsonAttribute(output),
+            );
+            toolSpan.setAttribute(
+              LANGFUSE_ATTR.OBSERVATION_OUTPUT,
+              spanJsonAttribute(output),
+            );
+            if (errorMessage) {
+              toolSpan.setAttribute(LANGFUSE_ATTR.OBSERVATION_LEVEL, "ERROR");
+              toolSpan.setAttribute(
+                LANGFUSE_ATTR.OBSERVATION_STATUS_MESSAGE,
+                errorMessage,
+              );
+              toolSpan.setStatus({
+                code: SpanStatusCode.ERROR,
+                message: errorMessage,
+              });
+            } else {
+              toolSpan.setStatus({ code: SpanStatusCode.OK });
+            }
+            toolSpan.end();
+          };
+          return otelContext.with(
+            otelTrace.setSpan(turnContext, toolSpan),
+            async () => {
+              try {
+                const result = await run();
+                finish(result, extractMcpToolErrorMessage(result));
+                return result;
+              } catch (error) {
+                finish(
+                  { error: true },
+                  error instanceof Error ? error.message : String(error),
+                );
+                throw error;
+              }
+            },
+          );
+        };
+
         // Executors handed to the engine, taken through the turn's
         // DedupExecuteMap so an identical repeated call is answered from the
         // per-turn cache rather than run again (BZ-3327). `.get()` returns the
@@ -4407,73 +4477,7 @@ export class GoogleVertexProvider extends BaseProvider {
               toolTimeoutMs: toolExecTimeoutMs,
               abortSignal: internalAbort.signal,
               onProgress: () => turnClock.noteProgress(),
-              // Restores the per-tool observation the hand-rolled dispatch had.
-              // The execution runs INSIDE the span's context so spans the tool opens
-              // itself nest under this call rather than dangling beside the turn, and
-              // the settled RESULT is inspected — an MCP tool reports failure in its
-              // payload, so an observation that only watches for throws records a
-              // failed call as successful.
-              //
-              // Stream path only: the generate twin never had per-tool spans, and
-              // giving it them here would be behaviour GAINED under cover of a
-              // migration.
-              withToolSpan: (toolCallName, run) => {
-                const toolSpan = tracers.mcp.startSpan(
-                  "ai.toolCall",
-                  {
-                    kind: SpanKind.INTERNAL,
-                    attributes: {
-                      [LANGFUSE_ATTR.OBSERVATION_TYPE]: "tool",
-                      [ATTR.GEN_AI_TOOL_NAME]: toolCallName,
-                      "ai.toolCall.name": toolCallName,
-                    },
-                  },
-                  turnContext,
-                );
-                const finish = (output: unknown, errorMessage?: string) => {
-                  toolSpan.setAttribute(
-                    "ai.toolCall.result",
-                    spanJsonAttribute(output),
-                  );
-                  toolSpan.setAttribute(
-                    LANGFUSE_ATTR.OBSERVATION_OUTPUT,
-                    spanJsonAttribute(output),
-                  );
-                  if (errorMessage) {
-                    toolSpan.setAttribute(
-                      LANGFUSE_ATTR.OBSERVATION_LEVEL,
-                      "ERROR",
-                    );
-                    toolSpan.setAttribute(
-                      LANGFUSE_ATTR.OBSERVATION_STATUS_MESSAGE,
-                      errorMessage,
-                    );
-                    toolSpan.setStatus({
-                      code: SpanStatusCode.ERROR,
-                      message: errorMessage,
-                    });
-                  } else {
-                    toolSpan.setStatus({ code: SpanStatusCode.OK });
-                  }
-                  toolSpan.end();
-                };
-                return otelContext.with(
-                  otelTrace.setSpan(turnContext, toolSpan),
-                  async () => {
-                    try {
-                      const result = await run();
-                      finish(result, extractMcpToolErrorMessage(result));
-                      return result;
-                    } catch (error) {
-                      finish(
-                        { error: true },
-                        error instanceof Error ? error.message : String(error),
-                      );
-                      throw error;
-                    }
-                  },
-                );
-              },
+              withToolSpan,
             }),
           };
         }
@@ -4644,6 +4648,10 @@ export class GoogleVertexProvider extends BaseProvider {
                 toolTimeoutMs: toolExecTimeoutMs,
                 abortSignal: internalAbort.signal,
                 onProgress: () => turnClock.noteProgress(),
+                // Same observation as an up-front executor: the hand-rolled
+                // dispatch spanned at the call, after the executor lookup, so
+                // a hydrated tool was never the one unobserved call in a turn.
+                withToolSpan,
               }),
             };
           },
