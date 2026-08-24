@@ -392,6 +392,278 @@ async function runOpenAICompatSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: LiteLLM generate() over the SSE wire
+// (useStreamingWireForGenerate: doGenerate sends stream:true, aggregates
+//  the SSE into the same complete result the JSON wire yields — the fix
+//  for tunnel idle timeouts killing slow non-streaming completions.)
+// ───────────────────────────────────────────────────────────────────────
+
+function sseBody(chunks: unknown[]): string {
+  return (
+    chunks.map((c) => `data: ${JSON.stringify(c)}\n\n`).join("") +
+    "data: [DONE]\n\n"
+  );
+}
+
+async function runLiteLLMSSESection(): Promise<void> {
+  console.log("\n=== LLM litellm (generate over SSE wire) ===");
+  const section = "LLM litellm";
+
+  setEnv("LITELLM_API_KEY", "test-fake-litellm-credential");
+  // Non-default port so a real proxy on localhost:4000 can never absorb a
+  // call the mock table should have caught.
+  setEnv("LITELLM_BASE_URL", "http://127.0.0.1:4009");
+  setEnv("NEUROLINK_LITELLM_SSE_GENERATE", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+
+  // ensureModelLimits fires GET /model/info before generation.
+  const modelInfoRoute = {
+    method: "GET",
+    url: "127.0.0.1:4009/model/info",
+    respond: { status: 200, json: { data: [] } },
+  };
+
+  // ── Happy path: stream:true on the wire, multi-chunk text aggregates ──
+  try {
+    await withMocks(
+      [
+        modelInfoRoute,
+        {
+          method: "POST",
+          url: "127.0.0.1:4009/chat/completions",
+          respond: {
+            status: 200,
+            contentType: "text/event-stream",
+            text: sseBody([
+              {
+                id: "chatcmpl-sse-1",
+                model: "qwen-mock",
+                choices: [
+                  {
+                    index: 0,
+                    delta: { role: "assistant", content: "po" },
+                    finish_reason: null,
+                  },
+                ],
+              },
+              {
+                choices: [
+                  { index: 0, delta: { content: "ng" }, finish_reason: null },
+                ],
+              },
+              { choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
+              {
+                choices: [],
+                usage: {
+                  prompt_tokens: 7,
+                  completion_tokens: 2,
+                  total_tokens: 9,
+                },
+              },
+            ]),
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "litellm",
+          model: "qwen-mock",
+          input: { text: "ping" },
+          disableTools: true,
+        });
+        const chat = calls.find((c) => c.url.includes("/chat/completions"));
+        expect(chat !== undefined, "chat/completions call captured");
+        const body = (chat?.bodyJson ?? {}) as {
+          stream?: boolean;
+          stream_options?: { include_usage?: boolean };
+        };
+        expectEq(body.stream, true, "wire body stream flag");
+        expectEq(
+          body.stream_options?.include_usage,
+          true,
+          "stream_options.include_usage",
+        );
+        expectEq(result.content, "pong", "aggregated content");
+        expectEq(result.usage?.input, 7, "usage input tokens");
+        expectEq(result.usage?.output, 2, "usage output tokens");
+      },
+    );
+    record(results, `${section}: generate() rides the SSE wire`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: generate() rides the SSE wire`,
+      false,
+      String(err),
+    );
+  }
+
+  // ── Schema-bound generate: structuredData coerced from streamed text ──
+  try {
+    await withMocks(
+      [
+        modelInfoRoute,
+        {
+          method: "POST",
+          url: "127.0.0.1:4009/chat/completions",
+          respond: {
+            status: 200,
+            contentType: "text/event-stream",
+            text: sseBody([
+              {
+                choices: [
+                  {
+                    index: 0,
+                    delta: { role: "assistant", content: '{"answer":' },
+                    finish_reason: null,
+                  },
+                ],
+              },
+              {
+                choices: [
+                  {
+                    index: 0,
+                    delta: { content: '"42"}' },
+                    finish_reason: null,
+                  },
+                ],
+              },
+              { choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
+            ]),
+          },
+        },
+      ],
+      async () => {
+        const { z } = await import("zod");
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "litellm",
+          model: "qwen-mock",
+          input: { text: "answer in json" },
+          schema: z.object({ answer: z.string() }),
+          disableTools: true,
+        });
+        const structured = result.structuredData as
+          | { answer?: string }
+          | undefined;
+        expectEq(structured?.answer, "42", "structuredData.answer");
+      },
+    );
+    record(results, `${section}: schema-bound SSE yields structuredData`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: schema-bound SSE yields structuredData`,
+      false,
+      String(err),
+    );
+  }
+
+  // ── Backend that rejects streaming: one retry on the plain JSON wire ──
+  try {
+    await withMocks(
+      [
+        modelInfoRoute,
+        {
+          method: "POST",
+          url: "127.0.0.1:4009/chat/completions",
+          respond: (call) => {
+            const body = call.bodyJson as { stream?: boolean };
+            if (body.stream) {
+              return {
+                status: 400,
+                json: {
+                  error: { message: "stream is not supported for this model" },
+                },
+              };
+            }
+            return {
+              status: 200,
+              json: openAIChatResponse("pong", "qwen-mock"),
+            };
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "litellm",
+          model: "qwen-mock",
+          input: { text: "ping" },
+          disableTools: true,
+        });
+        expectEq(result.content, "pong", "content after JSON-wire retry");
+        const chatCalls = calls.filter((c) =>
+          c.url.includes("/chat/completions"),
+        );
+        expectEq(chatCalls.length, 2, "streamed attempt + JSON-wire retry");
+        const retryBody = (chatCalls[1]?.bodyJson ?? {}) as {
+          stream?: boolean;
+          stream_options?: unknown;
+        };
+        expectEq(retryBody.stream, undefined, "retry body has no stream flag");
+        expectEq(
+          retryBody.stream_options,
+          undefined,
+          "retry body has no stream_options",
+        );
+      },
+    );
+    record(results, `${section}: stream-rejecting backend falls back`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: stream-rejecting backend falls back`,
+      false,
+      String(err),
+    );
+  }
+
+  // ── Escape hatch: NEUROLINK_LITELLM_SSE_GENERATE=false → JSON wire ──
+  try {
+    setEnv("NEUROLINK_LITELLM_SSE_GENERATE", "false");
+    await withMocks(
+      [
+        modelInfoRoute,
+        {
+          method: "POST",
+          url: "127.0.0.1:4009/chat/completions",
+          respond: {
+            status: 200,
+            json: openAIChatResponse("pong", "qwen-mock"),
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "litellm",
+          model: "qwen-mock",
+          input: { text: "ping" },
+          disableTools: true,
+        });
+        const chat = calls.find((c) => c.url.includes("/chat/completions"));
+        const body = (chat?.bodyJson ?? {}) as { stream?: boolean };
+        expectEq(body.stream, undefined, "escape hatch restores JSON wire");
+        expectEq(result.content, "pong", "JSON-wire content");
+      },
+    );
+    record(results, `${section}: SSE escape hatch restores JSON wire`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: SSE escape hatch restores JSON wire`,
+      false,
+      String(err),
+    );
+  } finally {
+    setEnv("NEUROLINK_LITELLM_SSE_GENERATE", undefined);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: Replicate LLM (predict-then-poll via /v1/models/{model}/predictions)
 // ───────────────────────────────────────────────────────────────────────
 
@@ -2013,6 +2285,7 @@ async function main(): Promise<void> {
 
   try {
     await runOpenAICompatSection();
+    await runLiteLLMSSESection();
     await runReplicateLLMSection();
     await runEmbeddingsSection();
     await runImageGenSection();

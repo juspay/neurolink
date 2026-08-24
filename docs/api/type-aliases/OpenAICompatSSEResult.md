@@ -51,3 +51,23 @@ Defined in: [types/openaiCompatible.ts:260](https://github.com/juspay/neurolink/
 > `optional` **usage?**: [`OpenAICompatUsage`](OpenAICompatUsage.md)
 
 Defined in: [types/openaiCompatible.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L267)
+
+---
+
+### id?
+
+> `optional` **id?**: `string`
+
+Defined in: [types/openaiCompatible.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L269)
+
+Response id from the first stream chunk that carried one.
+
+---
+
+### model?
+
+> `optional` **model?**: `string`
+
+Defined in: [types/openaiCompatible.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L271)
+
+Served model from the first stream chunk that carried one.

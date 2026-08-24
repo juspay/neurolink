@@ -8,7 +8,7 @@
 
 > **OpenAICompatStreamChunk** = `object`
 
-Defined in: [types/openaiCompatible.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L275)
+Defined in: [types/openaiCompatible.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L279)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:275](https://github.com/juspay/neurolink/
 
 > **content**: `string`
 
-Defined in: [types/openaiCompatible.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L275)
+Defined in: [types/openaiCompatible.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L279)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/openaiCompatible.ts:275](https://github.com/juspay/neurolink/
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/openaiCompatible.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L275)
+Defined in: [types/openaiCompatible.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L279)

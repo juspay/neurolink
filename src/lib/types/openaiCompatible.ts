@@ -265,6 +265,10 @@ export type OpenAICompatSSEResult = {
     | "content_filter"
     | null;
   usage?: OpenAICompatUsage;
+  /** Response id from the first stream chunk that carried one. */
+  id?: string;
+  /** Served model from the first stream chunk that carried one. */
+  model?: string;
 };
 
 // Reasoning deltas ride alongside an always-present (empty) `content` string
