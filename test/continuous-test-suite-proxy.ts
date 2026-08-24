@@ -2048,10 +2048,31 @@ async function testClientConfigWritesPreservePermissions(): Promise<boolean> {
     }
 
     // A config that did not exist yet must not be born world-readable.
-    const fresh = path.join(root, "opencode", "fresh.json");
+    //
+    // The parent directory must NOT exist when this runs. writeFileAtomic does
+    // its own mkdirSync(dirname, {recursive: true}) for exactly the first-run
+    // case, and an earlier cut of this test wrote into `root/opencode` — which
+    // is created at the top of this function. That made the production mkdir
+    // dead weight here: deleting it would not have failed this test.
+    const freshDir = path.join(root, "opencode", "nested", "first-run");
+    const fresh = path.join(freshDir, "fresh.json");
+    if (fs.existsSync(freshDir)) {
+      log(
+        "the first-run directory already exists — this case no longer covers the absent-parent path",
+        "red",
+      );
+      return false;
+    }
     const { writeFileAtomic } =
       await import("../src/cli/proxy-clients/snapshot.js");
     await writeFileAtomic(fresh, JSON.stringify({ apiKey: "sk-test" }));
+    if (!fs.existsSync(fresh)) {
+      log(
+        "writeFileAtomic did not create the file beneath an absent parent directory",
+        "red",
+      );
+      return false;
+    }
     if (modeOf(fresh) !== "600") {
       log(
         `a newly created credential file landed at 0${modeOf(fresh)} rather than 0600`,
@@ -2147,6 +2168,31 @@ async function spawnIsolatedProxy(options: {
     },
   );
 
+  // The pipes must be drained. Nothing else in this function reads them, and a
+  // child whose stdout+stderr fills the OS pipe buffer (~64KB) blocks on its
+  // next write — including, potentially, the write that would have served the
+  // /health request this function is waiting on. Accumulating the output also
+  // means a failed spawn can say why.
+  let childOutput = "";
+  child.stdout?.on("data", (chunk: Buffer) => {
+    childOutput += chunk.toString();
+  });
+  child.stderr?.on("data", (chunk: Buffer) => {
+    childOutput += chunk.toString();
+  });
+
+  // Without these the poll loop below cannot learn the child died, so a proxy
+  // that crashes on startup (bad flag, port already bound, throw before
+  // listen) burns the full 45s deadline retrying a connection that will never
+  // be accepted, instead of failing in well under a second.
+  let childExited: string | null = null;
+  child.once("error", (err) => {
+    childExited = `spawn error: ${err.message}`;
+  });
+  child.once("exit", (code, signal) => {
+    childExited = `exited early with code=${code} signal=${signal}`;
+  });
+
   const stop = () => {
     child.kill();
     // The proxy is still flushing its journal when the kill lands, so a plain
@@ -2172,8 +2218,26 @@ async function spawnIsolatedProxy(options: {
 
   const deadline = Date.now() + 45_000;
   while (Date.now() < deadline) {
+    // A crashed child will never answer. Check before probing so the common
+    // startup failure costs one poll interval rather than the whole deadline.
+    if (childExited !== null) {
+      log(
+        `isolated proxy ${childExited}${childOutput ? ` — ${childOutput.slice(-400)}` : ""}`,
+        "red",
+      );
+      stop();
+      return null;
+    }
     try {
-      const probe = await fetch(`http://127.0.0.1:${port}/health`);
+      // Bounded deliberately. Node's fetch has no default request timeout, so
+      // a proxy that accepts the connection and then never answers blocks here
+      // forever — and the loop cannot re-check its own `deadline` while it is
+      // blocked inside the await. The suite's outer withCaseTimeout cannot
+      // rescue it either: Promise.race abandons the loser without cancelling
+      // it, and a case timeout aborts every remaining case in the run.
+      const probe = await fetch(`http://127.0.0.1:${port}/health`, {
+        signal: AbortSignal.timeout(5000),
+      });
       if (probe.ok) {
         return { port, home, stop };
       }
@@ -2182,6 +2246,10 @@ async function spawnIsolatedProxy(options: {
     }
     await new Promise((r) => setTimeout(r, 400));
   }
+  log(
+    `isolated proxy never became healthy within 45s${childOutput ? ` — ${childOutput.slice(-400)}` : ""}`,
+    "red",
+  );
   stop();
   return null;
 }
@@ -2284,6 +2352,10 @@ async function testGeminiMultiTurnHistoryReachesProvider(): Promise<
           "content-type": "application/json",
           "user-agent": "neurolink-history-probe/1.0",
         },
+        // Bounded: Node's fetch has no default timeout, and an unanswered
+        // request here hangs the case past its own bound (Promise.race cannot
+        // cancel the loser), which aborts every remaining case in the run.
+        signal: AbortSignal.timeout(30_000),
         body: JSON.stringify({
           contents: [
             { role: "user", parts: [{ text: MARKERS.first }] },
@@ -2430,6 +2502,10 @@ async function testGeminiModelFinalTurnReachesProvider(): Promise<
           "content-type": "application/json",
           "user-agent": "neurolink-model-final-probe/1.0",
         },
+        // Bounded: Node's fetch has no default timeout, and an unanswered
+        // request here hangs the case past its own bound (Promise.race cannot
+        // cancel the loser), which aborts every remaining case in the run.
+        signal: AbortSignal.timeout(30_000),
         body: JSON.stringify({
           // No trailing user turn — this is the continue-from-model shape.
           contents: [
@@ -2534,6 +2610,9 @@ async function testEveryDoorIsTracked(): Promise<boolean | null> {
           "content-type": "application/json",
           "user-agent": "neurolink-door-tracking-probe/1.0",
         },
+        // Bounded for the same reason as the probes above: an unanswered door
+        // would hang the case and take the rest of the run with it.
+        signal: AbortSignal.timeout(30_000),
         body: JSON.stringify(door.body),
       });
     }
