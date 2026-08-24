@@ -395,7 +395,7 @@ async function testChunkerFactory(): Promise<boolean | null> {
   // Test 5: Metadata retrieval
   logSubsection("Metadata Retrieval");
   try {
-    const metadata = getChunkerMetadata("recursive");
+    const metadata = await getChunkerMetadata("recursive");
     if (
       metadata &&
       metadata.description &&
@@ -426,7 +426,7 @@ async function testChunkerFactory(): Promise<boolean | null> {
   // Test 6: Default config
   logSubsection("Default Configuration");
   try {
-    const config = getDefaultConfig("recursive");
+    const config = await getDefaultConfig("recursive");
     if (config && typeof config.maxSize === "number") {
       logTest("Get default config", "PASS", `maxSize: ${config.maxSize}`);
       recordResult({ name: "Get default config", status: "PASS" });
@@ -772,7 +772,7 @@ async function testRerankerFactory(): Promise<boolean | null> {
   // Test 4: Reranker metadata
   logSubsection("Reranker Metadata");
   try {
-    const metadata = getRerankerMetadata("simple");
+    const metadata = await getRerankerMetadata("simple");
     if (
       metadata &&
       metadata.description &&
@@ -847,7 +847,7 @@ async function testRerankerFactory(): Promise<boolean | null> {
   // Test 6: Model-free and local rerankers
   logSubsection("Model-Free Rerankers");
   try {
-    const modelFree = rerankerFactory.getModelFreeRerankers();
+    const modelFree = await rerankerFactory.getModelFreeRerankers();
     if (modelFree.includes("simple")) {
       logTest(
         "Get model-free rerankers",
