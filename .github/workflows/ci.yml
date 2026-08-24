@@ -62,6 +62,28 @@ jobs:
           echo "🔍 Running ESLint validation with controlled warning limits..."
           npx eslint src/ --max-warnings=300
           npx eslint test/continuous-test-suite*.ts test/zod-schema-test-function.ts --max-warnings=10
+          # Everything else, errors only.
+          #
+          # The two runs above cover src/ and the continuous-test-suite glob, and
+          # nothing else in the repo was linted by CI at all: scripts/, tools/,
+          # eslint-rules/, test/helpers/ (18 files) and any test file outside that
+          # glob. `pnpm run lint` does lint the whole project, but CI never calls
+          # it — it is a pre-commit hook only, and `--no-verify` skips that.
+          #
+          # This mattered beyond coverage: the custom rules assume a full-project
+          # view. unique-type-names can only detect a duplicate if it sees both
+          # declarations, and its own comment claimed "the pre-push/CI run on the
+          # full project catches everything" — pre-push does not lint, and CI did
+          # not run on the full project, so that net did not exist.
+          #
+          # No warning ceiling here on purpose: the scoped runs above already own
+          # the warning budgets, and duplicating one would let a warning limit be
+          # tightened in one place and silently loosened in another. This run
+          # exists to catch ERRORS anywhere, which is what the custom rules emit.
+          #
+          # Free to add today, measured rather than assumed: `npx eslint .`
+          # currently reports 0 errors / 56 warnings and exits 0.
+          npx eslint .
 
       - name: 🔒 Security & Environment Validation
         run: |

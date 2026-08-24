@@ -10,9 +10,22 @@
  * rule invocations. ESLint loads the plugin once per process, so a single
  * `pnpm run lint` sees every file and can report duplicates.
  *
- * Caveat: when running ESLint on a subset of files (e.g., lint-staged on a
- * partial diff), this rule only checks that subset. The pre-push/CI run on
- * the full project catches everything.
+ * Caveat: when running ESLint on a subset of files (e.g. lint-staged on a
+ * partial diff), this rule only checks that subset — a duplicate is invisible
+ * unless BOTH declarations are in the same run.
+ *
+ * This comment used to say "the pre-push/CI run on the full project catches
+ * everything". That was not true in either half. `.husky/pre-push` runs
+ * check:deps, build and three test suites, and lints nothing. CI ran
+ * `eslint src/` and `eslint test/continuous-test-suite*.ts`, never
+ * `pnpm run lint`, so scripts/, tools/, eslint-rules/ and test/helpers/ were
+ * not linted at all and no run saw the whole project. The only full-project
+ * lint was the pre-commit hook, which `--no-verify` skips.
+ *
+ * CI now also runs a plain `npx eslint .` (errors only) so a whole-project view
+ * exists somewhere that a local flag cannot bypass. Keep that in mind before
+ * narrowing CI's lint scope again: it is load-bearing for this rule rather
+ * than merely thorough.
  */
 
 "use strict";
