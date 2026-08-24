@@ -424,8 +424,14 @@ export abstract class BaseProvider implements AIProvider {
       // streaming implementation.
       return this.wrapStreamWithLifecycleCallbacks(realStreamResult, options);
     } catch (realStreamError) {
-      // Don't retry on terminal/abort errors — only fall back for
-      // "real streaming with tools is unsupported" style failures.
+      // The fallback is BROAD, not narrow: only the terminal errors listed
+      // below (abort, timeout, 401/403, quota, rate limit, authentication)
+      // re-throw. Every other failure — including a genuine configuration or
+      // programming error — is masked as a degraded fake stream whenever
+      // tools are enabled. Narrowing this to "streaming with tools is
+      // unsupported" failures would change behaviour for every provider at
+      // once, so it needs its own characterization PR first; until then this
+      // comment records what the code does, not what a narrower design would.
       const errMsg =
         realStreamError instanceof Error
           ? realStreamError.message
