@@ -633,7 +633,9 @@ assume an auth layer exists.
   Performance Gates", runs `pnpm run proxy:performance` against `proxyLifecycle.ts` /
   `proxyActivity.ts`), `quality-gate` (validate, commit-message validation,
   `tsc --noEmit --strict`) and `semantic-release-validation`. `provider-safety-net` also
-  runs a third suite the pre-push hook does not — `test:error-classifier-contract`.
+  runs several suites the pre-push hook does not — `test:providers-mocked`,
+  `test:error-classifier-contract` and the bedrock / sagemaker / anthropic /
+  aistudio characterization suites.
   **A new proxy engine can trip `proxy-performance`.**
 - **Docs PRs are gated.** `docs-pr-validation.yml` triggers on `docs/**` and runs a
   Docusaurus typecheck and build **without** `continue-on-error`. Frontmatter and link

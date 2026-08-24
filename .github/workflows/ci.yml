@@ -6,6 +6,17 @@ on:
   pull_request:
     branches: [release]
 
+# Cancel a run that a newer push to the same ref has superseded. Without this
+# an amend-and-force-push — routine under the single-commit-per-branch policy —
+# leaves the old run executing to completion, competing for runners with the
+# run whose result anyone actually wants. copilot-review.yml already does this;
+# ci.yml did not.
+#
+# Keyed on the ref, not the PR number, so pushes to release are covered too.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # The required check. Same reasoning as provider-safety-net below: `test` is
   # required by both protection layers AND is a `needs:` of
@@ -634,13 +645,20 @@ jobs:
   # into nothing is documentation, not a test.
   extended-suites:
     runs-on: ubuntu-latest
+    strategy:
+      # Every shard runs even if another fails, so one broken suite never
+      # hides the state of the other 27 — the same property the loop below
+      # has always had within a single job.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     # This job checks out and executes repository code on pull_request.
     # The repository default is a WRITE-scoped token (and one that may
     # approve reviews); nothing here needs either. Read is enough to
     # checkout, install and run suites.
     permissions:
       contents: read
-    name: Extended Suites (non-blocking)
+    name: Extended Suites (non-blocking) ${{ matrix.shard }}/4
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -747,8 +765,15 @@ jobs:
             test:vertex-claude-characterization
             test:vertex-loop-characterization
           "
+          # Shard by position in the list above. The list stays single-sourced;
+          # only which entries this runner executes changes.
           FAILED=""
+          i=0
           for s in $SUITES; do
+            i=$((i + 1))
+            if [ $(( (i - 1) % 4 + 1 )) -ne ${{ matrix.shard }} ]; then
+              continue
+            fi
             echo "::group::$s"
             if pnpm run "$s"; then
               echo "PASS $s"
