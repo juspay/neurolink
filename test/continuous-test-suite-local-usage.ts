@@ -1011,18 +1011,33 @@ async function runAllTests(): Promise<void> {
       }),
     ]);
     try {
-      const [zero, negative, notANumber, negInfinite, infinite] =
-        await withHome(home, async () => [
-          await readAllLocalUsage({ sinceDays: 0 }),
-          await readAllLocalUsage({ sinceDays: -5 }),
-          // NaN is the case the first version of this fix missed:
-          // Math.max(0, NaN) is NaN and every comparison against NaN is false,
-          // so the filter passed every file — 17,537 of them, measured. The
-          // guard it replaced caught this with Number.isFinite.
-          await readAllLocalUsage({ sinceDays: NaN }),
-          await readAllLocalUsage({ sinceDays: -Infinity }),
-          await readAllLocalUsage({ sinceDays: Infinity }),
-        ]);
+      const [
+        zero,
+        negative,
+        notANumber,
+        negInfinite,
+        overflowMax,
+        overflowHuge,
+        infinite,
+      ] = await withHome(home, async () => [
+        await readAllLocalUsage({ sinceDays: 0 }),
+        await readAllLocalUsage({ sinceDays: -5 }),
+        // NaN is the case the first version of this fix missed:
+        // Math.max(0, NaN) is NaN and every comparison against NaN is false,
+        // so the filter passed every file — 17,537 of them, measured. The
+        // guard it replaced caught this with Number.isFinite.
+        await readAllLocalUsage({ sinceDays: NaN }),
+        await readAllLocalUsage({ sinceDays: -Infinity }),
+        // A FINITE sinceDays whose window arithmetic is not finite — the
+        // third door into the same unbounded sweep, after 0 and NaN.
+        // Number.MAX_VALUE * 86_400_000 overflows to Infinity, so the cutoff
+        // became Date.now() - Infinity = -Infinity and every timestamp
+        // compares as newer than it. Measured before the fix, against a
+        // fixture dated months earlier: it read the file.
+        await readAllLocalUsage({ sinceDays: Number.MAX_VALUE }),
+        await readAllLocalUsage({ sinceDays: 1e308 }),
+        await readAllLocalUsage({ sinceDays: Infinity }),
+      ]);
 
       assert(
         (zero.totals["claude-code"]?.requests ?? 0) === 0,
@@ -1039,6 +1054,14 @@ async function runAllTests(): Promise<void> {
       assert(
         (negInfinite.totals["claude-code"]?.requests ?? 0) === 0,
         "a -Infinity sinceDays read transcripts instead of nothing",
+      );
+      assert(
+        (overflowMax.totals["claude-code"]?.requests ?? 0) === 0,
+        "a Number.MAX_VALUE sinceDays read transcripts instead of nothing",
+      );
+      assert(
+        (overflowHuge.totals["claude-code"]?.requests ?? 0) === 0,
+        "a 1e308 sinceDays read transcripts instead of nothing",
       );
       // The control: without this, a reader that simply returned nothing for
       // every window would pass every assertion above.
