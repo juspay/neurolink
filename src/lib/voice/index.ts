@@ -8,9 +8,13 @@
  * Use STTProcessor (src/lib/utils/sttProcessor.ts) for STT.
  * Use RealtimeProcessor for realtime voice sessions.
  *
- * Importing this module also auto-registers every shipped TTS / STT /
- * Realtime handler whose backing API key is present in `process.env`.
- * Registration is idempotent and silently skipped on failure.
+ * Importing this module does NOT register any handlers as a side effect.
+ * Call `registerDefaultTTSHandlers()` / `registerDefaultSTTHandlers()` /
+ * `registerDefaultRealtimeHandlers()` explicitly (or go through
+ * `ProviderRegistry.registerAllProviders()`, which every documented
+ * `NeuroLink` entry point already calls) to register every shipped handler
+ * whose backing API key is present in `process.env`. Registration is
+ * idempotent and silently skipped on failure.
  *
  * @module voice
  */
@@ -20,6 +24,7 @@ import type {
   STTHandler,
   TTSHandler,
 } from "../types/index.js";
+import { MEDIA_HANDLER_CATALOG } from "../factories/mediaHandlerCatalog.js";
 import { logger } from "../utils/logger.js";
 import { STTProcessor } from "../utils/sttProcessor.js";
 import { TTSProcessor } from "../utils/ttsProcessor.js";
@@ -164,51 +169,79 @@ import { OpenAISTT } from "./providers/OpenAISTT.js";
 import { GeminiLive } from "./providers/GeminiLive.js";
 import { OpenAIRealtime } from "./providers/OpenAIRealtime.js";
 
+// Provider names + aliases are the Task-8 catalog's job — only the factory
+// (which needs the imported handler class) stays local to this module.
+const TTS_HANDLER_FACTORIES: Readonly<Record<string, () => TTSHandler>> = {
+  // Google TTS doubles as both the AI Studio and Vertex TTS handler.
+  "google-ai": () => new GoogleTTSHandler(),
+  "openai-tts": () => new OpenAITTS(),
+  elevenlabs: () => new ElevenLabsTTS(),
+  "azure-tts": () => new AzureTTS(),
+  "fish-audio": () => new FishAudioTTS(),
+  cartesia: () => new CartesiaTTS(),
+};
+
 const TTS_HANDLER_CANDIDATES: ReadonlyArray<{
   readonly name: string;
   readonly aliases?: readonly string[];
   readonly factory: () => TTSHandler;
-}> = [
-  {
-    // Google TTS doubles as both the AI Studio and Vertex TTS handler.
-    name: "google-ai",
-    aliases: ["vertex"],
-    factory: () => new GoogleTTSHandler(),
+}> = MEDIA_HANDLER_CATALOG.filter((entry) => entry.kind === "tts").map(
+  (entry) => {
+    const factory = TTS_HANDLER_FACTORIES[entry.name];
+    if (!factory) {
+      throw new Error(
+        `[voice/tts] no handler factory for catalog entry "${entry.name}"`,
+      );
+    }
+    return { name: entry.name, aliases: entry.aliases, factory };
   },
-  { name: "openai-tts", factory: () => new OpenAITTS() },
-  {
-    name: "elevenlabs",
-    aliases: ["elevenlabs-tts"],
-    factory: () => new ElevenLabsTTS(),
-  },
-  { name: "azure-tts", factory: () => new AzureTTS() },
-  { name: "fish-audio", factory: () => new FishAudioTTS() },
-  { name: "cartesia", factory: () => new CartesiaTTS() },
-];
+);
+
+const STT_HANDLER_FACTORIES: Readonly<Record<string, () => STTHandler>> = {
+  whisper: () => new OpenAISTT(),
+  deepgram: () => new DeepgramSTT(),
+  "google-stt": () => new GoogleSTT(),
+  "azure-stt": () => new AzureSTT(),
+};
 
 const STT_HANDLER_CANDIDATES: ReadonlyArray<{
   readonly name: string;
   readonly aliases?: readonly string[];
   readonly factory: () => STTHandler;
-}> = [
-  {
-    name: "whisper",
-    aliases: ["openai-stt"],
-    factory: () => new OpenAISTT(),
+}> = MEDIA_HANDLER_CATALOG.filter((entry) => entry.kind === "stt").map(
+  (entry) => {
+    const factory = STT_HANDLER_FACTORIES[entry.name];
+    if (!factory) {
+      throw new Error(
+        `[voice/stt] no handler factory for catalog entry "${entry.name}"`,
+      );
+    }
+    return { name: entry.name, aliases: entry.aliases, factory };
   },
-  { name: "deepgram", factory: () => new DeepgramSTT() },
-  { name: "google-stt", factory: () => new GoogleSTT() },
-  { name: "azure-stt", factory: () => new AzureSTT() },
-];
+);
+
+const REALTIME_HANDLER_FACTORIES: Readonly<
+  Record<string, () => RealtimeHandler>
+> = {
+  "openai-realtime": () => new OpenAIRealtime(),
+  "gemini-live": () => new GeminiLive(),
+};
 
 const REALTIME_HANDLER_CANDIDATES: ReadonlyArray<{
   readonly name: string;
   readonly aliases?: readonly string[];
   readonly factory: () => RealtimeHandler;
-}> = [
-  { name: "openai-realtime", factory: () => new OpenAIRealtime() },
-  { name: "gemini-live", factory: () => new GeminiLive() },
-];
+}> = MEDIA_HANDLER_CATALOG.filter((entry) => entry.kind === "realtime").map(
+  (entry) => {
+    const factory = REALTIME_HANDLER_FACTORIES[entry.name];
+    if (!factory) {
+      throw new Error(
+        `[voice/realtime] no handler factory for catalog entry "${entry.name}"`,
+      );
+    }
+    return { name: entry.name, aliases: entry.aliases, factory };
+  },
+);
 
 function registerCandidates<H extends { isConfigured(): boolean }>(
   candidates: ReadonlyArray<{
@@ -307,10 +340,3 @@ export function registerDefaultRealtimeHandlers(): void {
     false,
   );
 }
-
-// Run once at module import so consumers who follow the documented
-// `nl.generate(...)` flow get every configured handler without manually
-// calling `registerHandler`.
-registerDefaultTTSHandlers();
-registerDefaultSTTHandlers();
-registerDefaultRealtimeHandlers();

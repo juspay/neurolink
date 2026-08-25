@@ -279,6 +279,15 @@ export default [
             // never exported from any package entry point — no public
             // surface at all (same reasoning as autoresearch above).
             "test/continuous-test-suite-handler-registry.ts",
+            // MEDIA_HANDLER_CATALOG / providerChoicesFor / defaultProviderFor
+            // (src/lib/factories/mediaHandlerCatalog.ts) are never re-exported
+            // from src/lib/index.ts — no package entry point resolves them,
+            // same "no public surface at all" reasoning as HandlerRegistry
+            // above. The suite's live-registration assertions (TTSProcessor.
+            // listProviders() etc.) still go through the real public surface
+            // via ../dist/index.js; only the catalog-internals reads need
+            // this exception.
+            "test/continuous-test-suite-media-registry-collisions.ts",
             // Filter-dialect translation no live generate() could emit.
             "test/continuous-test-suite-vector-chroma.ts",
             "test/continuous-test-suite-vector-pinecone.ts",

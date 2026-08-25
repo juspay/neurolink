@@ -5919,6 +5919,13 @@ Current user's request: ${currentInput}`;
         'output.music.provider is required (e.g. "beatoven", "elevenlabs-music", "lyria", "replicate").',
       );
     }
+    // This early-dispatch path never creates an AI provider, so
+    // ProviderRegistry.registerAllProviders() has NOT necessarily run —
+    // with the module-scope auto-registration retired, the handlers must
+    // be registered here explicitly. registerDefaultMusicHandlers() is
+    // idempotent (skip-if-registered), so the repeat call is free.
+    const { registerDefaultMusicHandlers } = await import("./music/index.js");
+    registerDefaultMusicHandlers();
     const { MusicProcessor } = await import("./utils/musicProcessor.js");
     const musicResult = await MusicProcessor.generate(providerName, {
       ...musicOptions,
@@ -5959,6 +5966,11 @@ Current user's request: ${currentInput}`;
         'output.avatar.provider is required (e.g. "d-id", "heygen", "replicate").',
       );
     }
+    // Same early-dispatch registration as generateWithMusic above: no AI
+    // provider is created on this path, so the retired module-scope
+    // auto-run must be replaced by an explicit (idempotent) call here.
+    const { registerDefaultAvatarHandlers } = await import("./avatar/index.js");
+    registerDefaultAvatarHandlers();
     const { AvatarProcessor } = await import("./utils/avatarProcessor.js");
     const avatarResult = await AvatarProcessor.generate(
       providerName,

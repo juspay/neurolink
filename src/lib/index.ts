@@ -281,14 +281,15 @@ export {
   ReplicateAvatarHandler,
 } from "./avatar/index.js";
 
-// Video handlers (live under adapters/video; no separate video/ barrel)
-export { KlingVideoHandler } from "./adapters/video/klingVideoHandler.js";
-export { ReplicateVideoHandler } from "./adapters/video/replicateVideoHandler.js";
-export { RunwayVideoHandler } from "./adapters/video/runwayVideoHandler.js";
+// Video handlers
 export {
-  VertexVideoHandler,
   isVertexVideoConfigured,
-} from "./adapters/video/vertexVideoHandler.js";
+  KlingVideoHandler,
+  registerDefaultVideoHandlers,
+  ReplicateVideoHandler,
+  RunwayVideoHandler,
+  VertexVideoHandler,
+} from "./adapters/video/index.js";
 
 // Image generation + HITL — surfaced from their dedicated barrels
 export { ImageGenService } from "./image-gen/ImageGenService.js";

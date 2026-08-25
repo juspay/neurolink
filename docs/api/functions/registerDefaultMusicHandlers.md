@@ -8,7 +8,7 @@
 
 > **registerDefaultMusicHandlers**(): `void`
 
-Defined in: [music/index.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/music/index.ts#L85)
+Defined in: [music/index.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/music/index.ts#L95)
 
 Register every shipped music handler whose backing credentials are
 present in the environment. Safe to call multiple times — existing
