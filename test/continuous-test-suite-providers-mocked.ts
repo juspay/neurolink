@@ -2403,13 +2403,27 @@ async function runAnthropicSection(): Promise<void> {
       );
       const { NeuroLink } = await import(${JSON.stringify(distUrl)});
       const nl = new NeuroLink({ conversationMemory: { enabled: false } });
-      let caught = false;
+      let caught;
       try {
         const r = await nl.stream({ provider: "anthropic", model: ${JSON.stringify(model)}, input: { text: "ping" }, disableTools: true });
         for await (const c of r.stream) { void c; }
-      } catch { caught = true; }
+      } catch (e) { caught = e; }
       await new Promise((r) => setTimeout(r, 600));
-      if (!caught) { console.log("NO_ERROR"); process.exit(3); }
+      if (caught === undefined) { console.log("NO_ERROR"); process.exit(3); }
+      // Surviving is only meaningful if the run actually reached the failure
+      // this test is about. Accepting ANY error made the case vacuous: a
+      // pre-request or configuration failure never creates a detached-pump
+      // rejection to survive, yet still landed in the catch. Demonstrated by
+      // making fetch throw instead of returning the 429 — the child printed
+      // SURVIVED off a NetworkError and the assertion passed having exercised
+      // nothing. Pin the identity so only the real path can report success.
+      const name = caught?.constructor?.name;
+      const text = String(caught?.message ?? "");
+      const tags = text.split("[anthropic]").length - 1;
+      if (name !== "RateLimitError" || tags !== 1) {
+        console.log("WRONG_ERROR", name, "tags=" + tags);
+        process.exit(4);
+      }
       console.log("SURVIVED");
     `;
     const res = spawnSync(
@@ -2421,6 +2435,12 @@ async function runAnthropicSection(): Promise<void> {
         killSignal: "SIGKILL",
       },
     );
+    // Child exit codes: 0 = survived the real failure · 1 = the process was
+    // killed by the unhandled rejection (the bug) · 3 = nothing threw at all
+    // · 4 = something threw, but not the failure under test. Only 0 counts.
+    // The detail below stays free of payload text on purpose — record()'s
+    // skip classifier reads message content, so quoting a provider-ish string
+    // into it can downgrade a genuine failure to a skip.
     const survived =
       res.status === 0 && (res.stdout ?? "").includes("SURVIVED");
     record(
