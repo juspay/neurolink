@@ -68,16 +68,37 @@ export async function attachRealtimeEventBridge(
         via,
         bytes: bytes.byteLength,
       });
-      if (via === "data") {
-        void participant.publishData(bytes, {
-          reliable: true,
-          topic: eventsTopic,
+      // Both calls are detached on purpose — the bridge must never make the
+      // caller wait on the UI. But `void` alone does NOT make a rejection
+      // harmless, and the try/catch below cannot help: a synchronous catch
+      // never sees a rejected promise. Measured — a rejecting publish with
+      // this exact shape leaves the catch untouched and, with no
+      // unhandledRejection handler installed, terminates the process:
+      //   SYNC_CATCH_FIRED = false · UNHANDLED_COUNT = 1 · exit 1
+      // These are network calls to a peer that can disconnect mid-publish, so
+      // the rejection is ordinary, not exotic. Attaching a handler is what
+      // actually makes the bridge best-effort, which is what the catch below
+      // only claimed. Same class as the detached-pump crash in anthropic.
+      const publishFailed = (error: unknown): void => {
+        logger.debug("realtime.bridge.publishFailed", {
+          seq,
+          type,
+          via,
+          error: error instanceof Error ? error.message : String(error),
         });
+      };
+      if (via === "data") {
+        void participant
+          .publishData(bytes, { reliable: true, topic: eventsTopic })
+          .catch(publishFailed);
       } else {
-        void participant.sendText(json, { topic: eventsTopic });
+        void participant
+          .sendText(json, { topic: eventsTopic })
+          .catch(publishFailed);
       }
     } catch {
-      /* non-fatal — the UI bridge is best-effort */
+      /* non-fatal — covers the synchronous half only (encode/stringify);
+         the detached publishes carry their own handler above. */
     }
   };
 

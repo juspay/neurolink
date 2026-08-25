@@ -1786,12 +1786,29 @@ export class NeuroLink {
     );
 
     // Fire-and-forget: registrations complete before any generate/stream call
-    // because those calls await initializeMCP() which is slower
-    void Promise.all(registrations).then(() => {
-      logger.debug(
-        `[NeuroLink] Registered ${Object.keys(fileTools).length} file reference tools`,
-      );
-    });
+    // because those calls await initializeMCP() which is slower.
+    //
+    // The rejection handler is not decoration. registerTool() throws on a
+    // failed name/description validation (mcp/toolRegistry.ts), and that throw
+    // is not inside a try — so a rejected registration on a `void`-detached
+    // one-argument `.then()` would be an unhandled rejection, which terminates
+    // the process. Today the tool names come from createFileTools(), which are
+    // internal constants that pass validation, so this is latent rather than
+    // live; it stops being latent the moment a name is derived from anything
+    // outside this file. Losing one tool registration is the intended failure
+    // mode here — losing the host process is not.
+    void Promise.all(registrations).then(
+      () => {
+        logger.debug(
+          `[NeuroLink] Registered ${Object.keys(fileTools).length} file reference tools`,
+        );
+      },
+      (error: unknown) => {
+        logger.warn("[NeuroLink] File tool registration failed", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
+    );
   }
 
   /**
@@ -1815,34 +1832,48 @@ export class NeuroLink {
       // registerTool is async but its core logic is synchronous (Map.set).
       // We fire-and-forget here but tools are available immediately after
       // the synchronous validation + map insertion completes.
-      void this.toolRegistry.registerTool(toolId, toolInfo, {
-        execute: async (params: unknown) => {
-          try {
-            const result = await (
-              toolDef.execute as (
-                params: unknown,
-                ctx: unknown,
-              ) => Promise<unknown>
-            )(params, {
-              toolCallId: "task-tool",
-              messages: [],
-            });
-            return {
-              success: true,
-              data: result,
-              metadata: { toolName, serverId: "direct", executionTime: 0 },
-            };
-          } catch (error) {
-            return {
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-              metadata: { toolName, serverId: "direct", executionTime: 0 },
-            };
-          }
-        },
-        description: toolDef.description,
-        inputSchema: {},
-      });
+      //
+      // The .catch() at the end of this call is required for the same reason
+      // as in registerFileTools() above: registerTool() throws on failed
+      // validation, and an unhandled rejection off a `void`-detached call
+      // terminates the process rather than failing this one registration.
+      // Latent today (createTaskTools() supplies internal, valid names), and
+      // cheap to keep correct.
+      void this.toolRegistry
+        .registerTool(toolId, toolInfo, {
+          execute: async (params: unknown) => {
+            try {
+              const result = await (
+                toolDef.execute as (
+                  params: unknown,
+                  ctx: unknown,
+                ) => Promise<unknown>
+              )(params, {
+                toolCallId: "task-tool",
+                messages: [],
+              });
+              return {
+                success: true,
+                data: result,
+                metadata: { toolName, serverId: "direct", executionTime: 0 },
+              };
+            } catch (error) {
+              return {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+                metadata: { toolName, serverId: "direct", executionTime: 0 },
+              };
+            }
+          },
+          description: toolDef.description,
+          inputSchema: {},
+        })
+        .catch((error: unknown) => {
+          logger.warn("[NeuroLink] Task tool registration failed", {
+            toolId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
     }
 
     logger.debug(
