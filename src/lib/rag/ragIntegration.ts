@@ -313,9 +313,62 @@ async function _prepareRAGToolInner(
   const vectorStore = new InMemoryVectorStore();
   const indexName = "rag-index";
 
+  // When the caller configured an embedding provider/model, embed BOTH the
+  // index chunks and (below) the queries through that provider — previously
+  // those config fields had no runtime effect and retrieval always used the
+  // deterministic hash embedding, which is a lexical fingerprint rather than
+  // a semantic space. Index and query must share one embedding space, so the
+  // provider path replaces the hash path wholesale; any provider failure
+  // falls back to the hash for both sides.
+  const wantProviderEmbeddings = Boolean(embeddingProvider || embeddingModel);
+  const embedProviderName = embeddingProvider || fallbackProvider || "vertex";
+  const embedModelName = embeddingModel || "gemini-2.5-flash";
+  let embedFn = (text: string): Promise<number[]> =>
+    Promise.resolve(generateSimpleEmbedding(text, EMBEDDING_DIMENSION));
+  if (wantProviderEmbeddings) {
+    try {
+      const { AIProviderFactory } = await import("../core/factory.js");
+      const embedderProvider = (await AIProviderFactory.createProvider(
+        embedProviderName,
+        embedModelName,
+      )) as { embed?: (text: string, model?: string) => Promise<number[]> };
+      if (typeof embedderProvider.embed === "function") {
+        const providerEmbed = embedderProvider.embed.bind(embedderProvider);
+        embedFn = (text: string) => providerEmbed(text, embedModelName);
+      } else {
+        logger.warn(
+          `[RAG] Embedding provider '${embedProviderName}' has no embed(); falling back to hash embeddings`,
+        );
+      }
+    } catch (error) {
+      logger.warn(
+        "[RAG] Failed to create embedding provider; falling back to hash embeddings",
+        { error: error instanceof Error ? error.message : String(error) },
+      );
+    }
+  }
+
+  let chunkVectors: number[][];
+  try {
+    chunkVectors = await Promise.all(
+      allChunks.map((chunk) => embedFn(chunk.text)),
+    );
+  } catch (error) {
+    // One failed chunk must not leave a mixed-space index — flip the whole
+    // index AND all queries back to the hash space together.
+    logger.warn(
+      "[RAG] Provider embedding failed mid-index; falling back to hash embeddings for index and queries",
+      { error: error instanceof Error ? error.message : String(error) },
+    );
+    embedFn = (text: string) =>
+      Promise.resolve(generateSimpleEmbedding(text, EMBEDDING_DIMENSION));
+    chunkVectors = allChunks.map((chunk) =>
+      generateSimpleEmbedding(chunk.text, EMBEDDING_DIMENSION),
+    );
+  }
   const items = allChunks.map((chunk, i) => ({
     id: `rag-chunk-${i}`,
-    vector: generateSimpleEmbedding(chunk.text, EMBEDDING_DIMENSION),
+    vector: chunkVectors[i],
     metadata: {
       text: chunk.text,
       ...chunk.metadata,
@@ -362,11 +415,10 @@ async function _prepareRAGToolInner(
           },
         },
         async (span) => {
-          // For the in-memory store with simple embeddings,
-          // generate a query embedding using the same method
-          const queryEmbedding = generateSimpleEmbedding(
-            query,
-            EMBEDDING_DIMENSION,
+          // Query through the same embedding space the index was built in —
+          // provider embeddings when configured (and healthy), else the hash.
+          const queryEmbedding = await embedFn(query).catch(() =>
+            generateSimpleEmbedding(query, EMBEDDING_DIMENSION),
           );
 
           // Fetch more candidates than needed so diversity can select across files

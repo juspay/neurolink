@@ -7560,10 +7560,17 @@ Current user's request: ${currentInput}`;
       hasCustomSystemPrompt: !!options.systemPrompt,
     });
 
-    const conversationMessages = (await getConversationMessages(
-      this.conversationMemory,
-      options,
-    )) as ChatMessage[];
+    // Caller-supplied conversationMessages win — mirroring
+    // directProviderGeneration. getConversationMessages() returns [] whenever
+    // no memory manager / session context is configured, which silently
+    // dropped an inline history on the MCP-first path (the default path for
+    // any bare `new NeuroLink()` with tools enabled) while the direct path
+    // honored it.
+    const conversationMessages = (
+      (options as TextGenerationOptions).conversationMessages?.length
+        ? (options as TextGenerationOptions).conversationMessages
+        : await getConversationMessages(this.conversationMemory, options)
+    ) as ChatMessage[];
     this.logMCPConversationSummary(requestId, conversationMessages);
 
     logger.debug("[Observability] Available tools for LLM", {
