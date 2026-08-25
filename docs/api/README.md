@@ -1457,6 +1457,8 @@ console.log(result.content);
 - [McpOutputNormalizerConfig](type-aliases/McpOutputNormalizerConfig.md)
 - [McpOutputContext](type-aliases/McpOutputContext.md)
 - [NormalizedMcpOutput](type-aliases/NormalizedMcpOutput.md)
+- [MediaHandlerKind](type-aliases/MediaHandlerKind.md)
+- [MediaHandlerDescriptor](type-aliases/MediaHandlerDescriptor.md)
 - [MemorySqliteStorageConfig](type-aliases/MemorySqliteStorageConfig.md)
 - [MemoryRedisStorageConfig](type-aliases/MemoryRedisStorageConfig.md)
 - [MemoryS3StorageConfig](type-aliases/MemoryS3StorageConfig.md)
@@ -2943,6 +2945,7 @@ console.log(result.content);
 
 ### Other
 
+- [registerDefaultVideoHandlers](functions/registerDefaultVideoHandlers.md)
 - [isVertexVideoConfigured](functions/isVertexVideoConfigured.md)
 - [createAuthProvider](functions/createAuthProvider.md)
 - [runWithAuthContext](functions/runWithAuthContext.md)

@@ -7,15 +7,19 @@
  * Use `MusicProcessor.generate(provider, options)` to dispatch to the
  * registered handler for `provider`.
  *
- * Importing this module also auto-registers every shipped music handler
- * whose backing API key is present in `process.env`. Registration is
- * idempotent and silently skipped if a provider is already registered or
+ * Importing this module does NOT register any handlers as a side effect.
+ * Call `registerDefaultMusicHandlers()` explicitly (or go through
+ * `ProviderRegistry.registerAllProviders()`, which every documented
+ * `NeuroLink` entry point already calls) to register every shipped music
+ * handler whose backing API key is present in `process.env`. Registration
+ * is idempotent and silently skipped if a provider is already registered or
  * its constructor throws (e.g. missing optional native dependency).
  *
  * @module music
  */
 
 import type { MusicHandler } from "../types/index.js";
+import { MEDIA_HANDLER_CATALOG } from "../factories/mediaHandlerCatalog.js";
 import { logger } from "../utils/logger.js";
 import { MusicProcessor } from "../utils/musicProcessor.js";
 
@@ -58,24 +62,30 @@ import { ElevenLabsMusic } from "./providers/ElevenLabsMusic.js";
 import { LyriaMusic } from "./providers/LyriaMusic.js";
 import { ReplicateMusic } from "./providers/ReplicateMusic.js";
 
+// Provider names + aliases are the Task-8 catalog's job — only the factory
+// (which needs the imported handler class) stays local to this module.
+const MUSIC_HANDLER_FACTORIES: Readonly<Record<string, () => MusicHandler>> = {
+  beatoven: () => new BeatovenMusic(),
+  "elevenlabs-music": () => new ElevenLabsMusic(),
+  lyria: () => new LyriaMusic(),
+  replicate: () => new ReplicateMusic(),
+};
+
 const MUSIC_HANDLER_CANDIDATES: ReadonlyArray<{
   readonly name: string;
   readonly aliases?: readonly string[];
   readonly factory: () => MusicHandler;
-}> = [
-  { name: "beatoven", factory: () => new BeatovenMusic() },
-  {
-    name: "elevenlabs-music",
-    aliases: ["elevenlabs-sound"],
-    factory: () => new ElevenLabsMusic(),
+}> = MEDIA_HANDLER_CATALOG.filter((entry) => entry.kind === "music").map(
+  (entry) => {
+    const factory = MUSIC_HANDLER_FACTORIES[entry.name];
+    if (!factory) {
+      throw new Error(
+        `[music] no handler factory for catalog entry "${entry.name}"`,
+      );
+    }
+    return { name: entry.name, aliases: entry.aliases, factory };
   },
-  { name: "lyria", factory: () => new LyriaMusic() },
-  {
-    name: "replicate",
-    aliases: ["musicgen"],
-    factory: () => new ReplicateMusic(),
-  },
-];
+);
 
 /**
  * Register every shipped music handler whose backing credentials are
@@ -122,8 +132,3 @@ export function registerDefaultMusicHandlers(): void {
     }
   }
 }
-
-// Run once at module import so consumers who follow the documented
-// `nl.generate(...)` flow get every configured handler without manually
-// calling `registerHandler`.
-registerDefaultMusicHandlers();

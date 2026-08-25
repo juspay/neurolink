@@ -1,6 +1,7 @@
 import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
+import { defaultProviderFor } from "../factories/mediaHandlerCatalog.js";
 import { isImageGenerationModel } from "./constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
@@ -2961,9 +2962,11 @@ export abstract class BaseProvider implements AIProvider {
     // Get prompt text
     const prompt = options.prompt || options.input?.text || "";
 
-    // Honor output.video.provider — when omitted, fall back to "vertex"
-    // for backward compatibility with the original implementation.
-    const requestedProvider = options.output?.video?.provider ?? "vertex";
+    // Honor output.video.provider — when omitted, fall back to the
+    // catalog-derived default (currently "vertex") for backward
+    // compatibility with the original implementation.
+    const requestedProvider =
+      options.output?.video?.provider ?? defaultProviderFor("video");
 
     if (!VideoProcessor.supports(requestedProvider)) {
       throw new VideoError({

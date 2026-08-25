@@ -4,6 +4,7 @@ import chalk from "chalk";
 import ora from "ora";
 import type { Argv, CommandModule } from "yargs";
 import { ModelResolver } from "../../lib/models/modelResolver.js";
+import { providerChoicesFor } from "../../lib/factories/mediaHandlerCatalog.js";
 import type {
   ChunkingStrategy,
   JsonValue,
@@ -396,7 +397,7 @@ export class CLICommandFactory {
     },
     ttsProvider: {
       type: "string" as const,
-      choices: ["google-ai", "vertex", "openai-tts", "elevenlabs", "azure-tts"],
+      choices: providerChoicesFor("tts"),
       description: "TTS provider (overrides --provider for speech synthesis)",
     },
     ttsFormat: {
@@ -446,7 +447,7 @@ export class CLICommandFactory {
     },
     sttProvider: {
       type: "string" as const,
-      choices: ["whisper", "deepgram", "google-stt", "azure-stt"],
+      choices: providerChoicesFor("stt"),
       description: "STT provider to use",
     },
     sttLanguage: {
@@ -468,6 +469,7 @@ export class CLICommandFactory {
     },
     videoProvider: {
       type: "string" as const,
+      choices: providerChoicesFor("video"),
       description:
         "Video provider override (e.g., 'vertex' (default), 'kling', 'runway', 'replicate')",
     },
@@ -503,6 +505,7 @@ export class CLICommandFactory {
     // Avatar Generation options (D-ID, HeyGen, MuseTalk via Replicate)
     avatarProvider: {
       type: "string" as const,
+      choices: providerChoicesFor("avatar"),
       description:
         "Avatar provider (e.g., 'd-id' (default), 'heygen', 'replicate', 'musetalk')",
     },
@@ -545,6 +548,7 @@ export class CLICommandFactory {
     // Music Generation options (Beatoven, ElevenLabs, Lyria, MusicGen via Replicate)
     musicProvider: {
       type: "string" as const,
+      choices: providerChoicesFor("music"),
       description:
         "Music provider (e.g., 'beatoven' (default), 'elevenlabs-music', 'lyria', 'replicate', 'musicgen')",
     },

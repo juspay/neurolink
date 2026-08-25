@@ -91,6 +91,7 @@ export * from "./video.js";
 export * from "./avatar.js";
 export * from "./music.js";
 export * from "./replicate.js";
+export * from "./mediaCatalog.js";
 
 // Safe-fetch helper types (SSRF-hardened download)
 export * from "./safeFetch.js";

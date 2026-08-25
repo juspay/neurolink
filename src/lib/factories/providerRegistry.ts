@@ -32,6 +32,7 @@ import {
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
 import { OPENAI_COMPAT_CATALOG } from "../providers/openaiCompatCatalog.js";
 import type { OpenAICompatCredentials } from "../types/index.js";
+import { providerChoicesFor } from "./mediaHandlerCatalog.js";
 
 /**
  * Provider Registry - registers all providers with the factory
@@ -642,19 +643,25 @@ export class ProviderRegistry {
 
       logger.debug("All AI providers registered successfully");
 
+      // ===== MEDIA HANDLER REGISTRATION =====
+      // Single registration path (Task 11): each ecosystem barrel (voice,
+      // adapters/video, avatar, music) owns its own provider-name catalog
+      // wiring (MEDIA_HANDLER_CATALOG, Task 8) and exposes an idempotent
+      // registerDefault*Handlers() function (Task 10) that constructs and
+      // registers every shipped handler whose backing credentials are
+      // present in process.env. This block's only job is to invoke each of
+      // the six functions via dynamic import — no hand-rolled
+      // `new XHandler()` + `registerHandler()` calls live here anymore.
+      // Each ecosystem keeps its own try/catch so one broken import can't
+      // take down the other five (matches the previous block's isolation).
+
       // ===== TTS HANDLER REGISTRATION =====
       try {
-        // Create handler instance and register explicitly
-        const { GoogleTTSHandler } =
-          await import("../adapters/tts/googleTTSHandler.js");
-        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
-
-        const googleHandler = new GoogleTTSHandler();
-        TTSProcessor.registerHandler("google-ai", googleHandler);
-        TTSProcessor.registerHandler("vertex", googleHandler);
-
-        logger.debug("TTS handlers registered successfully", {
-          providers: ["google-ai", "vertex"],
+        const { registerDefaultTTSHandlers } =
+          await import("../voice/index.js");
+        registerDefaultTTSHandlers();
+        logger.debug("TTS handler registration attempted", {
+          providers: providerChoicesFor("tts"),
         });
       } catch (ttsError) {
         logger.warn(
@@ -667,114 +674,13 @@ export class ProviderRegistry {
         // Don't throw - TTS is optional functionality
       }
 
-      // New TTS providers
-      try {
-        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
-        const { OpenAITTS } = await import("../voice/providers/OpenAITTS.js");
-        TTSProcessor.registerHandler("openai-tts", new OpenAITTS());
-      } catch (err) {
-        logger.debug(
-          `[ProviderRegistry] openai-tts registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      try {
-        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
-        const { ElevenLabsTTS } =
-          await import("../voice/providers/ElevenLabsTTS.js");
-        const elevenLabsHandler = new ElevenLabsTTS();
-        TTSProcessor.registerHandler("elevenlabs", elevenLabsHandler);
-        TTSProcessor.registerHandler("elevenlabs-tts", elevenLabsHandler);
-      } catch (err) {
-        logger.debug(
-          `[ProviderRegistry] elevenlabs registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      try {
-        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
-        const { AzureTTS } = await import("../voice/providers/AzureTTS.js");
-        TTSProcessor.registerHandler("azure-tts", new AzureTTS());
-      } catch (err) {
-        logger.debug(
-          `[ProviderRegistry] azure-tts registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      // Fish Audio and Cartesia also auto-register via the voice/index.ts
-      // barrel side-effect. The supports() guard here keeps registration
-      // idempotent across entry points — same handler, no overwrite warning.
-      try {
-        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
-        if (!TTSProcessor.supports("fish-audio")) {
-          const { FishAudioTTS } =
-            await import("../voice/providers/FishAudioTTS.js");
-          TTSProcessor.registerHandler("fish-audio", new FishAudioTTS());
-        }
-      } catch (err) {
-        logger.debug(
-          `[ProviderRegistry] fish-audio registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
-      try {
-        const { TTSProcessor } = await import("../utils/ttsProcessor.js");
-        if (!TTSProcessor.supports("cartesia")) {
-          const { CartesiaTTS } =
-            await import("../voice/providers/CartesiaTTS.js");
-          TTSProcessor.registerHandler("cartesia", new CartesiaTTS());
-        }
-      } catch (err) {
-        logger.debug(
-          `[ProviderRegistry] cartesia registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-
       // ===== STT HANDLER REGISTRATION =====
       try {
-        const { STTProcessor } = await import("../utils/sttProcessor.js");
-
-        try {
-          const { OpenAISTT } = await import("../voice/providers/OpenAISTT.js");
-          const openAISTT = new OpenAISTT();
-          STTProcessor.registerHandler("whisper", openAISTT);
-          STTProcessor.registerHandler("openai-stt", openAISTT);
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] whisper/openai-stt registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { DeepgramSTT } =
-            await import("../voice/providers/DeepgramSTT.js");
-          STTProcessor.registerHandler("deepgram", new DeepgramSTT());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] deepgram registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { GoogleSTT } = await import("../voice/providers/GoogleSTT.js");
-          STTProcessor.registerHandler("google-stt", new GoogleSTT());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] google-stt registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { AzureSTT } = await import("../voice/providers/AzureSTT.js");
-          STTProcessor.registerHandler("azure-stt", new AzureSTT());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] azure-stt registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        logger.debug("STT handlers registered successfully", {
-          providers: ["whisper", "deepgram", "google-stt", "azure-stt"],
+        const { registerDefaultSTTHandlers } =
+          await import("../voice/index.js");
+        registerDefaultSTTHandlers();
+        logger.debug("STT handler registration attempted", {
+          providers: providerChoicesFor("stt"),
         });
       } catch (sttError) {
         logger.warn(
@@ -788,46 +694,24 @@ export class ProviderRegistry {
 
       // ===== REALTIME HANDLER REGISTRATION =====
       try {
-        const { RealtimeProcessor } =
-          await import("../voice/RealtimeVoiceAPI.js");
+        const { registerDefaultRealtimeHandlers, RealtimeProcessor } =
+          await import("../voice/index.js");
+        registerDefaultRealtimeHandlers();
 
-        // M9 + NEW4: track per-handler registration outcomes so the final
-        // log accurately reflects which voice providers succeeded vs which
-        // were skipped — instead of unconditionally claiming "registered
-        // successfully" or hiding failures at debug level.
+        // M9 + NEW4: registerDefaultRealtimeHandlers() swallows per-handler
+        // construction failures internally (it's a shared, idempotent
+        // barrel function used by every entry point — see voice/index.ts),
+        // so the exact per-handler exception text the old inline block
+        // captured is no longer available here. Recover per-name pass/fail
+        // via supports() instead so getRegistrationReport() stays truthful
+        // for callers that poll it.
+        const realtimeNames = providerChoicesFor("realtime");
         const realtimeOutcomes: Record<string, "ok" | string> = {};
-
-        try {
-          const { OpenAIRealtime } =
-            await import("../voice/providers/OpenAIRealtime.js");
-          RealtimeProcessor.registerHandler(
-            "openai-realtime",
-            new OpenAIRealtime(),
-          );
-          realtimeOutcomes["openai-realtime"] = "ok";
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          realtimeOutcomes["openai-realtime"] = msg;
-          // M9: promote per-handler failures to error level so users can
-          // see which shipped voice provider failed to register at startup.
-          logger.error(
-            `[ProviderRegistry] openai-realtime registration failed: ${msg}`,
-          );
+        for (const name of realtimeNames) {
+          realtimeOutcomes[name] = RealtimeProcessor.supports(name)
+            ? "ok"
+            : "registration failed or handler unavailable";
         }
-
-        try {
-          const { GeminiLive } =
-            await import("../voice/providers/GeminiLive.js");
-          RealtimeProcessor.registerHandler("gemini-live", new GeminiLive());
-          realtimeOutcomes["gemini-live"] = "ok";
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          realtimeOutcomes["gemini-live"] = msg;
-          logger.error(
-            `[ProviderRegistry] gemini-live registration failed: ${msg}`,
-          );
-        }
-
         // NEW4: report the actual per-handler outcomes instead of an
         // unconditional success log. Stored on the registry so callers can
         // introspect via getRegistrationReport().
@@ -837,7 +721,7 @@ export class ProviderRegistry {
         );
         if (skipped.length === 0) {
           logger.info(
-            "[ProviderRegistry] Realtime handlers registered: openai-realtime, gemini-live",
+            `[ProviderRegistry] Realtime handlers registered: ${realtimeNames.join(", ")}`,
           );
         } else {
           logger.warn(
@@ -859,52 +743,12 @@ export class ProviderRegistry {
 
       // ===== VIDEO HANDLER REGISTRATION =====
       try {
-        const { VideoProcessor } = await import("../utils/videoProcessor.js");
-
-        try {
-          const { VertexVideoHandler } =
-            await import("../adapters/video/vertexVideoHandler.js");
-          VideoProcessor.registerHandler("vertex", new VertexVideoHandler());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] vertex video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { KlingVideoHandler } =
-            await import("../adapters/video/klingVideoHandler.js");
-          VideoProcessor.registerHandler("kling", new KlingVideoHandler());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] kling video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { RunwayVideoHandler } =
-            await import("../adapters/video/runwayVideoHandler.js");
-          VideoProcessor.registerHandler("runway", new RunwayVideoHandler());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] runway video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { ReplicateVideoHandler } =
-            await import("../adapters/video/replicateVideoHandler.js");
-          VideoProcessor.registerHandler(
-            "replicate",
-            new ReplicateVideoHandler(),
-          );
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] replicate video registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        logger.debug("Video handlers registered");
+        const { registerDefaultVideoHandlers } =
+          await import("../adapters/video/index.js");
+        registerDefaultVideoHandlers();
+        logger.debug("Video handler registration attempted", {
+          providers: providerChoicesFor("video"),
+        });
       } catch (err) {
         logger.warn(
           `[ProviderRegistry] video registration block failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -913,41 +757,12 @@ export class ProviderRegistry {
 
       // ===== AVATAR HANDLER REGISTRATION =====
       try {
-        const { AvatarProcessor } = await import("../utils/avatarProcessor.js");
-
-        try {
-          const { DIDAvatar } =
-            await import("../avatar/providers/DIDAvatar.js");
-          AvatarProcessor.registerHandler("d-id", new DIDAvatar());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] d-id avatar registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { ReplicateAvatar } =
-            await import("../avatar/providers/ReplicateAvatar.js");
-          const replicateAvatar = new ReplicateAvatar();
-          AvatarProcessor.registerHandler("replicate", replicateAvatar);
-          AvatarProcessor.registerHandler("musetalk", replicateAvatar);
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] replicate avatar registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { HeyGenAvatar } =
-            await import("../avatar/providers/HeyGenAvatar.js");
-          AvatarProcessor.registerHandler("heygen", new HeyGenAvatar());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] heygen avatar registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        logger.debug("Avatar handlers registered");
+        const { registerDefaultAvatarHandlers } =
+          await import("../avatar/index.js");
+        registerDefaultAvatarHandlers();
+        logger.debug("Avatar handler registration attempted", {
+          providers: providerChoicesFor("avatar"),
+        });
       } catch (avatarError) {
         logger.warn(
           "Failed to register Avatar handlers - Avatar functionality will be unavailable",
@@ -962,53 +777,12 @@ export class ProviderRegistry {
 
       // ===== MUSIC HANDLER REGISTRATION =====
       try {
-        const { MusicProcessor } = await import("../utils/musicProcessor.js");
-
-        try {
-          const { BeatovenMusic } =
-            await import("../music/providers/BeatovenMusic.js");
-          MusicProcessor.registerHandler("beatoven", new BeatovenMusic());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] beatoven music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { ReplicateMusic } =
-            await import("../music/providers/ReplicateMusic.js");
-          const replicateMusic = new ReplicateMusic();
-          MusicProcessor.registerHandler("replicate", replicateMusic);
-          MusicProcessor.registerHandler("musicgen", replicateMusic);
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] replicate music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { ElevenLabsMusic } =
-            await import("../music/providers/ElevenLabsMusic.js");
-          const elevenLabsMusic = new ElevenLabsMusic();
-          MusicProcessor.registerHandler("elevenlabs-music", elevenLabsMusic);
-          MusicProcessor.registerHandler("elevenlabs-sound", elevenLabsMusic);
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] elevenlabs-music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        try {
-          const { LyriaMusic } =
-            await import("../music/providers/LyriaMusic.js");
-          MusicProcessor.registerHandler("lyria", new LyriaMusic());
-        } catch (err) {
-          logger.debug(
-            `[ProviderRegistry] lyria music registration skipped: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-
-        logger.debug("Music handlers registered");
+        const { registerDefaultMusicHandlers } =
+          await import("../music/index.js");
+        registerDefaultMusicHandlers();
+        logger.debug("Music handler registration attempted", {
+          providers: providerChoicesFor("music"),
+        });
       } catch (musicError) {
         logger.warn(
           "Failed to register Music handlers - Music functionality will be unavailable",
