@@ -156,6 +156,7 @@ import {
 } from "./knowledge/index.js";
 import { AIProviderFactory } from "./core/factory.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
+import { resolveRequestKind } from "./core/resolveRequestKind.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
 import { ProviderFactory } from "./factories/providerFactory.js";
 import { ProviderRegistry } from "./factories/providerRegistry.js";
@@ -4839,15 +4840,19 @@ Current user's request: ${currentInput}`;
       }
       return this.generateWithWorkflow(options);
     }
-    if (options.output?.mode === "music") {
+
+    // Single source of truth for "what kind of request is this" — see
+    // resolveRequestKind's doc comment for the full precedence table.
+    const requestKind = resolveRequestKind(options, options.model);
+    if (requestKind === "music") {
       return this.generateWithMusic(options, generateSpan);
     }
 
-    if (options.output?.mode === "avatar") {
+    if (requestKind === "avatar") {
       return this.generateWithAvatar(options, generateSpan);
     }
 
-    if (options.output?.mode !== "ppt") {
+    if (requestKind !== "ppt") {
       return null;
     }
 

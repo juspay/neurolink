@@ -288,6 +288,11 @@ export default [
             // via ../dist/index.js; only the catalog-internals reads need
             // this exception.
             "test/continuous-test-suite-media-registry-collisions.ts",
+            // resolveRequestKind() is internal dispatch plumbing consumed
+            // only by neurolink.ts/baseProvider.ts — never exported from any
+            // package entry point, no public surface at all (same reasoning
+            // as handler-registry above).
+            "test/continuous-test-suite-resolve-request-kind.ts",
             // Filter-dialect translation no live generate() could emit.
             "test/continuous-test-suite-vector-chroma.ts",
             "test/continuous-test-suite-vector-pinecone.ts",

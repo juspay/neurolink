@@ -355,14 +355,12 @@ try {
 
    // Generate video using selected handler
 -  const videoResult = await generateVideoWithVertex(
-+  const videoResult = await VideoProcessor.generate(
-+    provider,
-     imageBuffer,
-     prompt,
--    options.output?.video,
-+    options.output?.video ?? {},
-     options.region,
-   );
++  const videoResult = await VideoProcessor.generate(provider, {
++    image: imageBuffer,
++    prompt,
++    region: options.region,
++    ...(options.output?.video ?? {}),
++  });
 
    // Build result
    const baseResult: EnhancedGenerateResult = {
@@ -382,10 +380,9 @@ Same replacement applies to the Director-mode branch (`directorPipeline.ts:289`)
 
 ```diff
 - const result = await generateVideoWithVertex(
-+ const result = await VideoProcessor.generate(
-+   "vertex",
-   image, prompt, opts, region,
- );
++ const result = await VideoProcessor.generate("vertex", {
++   image, prompt, region, ...opts,
++ });
 ```
 
 `directorPipeline` orchestrates multiple segments and transitions; it should accept a `provider` argument and thread it through. Keep Vertex as the default for backwards compat.
@@ -440,7 +437,10 @@ Add to `test/continuous-test-suite-media-gen.ts`:
   fn: async () => {
     const { VideoProcessor } = await import("@juspay/neurolink");
     try {
-      await VideoProcessor.generate("nonexistent", Buffer.alloc(1), "test", {});
+      await VideoProcessor.generate("nonexistent", {
+        image: Buffer.alloc(1),
+        prompt: "test",
+      });
       return false;
     } catch (err) {
       return err.code === "VIDEO_PROVIDER_NOT_SUPPORTED";

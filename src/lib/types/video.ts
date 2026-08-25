@@ -24,6 +24,20 @@ export type {
 } from "./multimodal.js";
 
 /**
+ * Bag-form input to `VideoProcessor.generate()` — the primary data (image,
+ * prompt, region) alongside the video-specific output options, collapsed
+ * into a single object matching Music/Avatar's existing `generate(provider,
+ * options)` shape. `VideoHandler.generate()`'s own 4-positional-argument
+ * signature is unchanged; `VideoProcessor.generate()` translates between the
+ * two internally.
+ */
+export type VideoGenerateOptions = VideoOutputOptions & {
+  image: Buffer;
+  prompt: string;
+  region?: string;
+};
+
+/**
  * Director-mode transition options.
  *
  * Used by handlers that support first-and-last-frame interpolation

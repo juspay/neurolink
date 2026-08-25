@@ -107,3 +107,6 @@ export * from "./classifierRouter.js";
 // Multi-Agent orchestration types
 export * from "./agentNetwork.js";
 export * from "./localUsage.js";
+
+// resolveRequestKind() dispatch-decision types
+export * from "./dispatch.js";
