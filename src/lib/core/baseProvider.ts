@@ -2,6 +2,7 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { defaultProviderFor } from "../factories/mediaHandlerCatalog.js";
+import { PROVIDER_DESCRIPTORS_BY_NAME } from "../factories/providerDescriptors.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import { modelSupports } from "../models/modelRegistry.js";
@@ -1744,14 +1745,26 @@ export abstract class BaseProvider implements AIProvider {
     messages: ModelMessage[],
     tools: Record<string, Tool>,
   ): Promise<EnhancedGenerateResult> {
-    // Apply a defensive default timeout (3 min) when the caller didn't pass
-    // one. Without this guard, AI SDK's generateText() will wait forever on
+    // Apply a defensive default timeout when the caller didn't pass one.
+    // Without this guard, AI SDK's generateText() will wait forever on
     // an upstream that accepts the connection but never produces a response
     // (observed against the litellm gateway when a request triggers the
     // team-access denial path — connection stays open, no response is sent,
     // and the matrix test hangs the entire suite). Callers can still pass
     // a larger value (e.g. video generation passes 10 min).
-    const effectiveTimeout = options.timeout ?? 180_000;
+    //
+    // A provider descriptor may declare a LARGER generate budget than the
+    // 3-min floor (litellm: 300s — slow proxied models routinely need more
+    // than 180s end-to-end even while streaming). The declared value only
+    // ever raises the default, never lowers it: several descriptors carry
+    // aspirational sub-180s numbers (openai 30s, bedrock 45s) that were
+    // never enforced on this path, and enforcing them now would break
+    // long-running generations that have always been allowed.
+    const descriptorGenerateMs = PROVIDER_DESCRIPTORS_BY_NAME.get(
+      this.providerName,
+    )?.timeouts?.generateMs;
+    const effectiveTimeout =
+      options.timeout ?? Math.max(descriptorGenerateMs ?? 0, 180_000);
     const timeoutController = createTimeoutController(
       effectiveTimeout,
       this.providerName,

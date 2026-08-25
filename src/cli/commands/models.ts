@@ -445,6 +445,67 @@ export class ModelsCommandFactory {
         models = models.filter((model) => !model.deprecated);
       }
 
+      // Live-discovery fallback: providers that resolve their catalog at
+      // runtime (litellm, ollama, openai-compatible gateways) have no static
+      // registry rows, so a scoped `models list --provider litellm` printed
+      // "Found 0 models" while generate/stream against those models worked.
+      // When the static registry is empty for a single requested provider,
+      // ask the provider itself.
+      if (
+        models.length === 0 &&
+        argv.provider &&
+        (Array.isArray(argv.provider) ? argv.provider : [argv.provider])
+          .length === 1
+      ) {
+        const providerName = String(
+          Array.isArray(argv.provider) ? argv.provider[0] : argv.provider,
+        );
+        try {
+          const { AIProviderFactory } =
+            await import("../../lib/core/factory.js");
+          const provider = (await AIProviderFactory.createProvider(
+            providerName,
+          )) as { getAvailableModels?: () => Promise<string[]> };
+          const liveIds =
+            typeof provider.getAvailableModels === "function"
+              ? await provider.getAvailableModels()
+              : [];
+          if (liveIds.length > 0) {
+            if (spinner) {
+              spinner.succeed(
+                `Found ${liveIds.length} models (live from ${providerName})`,
+              );
+            }
+            if (argv.format === "json") {
+              logger.always(
+                JSON.stringify(
+                  liveIds.map((id) => ({
+                    id,
+                    provider: providerName,
+                    source: "live",
+                  })),
+                  null,
+                  2,
+                ),
+              );
+            } else {
+              logger.always(
+                chalk.bold(
+                  `\n📋 Models exposed by ${providerName} (live discovery):\n`,
+                ),
+              );
+              for (const id of liveIds) {
+                logger.always(`  ${id}`);
+              }
+            }
+            return;
+          }
+        } catch {
+          // Live discovery is best-effort — fall through to the static
+          // (empty) listing rather than turning a listing into an error.
+        }
+      }
+
       if (spinner) {
         spinner.succeed(`Found ${models.length} models`);
       }
