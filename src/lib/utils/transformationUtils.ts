@@ -253,6 +253,11 @@ export function transformToolExecutionsForMCP(
   executionTime: number;
   success: boolean;
   serverId?: string;
+  params?: unknown;
+  output?: unknown;
+  startedAt?: number;
+  isError?: boolean;
+  error?: string;
 }> {
   if (!toolExecutions || !Array.isArray(toolExecutions)) {
     return [];
@@ -327,11 +332,38 @@ export function transformToolExecutionsForMCP(
         undefined;
     }
 
+    // Pass the execution payload through instead of discarding it. This
+    // transform used to keep only {toolName, executionTime, success,
+    // serverId}; toToolExecutionRecords() downstream then found no
+    // input/output on the entries and emitted params:{} with
+    // resultText:"undefined" for every tool execution on the MCP path —
+    // even when the source entry was a full record with real args and a
+    // real result. Field names chosen to match what
+    // toToolExecutionRecords() reads (input/params, output/result/
+    // resultText, startedAt, isError).
+    const params =
+      teRecord.params ?? teRecord.input ?? teRecord.args ?? undefined;
+    const output =
+      teRecord.output ??
+      teRecord.result ??
+      teRecord.response ??
+      (typeof teRecord.resultText === "string"
+        ? teRecord.resultText
+        : undefined);
     return {
       toolName: toolName,
       executionTime: executionTime,
       success: success,
       serverId: serverId,
+      ...(params !== undefined ? { params } : {}),
+      ...(output !== undefined ? { output } : {}),
+      ...(typeof teRecord.startedAt === "number"
+        ? { startedAt: teRecord.startedAt }
+        : {}),
+      ...(teRecord.isError !== undefined
+        ? { isError: teRecord.isError === true }
+        : { isError: !success }),
+      ...(typeof teRecord.error === "string" ? { error: teRecord.error } : {}),
     };
   });
 }
