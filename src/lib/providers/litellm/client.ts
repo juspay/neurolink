@@ -477,9 +477,12 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
       {
         match: (ctx) => /ECONNREFUSED|Failed to fetch/.test(ctx.message),
         errorClass: NetworkError,
+        // Name the base URL this instance actually dialed — per-request
+        // credentials can override LITELLM_BASE_URL, and an error pointing
+        // at the env value sends the caller debugging the wrong host.
         message: () =>
           "LiteLLM proxy server not available. Please start the LiteLLM proxy server at " +
-          `${process.env.LITELLM_BASE_URL || "http://localhost:4000"}`,
+          redactUrlCredentials(this.config.baseURL),
       },
       {
         match: (ctx) => /API_KEY_INVALID|Invalid API key/.test(ctx.message),
@@ -548,7 +551,12 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
   }
 
   private async fetchModelsFromAPI(): Promise<string[]> {
-    const modelsUrl = `${stripTrailingSlash(this.config.baseURL)}/v1/models`;
+    // Tolerate a `/v1`-suffixed base URL. Chat appends /chat/completions, so
+    // deployments are commonly configured with base = https://host/v1 — but
+    // appending /v1/models to that yields /v1/v1/models, which LiteLLM 404s,
+    // and discovery silently degrades to the hardcoded fallback list.
+    const root = stripTrailingSlash(this.config.baseURL).replace(/\/v1$/, "");
+    const modelsUrl = `${root}/v1/models`;
     const proxyFetch = createProxyFetch();
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);

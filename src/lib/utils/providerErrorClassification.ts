@@ -84,7 +84,11 @@ export function looksLikeModelNotFound(error: unknown): boolean {
       lower.includes("not_found_error") ||
       msg.includes("NOT_FOUND") ||
       lower.includes("does not exist") ||
-      lower.includes("unknown model")) &&
+      lower.includes("unknown model") ||
+      // LiteLLM's phrasing for a model id its router doesn't serve — a 400,
+      // not a 404: "Invalid model name passed in model=... Call `/v1/models`
+      // to view available models for your key."
+      lower.includes("invalid model name")) &&
     namesAModel
   );
 }

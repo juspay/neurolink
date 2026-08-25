@@ -325,6 +325,7 @@ import { ModelPool, classifyProviderError } from "./routing/index.js";
 import { ClassifierRouter } from "./routing/classifierRouter.js";
 import {
   looksLikeModelAccessDenied as sharedLooksLikeModelAccessDenied,
+  looksLikeModelNotFound as sharedLooksLikeModelNotFound,
   isNonRetryableProviderError as sharedIsNonRetryableProviderError,
   isNonRetryableForPool as sharedIsNonRetryableForPool,
 } from "./utils/providerErrorClassification.js";
@@ -4302,6 +4303,23 @@ Current user's request: ${currentInput}`;
     // String prompts are immutable, so they pass through.
     if (typeof optionsOrPrompt !== "string") {
       optionsOrPrompt = cloneOptionsForCallIsolation(optionsOrPrompt);
+      // The deprecated `conversationHistory` field is not wired into message
+      // building — messages passed there never reach the model, which reads
+      // as "the SDK forgot my context" rather than a caller bug. Warn loudly
+      // instead of failing silently; `conversationMessages` is the wired path.
+      const legacyOpts = optionsOrPrompt as {
+        conversationHistory?: unknown[];
+        conversationMessages?: unknown[];
+      };
+      if (
+        Array.isArray(legacyOpts.conversationHistory) &&
+        legacyOpts.conversationHistory.length > 0 &&
+        !legacyOpts.conversationMessages
+      ) {
+        logger.warn(
+          "[NeuroLink.generate] `conversationHistory` is deprecated and NOT passed to the model — use `conversationMessages` (ChatMessage[]) instead.",
+        );
+      }
     }
     // Retrieve once at the public call boundary so fallback attempts reuse the
     // same grounding block and internal preparation cannot inject it twice.
@@ -4501,10 +4519,15 @@ Current user's request: ${currentInput}`;
     // by-reference, so the retried options observe the same signal.
     const callerAborted = (): boolean =>
       (callOpts.abortSignal as AbortSignal | undefined)?.aborted === true;
+    // modelChain-only orchestration advances on two error shapes the next
+    // member can actually fix: access-denied (the original gate) and
+    // model-not-found ("Invalid model name" from a gateway that doesn't
+    // serve that member — a chain written for one LiteLLM deployment must
+    // not hard-fail on another just because a member is absent there).
     const shouldOrchestrateFallback = (err: unknown): boolean =>
       effectiveCallback
         ? !(isAbortError(err) && callerAborted())
-        : looksLikeModelAccessDenied(err);
+        : looksLikeModelAccessDenied(err) || sharedLooksLikeModelNotFound(err);
 
     if (!shouldOrchestrateFallback(lastError)) {
       throw lastError;

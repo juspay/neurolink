@@ -1104,15 +1104,37 @@ export class ProviderHealthChecker {
       return;
     }
 
-    const availability = await this.checkLiteLLMAvailability({
-      model: this.getConfiguredLiteLLMModel(),
-      timeout,
-    });
+    // Only pin the availability check to a specific model when the user
+    // explicitly configured one. The fallback default ("openai/gpt-4o-mini")
+    // is a guess, not configuration — proxies that serve a different model
+    // set (every self-hosted gateway) were reported "Not configured" here
+    // while generate/stream against them worked fine with explicit models.
+    const configuredModel = process.env.LITELLM_MODEL;
+    let failureReason: string | undefined;
+    if (configuredModel) {
+      const availability = await this.checkLiteLLMAvailability({
+        model: configuredModel,
+        timeout,
+      });
+      if (!availability.available) {
+        failureReason = availability.reason ?? "unknown error";
+      }
+    } else {
+      // No configured model: a reachable proxy with any models counts.
+      try {
+        const models = await this.getLiteLLMAvailableModels(timeout);
+        if (models.length === 0) {
+          failureReason = "LiteLLM returned an empty model list";
+        }
+      } catch (error) {
+        failureReason = error instanceof Error ? error.message : String(error);
+      }
+    }
 
-    if (!availability.available) {
+    if (failureReason !== undefined) {
       healthStatus.isConfigured = false;
       healthStatus.configurationIssues.push(
-        `LiteLLM runtime check failed: ${availability.reason ?? "unknown error"}`,
+        `LiteLLM runtime check failed: ${failureReason}`,
       );
       healthStatus.recommendations.push(
         "Start the LiteLLM proxy and ensure the configured model is available from /v1/models",

@@ -1053,7 +1053,10 @@ export class GenerationHandler {
             toolsUsed.push(toolName);
 
             let callArgs: StandardRecord = {};
-            if (tcRecord.args) {
+            if (tcRecord.input) {
+              // AI SDK v6 carries tool-call arguments as `input`.
+              callArgs = tcRecord.input as StandardRecord;
+            } else if (tcRecord.args) {
               callArgs = tcRecord.args as StandardRecord;
             } else if (tcRecord.arguments) {
               callArgs = tcRecord.arguments as StandardRecord;
