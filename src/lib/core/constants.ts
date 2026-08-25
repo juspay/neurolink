@@ -3,6 +3,17 @@
  * Single source of truth for all default values
  */
 
+import type { ProviderModelManifest } from "../types/index.js";
+import { anthropicManifest } from "../models/manifests/anthropic.js";
+import { openaiManifest } from "../models/manifests/openai.js";
+import { googleAiManifest } from "../models/manifests/google-ai.js";
+import { vertexManifest } from "../models/manifests/vertex.js";
+import { bedrockManifest } from "../models/manifests/bedrock.js";
+import { azureManifest } from "../models/manifests/azure.js";
+import { mistralManifest } from "../models/manifests/mistral.js";
+import { ollamaManifest } from "../models/manifests/ollama.js";
+import { litellmManifest } from "../models/manifests/litellm.js";
+
 // Image Generation Model Identifiers
 // Used to detect if a model is an image generation model (not text generation).
 // `isImageGenerationModel(name)` (below) does boundary-aware matching:
@@ -188,34 +199,86 @@ export const PROVIDER_CONFIG = {
   },
 };
 
-// Provider-specific maxTokens limits
+/**
+ * Per-model output-token overrides for a manifest, keyed by canonical model
+ * id. The manifest's synthetic "_default" entry is excluded — the
+ * provider-level `default` in PROVIDER_MAX_TOKENS already carries that role,
+ * and is left as the hand-authored value below rather than replaced with
+ * this data (a provider's `_default` entry, when present, is a minimal
+ * catch-all sized for an unlisted/gateway model id, not a considered
+ * provider-wide ceiling).
+ */
+function maxTokensOverridesFrom(
+  manifest: ProviderModelManifest,
+): Record<string, number> {
+  const overrides: Record<string, number> = {};
+  for (const [id, entry] of Object.entries(manifest.models)) {
+    if (id === "_default") {
+      continue;
+    }
+    overrides[id] = entry.maxOutputTokens;
+  }
+  return overrides;
+}
+
+// Provider-specific maxTokens limits. Each provider's `default` is the
+// original hand-authored ceiling (unchanged); per-model keys are generated
+// from that provider's manifest (src/lib/models/manifests/) so
+// getSafeMaxTokens()'s existing per-model lookup (tokenLimits.ts) actually
+// has data to find instead of always falling through to the coarse
+// `default`. This resolves the historical disagreement between
+// getSafeMaxTokens("anthropic", "claude-opus-4-6") (used to return the flat
+// 64000) and resolveClaudeMaxTokens("claude-opus-4-6") (tokenLimits.ts's
+// regex ladder, correctly 32000 for the Opus family) — the manifest's own
+// per-model maxOutputTokens now wins for every listed model, on every
+// provider below, not just Anthropic.
+//
+// Manifests are imported directly from src/lib/models/manifests/ rather
+// than through manifestRegistry.ts's aggregator: manifestRegistry.ts
+// imports PROVIDER_MAX_TOKENS from this file (to size the synthetic
+// `_default` entry for manifests that don't declare their own), so
+// importing the aggregator back here would form a constants.ts <->
+// manifestRegistry.ts import cycle whose safety depends on which module a
+// given entrypoint happens to reach first — an ES module TDZ hazard, not
+// something a type-checker catches. The individual manifest files have no
+// dependency on this module (only on the ProviderModelManifest type), so
+// reaching past the aggregator avoids the cycle entirely.
 export const PROVIDER_MAX_TOKENS = {
   anthropic: {
     default: 64000,
+    ...maxTokensOverridesFrom(anthropicManifest),
   },
   openai: {
     default: 128000,
+    ...maxTokensOverridesFrom(openaiManifest),
   },
   "google-ai": {
     default: 64000,
+    ...maxTokensOverridesFrom(googleAiManifest),
   },
   vertex: {
     default: 64000,
+    ...maxTokensOverridesFrom(vertexManifest),
   },
   bedrock: {
     default: 64000,
+    ...maxTokensOverridesFrom(bedrockManifest),
   },
   azure: {
     default: 128000,
+    ...maxTokensOverridesFrom(azureManifest),
   },
   mistral: {
     default: 128000,
+    ...maxTokensOverridesFrom(mistralManifest),
   },
   ollama: {
     default: 64000,
+    ...maxTokensOverridesFrom(ollamaManifest),
   },
   litellm: {
     default: 128000,
+    ...maxTokensOverridesFrom(litellmManifest),
   },
   default: 64000,
 };

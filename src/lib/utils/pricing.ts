@@ -1,4 +1,8 @@
 import type { TokenUsage } from "../types/index.js";
+import {
+  getManifestForProvider,
+  resolveManifestEntryExact,
+} from "../models/manifestRegistry.js";
 
 /**
  * Per-token pricing data (USD per token). Updated Feb 2026.
@@ -746,6 +750,25 @@ function isVersionOnlySuffix(model: string, key: string): boolean {
   return VERSION_SUFFIX_RE.test(model.slice(key.length));
 }
 
+/**
+ * Whether `model` matches a provider manifest by the manifest's own
+ * canonical id or by one of its declared aliases — deliberately excludes
+ * resolveManifestEntryExact's longest-prefix fallback. See the call site in
+ * findRates for why the prefix path is unsafe to use for pricing precedence.
+ */
+function isManifestNamedMatch(provider: string, model: string): boolean {
+  const manifest = getManifestForProvider(provider);
+  if (!manifest) {
+    return false;
+  }
+  if (Object.prototype.hasOwnProperty.call(manifest.models, model)) {
+    return true;
+  }
+  return Object.values(manifest.models).some((entry) =>
+    entry.aliases.includes(model),
+  );
+}
+
 function findRates(
   provider: string,
   model: string,
@@ -812,6 +835,46 @@ function findRates(
     stripped === "bedrock" || stripped === "amazonbedrock"
       ? model.replace(/^.*\banthropic\./, "")
       : model;
+
+  // Manifest-backed exact/alias match takes precedence over legacy PRICING
+  // (see Task 8 of the model metadata consolidation plan). Deliberately
+  // gated to a NAMED match only (manifest's own id or a declared alias) —
+  // never resolveManifestEntryExact's longest-prefix fallback. The
+  // manifest's model set is coarser-grained than PRICING's for several
+  // live ids today (e.g. openai's manifest names only "gpt-5" while
+  // PRICING.openai carries distinct exact entries for
+  // gpt-5.1/5.4/5.5/5.6-sol/terra/luna); letting the manifest's prefix
+  // match run first would silently steal a more specific PRICING entry's
+  // rate — confirmed: resolveManifestEntryExact("openai", "gpt-5.4")
+  // prefix-matches onto the "gpt-5" entry, $1.25/$10 instead of the
+  // correct $2.5/$15. Everything the manifest doesn't name exactly or
+  // alias — including a named entry with no pricingPerMTok, e.g.
+  // claude-sonnet-5 — falls straight through to PRICING's unchanged
+  // exact+prefix match below, which is exactly "legacy PRICING as the
+  // fallback for entries the manifest lacks."
+  if (isManifestNamedMatch(normalizedProvider, modelKey)) {
+    const manifestEntry = resolveManifestEntryExact(
+      normalizedProvider,
+      modelKey,
+    );
+    if (manifestEntry?.pricingPerMTok) {
+      if (matchKind) {
+        matchKind.exact = true;
+      }
+      return {
+        input: manifestEntry.pricingPerMTok.input / 1_000_000,
+        output: manifestEntry.pricingPerMTok.output / 1_000_000,
+        cacheRead:
+          manifestEntry.pricingPerMTok.cacheRead !== undefined
+            ? manifestEntry.pricingPerMTok.cacheRead / 1_000_000
+            : undefined,
+        cacheCreation:
+          manifestEntry.pricingPerMTok.cacheWrite !== undefined
+            ? manifestEntry.pricingPerMTok.cacheWrite / 1_000_000
+            : undefined,
+      };
+    }
+  }
 
   // Exact match
   if (providerPricing[modelKey]) {

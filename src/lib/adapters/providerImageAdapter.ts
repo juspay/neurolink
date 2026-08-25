@@ -6,6 +6,7 @@
 import type { Content, ImageWithAltText } from "../types/index.js";
 import { ImageProcessor } from "../utils/imageProcessor.js";
 import { logger } from "../utils/logger.js";
+import { resolveManifestEntryStrict } from "../models/manifestRegistry.js";
 
 /**
  * Simplified logger for essential error reporting only
@@ -669,6 +670,29 @@ export class ProviderImageAdapter {
         process.env.ANTHROPIC_BASE_URL
       ) {
         return true;
+      }
+
+      // Manifest is the source of truth when it has an entry for this exact
+      // model or a declared alias ONLY — strict, no prefix fallback: a
+      // manifest "gpt-4" prefix hit must never shadow the legacy table's
+      // explicit "gpt-4-vision-preview" row, and a fabricated id must not
+      // borrow a real family's capabilities. Everything without a real
+      // manifest match falls through to the legacy tables below unchanged.
+      const manifestEntry = resolveManifestEntryStrict(
+        normalizedProvider,
+        model ?? "",
+      );
+      if (manifestEntry) {
+        if (!model) {
+          return true;
+        }
+        if (manifestEntry.vision) {
+          return true;
+        }
+        if (PROXY_PROVIDERS.has(normalizedProvider)) {
+          return true;
+        }
+        return false;
       }
 
       const supportedModels =
