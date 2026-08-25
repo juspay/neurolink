@@ -225,29 +225,45 @@ export class ClassifierRouter {
     const originalIndex = new Map(members.map((m, i) => [m, i] as const));
     const num = (v?: number): number => (typeof v === "number" ? v : NEUTRAL);
 
-    return [...members].sort((a, b) => {
-      const ma = this.metaFor(a);
-      const mb = this.metaFor(b);
-      let delta: number;
-      if (mode === "cost-asc") {
-        delta = num(ma.cost) - num(mb.cost);
-      } else if (mode === "quality-desc") {
-        delta = num(mb.quality) - num(ma.quality);
-      } else {
-        // balanced: maximize quality-minus-cost
-        delta =
-          num(mb.quality) - num(mb.cost) - (num(ma.quality) - num(ma.cost));
-      }
-      if (delta !== 0) {
-        return delta;
-      }
-      const weightDelta = (b.weight ?? 1) - (a.weight ?? 1);
-      if (weightDelta !== 0) {
-        return weightDelta;
-      }
-      // Stable: preserve declared pool order on a tie.
-      return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
-    });
+    const isFullyUnmeasured = (m: ClassifierRouterPoolMember): boolean => {
+      const meta = this.metaFor(m);
+      return meta.cost === undefined && meta.quality === undefined;
+    };
+    const measured = members.filter((m) => !isFullyUnmeasured(m));
+    const unmeasured = members.filter(isFullyUnmeasured);
+
+    const sortMeasured = (
+      pool: ClassifierRouterPoolMember[],
+    ): ClassifierRouterPoolMember[] =>
+      [...pool].sort((a, b) => {
+        const ma = this.metaFor(a);
+        const mb = this.metaFor(b);
+        let delta: number;
+        if (mode === "cost-asc") {
+          delta = num(ma.cost) - num(mb.cost);
+        } else if (mode === "quality-desc") {
+          delta = num(mb.quality) - num(ma.quality);
+        } else {
+          // balanced: maximize quality-minus-cost
+          delta =
+            num(mb.quality) - num(mb.cost) - (num(ma.quality) - num(ma.cost));
+        }
+        if (delta !== 0) {
+          return delta;
+        }
+        const weightDelta = (b.weight ?? 1) - (a.weight ?? 1);
+        if (weightDelta !== 0) {
+          return weightDelta;
+        }
+        // Stable: preserve declared pool order on a tie.
+        return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
+      });
+
+    // The unmeasured bucket ranks after every measured member, but WITHIN the
+    // bucket the same comparator still applies: with cost/quality both
+    // NEUTRAL it falls through to the weight tie-break, preserving the
+    // documented weight contract that a plain append would silently drop.
+    return [...sortMeasured(measured), ...sortMeasured(unmeasured)];
   }
 
   /** Tool narrowing: per-difficulty directive, then classifier hints. */
@@ -296,7 +312,11 @@ export class ClassifierRouter {
     if (needsEnrichment && member.model) {
       try {
         const info = ModelResolver.resolveModel(member.model);
-        if (info) {
+        if (!info) {
+          this.deps.logger?.debug?.(
+            `[ClassifierRouter] metaFor: no registry match for ${member.provider}/${member.model}`,
+          );
+        } else {
           if (cost === undefined) {
             cost = info.pricing.inputCostPer1K + info.pricing.outputCostPer1K;
           }
@@ -323,8 +343,11 @@ export class ClassifierRouter {
             capabilities = caps;
           }
         }
-      } catch {
-        // Enrichment is best-effort; ignore registry lookup failures.
+      } catch (err) {
+        this.deps.logger?.warn?.(
+          `[ClassifierRouter] metaFor: registry lookup threw for ${member.provider}/${member.model}`,
+          { error: err instanceof Error ? err.message : String(err) },
+        );
       }
     }
 

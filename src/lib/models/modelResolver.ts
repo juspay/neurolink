@@ -27,6 +27,27 @@ import {
 } from "./modelRegistry.js";
 import { isNonNullObject } from "../utils/typeUtils.js";
 
+const MIN_FUZZY_QUERY_LENGTH = 4;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * True when `needle` appears in `haystack` at a real token boundary (hyphen,
+ * underscore, dot, slash, whitespace, or string start/end) — not merely as
+ * an arbitrary substring. Model ids use hyphens/dots ("gpt-4.1-mini");
+ * MODEL_REGISTRY .name fields use spaces ("GPT-4 Omni"), hence including
+ * \s in the boundary class.
+ */
+function includesAtWordBoundary(haystack: string, needle: string): boolean {
+  const boundary = "(?:^|[-_./\\s])";
+  const pattern = new RegExp(
+    `${boundary}${escapeRegExp(needle)}${boundary.replace("^|", "$|")}`,
+  );
+  return pattern.test(haystack);
+}
+
 /**
  * Model resolver class with advanced search and recommendation functionality
  */
@@ -48,14 +69,21 @@ export class ModelResolver {
       return MODEL_REGISTRY[resolvedId] || null;
     }
 
+    // Underspecified queries produce ambiguous, iteration-order-dependent
+    // matches (see Task 13 of the model metadata consolidation plan) — skip
+    // fuzzy matching entirely below this length.
+    if (normalizedQuery.length < MIN_FUZZY_QUERY_LENGTH) {
+      return null;
+    }
+
     // Fuzzy matching
     const allModels = getAllModels();
 
     // Try partial matching on ID
     const idMatch = allModels.find(
       (model) =>
-        model.id.toLowerCase().includes(normalizedQuery) ||
-        normalizedQuery.includes(model.id.toLowerCase()),
+        includesAtWordBoundary(model.id.toLowerCase(), normalizedQuery) ||
+        includesAtWordBoundary(normalizedQuery, model.id.toLowerCase()),
     );
     if (idMatch) {
       return idMatch;
@@ -64,8 +92,8 @@ export class ModelResolver {
     // Try partial matching on name
     const nameMatch = allModels.find(
       (model) =>
-        model.name.toLowerCase().includes(normalizedQuery) ||
-        normalizedQuery.includes(model.name.toLowerCase()),
+        includesAtWordBoundary(model.name.toLowerCase(), normalizedQuery) ||
+        includesAtWordBoundary(normalizedQuery, model.name.toLowerCase()),
     );
     if (nameMatch) {
       return nameMatch;
@@ -75,8 +103,8 @@ export class ModelResolver {
     const providerMatch = allModels.find((model) => {
       const providerQuery = `${model.provider}-${normalizedQuery}`;
       return (
-        model.id.toLowerCase().includes(providerQuery) ||
-        model.name.toLowerCase().includes(normalizedQuery)
+        includesAtWordBoundary(model.id.toLowerCase(), providerQuery) ||
+        includesAtWordBoundary(model.name.toLowerCase(), normalizedQuery)
       );
     });
     if (providerMatch) {
