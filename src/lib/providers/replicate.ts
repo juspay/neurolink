@@ -5,6 +5,7 @@ import {
   ReplicateModels,
 } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
+import { resolveRequestKind } from "../core/resolveRequestKind.js";
 import { getReplicateAuth } from "../adapters/replicate/auth.js";
 import {
   downloadPredictionOutput,
@@ -174,24 +175,20 @@ export class ReplicateProvider extends BaseProvider {
         ? { prompt: optionsOrPrompt }
         : optionsOrPrompt;
 
-    const { isImageGenerationModel } = await import("../core/constants.js");
-
-    // Delegate special output modes to base class (which never calls getAISDKModel for these)
+    // Delegate media kinds to the base class (which never calls
+    // getAISDKModel for these). resolveRequestKind owns the precedence —
+    // including the dual-mode exception where an explicit non-image
+    // output.format keeps an image-gen model on the text path. "ppt" and
+    // "tts-direct" deliberately stay on the local text path below:
+    // super.generate() would hit prepareGenerationContext() →
+    // getAISDKModel(), which throws for Replicate.
+    const kind = resolveRequestKind(options, this.modelName);
     if (
-      options.output?.mode === "video" ||
-      options.output?.mode === "avatar" ||
-      options.output?.mode === "music"
+      kind === "video" ||
+      kind === "avatar" ||
+      kind === "music" ||
+      kind === "image"
     ) {
-      return super.generate(options, _analysisSchema);
-    }
-
-    // Image-gen models: delegate to base which calls executeImageGeneration()
-    const isImageModel = isImageGenerationModel(this.modelName);
-    const requestsNonImageOutput =
-      options.output?.format === "json" ||
-      options.output?.format === "structured" ||
-      options.output?.format === "text";
-    if (isImageModel && !requestsNonImageOutput) {
       return super.generate(options, _analysisSchema);
     }
 

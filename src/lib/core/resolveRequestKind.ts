@@ -9,11 +9,10 @@ import type { RequestKind, RequestKindInput } from "../types/index.js";
  * stream()/runGenerateInActiveContext (image/video/tts-direct routing) call
  * this instead of independently re-deriving the decision.
  *
- * NOT yet the only copy: replicate.ts's generate() override and
- * googleVertex/client.ts's native dispatch (~6672-6718) still carry their
- * own provider-internal versions — the Vertex one with a cruder
- * startsWith() image match. Migrating those two is queued follow-up work;
- * until it lands, an edit to this precedence table does not reach them.
+ * Also the only copy at the provider-override level: replicate.ts's
+ * generate() override and googleVertex/client.ts's generate()/stream()
+ * overrides (which bypass BaseProvider's paths) call this too, so an edit
+ * to this precedence table reaches every dispatch site.
  *
  * Precedence, checked in order:
  *   1. output.mode (music/avatar/video/ppt) — an explicit mode always wins.
