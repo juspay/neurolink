@@ -155,11 +155,41 @@ How ProviderHealthChecker should verify this provider is reachable.
 
 ---
 
+### defaultHealthSweepPriority?
+
+> `optional` **defaultHealthSweepPriority?**: `number`
+
+Defined in: [types/providers.ts:2203](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2203)
+
+Membership + order in the default health sweep
+(`ProviderHealthChecker.checkAllProvidersHealth` with no explicit
+list). Lower number = checked and reported first; the sweep's array
+order is behaviour for its first-healthy fallback consumers. Absent =
+not part of the default sweep. Replaces the hand-maintained 8-provider
+array that lived in providerHealth.ts.
+
+---
+
+### autoSelectPreference?
+
+> `optional` **autoSelectPreference?**: `number`
+
+Defined in: [types/providers.ts:2212](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2212)
+
+Preference rank for `getBestHealthyProvider`'s default auto-selection
+(lower = tried first). Deliberately a SEPARATE ordering from the sweep:
+auto-select prefers local/cheap runtimes (litellm, ollama) before cloud
+providers, while the sweep reports the majors first. Absent = not in
+the default preference list. Replaces the second hand-maintained array
+that lived inline as getBestHealthyProvider's default parameter.
+
+---
+
 ### setupUrl?
 
 > `optional` **setupUrl?**: `string`
 
-Defined in: [types/providers.ts:2195](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2195)
+Defined in: [types/providers.ts:2213](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2213)
 
 ---
 
@@ -167,7 +197,7 @@ Defined in: [types/providers.ts:2195](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **timeouts?**: `object`
 
-Defined in: [types/providers.ts:2196](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2196)
+Defined in: [types/providers.ts:2214](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2214)
 
 #### generateMs?
 
@@ -183,7 +213,7 @@ Defined in: [types/providers.ts:2196](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **autoSelectPriority?**: `number`
 
-Defined in: [types/providers.ts:2198](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2198)
+Defined in: [types/providers.ts:2216](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2216)
 
 Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain.
 
@@ -193,7 +223,7 @@ Ascending priority (1 = tried first) in the auto-select fallback chain used by g
 
 > `optional` **apiKeyFormatPattern?**: `RegExp`
 
-Defined in: [types/providers.ts:2200](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2200)
+Defined in: [types/providers.ts:2218](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2218)
 
 Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when one exists for this provider.
 
@@ -203,7 +233,7 @@ Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when o
 
 > `optional` **credentialsResolvedExternally?**: `boolean`
 
-Defined in: [types/providers.ts:2215](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2215)
+Defined in: [types/providers.ts:2233](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2233)
 
 True when this provider's credentials are resolved by an external chain
 or its own config validator rather than by plain env-var presence, so

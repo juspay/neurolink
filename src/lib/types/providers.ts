@@ -2192,6 +2192,24 @@ export type ProviderDescriptor = {
   localRuntime: boolean;
   /** How ProviderHealthChecker should verify this provider is reachable. */
   healthCheck: "env-only" | "models-probe" | "live-generate";
+  /**
+   * Membership + order in the default health sweep
+   * (`ProviderHealthChecker.checkAllProvidersHealth` with no explicit
+   * list). Lower number = checked and reported first; the sweep's array
+   * order is behaviour for its first-healthy fallback consumers. Absent =
+   * not part of the default sweep. Replaces the hand-maintained 8-provider
+   * array that lived in providerHealth.ts.
+   */
+  defaultHealthSweepPriority?: number;
+  /**
+   * Preference rank for `getBestHealthyProvider`'s default auto-selection
+   * (lower = tried first). Deliberately a SEPARATE ordering from the sweep:
+   * auto-select prefers local/cheap runtimes (litellm, ollama) before cloud
+   * providers, while the sweep reports the majors first. Absent = not in
+   * the default preference list. Replaces the second hand-maintained array
+   * that lived inline as getBestHealthyProvider's default parameter.
+   */
+  autoSelectPreference?: number;
   setupUrl?: string;
   timeouts?: { generateMs?: number; streamMs?: number };
   /** Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain. */

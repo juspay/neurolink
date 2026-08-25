@@ -38,6 +38,8 @@ import type { ProviderDescriptor } from "../types/index.js";
 export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   {
     name: AIProviderName.BEDROCK,
+    defaultHealthSweepPriority: 5,
+    autoSelectPreference: 7,
     aliases: ["aws"],
     credentialsKey: "bedrock",
     envVars: {
@@ -59,6 +61,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.OPENAI,
+    defaultHealthSweepPriority: 4,
+    autoSelectPreference: 3,
     aliases: ["gpt", "chatgpt"],
     credentialsKey: "openai",
     envVars: { apiKey: "OPENAI_API_KEY", baseURL: "OPENAI_BASE_URL" },
@@ -102,6 +106,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.VERTEX,
+    defaultHealthSweepPriority: 1,
+    autoSelectPreference: 5,
     aliases: ["googleVertex"],
     credentialsKey: "vertex",
     envVars: {
@@ -142,6 +148,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.ANTHROPIC,
+    defaultHealthSweepPriority: 3,
+    autoSelectPreference: 4,
     aliases: ["claude"],
     credentialsKey: "anthropic",
     envVars: {
@@ -164,6 +172,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.AZURE,
+    defaultHealthSweepPriority: 6,
+    autoSelectPreference: 8,
     aliases: ["azureOpenai"],
     credentialsKey: "azure",
     envVars: {
@@ -187,6 +197,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.GOOGLE_AI,
+    defaultHealthSweepPriority: 2,
+    autoSelectPreference: 6,
     aliases: ["googleAiStudio", "google", "gemini", "google-ai-studio"],
     credentialsKey: "googleAiStudio",
     envVars: {
@@ -229,6 +241,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.OLLAMA,
+    defaultHealthSweepPriority: 8,
+    autoSelectPreference: 2,
     aliases: ["local"],
     credentialsKey: "ollama",
     envVars: {
@@ -261,6 +275,8 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   },
   {
     name: AIProviderName.LITELLM,
+    defaultHealthSweepPriority: 7,
+    autoSelectPreference: 1,
     aliases: [],
     credentialsKey: "litellm",
     envVars: {
