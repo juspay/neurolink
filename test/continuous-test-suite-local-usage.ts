@@ -88,21 +88,44 @@ function assert(condition: boolean, message: string): void {
  * majority of files on a real machine and a reader that skipped them would
  * miss most of the spend.
  */
+/**
+ * How far back fixture transcripts are stamped, in seconds.
+ *
+ * A transcript written right now sits exactly on the boundary of a zero-length
+ * window: `sinceDays: 0` resolves its cutoff to `Date.now()`, and the file's
+ * mtime is also `Date.now()`, so whether the file counts as inside or outside
+ * the window comes down to which millisecond each landed in. That raced —
+ * observed as one failure in five runs ("sinceDays 0 read transcripts — got 1
+ * turns instead of 0") followed by seven clean runs, which is exactly the
+ * profile of a bug that survives review because it usually passes.
+ *
+ * Backdating puts every fixture unambiguously in the past, so an empty window
+ * is empty for a structural reason rather than a lucky one. A minute is far
+ * larger than any plausible scheduling delay and far smaller than the one-day
+ * granularity every real window uses, so no bounded-window case changes
+ * meaning: `sinceDays: 1` still includes these files with a day to spare.
+ */
+const FIXTURE_AGE_SECONDS = 60;
+
+/** Stamp a fixture file into the past — see FIXTURE_AGE_SECONDS. */
+function backdate(file: string): void {
+  const when = new Date(Date.now() - FIXTURE_AGE_SECONDS * 1000);
+  fs.utimesSync(file, when, when);
+}
+
 function writeFixtureHome(lines: string[], subagentLines?: string[]): string {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-localusage-"));
   const project = path.join(home, ".claude", "projects", "-tmp-fixture");
   fs.mkdirSync(project, { recursive: true });
-  fs.writeFileSync(
-    path.join(project, "session-a.jsonl"),
-    lines.join("\n") + "\n",
-  );
+  const sessionFile = path.join(project, "session-a.jsonl");
+  fs.writeFileSync(sessionFile, lines.join("\n") + "\n");
+  backdate(sessionFile);
   if (subagentLines) {
     const nested = path.join(project, "session-a", "subagents");
     fs.mkdirSync(nested, { recursive: true });
-    fs.writeFileSync(
-      path.join(nested, "agent-one.jsonl"),
-      subagentLines.join("\n") + "\n",
-    );
+    const agentFile = path.join(nested, "agent-one.jsonl");
+    fs.writeFileSync(agentFile, subagentLines.join("\n") + "\n");
+    backdate(agentFile);
   }
   return home;
 }
