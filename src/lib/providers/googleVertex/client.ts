@@ -20,9 +20,9 @@ import {
   DEFAULT_TOOL_EXECUTION_TIMEOUT_MS,
   DEFAULT_TOOL_MAX_RETRIES,
   GLOBAL_LOCATION_MODELS,
-  IMAGE_GENERATION_MODELS,
   TOOL_STORAGE_TIMEOUT_MS,
 } from "../../core/constants.js";
+import { resolveRequestKind } from "../../core/resolveRequestKind.js";
 import { ModelConfigurationManager } from "../../core/modelConfiguration.js";
 import { isSchemaComplexityError } from "../../core/modules/structuredOutputPolicy.js";
 import {
@@ -6582,12 +6582,11 @@ export class GoogleVertexProvider extends BaseProvider {
     const modelName =
       options.model || this.modelName || getDefaultVertexModel();
 
-    // Check if this is an image generation model - image models don't support streaming
-    const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-      modelName.toLowerCase().startsWith(m.toLowerCase()),
-    );
-
-    if (isImageModel) {
+    // Image-generation requests can't stream — fall back to generate.
+    // Same single dispatch decision as generate(): resolveRequestKind
+    // keeps dual-mode models streaming text when the caller explicitly
+    // asked for a non-image output.format.
+    if (resolveRequestKind(options, modelName) === "image") {
       logger.warn(
         "[GoogleVertex] Image generation models don't support streaming, falling back to generate",
         { model: modelName },
@@ -6664,13 +6663,21 @@ export class GoogleVertexProvider extends BaseProvider {
       async (generateSpan) => {
         const generateStartTime = Date.now();
 
+        // One dispatch decision for the whole override: Vertex's generate()
+        // bypasses BaseProvider.generate(), so it re-runs the same
+        // resolveRequestKind() the core call sites use rather than keeping
+        // a hand-rolled copy of the precedence (which had drifted: tts
+        // checked before image, and a cruder case-insensitive startsWith
+        // image match without boundary awareness).
+        const requestKind = resolveRequestKind(options, modelName);
+
         // Video-mode requests must route through BaseProvider's
         // handleVideoGeneration (which loads the Veo 3 adapter). Vertex's
         // native @google/genai path is text/image only — without this
         // gate, video requests fall through to gemini-2.5-flash and the
         // model politely declines ("I cannot create animations") instead
         // of producing video bytes.
-        if (options.output?.mode === "video") {
+        if (requestKind === "video") {
           logger.info(
             "[GoogleVertex] Routing video-mode generate to handleVideoGeneration",
             { model: modelName },
@@ -6698,7 +6705,7 @@ export class GoogleVertexProvider extends BaseProvider {
         // (synthesise the input text directly; no LLM call). BaseProvider's
         // standard generate() does the same dispatch — we replicate it here
         // because Vertex's override bypasses that path.
-        if (options.tts?.enabled && !options.tts?.useAiResponse) {
+        if (requestKind === "tts-direct") {
           logger.info(
             "[GoogleVertex] Routing TTS direct-synthesis to handleDirectTTSSynthesis",
             { model: modelName },
@@ -6711,12 +6718,11 @@ export class GoogleVertexProvider extends BaseProvider {
           return ttsResult;
         }
 
-        // Check if this is an image generation model - route to executeImageGeneration without tools
-        const isImageModel = IMAGE_GENERATION_MODELS.some((m) =>
-          modelName.toLowerCase().startsWith(m.toLowerCase()),
-        );
-
-        if (isImageModel) {
+        // Image-generation models route to executeImageGeneration without
+        // tools. resolveRequestKind also carries the dual-mode exception:
+        // an explicit non-image output.format keeps models like
+        // gemini-3.1-flash-image-preview on the text path.
+        if (requestKind === "image") {
           logger.info(
             "[GoogleVertex] Routing image generation model to executeImageGeneration",
             { model: modelName },
