@@ -2413,6 +2413,24 @@ export abstract class BaseProvider implements AIProvider {
         ? error
         : new DOMException("The operation was aborted", "AbortError");
     }
+
+    // Already formatted by this method — hand it straight back. Formatting is
+    // NOT idempotent: formatProviderError prepends the provider tag every time,
+    // so a second pass produces
+    //   "[vertex] Google Vertex AI error: [vertex] Google Vertex AI error: ..."
+    // and, when a rule matched on statusCode the first time, can also DEGRADE
+    // the classification (a specific "quota exhausted" ProviderError re-matching
+    // the bare 429 rule as a generic RateLimitError) because the block below
+    // copies statusCode onto its own output.
+    //
+    // A single Vertex failure reaches here FIVE times for one logical error;
+    // this makes calls 2..5 cheap pass-throughs. `instanceof Error` rather than
+    // a cast: nothing but an Error is ever stamped, and an unstamped value
+    // simply falls through to formatting, which is the safe direction.
+    if (error instanceof Error && isProviderErrorClassified(error)) {
+      return error;
+    }
+
     const formatted = this.formatProviderError(error);
 
     // Preserve transport retry metadata across formatting. Provider
