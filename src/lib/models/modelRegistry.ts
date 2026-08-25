@@ -20,12 +20,22 @@ import type {
   JsonValue,
   ModelCapabilities,
   ModelInfo,
+  ModelPerformance,
+  ProviderModelManifestEntry,
 } from "../types/index.js";
+import {
+  getAllManifestProviders,
+  getManifestForProvider,
+} from "./manifestRegistry.js";
 
 /**
- * Comprehensive model registry
+ * Comprehensive model registry — hand-authored base. Every id defined here
+ * that the manifest doesn't also carry a priced entry for stays exactly as
+ * authored below; see buildManifestDerivedEntries()/MODEL_REGISTRY's
+ * docblock further down for how the two are merged and why (Task 9, model
+ * metadata consolidation plan).
  */
-export const MODEL_REGISTRY: Record<string, ModelInfo> = {
+const LEGACY_MODEL_REGISTRY: Record<string, ModelInfo> = {
   // OpenAI Models
   [OpenAIModels.GPT_4O]: {
     id: OpenAIModels.GPT_4O,
@@ -2547,6 +2557,139 @@ export const MODEL_REGISTRY: Record<string, ModelInfo> = {
   // Note: Azure models like O3, O4-mini, GPT-4o share IDs with OpenAI and use the OpenAI registry entries
 };
 
+function deriveSpeed(id: string): ModelPerformance["speed"] {
+  if (/mini|nano|haiku|flash|lite/i.test(id)) {
+    return "fast";
+  }
+  if (/opus|^o1|^o3|-pro$/i.test(id)) {
+    return "slow";
+  }
+  return "medium";
+}
+
+function deriveQuality(
+  entry: ProviderModelManifestEntry,
+): ModelPerformance["quality"] {
+  return entry.reasoning ? "high" : "medium";
+}
+
+/**
+ * Builds the manifest-derived slice of MODEL_REGISTRY: every manifest model
+ * that carries pricingPerMTok (ModelInfo.pricing is a required field, and
+ * the manifest's pricingPerMTok is deliberately optional for un-priced
+ * models like claude-sonnet-5 — see ProviderModelManifestEntry's docblock),
+ * excluding each provider's synthetic "_default" entry.
+ *
+ * performance/useCases/category use entry.curated verbatim when present —
+ * the ids that already had a hand-tuned LEGACY_MODEL_REGISTRY row before
+ * this migration (5 Anthropic, 20 OpenAI) carry that exact triple forward
+ * unchanged. Every other entry has no curated block and falls back to
+ * mechanical derivation from the tracked capability flags.
+ */
+function buildManifestDerivedEntries(): Record<string, ModelInfo> {
+  const entries: Record<string, ModelInfo> = {};
+  for (const provider of getAllManifestProviders()) {
+    const manifest = getManifestForProvider(provider);
+    if (!manifest) {
+      continue;
+    }
+    for (const [id, entry] of Object.entries(manifest.models)) {
+      if (id === "_default" || !entry.pricingPerMTok) {
+        continue;
+      }
+      // Keep-first on cross-manifest id collisions (Azure/OpenAI share ids):
+      // getAllManifestProviders() order is deterministic, and silently
+      // overwriting an earlier provider's row would make "which provider owns
+      // this id" depend on iteration order.
+      if (entries[id]) {
+        logger.debug(
+          `[modelRegistry] Manifest id collision: "${id}" already derived from ${entries[id].provider}; keeping first, skipping ${provider}`,
+        );
+        continue;
+      }
+      const reasoningScore = entry.reasoning ? 9 : 6;
+      const legacyRow = LEGACY_MODEL_REGISTRY[id];
+      entries[id] = {
+        id,
+        name: entry.displayName ?? id,
+        provider: provider as AIProviderName,
+        description: entry.displayName ?? id,
+        capabilities: {
+          vision: entry.vision,
+          functionCalling: entry.functionCalling,
+          codeGeneration: true,
+          reasoning: entry.reasoning ?? false,
+          multimodal: entry.vision || entry.nativeAudio === true,
+          streaming: true,
+          jsonMode: entry.jsonMode ?? false,
+          samplingParams: entry.samplingParams,
+        },
+        pricing: {
+          inputCostPer1K: entry.pricingPerMTok.input / 1000,
+          outputCostPer1K: entry.pricingPerMTok.output / 1000,
+          currency: "USD",
+        },
+        performance: entry.curated?.performance ?? {
+          speed: deriveSpeed(id),
+          quality: deriveQuality(entry),
+          accuracy: deriveQuality(entry),
+        },
+        limits: {
+          maxContextTokens: entry.contextWindow,
+          maxOutputTokens: entry.maxOutputTokens,
+          // Rate limits are operational knowledge the manifests don't track;
+          // carry the hand-authored value forward rather than dropping it.
+          ...(legacyRow?.limits?.maxRequestsPerMinute !== undefined
+            ? { maxRequestsPerMinute: legacyRow.limits.maxRequestsPerMinute }
+            : {}),
+        },
+        useCases: entry.curated?.useCases ?? {
+          coding: entry.functionCalling ? 8 : 5,
+          creative: entry.vision ? 7 : 6,
+          analysis: reasoningScore,
+          conversation: 7,
+          reasoning: reasoningScore,
+          translation: 6,
+          summarization: 7,
+        },
+        aliases: entry.aliases,
+        // Deprecation and release dates are editorial facts the manifests do
+        // not track — a manifest-priced model must not silently un-deprecate
+        // a row the hand-authored registry explicitly flagged.
+        deprecated: legacyRow?.deprecated ?? false,
+        ...(legacyRow?.releaseDate !== undefined
+          ? { releaseDate: legacyRow.releaseDate }
+          : {}),
+        isLocal:
+          provider === "ollama" ||
+          provider === "lm-studio" ||
+          provider === "llamacpp",
+        category:
+          entry.curated?.category ??
+          (entry.reasoning ? "reasoning" : "general"),
+      };
+    }
+  }
+  return entries;
+}
+
+/**
+ * Public MODEL_REGISTRY: the manifest-derived entries merged over the
+ * hand-authored LEGACY_MODEL_REGISTRY base. Spread order matters — manifest
+ * entries are spread last, so a manifest-priced model wins outright
+ * (whole-entry replacement, not a per-field merge) over a legacy row with
+ * the same id. Any legacy id the manifest doesn't also price (no
+ * pricingPerMTok, or no manifest entry at all — e.g. AnthropicModels.
+ * CLAUDE_OPUS_5/CLAUDE_FABLE_5, which have no manifest counterpart yet)
+ * passes through unchanged, which is what keeps resolveSamplingParams/
+ * modelSupportsSamplingParams behaviour identical for those "non-manifest"
+ * models: their capabilities.samplingParams (or absence of it) is untouched.
+ */
+export const MODEL_REGISTRY: Record<string, ModelInfo> = {
+  ...LEGACY_MODEL_REGISTRY,
+  ...buildManifestDerivedEntries(),
+};
+
 /**
  * Model aliases registry for quick resolution
  */
@@ -2776,14 +2919,21 @@ export function getModelsByProvider(provider: AIProviderName): ModelInfo[] {
 }
 
 /**
- * Get available providers
+ * Get available providers.
+ *
+ * Deliberately does NOT derive from MODEL_REGISTRY membership: a registry
+ * keyed only by "real, priced, named models" under-reports providers whose
+ * manifest carries only a `_default` entry (the minimal-tier providers —
+ * e.g. voyage, jina, stability — have no priced named model and so
+ * contribute zero MODEL_REGISTRY rows). Reading getAllManifestProviders()
+ * directly gives every provider NeuroLink actually knows a manifest for,
+ * decoupled from MODEL_REGISTRY membership entirely. Manifest keys are
+ * literally the AIProviderName enum's kebab-case values by construction
+ * (see manifestRegistry.ts), so the cast is a same-value relabel, not a
+ * narrowing assumption.
  */
 export function getAvailableProviders(): AIProviderName[] {
-  const providers = new Set<AIProviderName>();
-  Object.values(MODEL_REGISTRY).forEach((model) => {
-    providers.add(model.provider);
-  });
-  return Array.from(providers);
+  return getAllManifestProviders() as AIProviderName[];
 }
 
 /**

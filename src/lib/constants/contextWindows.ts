@@ -13,6 +13,7 @@
 
 import { DynamicModelProvider } from "../core/dynamicModels.js";
 import { logger } from "../utils/logger.js";
+import { resolveManifestEntryStrict } from "../models/manifestRegistry.js";
 
 /** Default context window when provider/model is unknown */
 export const DEFAULT_CONTEXT_WINDOW = 128_000;
@@ -518,10 +519,24 @@ export function clearRuntimeOutputCeilings(): void {
  *  0.5 Runtime-discovered windows (registerRuntimeContextWindow) — real
  *      per-model limits fetched from the serving infrastructure (LiteLLM
  *      `/model/info`)
- *  1. Exact model match under provider in static registry
- *  2. Prefix match under provider in static registry
- *  3. Provider's _default in static registry
- *  4. Global DEFAULT_CONTEXT_WINDOW
+ *  1. Manifest exact/alias match ONLY (resolveManifestEntryStrict — no prefix, see
+ *     src/lib/models/manifestRegistry.ts) — the emerging single source of
+ *     truth for per-model metadata. Deliberately consulted for a REAL match
+ *     only (never the manifest's synthesized/generic default): most provider
+ *     manifests are still "minimal" stubs holding nothing but a provider-wide
+ *     default (e.g. vertex.ts, together-ai.ts) and none of the per-model
+ *     overrides — including Vertex's Claude "claude-" prefix catch-all below,
+ *     which exists specifically to stop an unlisted Claude-on-Vertex model
+ *     from inheriting Gemini's 1,048,576 default — that still live only in
+ *     MODEL_CONTEXT_WINDOWS. Falling back to a manifest-wide default here
+ *     would silently drop that coverage. When a manifest DOES carry a real
+ *     entry for this model, it wins even if it disagrees with the legacy
+ *     table (e.g. Mistral's manifest supersedes the coarser, older
+ *     MODEL_CONTEXT_WINDOWS.mistral values).
+ *  2. Exact model match under provider in static registry
+ *  3. Prefix match under provider in static registry
+ *  4. Provider's _default in static registry
+ *  5. Global DEFAULT_CONTEXT_WINDOW
  */
 export function getContextWindowSize(provider: string, model?: string): number {
   // Step 0: Check dynamic model registry first.
@@ -554,6 +569,25 @@ export function getContextWindowSize(provider: string, model?: string): number {
   // Static fallback chain — normalize aliases first so "lmstudio" / "llama.cpp" /
   // "nvidianim" find their canonical entries instead of falling back to default.
   const canonical = normalizeProviderForLookup(provider);
+
+  // Step 1: Manifest real-entry lookup (exact id, alias, or longest-prefix —
+  // see resolveManifestEntryStrict's docblock). Tries the alias-normalized
+  // provider key first, then the raw provider string, mirroring the
+  // `MODEL_CONTEXT_WINDOWS[canonical] ?? MODEL_CONTEXT_WINDOWS[provider]`
+  // double-lookup below — MANIFEST_REGISTRY is keyed by the same hyphenated
+  // AIProviderName forms (e.g. "together-ai") that normalizeProviderForLookup
+  // strips and PROVIDER_ALIAS_MAP doesn't cover, so callers passing the raw
+  // enum value still resolve. Only a genuine match short-circuits; a miss
+  // falls straight through to the untouched legacy cascade below.
+  if (model) {
+    const manifestEntry =
+      resolveManifestEntryStrict(canonical, model) ??
+      resolveManifestEntryStrict(provider, model);
+    if (manifestEntry) {
+      return manifestEntry.contextWindow;
+    }
+  }
+
   const providerWindows =
     MODEL_CONTEXT_WINDOWS[canonical] ?? MODEL_CONTEXT_WINDOWS[provider];
   if (!providerWindows) {

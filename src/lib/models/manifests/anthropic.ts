@@ -30,9 +30,11 @@ export const anthropicManifest: ProviderModelManifest = {
       displayName: "Claude Sonnet 5",
       contextWindow: 1_000_000,
       maxOutputTokens: 64_000,
-      // No pricingPerMTok: genuinely absent from PRICING.anthropic today.
-      // Do not invent a rate — hasPricing()/findRates() (pricing.ts) must
-      // keep reporting this model as unpriced.
+      // No pricingPerMTok DELIBERATELY: PRICING.anthropic carries real
+      // rates for this id, and findRates() is manifest-first with a legacy
+      // fallback — omitting the rate here defers to that table instead of
+      // duplicating it, and keeps this entry out of the manifest-derived
+      // MODEL_REGISTRY rows (which only admit priced entries).
       vision: true,
       functionCalling: true,
       reasoning: true,

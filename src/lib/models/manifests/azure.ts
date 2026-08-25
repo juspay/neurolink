@@ -79,7 +79,12 @@ export const azureManifest: ProviderModelManifest = {
       contextWindow: 200000,
       maxOutputTokens: 32768,
       pricingPerMTok: { input: 1.25, output: 10 },
-      vision: true,
+      // Azure publishes no such model (the registry row is deprecated for
+      // exactly that reason, modelRegistry.ts ~2550), and vision was
+      // deliberately removed from VISION_CAPABILITIES for it — this entry
+      // was generated from the registry BEFORE that fix and must not
+      // re-advertise a capability an undeployable id cannot have.
+      vision: false,
       functionCalling: true,
       reasoning: true,
       jsonMode: true,

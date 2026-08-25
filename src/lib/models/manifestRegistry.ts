@@ -120,6 +120,36 @@ function applyFamilyRules(
  * "llama3.2:latest" or OpenRouter's "openai/gpt-4o"), then undefined.
  * Family rules are applied on top of whichever entry matched.
  */
+/**
+ * Like resolveManifestEntryExact but WITHOUT the longest-prefix fallback:
+ * exact canonical id or declared alias only. For consumers where a prefix
+ * hit can steal precedence from a more-specific legacy row — boolean
+ * capability checks above all (a manifest "gpt-4" prefix match must never
+ * shadow the legacy table's explicit "gpt-4-vision-preview" vision row).
+ * Family rules still apply to a real match.
+ */
+export function resolveManifestEntryStrict(
+  provider: string,
+  model: string,
+): ProviderModelManifestEntry | undefined {
+  const manifest = MANIFEST_REGISTRY[provider];
+  if (!manifest) {
+    return undefined;
+  }
+  const exact = manifest.models[model];
+  if (exact) {
+    return applyFamilyRules(manifest, model, exact);
+  }
+  const aliasMatch = Object.entries(manifest.models).find(
+    ([canonicalId, entry]) =>
+      canonicalId !== "_default" && entry.aliases.includes(model),
+  );
+  if (aliasMatch) {
+    return applyFamilyRules(manifest, model, aliasMatch[1]);
+  }
+  return undefined;
+}
+
 export function resolveManifestEntryExact(
   provider: string,
   model: string,

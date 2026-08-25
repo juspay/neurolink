@@ -10,6 +10,7 @@ import type {
   AnthropicModelMetadata,
 } from "../types/index.js";
 import { ModelAccessError } from "../types/index.js";
+import { anthropicManifest } from "./manifests/anthropic.js";
 
 // Re-export runtime value for convenience
 export { ModelAccessError };
@@ -42,6 +43,15 @@ export enum AnthropicModel {
 
   // Claude Sonnet 4.6
   CLAUDE_SONNET_4_6 = "claude-sonnet-4-6",
+
+  // Claude Opus 4.5
+  CLAUDE_OPUS_4_5 = "claude-opus-4-5-20251101",
+
+  // Claude Sonnet 4.5
+  CLAUDE_SONNET_4_5 = "claude-sonnet-4-5-20250929",
+
+  // Claude 4.5 Haiku
+  CLAUDE_HAIKU_4_5 = "claude-haiku-4-5-20251001",
 
   // Claude 3 Opus (Legacy flagship)
   CLAUDE_3_OPUS = "claude-3-opus-20240229",
@@ -100,138 +110,108 @@ export const MODEL_TIER_ACCESS: Record<ClaudeSubscriptionTier, string[]> = {
 // ============================================================================
 
 /**
- * Model metadata by model ID
- *
- * Comprehensive mapping of each Anthropic model's metadata,
- * including display names, context windows, vision support, and extended thinking.
+ * Model metadata by model ID, derived from the anthropic manifest
+ * (src/lib/models/manifests/anthropic.ts) so this catalog can no longer
+ * silently drift from the canonical source. Family/description fields —
+ * not tracked by the manifest — are supplied by the small per-id lookups
+ * below, unchanged from their pre-migration values.
  */
-export const MODEL_METADATA: Record<string, AnthropicModelMetadata> = {
-  // Claude 3 Haiku (Legacy)
-  [AnthropicModel.CLAUDE_3_HAIKU]: {
-    displayName: "Claude 3 Haiku",
-    contextWindow: 200000,
-    maxOutputTokens: 4096,
-    supportsVision: true,
-    supportsExtendedThinking: false,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: true,
-    family: "haiku",
-    description: "Fast and efficient model for simple tasks",
-  },
-
-  // Claude 3.5 Haiku
-  [AnthropicModel.CLAUDE_3_5_HAIKU]: {
-    displayName: "Claude 3.5 Haiku",
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    supportsVision: false,
-    supportsExtendedThinking: false,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "haiku",
-    description: "Improved fast model with better performance",
-  },
-
-  // Claude 3.5 Sonnet
-  [AnthropicModel.CLAUDE_3_5_SONNET]: {
-    displayName: "Claude 3.5 Sonnet",
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    supportsVision: true,
-    supportsExtendedThinking: false,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "sonnet",
-    description: "Balanced model for most tasks",
-  },
-
-  // Claude 3.5 Sonnet V2
-  [AnthropicModel.CLAUDE_3_5_SONNET_V2]: {
-    displayName: "Claude 3.5 Sonnet V2",
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    supportsVision: true,
-    supportsExtendedThinking: false,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "sonnet",
-    description: "Updated Sonnet with improved capabilities",
-  },
-
-  // Claude Sonnet 4
-  [AnthropicModel.CLAUDE_SONNET_4]: {
-    displayName: "Claude Sonnet 4",
-    contextWindow: 200000,
-    maxOutputTokens: 64000,
-    supportsVision: true,
-    supportsExtendedThinking: true,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "sonnet",
-    description: "Latest Sonnet with extended thinking support",
-  },
-
-  // Claude 3 Opus (Legacy)
-  [AnthropicModel.CLAUDE_3_OPUS]: {
-    displayName: "Claude 3 Opus",
-    contextWindow: 200000,
-    maxOutputTokens: 4096,
-    supportsVision: true,
-    supportsExtendedThinking: false,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: true,
-    family: "opus",
-    description: "Legacy flagship model for complex tasks",
-  },
-
-  // Claude Opus 4
-  [AnthropicModel.CLAUDE_OPUS_4]: {
-    displayName: "Claude Opus 4",
-    contextWindow: 200000,
-    maxOutputTokens: 64000,
-    supportsVision: true,
-    supportsExtendedThinking: true,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "opus",
-    description: "Latest flagship model with advanced reasoning",
-  },
-
-  // Claude Sonnet 4.6
-  [AnthropicModel.CLAUDE_SONNET_4_6]: {
-    displayName: "Claude Sonnet 4.6",
-    contextWindow: 1000000,
-    maxOutputTokens: 64000,
-    supportsVision: true,
-    supportsExtendedThinking: true,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "sonnet",
-    description: "Claude 4.6 Sonnet with 1M context window",
-  },
-
-  // Claude Opus 4.6
-  [AnthropicModel.CLAUDE_OPUS_4_6]: {
-    displayName: "Claude Opus 4.6",
-    contextWindow: 1000000,
-    maxOutputTokens: 64000,
-    supportsVision: true,
-    supportsExtendedThinking: true,
-    supportsToolUse: true,
-    supportsStreaming: true,
-    deprecated: false,
-    family: "opus",
-    description: "Claude 4.6 Opus flagship with 1M context window",
-  },
+const FAMILY_BY_MODEL: Record<string, AnthropicModelMetadata["family"]> = {
+  [AnthropicModel.CLAUDE_3_HAIKU]: "haiku",
+  [AnthropicModel.CLAUDE_3_5_HAIKU]: "haiku",
+  [AnthropicModel.CLAUDE_3_5_SONNET]: "sonnet",
+  [AnthropicModel.CLAUDE_3_5_SONNET_V2]: "sonnet",
+  [AnthropicModel.CLAUDE_SONNET_4]: "sonnet",
+  [AnthropicModel.CLAUDE_SONNET_4_6]: "sonnet",
+  [AnthropicModel.CLAUDE_3_OPUS]: "opus",
+  [AnthropicModel.CLAUDE_OPUS_4]: "opus",
+  [AnthropicModel.CLAUDE_OPUS_4_6]: "opus",
+  [AnthropicModel.CLAUDE_OPUS_4_5]: "opus",
+  [AnthropicModel.CLAUDE_SONNET_4_5]: "sonnet",
+  [AnthropicModel.CLAUDE_HAIKU_4_5]: "haiku",
 };
+
+const DESCRIPTION_BY_MODEL: Record<string, string> = {
+  [AnthropicModel.CLAUDE_3_HAIKU]: "Fast and efficient model for simple tasks",
+  [AnthropicModel.CLAUDE_3_5_HAIKU]:
+    "Improved fast model with better performance",
+  [AnthropicModel.CLAUDE_3_5_SONNET]: "Balanced model for most tasks",
+  [AnthropicModel.CLAUDE_3_5_SONNET_V2]:
+    "Updated Sonnet with improved capabilities",
+  [AnthropicModel.CLAUDE_SONNET_4]:
+    "Latest Sonnet with extended thinking support",
+  [AnthropicModel.CLAUDE_3_OPUS]: "Legacy flagship model for complex tasks",
+  [AnthropicModel.CLAUDE_OPUS_4]:
+    "Latest flagship model with advanced reasoning",
+  [AnthropicModel.CLAUDE_SONNET_4_6]:
+    "Claude 4.6 Sonnet with 1M context window",
+  [AnthropicModel.CLAUDE_OPUS_4_6]:
+    "Claude 4.6 Opus flagship with 1M context window",
+  [AnthropicModel.CLAUDE_OPUS_4_5]: "Claude 4.5 Opus flagship model",
+  [AnthropicModel.CLAUDE_SONNET_4_5]: "Claude 4.5 Sonnet balanced model",
+  [AnthropicModel.CLAUDE_HAIKU_4_5]: "Claude 4.5 Haiku fast model",
+};
+
+const DEPRECATED_MODELS = new Set<string>([
+  AnthropicModel.CLAUDE_3_HAIKU,
+  AnthropicModel.CLAUDE_3_OPUS,
+]);
+
+/**
+ * CLAUDE_3_5_SONNET_V2's enum value ("claude-3-5-sonnet-v2-20241022") is a
+ * synthetic id minted only inside this file, pre-dating the manifest — it
+ * never was a real Anthropic wire id and has no row anywhere else in the
+ * codebase (pricing.ts, contextWindows.ts, VISION_CAPABILITIES all key off
+ * "claude-3-5-sonnet-20241022" for both v1 and v2). Route the manifest
+ * lookup to the real entry instead of inventing a duplicate manifest row
+ * for the same model; the enum member's name and exported value are left
+ * untouched.
+ */
+const MANIFEST_ID_OVERRIDES: Record<string, string> = {
+  [AnthropicModel.CLAUDE_3_5_SONNET_V2]: AnthropicModel.CLAUDE_3_5_SONNET,
+};
+
+/**
+ * displayName override applied only where routing through
+ * MANIFEST_ID_OVERRIDES would otherwise silently rename a model the caller
+ * already knows by its pre-migration display name (avoids user-visible
+ * naming churn, same principle the manifest itself documents for its
+ * pre-existing MODEL_REGISTRY-derived ids).
+ */
+const DISPLAY_NAME_OVERRIDES: Record<string, string> = {
+  [AnthropicModel.CLAUDE_3_5_SONNET_V2]: "Claude 3.5 Sonnet V2",
+};
+
+function metadataFromManifest(model: string): AnthropicModelMetadata {
+  const manifestId = MANIFEST_ID_OVERRIDES[model] ?? model;
+  const entry = anthropicManifest.models[manifestId];
+  if (!entry) {
+    throw new Error(
+      `metadataFromManifest: no manifest entry for "${model}" — add it to ` +
+        `src/lib/models/manifests/anthropic.ts before referencing it here`,
+    );
+  }
+  return {
+    displayName: DISPLAY_NAME_OVERRIDES[model] ?? entry.displayName ?? model,
+    contextWindow: entry.contextWindow,
+    maxOutputTokens: entry.maxOutputTokens,
+    supportsVision: entry.vision,
+    supportsExtendedThinking: entry.reasoning ?? false,
+    supportsToolUse: entry.functionCalling,
+    supportsStreaming: true,
+    deprecated: DEPRECATED_MODELS.has(model),
+    family: FAMILY_BY_MODEL[model] ?? "sonnet",
+    description: DESCRIPTION_BY_MODEL[model] ?? entry.displayName ?? model,
+  };
+}
+
+export const MODEL_METADATA: Record<string, AnthropicModelMetadata> =
+  Object.fromEntries(
+    Object.values(AnthropicModel).map((model) => [
+      model,
+      metadataFromManifest(model),
+    ]),
+  );
 
 // ============================================================================
 // DEFAULT MODELS BY TIER
@@ -524,15 +504,21 @@ export function getLatestModelsByFamily(): Record<
 
   // Priority order for each family (latest first based on model version)
   const familyPriority: Record<AnthropicModelMetadata["family"], string[]> = {
-    haiku: [AnthropicModel.CLAUDE_3_5_HAIKU, AnthropicModel.CLAUDE_3_HAIKU],
+    haiku: [
+      AnthropicModel.CLAUDE_HAIKU_4_5,
+      AnthropicModel.CLAUDE_3_5_HAIKU,
+      AnthropicModel.CLAUDE_3_HAIKU,
+    ],
     sonnet: [
       AnthropicModel.CLAUDE_SONNET_4_6,
+      AnthropicModel.CLAUDE_SONNET_4_5,
       AnthropicModel.CLAUDE_SONNET_4,
       AnthropicModel.CLAUDE_3_5_SONNET_V2,
       AnthropicModel.CLAUDE_3_5_SONNET,
     ],
     opus: [
       AnthropicModel.CLAUDE_OPUS_4_6,
+      AnthropicModel.CLAUDE_OPUS_4_5,
       AnthropicModel.CLAUDE_OPUS_4,
       AnthropicModel.CLAUDE_3_OPUS,
     ],
