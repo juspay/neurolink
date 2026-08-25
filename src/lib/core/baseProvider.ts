@@ -50,6 +50,11 @@ import { resolveLifecycleTimeoutMs } from "../utils/lifecycleTimeout.js";
 import { logger } from "../utils/logger.js";
 import { interleaveTTSStream } from "../utils/ttsStream.js";
 import {
+  attachStreamCancel,
+  cancelStream,
+  releaseIterator,
+} from "../utils/streamCancellation.js";
+import {
   TimeoutError as AsyncTimeoutError,
   withTimeoutFn,
 } from "../utils/async/withTimeout.js";
@@ -593,11 +598,21 @@ export abstract class BaseProvider implements AIProvider {
     const classifyStreamError = (e: unknown): Error =>
       this.classifyStreamError(e);
 
+    // Hold the upstream iterator rather than letting `for await` create one
+    // internally, so the cancel hook below can close it directly. Iterating
+    // `upstreamIterable` is equivalent to iterating `originalStream` — same
+    // iterator, same early-exit `return()` semantics — it just leaves a handle
+    // reachable from outside the generator.
+    const upstreamIterator = originalStream[Symbol.asyncIterator]();
+    const upstreamIterable = {
+      [Symbol.asyncIterator]: () => upstreamIterator,
+    };
+
     const wrappedStream = (async function* () {
       let accumulated = "";
       let seq = 0;
       try {
-        for await (const chunk of originalStream) {
+        for await (const chunk of upstreamIterable) {
           const textPart =
             chunk &&
             typeof chunk === "object" &&
@@ -656,6 +671,16 @@ export abstract class BaseProvider implements AIProvider {
         throw classifyStreamError(err);
       }
     })();
+
+    // A consumer that breaks out of the stream cannot reach this generator
+    // through `.return()` while it is parked awaiting the provider — that
+    // request queues behind the in-flight `next()`. The hook closes the
+    // upstream directly and forwards the request to any wrapper below, so
+    // abandoning a stream really does release the provider connection.
+    attachStreamCancel(wrappedStream, () => {
+      cancelStream(originalStream);
+      releaseIterator(upstreamIterator);
+    });
 
     return { ...result, stream: wrappedStream };
   }

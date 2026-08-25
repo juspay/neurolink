@@ -44,7 +44,13 @@ import type {
 } from "../dist/index.js";
 import { stub, withStubs } from "./helpers/stubs.js";
 
-const { test, runSuite } = defineSuite("TTSProcessor (unit)");
+// `offline: true` — this suite registers stub handlers and drives
+// createOfflineProvider; nothing in it touches a network. A test that never
+// finishes here is therefore a hang in the code under test, so the harness
+// reports a per-test timeout as a failure rather than the default skip.
+const { test, runSuite } = defineSuite("TTSProcessor (unit)", {
+  offline: true,
+});
 
 // ---------------------------------------------------------------------------
 // Registry hygiene (rule 4): snapshot every handler registered before this

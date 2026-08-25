@@ -126,13 +126,33 @@ export type DefineSuiteOpts = {
   interTestDelayMs?: number;
   /**
    * Per-test wall-clock cap in ms. When a single `test()` body exceeds this,
-   * the suite aborts the test (treats it as FAIL) and proceeds with the next
-   * one. Without this, an upstream endpoint that accepts a connection but
-   * never responds blocks the entire suite indefinitely (observed against
-   * litellm's `team not allowed to access model` path on tool-calling tests).
+   * the suite aborts the test and proceeds with the next one. Without this, an
+   * upstream endpoint that accepts a connection but never responds blocks the
+   * entire suite indefinitely (observed against litellm's `team not allowed to
+   * access model` path on tool-calling tests).
    * Default: 240_000 (4 minutes).
+   *
+   * A timeout is classified as SKIP by default, because a live suite cannot
+   * distinguish an SDK bug from an upstream that simply never answered. See
+   * `offline` to opt out of that where the distinction is not real.
    */
   perTestTimeoutMs?: number;
+  /**
+   * Declare that this suite makes no network calls — stub handlers, offline
+   * providers, recorded fixtures only.
+   *
+   * A timeout then becomes a FAIL rather than a SKIP. The SKIP default exists
+   * because a live suite genuinely cannot tell a hung SDK from a hung upstream;
+   * with no upstream, that ambiguity does not exist and a test that never
+   * finished can only be a defect in this package.
+   *
+   * This is not a preference. A deadlock in `interleaveTTSStream` teardown sat
+   * in `tts:unit` reported as `⊘ skipped` — the suite printed RESULT: PASS and
+   * exited 0 on every CI run, so the feature that introduced it merged with its
+   * own headline test having never once passed, and 240s per run was spent
+   * waiting on it.
+   */
+  offline?: boolean;
 };
 
 function resolveOpts(name: string, defs: DefineSuiteOpts): SuiteOpts {
@@ -524,10 +544,12 @@ export function defineSuite(
   const startedAt = Date.now();
 
   const perTestTimeoutMs = defs.perTestTimeoutMs ?? 240_000;
-  // Sentinel used by the per-test timeout below; classified as SKIP (not
-  // FAIL) because the harness can't tell the difference between an SDK bug
-  // and an upstream that simply never responded.
+  // Sentinel used by the per-test timeout below. Classified as SKIP because a
+  // live suite can't tell an SDK bug from an upstream that never responded —
+  // unless the suite declares `offline`, where there is no upstream and the
+  // only remaining explanation is a defect here.
   const PER_TEST_TIMEOUT_SKIP_MARKER = "PER_TEST_TIMEOUT_SKIP";
+  const timeoutIsFailure = defs.offline === true;
 
   const test = async (testName: string, fn: TestFn): Promise<void> => {
     let timeoutId: NodeJS.Timeout | undefined;
@@ -535,7 +557,9 @@ export function defineSuite(
       timeoutId = setTimeout(() => {
         reject(
           new Error(
-            `SKIP: ${PER_TEST_TIMEOUT_SKIP_MARKER} — ${testName} exceeded ${perTestTimeoutMs}ms — upstream likely hung; aborting test`,
+            timeoutIsFailure
+              ? `${testName} exceeded ${perTestTimeoutMs}ms in an offline suite — nothing here waits on a network, so this is a hang in the code under test, not a slow upstream`
+              : `SKIP: ${PER_TEST_TIMEOUT_SKIP_MARKER} — ${testName} exceeded ${perTestTimeoutMs}ms — upstream likely hung; aborting test`,
           ),
         );
       }, perTestTimeoutMs);
