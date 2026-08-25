@@ -8,7 +8,7 @@
 
 > **VertexGenaiFunctionDeclaration** = `object`
 
-Defined in: [types/providers.ts:2396](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2396)
+Defined in: [types/providers.ts:2414](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2414)
 
 Function declaration shape accepted by the @google/genai SDK when tools are
 attached to a Vertex generateContent call.
@@ -19,7 +19,7 @@ attached to a Vertex generateContent call.
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2397)
+Defined in: [types/providers.ts:2415](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2415)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/r
 
 > **description**: `string`
 
-Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2398)
+Defined in: [types/providers.ts:2416](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2416)
 
 ---
 
@@ -35,4 +35,4 @@ Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **parametersJsonSchema?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2399)
+Defined in: [types/providers.ts:2417](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2417)

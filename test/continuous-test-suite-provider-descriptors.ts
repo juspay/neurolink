@@ -1184,4 +1184,86 @@ await runSuite(async () => {
       "together-ai credentialsKey via descriptor",
     );
   });
+
+  logSection("default health sweep (retired providerHealth.ts hand list)");
+
+  await test("the descriptor-driven health sweep preserves the historical membership AND order", async () => {
+    const { ProviderFactory } = await import("../dist/index.js");
+    const all = ProviderFactory.getAllDescriptors();
+    const sweep = all
+      .filter(
+        (d: { defaultHealthSweepPriority?: number }) =>
+          d.defaultHealthSweepPriority !== undefined,
+      )
+      .sort(
+        (
+          a: { defaultHealthSweepPriority?: number },
+          b: { defaultHealthSweepPriority?: number },
+        ) =>
+          (a.defaultHealthSweepPriority ?? 0) -
+          (b.defaultHealthSweepPriority ?? 0),
+      )
+      .map((d: { name: string }) => d.name);
+    // Order is behaviour: auto-select takes the first healthy provider, so
+    // this pins the exact sequence the retired hand-maintained array had.
+    assertEqual(
+      sweep.join(","),
+      "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
+      "sweep membership/order",
+    );
+    const priorities = all
+      .map(
+        (d: { defaultHealthSweepPriority?: number }) =>
+          d.defaultHealthSweepPriority,
+      )
+      .filter((p: number | undefined): p is number => p !== undefined);
+    assertEqual(
+      new Set(priorities).size,
+      priorities.length,
+      "sweep priorities must be unique",
+    );
+  });
+
+  await test("the SHIPPED sweep returns statuses in descriptor-priority order", async () => {
+    // Review follow-up: the data pin above proves the descriptors, not the
+    // runtime. This drives ProviderHealthChecker.checkAllProvidersHealth
+    // itself — health OUTCOMES are environment-dependent and irrelevant
+    // here; the returned array's provider SEQUENCE is the behaviour the
+    // descriptor priorities own.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const statuses = await ProviderHealthChecker.checkAllProvidersHealth({
+      includeConnectivityTest: false,
+      cacheResults: false,
+      timeout: 1000,
+    });
+    assertEqual(
+      statuses.map((h: { provider: string }) => h.provider).join(","),
+      "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
+      "runtime sweep order",
+    );
+  });
+
+  await test("auto-select preference data pins the historical default list", async () => {
+    const { ProviderFactory } = await import("../dist/index.js");
+    const pref = ProviderFactory.getAllDescriptors()
+      .filter(
+        (d: { autoSelectPreference?: number }) =>
+          d.autoSelectPreference !== undefined,
+      )
+      .sort(
+        (
+          a: { autoSelectPreference?: number },
+          b: { autoSelectPreference?: number },
+        ) => (a.autoSelectPreference ?? 0) - (b.autoSelectPreference ?? 0),
+      )
+      .map((d: { name: string }) => d.name);
+    // getBestHealthyProvider's default parameter derives from this data;
+    // local/cheap runtimes deliberately outrank cloud providers there.
+    assertEqual(
+      pref.join(","),
+      "litellm,ollama,openai,anthropic,vertex,google-ai,bedrock,azure",
+      "auto-select preference order",
+    );
+  });
 });

@@ -20,6 +20,7 @@ import type {
 } from "../types/index.js";
 import { DEFAULT_OLLAMA_MODEL } from "../providers/ollama/constants.js";
 import { ProviderFactory } from "../factories/providerFactory.js";
+import { PROVIDER_DESCRIPTORS } from "../factories/providerDescriptors.js";
 
 export class ProviderHealthChecker {
   private static healthCache = new Map<
@@ -1907,16 +1908,16 @@ export class ProviderHealthChecker {
    * Uses fast, cached health checks to avoid blocking initialization
    */
   static async getBestHealthyProvider(
-    preferredProviders: string[] = [
-      "litellm",
-      "ollama",
-      "openai",
-      "anthropic",
-      "vertex",
-      "google-ai",
-      "bedrock",
-      "azure",
-    ],
+    // Auto-select preference comes from the descriptors too — a SEPARATE
+    // ordering from the sweep (local/cheap runtimes first), carried by
+    // autoSelectPreference rather than defaultHealthSweepPriority.
+    preferredProviders: string[] = PROVIDER_DESCRIPTORS.filter(
+      (d) => d.autoSelectPreference !== undefined,
+    )
+      .sort(
+        (a, b) => (a.autoSelectPreference ?? 0) - (b.autoSelectPreference ?? 0),
+      )
+      .map((d) => d.name as string),
   ): Promise<string | null> {
     const healthStatuses = await this.checkAllProvidersHealth({
       includeConnectivityTest: false, // Quick config check only
@@ -1961,16 +1962,18 @@ export class ProviderHealthChecker {
   static async checkAllProvidersHealth(
     options: ProviderHealthCheckOptions = {},
   ): Promise<ProviderHealthStatusOptions[]> {
-    const providers: AIProviderName[] = [
-      AIProviderName.VERTEX,
-      AIProviderName.GOOGLE_AI,
-      AIProviderName.ANTHROPIC,
-      AIProviderName.OPENAI,
-      AIProviderName.BEDROCK,
-      AIProviderName.AZURE,
-      AIProviderName.LITELLM,
-      AIProviderName.OLLAMA,
-    ];
+    // Sweep membership and ORDER come from the descriptors. Order is
+    // behaviour: auto-select takes the first healthy provider, so the
+    // priority field, not the descriptor array's layout, decides preference.
+    const providers: AIProviderName[] = PROVIDER_DESCRIPTORS.filter(
+      (d) => d.defaultHealthSweepPriority !== undefined,
+    )
+      .sort(
+        (a, b) =>
+          (a.defaultHealthSweepPriority ?? 0) -
+          (b.defaultHealthSweepPriority ?? 0),
+      )
+      .map((d) => d.name);
 
     const healthChecks = providers.map((provider) =>
       this.checkProviderHealth(provider, options),

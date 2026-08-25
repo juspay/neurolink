@@ -6,6 +6,7 @@
 import { logger } from "./logger.js";
 import { SYSTEM_LIMITS } from "../core/constants.js";
 import type { RetryOptions } from "../types/index.js";
+import { NetworkError } from "../types/index.js";
 
 /**
  * Calculate exponential backoff delay with jitter
@@ -38,29 +39,6 @@ export function calculateBackoffDelay(
 }
 
 /**
- * Error types that are typically retryable
- */
-export class NetworkError extends Error {
-  constructor(
-    message: string,
-    public readonly cause?: Error,
-  ) {
-    super(message);
-    this.name = "NetworkError";
-  }
-}
-
-export class TemporaryError extends Error {
-  constructor(
-    message: string,
-    public readonly cause?: Error,
-  ) {
-    super(message);
-    this.name = "TemporaryError";
-  }
-}
-
-/**
  * Default retry configuration
  */
 export const DEFAULT_RETRY_CONFIG: Required<RetryOptions> = {
@@ -69,8 +47,11 @@ export const DEFAULT_RETRY_CONFIG: Required<RetryOptions> = {
   maxDelay: SYSTEM_LIMITS.DEFAULT_MAX_DELAY,
   backoffMultiplier: SYSTEM_LIMITS.DEFAULT_BACKOFF_MULTIPLIER,
   retryCondition: (error: unknown) => {
-    // Retry on network errors, timeouts, and specific HTTP errors
-    if (error instanceof NetworkError || error instanceof TemporaryError) {
+    // Retry on network errors, timeouts, and specific HTTP errors. The
+    // instanceof now matches the canonical types/errors.js NetworkError —
+    // the local shadow class this file used to declare matched nothing the
+    // rest of the SDK ever threw.
+    if (error instanceof NetworkError) {
       return true;
     }
 
