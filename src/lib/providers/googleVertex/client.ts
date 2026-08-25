@@ -77,6 +77,7 @@ import {
   processUnifiedFilesArray,
 } from "../../utils/messageBuilder.js";
 import { logger } from "../../utils/logger.js";
+import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import {
   GEMINI_ELISION_NOTE,
   planGeminiLoopReclaim,
@@ -2408,7 +2409,7 @@ export class GoogleVertexProvider extends BaseProvider {
       // rethrow the very error the branch below has already decided to absorb —
       // which is what turned both turn-clock cases into failures instead of
       // clean deadline exits.
-      await pump.catch(() => {});
+      await drainDetachedPump(pump, "GoogleVertex");
       if (turnFailure !== undefined) {
         // A mid-drain abort surfaces as an AbortError. End gracefully into the
         // terminal block instead of re-throwing — a re-throw would route the
@@ -3421,7 +3422,7 @@ export class GoogleVertexProvider extends BaseProvider {
       try {
         engineResult = await resultPromise;
       } catch (error) {
-        await pump.catch(() => {});
+        await drainDetachedPump(pump, "GoogleVertex");
         // A mid-drain abort surfaces as an AbortError. End gracefully into the
         // terminal block instead of re-throwing — a re-throw would route the
         // caller's abort into a second unbounded fallback stream().
@@ -4837,7 +4838,7 @@ export class GoogleVertexProvider extends BaseProvider {
         // Drained tolerantly and exactly once: when a turn ends by abort the
         // channel rejects too, and re-awaiting a settled rejection would rethrow
         // the error the branch below has already decided to absorb.
-        await pump.catch(() => {});
+        await drainDetachedPump(pump, "GoogleVertex");
         if (turnFailure !== undefined) {
           if (internalAbort.signal.aborted || isAbortError(turnFailure)) {
             wasAborted = true;
@@ -6072,7 +6073,7 @@ export class GoogleVertexProvider extends BaseProvider {
     } catch (error) {
       turnFailure = error;
     }
-    await pump.catch(() => {});
+    await drainDetachedPump(pump, "GoogleVertex");
     if (turnFailure !== undefined) {
       if (internalAbort.signal.aborted || isAbortError(turnFailure)) {
         wasAborted = true;
