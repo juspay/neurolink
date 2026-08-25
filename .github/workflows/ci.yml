@@ -823,43 +823,93 @@ jobs:
           # This job is non-blocking on purpose. These are measured once, not
           # proven stable, and `security-suites` is a required check that
           # blocks every open pull request when it breaks.
+          # name@seconds, longest first. The weights are measured wall-clock
+          # from run 32808851519, and they affect BALANCE ONLY — never which
+          # suites run. A stale weight makes one shard slower; it can never
+          # cause a suite to be skipped or run twice. An entry with no @weight
+          # still runs, at an assumed 30s.
+          #
+          # Round-robin by list position was the previous scheme. It balances
+          # the COUNT of suites, which is the wrong quantity: the measured
+          # spread is 1s to 367s, so equal counts gave shards of 33s and 485s.
           SUITES="
-            test:openai-compat-catalog
-            test:handler-registry
-            test:tts:unit
-            test:stt:unit
-            test:avatar:unit
-            test:music:unit
-            test:video:unit
-            test:realtime:unit
-            test:adjust-body-after-400
-            test:anthropic-streaming-retry
-            test:auth
-            test:autoresearch
-            test:codex
-            test:credentials
-            test:dynamic
-            test:local-usage
-            test:loop-engine
-            test:mcp
-            test:model-manifests
-            test:openai-compat-streaming-retry
-            test:provider-descriptors
-            test:provider-fallback
-            test:provider-fallback-latency
-            test:servers
-            test:tool-reliability
-            test:tool-resolution
-            test:vertex-claude-characterization
-            test:vertex-loop-characterization
+            test:tts:unit@367
+            test:vertex-loop-characterization@96
+            test:tool-reliability@51
+            test:auth@45
+            test:vertex-claude-characterization@45
+            test:openai-compat-catalog@24
+            test:openai-compat-streaming-retry@19
+            test:servers@16
+            test:anthropic-streaming-retry@15
+            test:provider-descriptors@14
+            test:adjust-body-after-400@12
+            test:video:unit@12
+            test:dynamic@10
+            test:local-usage@8
+            test:provider-fallback-latency@5
+            test:codex@4
+            test:credentials@4
+            test:music:unit@4
+            test:stt:unit@4
+            test:avatar:unit@3
+            test:mcp@3
+            test:provider-fallback@3
+            test:realtime:unit@3
+            test:tool-resolution@3
+            test:autoresearch@2
+            test:loop-engine@2
+            test:handler-registry@1
+            test:model-manifests@1
           "
-          # Shard by position in the list above. The list stays single-sourced;
-          # only which entries this runner executes changes.
+          # Normalise every entry to name@weight (missing or non-numeric
+          # weights become 30), then sort by weight descending. Greedy
+          # longest-processing-time needs its input longest-first, and sorting
+          # here means that is a property of the code rather than of how
+          # carefully someone maintained the list above. The list is written in
+          # descending order for readability, but nothing depends on it being
+          # so — add an entry anywhere.
+          NORMALISED=""
+          for entry in $SUITES; do
+            case "$entry" in
+              *@*) w="${entry##*@}"
+                   case "$w" in ''|*[!0-9]*) entry="${entry%@*}@30" ;; esac ;;
+              *)   entry="$entry@30" ;;
+            esac
+            NORMALISED="$NORMALISED $entry"
+          done
+          SORTED=$(printf '%s\n' $NORMALISED | sort -t@ -k2,2rn)
+
+          # Give each suite to whichever shard is currently least loaded. Every
+          # runner sorts the same input the same way, so all four independently
+          # compute an identical assignment without coordinating. The list
+          # stays single-sourced; only which entries this runner executes
+          # changes.
           FAILED=""
-          i=0
-          for s in $SUITES; do
-            i=$((i + 1))
-            if [ $(( (i - 1) % 4 + 1 )) -ne ${{ matrix.shard }} ]; then
+          L1=0; L2=0; L3=0; L4=0
+          for entry in $SORTED; do
+            s="${entry%@*}"
+            # 10# forces base 10. Bash reads a leading zero as octal, so a
+            # weight of 08 aborts the step outright ("value too great for
+            # base") and 010 silently becomes 8 — a wrong weight is a worse
+            # failure than a loud one, because it just quietly unbalances the
+            # shards. The numeric guard above accepts both forms as digits.
+            w="10#${entry##*@}"
+
+            # if/fi rather than `[ ] && { }`: GitHub runs these steps with
+            # `bash -e`, where a failing test in an AND-OR list can abort the
+            # step. A comparison that is simply false is not an error here.
+            target=1; best=$L1
+            if [ "$L2" -lt "$best" ]; then target=2; best=$L2; fi
+            if [ "$L3" -lt "$best" ]; then target=3; best=$L3; fi
+            if [ "$L4" -lt "$best" ]; then target=4; best=$L4; fi
+            case "$target" in
+              1) L1=$((L1 + w)) ;;
+              2) L2=$((L2 + w)) ;;
+              3) L3=$((L3 + w)) ;;
+              4) L4=$((L4 + w)) ;;
+            esac
+            if [ "$target" -ne ${{ matrix.shard }} ]; then
               continue
             fi
             echo "::group::$s"
