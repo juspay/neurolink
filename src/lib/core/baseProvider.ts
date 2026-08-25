@@ -2,11 +2,11 @@ import { context, SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import { directAgentTools } from "../agent/directTools.js";
 import type { AIProviderName } from "../constants/enums.js";
 import { defaultProviderFor } from "../factories/mediaHandlerCatalog.js";
-import { isImageGenerationModel } from "./constants.js";
 import type { EvaluationData } from "../index.js";
 import { MiddlewareFactory } from "../middleware/factory.js";
 import { modelSupports } from "../models/modelRegistry.js";
 import type { NeuroLink } from "../neurolink.js";
+import { resolveRequestKind } from "./resolveRequestKind.js";
 import { ATTR, tracers } from "../telemetry/index.js";
 import type {
   JsonValue,
@@ -409,16 +409,13 @@ export abstract class BaseProvider implements AIProvider {
 
     // CRITICAL: Image generation models don't support real streaming
     // Force fake streaming for image models to ensure image output is yielded.
-    // Skip this path when the caller explicitly requests non-image output (e.g.
-    // JSON analysis) so dual-mode models like gemini-3.1-flash-image-preview
-    // can still perform text/structured generation.
-    const isImageModel = isImageGenerationModel(this.modelName);
-    const requestsNonImageOutput =
-      options.output?.format === "json" ||
-      options.output?.format === "structured" ||
-      options.output?.format === "text";
+    // resolveRequestKind() skips this path when the caller explicitly requests
+    // non-image output (e.g. JSON analysis) so dual-mode models like
+    // gemini-3.1-flash-image-preview can still perform text/structured
+    // generation — see its doc comment for the full precedence table.
+    const requestKind = resolveRequestKind(options, this.modelName);
 
-    if (isImageModel && !requestsNonImageOutput) {
+    if (requestKind === "image") {
       logger.info(`Image model detected, forcing fake streaming`, {
         provider: this.providerName,
         model: this.modelName,
@@ -1492,16 +1489,15 @@ export abstract class BaseProvider implements AIProvider {
     otelSpanState: { ended: boolean },
   ): Promise<EnhancedGenerateResult | null> {
     try {
-      if (options.output?.mode === "video") {
+      // Single source of truth for "what kind of request is this" — see
+      // resolveRequestKind's doc comment for the full precedence table.
+      const requestKind = resolveRequestKind(options, this.modelName);
+
+      if (requestKind === "video") {
         return await this.handleVideoGeneration(options, startTime);
       }
 
-      const isImageModel = isImageGenerationModel(this.modelName);
-      const requestsNonImageOutput =
-        options.output?.format === "json" ||
-        options.output?.format === "structured" ||
-        options.output?.format === "text";
-      if (isImageModel && !requestsNonImageOutput) {
+      if (requestKind === "image") {
         logger.info(
           `Image generation model detected, routing to executeImageGeneration`,
           {
@@ -1514,7 +1510,7 @@ export abstract class BaseProvider implements AIProvider {
         return await this.enhanceResult(imageResult, options, startTime);
       }
 
-      if (options.tts?.enabled && !options.tts?.useAiResponse) {
+      if (requestKind === "tts-direct") {
         return this.handleDirectTTSSynthesis(options, startTime);
       }
 
@@ -3009,13 +3005,12 @@ export abstract class BaseProvider implements AIProvider {
     const videoTimeout = options.timeout ?? 600_000; // 10 min default
     const videoResult = await this.executeWithTimeout(
       () =>
-        VideoProcessor.generate(
-          requestedProvider,
-          imageBuffer,
+        VideoProcessor.generate(requestedProvider, {
+          ...(options.output?.video ?? {}),
+          image: imageBuffer,
           prompt,
-          options.output?.video ?? {},
-          options.region,
-        ),
+          region: options.region,
+        }),
       { timeout: videoTimeout, operationType: "generate" },
     );
 

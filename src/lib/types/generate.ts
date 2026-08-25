@@ -906,22 +906,12 @@ export type GenerateStopReason =
   | "provider-error";
 
 /**
- * Generate function result type - Primary output format
- * Future-ready for multi-modal outputs while maintaining text focus
+ * Media generation/processing outputs shared by GenerateResult and
+ * TextGenerationResult. Extracted so both result types intersect (&) this
+ * single definition instead of each declaring its own drifting copy of the
+ * same audio/video/avatar/music/ppt/image/transcription fields.
  */
-export type GenerateResult = {
-  content: string; // Primary output
-  /** Knowledge-grounding diagnostics for this turn (present only when grounding ran). */
-  knowledge?: KnowledgeGroundingMetadata;
-  /**
-   * Parsed structured object when a `schema` was requested. Populated from
-   * AI-SDK experimental_output, or from text-mode coercion (balanced-scan +
-   * jsonrepair). Prefer this over JSON.parse(content) — it never requires the
-   * caller to re-parse hand-escaped model text.
-   */
-  structuredData?: unknown;
-  outputs?: { text: string }; // Future extensible for multi-modal
-
+export type MediaGenerationOutputs = {
   /**
    * Text-to-Speech audio result
    *
@@ -1015,7 +1005,28 @@ export type GenerateResult = {
    * ```
    */
   ppt?: PPTGenerationResult;
-  imageOutput?: { base64: string } | null; // Standard format for image generation
+  /** Standard format for image generation */
+  imageOutput?: { base64: string } | null;
+  /** STT transcription result (present when stt.enabled is true and audio input was provided) */
+  transcription?: STTResult;
+};
+
+/**
+ * Generate function result type - Primary output format
+ * Future-ready for multi-modal outputs while maintaining text focus
+ */
+export type GenerateResult = {
+  content: string; // Primary output
+  /** Knowledge-grounding diagnostics for this turn (present only when grounding ran). */
+  knowledge?: KnowledgeGroundingMetadata;
+  /**
+   * Parsed structured object when a `schema` was requested. Populated from
+   * AI-SDK experimental_output, or from text-mode coercion (balanced-scan +
+   * jsonrepair). Prefer this over JSON.parse(content) — it never requires the
+   * caller to re-parse hand-escaped model text.
+   */
+  structuredData?: unknown;
+  outputs?: { text: string }; // Future extensible for multi-modal
 
   // Provider information
   provider?: string;
@@ -1135,9 +1146,6 @@ export type GenerateResult = {
   /** Token count for reasoning content */
   reasoningTokens?: number;
 
-  /** STT transcription result (present when stt.enabled is true and audio input was provided) */
-  transcription?: STTResult;
-
   // NL-007: Retry metadata for observability
   retries?: {
     count: number;
@@ -1155,7 +1163,7 @@ export type GenerateResult = {
    * absolute `requestsRemaining` / `tokensRemaining`.
    */
   limits?: ClaudeLimitSnapshot;
-};
+} & MediaGenerationOutputs;
 
 /**
  * Unified options for both generation and streaming
@@ -1654,21 +1662,6 @@ export type TextGenerationResult = {
   // Analytics and evaluation data
   analytics?: AnalyticsData;
   evaluation?: EvaluationData;
-  audio?: TTSResult;
-  /** Outcome of TTS synthesis, including the failure reason. */
-  ttsMetadata?: TTSMetadata;
-  /** STT transcription result (present when stt input was processed) */
-  transcription?: STTResult;
-  /** Video generation result */
-  video?: VideoGenerationResult;
-  /** Avatar (talking-head) generation result */
-  avatar?: AvatarResult;
-  /** Music generation result */
-  music?: MusicResult;
-  /** PowerPoint generation result */
-  ppt?: PPTGenerationResult;
-  /** Image generation output */
-  imageOutput?: { base64: string } | null;
   /** Gemini 3 thought signature for reasoning continuity across turns */
   thoughtSignature?: string;
   /** Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought parts, DeepSeek/NIM reasoning_content) */
@@ -1680,7 +1673,7 @@ export type TextGenerationResult = {
     count: number;
     errors: Array<{ code: string; message: string }>;
   };
-};
+} & MediaGenerationOutputs;
 
 /**
  * Enhanced result type with optional analytics/evaluation

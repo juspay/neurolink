@@ -8,7 +8,7 @@
 
 > **FactoryEnhancedProvider** = [`EnhancedProvider`](EnhancedProvider.md) & `object`
 
-Defined in: [types/generate.ts:1183](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1183)
+Defined in: [types/generate.ts:1191](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1191)
 
 Factory-enhanced provider type
 Supports domain configuration and streaming optimizations

@@ -8,7 +8,7 @@
 
 > **VideoHandler** = `object`
 
-Defined in: [types/video.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L52)
+Defined in: [types/video.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L66)
 
 Handler contract for video generation providers.
 
@@ -26,7 +26,7 @@ total-deadline for image-to-video predictLongRunning APIs is
 
 > `readonly` `optional` **maxDurationSeconds?**: `number`
 
-Defined in: [types/video.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L89)
+Defined in: [types/video.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L103)
 
 Maximum video duration in seconds supported by this provider.
 
@@ -36,7 +36,7 @@ Maximum video duration in seconds supported by this provider.
 
 > `readonly` `optional` **supportedAspectRatios?**: readonly (`"9:16"` \| `"16:9"` \| `"1:1"` \| `"4:3"` \| `"3:4"`)[]
 
-Defined in: [types/video.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L92)
+Defined in: [types/video.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L106)
 
 Supported aspect ratios.
 
@@ -46,7 +46,7 @@ Supported aspect ratios.
 
 > `readonly` `optional` **supportedResolutions?**: readonly (`"480p"` \| `"720p"` \| `"1080p"` \| `"4k"`)[]
 
-Defined in: [types/video.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L101)
+Defined in: [types/video.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L115)
 
 Supported output resolutions.
 
@@ -56,7 +56,7 @@ Supported output resolutions.
 
 > **generate**(`image`, `prompt`, `options`, `region?`): `Promise`\<[`VideoGenerationResult`](VideoGenerationResult.md)\>
 
-Defined in: [types/video.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L62)
+Defined in: [types/video.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L76)
 
 Generate a single video clip from an input image and prompt.
 
@@ -98,7 +98,7 @@ Buffer + metadata
 
 > `optional` **generateTransition**(`firstFrame`, `lastFrame`, `prompt`, `options?`, `region?`): `Promise`\<`Buffer`\<`ArrayBufferLike`\>\>
 
-Defined in: [types/video.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L77)
+Defined in: [types/video.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L91)
 
 Optional — generate a transition clip between two frames (Director Mode).
 
@@ -139,7 +139,7 @@ Providers without first-and-last-frame interpolation omit this method;
 
 > **isConfigured**(): `boolean`
 
-Defined in: [types/video.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L86)
+Defined in: [types/video.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L100)
 
 Validate the provider is configured (auth, base URL, etc.).
 
