@@ -2783,104 +2783,181 @@ async function convertMultimodalToProviderFormat(
       }),
     );
   } else {
-    // Provider doesn't support native PDF - convert PDF pages to images
-    // This enables PDF processing for providers like Mistral, Ollama that support images but not PDFs
-    logger.info(
-      `[PDF→Image] Provider ${provider} doesn't support native PDF. Converting ${pdfFiles.length} PDF(s) to images...`,
+    // No native PDF support: inline the PDF's text layer, clearly labeled per
+    // file. Image-only conversion sent content a text-only backend can never
+    // read — observed live as the model flatly claiming no file was attached
+    // — and for proxy providers (litellm/openrouter) supportsVision() is a
+    // pass-through, so vision cannot be trusted to carry the content either.
+    // Text is therefore always included (primary for text-only backends,
+    // extra grounding otherwise); page images are appended below only when
+    // the provider may actually see them. A PDF with no text layer (pure
+    // scan) gets an explicit note rather than silence, so the model
+    // acknowledges an unreadable attachment instead of denying it exists.
+    const providerCanSeeImages = ProviderImageAdapter.supportsVision(
+      provider,
+      model,
     );
-
     for (const pdf of pdfFiles) {
+      const name = safeBasename(pdf.filename);
       try {
-        const effectiveMaxPages = pdf.maxPages ?? PDF_LIMITS.DEFAULT_MAX_PAGES;
-        const conversionResult = await PDFImageConverter.convertToImages(
-          pdf.buffer,
-          {
-            // #297: this is the only PDF→image call the product actually makes,
-            // and it used to hardcode scale 2.0 — silently overriding the
-            // lowered PDF_LIMITS.DEFAULT_SCALE and keeping the memory cost the
-            // issue reports (a 100-page render at 2.0 is ~776MB; 1.5 is ~44%
-            // fewer pixels per page). Callers can raise it back per request.
-            scale: pdf.scale ?? PDF_LIMITS.DEFAULT_SCALE,
-            // Page ceiling guards token overflow; also now caller-adjustable
-            // rather than a constant nothing could reach.
-            maxPages: effectiveMaxPages,
-            ...(pdf.password ? { password: pdf.password } : {}), // #258
-            ...(pdf.maxCanvasPixels
-              ? { maxCanvasPixels: pdf.maxCanvasPixels }
-              : {}), // #260
-          },
-        );
-
-        // The renderer stops at maxPages, so a longer document is silently
-        // truncated — say so rather than letting the model answer from a
-        // partial document as though it had the whole thing.
-        //
-        // Keyed on the cap being reached, not on pdf.pageCount: that field is
-        // null whenever `input.content` omits `metadata.pages`, which is the
-        // common case, so a page-count comparison would simply never fire
-        // there. Reaching the cap is also unambiguous — a short count caused by
-        // per-page render failures (#294 isolates those into `errors`) would
-        // otherwise be misreported as a maxPages truncation.
-        if (conversionResult.pageCount >= effectiveMaxPages) {
-          logger.warn(
-            `[PDF→Image] ${safeBasename(pdf.filename)} hit the ${effectiveMaxPages}-page ` +
-              `conversion limit. Any pages beyond that were not sent — the model may be ` +
-              `answering from a partial document. Raise pdfOptions.maxPages or split the file.`,
-          );
-        }
-        if (conversionResult.errors && conversionResult.errors.length > 0) {
-          logger.warn(
-            `[PDF→Image] ${safeBasename(pdf.filename)}: ${conversionResult.errors.length} page(s) ` +
-              `failed to render and were omitted (page ${conversionResult.errors.map((e) => e.page).join(", ")}).`,
-          );
-        }
-
-        logger.info(
-          `[PDF→Image] ✅ Converted ${pdf.filename}: ${conversionResult.pageCount} page(s) → images`,
-        );
-
-        // Add each page as an ImagePart (raw base64, not data: URI — see SSRF note above)
-        conversionResult.images.forEach((base64Image, pageIndex) => {
-          content.push({
-            type: "image" as const,
-            image: base64Image,
-            mimeType: "image/png",
-          } as ImagePart);
-
-          logger.debug(
-            `[PDF→Image] Added page ${pageIndex + 1}/${conversionResult.pageCount} of ${pdf.filename}`,
-          );
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({
+          data: new Uint8Array(pdf.buffer),
+          ...(pdf.password ? { password: pdf.password } : {}), // #258
         });
-
-        // Log any warnings from conversion
-        if (conversionResult.warnings) {
-          conversionResult.warnings.forEach((warning) => {
-            logger.warn(`[PDF→Image] ${warning}`);
-          });
+        try {
+          const extracted = await parser.getText();
+          const pdfText = (extracted?.text ?? "").trim();
+          if (pdfText.length > 0) {
+            content.push({
+              type: "text" as const,
+              text: `\n[Attached PDF: ${name}]\n${pdfText}\n[End of PDF: ${name}]`,
+            });
+            logger.info(
+              `[PDF→Text] ✅ Extracted text for non-vision provider ${provider}: ${name} (${pdfText.length} chars)`,
+            );
+          } else {
+            content.push({
+              type: "text" as const,
+              text: `\n[Attached PDF: ${name} — no extractable text layer (likely a scanned document); its contents are unavailable to this text-only model.]`,
+            });
+            logger.warn(
+              `[PDF→Text] ${name} has no text layer; provider ${provider} cannot see images — content unavailable`,
+            );
+          }
+        } finally {
+          await parser.destroy?.();
         }
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : String(error);
-        logger.error(
-          `[PDF→Image] ❌ Failed to convert ${pdf.filename}: ${errorMessage}`,
-        );
-
-        // #258: password errors are already actionable typed errors — re-throw
-        // them unwrapped so the "supply a password" guidance isn't buried.
-        const code = (error as { code?: string })?.code;
-        if (
-          code === "PDF_PASSWORD_REQUIRED" ||
-          code === "PDF_INCORRECT_PASSWORD"
-        ) {
-          throw error;
+        logger.error(`[PDF→Text] ❌ Failed to parse ${name}: ${errorMessage}`);
+        // #258: password errors are actionable and must surface. pdf-parse
+        // raises pdf.js's PasswordException (not our typed PDF_PASSWORD_*
+        // codes), so detect by name/message shape. When the provider can see
+        // images, defer the throw to the image-conversion path below — it
+        // raises the canonical typed error with the "supply the password"
+        // guidance callers and tests rely on.
+        const isPasswordError =
+          (error as { name?: string })?.name === "PasswordException" ||
+          /password/i.test(errorMessage);
+        if (isPasswordError) {
+          if (!providerCanSeeImages) {
+            throw error;
+          }
+          // Image branch will produce the canonical typed password error.
+          continue;
         }
+        content.push({
+          type: "text" as const,
+          text: `\n[Attached PDF: ${name} — could not be parsed (${errorMessage}); its contents are unavailable.]`,
+        });
+      }
+    }
+    // Page images in addition to the text, for providers that may actually
+    // see them (vision models, and proxies whose upstream might).
+    if (providerCanSeeImages) {
+      logger.info(
+        `[PDF→Image] Provider ${provider} doesn't support native PDF. Converting ${pdfFiles.length} PDF(s) to images...`,
+      );
 
-        // Re-throw so the user knows PDF processing failed
-        throw new Error(
-          `PDF to image conversion failed for ${pdf.filename}: ${errorMessage}. ` +
-            `Provider ${provider} doesn't support native PDFs and image conversion failed.`,
-          { cause: error },
-        );
+      for (const pdf of pdfFiles) {
+        try {
+          const effectiveMaxPages =
+            pdf.maxPages ?? PDF_LIMITS.DEFAULT_MAX_PAGES;
+          const conversionResult = await PDFImageConverter.convertToImages(
+            pdf.buffer,
+            {
+              // #297: this is the only PDF→image call the product actually makes,
+              // and it used to hardcode scale 2.0 — silently overriding the
+              // lowered PDF_LIMITS.DEFAULT_SCALE and keeping the memory cost the
+              // issue reports (a 100-page render at 2.0 is ~776MB; 1.5 is ~44%
+              // fewer pixels per page). Callers can raise it back per request.
+              scale: pdf.scale ?? PDF_LIMITS.DEFAULT_SCALE,
+              // Page ceiling guards token overflow; also now caller-adjustable
+              // rather than a constant nothing could reach.
+              maxPages: effectiveMaxPages,
+              ...(pdf.password ? { password: pdf.password } : {}), // #258
+              ...(pdf.maxCanvasPixels
+                ? { maxCanvasPixels: pdf.maxCanvasPixels }
+                : {}), // #260
+            },
+          );
+
+          // The renderer stops at maxPages, so a longer document is silently
+          // truncated — say so rather than letting the model answer from a
+          // partial document as though it had the whole thing.
+          //
+          // Keyed on the cap being reached, not on pdf.pageCount: that field is
+          // null whenever `input.content` omits `metadata.pages`, which is the
+          // common case, so a page-count comparison would simply never fire
+          // there. Reaching the cap is also unambiguous — a short count caused by
+          // per-page render failures (#294 isolates those into `errors`) would
+          // otherwise be misreported as a maxPages truncation.
+          if (conversionResult.pageCount >= effectiveMaxPages) {
+            logger.warn(
+              `[PDF→Image] ${safeBasename(pdf.filename)} hit the ${effectiveMaxPages}-page ` +
+                `conversion limit. Any pages beyond that were not sent — the model may be ` +
+                `answering from a partial document. Raise pdfOptions.maxPages or split the file.`,
+            );
+          }
+          if (conversionResult.errors && conversionResult.errors.length > 0) {
+            logger.warn(
+              `[PDF→Image] ${safeBasename(pdf.filename)}: ${conversionResult.errors.length} page(s) ` +
+                `failed to render and were omitted (page ${conversionResult.errors.map((e) => e.page).join(", ")}).`,
+            );
+          }
+
+          logger.info(
+            `[PDF→Image] ✅ Converted ${pdf.filename}: ${conversionResult.pageCount} page(s) → images`,
+          );
+
+          // Add each page as an ImagePart (raw base64, not data: URI — see SSRF note above)
+          conversionResult.images.forEach((base64Image, pageIndex) => {
+            content.push({
+              type: "image" as const,
+              image: base64Image,
+              mimeType: "image/png",
+            } as ImagePart);
+
+            logger.debug(
+              `[PDF→Image] Added page ${pageIndex + 1}/${conversionResult.pageCount} of ${pdf.filename}`,
+            );
+          });
+
+          // Log any warnings from conversion
+          if (conversionResult.warnings) {
+            conversionResult.warnings.forEach((warning) => {
+              logger.warn(`[PDF→Image] ${warning}`);
+            });
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
+          logger.error(
+            `[PDF→Image] ❌ Failed to convert ${pdf.filename}: ${errorMessage}`,
+          );
+
+          // #258: password errors are already actionable typed errors — re-throw
+          // them unwrapped so the "supply a password" guidance isn't buried.
+          const code = (error as { code?: string })?.code;
+          if (
+            code === "PDF_PASSWORD_REQUIRED" ||
+            code === "PDF_INCORRECT_PASSWORD"
+          ) {
+            throw error;
+          }
+
+          // Re-throw so the user knows PDF processing failed. The inlined
+          // text layer above does NOT soften this: conversion failures
+          // include caller mistakes (e.g. an invalid maxCanvasPixels, #260)
+          // that must surface rather than be silently downgraded.
+          throw new Error(
+            `PDF to image conversion failed for ${pdf.filename}: ${errorMessage}. ` +
+              `Provider ${provider} doesn't support native PDFs and image conversion failed.`,
+            { cause: error },
+          );
+        }
       }
     }
   }

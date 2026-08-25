@@ -657,6 +657,23 @@ export class NeuroLink {
   /** Artifact store for externalized MCP tool outputs (set when strategy=externalize). */
   private mcpArtifactStore?: ArtifactStore;
   private _disableToolCacheForCurrentRequest = false;
+  /**
+   * (toolName + args) keys already served during the CURRENT request.
+   * A repeat occurrence within one request bypasses the tool-result cache:
+   * when the model deliberately re-calls a tool with identical args in the
+   * same turn (a counter, a poll, "check status again"), it wants fresh
+   * state — serving the memoized first result silently freezes stateful
+   * tools (observed live: a 5-round counter loop executed once). Cross-
+   * request dedup — BZ-664's actual goal — is untouched: the first
+   * occurrence in a request may still be served from cache. Request-scoped
+   * like _disableToolCacheForCurrentRequest above (assigned a fresh Set at
+   * request start so the router's save/restore-by-reference pattern works).
+   */
+  private _toolCacheKeysServedThisRequest = new Set<string>();
+  /** True only while a generate()/stream() turn is executing — the
+   *  repeat-call cache bypass applies inside a turn; direct executeTool
+   *  calls keep full BZ-664 cache semantics. */
+  private _generationTurnActive = false;
   private mcpEnhancementsConfig?: MCPEnhancementsConfig;
 
   // Enhanced error handling support
@@ -4728,6 +4745,8 @@ Current user's request: ${currentInput}`;
       throw error;
     } finally {
       this._disableToolCacheForCurrentRequest = false;
+      this._toolCacheKeysServedThisRequest = new Set();
+      this._generationTurnActive = false;
       generateSpan.end();
     }
   }
@@ -4759,6 +4778,8 @@ Current user's request: ${currentInput}`;
 
     options.model = resolveModel(options.model, this.modelAliasConfig);
     this._disableToolCacheForCurrentRequest = !!options.disableToolCache;
+    this._toolCacheKeysServedThisRequest = new Set();
+    this._generationTurnActive = true;
 
     generateSpan.setAttribute(
       "neurolink.provider",
@@ -9060,6 +9081,8 @@ Current user's request: ${currentInput}`;
     const streamIsRoot = !trace.getSpan(context.active());
     const spanStartTime = Date.now();
     this._disableToolCacheForCurrentRequest = !!options.disableToolCache;
+    this._toolCacheKeysServedThisRequest = new Set();
+    this._generationTurnActive = true;
 
     try {
       options.model = resolveModel(options.model, this.modelAliasConfig);
@@ -9876,6 +9899,8 @@ Current user's request: ${currentInput}`;
         throw error;
       } finally {
         self._disableToolCacheForCurrentRequest = false;
+        self._toolCacheKeysServedThisRequest = new Set();
+        self._generationTurnActive = false;
         params.streamSpan.setAttribute(
           "neurolink.response_time_ms",
           Date.now() - params.spanStartTime,
@@ -10267,6 +10292,8 @@ Current user's request: ${currentInput}`;
           }
 
           self._disableToolCacheForCurrentRequest = false;
+          self._toolCacheKeysServedThisRequest = new Set();
+          self._generationTurnActive = false;
           cleanupListeners();
 
           streamSpan.setAttribute(
@@ -13702,6 +13729,19 @@ Current user's request: ${currentInput}`;
    * - Annotations: skip cache for destructive tools, retry safe tools on failure
    * - Middleware: apply global middleware chain before execution
    */
+  private toolCacheRepeatKey(
+    toolName: string,
+    params: unknown,
+  ): string | undefined {
+    try {
+      return `${toolName}:${JSON.stringify(params) ?? ""}`;
+    } catch {
+      // Unserializable args (circular refs) — no repeat tracking; the
+      // ToolResultCache's own keying handles (or rejects) them as before.
+      return undefined;
+    }
+  }
+
   private async executeToolInternal<T = unknown>(
     toolName: string,
     params: unknown,
@@ -13739,12 +13779,25 @@ Current user's request: ${currentInput}`;
             __ctx: options.authContext ?? this.toolExecutionContext,
           }
         : params;
-    if (isCacheEnabled && toolResultCache) {
+    const repeatKey = this._generationTurnActive
+      ? this.toolCacheRepeatKey(toolName, cacheParams)
+      : undefined;
+    const isRepeatCallThisRequest =
+      repeatKey !== undefined &&
+      this._toolCacheKeysServedThisRequest.has(repeatKey);
+    if (repeatKey !== undefined) {
+      this._toolCacheKeysServedThisRequest.add(repeatKey);
+    }
+    if (isCacheEnabled && toolResultCache && !isRepeatCallThisRequest) {
       const cached = toolResultCache.getCachedResult(toolName, cacheParams);
       if (cached !== undefined) {
         logger.debug(`[${functionTag}] Cache HIT for tool: ${toolName}`);
         return cached as T;
       }
+    } else if (isRepeatCallThisRequest) {
+      logger.debug(
+        `[${functionTag}] Repeat call within this request — bypassing tool cache for: ${toolName}`,
+      );
     }
 
     // === MCP ENHANCEMENT: Middleware chain wrapper ===
@@ -15784,7 +15837,22 @@ Current user's request: ${currentInput}`;
           ? { __ctx: this.toolExecutionContext }
           : {}),
       };
-      if (cacheEnabled && this.mcpToolResultCache) {
+      // Same repeat-within-request bypass as executeToolInternal: a model
+      // re-calling the identical tool+args in one turn wants fresh state.
+      const externalRepeatKey = this._generationTurnActive
+        ? this.toolCacheRepeatKey(toolName, cacheKeyArgs)
+        : undefined;
+      const isExternalRepeatThisRequest =
+        externalRepeatKey !== undefined &&
+        this._toolCacheKeysServedThisRequest.has(externalRepeatKey);
+      if (externalRepeatKey !== undefined) {
+        this._toolCacheKeysServedThisRequest.add(externalRepeatKey);
+      }
+      if (
+        cacheEnabled &&
+        this.mcpToolResultCache &&
+        !isExternalRepeatThisRequest
+      ) {
         const cached = this.mcpToolResultCache.getCachedResult(
           toolName,
           cacheKeyArgs,
