@@ -1,6 +1,9 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * Mocked Contract Test Suite for New Providers
@@ -2597,6 +2600,80 @@ async function runVertexSection(): Promise<void> {
     record(
       results,
       `${section}: setup`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── A single failure must be formatted ONCE. handleProviderError is not
+  // idempotent — formatProviderError prepends the provider tag every time it
+  // runs — and one Vertex failure reaches it FIVE times, so before the
+  // already-formatted short-circuit the message came out doubled:
+  //   "[vertex] Google Vertex AI error: [vertex] Google Vertex AI error: ..."
+  // Measured on the real path: provider tags 2 -> 1.
+  //
+  // GOOGLE_APPLICATION_CREDENTIALS must point at a real FILE holding an
+  // unparseable key, and that is the whole reason this case is shaped the way
+  // it is. Setting only GOOGLE_SERVICE_ACCOUNT_KEY to a mock is NOT enough:
+  // google-auth then falls through to Application Default Credentials, and on
+  // a developer machine with a gcloud login that SUCCEEDS — an earlier draft of
+  // this test came back with a real model completion ("Pong!"), i.e. it made a
+  // live API call and asserted nothing. Pointing at a bad key file fails inside
+  // the OpenSSL decoder before any network I/O, so this is hermetic everywhere
+  // and never depends on ambient credentials.
+  //
+  // Counting the TAG rather than matching wording is deliberate: the doubling
+  // is what regresses, and the decode message is OpenSSL's and free to change.
+  // NON-VACUOUS: drop the short-circuit and this reads 2.
+  // ─────────────────────────────────────────────────────────────────────
+  try {
+    const keyDir = mkdtempSync(join(tmpdir(), "neurolink-vertex-"));
+    const keyPath = join(keyDir, "fake-service-account.json");
+    writeFileSync(
+      keyPath,
+      JSON.stringify({
+        type: "service_account",
+        project_id: "mock-project",
+        private_key_id: "mock",
+        private_key:
+          "-----BEGIN PRIVATE KEY-----\nMOCK\n-----END PRIVATE KEY-----\n",
+        client_email: "mock@mock-project.iam.gserviceaccount.com",
+        token_uri: "https://oauth2.googleapis.com/token",
+      }),
+    );
+    setEnv("GOOGLE_APPLICATION_CREDENTIALS", keyPath);
+    setEnv("GOOGLE_VERTEX_PROJECT", "mock-project");
+    setEnv("GOOGLE_VERTEX_LOCATION", "us-central1");
+
+    const { NeuroLink } = await import("../dist/index.js");
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    let tags = -1;
+    let threw = false;
+    try {
+      const r = await nl.stream({
+        provider: "vertex",
+        model: "gemini-2.5-flash",
+        input: { text: "ping" },
+        disableTools: true,
+      });
+      for await (const chunk of r.stream) {
+        void chunk;
+      }
+    } catch (err) {
+      threw = true;
+      const m = err instanceof Error ? err.message : String(err);
+      tags = m.split("[vertex]").length - 1;
+    }
+    record(
+      results,
+      `${section}: a single failure carries exactly one provider tag`,
+      threw && tags === 1,
+      threw ? `saw ${tags} provider tags` : "no error thrown",
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a single failure carries exactly one provider tag`,
       false,
       err instanceof Error ? err.message : String(err),
     );
