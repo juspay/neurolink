@@ -23,6 +23,26 @@
 const STREAM_CANCEL = Symbol.for("neurolink.streamCancel");
 
 /**
+ * Swallow a rejection from a thenable teardown result.
+ *
+ * An unhandled rejection **terminates the process** — a caller doing everything
+ * right still dies, with the stack pointing at library internals it never
+ * called. Teardown runs after the consumer has stopped listening, so there is
+ * nobody left to hand the error to; dropping it is the only correct outcome,
+ * and dropping it deliberately is what keeps it from becoming fatal.
+ */
+function suppressRejection(result: unknown): void {
+  if (
+    result !== null &&
+    typeof result === "object" &&
+    typeof (result as PromiseLike<unknown>).then === "function" &&
+    typeof (result as Promise<unknown>).catch === "function"
+  ) {
+    void (result as Promise<unknown>).catch(() => {});
+  }
+}
+
+/**
  * Register `cancel` as `stream`'s teardown hook and return the same object.
  *
  * Non-enumerable so the property never shows up in spreads, `JSON.stringify`
@@ -65,7 +85,10 @@ export function cancelStream(stream: unknown): void {
     if (typeof hook !== "function") {
       return;
     }
-    (hook as () => void)();
+    // `attachStreamCancel` types the hook as `() => void`, but nothing stops a
+    // caller registering an `async` function — whose rejection would otherwise
+    // be unhandled, and therefore fatal to the process.
+    suppressRejection((hook as () => unknown)());
   } catch {
     // Teardown is best-effort by definition.
   }
@@ -81,18 +104,15 @@ export function cancelStream(stream: unknown): void {
 export function releaseIterator(iterator: {
   return?: (value?: unknown) => unknown;
 }): void {
-  if (typeof iterator.return !== "function") {
-    return;
-  }
   try {
-    const result = iterator.return(undefined);
-    if (
-      result &&
-      typeof (result as Promise<unknown>).catch === "function" &&
-      typeof (result as Promise<unknown>).then === "function"
-    ) {
-      void (result as Promise<unknown>).catch(() => {});
+    // Read the method inside the try, for the same reason `cancelStream` does:
+    // `iterator` is whatever an upstream handed us, and a Proxy trap or a
+    // throwing getter turns a property access into arbitrary user code.
+    const release = iterator.return;
+    if (typeof release !== "function") {
+      return;
     }
+    suppressRejection(release.call(iterator, undefined));
   } catch {
     // Best-effort, as above.
   }
