@@ -65,6 +65,7 @@ import {
 } from "../../types/index.js";
 import { classifyProviderError } from "../../utils/errorClassifier.js";
 import { logger } from "../../utils/logger.js";
+import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import {
   ANTHROPIC_ELISION_NOTE,
   planAnthropicLoopReclaim,
@@ -2261,14 +2262,14 @@ export class AnthropicProvider extends BaseProvider {
       // formatted one the caller received, which is why the existing
       // `loopPromise.catch` guard below does not cover it.
       //
-      // Same shape googleAiStudio/client.ts and googleVertex/client.ts already
-      // use at every one of their pump sites; Anthropic was the only provider
-      // missing it.
+      // Every detached-drain site in the codebase now goes through
+      // drainDetachedPump(), which adopts the rejection and logs the reason at
+      // debug instead of discarding it silently.
       let result;
       try {
         result = await resultPromise;
       } catch (error) {
-        await pump.catch(() => {});
+        await drainDetachedPump(pump, "Anthropic");
         throw error;
       }
       await pump;

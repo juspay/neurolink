@@ -48,6 +48,7 @@ import {
 } from "../../types/index.js";
 import { ERROR_CODES, NeuroLinkError } from "../../utils/errorHandling.js";
 import { logger } from "../../utils/logger.js";
+import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
 import { DEFAULT_TOOL_MAX_RETRIES } from "../../core/constants.js";
@@ -1199,7 +1200,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
               try {
                 engineResult = await resultPromise;
               } catch (error) {
-                await pump.catch(() => {});
+                await drainDetachedPump(pump, "GoogleAIStudio");
                 logger.error("[GoogleAIStudio] Native SDK error", error);
                 throw this.handleProviderError(error);
               }
@@ -1656,7 +1657,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           try {
             engineResult = await resultPromise;
           } catch (error) {
-            await drain.catch(() => {});
+            await drainDetachedPump(drain, "GoogleAIStudio");
             logger.error("[GoogleAIStudio] Native SDK generate error", error);
             throw this.handleProviderError(error);
           }
