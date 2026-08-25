@@ -3003,6 +3003,11 @@ export abstract class BaseProvider implements AIProvider {
     // shared timeout helper so standard video gen honors the caller's
     // timeout the same way director mode does (see above ~Line 2062).
     const videoTimeout = options.timeout ?? 600_000; // 10 min default
+    // Thread the caller's cancellation signal into the handler chain —
+    // output.video.abortSignal (video-scoped) wins over the request-level
+    // options.abortSignal, matching the general per-field precedence.
+    const videoAbortSignal =
+      options.output?.video?.abortSignal ?? options.abortSignal;
     const videoResult = await this.executeWithTimeout(
       () =>
         VideoProcessor.generate(requestedProvider, {
@@ -3010,6 +3015,7 @@ export abstract class BaseProvider implements AIProvider {
           image: imageBuffer,
           prompt,
           region: options.region,
+          abortSignal: videoAbortSignal,
         }),
       { timeout: videoTimeout, operationType: "generate" },
     );

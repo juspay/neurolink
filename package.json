@@ -114,6 +114,7 @@
     "test:skills": "pnpm exec tsx test/continuous-test-suite-skills.ts",
     "test:servers": "pnpm exec tsx test/continuous-test-suite-servers.ts",
     "test:tool-reliability": "pnpm exec tsx test/continuous-test-suite-tool-reliability.ts",
+    "test:video-abort": "pnpm exec tsx test/continuous-test-suite-video-abort.ts",
     "test:tts": "pnpm exec tsx test/continuous-test-suite-tts.ts",
     "test:tts:unit": "pnpm exec tsx test/continuous-test-suite-tts-unit.ts",
     "test:stt:unit": "pnpm exec tsx test/continuous-test-suite-stt-unit.ts",

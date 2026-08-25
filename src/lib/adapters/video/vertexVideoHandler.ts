@@ -384,6 +384,7 @@ export async function generateVideoWithVertex(
   const durationSeconds = options.length || 6; // 4, 6, or 8
   const aspectRatio = options.aspectRatio || "16:9";
   const generateAudio = options.audio ?? true;
+  const abortSignal = options.abortSignal;
 
   logger.debug("Starting Vertex video generation", {
     project,
@@ -437,9 +438,13 @@ export async function generateVideoWithVertex(
 
     logger.debug("Sending video generation request", { endpoint });
 
-    // Create abort controller for request timeout
+    // Create abort controller for request timeout, chained onto the
+    // caller's cancellation signal so either source stops the request.
     const controller = new AbortController();
     const requestTimeout = setTimeout(() => controller.abort(), 30000); // 30s request timeout
+    const requestSignal = abortSignal
+      ? AbortSignal.any([abortSignal, controller.signal])
+      : controller.signal;
 
     // Start long-running operation
     let response: Response;
@@ -451,11 +456,21 @@ export async function generateVideoWithVertex(
           "Content-Type": "application/json; charset=utf-8",
         },
         body: JSON.stringify(requestBody),
-        signal: controller.signal,
+        signal: requestSignal,
       });
     } catch (error) {
       clearTimeout(requestTimeout);
       if (isAbortError(error)) {
+        if (abortSignal?.aborted) {
+          throw new VideoError({
+            code: VIDEO_ERROR_CODES.GENERATION_FAILED,
+            message: "Vertex video generation aborted by caller",
+            category: ErrorCategory.EXECUTION,
+            severity: ErrorSeverity.MEDIUM,
+            retriable: false,
+            context: { provider: "vertex", endpoint },
+          });
+        }
         throw new VideoError({
           code: VIDEO_ERROR_CODES.GENERATION_FAILED,
           message: "Video generation request timed out after 30 seconds",
@@ -511,6 +526,7 @@ export async function generateVideoWithVertex(
       project,
       location,
       Math.max(1000, remainingTime), // Ensure at least 1 second timeout
+      abortSignal,
     );
 
     const processingTime = Date.now() - startTime;
@@ -649,9 +665,13 @@ async function makePollRequest(
   operationName: string,
   accessToken: string,
   timeoutMs: number = 30000,
+  abortSignal?: AbortSignal,
 ): Promise<VertexOperationResult> {
   const controller = new AbortController();
   const requestTimeout = setTimeout(() => controller.abort(), timeoutMs);
+  const requestSignal = abortSignal
+    ? AbortSignal.any([abortSignal, controller.signal])
+    : controller.signal;
 
   let response: Response;
   try {
@@ -662,11 +682,21 @@ async function makePollRequest(
         "Content-Type": "application/json; charset=utf-8",
       },
       body: JSON.stringify({ operationName }), // Pass operation name in body
-      signal: controller.signal,
+      signal: requestSignal,
     });
   } catch (error) {
     clearTimeout(requestTimeout);
     if (isAbortError(error)) {
+      if (abortSignal?.aborted) {
+        throw new VideoError({
+          code: VIDEO_ERROR_CODES.GENERATION_FAILED,
+          message: "Vertex poll for operation aborted by caller",
+          category: ErrorCategory.EXECUTION,
+          severity: ErrorSeverity.MEDIUM,
+          retriable: false,
+          context: { provider: "vertex", operationName },
+        });
+      }
       throw new VideoError({
         code: VIDEO_ERROR_CODES.GENERATION_FAILED,
         message: `Poll request timed out after ${timeoutMs}ms`,
@@ -725,15 +755,17 @@ async function pollVideoOperation(
   project: string,
   location: string,
   timeoutMs: number,
+  abortSignal?: AbortSignal,
 ): Promise<Buffer> {
-  return pollOperation(
-    VEO_MODEL,
+  return pollOperation({
+    modelOrEndpoint: VEO_MODEL,
     operationName,
     accessToken,
     project,
     location,
     timeoutMs,
-  );
+    abortSignal,
+  });
 }
 
 // ============================================================================
@@ -761,6 +793,7 @@ export async function generateTransitionWithVertex(
   lastFrame: Buffer,
   prompt: string,
   options: {
+    abortSignal?: AbortSignal;
     aspectRatio?: "9:16" | "16:9" | "1:1" | string;
     resolution?: "720p" | "1080p";
     audio?: boolean;
@@ -776,6 +809,7 @@ export async function generateTransitionWithVertex(
   const aspectRatio = options.aspectRatio || "16:9";
   const resolution = options.resolution || "720p";
   const generateAudio = options.audio ?? true;
+  const abortSignal = options.abortSignal;
 
   logger.debug("Starting transition clip generation", {
     model: VEO_FAST_MODEL,
@@ -820,6 +854,9 @@ export async function generateTransitionWithVertex(
 
     const controller = new AbortController();
     const requestTimeout = setTimeout(() => controller.abort(), 30000);
+    const requestSignal = abortSignal
+      ? AbortSignal.any([abortSignal, controller.signal])
+      : controller.signal;
 
     let response: Response;
     try {
@@ -830,11 +867,20 @@ export async function generateTransitionWithVertex(
           "Content-Type": "application/json; charset=utf-8",
         },
         body: JSON.stringify(requestBody),
-        signal: controller.signal,
+        signal: requestSignal,
       });
     } catch (error) {
       clearTimeout(requestTimeout);
       if (isAbortError(error)) {
+        if (abortSignal?.aborted) {
+          throw new VideoError({
+            code: VIDEO_ERROR_CODES.DIRECTOR_TRANSITION_FAILED,
+            message: "Vertex transition generation aborted by caller",
+            category: ErrorCategory.EXECUTION,
+            severity: ErrorSeverity.MEDIUM,
+            retriable: false,
+          });
+        }
         throw new VideoError({
           code: VIDEO_ERROR_CODES.DIRECTOR_TRANSITION_FAILED,
           message: "Transition generation request timed out after 30 seconds",
@@ -881,6 +927,7 @@ export async function generateTransitionWithVertex(
       project,
       location,
       Math.max(1000, remainingTime),
+      abortSignal,
     );
 
     logger.debug("Transition clip generated", {
@@ -909,15 +956,35 @@ export async function generateTransitionWithVertex(
  * Common polling helper that handles both video and transition operations.
  * Accepts a model name to construct the appropriate endpoint.
  */
-async function pollOperation(
-  modelOrEndpoint: string,
-  operationName: string,
-  accessToken: string,
-  project: string,
-  location: string,
-  timeoutMs: number,
-): Promise<Buffer> {
+async function pollOperation(args: {
+  modelOrEndpoint: string;
+  operationName: string;
+  accessToken: string;
+  project: string;
+  location: string;
+  timeoutMs: number;
+  abortSignal?: AbortSignal;
+}): Promise<Buffer> {
+  const {
+    modelOrEndpoint,
+    operationName,
+    accessToken,
+    project,
+    location,
+    timeoutMs,
+    abortSignal,
+  } = args;
   const startTime = Date.now();
+
+  const makeAbortedError = (): VideoError =>
+    new VideoError({
+      code: VIDEO_ERROR_CODES.GENERATION_FAILED,
+      message: "Vertex poll for operation aborted by caller",
+      category: ErrorCategory.EXECUTION,
+      severity: ErrorSeverity.MEDIUM,
+      retriable: false,
+      context: { provider: "vertex", operationName },
+    });
 
   // Global endpoint uses aiplatform.googleapis.com (no region prefix),
   // same pattern as the predictLongRunning endpoint at line 374
@@ -928,10 +995,16 @@ async function pollOperation(
   const pollEndpoint = `https://${pollHost}/v1/projects/${project}/locations/${location}/publishers/google/models/${modelOrEndpoint}:fetchPredictOperation`;
 
   while (Date.now() - startTime < timeoutMs) {
+    if (abortSignal?.aborted) {
+      throw makeAbortedError();
+    }
+
     const result = await makePollRequest(
       pollEndpoint,
       operationName,
       accessToken,
+      undefined,
+      abortSignal,
     );
 
     if (result.done) {
@@ -943,7 +1016,19 @@ async function pollOperation(
       elapsed: Date.now() - startTime,
     });
 
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+    // Abortable sleep — a caller abort mid-interval must not wait out the
+    // full poll interval before being observed.
+    await new Promise<void>((resolve, reject) => {
+      const onAbort = (): void => {
+        clearTimeout(timer);
+        reject(makeAbortedError());
+      };
+      const timer = setTimeout(() => {
+        abortSignal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, POLL_INTERVAL_MS);
+      abortSignal?.addEventListener("abort", onAbort, { once: true });
+    });
   }
 
   throw new VideoError({
@@ -966,15 +1051,17 @@ async function pollTransitionOperation(
   project: string,
   location: string,
   timeoutMs: number,
+  abortSignal?: AbortSignal,
 ): Promise<Buffer> {
-  return pollOperation(
-    VEO_FAST_MODEL,
+  return pollOperation({
+    modelOrEndpoint: VEO_FAST_MODEL,
     operationName,
     accessToken,
     project,
     location,
     timeoutMs,
-  );
+    abortSignal,
+  });
 }
 
 // ============================================================================
@@ -1031,6 +1118,7 @@ export class VertexVideoHandler implements VideoHandler {
       lastFrame,
       prompt,
       {
+        abortSignal: options?.abortSignal,
         aspectRatio: options?.aspectRatio,
         resolution: options?.resolution,
         audio: options?.audio,

@@ -45,6 +45,11 @@ export type VideoGenerateOptions = VideoOutputOptions & {
  * `generateTransition` method on `VideoHandler`.
  */
 export type VideoTransitionOptions = {
+  /**
+   * Per-call cancellation signal forwarded to provider requests and polling
+   * loops — same contract as `VideoOutputOptions.abortSignal`.
+   */
+  abortSignal?: AbortSignal;
   aspectRatio?: "9:16" | "16:9" | "1:1" | string;
   resolution?: "720p" | "1080p";
   audio?: boolean;

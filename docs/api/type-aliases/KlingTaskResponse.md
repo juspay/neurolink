@@ -8,7 +8,7 @@
 
 > **KlingTaskResponse** = `object`
 
-Defined in: [types/video.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L125)
+Defined in: [types/video.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L130)
 
 Kling (PiAPI) task status response.
 
@@ -18,7 +18,7 @@ Kling (PiAPI) task status response.
 
 > `optional` **status?**: `string`
 
-Defined in: [types/video.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L126)
+Defined in: [types/video.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L131)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/video.ts:126](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **video_url?**: `string`
 
-Defined in: [types/video.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L127)
+Defined in: [types/video.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L132)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/video.ts:127](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **output?**: `object`
 
-Defined in: [types/video.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L128)
+Defined in: [types/video.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L133)
 
 #### video_url?
 
@@ -46,4 +46,4 @@ Defined in: [types/video.ts:128](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/video.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L129)
+Defined in: [types/video.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L134)

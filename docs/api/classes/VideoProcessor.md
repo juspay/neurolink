@@ -178,7 +178,7 @@ options-bag overload.
 
 > `static` **generateTransition**(`provider`, `firstFrame`, `lastFrame`, `prompt`, `options?`, `region?`): `Promise`\<`Buffer`\<`ArrayBufferLike`\>\>
 
-Defined in: [utils/videoProcessor.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L229)
+Defined in: [utils/videoProcessor.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/utils/videoProcessor.ts#L243)
 
 Generate a transition clip via the registered handler (Director Mode).
 

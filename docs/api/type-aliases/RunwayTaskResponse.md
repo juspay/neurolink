@@ -8,7 +8,7 @@
 
 > **RunwayTaskResponse** = `object`
 
-Defined in: [types/video.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L135)
+Defined in: [types/video.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L140)
 
 Runway task status response.
 
@@ -18,7 +18,7 @@ Runway task status response.
 
 > `optional` **status?**: `string`
 
-Defined in: [types/video.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L136)
+Defined in: [types/video.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L141)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/video.ts:136](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **output?**: `string`[] \| `string`
 
-Defined in: [types/video.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L137)
+Defined in: [types/video.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L142)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/video.ts:137](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/video.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L138)
+Defined in: [types/video.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L143)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/video.ts:138](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **failure?**: `string`
 
-Defined in: [types/video.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L139)
+Defined in: [types/video.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/video.ts#L144)
