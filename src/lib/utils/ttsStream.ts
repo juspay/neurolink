@@ -13,6 +13,7 @@ import {
   TTSProcessor,
 } from "./ttsProcessor.js";
 import { TimeoutError as AsyncTimeoutError } from "./async/withTimeout.js";
+import { cancelStream } from "./streamCancellation.js";
 
 function getStreamingTTSErrorDetails(
   error: unknown,
@@ -159,6 +160,22 @@ function aggregateTTSChunks(chunks: TTSChunk[]): TTSResult | undefined {
 }
 
 /**
+ * Upper bound on how long stream teardown may wait for upstream iterators to
+ * acknowledge `.return()`. Closing an iterator is bookkeeping, not work, so a
+ * responsive upstream finishes far inside this; an unresponsive one is exactly
+ * the case that must not block the consumer. The timer is unref'd so a pending
+ * grace period never by itself keeps the process alive.
+ */
+const RELEASE_GRACE_MS = 5_000;
+
+function releaseGraceTimer(): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, RELEASE_GRACE_MS);
+    timer.unref?.();
+  });
+}
+
+/**
  * Preserve source-stream backpressure while interleaving incremental TTS audio.
  * Source chunks are yielded before their derived audio, and TTS failures degrade
  * to the unchanged source stream.
@@ -269,6 +286,12 @@ export async function* interleaveTTSStream<T>(params: {
   } finally {
     if (!completed) {
       cancelled = true;
+      // Tell the upstream chain out of band, before asking politely via
+      // `.return()` below. When the consumer breaks mid-pull every wrapper
+      // beneath is parked inside an `await` and cannot process a queued
+      // `return()`, so this side channel is the only thing that actually
+      // reaches — and closes — the provider stream at the bottom.
+      cancelStream(stream);
     }
     textQueue.end();
     const releases: Promise<unknown>[] = [];
@@ -282,7 +305,19 @@ export async function* interleaveTTSStream<T>(params: {
         Promise.resolve().then(() => audioIterator.return?.(undefined)),
       );
     }
-    await Promise.allSettled(releases);
+    // Cleanup must not be able to outlive the consumer that abandoned this
+    // stream. `.return()` on an async generator parked inside an `await` is
+    // queued behind the in-flight `next()` and cannot interrupt it, so when an
+    // upstream pull never settles these promises settle *never* — not late.
+    // Awaiting them unbounded turned a consumer's `break` into a permanent
+    // hang: the caller's `for await` never returned, with no error and no way
+    // to defend against it from outside this module.
+    //
+    // The releases are still issued, and still propagate normally whenever the
+    // upstream is responsive — which is every case where awaiting them was
+    // doing anything useful. We only stop making the consumer's exit depend on
+    // an upstream that may never answer.
+    await Promise.race([Promise.allSettled(releases), releaseGraceTimer()]);
     if (!completed) {
       onComplete?.(undefined);
     }
