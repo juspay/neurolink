@@ -93,7 +93,7 @@ export class KlingVideoHandler implements VideoHandler {
     }
 
     const startTime = Date.now();
-    const abortSignal = (options as { abortSignal?: AbortSignal }).abortSignal;
+    const abortSignal = options.abortSignal;
 
     // 1. Submit job.
     const taskId = await this.submitJob(image, prompt, options);

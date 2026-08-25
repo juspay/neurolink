@@ -96,7 +96,7 @@ export class RunwayVideoHandler implements VideoHandler {
     }
 
     const startTime = Date.now();
-    const abortSignal = (options as { abortSignal?: AbortSignal }).abortSignal;
+    const abortSignal = options.abortSignal;
     const taskId = await this.submitTask(image, prompt, options);
     const videoUrl = await this.pollUntilComplete(taskId, abortSignal);
     const buffer = await this.downloadVideo(videoUrl);

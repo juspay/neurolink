@@ -145,6 +145,16 @@ export class VideoProcessor {
         }
       : optionsOrImage;
     const { image, prompt, region, ...videoOptions } = bag;
+    // A fired timeout must also cancel the handler's own request/polling
+    // loop — otherwise the caller sees the rejection while a ghost
+    // generation keeps polling (and possibly billing) for the rest of the
+    // render. Chain the internal controller onto any caller-supplied
+    // signal so both cancellation sources reach the handler.
+    const timeoutAbort = new AbortController();
+    const abortSignal = videoOptions.abortSignal
+      ? AbortSignal.any([videoOptions.abortSignal, timeoutAbort.signal])
+      : timeoutAbort.signal;
+    const handlerOptions: VideoOutputOptions = { ...videoOptions, abortSignal };
     const span = SpanSerializer.createSpan(
       SpanType.MEDIA_GENERATION,
       "video.generate",
@@ -182,7 +192,7 @@ export class VideoProcessor {
       // video generation is legitimately slow, so the deadline is generous —
       // but a wedged handler must error, never hang the caller forever.
       const result = await withTimeout(
-        handler.generate(image, prompt, videoOptions, region),
+        handler.generate(image, prompt, handlerOptions, region),
         VIDEO_GENERATION_TIMEOUT_MS,
         `Video generation via "${provider}" timed out after ${VIDEO_GENERATION_TIMEOUT_MS}ms`,
       );
@@ -195,6 +205,10 @@ export class VideoProcessor {
       );
       return result;
     } catch (err: unknown) {
+      // Cancel the ghost: on timeout the handler promise is still pending;
+      // aborting here stops its polling loop. On handler-originated errors
+      // the promise has already settled, so the abort is a no-op.
+      timeoutAbort.abort();
       const ended = SpanSerializer.endSpan(
         span,
         SpanStatus.ERROR,
@@ -266,6 +280,17 @@ export class VideoProcessor {
       });
     }
 
+    // Same ghost-cancellation contract as generate(): a fired timeout
+    // aborts the handler's polling loop, chained onto any caller signal.
+    const timeoutAbort = new AbortController();
+    const abortSignal = options?.abortSignal
+      ? AbortSignal.any([options.abortSignal, timeoutAbort.signal])
+      : timeoutAbort.signal;
+    const handlerOptions: VideoTransitionOptions = {
+      ...(options ?? {}),
+      abortSignal,
+    };
+
     try {
       // Same bound as generate(): a wedged transition must error, not hang.
       return await withTimeout(
@@ -273,13 +298,14 @@ export class VideoProcessor {
           firstFrame,
           lastFrame,
           prompt,
-          options,
+          handlerOptions,
           region,
         ),
         VIDEO_GENERATION_TIMEOUT_MS,
         `Video transition via "${provider}" timed out after ${VIDEO_GENERATION_TIMEOUT_MS}ms`,
       );
     } catch (err: unknown) {
+      timeoutAbort.abort();
       if (err instanceof VideoError) {
         throw err;
       }
