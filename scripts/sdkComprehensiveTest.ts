@@ -32,12 +32,11 @@ async function testSDK(): Promise<void> {
     // Test 1: Import SDK
     console.log('\n📦 TESTING SDK IMPORTS');
     
-    let neurolink, createBestAIProvider, NeuroLink;
+    let createBestAIProvider, NeuroLink;
     try {
       const sdk = await import('../dist/lib/index.js');
       createBestAIProvider = sdk.createBestAIProvider;
       NeuroLink = sdk.NeuroLink;
-      neurolink = sdk.default;
       log('SDK Import', 'SUCCESS', 'All imports successful');
     } catch (error: unknown) {
       log('SDK Import', 'FAILED', (error as Error).message);
@@ -168,7 +167,7 @@ async function testSDK(): Promise<void> {
     
     try {
       if (provider.stream) {
-        const stream = await provider.stream({ input: { text: 'Tell me a short joke' } });
+        await provider.stream({ input: { text: 'Tell me a short joke' } });
         log('stream() method', 'SUCCESS', 'Streaming method available');
       } else {
         log('stream() method', 'SKIPPED', 'Method not available on provider');
@@ -183,7 +182,7 @@ async function testSDK(): Promise<void> {
     try {
       await provider.generate({ input: { text: '' } }); // Empty prompt
       log('Empty Prompt Handling', 'UNCLEAR', 'Empty prompt accepted');
-    } catch (error: unknown) {
+    } catch {
       log('Empty Prompt Handling', 'SUCCESS', 'Properly rejected empty prompt');
     }
 
@@ -191,7 +190,7 @@ async function testSDK(): Promise<void> {
       const invalidProvider = createBestAIProvider('invalid-provider');
       await invalidProvider.generate({ input: { text: 'Test' } });
       log('Invalid Provider Handling', 'FAILED', 'Should have rejected invalid provider');
-    } catch (error: unknown) {
+    } catch {
       log('Invalid Provider Handling', 'SUCCESS', 'Properly rejected invalid provider');
     }
 

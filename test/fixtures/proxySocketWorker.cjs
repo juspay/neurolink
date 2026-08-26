@@ -1,5 +1,3 @@
-/* global process, Buffer, setInterval, clearInterval, setTimeout, setImmediate */
-
 const http = require("node:http");
 
 const generation = Number(process.env.NEUROLINK_PROXY_WORKER_GENERATION);

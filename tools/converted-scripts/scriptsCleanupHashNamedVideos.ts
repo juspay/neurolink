@@ -7,7 +7,6 @@
 
 import fs from "fs/promises";
 import path from "path";
-import { execSync } from "child_process";
 import { fileURLToPath } from "url";
 import readline from "readline";
 
@@ -37,7 +36,7 @@ async function identify_files() {
   log_info("Scanning for hash-named video files...");
   try {
     await fs.access(DEMO_VIDEO_DIR);
-  } catch (error: any) {
+  } catch {
     log_error(`Video directory not found: ${DEMO_VIDEO_DIR}`);
     process.exit(1);
   }

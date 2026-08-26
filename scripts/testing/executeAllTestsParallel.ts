@@ -13,7 +13,7 @@ try {
   // dotenv not available - this is fine for production
 }
 
-import { spawn, exec } from 'child_process';
+import { spawn } from 'child_process';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

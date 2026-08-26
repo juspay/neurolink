@@ -6,8 +6,7 @@
  */
 
 import { execSync } from "child_process";
-import { writeFileSync, existsSync, readdirSync } from "fs";
-import path from "path";
+import { writeFileSync, existsSync } from "fs";
 
 const TIMESTAMP = new Date().toISOString().replace(/[:.]/g, "-");
 
@@ -27,7 +26,7 @@ function log(message: string, success = true): void {
 
 function runQuickTest(command: string, description: string): boolean {
   try {
-    const output = execSync(command, { encoding: 'utf8', timeout: 30000 });
+    execSync(command, { encoding: 'utf8', timeout: 30000 });
     log(`${description} - SUCCESS`);
     return true;
   } catch (error) {

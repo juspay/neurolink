@@ -6,7 +6,6 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { readFile } from 'fs/promises';
 
 // Get project root
 const __filename = fileURLToPath(import.meta.url);

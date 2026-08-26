@@ -153,7 +153,7 @@ class ComprehensiveTester {
         "Model Server Health Check",
         { timeout: 10000 }
       );
-    } catch (error) {
+    } catch {
       this.log("Model server test skipped (server not running)", "warning");
     }
     

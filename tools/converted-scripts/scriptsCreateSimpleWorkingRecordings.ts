@@ -84,7 +84,7 @@ async function run() {
   log_info("🔨 Building CLI...");
   try {
     execSync("npm run build", { cwd: PROJECT_ROOT, stdio: "inherit" });
-  } catch (error: any) {
+  } catch {
     log_error("CLI build failed.");
     process.exit(1);
   }

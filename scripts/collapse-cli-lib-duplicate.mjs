@@ -3,7 +3,7 @@
  * Collapse the dist/lib/** duplicate produced by `tsc --project tsconfig.cli.json`.
  *
  * Why this exists: tsconfig.cli.json sets rootDir:"./src" and includes BOTH
- * src/cli/**​/*.ts and src/lib/**​/*.ts — the latter is required so the CLI's
+ * src/cli/**\/*.ts and src/lib/**\/*.ts — the latter is required so the CLI's
  * ~258 relative "../lib/..." imports type-check. As a side effect, tsc
  * re-emits the entire src/lib tree a second time at dist/lib/**, on top of
  * the already-flattened dist/** tree svelte-package produced moments earlier
@@ -12,7 +12,7 @@
  * ships inside the published tarball for no reason.
  *
  * What this script does, in order:
- *   1. Walks dist/cli/**​/*.{js,d.ts} and rewrites every relative import/
+ *   1. Walks dist/cli/**\/*.{js,d.ts} and rewrites every relative import/
  *      require/dynamic-import specifier of the shape "(../)+lib/..." so it
  *      points at the already-flattened dist/** tree instead of dist/lib/**
  *      (i.e. it deletes the "lib/" path segment — dist/cli and dist/lib are

@@ -174,7 +174,7 @@ async function testCorrectSDK(): Promise<void> {
       console.log('\n🔧 TESTING createAIProvider');
       
       try {
-        const basicProvider = await createAIProvider('google-ai');
+        await createAIProvider('google-ai');
         log('createAIProvider()', 'SUCCESS', 'Basic provider created');
       } catch (error: unknown) {
         log('createAIProvider()', 'FAILED', (error as Error).message);

@@ -1006,7 +1006,7 @@ class SecurityValidator {
               cleanContent.includes("xxx") ||
               cleanContent.includes("replace") ||
               cleanContent.includes("here") ||
-              /^[x\-_=<>\[\]{}()]{10,}$/.test(cleanContent)
+              /^[x\-_=<>[\]{}()]{10,}$/.test(cleanContent)
             );
           });
 

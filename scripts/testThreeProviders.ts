@@ -151,7 +151,7 @@ async function performanceComparison() {
       performances.push({ provider: providerName, time, status: "success" });
 
       spinner.succeed(`${providerName}: ${time}ms`);
-    } catch (error) {
+    } catch {
       performances.push({ provider: providerName, time: 0, status: "failed" });
       spinner.fail(`${providerName}: Failed`);
     }

@@ -52,7 +52,7 @@ const SEMANTIC_TYPES = [
  * - scope: letters, numbers, hyphens, and slashes (no spaces for consistency)
  * - description: any character sequence after colon and space
  */
-const SEMANTIC_COMMIT_PATTERN = /^([a-z]+)(\([a-zA-Z0-9\-\/]+\)):\s(.+)$/i;
+const SEMANTIC_COMMIT_PATTERN = /^([a-z]+)(\([a-zA-Z0-9\-/]+\)):\s(.+)$/i;
 
 /**
  * Ceiling for the local git queries below.
@@ -183,7 +183,7 @@ class CommitValidator {
     }
 
     // Validate scope format (letters, numbers, hyphens, slashes - no spaces for consistency)
-    const scopePattern = /^[a-zA-Z0-9\-\/]+$/;
+    const scopePattern = /^[a-zA-Z0-9\-/]+$/;
     if (!scopePattern.test(scope)) {
       this.addError(`Invalid scope format: "${scope}"`);
       this.addError(

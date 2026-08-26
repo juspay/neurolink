@@ -67,7 +67,7 @@ async function run() {
   log_info("🔨 Building CLI...");
   try {
     execSync("npm run build", { cwd: PROJECT_ROOT, stdio: "inherit" });
-  } catch (error: any) {
+  } catch {
     log_error("CLI build failed.");
     process.exit(1);
   }
@@ -125,7 +125,7 @@ async function run() {
         { stdio: "ignore" },
       );
       log_success(`  ✅ Created ${base_name}.mp4 (high quality)`);
-    } catch (error: any) {
+    } catch {
       log_info(
         "`agg` failed or not found, falling back to ffmpeg placeholder.",
       );

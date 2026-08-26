@@ -7,7 +7,7 @@
 
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { writeFile, readFile, readdir, stat, unlink, mkdir } from "fs/promises";
+import { writeFile, readFile, stat, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import { UniversalVisualContentGenerator } from "./generate-visual-content.js";
 
@@ -221,7 +221,7 @@ class Phase6ValidationCleanup {
       for (const scriptPath of this.oldScripts) {
         if (existsSync(scriptPath)) {
           const stats = await stat(scriptPath);
-          const archiveName = scriptPath.replace(/[\/\\]/g, "-");
+          const archiveName = scriptPath.replace(/[/\\]/g, "-");
           const archivePath = join(archiveDir, archiveName);
 
           if (!this.dryRun) {

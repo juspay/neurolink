@@ -18,8 +18,8 @@ const OUTPUT_DIR = path.join(
   __dirname,
   "../docs/visual-content/videos/cli-videos/cli-overview",
 );
-const SCRIPT_DELAY = 2000; // 2 seconds between commands
-const VIDEO_DURATION = 30; // Target ~30 seconds
+const _SCRIPT_DELAY = 2000; // 2 seconds between commands
+const _VIDEO_DURATION = 30; // Target ~30 seconds
 
 type CLICommand = {
   command: string;
@@ -248,7 +248,7 @@ Commands:
         { stdio: "inherit" },
       );
       console.log(`✅ MP4 version saved: ${mp4Path}`);
-    } catch (error) {
+    } catch {
       console.log("⚠️ MP4 conversion failed, WebM version available");
     }
   }

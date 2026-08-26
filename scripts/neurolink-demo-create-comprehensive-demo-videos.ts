@@ -317,7 +317,7 @@ async function checkServer() {
       console.log("✅ Demo server is running");
       return true;
     }
-  } catch (error) {
+  } catch {
     console.error("❌ Demo server is not running. Please start it first:");
     console.error("   cd neurolink-demo && node server.js");
     return false;
