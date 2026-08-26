@@ -848,12 +848,57 @@ jobs:
           # has a 60s per-test bound, which is the likeliest thing to give way
           # under a long sequence. Worth 7 assertions to whoever diagnoses it.
           #
-          # Two candidates that pass locally are deliberately absent, and the
-          # reason is the whole point of measuring rather than assuming:
-          # test:proxy passes with credentials (74 passed / 6 skipped) and
-          # FAILS without them (68 passed / 5 failed / 7 skipped), and
-          # test:multimodal:sdk exits non-zero with no summary. Either would
-          # have looked safe from a run on a developer machine.
+          # test:multimodal:sdk is deliberately absent: it exits non-zero with
+          # no summary, and would have looked safe from a run on a developer
+          # machine.
+          #
+          # test:proxy stays out too, but the recorded reason for it was
+          # wrong, and the real one only showed up in CI.
+          #
+          # The old reading was that it "passes with credentials (74/6) and
+          # fails without them (68/5/7)". Those conditions are the wrong way
+          # round, and the axis is not credentials at all.
+          #
+          # It neutralises its own environment before anything else runs — a
+          # mkdtemp HOME, USERPROFILE and XDG_CONFIG_HOME, and it deletes
+          # ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, OPENAI_API_KEY and
+          # GOOGLE_API_KEY outright unless NEUROLINK_PROXY_TEST_ALLOW_LIVE=1.
+          # Ambient credentials therefore cannot reach it, which is why running
+          # it with and without them produces byte-identical results.
+          #
+          # The failing condition is the opt-in one, not the bare one:
+          #
+          #   default (keys deleted by the suite)   74 passed / 6 skipped / 0 failed
+          #   NEUROLINK_PROXY_TEST_ALLOW_LIVE=1     75 passed / 0 skipped / 5 failed
+          #
+          # and those five are live round-trips failing on the account's credit
+          # balance, not on anything the suite does. CI never sets that
+          # variable, so CI gets the first row.
+          #
+          # It was wired in on that basis — seven local runs across five
+          # environments, all 74/6/0 — and CI disagreed on the first attempt:
+          #
+          #   local  (7 runs, 5 environments)   74 passed / 0 failed / 6 skipped
+          #   CI     (run 33021689979)          71 passed / 1 FAILED / 8 skipped
+          #
+          # The single failure is "Attribution: the request log records the
+          # calling CLI", asserting "request log carried no attribution for the
+          # unknown caller". It sends two requests under different
+          # user-agents, then reads the proxy's request log back and expects a
+          # record for each; in CI the unknown-caller record was absent. Note
+          # the skip count also moves, 6 to 8, so the environments differ in
+          # more than that one case.
+          #
+          # Local green across many environments is not evidence about CI: no
+          # local configuration reproduced it. Whoever picks this up starts
+          # from a named failing case rather than from a guess, and should
+          # check whether the log write races the read-back. CI measured the
+          # suite at 37s, so weight it there and not at the 80s that was
+          # extrapolated from local timings.
+          #
+          # The 55669 in that suite is a config string it writes into client
+          # config files and asserts on — never a request target — so an
+          # operator's own proxy listening there does not affect it.
           #
           # test:model-not-found-retryable is also absent: it skips entirely
           # without credentials, so it could only ever no-op here — the same
