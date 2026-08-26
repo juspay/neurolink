@@ -1051,12 +1051,14 @@ async function runAllTests(): Promise<void> {
         // guard it replaced caught this with Number.isFinite.
         await readAllLocalUsage({ sinceDays: NaN }),
         await readAllLocalUsage({ sinceDays: -Infinity }),
-        // A FINITE sinceDays whose window arithmetic is not finite — the
-        // third door into the same unbounded sweep, after 0 and NaN.
-        // Number.MAX_VALUE * 86_400_000 overflows to Infinity, so the cutoff
-        // became Date.now() - Infinity = -Infinity and every timestamp
-        // compares as newer than it. Measured before the fix, against a
-        // fixture dated months earlier: it read the file.
+        // A FINITE sinceDays whose window arithmetic overflows. These mean
+        // ALL HISTORY, exactly like Infinity: a window of 1e308 days is longer
+        // than any transcript store, so "everything" is the right answer and
+        // "nothing" is a wrong one. An earlier version of this suite asserted
+        // the opposite and pinned a non-monotonic cliff — 2.07e300 read
+        // everything, 2.09e300 read nothing, Infinity read everything again.
+        // Caught by running the CLI, not this suite: `usage local --since
+        // 999999999999` reported 518,576 turns and `--since 1e308` reported 39.
         await readAllLocalUsage({ sinceDays: Number.MAX_VALUE }),
         await readAllLocalUsage({ sinceDays: 1e308 }),
         await readAllLocalUsage({ sinceDays: Infinity }),
@@ -1079,12 +1081,25 @@ async function runAllTests(): Promise<void> {
         "a -Infinity sinceDays read transcripts instead of nothing",
       );
       assert(
-        (overflowMax.totals["claude-code"]?.requests ?? 0) === 0,
-        "a Number.MAX_VALUE sinceDays read transcripts instead of nothing",
+        (overflowMax.totals["claude-code"]?.requests ?? 0) === 1,
+        `a Number.MAX_VALUE sinceDays is a window longer than any history and must read everything — expected 1 turn, got ${overflowMax.totals["claude-code"]?.requests}`,
       );
       assert(
-        (overflowHuge.totals["claude-code"]?.requests ?? 0) === 0,
-        "a 1e308 sinceDays read transcripts instead of nothing",
+        (overflowHuge.totals["claude-code"]?.requests ?? 0) === 1,
+        `a 1e308 sinceDays must read everything, like Infinity — expected 1 turn, got ${overflowHuge.totals["claude-code"]?.requests}`,
+      );
+      // Monotonicity across the overflow boundary (~2.08e300 =
+      // Number.MAX_VALUE / 86_400_000). The two values straddle the point
+      // where the multiply stops being finite; a caller cannot see that
+      // boundary, so the answer must not change across it.
+      const [belowCliff, aboveCliff] = await Promise.all([
+        readAllLocalUsage({ sinceDays: 2.07e300 }),
+        readAllLocalUsage({ sinceDays: 2.09e300 }),
+      ]);
+      assert(
+        (belowCliff.totals["claude-code"]?.requests ?? 0) ===
+          (aboveCliff.totals["claude-code"]?.requests ?? 0),
+        `the overflow boundary changed the answer — below and above must agree`,
       );
       // The control: without this, a reader that simply returned nothing for
       // every window would pass every assertion above.
