@@ -55,7 +55,9 @@ import type {
   RealtimeSession,
 } from "../dist/index.js";
 
-const { test, runSuite } = defineSuite("RealtimeProcessor (unit)");
+const { test, runSuite } = defineSuite("RealtimeProcessor (unit)", {
+  offline: true,
+});
 
 const PROVIDER = "unit-test-realtime-provider";
 // RealtimeConfig["provider"] / RealtimeSession["provider"] are narrowed to a

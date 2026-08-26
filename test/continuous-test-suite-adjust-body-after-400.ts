@@ -41,6 +41,9 @@ import { defineSuite, assert } from "./helpers/harness.js";
 
 const { test, runSuite, section } = defineSuite(
   "adjustBodyAfter400 composition fix",
+  {
+    offline: true,
+  },
 );
 
 // A single crafted 400 body that is BOTH:

@@ -53,7 +53,9 @@ import {
   isCaseTimeout,
 } from "./helpers/harness.js";
 
-const { recordTest, runSuite } = defineSuite("Servers");
+const { recordTest, runSuite } = defineSuite("Servers", {
+  offline: true,
+});
 
 /** Print-only logTest shim. Counters are driven by recordTest in the runner. */
 function logTest(

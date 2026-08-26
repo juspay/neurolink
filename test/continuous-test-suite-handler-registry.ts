@@ -21,7 +21,9 @@
 import { defineSuite, assert, assertEqual } from "./helpers/harness.js";
 import { HandlerRegistry } from "../src/lib/core/handlerRegistry.js";
 
-const { test, runSuite } = defineSuite("HandlerRegistry (unit)");
+const { test, runSuite } = defineSuite("HandlerRegistry (unit)", {
+  offline: true,
+});
 
 type StubHandler = { id: string };
 

@@ -63,7 +63,9 @@ import {
 } from "../dist/index.js";
 import type { MusicHandler, MusicOptions, MusicResult } from "../dist/index.js";
 
-const { test, section, runSuite } = defineSuite("Music dispatch (generate)");
+const { test, section, runSuite } = defineSuite("Music dispatch (generate)", {
+  offline: true,
+});
 
 function makeStubHandler(overrides: Partial<MusicHandler> = {}): {
   handler: MusicHandler;
