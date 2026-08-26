@@ -39,19 +39,12 @@ the same way: a manifest at
 `docs/provider-integration/manifests/<provider>.json`
 (see `../manifests/README.md`) and a green run
 of `pnpm run verify:provider-onboarding` (see
-`../../../tools/verify-provider-onboarding.ts`, landing as a follow-up
-change — see the note below).
+`../../../tools/verify-provider-onboarding.ts`).
 Tier 1 needs no manifest and no gate — see
 `tier-1-aggregator-passthrough.md`.
 
 Use `../../../tools/scaffold-provider.ts`
 (`pnpm run scaffold:provider`) to generate the starting-point snippets for
-Tiers 2–4 instead of copy-pasting from an existing provider by hand.
-
-**Note on tooling (2026-08-18):** `tools/verify-provider-onboarding.ts`
-and `tools/scaffold-provider.ts` don't exist in the tree yet — they are
-Tasks 8-9 of this plan, deliberately sequenced as a separate change after
-this documentation lands. Every tier doc in this directory describes the
-target workflow, including the commands those tools will provide; until
-they ship, follow the same checklist manually and cross-check against an
-existing provider of the matching tier.
+Tiers 2–4 instead of copy-pasting from an existing provider by hand. Both
+tools ship in the tree; there is no manual-fallback era anymore — a PR
+that skips the gate locally just fails it in CI.
