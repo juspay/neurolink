@@ -421,6 +421,53 @@ Consequences worth knowing before you go looking for them:
 directly.** If it does, it will be rejected, and the failure appears as a
 release-job error rather than anything resembling a permissions problem.
 
+### ⚠️ Reading a CI result: four ways this repo has misread one
+
+Every incident below produced a confident wrong answer, and all four are the
+same mistake — treating the _absence_ of a signal as a signal. They are recorded
+together because each one cost real time before it was spotted.
+
+**1. `CANCELLED` is not a failure.** Superseded runs report `CANCELLED`, and this
+workflow cancels its own in-progress runs (`concurrency.cancel-in-progress`), so
+an amend-and-force-push routinely leaves cancelled runs behind. A check written
+as `conclusion != "SUCCESS"` therefore alarms on healthy history: three runs
+fired for one SHA in 28 seconds on #1552 and the first was cancelled by the
+second. Classify `CANCELLED` as _no result_, never as red.
+
+**2. A check that has not appeared has not passed.** `pending == 0` is true both
+when every check finished and when none has been created yet. GitHub takes a
+while to register a workflow's check runs, and a pull request polled inside that
+window looks green with a handful of unrelated checks while four of the five
+required contexts are simply missing. Gate on the required contexts being
+**present** before reading their state:
+
+```bash
+gh pr view <N> --json statusCheckRollup --jq \
+  '[.statusCheckRollup[] | select((.name//.context) | IN(
+     "test","provider-safety-net","build-check",
+     "🔒 Single Commit Policy Validation","security-suites"))
+   | (.name//.context)] | unique | length'   # must be 5 before the result means anything
+```
+
+**3. Count required checks as distinct contexts.** `🔒 Single Commit Policy
+Validation` reliably appears **twice** in `statusCheckRollup`, so a naive count
+reports six-of-five and a comparison written as `== 5` fails on a green pull
+request. Deduplicate by name, as above.
+
+**4. `gh pr checks --json` returns empty in some environments.** It exits
+successfully and prints nothing, which reads as "no failures". Use
+`gh pr view <N> --json statusCheckRollup` instead — the failure mode of the
+wrong command here is silence, not an error.
+
+The same rule generalises past CI, and is worth applying to any probe: **an
+assertion about something NOT happening needs a precondition proving the thing
+under test actually ran.** A probe once reported `LEAK: socket still open` for a
+Bedrock request, on a run where the request never left the machine —
+`closedAt === null` meant "nothing happened", not "still open". Three successive
+probe designs agreed with each other and were all wrong for the same reason,
+because they shared an unstated assumption about the transport. Assert the
+precondition first, in the probe, and make it fail loudly when it does not hold.
+
 ### ⚠️ ffmpeg is deliberately not installed in CI
 
 Nothing CI runs needs it. No package script invokes it, nothing installs it as a
