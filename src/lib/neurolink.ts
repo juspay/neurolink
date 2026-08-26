@@ -8296,34 +8296,134 @@ Current user's request: ${currentInput}`;
         // oversized case. When the budget check shows the request is
         // over budget but there's nothing to compact (no memory + no
         // inline messages — e.g. a huge prompt or huge tool definitions
-        // alone), throw before dispatch instead of wasting a roundtrip.
+        // alone), recover by WINDOWING the prompt when the prompt is what
+        // blew the budget: keep its head and tail around an elision marker
+        // and dispatch. Agentic callers (Yama's session loop) carry their
+        // whole tool transcript in the prompt; the previous
+        // unconditional throw dead-ended every such turn — observed live
+        // as an unbounded retry loop (93K→299K tokens, no verdict, ever).
+        // The throw remains for the truly unrecoverable case: system
+        // prompt + tool definitions alone exceed the budget.
+        let promptWindowRecovered = false;
         if (!budgetCheck.withinBudget && !dpgHasCompactableMessages) {
-          try {
-            this.emitter.emit("compaction.insufficient", {
-              stagesAttempted: ["pre-dispatch hard cap"],
-              finalTokens: budgetCheck.estimatedInputTokens,
-              budget: budgetCheck.availableInputTokens,
-              provider: providerName,
-              model: options.model,
-              phase: "pre-dispatch-no-recovery",
-              timestamp: Date.now(),
-            });
-          } catch {
-            /* listener errors are non-fatal */
-          }
-          throw new ContextBudgetExceededError(
-            `Context exceeds model budget and no compaction is possible ` +
-              `(no conversationMemory, no inline conversationMessages — only ` +
-              `prompt + tools). Estimated: ${budgetCheck.estimatedInputTokens} ` +
-              `tokens, budget: ${budgetCheck.availableInputTokens} tokens. ` +
-              `Reduce prompt or tool-definition size, or trim the request.`,
-            {
-              estimatedTokens: budgetCheck.estimatedInputTokens,
-              availableTokens: budgetCheck.availableInputTokens,
-              stagesUsed: [],
-              breakdown: budgetCheck.breakdown,
-            },
+          const fixedOverhead =
+            (budgetCheck.breakdown?.systemPrompt ?? 0) +
+            (budgetCheck.breakdown?.toolDefinitions ?? 0) +
+            (budgetCheck.breakdown?.fileAttachments ?? 0);
+          // 3% margin against estimator drift; 1024-token floor — below
+          // that, a windowed prompt carries too little to answer from.
+          const promptBudget = Math.floor(
+            (budgetCheck.availableInputTokens - fixedOverhead) * 0.97,
           );
+          const promptText =
+            typeof options.prompt === "string" ? options.prompt : undefined;
+          if (
+            promptText &&
+            promptBudget >= 1024 &&
+            (budgetCheck.breakdown?.currentPrompt ?? 0) > promptBudget
+          ) {
+            const marker =
+              "\n\n[... middle of this prompt elided by NeuroLink to fit the model's context window ...]\n\n";
+            // Proportional char budget from the observed chars-per-token of
+            // THIS text, re-checked and shrunk until the estimator agrees.
+            let charBudget = Math.floor(
+              promptText.length *
+                (promptBudget /
+                  Math.max(budgetCheck.breakdown?.currentPrompt ?? 1, 1)),
+            );
+            let windowed = promptText;
+            for (let attempt = 0; attempt < 4; attempt++) {
+              const headChars = Math.floor(charBudget * 0.6);
+              const tailChars = Math.max(
+                charBudget - headChars - marker.length,
+                0,
+              );
+              windowed =
+                promptText.slice(0, headChars) +
+                marker +
+                (tailChars > 0 ? promptText.slice(-tailChars) : "");
+              const recheck = checkContextBudget({
+                provider: providerName,
+                model: options.model,
+                maxTokens: options.maxTokens,
+                systemPrompt: options.systemPrompt,
+                conversationMessages: [],
+                currentPrompt: windowed,
+                toolDefinitions: options.tools
+                  ? Object.values(options.tools)
+                  : undefined,
+              });
+              if (recheck.withinBudget) {
+                break;
+              }
+              charBudget = Math.floor(charBudget * 0.8);
+              if (attempt === 3) {
+                windowed = promptText; // give up — fall through to the throw
+              }
+            }
+            if (windowed !== promptText) {
+              logger.warn(
+                "[NeuroLink] Prompt exceeded the model's context budget with nothing to compact — " +
+                  "windowed the prompt (head+tail kept, middle elided) to fit.",
+                {
+                  provider: providerName,
+                  model: options.model,
+                  estimatedTokens: budgetCheck.estimatedInputTokens,
+                  budget: budgetCheck.availableInputTokens,
+                  originalPromptChars: promptText.length,
+                  windowedPromptChars: windowed.length,
+                },
+              );
+              try {
+                this.emitter.emit("compaction.applied", {
+                  stagesAttempted: ["pre-dispatch prompt window"],
+                  finalTokens: budgetCheck.availableInputTokens,
+                  budget: budgetCheck.availableInputTokens,
+                  provider: providerName,
+                  model: options.model,
+                  phase: "pre-dispatch-prompt-window",
+                  timestamp: Date.now(),
+                });
+              } catch {
+                /* listener errors are non-fatal */
+              }
+              options.prompt = windowed;
+              const inputHolder = (options as { input?: { text?: string } })
+                .input;
+              if (inputHolder && typeof inputHolder.text === "string") {
+                inputHolder.text = windowed;
+              }
+              promptWindowRecovered = true;
+            }
+          }
+          if (!promptWindowRecovered) {
+            try {
+              this.emitter.emit("compaction.insufficient", {
+                stagesAttempted: ["pre-dispatch hard cap"],
+                finalTokens: budgetCheck.estimatedInputTokens,
+                budget: budgetCheck.availableInputTokens,
+                provider: providerName,
+                model: options.model,
+                phase: "pre-dispatch-no-recovery",
+                timestamp: Date.now(),
+              });
+            } catch {
+              /* listener errors are non-fatal */
+            }
+            throw new ContextBudgetExceededError(
+              `Context exceeds model budget and no compaction is possible ` +
+                `(no conversationMemory, no inline conversationMessages — only ` +
+                `prompt + tools). Estimated: ${budgetCheck.estimatedInputTokens} ` +
+                `tokens, budget: ${budgetCheck.availableInputTokens} tokens. ` +
+                `Reduce prompt or tool-definition size, or trim the request.`,
+              {
+                estimatedTokens: budgetCheck.estimatedInputTokens,
+                availableTokens: budgetCheck.availableInputTokens,
+                stagesUsed: [],
+                breakdown: budgetCheck.breakdown,
+              },
+            );
+          }
         }
 
         if (
