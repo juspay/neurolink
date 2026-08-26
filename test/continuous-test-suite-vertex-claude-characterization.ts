@@ -57,6 +57,9 @@ new NodeTracerProvider({
 
 const { test, section, runSuite } = defineSuite(
   "Vertex Claude loop characterization",
+  {
+    offline: true,
+  },
 );
 
 const { NeuroLink } = await import("../dist/index.js");

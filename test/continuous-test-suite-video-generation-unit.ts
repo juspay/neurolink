@@ -82,7 +82,9 @@ import {
 import { NeuroLink, VideoProcessor } from "../dist/index.js";
 import type { VideoGenerationResult, VideoHandler } from "../dist/index.js";
 
-const { test, runSuite } = defineSuite("VideoProcessor (via generate())");
+const { test, runSuite } = defineSuite("VideoProcessor (via generate())", {
+  offline: true,
+});
 
 // Video-mode dispatch never reaches the network (BaseProvider short-circuits
 // on output.mode === "video" before any LLM call), so the provider only

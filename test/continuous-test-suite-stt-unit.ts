@@ -64,7 +64,9 @@ import {
 } from "../dist/index.js";
 import type { STTHandler, STTResult } from "../dist/index.js";
 
-const { test, runSuite } = defineSuite("STTProcessor (via generate())");
+const { test, runSuite } = defineSuite("STTProcessor (via generate())", {
+  offline: true,
+});
 
 // Every synthetic provider name used by this suite is prefixed so it can
 // never collide with a real vendor handler (whisper, deepgram, ...) that

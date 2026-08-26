@@ -44,7 +44,12 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
 
-const { test, section, runSuite } = defineSuite("Vertex loop characterization");
+const { test, section, runSuite } = defineSuite(
+  "Vertex loop characterization",
+  {
+    offline: true,
+  },
+);
 
 const { NeuroLink } = await import("../dist/index.js");
 

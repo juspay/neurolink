@@ -55,6 +55,9 @@ import { defineSuite, assert } from "./helpers/harness.js";
 
 const { test, runSuite, section } = defineSuite(
   "OpenAI-compat streaming retry parity",
+  {
+    offline: true,
+  },
 );
 
 function sseChunk(text: string): string {

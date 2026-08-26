@@ -39,6 +39,9 @@ import { defineSuite, assert } from "./helpers/harness.js";
 
 const { test, runSuite, section } = defineSuite(
   "Anthropic streaming retry parity",
+  {
+    offline: true,
+  },
 );
 
 /** Env vars this suite mutates — saved/restored around every test so
