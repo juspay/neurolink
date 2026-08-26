@@ -43,5 +43,8 @@ export function resolveScanCutoffMs(
   // anything near it overflow on the multiply. Treat that as no window rather
   // than letting `Date.now() - Infinity` become -Infinity, which every
   // timestamp compares as newer than.
-  return Date.now() - (Number.isFinite(span) ? span : 0);
+  if (!Number.isFinite(span)) {
+    return undefined;
+  }
+  return Date.now() - span;
 }
