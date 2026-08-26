@@ -25,6 +25,9 @@ type SuiteTally = {
   fails: Array<{ name: string; reason: string }>;
 };
 
+// ESC is the ANSI introducer; stripping colour codes is this pattern's
+// whole purpose, so the control character is the point, not an accident.
+// eslint-disable-next-line no-control-regex
 const ANSI = /\[[0-9;]*m/g;
 
 function stripAnsi(line: string): string {
@@ -54,9 +57,9 @@ function parseLog(file: string): SuiteTally {
       const m = /^\s*[✗❌]\s+(.*?)$/.exec(line);
       const reason = (lines[i + 1] || "").trim().replace(/^→\s*/, "");
       tally.fails.push({ name: (m?.[1] || "").trim(), reason });
-    } else if (/^\s*[⊘⏭️]\s+/.test(line)) {
+    } else if (/^\s*(?:⊘|⏭️)\s+/.test(line)) {
       tally.skip++;
-      const m = /^\s*[⊘⏭️]\s+(.*?)(?:\s+\((.*)\))?$/.exec(line);
+      const m = /^\s*(?:⊘|⏭️)\s+(.*?)(?:\s+\((.*)\))?$/.exec(line);
       const name = (m?.[1] || "").trim();
       const inline = (m?.[2] || "").trim();
       const reason = inline || (lines[i + 1] || "").trim();

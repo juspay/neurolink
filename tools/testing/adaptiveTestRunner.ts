@@ -320,7 +320,7 @@ class AdaptiveTestRunner {
         // Fallback: check for recently modified files
         await this.detectRecentlyModified();
       }
-    } catch (error: any) {
+    } catch {
       console.log("⚠️  Git diff failed, using fallback strategy");
       await this.detectRecentlyModified();
     }
@@ -348,7 +348,7 @@ class AdaptiveTestRunner {
 
       this.results.changedFiles = Array.from(this.changedFiles);
       console.log(`📁 Using ${this.changedFiles.size} recently modified files`);
-    } catch (error: any) {
+    } catch {
       console.log("⚠️  Fallback detection failed, running critical tests only");
       this.config.criticalTests.forEach((pattern) =>
         this.changedFiles.add(pattern),

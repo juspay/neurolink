@@ -16,6 +16,7 @@ export default [
       sourceType: "module",
       globals: {
         // Node.js globals
+        structuredClone: "readonly",
         process: "readonly",
         Buffer: "readonly",
         __dirname: "readonly",
@@ -207,6 +208,108 @@ export default [
       indent: "off",
       quotes: "off",
       semi: "off",
+    },
+  },
+  {
+    // scripts/ and tools/ were invisible to ESLint in two separate ways, and
+    // removing them from `ignores` only fixed one. Nothing here matched a `.ts`
+    // file outside src/ and test/, so even un-ignored they parsed under no
+    // configuration at all and "passed" by never being read. Of 70 TypeScript
+    // files across the two directories, ESLint was reporting on zero.
+    //
+    // That is the blind spot tsconfig.ci-scripts.json was created for: the
+    // provider onboarding gate shipped asserting a field that does not exist,
+    // its catalog lookup silently produced {undefined}, and half a required
+    // check never ran — in tools/verify-provider-onboarding.ts, a file gating a
+    // required status check that nothing typechecked and nothing linted.
+    //
+    // No `project`, for the same reason test/**/*.ts has none: these files sit
+    // outside the root tsconfig, so type-aware rules cannot run on them. This
+    // is the syntactic tier — unused vars, undefined globals, empty catches —
+    // which is the tier that caught the real defects in this tree anyway.
+    files: ["scripts/**/*.ts", "tools/**/*.ts"],
+    languageOptions: {
+      parser: tsparser,
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+      },
+      globals: {
+        process: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        global: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        structuredClone: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        URL: "readonly",
+        TextDecoder: "readonly",
+        TextEncoder: "readonly",
+        AbortController: "readonly",
+        AbortSignal: "readonly",
+        Response: "readonly",
+        ReadableStream: "readonly",
+        // Scripts that emit or drive browser code reference these in type
+        // positions and in generated snippets; they are not Node globals.
+        window: "readonly",
+        document: "readonly",
+        // The NodeJS namespace appears in type positions (NodeJS.Timeout).
+        NodeJS: "readonly",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint,
+    },
+    rules: {
+      "no-unused-vars": "off",
+      // Mirrors the src/ options, plus caughtErrorsIgnorePattern. The tree
+      // already writes `catch (_error)` to mean "deliberately unused", but no
+      // block declared that pattern, so typescript-eslint's caughtErrors: "all"
+      // default flagged the very convention the code was following.
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          ignoreRestSiblings: true,
+          args: "after-used",
+          vars: "local",
+        },
+      ],
+      "no-undef": "error",
+      "no-empty": ["error", { allowEmptyCatch: true }],
+    },
+  },
+  {
+    // .cjs matched no configuration at all, so semantic-release-format-plugin.cjs
+    // — which runs in the release pipeline — was never linted. It needs its own
+    // block rather than joining the .js/.mjs one: that block declares
+    // sourceType "module", under which `require` and `module` are undefined.
+    files: ["**/*.cjs"],
+    languageOptions: {
+      ecmaVersion: "latest",
+      sourceType: "commonjs",
+      globals: {
+        process: "readonly",
+        Buffer: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+        console: "readonly",
+        require: "readonly",
+        module: "writable",
+        exports: "writable",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+        setInterval: "readonly",
+        clearInterval: "readonly",
+        setImmediate: "readonly",
+      },
     },
   },
   {
@@ -491,7 +594,6 @@ export default [
       "docs/cli-recordings/**",
       "docs/visual-content/**",
       "neurolink-demo/**",
-      "scripts/**",
       "memory-bank/**",
       "archive/**",
       "examples/**",

@@ -45,7 +45,7 @@ async function check_dependencies() {
         process.platform === "win32" ? `where ${cmd}` : `command -v ${cmd}`,
         { stdio: "ignore" },
       );
-    } catch (e) {
+    } catch {
       missing_deps.push(cmd);
     }
   }
@@ -72,7 +72,7 @@ async function check_demo_server() {
     execSync("curl -s --fail http://localhost:9876 > /dev/null 2>&1");
     log_success("Demo server is running");
     return true;
-  } catch (error: unknown) {
+  } catch {
     // The command fails if the server is not running
   }
   log_warning("Demo server is not running");
@@ -97,7 +97,7 @@ async function generate_sdk_videos() {
     await fs.access(scriptPath);
     execSync(`node "${scriptPath}"`, { cwd: DEMO_DIR, stdio: "inherit" });
     log_success("SDK demo videos generated");
-  } catch (error: unknown) {
+  } catch {
     log_warning(
       `SDK video generator script not found at ${scriptPath} - skipping`,
     );

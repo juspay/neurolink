@@ -81,7 +81,7 @@ async function testProvider(providerName) {
       });
       spinner.fail("❌ Error handling test failed - should have thrown error");
       testResult.tests.push({ name: "Error Handling", status: "failed" });
-    } catch (error) {
+    } catch {
       spinner.succeed("✅ Error handling working correctly");
       testResult.tests.push({ name: "Error Handling", status: "passed" });
     }

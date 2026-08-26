@@ -319,10 +319,10 @@ const catchAllPlugin = {
 
     build.onResolve({ filter: /.*/ }, (args) => {
       const p = args.path;
-      if (p.startsWith('.') || p.startsWith('/')) return undefined;
-      if (isNodeBuiltin(p)) return { path: p, namespace: 'node-stub' };
-      if (isOtel(p)) return { path: p, namespace: 'otel-stub' };
-      if (isNpmStub(p) || isHono(p)) return { path: p, namespace: 'npm-stub' };
+      if (p.startsWith('.') || p.startsWith('/')) {return undefined;}
+      if (isNodeBuiltin(p)) {return { path: p, namespace: 'node-stub' };}
+      if (isOtel(p)) {return { path: p, namespace: 'otel-stub' };}
+      if (isNpmStub(p) || isHono(p)) {return { path: p, namespace: 'npm-stub' };}
       return undefined;
     });
 

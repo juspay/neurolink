@@ -172,7 +172,7 @@ async function main() {
     if (!response.ok) {
       throw new Error("Demo server not responding");
     }
-  } catch (error) {
+  } catch {
     console.error("❌ Demo server is not running!");
     console.log("Please start the demo server first:");
     console.log("  cd neurolink-demo && npm install && npm start");

@@ -31,7 +31,7 @@ const log_error = (message: string) =>
 function check_agg_dependency() {
   try {
     execSync("command -v agg", { stdio: "ignore" });
-  } catch (error: any) {
+  } catch {
     log_error("'agg' tool not found. Please install it to continue.");
     log_info("Installation instructions: https://github.com/asciinema/agg");
     log_info(
@@ -103,7 +103,7 @@ async function run() {
       log_warning(`GIF already exists: ${gif_filename} - Skipping`);
       skip_count++;
       continue;
-    } catch (error: any) {
+    } catch {
       // File doesn't exist, proceed with conversion
     }
 

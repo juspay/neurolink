@@ -106,7 +106,9 @@ class ShellConverter {
       const files = await fs.readdir(this.scriptsDir);
       return files.filter((file) => file.endsWith(".sh"));
     } catch (error: any) {
-      throw new Error(`Failed to read scripts directory: ${error.message}`);
+      throw new Error(`Failed to read scripts directory: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -137,7 +139,9 @@ class ShellConverter {
       console.log(`✅ Created: ${jsPath}`);
       return jsPath;
     } catch (error: any) {
-      throw new Error(`Failed to convert ${shellFile}: ${error.message}`);
+      throw new Error(`Failed to convert ${shellFile}: ${error.message}`, {
+        cause: error,
+      });
     }
   }
 
@@ -308,7 +312,7 @@ const files = await glob.glob('${namePattern}', {
         const grepOptions = grepMatch[3] || "";
 
         // Convert common source commands
-        let sourceConversion = "";
+        let sourceConversion;
         if (sourceCommand.startsWith("cat ")) {
           const filePath = sourceCommand
             .substring(4)

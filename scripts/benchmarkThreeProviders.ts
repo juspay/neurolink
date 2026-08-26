@@ -112,7 +112,7 @@ async function benchmarkProvider(providerName: string): Promise<ProviderResult> 
         try {
           const startTime = Date.now();
 
-          const response = await provider.generate({
+          await provider.generate({
             input: { text: promptConfig.prompt },
             maxTokens: promptConfig.maxTokens,
             temperature: 0.7,

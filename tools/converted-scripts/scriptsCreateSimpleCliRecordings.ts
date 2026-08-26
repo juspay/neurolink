@@ -42,7 +42,7 @@ async function run() {
   log_info("🔨 Building CLI...");
   try {
     execSync("pnpm run build:cli", { cwd: PROJECT_ROOT, stdio: "inherit" });
-  } catch (error: any) {
+  } catch {
     log_error("CLI build failed. Please check the build process.");
     process.exit(1);
   }

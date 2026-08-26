@@ -9,7 +9,7 @@
  * Part of Build Rule Enforcement System - Phase 1
  */
 
-import { execSync, spawn } from "child_process";
+import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -114,13 +114,9 @@ class NeuroLinkBuildValidator {
       return this.fileCache.get(filePath)!;
     }
 
-    try {
-      const content = fs.readFileSync(filePath, "utf8");
-      this.fileCache.set(filePath, content);
-      return content;
-    } catch (error) {
-      throw error;
-    }
+    const content = fs.readFileSync(filePath, "utf8");
+    this.fileCache.set(filePath, content);
+    return content;
   }
 
   // Get TypeScript files recursively using Node.js fs

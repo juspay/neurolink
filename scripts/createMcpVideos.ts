@@ -581,7 +581,7 @@ Step 4: Logging results (postgres server)
 /**
  * Create video for a single scenario
  */
-async function createScenarioVideo(browser, scenario) {
+async function _createScenarioVideo(browser, scenario) {
   const page = await browser.newPage();
 
   // Set viewport for video recording
@@ -707,7 +707,7 @@ async function generateMCPVideos() {
               if (action.selector) {
                 try {
                   await page.click(action.selector, { timeout: 5000 });
-                } catch (error) {
+                } catch {
                   console.log(
                     `⚠️  Click failed for ${action.selector}, continuing...`,
                   );
