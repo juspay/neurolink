@@ -1180,19 +1180,15 @@ export enum GroqModels {
  * Cerebras inference models (wafer-scale, OpenAI-compatible API).
  * @see https://inference-docs.cerebras.ai/introduction
  *
- * Note the vendor's inconsistent id scheme: `llama3.1-8b` has no dash
- * after "llama", while `llama-3.3-70b` does — both are the DOCUMENTED
- * ids, not typos.
+ * Roster verified against a live authenticated `/v1/models` on 2026-08-27:
+ * only these two ids are served. The llama/qwen models the vendor docs
+ * once listed are retired and now 404.
  */
 export enum CerebrasModels {
-  /** Llama 3.3 70B — production default */
-  LLAMA_3_3_70B = "llama-3.3-70b",
-  /** Llama 3.1 8B — low-latency tier (vendor id has no dash after "llama") */
-  LLAMA_3_1_8B = "llama3.1-8b",
-  /** Qwen 3 32B */
-  QWEN_3_32B = "qwen-3-32b",
-  /** OpenAI GPT-OSS 120B (open-weight) */
+  /** OpenAI GPT-OSS 120B (open-weight) — production default */
   GPT_OSS_120B = "gpt-oss-120b",
+  /** Google Gemma 4 31B */
+  GEMMA_4_31B = "gemma-4-31b",
 }
 
 /**

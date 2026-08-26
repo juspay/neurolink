@@ -162,7 +162,7 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     envVar: "CEREBRAS_API_KEY",
     urlMatch: "api.cerebras.ai/v1/chat/completions",
     authPrefix: "Bearer ",
-    model: "llama-3.3-70b",
+    model: "gpt-oss-120b",
     authErrorMatch: /cerebras|401|unauthor|api key/i,
     rateLimitErrorMatch: /cerebras|rate.?limit|429/i,
   },
@@ -274,6 +274,13 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
         expect(typeof body === "object", "body is JSON object");
         expectEq(body.model, spec.model, "body.model");
         expect(Array.isArray(body.messages), "body.messages is array");
+        // Strict backends (probed live on Cerebras 2026-08-27) reject
+        // tool_choice with 400 wrong_api_format when tools are absent, so a
+        // tools-less request must not carry it.
+        expect(
+          !("tool_choice" in (body as Record<string, unknown>)),
+          "tool_choice must be absent when the request carries no tools",
+        );
 
         expect(
           (result.content ?? "").toLowerCase().includes("pong"),

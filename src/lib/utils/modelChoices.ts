@@ -340,17 +340,13 @@ const TOP_MODELS_CONFIG: Record<
   ],
   [AIProviderName.CEREBRAS]: [
     {
-      model: CerebrasModels.LLAMA_3_3_70B,
-      description: "Recommended - Production default; wafer-scale speed",
-    },
-    {
-      model: CerebrasModels.LLAMA_3_1_8B,
-      description: "Lowest latency tier",
-    },
-    { model: CerebrasModels.QWEN_3_32B, description: "Qwen 3 32B" },
-    {
       model: CerebrasModels.GPT_OSS_120B,
-      description: "OpenAI GPT-OSS 120B (open-weight)",
+      description:
+        "Recommended - OpenAI GPT-OSS 120B (open-weight); wafer-scale speed",
+    },
+    {
+      model: CerebrasModels.GEMMA_4_31B,
+      description: "Google Gemma 4 31B",
     },
   ],
   [AIProviderName.COHERE]: [
