@@ -21,6 +21,29 @@ on:
 # no entry for the key and restores nothing, so the stamp step is skipped and
 # nothing depending on a restored dist was exercised. A cache step that ran is
 # not a cache that was restored.
+# Least privilege for every job in this workflow.
+#
+# Without this block jobs inherit the repository default, which is
+# `default_workflow_permissions: write` with `can_approve_pull_request_reviews:
+# true` — so a build job that only checks out and runs tests holds a token that
+# can push to the repository and approve pull requests. ci.yml was the only
+# workflow here not declaring its own permissions; every other one does.
+#
+# The distribution was also backwards. `test` and `provider-safety-net` declared
+# `contents: read`, but those are the 2-4 second aggregator jobs that run no
+# code. Their shards — which install dependencies and execute the suites, and
+# are the jobs where a compromised dependency would actually run — inherited the
+# write-scoped default.
+#
+# This is the floor for the whole workflow. A job that genuinely needs more must
+# declare it itself, which makes the exception visible in review rather than
+# implicit in a repository setting nobody reads. Nothing here needs more today:
+# no job pushes, tags, publishes or comments, and the single GITHUB_TOKEN
+# consumer is `semantic-release --dry-run`, restricted to commit-analyzer and
+# release-notes-generator.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -33,8 +56,6 @@ jobs:
     needs: [test-shards]
     if: always()
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Require every shard to have passed
         run: |
@@ -258,8 +279,6 @@ jobs:
     needs: [provider-safety-net-shards]
     if: always()
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Require every shard to have passed
         run: |
@@ -728,8 +747,6 @@ jobs:
     # The repository default is a WRITE-scoped token (and one that may
     # approve reviews); nothing here needs either. Read is enough to
     # checkout, install and run suites.
-    permissions:
-      contents: read
     name: Extended Suites (non-blocking) ${{ matrix.shard }}/4
     steps:
       - name: Checkout code
@@ -1111,6 +1128,20 @@ jobs:
   semantic-release-validation:
     runs-on: ubuntu-latest
     needs: [test, build-check, proxy-performance]
+    # The one documented exception to the workflow-level `contents: read`.
+    #
+    # semantic-release calls verifyAuth() unconditionally — index.js:88, NOT
+    # guarded by dryRun — which runs `git push --dry-run` and therefore needs
+    # push permission. On pull_request it never gets that far: index.js:60
+    # returns early with "triggered by a pull request and therefore a new
+    # version won't be published". ci.yml also runs on push to release, where
+    # that early return does not apply and verifyAuth does execute.
+    #
+    # So a PR can never demonstrate this failure — the trigger that exercises
+    # it is the one a PR does not use. Caught in review on #1552 rather than by
+    # its own green run.
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
