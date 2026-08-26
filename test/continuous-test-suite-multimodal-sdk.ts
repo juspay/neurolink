@@ -22,6 +22,16 @@
  * Run: npx tsx test/continuous-test-suite-multimodal-sdk.ts
  */
 
+// Set before dotenv, and before anything can construct a NeuroLink: the
+// repo's tracked .mcp-config.json declares a `filesystem` server started via
+// `npx -y @modelcontextprotocol/server-filesystem`, with autoDiscovery and
+// autoRegister both on. Every instance this suite builds therefore tries to
+// start it, and when it cannot, waits the full 60s MCP client timeout — once
+// per instance, fourteen times over. The suite does not test MCP; it tests
+// whether a file handed to generate() reaches the model. test:proxy already
+// sets this for the same reason.
+process.env.NEUROLINK_SKIP_MCP = "true";
+
 import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
