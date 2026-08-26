@@ -69,7 +69,9 @@ import type {
   GenerateOptions,
 } from "../dist/index.js";
 
-const { test, runSuite } = defineSuite("AvatarProcessor (via generate())");
+const { test, runSuite } = defineSuite("AvatarProcessor (via generate())", {
+  offline: true,
+});
 
 const IMAGE = Buffer.from("fake-portrait-bytes");
 const AUDIO = Buffer.from("fake-audio-bytes");

@@ -60,7 +60,9 @@ import type {
   Tool,
 } from "../src/lib/types/index.js";
 
-const { test, runSuite } = defineSuite("Agentic loop engine primitives");
+const { test, runSuite } = defineSuite("Agentic loop engine primitives", {
+  offline: true,
+});
 
 function mkTool(
   description: string,

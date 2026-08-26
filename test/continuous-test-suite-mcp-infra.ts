@@ -72,7 +72,9 @@ import type { McpCacheConfig } from "../src/lib/types/index.js";
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
 
-const { recordTest, runSuite } = defineSuite("MCP Infrastructure");
+const { recordTest, runSuite } = defineSuite("MCP Infrastructure", {
+  offline: true,
+});
 
 /**
  * Dispose a NeuroLink instance from a `finally` block without masking the

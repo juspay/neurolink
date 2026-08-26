@@ -30,6 +30,9 @@ import { NeuroLink } from "../dist/index.js";
 
 const { test, runSuite } = defineSuite(
   "Provider fallback + Anthropic proxy UA",
+  {
+    offline: true,
+  },
 );
 
 // ---------------------------------------------------------------------------

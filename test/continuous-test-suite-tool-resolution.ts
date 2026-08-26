@@ -33,7 +33,9 @@ import { MCPToolRegistry, NeuroLink } from "../dist/index.js";
 import type { Tool, ToolInfo } from "../src/lib/types/index.js";
 import { defineSuite, logSection } from "./helpers/harness.js";
 
-const { test, runSuite } = defineSuite("Tool Resolution");
+const { test, runSuite } = defineSuite("Tool Resolution", {
+  offline: true,
+});
 
 function assertEqual(got: unknown, want: unknown, label: string): void {
   const g = JSON.stringify(got);
