@@ -158,6 +158,15 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     rateLimitErrorMatch: /groq|rate.?limit|429/i,
   },
   {
+    provider: "cerebras",
+    envVar: "CEREBRAS_API_KEY",
+    urlMatch: "api.cerebras.ai/v1/chat/completions",
+    authPrefix: "Bearer ",
+    model: "llama-3.3-70b",
+    authErrorMatch: /cerebras|401|unauthor|api key/i,
+    rateLimitErrorMatch: /cerebras|rate.?limit|429/i,
+  },
+  {
     provider: "together-ai",
     envVar: "TOGETHER_API_KEY",
     urlMatch: "api.together.xyz/v1/chat/completions",

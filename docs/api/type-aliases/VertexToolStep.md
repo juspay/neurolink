@@ -8,7 +8,7 @@
 
 > **VertexToolStep** = `object`
 
-Defined in: [types/providers.ts:2396](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2396)
+Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2397)
 
 Internal helpers used by the conversation-history builder in
 providers/googleVertex.ts to merge interleaved tool call / result turns.
@@ -19,7 +19,7 @@ providers/googleVertex.ts to merge interleaved tool call / result turns.
 
 > **type**: `"tool_step"`
 
-Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2397)
+Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2398)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/r
 
 > **callParts**: `unknown`[]
 
-Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2398)
+Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2399)
 
 ---
 
@@ -35,4 +35,4 @@ Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/r
 
 > **resultParts**: `unknown`[]
 
-Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2399)
+Defined in: [types/providers.ts:2400](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2400)

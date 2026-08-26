@@ -1,5 +1,6 @@
 import { AIProviderName } from "../constants/enums.js";
 import {
+  CerebrasModels,
   CloudflareModels,
   FireworksModels,
   GroqModels,
@@ -16,6 +17,7 @@ import {
 } from "../types/index.js";
 import { DEFAULT_ERROR_RULES } from "../utils/errorClassifier.js";
 import {
+  createCerebrasConfig,
   createCloudflareConfig,
   createFireworksConfig,
   createGroqConfig,
@@ -30,7 +32,7 @@ function buildCloudflareBaseURL(accountId: string): string {
 }
 
 /**
- * Config-driven catalog of the 7 zero-quirk OpenAI-compatible providers.
+ * Config-driven catalog of the 8 zero-quirk OpenAI-compatible providers.
  * Each entry fully replaces what used to be a hand-written
  * OpenAIChatCompletionsProvider subclass — see ConfiguredOpenAICompatProvider
  * for the class that reads these entries, and providerRegistry.ts for the
@@ -52,6 +54,39 @@ function buildCloudflareBaseURL(accountId: string): string {
  * Task 14's docs task for the deciding criteria).
  */
 export const OPENAI_COMPAT_CATALOG: readonly OpenAICompatCatalogEntry[] = [
+  {
+    providerName: AIProviderName.CEREBRAS,
+    aliases: ["cerebras"],
+    apiKeyEnvVar: "CEREBRAS_API_KEY",
+    baseURLEnvVar: "CEREBRAS_BASE_URL",
+    defaultBaseURL: "https://api.cerebras.ai/v1",
+    configOptions: createCerebrasConfig(),
+    modelEnvVar: "CEREBRAS_MODEL",
+    defaultModel: CerebrasModels.LLAMA_3_3_70B,
+    registryDefaultModel: CerebrasModels.LLAMA_3_3_70B,
+    registryDefaultModelChecksEnvVar: true,
+    fallbackModelName: CerebrasModels.LLAMA_3_1_8B,
+    fallbackModels: [
+      CerebrasModels.LLAMA_3_3_70B,
+      CerebrasModels.LLAMA_3_1_8B,
+      CerebrasModels.QWEN_3_32B,
+      CerebrasModels.GPT_OSS_120B,
+    ],
+    errorRules: [
+      {
+        // Probed live 2026-08-26: a bad key gets HTTP 401 with body
+        // {"message":"Wrong API Key","type":"invalid_request_error",
+        //  "param":"api_key","code":"wrong_api_key"}.
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /wrong_api_key|Wrong API Key|invalid_api_key/i.test(ctx.message),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid Cerebras API key. Check CEREBRAS_API_KEY. Get one at https://cloud.cerebras.ai",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ],
+  },
   {
     providerName: AIProviderName.GROQ,
     aliases: ["groq"],

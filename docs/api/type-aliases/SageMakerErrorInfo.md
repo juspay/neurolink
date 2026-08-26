@@ -8,7 +8,7 @@
 
 > **SageMakerErrorInfo** = `object`
 
-Defined in: [types/providers.ts:1703](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1703)
+Defined in: [types/providers.ts:1704](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1704)
 
 SageMaker-specific error information
 
@@ -18,7 +18,7 @@ SageMaker-specific error information
 
 > **code**: [`SageMakerErrorCode`](SageMakerErrorCode.md)
 
-Defined in: [types/providers.ts:1705](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1705)
+Defined in: [types/providers.ts:1706](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1706)
 
 Error code
 
@@ -28,7 +28,7 @@ Error code
 
 > **message**: `string`
 
-Defined in: [types/providers.ts:1707](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1707)
+Defined in: [types/providers.ts:1708](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1708)
 
 Human-readable error message
 
@@ -38,7 +38,7 @@ Human-readable error message
 
 > `optional` **statusCode?**: `number`
 
-Defined in: [types/providers.ts:1709](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1709)
+Defined in: [types/providers.ts:1710](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1710)
 
 HTTP status code if applicable
 
@@ -48,7 +48,7 @@ HTTP status code if applicable
 
 > `optional` **cause?**: `Error`
 
-Defined in: [types/providers.ts:1711](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1711)
+Defined in: [types/providers.ts:1712](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1712)
 
 Original error from AWS SDK
 
@@ -58,7 +58,7 @@ Original error from AWS SDK
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/providers.ts:1713](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1713)
+Defined in: [types/providers.ts:1714](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1714)
 
 Endpoint name where error occurred
 
@@ -68,7 +68,7 @@ Endpoint name where error occurred
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/providers.ts:1715](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1715)
+Defined in: [types/providers.ts:1716](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1716)
 
 Request ID for debugging
 
@@ -78,6 +78,6 @@ Request ID for debugging
 
 > `optional` **retryable?**: `boolean`
 
-Defined in: [types/providers.ts:1717](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1717)
+Defined in: [types/providers.ts:1718](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1718)
 
 Retry suggestion

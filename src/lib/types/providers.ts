@@ -212,6 +212,7 @@ export type NeurolinkCredentials = {
   llamacpp?: { apiKey?: string; baseURL?: string };
   xai?: { apiKey?: string; baseURL?: string };
   groq?: { apiKey?: string; baseURL?: string };
+  cerebras?: { apiKey?: string; baseURL?: string };
   cohere?: { apiKey?: string; baseURL?: string };
   together?: { apiKey?: string; baseURL?: string };
   fireworks?: { apiKey?: string; baseURL?: string };

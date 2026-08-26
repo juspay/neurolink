@@ -8,7 +8,7 @@
 
 > **ProviderDescriptor** = `object`
 
-Defined in: [types/providers.ts:2155](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2155)
+Defined in: [types/providers.ts:2156](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2156)
 
 Single source of truth for one AI provider's static identity: how it's
 addressed (name/aliases), how it's authenticated (credentialsKey/envVars),
@@ -25,7 +25,7 @@ instead. See src/lib/factories/providerDescriptors.ts for the data.
 
 > **name**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/providers.ts:2157](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2157)
+Defined in: [types/providers.ts:2158](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2158)
 
 Canonical identity — matches an AIProviderName enum member (never AUTO).
 
@@ -35,7 +35,7 @@ Canonical identity — matches an AIProviderName enum member (never AUTO).
 
 > **aliases**: readonly `string`[]
 
-Defined in: [types/providers.ts:2159](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2159)
+Defined in: [types/providers.ts:2160](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2160)
 
 Alternate spellings accepted by the CLI and the alias index (kebab-case, shorthand, legacy names). Does not include `name` itself.
 
@@ -45,7 +45,7 @@ Alternate spellings accepted by the CLI and the alias index (kebab-case, shortha
 
 > **credentialsKey**: keyof [`NeurolinkCredentials`](NeurolinkCredentials.md)
 
-Defined in: [types/providers.ts:2161](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2161)
+Defined in: [types/providers.ts:2162](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2162)
 
 Key into NeurolinkCredentials for per-call/per-instance credential overrides.
 
@@ -55,7 +55,7 @@ Key into NeurolinkCredentials for per-call/per-instance credential overrides.
 
 > **envVars**: `object`
 
-Defined in: [types/providers.ts:2163](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2163)
+Defined in: [types/providers.ts:2164](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2164)
 
 Environment variables this provider reads at runtime.
 
@@ -117,7 +117,7 @@ True when the provider is usable with zero configuration (local runtime with a d
 
 > **defaultModel**: `string`
 
-Defined in: [types/providers.ts:2189](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2189)
+Defined in: [types/providers.ts:2190](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2190)
 
 Static fallback model. The empty string "" is a documented sentinel
 meaning "no static default — resolved at runtime via envVars.model or
@@ -131,7 +131,7 @@ LM Studio, llama.cpp, matching how providerRegistry.ts already passes
 
 > **toolSupport**: `"native"` \| `"prompt-only"` \| `"none"` \| `"model-dependent"`
 
-Defined in: [types/providers.ts:2190](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2190)
+Defined in: [types/providers.ts:2191](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2191)
 
 ---
 
@@ -139,7 +139,7 @@ Defined in: [types/providers.ts:2190](https://github.com/juspay/neurolink/blob/r
 
 > **localRuntime**: `boolean`
 
-Defined in: [types/providers.ts:2192](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2192)
+Defined in: [types/providers.ts:2193](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2193)
 
 True only for providers that run entirely on the caller's machine with no cloud account (Ollama, LM Studio, llama.cpp). LiteLLM is a local proxy but commonly points at cloud models, so it is deliberately false.
 
@@ -149,7 +149,7 @@ True only for providers that run entirely on the caller's machine with no cloud 
 
 > **healthCheck**: `"env-only"` \| `"models-probe"` \| `"live-generate"`
 
-Defined in: [types/providers.ts:2194](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2194)
+Defined in: [types/providers.ts:2195](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2195)
 
 How ProviderHealthChecker should verify this provider is reachable.
 
@@ -159,7 +159,7 @@ How ProviderHealthChecker should verify this provider is reachable.
 
 > `optional` **defaultHealthSweepPriority?**: `number`
 
-Defined in: [types/providers.ts:2203](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2203)
+Defined in: [types/providers.ts:2204](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2204)
 
 Membership + order in the default health sweep
 (`ProviderHealthChecker.checkAllProvidersHealth` with no explicit
@@ -174,7 +174,7 @@ array that lived in providerHealth.ts.
 
 > `optional` **autoSelectPreference?**: `number`
 
-Defined in: [types/providers.ts:2212](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2212)
+Defined in: [types/providers.ts:2213](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2213)
 
 Preference rank for `getBestHealthyProvider`'s default auto-selection
 (lower = tried first). Deliberately a SEPARATE ordering from the sweep:
@@ -189,7 +189,7 @@ that lived inline as getBestHealthyProvider's default parameter.
 
 > `optional` **setupUrl?**: `string`
 
-Defined in: [types/providers.ts:2213](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2213)
+Defined in: [types/providers.ts:2214](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2214)
 
 ---
 
@@ -197,7 +197,7 @@ Defined in: [types/providers.ts:2213](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **timeouts?**: `object`
 
-Defined in: [types/providers.ts:2214](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2214)
+Defined in: [types/providers.ts:2215](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2215)
 
 #### generateMs?
 
@@ -213,7 +213,7 @@ Defined in: [types/providers.ts:2214](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **autoSelectPriority?**: `number`
 
-Defined in: [types/providers.ts:2216](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2216)
+Defined in: [types/providers.ts:2217](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2217)
 
 Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain.
 
@@ -223,7 +223,7 @@ Ascending priority (1 = tried first) in the auto-select fallback chain used by g
 
 > `optional` **apiKeyFormatPattern?**: `RegExp`
 
-Defined in: [types/providers.ts:2218](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2218)
+Defined in: [types/providers.ts:2219](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2219)
 
 Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when one exists for this provider.
 
@@ -233,7 +233,7 @@ Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when o
 
 > `optional` **credentialsResolvedExternally?**: `boolean`
 
-Defined in: [types/providers.ts:2233](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2233)
+Defined in: [types/providers.ts:2234](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2234)
 
 True when this provider's credentials are resolved by an external chain
 or its own config validator rather than by plain env-var presence, so

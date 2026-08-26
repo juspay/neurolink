@@ -22,6 +22,7 @@ import { lmStudioManifest } from "./manifests/lm-studio.js";
 import { llamacppManifest } from "./manifests/llamacpp.js";
 import { xaiManifest } from "./manifests/xai.js";
 import { groqManifest } from "./manifests/groq.js";
+import { cerebrasManifest } from "./manifests/cerebras.js";
 import { cohereManifest } from "./manifests/cohere.js";
 import { togetherAiManifest } from "./manifests/together-ai.js";
 import { fireworksManifest } from "./manifests/fireworks.js";
@@ -61,6 +62,7 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   llamacpp: llamacppManifest,
   xai: xaiManifest,
   groq: groqManifest,
+  cerebras: cerebrasManifest,
   cohere: cohereManifest,
   "together-ai": togetherAiManifest,
   fireworks: fireworksManifest,

@@ -8,7 +8,7 @@
 
 > **OpenAICompatCatalogEntry** = `object`
 
-Defined in: [types/providers.ts:721](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L721)
+Defined in: [types/providers.ts:722](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L722)
 
 One row of the config-driven OpenAI-compatible provider catalog
 (OPENAI_COMPAT_CATALOG, src/lib/providers/openaiCompatCatalog.ts).
@@ -22,7 +22,7 @@ base URL, model defaults, and error-message classification.
 
 > **providerName**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/providers.ts:723](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L723)
+Defined in: [types/providers.ts:724](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L724)
 
 Registry key / nl.generate({provider}) value, e.g. "groq".
 
@@ -32,7 +32,7 @@ Registry key / nl.generate({provider}) value, e.g. "groq".
 
 > **aliases**: `string`[]
 
-Defined in: [types/providers.ts:725](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L725)
+Defined in: [types/providers.ts:726](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L726)
 
 Registry aliases, e.g. ["together-ai", "together"].
 
@@ -42,7 +42,7 @@ Registry aliases, e.g. ["together-ai", "together"].
 
 > **apiKeyEnvVar**: `string`
 
-Defined in: [types/providers.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L735)
+Defined in: [types/providers.ts:736](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L736)
 
 Env var holding the API key, e.g. "GROQ_API_KEY".
 
@@ -58,7 +58,7 @@ fields describing one fact are worth nothing if they can disagree.
 
 > `optional` **baseURLEnvVar?**: `string`
 
-Defined in: [types/providers.ts:740](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L740)
+Defined in: [types/providers.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L741)
 
 Env var that can override the base URL, e.g. "GROQ_BASE_URL". Omit
 for entries that use computedBaseURL instead (e.g. Cloudflare).
@@ -69,7 +69,7 @@ for entries that use computedBaseURL instead (e.g. Cloudflare).
 
 > `optional` **defaultBaseURL?**: `string`
 
-Defined in: [types/providers.ts:742](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L742)
+Defined in: [types/providers.ts:743](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L743)
 
 Static default base URL. Omit for computedBaseURL entries.
 
@@ -79,7 +79,7 @@ Static default base URL. Omit for computedBaseURL entries.
 
 > `optional` **computedBaseURL?**: `object`
 
-Defined in: [types/providers.ts:749](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L749)
+Defined in: [types/providers.ts:750](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L750)
 
 Present only for providers whose base URL is computed from an extra
 required credential value instead of a static default (Cloudflare's
@@ -120,7 +120,7 @@ Builds the base URL from the resolved accountId.
 
 > **configOptions**: [`ProviderConfigOptions`](ProviderConfigOptions.md)
 
-Defined in: [types/providers.ts:761](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L761)
+Defined in: [types/providers.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L762)
 
 Setup/help metadata, passed to validateApiKey(). Not consumed by
 classifyProviderError() — that function's ProviderErrorContext has no
@@ -133,7 +133,7 @@ itself (see Task 4).
 
 > **modelEnvVar**: `string`
 
-Defined in: [types/providers.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L763)
+Defined in: [types/providers.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L764)
 
 Env var for the default model, e.g. "GROQ_MODEL".
 
@@ -143,7 +143,7 @@ Env var for the default model, e.g. "GROQ_MODEL".
 
 > **defaultModel**: `string`
 
-Defined in: [types/providers.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L765)
+Defined in: [types/providers.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L766)
 
 Default model when modelEnvVar is unset.
 
@@ -153,7 +153,7 @@ Default model when modelEnvVar is unset.
 
 > **registryDefaultModel**: `string`
 
-Defined in: [types/providers.ts:771](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L771)
+Defined in: [types/providers.ts:772](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L772)
 
 The literal passed as ProviderFactory.registerProvider()'s defaultModel
 argument (resolved before the provider is constructed). Preserves each
@@ -165,7 +165,7 @@ provider's exact pre-migration registry behavior.
 
 > **registryDefaultModelChecksEnvVar**: `boolean`
 
-Defined in: [types/providers.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L778)
+Defined in: [types/providers.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L779)
 
 True for every provider except Mistral: whether the registry-level
 default also consults modelEnvVar before falling back to
@@ -178,7 +178,7 @@ quirk unique to Mistral's registration (see plan's Design reference).
 
 > **fallbackModelName**: `string`
 
-Defined in: [types/providers.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L780)
+Defined in: [types/providers.ts:781](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L781)
 
 Fallback model name (getFallbackModelName()).
 
@@ -188,7 +188,7 @@ Fallback model name (getFallbackModelName()).
 
 > **fallbackModels**: `string`[]
 
-Defined in: [types/providers.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L782)
+Defined in: [types/providers.ts:783](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L783)
 
 Fallback model list (getFallbackModels()).
 
@@ -198,7 +198,7 @@ Fallback model list (getFallbackModels()).
 
 > **errorRules**: [`ProviderErrorRule`](ProviderErrorRule.md)[]
 
-Defined in: [types/providers.ts:793](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L793)
+Defined in: [types/providers.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L794)
 
 Error-classification rules, consumed by classifyProviderError. Typed
 as a mutable array — not readonly — because plan 07's
@@ -215,7 +215,7 @@ Task 4, so nothing actually mutates it at runtime.
 
 > `optional` **timeoutErrorClass?**: (`message`, `provider?`) => [`ProviderError`](../classes/ProviderError.md)
 
-Defined in: [types/providers.ts:807](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L807)
+Defined in: [types/providers.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L808)
 
 Optional override for the Error subclass a TimeoutError should produce
 for this entry. classifyProviderError() hard-codes

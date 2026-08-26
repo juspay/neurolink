@@ -8,7 +8,7 @@
 
 > **ModelPricing** = `object`
 
-Defined in: [types/providers.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L449)
+Defined in: [types/providers.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L450)
 
 Model Pricing Information - High Reusability
 
@@ -18,7 +18,7 @@ Model Pricing Information - High Reusability
 
 > `optional` **inputTokens?**: `object`
 
-Defined in: [types/providers.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L450)
+Defined in: [types/providers.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L451)
 
 #### price
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:450](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **outputTokens?**: `object`
 
-Defined in: [types/providers.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L455)
+Defined in: [types/providers.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L456)
 
 #### price
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:455](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **requestPrice?**: `object`
 
-Defined in: [types/providers.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L460)
+Defined in: [types/providers.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L461)
 
 #### price
 
@@ -74,7 +74,7 @@ Defined in: [types/providers.ts:460](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **tier?**: `"free"` \| `"basic"` \| `"premium"` \| `"enterprise"`
 
-Defined in: [types/providers.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L464)
+Defined in: [types/providers.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L465)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/providers.ts:464](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **average?**: `number`
 
-Defined in: [types/providers.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L466)
+Defined in: [types/providers.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L467)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/providers.ts:466](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **min?**: `number`
 
-Defined in: [types/providers.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L467)
+Defined in: [types/providers.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L468)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/providers.ts:467](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **max?**: `number`
 
-Defined in: [types/providers.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L468)
+Defined in: [types/providers.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L469)
 
 ---
 
@@ -106,4 +106,4 @@ Defined in: [types/providers.ts:468](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **free?**: `boolean`
 
-Defined in: [types/providers.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L469)
+Defined in: [types/providers.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L470)
