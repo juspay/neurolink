@@ -840,13 +840,53 @@ jobs:
           # and only the ones that passed that way are here. They contribute
           # 373 assertions.
           #
-          # test:middleware is held back despite passing that sweep. Run inside
-          # this 21-suite sequence it failed 2 of 2 times; run alone, or
-          # immediately after test:mcp, it passed 3 of 3 at 7/7. So it is
-          # reproducible in context rather than flaky, and the cause is not the
-          # suite that precedes it — that hypothesis was tested and refuted. It
-          # has a 60s per-test bound, which is the likeliest thing to give way
-          # under a long sequence. Worth 7 assertions to whoever diagnoses it.
+          # test:middleware is still held back, and the cause is now measured
+          # rather than guessed. Diagnosed 2026-08-27.
+          #
+          # The suite's header says "provider-dependent tests SKIP when
+          # credentials are not configured". It never checks. It issues all
+          # seven live calls — defaulting to vertex — and classifies whatever
+          # error comes back. With no credentials those calls still go out, to
+          # oauth2.googleapis.com and aiplatform.googleapis.com, and Google
+          # throttles them progressively.
+          #
+          # Five identical consecutive credential-free runs, same machine, same
+          # tree, nothing else changed:
+          #
+          #     62s -> 77s -> 95s -> 145s -> 269s
+          #
+          # Monotonic, 4.3x, all still passing 7/7. Nothing in the suite is
+          # slowing down; the far end is. Its per-case bound is the harness
+          # default of 240s — the suite calls `withCaseTimeout(name, fn)` with
+          # no third argument, and its own `TEST_CONFIG.timeout: 60_000` is
+          # declared once and never read by anything. A case that trips 240s
+          # does not merely fail — the runner `break`s, because a raced-out
+          # case is still executing and the process no longer has clean state.
+          # So the remaining cases are recorded as not run, and one slow call
+          # takes the whole suite down. The 269s run above is already past that
+          # bound, which is the point: the trend, not any single figure, is what
+          # makes this reproducible.
+          #
+          # That is why the earlier note found it "reproducible in context, not
+          # flaky", and why blaming the immediately preceding suite was refuted:
+          # the load is CUMULATIVE, not adjacent. test:auth and test:dynamic
+          # both reach the same two googleapis hosts earlier in the run — 7 and
+          # 5 live generate/stream calls respectively, all defaulting to vertex
+          # — so by the time middleware starts, the throttle is already
+          # established. (test:provider-descriptors runs between them but is
+          # NOT part of this: it issues no generate/stream call at all, and its
+          # getProviderStatus() path short-circuits on absent env vars before
+          # any request goes out.) Alone, or straight after test:mcp, it is early
+          # enough to be fast — which is exactly what was observed.
+          #
+          # The fix is to honour what the header already promises: probe once,
+          # and skip the rest without calling when the provider is unavailable,
+          # instead of making seven attempts into a tightening throttle. That
+          # needs care, because a case returns null both for "provider
+          # unavailable" and for an ordinary in-test skip, so the two have to be
+          # told apart at all seven call sites first. Not attempted here: the
+          # credentialed path could not be exercised to prove it unchanged.
+          # Worth 7 assertions to whoever finishes it.
           #
           # test:multimodal:sdk used to "exit non-zero with no summary", and
           # the cause was never in the suite's assertions. The repo's tracked
