@@ -129,6 +129,23 @@ import type {
   KnowledgeEngineStatus,
   KnowledgeGroundingOutcome,
   KnowledgeGroundingCallOptions,
+  ChecklistState,
+  ArtifactPageRequest,
+  BankArtifactOptions,
+  BankedArtifactRef,
+  DelegateCollectRequest,
+  DelegateCollectResult,
+  DelegateHandle,
+  DelegateRegistrationOptions,
+  DelegateSpawnOptions,
+  BackgroundCommandHandle,
+  BackgroundCommandOptions,
+  BackgroundCommandOutputPage,
+  BackgroundCommandPageRequest,
+  BackgroundCommandPolicy,
+  BackgroundCommandStatus,
+  GitToolResult,
+  GitToolsetOptions,
 } from "./types/index.js";
 import { emergencyContentTruncation } from "./context/emergencyTruncation.js";
 import {
@@ -174,6 +191,10 @@ import {
   DEFAULT_WARN_MCP_OUTPUT_BYTES,
 } from "./mcp/mcpOutputNormalizer.js";
 import { LocalTempArtifactStore } from "./artifacts/artifactStore.js";
+import {
+  bankArtifact as bankArtifactPayload,
+  readArtifact as readBankedArtifact,
+} from "./artifacts/artifactBanking.js";
 import { ToolRouter } from "./mcp/routing/index.js";
 // Import direct tools server for automatic registration
 import { directToolsServer } from "./mcp/servers/agent/directToolsServer.js";
@@ -232,6 +253,34 @@ import {
   shutdownOpenTelemetry,
   stampGuestRescueIdentity,
 } from "./services/server/ai/observability/instrumentation.js";
+import {
+  clearChecklistState,
+  createChecklistTools,
+  getChecklistState,
+  resolveChecklistSessionId,
+} from "./agent/taskChecklist.js";
+import {
+  cancelDelegates as cancelBackgroundDelegates,
+  collectDelegates as collectBackgroundDelegates,
+  configureDelegation,
+  createDelegationTools,
+  spawnDelegate as spawnBackgroundDelegate,
+} from "./agent/backgroundDelegation.js";
+import {
+  awaitBackgroundCommand as awaitCommand,
+  createBackgroundCommandTools,
+  getBackgroundCommandStatus as getCommandStatus,
+  killAllBackgroundCommands as killAllCommands,
+  killBackgroundCommand as killCommand,
+  readBackgroundCommandOutput as readCommandOutput,
+  setBackgroundCommandPolicy as setCommandPolicy,
+  startBackgroundCommand as startCommand,
+} from "./agent/backgroundCommands.js";
+import {
+  configureGitTools,
+  createGitTools,
+  runGitCommand as runGitArgs,
+} from "./agent/gitTools.js";
 import { TaskManager } from "./tasks/taskManager.js";
 import { createTaskTools } from "./tasks/tools/taskTools.js";
 import { ATTR, spanJsonAttribute } from "./telemetry/attributes.js";
@@ -1207,6 +1256,34 @@ export class NeuroLink {
   private hasAgentTools = false;
 
   /**
+   * Tools registered with `cacheable: false` — their results are never served
+   * from the tool-result cache. A tool whose answer depends on live state (a
+   * checklist, a work queue) would otherwise replay its first answer for the
+   * whole TTL to every caller passing the same arguments.
+   */
+  private readonly uncacheableTools = new Set<string>();
+
+  /** Set once registerTaskTools() has registered the checklist toolset. */
+  private hasTaskChecklistTools = false;
+
+  /** Set once registerDelegationTools() has registered the delegation toolset. */
+  private hasBackgroundDelegationTools = false;
+
+  /** Set once registerBackgroundCommandTools() has registered the command toolset. */
+  private hasBackgroundCommandTools = false;
+
+  /** Set once registerGitTools() has registered the read-only git toolset. */
+  private hasGitTools = false;
+
+  /**
+   * Set once `retrieve_context` has been registered. The constructor skips
+   * registration when neither Redis nor an artifact store exists; banking can
+   * create a store later, and this keeps that second attempt from
+   * re-registering the tool on instances that already have it.
+   */
+  private retrieveContextRegistered = false;
+
+  /**
    * Creates a new NeuroLink instance for AI text generation with MCP tool integration.
    *
    * @param config - Optional configuration object
@@ -1420,7 +1497,7 @@ export class NeuroLink {
     if (this._taskManagerConfig) {
       this._taskManager = new TaskManager(this, this._taskManagerConfig);
       this._taskManager.setEmitter(this.emitter);
-      this.registerTaskTools(this._taskManager);
+      this.registerSchedulerTaskTools(this._taskManager);
     }
   }
 
@@ -1434,7 +1511,7 @@ export class NeuroLink {
     if (!this._taskManager) {
       this._taskManager = new TaskManager(this, this._taskManagerConfig);
       this._taskManager.setEmitter(this.emitter);
-      this.registerTaskTools(this._taskManager);
+      this.registerSchedulerTaskTools(this._taskManager);
     }
     return this._taskManager;
   }
@@ -1830,11 +1907,14 @@ export class NeuroLink {
   }
 
   /**
-   * Register task management tools bound to a TaskManager instance.
+   * Register SCHEDULER task tools bound to a TaskManager instance (task_create,
+   * task_list, … — scheduled/self-running jobs). Distinct from the agent task
+   * CHECKLIST (registerTaskTools() / tasks_create): different tools, different
+   * state, different purpose.
    * Follows the same factory + registry pattern as registerFileTools().
    * Called when TaskManager is created (eagerly or lazily via the `tasks` getter).
    */
-  private registerTaskTools(manager: TaskManager): void {
+  private registerSchedulerTaskTools(manager: TaskManager): void {
     const taskTools = createTaskTools(manager);
 
     for (const [toolName, toolDef] of Object.entries(taskTools)) {
@@ -1905,6 +1985,9 @@ export class NeuroLink {
    * Only registered when Redis conversation memory is active.
    */
   private registerMemoryRetrievalTools(): void {
+    if (this.retrieveContextRegistered) {
+      return;
+    }
     // Check if conversation memory is configured
     // Memory retrieval tool requires Redis (getSessionRaw) but registration
     // is deferred — the execute handler checks at runtime whether the actual
@@ -1981,6 +2064,7 @@ export class NeuroLink {
       },
     });
 
+    this.retrieveContextRegistered = true;
     logger.info("[NeuroLink] Memory retrieval tools registered");
   }
 
@@ -3721,6 +3805,17 @@ Current user's request: ${currentInput}`;
   async shutdown(): Promise<void> {
     try {
       logger.debug("[NeuroLink] Starting graceful shutdown");
+
+      // Kill host-owned background work first: a shutdown must not leave
+      // child processes or delegate workers running with nobody to collect
+      // them.
+      try {
+        await killAllCommands(this);
+        await cancelBackgroundDelegates(this);
+        logger.debug("[NeuroLink] Background commands and delegates stopped");
+      } catch (error) {
+        logger.warn("[NeuroLink] Background work cleanup failed:", error);
+      }
 
       try {
         await flushOpenTelemetry();
@@ -12727,6 +12822,15 @@ Current user's request: ${currentInput}`;
       // Register with toolRegistry using MCPServerInfo directly
       this.toolRegistry.registerServer(mcpServerInfo);
 
+      // Re-registration replaces options wholesale: omitting `cacheable`
+      // clears a previous `cacheable: false`. A caller replacing a tool whose
+      // results are live state must repeat the flag.
+      if (options?.cacheable === false) {
+        this.uncacheableTools.add(name);
+      } else {
+        this.uncacheableTools.delete(name);
+      }
+
       // Emit tool registration success event
       this.emitter.emit("tools-register:end", {
         toolName: name,
@@ -12809,6 +12913,7 @@ Current user's request: ${currentInput}`;
     const serverId = `custom-tool-${name}`;
     const removed = this.toolRegistry.unregisterServer(serverId);
     if (removed) {
+      this.uncacheableTools.delete(name);
       logger.info(`Unregistered custom tool: ${name}`);
     }
     return removed;
@@ -13874,6 +13979,7 @@ Current user's request: ${currentInput}`;
       this.mcpToolResultCache &&
       !options.disableToolCache &&
       !this._disableToolCacheForCurrentRequest &&
+      !this.uncacheableTools.has(toolName) &&
       !toolAnnotations?.destructiveHint;
     const toolResultCache = this.mcpToolResultCache;
 
@@ -17214,6 +17320,16 @@ Current user's request: ${currentInput}`;
 
     const worker = new NeuroLink(workerConfig);
 
+    // The cacheable:false flag lives BESIDE the registry, not in it, so a
+    // shared registry alone would re-enable caching on the worker for exactly
+    // the tools whose results are live state (tasks_list, command_status,
+    // collect_results). The worker inherits the host's full uncacheable set.
+    if (options?.shareToolRegistry !== false) {
+      for (const uncacheableName of this.uncacheableTools) {
+        worker.uncacheableTools.add(uncacheableName);
+      }
+    }
+
     // Constructing an instance rebinds the process-global logger sink to the
     // new instance's emitter — restore the host as the active sink so host
     // log bridges keep flowing while workers come and go.
@@ -17341,6 +17457,427 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Register the task CHECKLIST toolset — `tasks_create`, `tasks_update`,
+   * `tasks_list` — on this instance (TodoWrite-style planning for a
+   * long-running run). Opt-in and idempotent: existing callers see no new
+   * tools until they ask for them.
+   *
+   * The checklist is session state, not conversation state: it lives outside
+   * the message list, so summarization/compaction cannot lose it, and every
+   * tool result returns the whole list so the model re-anchors for free after
+   * a compaction. Read the same state from host code with
+   * {@link getTaskState} — that is all a completeness gate needs.
+   *
+   * Sessions come from the tool execution context. Call
+   * `setToolContext({ sessionId })` (or run the agent through
+   * `runIsolatedAgent`, which stamps one) so the checklist has a stable
+   * identity; a model tool call with no session anywhere falls back to a
+   * single default checklist per instance rather than one per call. A DIRECT
+   * `executeTool("tasks_create", …)` call should pass
+   * `authContext: { sessionId }` — the tool registry otherwise mints a fresh
+   * id for that one call.
+   *
+   * @see {@link getTaskState} for the host-side read
+   */
+  registerTaskTools(): void {
+    if (this.hasTaskChecklistTools) {
+      return;
+    }
+    const tools = createChecklistTools(this);
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      // Never cacheable: every one of these reads or mutates live checklist
+      // state, so a cached `tasks_list` would report a list that has already
+      // moved on — the exact silent staleness the checklist exists to prevent.
+      this.registerTool(toolName, toolDef, { cacheable: false });
+    }
+    this.hasTaskChecklistTools = true;
+    logger.info(
+      `[NeuroLink] Registered ${Object.keys(tools).length} task checklist tools`,
+    );
+  }
+
+  /**
+   * Read a session's task checklist — synchronous, so a completeness gate is
+   * one line of host code:
+   * `getTaskState(id).items.filter(i => i.status === "pending")`.
+   *
+   * Never throws: an unknown session simply has an empty checklist. Omit
+   * `sessionId` to read the session the tools would currently write to (the
+   * instance's tool-context session, or its default checklist).
+   */
+  getTaskState(sessionId?: string): ChecklistState {
+    return getChecklistState(sessionId ?? resolveChecklistSessionId(this));
+  }
+
+  /**
+   * Drop a session's checklist. Returns whether there was one to drop.
+   * Omit `sessionId` to clear the session the tools currently write to.
+   */
+  clearTaskState(sessionId?: string): boolean {
+    return clearChecklistState(sessionId ?? resolveChecklistSessionId(this));
+  }
+
+  // ========================================
+  // Async Delegation API (N2)
+  // ========================================
+
+  /**
+   * Register the background-delegation toolset — `delegate_task` and
+   * `collect_results` — on this instance. Opt-in and idempotent: existing
+   * callers see no new tools until they ask for them.
+   *
+   * Delegation through {@link registerAgentTool} is synchronous — the loop
+   * blocks on each worker. These tools make it asynchronous: `delegate_task`
+   * returns a `workerId` at once and the agent keeps working, then
+   * `collect_results` claims whichever worker finished FIRST. Concurrency is
+   * bounded by the same process-wide pool `registerAgentTool` uses (raised,
+   * never lowered, by `maxConcurrent`), each worker's FULL report is banked to
+   * a file via {@link bankArtifact}, and the outstanding counts ride along in
+   * every `tasks_list` result so the agent learns a worker landed without
+   * polling.
+   *
+   * @param options - Depth ceiling, pool raise, and queue wait
+   * @see {@link spawnDelegate} for the host-side spawn
+   * @see {@link collectDelegates} for the host-side collect
+   */
+  registerDelegationTools(options?: DelegateRegistrationOptions): void {
+    configureDelegation(this, options);
+    if (this.hasBackgroundDelegationTools) {
+      return;
+    }
+    const tools = createDelegationTools(this);
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      // Never cacheable: `delegate_task` starts a new worker every call and
+      // `collect_results` claims each outcome exactly once. A cached result
+      // would spawn nothing and hand the same worker back twice.
+      this.registerTool(toolName, toolDef, { cacheable: false });
+    }
+    this.hasBackgroundDelegationTools = true;
+    logger.info(
+      `[NeuroLink] Registered ${Object.keys(tools).length} background delegation tools`,
+    );
+  }
+
+  /**
+   * Start a background worker and get its handle immediately — before it has
+   * run anything, and long before it finishes.
+   *
+   * The worker runs through {@link runIsolatedAgent}: a fresh session on a
+   * worker instance sharing THIS instance's tool registry (so live MCP
+   * connections are reused), waste detection, honest stop reasons. Its
+   * complete report is banked when it settles; the outcome you collect carries
+   * a bounded summary plus the read-back call for the rest.
+   *
+   * @example
+   * ```typescript
+   * const a = await neurolink.spawnDelegate({ task: "Audit the auth changes" });
+   * const b = await neurolink.spawnDelegate({ task: "Review the migrations" });
+   * // …keep working…
+   * const first = await neurolink.collectDelegates({ mode: "any" });
+   * ```
+   *
+   * @param options - Task, scope, context, tool allowlist, budgets
+   * @returns The worker id, spawn time, and whether it is queued for a slot
+   * @throws when the task is empty or the caller is at the depth ceiling
+   */
+  async spawnDelegate(options: DelegateSpawnOptions): Promise<DelegateHandle> {
+    return spawnBackgroundDelegate(this, options);
+  }
+
+  /**
+   * Claim finished background workers — in COMPLETION order, which has nothing
+   * to do with spawn order. Each outcome is handed out exactly once.
+   *
+   * @param request - `{ mode: "any" | "all" }` or `{ workerId }`, plus `waitMs`
+   * @returns Claimed outcomes plus what is still pending/ready
+   */
+  async collectDelegates(
+    request: DelegateCollectRequest,
+  ): Promise<DelegateCollectResult> {
+    return collectBackgroundDelegates(this, request);
+  }
+
+  /**
+   * Cancel background workers: one by id, or every outstanding worker this
+   * instance spawned. Cancelled workers still settle into a claimable outcome
+   * saying so.
+   *
+   * @param workerId - Cancel just this worker; omit to cancel all
+   * @returns How many workers were cancelled
+   */
+  async cancelDelegates(workerId?: string): Promise<number> {
+    return cancelBackgroundDelegates(this, workerId);
+  }
+
+  // ========================================
+  // Artifact Banking API (N3)
+  // ========================================
+
+  /**
+   * This instance's artifact store, created on first use.
+   *
+   * Until now a store existed only when `mcp.outputLimits.strategy` was set to
+   * `"externalize"`, so a caller that just wanted to bank a worker report had
+   * to configure MCP output limits it did not use. This creates one on demand
+   * and registers `retrieve_context` alongside it, so a banked payload is
+   * readable by the model, not only by host code.
+   *
+   * Already-configured instances get the store they already had — the MCP
+   * output normalizer and banking deliberately share one store, so an
+   * externalized tool output and a banked report read back the same way.
+   *
+   * @returns The artifact store backing {@link bankArtifact} / {@link readArtifact}
+   */
+  getArtifactStore(): ArtifactStore {
+    if (!this.mcpArtifactStore) {
+      this.mcpArtifactStore = new LocalTempArtifactStore();
+      logger.debug(
+        "[NeuroLink] Artifact store created on demand (local-temp) for banking",
+      );
+    }
+    // A no-op when the constructor already registered it.
+    this.registerMemoryRetrievalTools();
+    return this.mcpArtifactStore;
+  }
+
+  /**
+   * Bank a payload to a file and get back a pointer to it.
+   *
+   * The payload is stored WHOLE. What you put in the conversation is the
+   * returned `preview` (a bounded head slice) and `readBackHint` (the literal
+   * `retrieve_context` call that fetches the rest) — so a 4 MB worker report
+   * costs a few hundred tokens of context and loses nothing, and compaction
+   * can drop the preview without destroying evidence.
+   *
+   * @example
+   * ```typescript
+   * const ref = await neurolink.bankArtifact(fullReport, {
+   *   kind: "worker-report",
+   *   label: "delegate:auth-review",
+   *   sessionId: "review-1421",
+   * });
+   * // Hand the model ref.preview + ref.readBackHint, never fullReport.
+   * ```
+   *
+   * @param payload  Complete text or JSON. Never truncated.
+   * @param options  `kind` and `label` are required; see {@link BankArtifactOptions}
+   * @returns Id, bounded preview, byte size, and the read-back call
+   */
+  async bankArtifact(
+    payload: string,
+    options: BankArtifactOptions,
+  ): Promise<BankedArtifactRef> {
+    return bankArtifactPayload(this, payload, options);
+  }
+
+  /**
+   * Read a banked payload back from host code — the programmatic twin of the
+   * model's `retrieve_context({ artifactId })` call.
+   *
+   * Omit `page` for the complete payload; pass `{ offset, limit }` to walk a
+   * large one in windows. Returns null when the id is unknown or expired.
+   *
+   * @param id    `artifactId` from a {@link BankedArtifactRef}
+   * @param page  Optional character window
+   */
+  async readArtifact(
+    id: string,
+    page?: ArtifactPageRequest,
+  ): Promise<string | null> {
+    return readBankedArtifact(this, id, page);
+  }
+
+  // ========================================
+  // Background Command API (N4)
+  // ========================================
+
+  /**
+   * Register the background-command toolset — `run_command_bg`,
+   * `command_status`, `command_output`, `command_kill` — on this instance, and
+   * declare what may be executed. Opt-in and idempotent: existing callers see
+   * no new tools until they ask for them.
+   *
+   * A reviewing agent needs to run real commands — a build, a test suite, a
+   * linter whose output is the evidence for a finding — without blocking its
+   * own loop and without losing a byte of what they printed. These tools start
+   * a command detached, write both streams to files as they arrive, and bank
+   * the COMPLETE files as artifacts when the command settles; the conversation
+   * gets a bounded tail plus the read-back call.
+   *
+   * The policy is not optional. `allowedExecutables` is matched exactly
+   * against `argv[0]`, `cwdRoot` is a realpath-checked sandbox, there is never
+   * a shell, and a command that outlives `defaultTimeoutMs` is killed.
+   *
+   * @param policy - What may run, where, for how long, and how loudly
+   * @see {@link startBackgroundCommand} for the host-side start
+   * @see {@link registerGitTools} for read-only git without a general policy
+   */
+  registerBackgroundCommandTools(policy: BackgroundCommandPolicy): void {
+    setCommandPolicy(this, policy);
+    if (this.hasBackgroundCommandTools) {
+      return;
+    }
+    const tools = createBackgroundCommandTools(this);
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      // Never cacheable: every one of these reads or changes live process
+      // state. A cached `command_status` would report a build that has already
+      // finished as still running, for the whole TTL.
+      this.registerTool(toolName, toolDef, { cacheable: false });
+    }
+    this.hasBackgroundCommandTools = true;
+    logger.info(
+      `[NeuroLink] Registered ${Object.keys(tools).length} background command tools`,
+    );
+  }
+
+  /**
+   * Declare (or replace) what this instance may execute, without registering
+   * the model-facing tools. Host code that only drives
+   * {@link startBackgroundCommand} itself needs nothing more than this.
+   *
+   * @param policy - What may run, where, for how long, and how loudly
+   */
+  setBackgroundCommandPolicy(policy: BackgroundCommandPolicy): void {
+    setCommandPolicy(this, policy);
+  }
+
+  /**
+   * Start a command in the background and get its task id immediately.
+   *
+   * @example
+   * ```typescript
+   * const { taskId } = await neurolink.startBackgroundCommand(
+   *   ["pnpm", "run", "lint"],
+   *   { cwd: repoRoot },
+   * );
+   * // …keep working…
+   * const status = await neurolink.awaitBackgroundCommand(taskId);
+   * const full = await neurolink.readArtifact(status.stdout!.artifactId);
+   * ```
+   *
+   * @param argv - Executable first, one entry per argument. Never a command string.
+   * @param options - cwd (sandboxed), timeout, byte cap, env, label, session
+   * @returns The task id, the argv that ran, and when it started
+   * @throws when no policy is set, argv is malformed, the executable is not
+   *         allowlisted, the policy vetoes it, or the cwd escapes the sandbox
+   */
+  async startBackgroundCommand(
+    argv: string[],
+    options: BackgroundCommandOptions,
+  ): Promise<BackgroundCommandHandle> {
+    return startCommand(this, argv, options);
+  }
+
+  /**
+   * Everything known about one command right now — synchronous, so a
+   * mid-loop monitor costs nothing.
+   *
+   * @param taskId - Task id from {@link startBackgroundCommand}
+   * @throws when the task id is unknown to this instance
+   */
+  getBackgroundCommandStatus(taskId: string): BackgroundCommandStatus {
+    return getCommandStatus(this, taskId);
+  }
+
+  /**
+   * Wait for a command to settle. `timeoutMs` bounds the WAIT, not the
+   * command: when it elapses the current status is returned rather than
+   * thrown, so a caller can poll in bounded steps and never lose the job.
+   *
+   * @param taskId - Task id from {@link startBackgroundCommand}
+   * @param opts - `timeoutMs` to bound the wait
+   */
+  async awaitBackgroundCommand(
+    taskId: string,
+    opts?: { timeoutMs?: number },
+  ): Promise<BackgroundCommandStatus> {
+    return awaitCommand(this, taskId, opts);
+  }
+
+  /**
+   * Kill a running command — SIGTERM, then SIGKILL five seconds later — and
+   * resolve with its settled status. Whatever it printed first is still
+   * banked: killing a command discards the process, never its output.
+   *
+   * @param taskId - Task id from {@link startBackgroundCommand}
+   * @param signal - Signal to send first. Default SIGTERM
+   */
+  async killBackgroundCommand(
+    taskId: string,
+    signal?: NodeJS.Signals,
+  ): Promise<BackgroundCommandStatus> {
+    return killCommand(this, taskId, signal);
+  }
+
+  /**
+   * Read one character window of a command's output straight from its log
+   * file — while it is still running, or long after it finished. Offsets,
+   * `totalSize` and `hasMore` match `retrieve_context` exactly.
+   *
+   * @param taskId - Task id from {@link startBackgroundCommand}
+   * @param page - Which stream, and which window of it
+   */
+  async readBackgroundCommandOutput(
+    taskId: string,
+    page: BackgroundCommandPageRequest,
+  ): Promise<BackgroundCommandOutputPage> {
+    return readCommandOutput(this, taskId, page);
+  }
+
+  // ========================================
+  // Read-only Git Toolset (N4.4)
+  // ========================================
+
+  /**
+   * Register the read-only git toolset — `git_log`, `git_show`, `git_diff`,
+   * `git_blame`, `git_merge_base`, `git_ls_files` — on this instance. Opt-in
+   * and idempotent.
+   *
+   * These are BOUNDED tools, not a shell: the model supplies values (a ref, a
+   * path, a line range), never flags, and each tool assembles a fixed argv
+   * from them. That is what keeps them read-only — a free-form argument string
+   * would carry `--output=<file>` and `diff.external` straight through.
+   *
+   * Registering them widens nothing else: they run under a private
+   * one-executable policy rooted at `repoRoot`, so `run_command_bg` still
+   * cannot execute git, and no general command policy is required.
+   *
+   * @param options - Repository root, plus timeout / byte-cap / preview bounds
+   */
+  registerGitTools(options: GitToolsetOptions): void {
+    configureGitTools(this, options);
+    if (this.hasGitTools) {
+      return;
+    }
+    const tools = createGitTools(this);
+    for (const [toolName, toolDef] of Object.entries(tools)) {
+      // Never cacheable: the working tree moves under these answers.
+      this.registerTool(toolName, toolDef, { cacheable: false });
+    }
+    this.hasGitTools = true;
+    logger.info(
+      `[NeuroLink] Registered ${Object.keys(tools).length} read-only git tools`,
+    );
+  }
+
+  /**
+   * Run one read-only git command from host code, with the same bounding the
+   * tools get: the complete stdout is banked, the result carries a preview and
+   * the read-back call.
+   *
+   * @param args - Git arguments, e.g. `["log", "--oneline"]`. Assembled by the
+   *               caller, which is responsible for every value in them
+   * @param sessionId - Session the command belongs to
+   * @throws when {@link registerGitTools} has not been called
+   */
+  async runGitCommand(
+    args: string[],
+    sessionId?: string,
+  ): Promise<GitToolResult> {
+    return runGitArgs(this, args, sessionId);
+  }
+
+  /**
    * Execute an agent network with the given input.
    *
    * @param network - The agent network to execute
@@ -17461,6 +17998,20 @@ Current user's request: ${currentInput}`;
     const cleanupErrors: Error[] = [];
 
     try {
+      // 0. Kill host-owned background work: a disposed instance must not
+      // leave child processes or delegate workers running.
+      try {
+        await killAllCommands(this);
+        await cancelBackgroundDelegates(this);
+      } catch (error) {
+        const err =
+          error instanceof Error
+            ? error
+            : new Error(`Background work cleanup error: ${String(error)}`);
+        cleanupErrors.push(err);
+        logger.warn("[NeuroLink] Error stopping background work:", error);
+      }
+
       // 1. Flush and shutdown OpenTelemetry
       try {
         logger.debug("[NeuroLink] Flushing and shutting down OpenTelemetry...");

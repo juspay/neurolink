@@ -8,7 +8,7 @@
 
 > **SimpleTool**\<`TArgs`, `TResult`\> = `object`
 
-Defined in: [types/tools.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L432)
+Defined in: [types/tools.ts:443](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L443)
 
 Simple tool type (for SDK)
 
@@ -28,7 +28,7 @@ Simple tool type (for SDK)
 
 > **description**: `string`
 
-Defined in: [types/tools.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L433)
+Defined in: [types/tools.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L444)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/tools.ts:433](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **parameters?**: [`ZodUnknownSchema`](ZodUnknownSchema.md)
 
-Defined in: [types/tools.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L434)
+Defined in: [types/tools.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L445)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/tools.ts:434](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **metadata?**: [`ToolMetadata`](ToolMetadata.md)
 
-Defined in: [types/tools.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L435)
+Defined in: [types/tools.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L446)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/tools.ts:435](https://github.com/juspay/neurolink/blob/releas
 
 > **execute**: (`params`, `context?`) => `Promise`\<`TResult`\>
 
-Defined in: [types/tools.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L436)
+Defined in: [types/tools.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L447)
 
 #### Parameters
 

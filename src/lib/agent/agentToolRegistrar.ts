@@ -32,7 +32,7 @@ import {
 const DEFAULT_POOL_CAPACITY = 4;
 const DEFAULT_POOL_QUEUE_TIMEOUT_MS = 30_000;
 /** Bound on the content text returned into the host loop per delegation. */
-const DELEGATION_RESULT_CONTENT_CHARS = 4000;
+export const DELEGATION_RESULT_CONTENT_CHARS = 4000;
 
 // ── Registrations ──────────────────────────────────────────────────────────
 
@@ -122,17 +122,32 @@ export function runWithNestedDelegationDepth<T>(
   return turnStorage.run(state, fn);
 }
 
-function resolveDepth(
+/**
+ * The delegation depth a tool call is being made AT — execution context
+ * first (a worker running the host's registered closure arrives with its own
+ * `agentDepth`), then the per-turn ALS scope, then the host's own context.
+ *
+ * Exported so every delegation surface answers "how deep am I?" the same
+ * way; `executeDelegation` and the background form both call it.
+ */
+export function resolveDelegationDepth(
   host: NeuroLink,
-  options?: GenerateOptions,
   executionContext?: Record<string, unknown>,
 ): number {
-  // Execution context wins: it carries the agentDepth stamped on the worker
-  // that is actually making this call (see executeDelegation).
   const fromExecution = executionContext?.agentDepth;
   if (typeof fromExecution === "number") {
     return fromExecution;
   }
+  const turnScope = turnStorage.getStore();
+  return turnScope?.depth ?? resolveDepth(host);
+}
+
+/**
+ * Depth declared by the CALL or the instance. The execution context — which
+ * carries the agentDepth stamped on the worker actually making the call — is
+ * checked one level up, in {@link resolveDelegationDepth}.
+ */
+function resolveDepth(host: NeuroLink, options?: GenerateOptions): number {
   const fromCall = options?.context?.agentDepth;
   if (typeof fromCall === "number") {
     return fromCall;
@@ -157,6 +172,59 @@ function releasePoolSlot(): void {
     poolInUse++;
     next.grant();
   }
+}
+
+/**
+ * Raise the process-wide delegation pool to at least `capacity` slots.
+ *
+ * Raises only — never lowers. The pool is shared by every delegation surface,
+ * so a per-agent "max concurrent" that could shrink it would be a throttle on
+ * everyone else's work. Queued waiters the raise just unblocked are granted
+ * immediately, so a raise never leaves capacity idle behind a full queue.
+ */
+export function raiseDelegationPoolCapacity(capacity: number): void {
+  // Infinity historically meant "unbounded" (Math.max accepted it); map it to
+  // a finite stand-in rather than silently dropping to the default. NaN stays
+  // rejected — it used to deadlock the pool permanently (Math.max(4, NaN) is
+  // NaN, and `poolInUse < NaN` is always false).
+  const UNBOUNDED_STAND_IN = 1024;
+  if (capacity === Number.POSITIVE_INFINITY) {
+    capacity = UNBOUNDED_STAND_IN;
+  }
+  if (!Number.isFinite(capacity) || capacity <= poolCapacity) {
+    return;
+  }
+  poolCapacity = capacity;
+  while (poolInUse < poolCapacity && poolWaiters.length > 0) {
+    const next = poolWaiters.shift();
+    if (next) {
+      poolInUse++;
+      next.grant();
+    }
+  }
+}
+
+/**
+ * Take a pool slot only if one is free right now. Returns the release
+ * function, or undefined when the pool is full — never queues.
+ *
+ * Background delegation needs the answer synchronously: `spawnDelegate`
+ * returns a handle BEFORE the worker starts, and the handle reports whether
+ * the worker is running or waiting for a slot. Asking after the fact would be
+ * a guess.
+ */
+export function tryAcquireDelegationSlot(): (() => void) | undefined {
+  if (poolInUse >= poolCapacity) {
+    return undefined;
+  }
+  poolInUse++;
+  let released = false;
+  return () => {
+    if (!released) {
+      released = true;
+      releasePoolSlot();
+    }
+  };
 }
 
 /**
@@ -236,17 +304,7 @@ export function registerAgentTool(
     );
   }
   if (options.maxConcurrent !== undefined) {
-    // Process-wide pool: the largest registered capacity wins (raises only —
-    // never lowers; this is not a per-agent throttle). Grant any queued
-    // waiters the raise just unblocked.
-    poolCapacity = Math.max(poolCapacity, options.maxConcurrent);
-    while (poolInUse < poolCapacity && poolWaiters.length > 0) {
-      const next = poolWaiters.shift();
-      if (next) {
-        poolInUse++;
-        next.grant();
-      }
-    }
+    raiseDelegationPoolCapacity(options.maxConcurrent);
   }
   const registration: AgentToolRegistrationRecord = {
     name,
@@ -308,10 +366,7 @@ async function executeDelegation(
   // execution context carries no depth, the ALS turn scope's depth covers
   // the composed path (AgentNetwork wraps its agents one level deeper).
   const turnScope = turnStorage.getStore();
-  const depth =
-    typeof contextRecord.agentDepth === "number"
-      ? contextRecord.agentDepth
-      : (turnScope?.depth ?? resolveDepth(host));
+  const depth = resolveDelegationDepth(host, contextRecord);
   if (options.maxDepth !== undefined && depth >= options.maxDepth) {
     return refusal(
       `Delegation depth limit reached (${depth}/${options.maxDepth}). Complete this investigation yourself with your own tools instead of delegating further.`,

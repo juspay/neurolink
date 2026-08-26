@@ -8,7 +8,7 @@
 
 > **ToolValidationOptions** = `object`
 
-Defined in: [types/tools.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L558)
+Defined in: [types/tools.ts:569](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L569)
 
 Tool validation options
 
@@ -18,7 +18,7 @@ Tool validation options
 
 > `optional` **customValidator?**: (`toolName`, `params`) => `boolean` \| `Promise`\<`boolean`\>
 
-Defined in: [types/tools.ts:559](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L559)
+Defined in: [types/tools.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L570)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/tools.ts:559](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **validateSchema?**: `boolean`
 
-Defined in: [types/tools.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L563)
+Defined in: [types/tools.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L574)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/tools.ts:563](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **allowUnknownProperties?**: `boolean`
 
-Defined in: [types/tools.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L564)
+Defined in: [types/tools.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L575)

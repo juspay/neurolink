@@ -8,7 +8,7 @@
 
 > **BashToolResult** = `object`
 
-Defined in: [types/tools.ts:642](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L642)
+Defined in: [types/tools.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L653)
 
 Result shape returned by the built-in `bashTool` execute function in
 `src/lib/agent/directTools.ts`. Centralised here per CLAUDE.md rule 2
@@ -21,7 +21,7 @@ local re-shaping of the runtime contract.
 
 > **success**: `boolean`
 
-Defined in: [types/tools.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L643)
+Defined in: [types/tools.ts:654](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L654)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/tools.ts:643](https://github.com/juspay/neurolink/blob/releas
 
 > **code**: `number`
 
-Defined in: [types/tools.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L644)
+Defined in: [types/tools.ts:655](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L655)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/tools.ts:644](https://github.com/juspay/neurolink/blob/releas
 
 > **stdout**: `string`
 
-Defined in: [types/tools.ts:645](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L645)
+Defined in: [types/tools.ts:656](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L656)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/tools.ts:645](https://github.com/juspay/neurolink/blob/releas
 
 > **stderr**: `string`
 
-Defined in: [types/tools.ts:646](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L646)
+Defined in: [types/tools.ts:657](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L657)
 
 ---
 
@@ -53,4 +53,4 @@ Defined in: [types/tools.ts:646](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/tools.ts:647](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L647)
+Defined in: [types/tools.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L658)

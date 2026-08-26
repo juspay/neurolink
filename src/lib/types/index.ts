@@ -20,6 +20,16 @@ export * from "./config.js";
 export * from "./context.js";
 export * from "./conversation.js";
 export * from "./conversationMemoryInterface.js";
+export * from "./delegation.js";
+
+// Background commands (N4) — detached execution, banked output, monitors
+export * from "./backgroundCommand.js";
+
+// Read-only git toolset (N4.4) built on the background-command runner
+export * from "./gitTools.js";
+
+// Path containment guard shared by the sandboxed execution paths
+export * from "./pathSandbox.js";
 export * from "./domain.js";
 export * from "./errors.js";
 export * from "./evaluation.js";
@@ -60,6 +70,7 @@ export * from "./streaming.js";
 export * from "./subscription.js";
 export * from "./task.js";
 export * from "./taskClassification.js";
+export * from "./tasks.js";
 export * from "./toolDedup.js";
 export * from "./toolResolution.js";
 export * from "./toolRouting.js";

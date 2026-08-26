@@ -8,7 +8,7 @@
 
 > **isToolDefinition**(`value`): `value is ToolDefinition<ToolArgs, JsonValue>`
 
-Defined in: [types/tools.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L625)
+Defined in: [types/tools.ts:636](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L636)
 
 Type guard for tool definition
 

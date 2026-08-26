@@ -8,7 +8,7 @@
 
 > **ArtifactStore** = `object`
 
-Defined in: [types/artifact.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L53)
+Defined in: [types/artifact.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L114)
 
 Pluggable storage contract for externalized MCP tool outputs.
 
@@ -21,7 +21,7 @@ Future backends can implement this interface for S3, Redis blobs, etc.
 
 > **store**(`payload`, `meta`): `Promise`\<[`ArtifactRef`](ArtifactRef.md)\>
 
-Defined in: [types/artifact.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L59)
+Defined in: [types/artifact.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L120)
 
 Persist a payload and return a lightweight reference.
 
@@ -49,7 +49,7 @@ Descriptor without `createdAt` (assigned internally).
 
 > **retrieve**(`id`): `Promise`\<`string` \| `null`\>
 
-Defined in: [types/artifact.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L68)
+Defined in: [types/artifact.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L129)
 
 Retrieve the full payload by artifact ID.
 Returns `null` if the artifact is not found or has been cleaned up.
@@ -70,7 +70,7 @@ Returns `null` if the artifact is not found or has been cleaned up.
 
 > **delete**(`id`): `Promise`\<`void`\>
 
-Defined in: [types/artifact.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L71)
+Defined in: [types/artifact.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L132)
 
 Delete a single artifact. No-op if the ID does not exist.
 
@@ -90,7 +90,7 @@ Delete a single artifact. No-op if the ID does not exist.
 
 > **cleanup**(`olderThanMs`): `Promise`\<`number`\>
 
-Defined in: [types/artifact.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L77)
+Defined in: [types/artifact.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L138)
 
 Delete all artifacts older than `olderThanMs` milliseconds.
 Returns the number of artifacts deleted.
@@ -111,7 +111,7 @@ Returns the number of artifacts deleted.
 
 > **generatePreview**(`payload`): `string`
 
-Defined in: [types/artifact.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L80)
+Defined in: [types/artifact.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L141)
 
 Generate a short preview string from a serialized payload.
 

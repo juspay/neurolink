@@ -8,7 +8,7 @@
 
 > **AiSdkToolCall** = `object`
 
-Defined in: [types/tools.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L579)
+Defined in: [types/tools.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L590)
 
 AI SDK Tool Call format (from Vercel AI SDK)
 
@@ -18,7 +18,7 @@ AI SDK Tool Call format (from Vercel AI SDK)
 
 > **type**: `"tool-call"`
 
-Defined in: [types/tools.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L580)
+Defined in: [types/tools.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L591)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:580](https://github.com/juspay/neurolink/blob/releas
 
 > **toolCallId**: `string`
 
-Defined in: [types/tools.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L581)
+Defined in: [types/tools.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L592)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/tools.ts:581](https://github.com/juspay/neurolink/blob/releas
 
 > **toolName**: `string`
 
-Defined in: [types/tools.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L582)
+Defined in: [types/tools.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L593)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/tools.ts:582](https://github.com/juspay/neurolink/blob/releas
 
 > **params**: [`ToolArgs`](ToolArgs.md)
 
-Defined in: [types/tools.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L583)
+Defined in: [types/tools.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L594)
