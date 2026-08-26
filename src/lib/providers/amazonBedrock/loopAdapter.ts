@@ -340,6 +340,14 @@ export function createBedrockLoopAdapter(config: {
                   ...commandInput,
                   modelId: effectiveModelId,
                 }),
+                // Hand the signal to the transport, not just to the loop.
+                // `abortSignal` is documented public API, and loopEngine
+                // already honours it — but only *between* steps. Without this
+                // the HTTP request stays in flight after an abort until it
+                // answers or STEP_TIMEOUT_MS (120s) elapses, because nothing
+                // ever told the socket. `@smithy/types` HttpHandlerOptions
+                // takes the same AbortSignal the adapter is already given.
+                { abortSignal: signal },
               ),
               STEP_TIMEOUT_MS,
               new Error("Bedrock API call timed out"),
@@ -361,6 +369,10 @@ export function createBedrockLoopAdapter(config: {
                 ...commandInput,
                 modelId: effectiveModelId,
               }),
+              // As above: the streaming send needs the signal too, so an
+              // abort tears down the eventstream connection rather than
+              // leaving it open for the rest of the step budget.
+              { abortSignal: signal },
             ),
             STEP_TIMEOUT_MS,
             new Error("Bedrock streaming API call timed out"),
