@@ -25,6 +25,7 @@ export enum AIProviderName {
   LLAMACPP = "llamacpp",
   XAI = "xai",
   GROQ = "groq",
+  CEREBRAS = "cerebras",
   COHERE = "cohere",
   TOGETHER_AI = "together-ai",
   FIREWORKS = "fireworks",
@@ -1173,6 +1174,25 @@ export enum GroqModels {
   LLAMA_3_2_90B_VISION_PREVIEW = "llama-3.2-90b-vision-preview",
   /** Llama 3.2 11B Vision Preview — smaller multimodal */
   LLAMA_3_2_11B_VISION_PREVIEW = "llama-3.2-11b-vision-preview",
+}
+
+/**
+ * Cerebras inference models (wafer-scale, OpenAI-compatible API).
+ * @see https://inference-docs.cerebras.ai/introduction
+ *
+ * Note the vendor's inconsistent id scheme: `llama3.1-8b` has no dash
+ * after "llama", while `llama-3.3-70b` does — both are the DOCUMENTED
+ * ids, not typos.
+ */
+export enum CerebrasModels {
+  /** Llama 3.3 70B — production default */
+  LLAMA_3_3_70B = "llama-3.3-70b",
+  /** Llama 3.1 8B — low-latency tier (vendor id has no dash after "llama") */
+  LLAMA_3_1_8B = "llama3.1-8b",
+  /** Qwen 3 32B */
+  QWEN_3_32B = "qwen-3-32b",
+  /** OpenAI GPT-OSS 120B (open-weight) */
+  GPT_OSS_120B = "gpt-oss-120b",
 }
 
 /**

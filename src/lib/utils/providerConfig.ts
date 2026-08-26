@@ -519,6 +519,24 @@ export function createXaiConfig(): ProviderConfigOptions {
 }
 
 /**
+ * Creates Cerebras provider configuration.
+ */
+export function createCerebrasConfig(): ProviderConfigOptions {
+  return {
+    providerName: "Cerebras",
+    envVarName: "CEREBRAS_API_KEY",
+    setupUrl: "https://cloud.cerebras.ai",
+    description: "API key",
+    instructions: [
+      "1. Visit: https://cloud.cerebras.ai",
+      "2. Sign in or create a free Cerebras account",
+      "3. Create an API key under API Keys",
+      "4. Set CEREBRAS_API_KEY in your .env file",
+    ],
+  };
+}
+
+/**
  * Creates Groq provider configuration.
  */
 export function createGroqConfig(): ProviderConfigOptions {

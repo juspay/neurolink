@@ -21,6 +21,7 @@ import {
   NvidiaNimModels,
   XaiModels,
   GroqModels,
+  CerebrasModels,
   CohereModels,
   TogetherAIModels,
   FireworksModels,
@@ -337,6 +338,21 @@ const TOP_MODELS_CONFIG: Record<
       description: "Mistral 8x7B MoE, 32K context",
     },
   ],
+  [AIProviderName.CEREBRAS]: [
+    {
+      model: CerebrasModels.LLAMA_3_3_70B,
+      description: "Recommended - Production default; wafer-scale speed",
+    },
+    {
+      model: CerebrasModels.LLAMA_3_1_8B,
+      description: "Lowest latency tier",
+    },
+    { model: CerebrasModels.QWEN_3_32B, description: "Qwen 3 32B" },
+    {
+      model: CerebrasModels.GPT_OSS_120B,
+      description: "OpenAI GPT-OSS 120B (open-weight)",
+    },
+  ],
   [AIProviderName.COHERE]: [
     {
       model: CohereModels.COMMAND_R_PLUS,
@@ -576,6 +592,7 @@ const MODEL_ENUMS: Record<AIProviderName, Record<string, string> | null> = {
   [AIProviderName.LLAMACPP]: null,
   [AIProviderName.XAI]: XaiModels,
   [AIProviderName.GROQ]: GroqModels,
+  [AIProviderName.CEREBRAS]: CerebrasModels,
   [AIProviderName.COHERE]: CohereModels,
   [AIProviderName.TOGETHER_AI]: TogetherAIModels,
   [AIProviderName.FIREWORKS]: FireworksModels,

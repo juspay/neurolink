@@ -8,7 +8,7 @@
 
 > **BedrockPendingContentBlock** = [`BedrockContentBlock`](BedrockContentBlock.md) & `object`
 
-Defined in: [types/providers.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1031)
+Defined in: [types/providers.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1032)
 
 A Bedrock content block still being assembled from a ConverseStream event
 sequence. `_inputBuffer` holds the partial tool-call JSON that arrives
