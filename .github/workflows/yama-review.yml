@@ -20,6 +20,17 @@
 # BLOCKED verdict (per .yama/config.yaml `blockingCriteria`) or the review cannot
 # complete. Ordinary review comments / CHANGES_REQUESTED do not fail the check.
 #
+# Stale-verdict hygiene: Yama's reviews pin to the commit they reviewed, and a
+# CHANGES_REQUESTED from a superseded head keeps reviewDecision red even after
+# the findings were fixed and a fresh review ran — historically that verdict
+# could only be cleared by a human dismissing it (#1509, #1513, #1542). The
+# "Dismiss superseded verdicts" step below clears the bot's OWN
+# CHANGES_REQUESTED reviews from older commits, but only after this run
+# produced a verdict for the current head, only when the run was not
+# cancelled, and only while the PR head still matches the head this run
+# reviewed — stale signal is only ever replaced, never removed, and a
+# cancelled or superseded run never dismisses anything.
+#
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   YAMA_GITHUB_TOKEN : a REAL GitHub PAT — fine-grained with
 #                       "Pull requests: Read and write" + "Contents: Read"
@@ -206,6 +217,51 @@ jobs:
             exit 1
           fi
           echo "✅ Yama review passed (decision=${DECISION})."
+
+      # A review pins to the commit it reviewed. Once THIS run has produced a
+      # verdict for the current head, any CHANGES_REQUESTED the bot posted on
+      # an older head is superseded — but GitHub keeps it in reviewDecision
+      # until someone dismisses it, and the concurrency setup means the run
+      # that would have replaced it can end up cancelled and un-rerunnable.
+      # Dismiss the bot's own stale verdicts here. Guarded on a non-empty
+      # decision so a failed review never deletes the only signal; uses
+      # !cancelled() — not always() — so a run cancelled by a newer push
+      # never dismisses anything (that push's own run owns dismissal), while
+      # a BLOCKED verdict (which exits the enforce step non-zero) still
+      # counts as a fresh verdict for the current head.
+      - name: Dismiss superseded verdicts
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' && steps.yama.outputs.decision != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.YAMA_GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # Fully non-fatal: dismissal is hygiene, not the review. Any API
+        # failure leaves the stale verdict for a human, same as before.
+        run: |
+          set -uo pipefail
+          # Belt to !cancelled()'s braces: if the PR head has already moved
+          # past the head this run reviewed, a newer run owns dismissal —
+          # dismissing here could remove the newer head's own fresh verdict.
+          LIVE_HEAD="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq .head.sha 2>/dev/null)" || { echo "::warning::Could not read the live PR head; skipping stale-verdict dismissal."; exit 0; }
+          if [ "${LIVE_HEAD}" != "${HEAD_SHA}" ]; then
+            echo "PR head moved (${HEAD_SHA} -> ${LIVE_HEAD}) — the newer run owns dismissal; skipping."
+            exit 0
+          fi
+          ME="$(gh api user --jq .login 2>/dev/null)" || { echo "::warning::Could not resolve the bot login; skipping stale-verdict dismissal."; exit 0; }
+          STALE="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}/reviews" --paginate \
+            --jq ".[] | select(.user.login == \"${ME}\" and .state == \"CHANGES_REQUESTED\" and .commit_id != \"${HEAD_SHA}\") | .id" 2>/dev/null)" || { echo "::warning::Could not list reviews; skipping stale-verdict dismissal."; exit 0; }
+          if [ -z "${STALE}" ]; then
+            echo "No stale ${ME} verdicts to dismiss."
+            exit 0
+          fi
+          for RID in ${STALE}; do
+            if gh api -X PUT "repos/${GITHUB_REPOSITORY}/pulls/${PR}/reviews/${RID}/dismissals" \
+                 -f message="Superseded — the head moved to ${HEAD_SHA} and a fresh Yama review ran on it." >/dev/null 2>&1; then
+              echo "Dismissed stale review ${RID}."
+            else
+              echo "::warning::Could not dismiss stale review ${RID} (left for a human)."
+            fi
+          done
 
       # Persist review state for the next push on this PR (incremental review).
       - name: Save review state
