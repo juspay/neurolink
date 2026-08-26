@@ -160,3 +160,112 @@ export function mockOpenAICredentials(server: MockChatServer): {
     openai: { apiKey: "sk-mock-local-server", baseURL: server.baseURL },
   };
 }
+
+/**
+ * A `MockChatServer` whose replies are PACED and ADDRESSED by the prompt.
+ *
+ * Same loopback server, two additions the delegation suite needs and no live
+ * model can give: a request whose body contains `DELAY:<ms>` is answered that
+ * many milliseconds later, and one containing `TAG:<name>` is answered with
+ * content naming that tag. That makes "which worker finished first" a property
+ * of the test, not of the weather — which is the only way to prove that
+ * collection order is independent of spawn order rather than merely observing
+ * it once.
+ */
+export type PacedChatServer = MockChatServer & {
+  /** How many requests are being held right now (paced, not yet answered). */
+  inFlight(): number;
+};
+
+/**
+ * Upper bound on a paced reply. The delay is read from the request body, and an
+ * unbounded value would let one request hold its socket (and the suite) for
+ * arbitrarily long. Suites pace in tens of milliseconds; ten seconds is far
+ * above any legitimate use.
+ */
+const MAX_PACED_DELAY_MS = 10_000;
+
+export function startPacedChatServer(): Promise<PacedChatServer> {
+  const bodies: string[] = [];
+  let inFlight = 0;
+
+  const server: Server = createServer((req, res) => {
+    readBody(req)
+      .then((bodyStr) => {
+        bodies.push(bodyStr);
+        // Digit-capped at the regex AND bounded by an explicit comparison —
+        // the comparison is the form static analysis recognises as the
+        // upper-bound barrier on a request-derived timer duration.
+        const requestedDelay =
+          Number(/DELAY:(\d{1,5})/.exec(bodyStr)?.[1] ?? "0") || 0;
+        const delayMs =
+          requestedDelay > MAX_PACED_DELAY_MS
+            ? MAX_PACED_DELAY_MS
+            : requestedDelay;
+        const tag = /TAG:([A-Za-z0-9_-]+)/.exec(bodyStr)?.[1] ?? "untagged";
+        inFlight++;
+        let held = true;
+        const timer = setTimeout(() => {
+          held = false;
+          inFlight--;
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(
+            JSON.stringify({
+              id: "paced-completion",
+              object: "chat.completion",
+              created: Math.floor(Date.now() / 1000),
+              model: "gpt-4o-mini",
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: "assistant",
+                    content: `WORKER-REPORT ${tag}: finished after ${delayMs}ms.`,
+                  },
+                  finish_reason: "stop",
+                },
+              ],
+              usage: {
+                prompt_tokens: 1,
+                completion_tokens: 1,
+                total_tokens: 2,
+              },
+            }),
+          );
+        }, delayMs);
+        // A held request must never keep the process alive on its own.
+        timer.unref?.();
+        // A cancelled worker stops being held. `res` 'close' is the reliable
+        // signal: it fires on premature termination even after the request
+        // body has ended, where the deprecated `req` 'aborted' stays silent.
+        // It also fires after a NORMAL completion, so the cleanup is guarded.
+        res.once("close", () => {
+          if (held) {
+            held = false;
+            clearTimeout(timer);
+            inFlight--;
+          }
+        });
+      })
+      .catch(() => {
+        res.writeHead(500);
+        res.end();
+      });
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        baseURL: `http://127.0.0.1:${port}/v1`,
+        getLastRequestBody: () =>
+          bodies.length > 0 ? bodies[bodies.length - 1] : null,
+        getAllRequestBodies: () => [...bodies],
+        wasCalled: () => bodies.length > 0,
+        inFlight: () => inFlight,
+        close: () => new Promise((r) => server.close(() => r())),
+      });
+    });
+  });
+}

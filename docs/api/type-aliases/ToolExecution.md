@@ -8,7 +8,7 @@
 
 > **ToolExecution** = `object`
 
-Defined in: [types/tools.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L509)
+Defined in: [types/tools.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L520)
 
 Tool execution information
 
@@ -18,7 +18,7 @@ Tool execution information
 
 > **toolName**: `string`
 
-Defined in: [types/tools.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L510)
+Defined in: [types/tools.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L521)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:510](https://github.com/juspay/neurolink/blob/releas
 
 > **params**: [`ToolArgs`](ToolArgs.md)
 
-Defined in: [types/tools.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L511)
+Defined in: [types/tools.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L522)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/tools.ts:511](https://github.com/juspay/neurolink/blob/releas
 
 > **result**: [`ToolResult`](ToolResult.md)
 
-Defined in: [types/tools.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L512)
+Defined in: [types/tools.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L523)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/tools.ts:512](https://github.com/juspay/neurolink/blob/releas
 
 > **executionTime**: `number`
 
-Defined in: [types/tools.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L513)
+Defined in: [types/tools.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L524)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/tools.ts:513](https://github.com/juspay/neurolink/blob/releas
 
 > **timestamp**: `number`
 
-Defined in: [types/tools.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L514)
+Defined in: [types/tools.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L525)

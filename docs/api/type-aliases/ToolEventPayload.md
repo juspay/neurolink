@@ -8,7 +8,7 @@
 
 > **ToolEventPayload** = `object`
 
-Defined in: [types/tools.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L384)
+Defined in: [types/tools.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L395)
 
 Payload emitted for tool:start and tool:end events.
 Always includes both `tool` and `toolName` for backward compatibility.
@@ -19,7 +19,7 @@ Always includes both `tool` and `toolName` for backward compatibility.
 
 > **tool**: `string`
 
-Defined in: [types/tools.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L385)
+Defined in: [types/tools.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L396)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/tools.ts:385](https://github.com/juspay/neurolink/blob/releas
 
 > **toolName**: `string`
 
-Defined in: [types/tools.ts:386](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L386)
+Defined in: [types/tools.ts:397](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L397)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/tools.ts:386](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **input?**: `unknown`
 
-Defined in: [types/tools.ts:387](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L387)
+Defined in: [types/tools.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L398)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/tools.ts:387](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **result?**: `unknown`
 
-Defined in: [types/tools.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L388)
+Defined in: [types/tools.ts:399](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L399)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/tools.ts:388](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/tools.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L389)
+Defined in: [types/tools.ts:400](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L400)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/tools.ts:389](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **success?**: `boolean`
 
-Defined in: [types/tools.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L390)
+Defined in: [types/tools.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L401)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/tools.ts:390](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **responseTime?**: `number`
 
-Defined in: [types/tools.ts:391](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L391)
+Defined in: [types/tools.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L402)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/tools.ts:391](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **timestamp?**: `number`
 
-Defined in: [types/tools.ts:392](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L392)
+Defined in: [types/tools.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L403)
 
 ---
 
@@ -83,7 +83,7 @@ Defined in: [types/tools.ts:392](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/tools.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L393)
+Defined in: [types/tools.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L404)
 
 ---
 
@@ -91,4 +91,4 @@ Defined in: [types/tools.ts:393](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **executionId?**: `string`
 
-Defined in: [types/tools.ts:394](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L394)
+Defined in: [types/tools.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L405)

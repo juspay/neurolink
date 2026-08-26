@@ -26,6 +26,13 @@ export type ArtifactMeta = {
   contentType: "json" | "text";
   /** Unix epoch ms when the artifact was created. */
   createdAt: number;
+  /**
+   * Human label for a host-banked artifact (e.g. "delegate:auth-review").
+   * Absent on artifacts written by the MCP output normalizer.
+   */
+  label?: string;
+  /** What kind of output was banked. Absent for MCP surrogates. */
+  kind?: BankedArtifactKind;
 };
 
 /** Lightweight descriptor returned after a successful ArtifactStore.store(). */
@@ -38,6 +45,60 @@ export type ArtifactRef = {
   sizeBytes: number;
   /** Stored metadata. */
   meta: ArtifactMeta;
+};
+
+// ---------------------------------------------------------------------------
+// Host-side artifact banking (N3)
+// ---------------------------------------------------------------------------
+
+/**
+ * What a banked payload is, so previews and logs can say so without the
+ * caller re-explaining itself. "other" is the escape hatch, not the default.
+ */
+export type BankedArtifactKind =
+  | "worker-report"
+  | "command-output"
+  | "stage-output"
+  | "other";
+
+/** How to bank one payload. Only `kind` and `label` are required. */
+export type BankArtifactOptions = {
+  /** What this payload is. */
+  kind: BankedArtifactKind;
+  /** Short human label, e.g. "delegate:auth-review" — shown in logs. */
+  label: string;
+  /** Session the payload belongs to, recorded on the artifact metadata. */
+  sessionId?: string;
+  /** Payload shape; decides the on-disk extension. Default "text". */
+  contentType?: "json" | "text";
+  /** Preview length in characters. Default 1000, hard cap 4000. */
+  previewChars?: number;
+};
+
+/**
+ * What the conversation gets instead of the payload: an id, a bounded head
+ * slice, and the exact call that reads the rest. The FULL payload is always on
+ * disk — a preview is a pointer, never a replacement.
+ */
+export type BankedArtifactRef = {
+  /** Id to pass to `retrieve_context({ artifactId })`. */
+  artifactId: string;
+  label: string;
+  kind: BankedArtifactKind;
+  /** UTF-8 byte size of the complete payload. */
+  sizeBytes: number;
+  /** Bounded head slice of the payload (characters, not bytes). */
+  preview: string;
+  /** Literal read-back call, so the model never has to guess the tool. */
+  readBackHint: string;
+};
+
+/** Character window for a paginated artifact read. */
+export type ArtifactPageRequest = {
+  /** Character offset to start at. Default 0. */
+  offset?: number;
+  /** Maximum characters to return. Default: the rest of the payload. */
+  limit?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -84,4 +145,11 @@ export type ArtifactStore = {
  * In-memory index row tracked by LocalTempArtifactStore.
  * Combines metadata with the on-disk path.
  */
-export type IndexEntry = ArtifactMeta & { path: string };
+export type IndexEntry = ArtifactMeta & {
+  path: string;
+  /**
+   * Loaded from disk rather than stored by this process. Another process's
+   * work: readable, but never expired by this process's `cleanup()`.
+   */
+  rehydrated?: boolean;
+};

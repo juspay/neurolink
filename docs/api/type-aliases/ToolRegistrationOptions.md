@@ -48,3 +48,20 @@ Defined in: [types/tools.ts:202](https://github.com/juspay/neurolink/blob/releas
 Maximum retry attempts on failure. Only applied when explicitly set.
 When omitted, the SDK's global default (2 retries) is used.
 Set to 0 to disable retries for this tool.
+
+---
+
+### cacheable?
+
+> `optional` **cacheable?**: `boolean`
+
+Defined in: [types/tools.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L213)
+
+Whether this tool's result may be served from the tool-result cache
+(default true).
+
+Set to `false` for a tool whose result is NOT a function of its arguments
+— anything reading or mutating live state. The cache is keyed by tool name
+plus arguments, so a stateful tool called twice with the same arguments
+replays its first answer for the whole TTL: a checklist that never updates,
+a queue that hands out the same item twice.

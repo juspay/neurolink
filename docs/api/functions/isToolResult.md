@@ -8,7 +8,7 @@
 
 > **isToolResult**(`value`): `value is ToolResult<unknown>`
 
-Defined in: [types/tools.ts:613](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L613)
+Defined in: [types/tools.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L624)
 
 Type guard for tool result
 

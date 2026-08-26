@@ -200,6 +200,17 @@ export type ToolRegistrationOptions = {
    *  When omitted, the SDK's global default (2 retries) is used.
    *  Set to 0 to disable retries for this tool. */
   maxRetries?: number;
+  /**
+   * Whether this tool's result may be served from the tool-result cache
+   * (default true).
+   *
+   * Set to `false` for a tool whose result is NOT a function of its arguments
+   * — anything reading or mutating live state. The cache is keyed by tool name
+   * plus arguments, so a stateful tool called twice with the same arguments
+   * replays its first answer for the whole TTL: a checklist that never updates,
+   * a queue that hands out the same item twice.
+   */
+  cacheable?: boolean;
 };
 
 /**

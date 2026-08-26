@@ -71,3 +71,24 @@ Whether the payload is valid JSON or plain text.
 Defined in: [types/artifact.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L28)
 
 Unix epoch ms when the artifact was created.
+
+---
+
+### label?
+
+> `optional` **label?**: `string`
+
+Defined in: [types/artifact.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L33)
+
+Human label for a host-banked artifact (e.g. "delegate:auth-review").
+Absent on artifacts written by the MCP output normalizer.
+
+---
+
+### kind?
+
+> `optional` **kind?**: [`BankedArtifactKind`](BankedArtifactKind.md)
+
+Defined in: [types/artifact.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L35)
+
+What kind of output was banked. Absent for MCP surrogates.
