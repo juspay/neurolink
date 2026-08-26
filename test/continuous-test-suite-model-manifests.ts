@@ -54,7 +54,9 @@ import type { ProviderModelManifestEntry } from "../dist/types/model.js";
 // Fail loudly rather than silently testing a stale build.
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Model Manifests");
+const { test, runSuite } = defineSuite("Model Manifests", {
+  offline: true,
+});
 
 const {
   resolveManifestEntry,

@@ -56,7 +56,9 @@ import { __testHooks } from "../src/lib/server/routes/codexProxyRoutes.js";
 import type { CodexRuntimeAccount } from "../src/lib/types/index.js";
 import { assert, assertEqual, defineSuite, runCLI } from "./helpers/harness.js";
 
-const { test, runSuite } = defineSuite("Codex Pool Engine");
+const { test, runSuite } = defineSuite("Codex Pool Engine", {
+  offline: true,
+});
 
 /** Fixed clock so reset arithmetic is deterministic. */
 const NOW = 1_800_000_000_000;

@@ -30,7 +30,9 @@ import * as path from "path";
 import { defineSuite, log } from "./helpers/harness.js";
 import type { LocalUsageScanResult } from "../src/lib/types/index.js";
 
-const { test, runSuite } = defineSuite("Local Usage");
+const { test, runSuite } = defineSuite("Local Usage", {
+  offline: true,
+});
 
 const sdk = await import("../dist/index.js");
 const { readAllLocalUsage, getLocalUsageDescriptors, createLocalUsageReader } =

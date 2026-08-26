@@ -29,7 +29,9 @@ import { installMockFetch } from "./utils/mockFetch.js";
 import { NeuroLink } from "../dist/index.js";
 import type { GenerateOptions } from "../src/lib/types/index.js";
 
-const { test, runSuite } = defineSuite("Provider fallback latency");
+const { test, runSuite } = defineSuite("Provider fallback latency", {
+  offline: true,
+});
 
 // ---------------------------------------------------------------------------
 // Environment: fake keys, deterministic api_key auth, no proxy.
