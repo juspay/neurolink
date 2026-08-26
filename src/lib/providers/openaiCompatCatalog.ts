@@ -62,16 +62,11 @@ export const OPENAI_COMPAT_CATALOG: readonly OpenAICompatCatalogEntry[] = [
     defaultBaseURL: "https://api.cerebras.ai/v1",
     configOptions: createCerebrasConfig(),
     modelEnvVar: "CEREBRAS_MODEL",
-    defaultModel: CerebrasModels.LLAMA_3_3_70B,
-    registryDefaultModel: CerebrasModels.LLAMA_3_3_70B,
+    defaultModel: CerebrasModels.GPT_OSS_120B,
+    registryDefaultModel: CerebrasModels.GPT_OSS_120B,
     registryDefaultModelChecksEnvVar: true,
-    fallbackModelName: CerebrasModels.LLAMA_3_1_8B,
-    fallbackModels: [
-      CerebrasModels.LLAMA_3_3_70B,
-      CerebrasModels.LLAMA_3_1_8B,
-      CerebrasModels.QWEN_3_32B,
-      CerebrasModels.GPT_OSS_120B,
-    ],
+    fallbackModelName: CerebrasModels.GEMMA_4_31B,
+    fallbackModels: [CerebrasModels.GPT_OSS_120B, CerebrasModels.GEMMA_4_31B],
     errorRules: [
       {
         // Probed live 2026-08-26: a bad key gets HTTP 401 with body

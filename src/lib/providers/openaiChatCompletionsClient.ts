@@ -619,7 +619,12 @@ export const buildBody = (
   if (tools) {
     body.tools = tools;
   }
-  if (toolChoice !== undefined) {
+  // tool_choice is only meaningful alongside a non-empty tools array, and
+  // strict OpenAI-compatible backends (probed live on Cerebras 2026-08-27)
+  // reject it outright with 400 wrong_api_format when tools are absent:
+  // "'tool_choice' is only allowed when 'tools' are specified". Omitting it
+  // is behavior-identical on lenient backends.
+  if (toolChoice !== undefined && tools && tools.length > 0) {
     body.tool_choice = toolChoice;
   }
   if (responseFormat) {

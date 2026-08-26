@@ -405,7 +405,7 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
       baseURL: "CEREBRAS_BASE_URL",
       model: "CEREBRAS_MODEL",
     },
-    defaultModel: CerebrasModels.LLAMA_3_3_70B,
+    defaultModel: CerebrasModels.GPT_OSS_120B,
     toolSupport: "native",
     localRuntime: false,
     healthCheck: "env-only",

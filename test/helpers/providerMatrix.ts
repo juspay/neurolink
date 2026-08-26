@@ -439,6 +439,25 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
     videoGeneration: false,
     tts: false,
   },
+  cerebras: {
+    name: "cerebras",
+    // Live roster probed 2026-08-27: only gemma-4-31b and gpt-oss-120b —
+    // the llama/qwen models the initial catalog listed are retired (404).
+    defaultModel: "gpt-oss-120b",
+    envVars: ["CEREBRAS_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    structuredOutputWithTools: false, // JSON-mode + tool-calling: assume Groq-like exclusivity until proven live
+    vision: false, // text-only model roster
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
   cohere: {
     name: "cohere",
     // Use the dated variant — the bare `command-r-plus` alias was retired
