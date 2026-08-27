@@ -5,6 +5,7 @@
 
 import type { CommandModule, Argv } from "yargs";
 import type { SetupCommandArgs } from "../../lib/types/index.js";
+import { AIProviderName } from "../../lib/constants/enums.js";
 import { handleGCPSetup } from "../commands/setup-gcp.js";
 import { handleBedrockSetup } from "../commands/setup-bedrock.js";
 import { handleOpenAISetup } from "../commands/setup-openai.js";
@@ -32,16 +33,20 @@ export class SetupCommandFactory {
             .positional("provider", {
               type: "string" as const,
               description: "Specific provider to set up",
+              // Derived from the enum, not hand-listed: the wizard's
+              // handleSetup delegates every non-native provider through
+              // EXTRA_PROVIDER_CONFIGS, but this hand-hardcoded 9-entry
+              // list silently gated `neurolink setup <provider>` to the
+              // pre-catalog era — even `setup groq` was rejected here
+              // while the wizard behind it supported all 31 providers
+              // (found completing the cerebras integration surface).
+              // "gcp" stays as the one extra: it's a vertex alias with
+              // its own native subcommand below, not an enum member.
               choices: [
-                "google-ai",
-                "openai",
-                "anthropic",
-                "azure",
-                "bedrock",
+                ...Object.values(AIProviderName).filter(
+                  (name) => name !== AIProviderName.AUTO,
+                ),
                 "gcp",
-                "vertex",
-                "huggingface",
-                "mistral",
               ],
             })
             .option("list", {
@@ -132,6 +137,30 @@ export class SetupCommandFactory {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               async (argv) => await handleMistralSetup(argv as any),
             )
+            // Every remaining provider becomes a real subcommand routing
+            // through the generic wizard (EXTRA_PROVIDER_CONFIGS). A bare
+            // positional is not enough: yargs's .recommendCommands()
+            // (parser.ts) edit-distance-matches unknown positionals
+            // against the subcommand names above and dies with e.g.
+            // "Did you mean gcp?" for `setup groq` or `setup xai` before
+            // the positional choices are ever consulted. Registering the
+            // ids as subcommand aliases (hidden from help — the
+            // positional's choices already document the roster there)
+            // shadows that recommendation, enum-derived so a new provider
+            // can never be silently gated out again (this list was last
+            // hand-hardcoded at 9 entries in the pre-catalog era; even
+            // `setup groq` was rejected).
+            .command(
+              SetupCommandFactory.nonNativeProviderIds(),
+              false,
+              (y) => this.buildProviderOptions(y),
+              async (argv) =>
+                await handleSetup({
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  ...(argv as any),
+                  provider: String(argv._[argv._.length - 1]),
+                }),
+            )
             .example("$0 setup", "Interactive setup wizard")
             .example("$0 setup google-ai", "Setup Google AI Studio")
             .example("$0 setup openai --check", "Check OpenAI configuration")
@@ -145,6 +174,28 @@ export class SetupCommandFactory {
         await handleSetup(argv as SetupCommandArgs);
       },
     };
+  }
+
+  /**
+   * Every AIProviderName that has no dedicated native setup subcommand
+   * above — these route through the generic wizard (handleSetup ->
+   * delegateToProviderSetup / EXTRA_PROVIDER_CONFIGS).
+   */
+  private static nonNativeProviderIds(): string[] {
+    const nativeSetup = new Set<string>([
+      "google-ai",
+      "openai",
+      "anthropic",
+      "azure",
+      "bedrock",
+      "gcp",
+      "vertex",
+      "huggingface",
+      "mistral",
+    ]);
+    return Object.values(AIProviderName).filter(
+      (name) => name !== AIProviderName.AUTO && !nativeSetup.has(name),
+    );
   }
 
   /**

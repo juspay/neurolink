@@ -75,6 +75,15 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "gemma2-9b-it": 8_192,
     "mixtral-8x7b-32768": 32_768,
   },
+  // Free tier serves 65k context per model; paid tiers 131k
+  // (inference-docs.cerebras.ai model pages, checked 2026-08-27). The
+  // tier isn't knowable from the key, so budget against the free-tier
+  // floor — compacting early is safe, overrunning a 65k window is not.
+  cerebras: {
+    _default: 65_536,
+    "gpt-oss-120b": 65_536,
+    "gemma-4-31b": 65_536,
+  },
   cohere: {
     _default: 128_000,
     "command-r-plus": 128_000,

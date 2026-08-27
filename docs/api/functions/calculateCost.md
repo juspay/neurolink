@@ -8,7 +8,7 @@
 
 > **calculateCost**(`provider`, `model`, `usage`): `number`
 
-Defined in: [utils/pricing.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/utils/pricing.ts#L938)
+Defined in: [utils/pricing.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/utils/pricing.ts#L948)
 
 Calculate the dollar cost of a generate/stream call based on token usage.
 Returns 0 if the provider/model combination is not in the pricing table.

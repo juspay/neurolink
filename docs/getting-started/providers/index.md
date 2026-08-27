@@ -161,6 +161,17 @@ Access frontier models via hosted cloud inference APIs:
 
 [Setup Guide →](groq.md)
 
+### [Cerebras](cerebras.md)
+
+**Wafer-scale inference at ~3000 tokens/s**
+
+- 🚀 Fastest generation speed of any hosted provider (WSE hardware)
+- 🤖 GPT-OSS 120B (default), Gemma 4 31B — roster live-verified 2026-08-27
+- 💳 Free $5 credit requires a saved payment method
+- 🔑 API key from [cloud.cerebras.ai](https://cloud.cerebras.ai)
+
+[Setup Guide →](cerebras.md)
+
 ### Together AI
 
 **Hosted open-model gateway**

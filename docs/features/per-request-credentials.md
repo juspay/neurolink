@@ -105,6 +105,7 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | OpenRouter        | `openrouter`       | `apiKey`, `baseURL`                                                                                |
 | LiteLLM           | `litellm`          | `apiKey`, `baseURL`                                                                                |
 | OpenAI-Compatible | `openaiCompatible` | `apiKey`, `baseURL`                                                                                |
+| Cerebras          | `cerebras`         | `apiKey`, `baseURL`                                                                                |
 | Ollama            | `ollama`           | `baseURL`                                                                                          |
 
 The full type definition is `NeurolinkCredentials` in `src/lib/types/providers.ts`.

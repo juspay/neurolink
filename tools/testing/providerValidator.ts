@@ -80,6 +80,7 @@ class ProviderValidator {
       "ollama",
       "mistral",
       "groq",
+      "cerebras",
     ];
 
     this.results = {
@@ -267,6 +268,7 @@ class ProviderValidator {
       ollama: "OLLAMA_HOST",
       mistral: "MISTRAL_API_KEY",
       groq: "GROQ_API_KEY",
+      cerebras: "CEREBRAS_API_KEY",
     };
 
     const envKey = keyMappings[provider];
@@ -288,7 +290,14 @@ class ProviderValidator {
       groq: "groq-sdk",
     };
 
+    // Catalog-driven OpenAI-compatible providers (ConfiguredOpenAICompat)
+    // use the in-repo wire client — no external SDK module to check.
+    const catalogBuiltIn = new Set(["cerebras"]);
+
     try {
+      if (catalogBuiltIn.has(provider)) {
+        return true;
+      }
       const moduleName = moduleMap[provider];
       if (!moduleName) {
         return false;
@@ -360,6 +369,8 @@ class ProviderValidator {
         return { test: "mistral_connectivity", status: "simulated" };
       case "groq":
         return { test: "groq_connectivity", status: "simulated" };
+      case "cerebras":
+        return { test: "cerebras_connectivity", status: "simulated" };
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }

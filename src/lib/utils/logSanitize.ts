@@ -10,8 +10,8 @@
  *   - `Authorization: Basic <base64>` (D-ID and similar)
  *   - Bare tokens by known provider prefix:
  *     sk-/pk- (OpenAI, Anthropic, Stability),
- *     r8_ (Replicate), gsk_ (Groq), xai- (xAI), tgp_ (Together),
- *     fw_ (Fireworks), pplx- (Perplexity), pa- (Voyage),
+ *     r8_ (Replicate), gsk_ (Groq), csk- (Cerebras), xai- (xAI),
+ *     tgp_ (Together), fw_ (Fireworks), pplx- (Perplexity), pa- (Voyage),
  *     jina_ (Jina), fish- (Fish Audio)
  *   - Generic key=value pairs: api_key=…, access_token: …, secret_key=…
  */
@@ -24,6 +24,7 @@ const TOKEN_PREFIXES = [
   "pk",
   "r8",
   "gsk",
+  "csk",
   "xai",
   "tgp",
   "fw",
