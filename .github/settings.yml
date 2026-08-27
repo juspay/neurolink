@@ -170,6 +170,25 @@ labels:
     description: "Extra attention is needed"
 
 # Branch protection rules
+# ⚠️ This file is NOT what currently gates merges on `release`.
+#
+# It is consumed by https://github.com/repository-settings/app, which
+# reconciles on every push to the default branch. Live protection has five
+# required contexts; the list below had four, one of which
+# ("Yama PR Review") points at a workflow that is disabled. An active app
+# would therefore have overwritten live protection long ago — it has not, so
+# the app is not installed or not running here.
+#
+# That makes this file documentation which two workflows already treat as
+# authoritative (yama-review.yml says "keep the two in sync";
+# live-matrix.yml cites "settings.yml's branch-protection contexts"), while
+# it had silently drifted. The contexts below are now reconciled against
+# live, so installing the app would preserve the gates rather than remove
+# them.
+#
+# Check before trusting it:
+#   gh api repos/juspay/neurolink/branches/release/protection \
+#     --jq '.required_status_checks.contexts[]'
 branches:
   - name: release
     protection:
@@ -179,29 +198,18 @@ branches:
           - "test"
           - "build-check"
           - "provider-safety-net"
-          # AI code review — fails only on a Yama BLOCKED verdict (see
-          # .github/workflows/yama-review.yml + yama.config.yaml).
-          - "Yama PR Review"
-      enforce_admins: false
-      required_pull_request_reviews:
-        required_approving_review_count: 1
-        dismiss_stale_reviews: true
-        require_code_owner_reviews: true
-      restrictions: null
-      allow_force_pushes: false
-      allow_deletions: false
-
-  - name: release
-    protection:
-      required_status_checks:
-        strict: true
-        contexts:
-          - "test"
-          - "build-check"
-          - "provider-safety-net"
-          # AI code review — fails only on a Yama BLOCKED verdict (see
-          # .github/workflows/yama-review.yml + yama.config.yaml).
-          - "Yama PR Review"
+          - "🔒 Single Commit Policy Validation"
+          # Classic-protection only. Absent from ruleset 11413189, so a
+          # ruleset-only query reports it optional — see CLAUDE.md's
+          # "Required status checks and the release bot".
+          - "security-suites"
+          # "Yama PR Review" is deliberately NOT listed. The workflow is
+          # state=disabled_manually (backlog D1), and a required check whose
+          # workflow never runs can never report — applying it would block
+          # every pull request permanently, which is the
+          # "GH013 ... required status checks are expected" failure applied
+          # to the whole queue at once. Re-add it in the same change that
+          # re-enables the workflow, not before.
       enforce_admins: false
       required_pull_request_reviews:
         required_approving_review_count: 1
