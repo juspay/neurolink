@@ -760,7 +760,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       # Every shard runs even if another fails, so one broken suite never
-      # hides the state of the other 27 — the same property the loop below
+      # hides the state of the other 37 — the same property the loop below
       # has always had within a single job.
       fail-fast: false
       matrix:
@@ -833,7 +833,7 @@ jobs:
           # fixtures or mocked fetch, so a suite that starts making real network
           # calls fails here rather than silently costing money and flaking.
           #
-          # The list below grew from 8 to 28. The 20 added were not picked by
+          # The list below grew from 8 to 38. The 30 added were not picked by
           # reading them: every suite script that CI never invoked was run with
           # the environment fully stripped — `env -i` plus
           # DOTENV_CONFIG_PATH=/dev/null, checked to actually suppress .env —
@@ -927,6 +927,10 @@ jobs:
           # spread is 1s to 367s, so equal counts gave shards of 33s and 485s.
           SUITES="
             test:tts:unit@367
+            test:agent-delegation@78
+            test:background-commands@23
+            test:agent-tasks@13
+            test:artifact-banking@13
             test:multimodal:sdk@110
             test:agents@7
             test:media-registry-collisions@3

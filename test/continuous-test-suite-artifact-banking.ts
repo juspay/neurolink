@@ -23,6 +23,12 @@
  * Run: pnpm run test:artifact-banking [--provider=vertex]
  */
 
+// See test:hitl and test:multimodal:sdk: the tracked .mcp-config.json makes
+// every NeuroLink instance wait the full 60s MCP client timeout when the
+// filesystem server cannot start. Measured here at 68s without this and 7s
+// with it, same assertions either way.
+process.env.NEUROLINK_SKIP_MCP = "true";
+
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

@@ -28,6 +28,18 @@
  * Run: pnpm run test:agent-delegation [--provider=vertex]
  */
 
+// The repo's tracked .mcp-config.json declares a `filesystem` server started
+// via `npx -y @modelcontextprotocol/server-filesystem`, with autoDiscovery and
+// autoRegister on, so every NeuroLink this suite builds tries to start it and
+// waits the full 60s MCP client timeout when it cannot. That is not merely
+// slow here: measured credential-free, this suite took 356s and reported one
+// FAILURE — "a finished worker must show as ready without being collected" —
+// because the stalls perturbed the very timing the case asserts on. With this
+// set it is 41s and 19/19. test:hitl and test:multimodal:sdk set it the same
+// way; test:proxy sets it only in the environment of the CLI subprocesses it
+// spawns, not for its own instances.
+process.env.NEUROLINK_SKIP_MCP = "true";
+
 import {
   defineSuite,
   assert,
