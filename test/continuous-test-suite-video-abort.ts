@@ -25,7 +25,9 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Video Abort Signal");
+const { test, runSuite } = defineSuite("Video Abort Signal", {
+  offline: true,
+});
 
 // A rejection caused by an abort must land well inside this window — the
 // whole point is that cancellation does not wait out the 600s timeout.
