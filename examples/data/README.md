@@ -80,10 +80,10 @@ These files are referenced in `examples/csv-analysis.ts` and `examples/pdf-analy
 
 ```bash
 # Run CSV examples
-npx tsx examples/csv-analysis.ts
+pnpm exec tsx examples/csv-analysis.ts
 
 # Run PDF examples
-npx tsx examples/pdf-analysis.ts
+pnpm exec tsx examples/pdf-analysis.ts
 
 # Or use files directly with the CLI
 # CSV:

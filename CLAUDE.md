@@ -290,7 +290,7 @@ pnpm run test:autoresearch       # E2E + live (live half skips without keys)
 # does not make it a gate.
 
 # Run a single suite directly
-npx tsx test/continuous-test-suite-<name>.ts
+pnpm exec tsx test/continuous-test-suite-<name>.ts
 
 # Environment
 pnpm run env:validate     # Validate .env setup

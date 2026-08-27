@@ -2674,7 +2674,7 @@ The MCP enhancements include a comprehensive continuous test suite covering all 
 ### Running the Test Suite
 
 ```bash
-npx tsx test/continuous-test-suite-mcp.ts --provider=vertex
+pnpm exec tsx test/continuous-test-suite-mcp.ts --provider=vertex
 ```
 
 ### Environment Variables

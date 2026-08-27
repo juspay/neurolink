@@ -133,7 +133,7 @@ import "dotenv/config";
  * Each provider's tests SKIP cleanly when its env var is missing so this suite
  * runs green in CI without credentials.
  *
- * Run with: npx tsx test/continuous-test-suite-new-providers.ts
+ * Run with: pnpm exec tsx test/continuous-test-suite-new-providers.ts
  */
 
 import { NeuroLink } from "../dist/index.js";
@@ -310,9 +310,9 @@ await test("3.X deepseek per-call apiKey override", async () => {
 ### 4c. `package.json` — add `test:new-providers`
 
 ```diff
-   "test:providers": "npx tsx test/continuous-test-suite-providers.ts",
-+  "test:new-providers": "npx tsx test/continuous-test-suite-new-providers.ts",
-   "test:rag": "npx tsx test/continuous-test-suite-rag.ts",
+   "test:providers": "pnpm exec tsx test/continuous-test-suite-providers.ts",
++  "test:new-providers": "pnpm exec tsx test/continuous-test-suite-new-providers.ts",
+   "test:rag": "pnpm exec tsx test/continuous-test-suite-rag.ts",
 ```
 
 Optional: extend `test:ci`:

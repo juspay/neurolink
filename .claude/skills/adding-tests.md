@@ -13,7 +13,7 @@ description: Use when adding tests for a new modality (vision/embeddings/TTS/STT
 
 Tests are **plain `tsx` scripts** — no Jest/Vitest. Every suite is a single
 `test/continuous-test-suite-<domain>.ts` file invoked via
-`npx tsx <path>` or `pnpm run test:<domain>`. All shared logic lives in
+`pnpm exec tsx <path>` or `pnpm run test:<domain>`. All shared logic lives in
 `test/helpers/*.ts`. The harness defines a tri-state result:
 
 - **PASS** — test fn returns/resolves normally
@@ -92,7 +92,7 @@ import "dotenv/config";
  *
  * <1-3 sentence description of what's covered>
  *
- * Run: pnpm run build && npx tsx test/continuous-test-suite-<name>.ts
+ * Run: pnpm run build && pnpm exec tsx test/continuous-test-suite-<name>.ts
  *      pnpm run test:<name>
  */
 
@@ -367,7 +367,7 @@ Add the new `test:<name>` script alias to `package.json` and slot it
 into the right pipeline string. Example for a new live suite:
 
 ```jsonc
-"test:my-feature": "npx tsx test/continuous-test-suite-my-feature.ts",
+"test:my-feature": "pnpm exec tsx test/continuous-test-suite-my-feature.ts",
 "test:live": "pnpm run test:providers && ... && pnpm run test:my-feature"
 ```
 
@@ -384,7 +384,7 @@ pnpm run envguard      # envGuard pattern coverage (80/80 must PASS)
 pnpm run build         # CLI + SDK
 
 # Direct invocation of the affected suite:
-npx tsx test/continuous-test-suite-<name>.ts --provider=<p>
+pnpm exec tsx test/continuous-test-suite-<name>.ts --provider=<p>
 
 # If you added a provider:
 pnpm run test:matrix

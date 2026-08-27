@@ -69,13 +69,13 @@ test/fixtures/agents/
 
 ```bash
 # Run the continuous integration test suite
-npx tsx test/continuous-test-suite-agents.ts
+pnpm exec tsx test/continuous-test-suite-agents.ts
 
 # With verbose output
-VERBOSE=true npx tsx test/continuous-test-suite-agents.ts
+VERBOSE=true pnpm exec tsx test/continuous-test-suite-agents.ts
 
 # With a specific provider
-TEST_PROVIDER=openai npx tsx test/continuous-test-suite-agents.ts
+TEST_PROVIDER=openai pnpm exec tsx test/continuous-test-suite-agents.ts
 ```
 
 ### Run All NeuroLink Tests (includes agent suite)
@@ -92,7 +92,7 @@ pnpm run test:coverage
 ```yaml
 # Example GitHub Actions config
 - name: Run Agent Tests
-  run: npx tsx test/continuous-test-suite-agents.ts
+  run: pnpm exec tsx test/continuous-test-suite-agents.ts
   env:
     TEST_PROVIDER: vertex
     GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
@@ -206,7 +206,7 @@ function createMockSdk(options?: {
 ### Enable Verbose Logging
 
 ```bash
-VERBOSE=true npx tsx test/continuous-test-suite-agents.ts
+VERBOSE=true pnpm exec tsx test/continuous-test-suite-agents.ts
 ```
 
 ### Isolate a Single Test
@@ -253,7 +253,7 @@ Ensure the project is built before running the suite:
 
 ```bash
 pnpm run build
-npx tsx test/continuous-test-suite-agents.ts
+pnpm exec tsx test/continuous-test-suite-agents.ts
 ```
 
 ### Tests Timing Out
@@ -261,7 +261,7 @@ npx tsx test/continuous-test-suite-agents.ts
 Set a longer timeout via the environment, or check provider rate limits:
 
 ```bash
-TEST_PROVIDER=openai OPENAI_API_KEY=sk-... npx tsx test/continuous-test-suite-agents.ts
+TEST_PROVIDER=openai OPENAI_API_KEY=sk-... pnpm exec tsx test/continuous-test-suite-agents.ts
 ```
 
 ## Related Documentation

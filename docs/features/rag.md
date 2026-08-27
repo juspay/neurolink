@@ -1042,12 +1042,12 @@ type RAGConfig = {
 
 ```bash
 # Enable verbose logging for RAG operations
-DEBUG=neurolink:rag:* npx tsx your-script.ts
+DEBUG=neurolink:rag:* pnpm exec tsx your-script.ts
 
 # Log specific components
-DEBUG=neurolink:rag:chunker npx tsx your-script.ts
-DEBUG=neurolink:rag:reranker npx tsx your-script.ts
-DEBUG=neurolink:rag:hybrid npx tsx your-script.ts
+DEBUG=neurolink:rag:chunker pnpm exec tsx your-script.ts
+DEBUG=neurolink:rag:reranker pnpm exec tsx your-script.ts
+DEBUG=neurolink:rag:hybrid pnpm exec tsx your-script.ts
 ```
 
 ## API Reference

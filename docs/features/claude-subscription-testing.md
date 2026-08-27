@@ -437,7 +437,7 @@ Anthropic subscription scenarios — OAuth, API key, tier validation — are exe
 pnpm run test:credentials
 
 # Or run the underlying tsx file directly with extra logging
-DEBUG=1 npx tsx test/continuous-test-suite-credentials.ts
+DEBUG=1 pnpm exec tsx test/continuous-test-suite-credentials.ts
 ```
 
 > **Note:** NeuroLink does not use vitest; all tests are tsx scripts orchestrated via the `continuous-test-suite-*.ts` files. There is no `test:coverage` / `test:integration` / `test:subscription` script — see [`test/TESTING_SCRIPTS.md`](https://github.com/juspay/neurolink/blob/main/test/TESTING_SCRIPTS.md) for the full list of available suites.

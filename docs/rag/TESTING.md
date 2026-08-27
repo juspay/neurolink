@@ -40,10 +40,10 @@ export OPENAI_API_KEY=your_api_key
 
 ```bash
 # Run the continuous RAG test suite
-npx tsx test/continuous-test-suite-rag.ts
+pnpm exec tsx test/continuous-test-suite-rag.ts
 
 # With verbose output
-VERBOSE=true npx tsx test/continuous-test-suite-rag.ts
+VERBOSE=true pnpm exec tsx test/continuous-test-suite-rag.ts
 ```
 
 ### Run Unit Tests (Vitest)
@@ -170,7 +170,7 @@ test/
 Enable verbose logging:
 
 ```bash
-VERBOSE=true DEBUG=neurolink:rag:* npx tsx test/continuous-test-suite-rag.ts
+VERBOSE=true DEBUG=neurolink:rag:* pnpm exec tsx test/continuous-test-suite-rag.ts
 ```
 
 ## Adding New Tests
