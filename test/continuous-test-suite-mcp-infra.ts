@@ -270,6 +270,49 @@ async function testCoreMCPExports(): Promise<void> {
   }
 }
 
+async function testExternalServerManagerSignalListeners(): Promise<void> {
+  logSection("ExternalServerManager Signal Listener Tests");
+
+  try {
+    // Regression: each manager used to register its own SIGINT/SIGTERM/beforeExit
+    // handlers and never remove them, so a run that constructed one manager per
+    // delegated worker crossed Node's 10-listener default and warned
+    // MaxListenersExceeded. The handlers are shared now: however many managers
+    // exist, the process carries at most ONE cleanup listener per signal.
+    const before = {
+      sigint: process.listenerCount("SIGINT"),
+      sigterm: process.listenerCount("SIGTERM"),
+      beforeExit: process.listenerCount("beforeExit"),
+    };
+    const managers = Array.from(
+      { length: 14 },
+      () => new ExternalServerManager(),
+    );
+    recordTest(
+      "14 managers add at most one SIGINT listener",
+      process.listenerCount("SIGINT") <= before.sigint + 1,
+    );
+    recordTest(
+      "14 managers add at most one SIGTERM listener",
+      process.listenerCount("SIGTERM") <= before.sigterm + 1,
+    );
+    recordTest(
+      "14 managers add at most one beforeExit listener",
+      process.listenerCount("beforeExit") <= before.beforeExit + 1,
+    );
+    await Promise.all(managers.map((manager) => manager.shutdown()));
+    const late = new ExternalServerManager();
+    recordTest(
+      "a manager constructed after shutdowns still adds no extra listener",
+      process.listenerCount("SIGINT") <= before.sigint + 1,
+    );
+    await late.shutdown();
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    recordTest("ExternalServerManager signal listeners", false, false, msg);
+  }
+}
+
 // ============================================================
 // Part 1b — Extended MCP modules
 // ============================================================
@@ -1297,6 +1340,7 @@ await runSuite(async () => {
   await testToolCache();
   await testRequestBatcher();
   await testCoreMCPExports();
+  await testExternalServerManagerSignalListeners();
 
   // Part 1b — Extended MCP modules
   await testCircuitBreakerBlocking();
