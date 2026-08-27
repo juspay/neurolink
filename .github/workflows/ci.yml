@@ -752,6 +752,20 @@ jobs:
   # exists so a regression in them is visible, not so it can block a merge on
   # day one. Promote it to required once it has proven stable.
   #
+  # "Stable" had no evidence attached, so: sampled 2026-08-27 over the last 6 CI
+  # runs, all 24 Extended Suites shard results were success.
+  #
+  # That is not the whole argument, and the other half points the other way.
+  # Being non-blocking is what let four suites be wired into this list in one
+  # day. One of those attempts went red — test:proxy failed on a single
+  # attribution case that no local configuration reproduced — and the wire-in
+  # was simply reverted. Had this job been required, that experiment would have
+  # blocked every open pull request instead of reporting a result.
+  #
+  # So the 24/24 is evidence the job is healthy, not evidence that promoting it
+  # is free. The cost lands on whoever next adds a suite. Worth promoting when
+  # the suite list stops changing weekly; today it is still being filled in.
+  #
   # It exists at all because the alternative was demonstrated: the OpenAI-compat
   # catalog suite sat in no CI job, broke (it threw on any machine without
   # GROQ_API_KEY), and nobody noticed — because nothing ran it. A suite wired
@@ -1127,8 +1141,34 @@ jobs:
       # described. Without the flag this step would red-line every PR.
       #
       # The long tail is deliberately still unaudited-by-gate. Raising the bar
-      # to `high` needs those 23 high findings triaged or overridden first;
-      # doing it now would just reinstate continue-on-error under a new name.
+      # to `high` needs the high findings triaged or overridden first; doing it
+      # now would just reinstate continue-on-error under a new name.
+      #
+      # That number was recorded as 23, and re-measuring confirms it. Measured
+      # 2026-08-29, for the two trees THIS step actually audits, using the same
+      # scope the step itself uses — `pnpm audit` with NO --prod, which is what
+      # audit_criticals() below runs:
+      #
+      #   landing/     6 high   (plus 2 moderate)
+      #   docs-site/  17 high   (plus 15 moderate, 3 low)
+      #
+      # So 23 high, unchanged. The root tree carries 8 more, but those are gated
+      # separately by scripts/security-check.ts's per-advisory check, not by this
+      # step; do not add them to this total.
+      #
+      # Scope is the whole trap here, and an earlier draft of this note fell into
+      # it: measured WITH --prod, landing/ reports zero and docs-site/ is
+      # unchanged, which reads as "landing/ is clean outright" and shrinks the
+      # backlog to 17. Both halves of that are an artifact of the flag. landing/'s
+      # six are devDependency-only (brace-expansion, postcss, nanoid, via the
+      # vite/sveltekit toolchain) — real for this step, which audits the full
+      # tree, and invisible to any command that adds --prod.
+      #
+      # Re-measure before acting on any of these figures. They are a snapshot of
+      # a dependency tree, which moves on its own. Match the step's scope — no
+      # --prod — or the numbers will not describe the gate:
+      #   (cd landing   && pnpm audit)
+      #   (cd docs-site && pnpm audit)
       - name: 🔒 Subpackage Dependency Audit (landing/, docs-site/)
         run: |
           set +e
