@@ -466,7 +466,7 @@ export function createAgentWebSocketHandler(
       prompt: string;
       options?: unknown;
     };
-    // TODO(#1179): Implement generate using neurolink
+    // TODO(#1576): Implement generate using neurolink
     return { type: "response", data: `Received: ${prompt}` };
   });
 
@@ -475,7 +475,7 @@ export function createAgentWebSocketHandler(
       prompt: string;
       options?: unknown;
     };
-    // TODO(#1179): Implement streaming using neurolink
+    // TODO(#1576): Implement streaming using neurolink
     return { type: "stream_start", data: { prompt } };
   });
 
@@ -484,7 +484,7 @@ export function createAgentWebSocketHandler(
       toolName: string;
       args: unknown;
     };
-    // TODO(#1179): Implement tool call using neurolink
+    // TODO(#1576): Implement tool call using neurolink
     return { type: "tool_result", data: { toolName, result: null } };
   });
 

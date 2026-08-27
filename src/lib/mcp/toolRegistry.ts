@@ -1031,7 +1031,7 @@ export class MCPToolRegistry extends MCPRegistry {
     return removed;
   }
 
-  // TODO(#1179): Add FlexibleToolValidator class in next task
+  // TODO(#1576): Add FlexibleToolValidator class in next task
   // This will contain only universal safety checks (empty names, control characters, length limits)
 }
 
