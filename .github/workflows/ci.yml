@@ -391,18 +391,40 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run verify:provider-onboarding
 
-  # Advisory only — deliberately NOT in the required-checks list.
+  # REQUIRED. A red run here blocks the merge.
   #
-  # The archive and office security suites drive real malicious inputs (zip
-  # bombs, path traversal, XXE-shaped office documents) through the public
-  # surface. They were wired into `test:unit`, but nothing in CI has ever run
-  # `test:unit`, so they had never executed on a pull request.
+  # This comment used to say the opposite — "advisory only … a red run here is
+  # information, not a gate" — and it was correct when written. The branch
+  # protection change it was waiting for has since been made, and nothing
+  # updated the note, so the file spent that time telling anyone debugging a red
+  # `security-suites` that they could ignore it. On the suites that drive zip
+  # bombs, path traversal and XXE-shaped documents, that is the worst possible
+  # thing to be wrong about.
   #
-  # Running them here makes the result visible on every PR. Making them
-  # *blocking* is a separate, deliberate step: it needs the check added to the
-  # branch protection rule on `release`, which is a repository settings change
-  # and cannot be done from this file. Until someone makes that change, a red
-  # run here is information, not a gate.
+  # Where it is required is worth knowing, because the two protection layers
+  # disagree and GitHub enforces their union:
+  #
+  #   classic branch protection   test · provider-safety-net · build-check ·
+  #                               🔒 Single Commit Policy Validation · security-suites
+  #   ruleset 11413189            the same four, WITHOUT security-suites
+  #
+  # So `gh api repos/juspay/neurolink/rulesets/11413189` reports four contexts
+  # and no mention of this job — querying the ruleset alone still says it is
+  # optional. Use `gh api repos/juspay/neurolink/branches/release/protection`,
+  # or check both. CLAUDE.md's "Required status checks and the release bot"
+  # section covers the same trap from the other direction.
+  #
+  # One real consequence of living only on the classic layer: that layer has
+  # `enforce_admins: false`, so this is the one required check a repository
+  # admin can bypass. The ruleset's four have `bypass_actors: []` and nobody can.
+  #
+  # A migration off classic protection would silently drop this check — the job
+  # keeps running and keeps reporting green, so nothing looks different until
+  # something red merges. Add the context to the ruleset first.
+  #
+  # The suites themselves were wired into `test:unit`, which no workflow ever
+  # invoked, so before this job existed they had never executed on a pull
+  # request at all.
   #
   # Both suites are credential-free by construction — they never call a model.
   security-suites:
