@@ -270,7 +270,7 @@ Test with documents of varying sizes:
 ### Run Continuous Test Suite
 
 ```bash
-npx tsx test/continuous-test-suite-rag.ts
+pnpm exec tsx test/continuous-test-suite-rag.ts
 ```
 
 | Test Suite          | Status   |

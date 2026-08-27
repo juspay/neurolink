@@ -717,7 +717,7 @@ const finalResults = await reranker.rerank(searchResults, query, { topK: 5 });
 
 ```bash
 # Enable verbose logging
-DEBUG=neurolink:rag:* npx tsx your-script.ts
+DEBUG=neurolink:rag:* pnpm exec tsx your-script.ts
 ```
 
 ---

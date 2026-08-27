@@ -79,7 +79,7 @@ pnpm run check
 
 ```bash
 # Test CLI
-npx tsx src/cli/index.ts generate "Hello world"
+pnpm exec tsx src/cli/index.ts generate "Hello world"
 
 # Run example scripts
 pnpm run example:basic

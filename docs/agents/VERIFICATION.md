@@ -26,7 +26,7 @@ Configure at least one of:
 
 ## Integration Test Verification
 
-Run: `npx tsx test/continuous-test-suite-agents.ts`
+Run: `pnpm exec tsx test/continuous-test-suite-agents.ts`
 
 ### Agent Class Integration
 
@@ -152,16 +152,16 @@ examples.
 
 ## Final Verification Summary
 
-| Category             | Method                                         | Status |
-| -------------------- | ---------------------------------------------- | ------ |
-| Agent Class          | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
-| AgentNetwork         | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
-| MessageBus           | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
-| HubSpokeTopology     | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
-| MeshTopology         | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
-| HierarchicalTopology | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
-| CLI Commands         | Manual smoke test (`neurolink agent --help`)   | ?      |
-| Integration          | `npx tsx test/continuous-test-suite-agents.ts` | ?      |
+| Category             | Method                                               | Status |
+| -------------------- | ---------------------------------------------------- | ------ |
+| Agent Class          | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
+| AgentNetwork         | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
+| MessageBus           | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
+| HubSpokeTopology     | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
+| MeshTopology         | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
+| HierarchicalTopology | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
+| CLI Commands         | Manual smoke test (`neurolink agent --help`)         | ?      |
+| Integration          | `pnpm exec tsx test/continuous-test-suite-agents.ts` | ?      |
 
 ## Sign-Off
 

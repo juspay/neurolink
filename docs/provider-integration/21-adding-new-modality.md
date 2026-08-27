@@ -680,8 +680,8 @@ const tests = [
 **File:** `package.json` — add `test:avatar` script:
 
 ```diff
- "test:voice": "npx tsx test/continuous-test-suite-voice.ts",
-+"test:avatar": "npx tsx test/continuous-test-suite-avatar.ts",
+ "test:voice": "pnpm exec tsx test/continuous-test-suite-voice.ts",
++"test:avatar": "pnpm exec tsx test/continuous-test-suite-avatar.ts",
 ```
 
 ### Step 11 — Documentation

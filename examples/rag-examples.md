@@ -268,7 +268,7 @@ basicChunkingExample().catch(console.error);
 Run it:
 
 ```bash
-npx tsx examples/basic-chunking.ts
+pnpm exec tsx examples/basic-chunking.ts
 ```
 
 ### 3.2 Document Processing with MDocument
@@ -318,7 +318,7 @@ mdocumentExample().catch(console.error);
 Run it:
 
 ```bash
-npx tsx examples/mdocument-example.ts
+pnpm exec tsx examples/mdocument-example.ts
 ```
 
 ### 3.3 Hybrid Search (BM25 + Mock Vectors)
@@ -410,7 +410,7 @@ hybridSearchExample().catch(console.error);
 Run it:
 
 ```bash
-npx tsx examples/hybrid-search-example.ts
+pnpm exec tsx examples/hybrid-search-example.ts
 ```
 
 ### 3.4 Reranking Results
@@ -504,7 +504,7 @@ rerankingExample().catch(console.error);
 Run it:
 
 ```bash
-npx tsx examples/reranking-example.ts
+pnpm exec tsx examples/reranking-example.ts
 ```
 
 ### 3.5 Graph RAG
@@ -597,7 +597,7 @@ graphRAGExample().catch(console.error);
 Run it:
 
 ```bash
-npx tsx examples/graph-rag-example.ts
+pnpm exec tsx examples/graph-rag-example.ts
 ```
 
 ### 3.6 Full RAG Pipeline with generate() (Requires API Key)
@@ -713,10 +713,10 @@ Run it:
 ```bash
 # With API key
 export GOOGLE_API_KEY=your-key
-npx tsx examples/rag-with-generate.ts
+pnpm exec tsx examples/rag-with-generate.ts
 
 # Without API key (will show setup instructions)
-npx tsx examples/rag-with-generate.ts
+pnpm exec tsx examples/rag-with-generate.ts
 ```
 
 ---

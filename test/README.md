@@ -39,7 +39,7 @@ pnpm run test:credentials
 pnpm run test:mcp:full
 
 # Direct invocation:
-npx tsx test/continuous-test-suite-<name>.ts [--provider=vertex] [--model=gpt-4o]
+pnpm exec tsx test/continuous-test-suite-<name>.ts [--provider=vertex] [--model=gpt-4o]
 ```
 
 ## 2. Tiers

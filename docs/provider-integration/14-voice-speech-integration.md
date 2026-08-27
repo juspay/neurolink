@@ -336,7 +336,7 @@ Test suite: `test/continuous-test-suite-voice.ts` (1 822 lines, NEW)
 The suite is invoked as:
 
 ```bash
-npx tsx test/continuous-test-suite-voice.ts --provider=vertex
+pnpm exec tsx test/continuous-test-suite-voice.ts --provider=vertex
 ```
 
 It covers 15 test items via the consumer API only — no direct provider class calls:
@@ -444,7 +444,7 @@ pnpm run cli generate --stt --stt-provider whisper --input-audio recording.wav \
   --tts --tts-provider openai-tts --provider openai
 
 # Full test suite (requires Vertex credentials)
-npx tsx test/continuous-test-suite-voice.ts --provider=vertex
+pnpm exec tsx test/continuous-test-suite-voice.ts --provider=vertex
 ```
 
 ---

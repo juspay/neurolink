@@ -188,7 +188,7 @@ pnpm test:mcp             # MCP HTTP transport
 pnpm test:context         # Context compaction + file handling
 
 # Run a single suite directly
-npx tsx test/continuous-test-suite-<name>.ts
+pnpm exec tsx test/continuous-test-suite-<name>.ts
 ```
 
 ## 🎨 Code Style & Standards

@@ -13,12 +13,12 @@ This directory contains automated testing scripts for validating NeuroLink funct
 
 ```bash
 # Test a single provider
-npx tsx test/continuous-test-suite.ts --provider openai
-npx tsx test/continuous-test-suite.ts --provider anthropic
-npx tsx test/continuous-test-suite.ts --provider vertex
+pnpm exec tsx test/continuous-test-suite.ts --provider openai
+pnpm exec tsx test/continuous-test-suite.ts --provider anthropic
+pnpm exec tsx test/continuous-test-suite.ts --provider vertex
 
 # Run from project root
-npx tsx test/continuous-test-suite.ts --provider <provider-name>
+pnpm exec tsx test/continuous-test-suite.ts --provider <provider-name>
 ```
 
 #### Supported Providers
@@ -251,10 +251,10 @@ Test one provider comprehensively:
 
 ```bash
 # Test OpenAI thoroughly
-npx tsx test/continuous-test-suite.ts --provider openai
+pnpm exec tsx test/continuous-test-suite.ts --provider openai
 
 # Test Vertex AI thoroughly
-npx tsx test/continuous-test-suite.ts --provider vertex
+pnpm exec tsx test/continuous-test-suite.ts --provider vertex
 ```
 
 ### 3. Full Suite (15-20 minutes)
@@ -312,7 +312,7 @@ cat /tmp/neurolink-sequential-tests/test-openai.log
 cat /tmp/neurolink-sequential-tests/test-vertex.log
 
 # Single provider test (run manually with output)
-npx tsx test/continuous-test-suite.ts --provider openai 2>&1 | tee test-output.log
+pnpm exec tsx test/continuous-test-suite.ts --provider openai 2>&1 | tee test-output.log
 ```
 
 ### Common Issues
@@ -386,7 +386,7 @@ Error: Cannot find module 'dist/cli/index.js'
 
 ```bash
 # Test specific provider you're working on
-npx tsx test/continuous-test-suite.ts --provider <your-provider>
+pnpm exec tsx test/continuous-test-suite.ts --provider <your-provider>
 ```
 
 ### CI/CD Integration
