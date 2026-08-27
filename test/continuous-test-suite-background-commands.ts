@@ -53,6 +53,7 @@ assertDistFresh();
 
 const { test, runSuite, section } = defineSuite("Background Commands", {
   perTestTimeoutMs: 90_000,
+  offline: true,
 });
 
 // ---------------------------------------------------------------------------

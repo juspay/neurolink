@@ -17,6 +17,12 @@
  * Run: pnpm run test:agent-tasks [--provider=vertex]
  */
 
+// See test:hitl and test:multimodal:sdk: the tracked .mcp-config.json makes
+// every NeuroLink instance wait the full 60s MCP client timeout when the
+// filesystem server cannot start. Measured here at 68s without this and 7s
+// with it, same assertions either way.
+process.env.NEUROLINK_SKIP_MCP = "true";
+
 import { defineSuite, assert, assertEqual, Skip } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import { NeuroLink } from "../dist/index.js";
