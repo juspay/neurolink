@@ -200,6 +200,14 @@ export type VoiceTurn = {
 
 /**
  * TTS-capable voice provider type
+ *
+ * @deprecated Use the canonical `TTSHandler` contract instead. Nothing in
+ * this package consumes `TTSProvider`; it is kept at its original shape so
+ * existing external callers keep compiling. `TTSHandler` is not a drop-in
+ * replacement — it requires `isConfigured()`, makes `getVoices` and
+ * `maxTextLength` optional, and its `synthesizeStream` may return `undefined`
+ * to select the buffered path — so this is a distinct legacy shape, not an
+ * alias.
  */
 export type TTSProvider = {
   /**
@@ -232,6 +240,11 @@ export type TTSProvider = {
 
 /**
  * TTS stream chunk for streaming synthesis
+ *
+ * @deprecated Use the canonical `TTSChunk` type instead. Kept at its
+ * original shape so existing external callers keep compiling: `TTSChunk`
+ * narrows `format` to `TTSAudioFormat` and has no `timestampMs`, so it
+ * is not a drop-in replacement.
  */
 export type TTSStreamChunk = {
   /** Audio data chunk */
@@ -490,6 +503,21 @@ export type OpenAIVoice =
   | "shimmer";
 
 export type OpenAITTSModel = "tts-1" | "tts-1-hd";
+
+/** @internal Prepared request data shared by buffered and native OpenAI TTS paths. */
+export type PreparedOpenAITTSRequest = {
+  model: OpenAITTSModel;
+  voice: OpenAIVoice;
+  responseFormat: string;
+  effectiveFormat: TTSAudioFormat;
+  body: {
+    model: OpenAITTSModel;
+    input: string;
+    voice: OpenAIVoice;
+    response_format: string;
+    speed: number;
+  };
+};
 
 export type OpenAITTSOptions = TTSOptions & {
   model?: OpenAITTSModel;

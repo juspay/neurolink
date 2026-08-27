@@ -6,7 +6,7 @@
 
 # Class: TTSProcessor
 
-Defined in: [utils/ttsProcessor.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L171)
+Defined in: [utils/ttsProcessor.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L290)
 
 TTS processor class for orchestrating text-to-speech operations
 
@@ -41,7 +41,7 @@ if (TTSProcessor.supports("google-ai")) {
 
 > `static` **registerHandler**(`providerName`, `handler`): `void`
 
-Defined in: [utils/ttsProcessor.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L211)
+Defined in: [utils/ttsProcessor.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L330)
 
 Register a TTS handler for a specific provider
 
@@ -83,7 +83,7 @@ TTSProcessor.registerHandler('google-ai', googleHandler);
 
 > `static` **getHandler**(`providerName`): [`TTSHandler`](../type-aliases/TTSHandler.md) \| `undefined`
 
-Defined in: [utils/ttsProcessor.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L231)
+Defined in: [utils/ttsProcessor.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L350)
 
 Get a registered TTS handler by provider name.
 
@@ -111,7 +111,7 @@ Handler instance or undefined if not registered
 
 > `static` **listProviders**(): `string`[]
 
-Defined in: [utils/ttsProcessor.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L238)
+Defined in: [utils/ttsProcessor.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L357)
 
 List the names of all registered providers.
 
@@ -125,7 +125,7 @@ List the names of all registered providers.
 
 > `static` **clearHandlers**(): `void`
 
-Defined in: [utils/ttsProcessor.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L246)
+Defined in: [utils/ttsProcessor.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L365)
 
 Removes every registered TTS handler. Primarily for test isolation —
 production code should not need to call this.
@@ -140,7 +140,7 @@ production code should not need to call this.
 
 > `static` **supports**(`providerName`): `boolean`
 
-Defined in: [utils/ttsProcessor.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L263)
+Defined in: [utils/ttsProcessor.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L382)
 
 Check if a provider is supported (has a registered TTS handler)
 
@@ -172,7 +172,7 @@ if (TTSProcessor.supports("google-ai")) {
 
 > `static` **synthesize**(`text`, `provider`, `options`): `Promise`\<[`TTSResult`](../type-aliases/TTSResult.md)\>
 
-Defined in: [utils/ttsProcessor.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L313)
+Defined in: [utils/ttsProcessor.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L432)
 
 Synthesize speech from text using a registered TTS provider
 
@@ -238,18 +238,48 @@ console.log(`Generated ${result.size} bytes of ${result.format} audio`);
 
 > `static` **synthesizeStream**(`textChunks`, `provider`, `options`, `shouldStop?`): `AsyncGenerator`\<[`TTSChunk`](../type-aliases/TTSChunk.md)\>
 
-Defined in: [utils/ttsProcessor.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L465)
+Defined in: [utils/ttsProcessor.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L862)
 
 Incrementally synthesize sentence-buffered text chunks.
 
 Text is flushed at a sentence boundary after `streamingBufferSize`
 characters, or hard-split before the provider's maximum text length.
-Each segment goes through `synthesize()`, preserving the existing handler
-registry, validation, error normalization, and telemetry seam.
 
-The most recent successful audio chunk is held until another succeeds or
-the input ends, so exactly one real audio chunk carries `isFinal: true`
-without emitting a separate empty terminator chunk.
+A segment is served by the handler's `synthesizeStream()` when it offers
+one and returns a stream, and by `synthesize()` otherwise — including
+when the native stream produces no deliverable audio at all, and including
+every way capability discovery itself can fail. The preflight reads and
+calls that decide whether a native stream exists all sit inside one
+guarded region in `resolveNativeStream`, with the call site's own catch
+backstopping it, so a handler that misbehaves while being ASKED lands on
+the buffered path rather than costing the segment. That is what makes the
+next sentence true of every segment rather than only of the ones that got
+that far.
+
+Either way the segment keeps the same handler registry, validation, error
+normalization and `tts.synthesize` telemetry seam — exactly one span per
+segment, opened by whichever path served it — cancellation included: a
+segment whose stream is still in flight when the consumer stops records
+its span from the unwind path rather than dropping it. Failures that
+originate in the native segment's own work, once a stream has been
+established, are a different case and keep the shaped failed-segment
+semantics every synthesis failure has.
+
+Provider-reported indexes, cumulative sizes and finality are discarded and
+recomputed globally. A native fragment is dropped unless it carries a
+non-empty binary payload, so no native read reaches the consumer as an
+empty chunk; the buffered path is unfiltered and forwards whatever
+`synthesize()` returns, so a handler that produces a zero-byte buffer
+still yields an empty chunk and a repeated `cumulativeSize`. The most
+recent successful audio chunk is held until another succeeds or the input
+ends, so exactly one real audio chunk carries `isFinal: true` without
+emitting a separate empty terminator chunk.
+
+Segment production and per-segment synthesis are deliberately inline
+rather than nested async generators: each additional generator layer costs
+every chunk several microtask turns, which is directly observable at
+`NeuroLink.stream()` as audio interleaving one text chunk later than it
+does without native streaming.
 
 #### Parameters
 

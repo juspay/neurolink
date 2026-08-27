@@ -6,14 +6,32 @@
  *
  * The direct `synthesizeStream` cases use the rule-15 determinism exception
  * only for the handler-synthesis seam: exact provider text caps,
- * surrogate-pair-safe splitting, and per-segment failure isolation. Sentence
- * carry-over and configurable flushing drive the shipped `NeuroLink.stream()`
- * surface through `makeTextStream` instead. The OpenAITTS format-mapping case
- * deliberately reaches the private pure `mapFormat`/`effectiveFormat` methods
- * so it can pin wire-format behavior without credentials or constructor side
- * effects. The auto-provider case must stub the internal health selector before
- * any public provider surface exists; that single exception keeps this suite
- * credential-free and deterministic.
+ * surrogate-pair-safe splitting, per-segment failure isolation, and OpenAI
+ * response-body bytes/format metadata that cannot be observed separately at
+ * the public aggregate. Native dispatch, global chunk normalization, failure
+ * metadata, and transport abort all drive the shipped `NeuroLink.stream()`
+ * surface through `makeTextStream`. The OpenAITTS format-mapping case reaches
+ * the private pure `mapFormat`/`effectiveFormat` methods so it can pin wire
+ * behavior without credentials or constructor side effects. The auto-provider
+ * case must stub the internal health selector before any public provider
+ * surface exists; these narrow exceptions keep one module graph and make the
+ * suite credential-free and deterministic.
+ *
+ * One more seam case sits under the same exception: `shouldStop` is
+ * `TTSProcessor.synthesizeStream`'s fourth parameter and has no public
+ * counterpart — `interleaveTTSStream` flips its own flag only in a `finally`,
+ * after the consumer is gone — so the "a segment failure is still reported
+ * once shouldStop() flips" cases can only be driven directly.
+ *
+ * The OpenAI request-timeout case drives the exported `OpenAITTS` handler's
+ * own `synthesize()` with `setTimeout`/`clearTimeout` observed, because the
+ * property under test is *when* the request timeout is disarmed relative to
+ * the body download. The alternative is a test that really waits 30 seconds
+ * to find out; determinism buys a millisecond-scale proof of the same scope.
+ *
+ * The compile-only proofs below assert nothing at runtime; they exist so
+ * `pnpm run check:tools-tests`, which typechecks this file against the built
+ * `dist` types, fails if the public TTS type surface regresses.
  *
  * Run: npx tsx test/continuous-test-suite-tts-unit.ts
  */
@@ -27,6 +45,7 @@ import {
 } from "./helpers/harness.js";
 import {
   AIProviderFactory,
+  getMetricsAggregator,
   NeuroLink,
   OpenAITTS,
   TTSProcessor,
@@ -41,6 +60,8 @@ import type {
   StreamResult,
   TTSChunk,
   TTSHandler,
+  TTSProvider,
+  TTSStreamChunk,
 } from "../dist/index.js";
 import { stub, withStubs } from "./helpers/stubs.js";
 
@@ -94,6 +115,296 @@ function makeStubHandler(overrides: Partial<TTSHandler> = {}) {
 }
 
 const PROVIDER = "stub-tts-provider";
+
+// Compile-only compatibility proof: adding an optional native capability must
+// not require existing custom handlers to implement or stub it.
+const nonNativeHandlerCompileProof: TTSHandler = {
+  isConfigured: () => true,
+  synthesize: async () => ({
+    buffer: Buffer.alloc(0),
+    format: "mp3",
+    size: 0,
+  }),
+};
+void nonNativeHandlerCompileProof;
+
+// ---------------------------------------------------------------------------
+// #481 / Critical Rule 5 — compile-only proof that adding the OPTIONAL
+// `synthesizeStream` member cannot break a consumer whose handler already
+// carries a member of that name with an unrelated shape. Narrowing the member
+// to `AsyncIterable<TTSChunk>` makes all three of these stop compiling, on the
+// source types and on the emitted `dist/index.d.ts` alike.
+//
+// Each is assigned THROUGH A VARIABLE on purpose: excess-property checking
+// only applies to a fresh object literal, so a check that passed on a literal
+// would say nothing about a real consumer's existing handler object.
+// ---------------------------------------------------------------------------
+const legacyChunkHandlerSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  // The package's OWN exported legacy chunk type: `format` is `string`, and
+  // `timestampMs` has no counterpart on `TTSChunk`.
+  synthesizeStream: (text: string): AsyncIterable<TTSStreamChunk> =>
+    (async function* () {
+      yield {
+        data: Buffer.from(text),
+        index: 0,
+        isFinal: true,
+        format: "mp3",
+        timestampMs: 0,
+      };
+    })(),
+};
+const legacyChunkHandlerCompileProof: TTSHandler = legacyChunkHandlerSource;
+void legacyChunkHandlerCompileProof;
+
+const wideFormatHandlerSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  // Hand-written, no package type imported: `format` widens to `string`.
+  async *synthesizeStream(text: string) {
+    yield { data: Buffer.from(text), index: 0, isFinal: true, format: "mp3" };
+  },
+};
+const wideFormatHandlerCompileProof: TTSHandler = wideFormatHandlerSource;
+void wideFormatHandlerCompileProof;
+
+class UnrelatedMemberHandler {
+  isConfigured(): boolean {
+    return true;
+  }
+  async synthesize(text: string) {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  }
+  // Same name, entirely unrelated element type.
+  async *synthesizeStream(): AsyncGenerator<Buffer> {
+    yield Buffer.alloc(1);
+  }
+}
+const unrelatedMemberHandlerCompileProof: TTSHandler =
+  new UnrelatedMemberHandler();
+void unrelatedMemberHandlerCompileProof;
+
+// The canonical shape must keep compiling too — widening the member is not a
+// licence to stop accepting what the processor actually consumes.
+const canonicalNativeHandlerSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  synthesizeStream: (text: string): AsyncIterable<TTSChunk> | undefined =>
+    (async function* () {
+      yield {
+        data: Buffer.from(text),
+        format: "mp3" as const,
+        index: 0,
+        isFinal: false,
+      };
+    })(),
+};
+const canonicalNativeHandlerCompileProof: TTSHandler =
+  canonicalNativeHandlerSource;
+void canonicalNativeHandlerCompileProof;
+
+// ---------------------------------------------------------------------------
+// #481 / Critical Rule 5 — the shapes a DECLARED SIGNATURE cannot accept.
+//
+// The three proofs above all return an async iterable of something, so they
+// pass under any member type wide enough in its element position. They are
+// therefore blind to the larger class: a legacy member of this name that is
+// not an async iterable at all. Every shape below compiles against
+// `origin/release`, and every one of them is rejected by a declared method
+// signature — including a deliberately wide one such as
+// `(...args: never[]) => unknown`, which still cannot accept the boolean.
+// That is why `TTSHandler.synthesizeStream` is declared `unknown`.
+//
+// Assigned THROUGH A VARIABLE, as above, except the final pair: those are
+// fresh object literals, so excess-property checking applies to them and they
+// additionally prove the member must stay DECLARED rather than be removed
+// from the type.
+// ---------------------------------------------------------------------------
+const syncGeneratorMemberSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  // Iterable, not AsyncIterable.
+  *synthesizeStream(text: string): Generator<Buffer> {
+    yield Buffer.from(text);
+  },
+};
+const syncGeneratorMemberCompileProof: TTSHandler = syncGeneratorMemberSource;
+void syncGeneratorMemberCompileProof;
+
+const promiseOfIterableMemberSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  // An `async` method returning a promise OF an async iterable — the exact
+  // runtime shape this processor already tolerates by falling back.
+  async synthesizeStream(text: string): Promise<AsyncIterable<Buffer>> {
+    return (async function* () {
+      yield Buffer.from(text);
+    })();
+  },
+};
+const promiseOfIterableMemberCompileProof: TTSHandler =
+  promiseOfIterableMemberSource;
+void promiseOfIterableMemberCompileProof;
+
+const voidSinkMemberSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  // The callback-style streaming API that predates async iterators.
+  synthesizeStream(_text: string, _sink?: (chunk: Buffer) => void): void {},
+};
+const voidSinkMemberCompileProof: TTSHandler = voidSinkMemberSource;
+void voidSinkMemberCompileProof;
+
+const promiseVoidSinkMemberSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  async synthesizeStream(
+    _text: string,
+    _sink?: (chunk: Buffer) => void,
+  ): Promise<void> {},
+};
+const promiseVoidSinkMemberCompileProof: TTSHandler =
+  promiseVoidSinkMemberSource;
+void promiseVoidSinkMemberCompileProof;
+
+const booleanFlagMemberSource = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  // A capability FLAG: a name collision with no function at all.
+  synthesizeStream: false,
+};
+const booleanFlagMemberCompileProof: TTSHandler = booleanFlagMemberSource;
+void booleanFlagMemberCompileProof;
+
+// Fresh object literals: excess-property checking applies. Removing the member
+// from `TTSHandler` instead of declaring it `unknown` would break these, which
+// is why the member stays declared.
+const freshLiteralFlagCompileProof: TTSHandler = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  synthesizeStream: false,
+};
+void freshLiteralFlagCompileProof;
+
+const freshLiteralSinkCompileProof: TTSHandler = {
+  isConfigured: () => true,
+  synthesize: async (text: string) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3" as const, size: buffer.length };
+  },
+  synthesizeStream(_text: string): void {},
+};
+void freshLiteralSinkCompileProof;
+
+// ---------------------------------------------------------------------------
+// #481 / Critical Rule 5 — compile-only proof that the two deprecated voice
+// types keep their ORIGINAL shapes. Re-declaring them as `= TTSHandler` /
+// `= TTSChunk` aliases is source-breaking for existing external callers:
+// `TTSHandler` requires `isConfigured`, and `TTSChunk` narrows `format` to
+// `TTSAudioFormat` and has no `timestampMs`. Everything below compiles on
+// `origin/release` and must keep compiling; `pnpm run check:tools-tests`
+// typechecks this file against the built `dist` types, so an alias
+// reintroduced here fails that gate rather than passing silently.
+// ---------------------------------------------------------------------------
+const legacyTTSProviderCompileProof: TTSProvider = {
+  // The old member set: no `isConfigured`, required `getVoices`, required
+  // `maxTextLength`, and a `synthesizeStream` that always returns an iterable.
+  synthesize: async (text) => {
+    const buffer = Buffer.from(text);
+    return { buffer, format: "mp3", size: buffer.length };
+  },
+  synthesizeStream: (text) =>
+    (async function* () {
+      yield {
+        data: Buffer.from(text),
+        index: 0,
+        isFinal: true,
+        format: "mp3",
+        timestampMs: 0,
+      };
+    })(),
+  getVoices: async () => [],
+  maxTextLength: 4096,
+};
+void legacyTTSProviderCompileProof;
+
+// Four separate literals: TypeScript reports at most one error per object
+// literal, so folding these together would let a regression hide behind the
+// first one it happens to trip.
+const legacyChunkWithTimestamp: TTSStreamChunk = {
+  data: Buffer.alloc(2),
+  index: 0,
+  isFinal: false,
+  format: "mp3",
+  timestampMs: 120,
+};
+void legacyChunkWithTimestamp;
+
+const legacyChunkWithWideFormat: TTSStreamChunk = {
+  data: Buffer.alloc(1),
+  index: 1,
+  isFinal: true,
+  // `string`, not `TTSAudioFormat` — the old type was deliberately wide.
+  format: String("mp3"),
+  sampleRate: 24000,
+};
+void legacyChunkWithWideFormat;
+
+function readLegacyChunkOffset(chunk: TTSStreamChunk): number | undefined {
+  return chunk.timestampMs;
+}
+void readLegacyChunkOffset;
+
+/**
+ * A native stream that completes without producing a fragment. Written as a
+ * hand-rolled iterable rather than an empty `async function*` so it does not
+ * trip `require-yield`.
+ */
+function emptyNativeStream(): AsyncIterable<TTSChunk> {
+  return {
+    [Symbol.asyncIterator]: () => ({
+      next: async () => ({ done: true, value: undefined }),
+    }),
+  };
+}
+
+/** A native stream whose first read rejects with a raw, unshaped transport error. */
+function failingNativeStream(message: string): AsyncIterable<TTSChunk> {
+  return {
+    [Symbol.asyncIterator]: () => ({
+      next: () => Promise.reject(new Error(message)),
+    }),
+  };
+}
 
 function isTTSAudioChunk(
   chunk: unknown,
@@ -206,6 +517,77 @@ async function runPublicTtsStream(
     resolvedAudio: await result.audio,
     ttsMetadata: result.ttsMetadata,
   };
+}
+
+/**
+ * Drive the public stream and abandon it after `audioChunkLimit` audio chunks,
+ * recording the full chunk-type sequence.
+ *
+ * `streamResult.audio` is deliberately never awaited: this models a consumer
+ * that walked away mid-response, which is the whole point of the cases that
+ * use it. Pass `Number.POSITIVE_INFINITY` to drain instead.
+ */
+async function runPublicTtsStreamUntilAudio(
+  tts: NonNullable<StreamOptions["tts"]>,
+  responseText: string | string[],
+  audioChunkLimit: number,
+): Promise<{
+  ttsAudioChunks: Array<{ type: "tts_audio"; audio: TTSChunk }>;
+  chunkTypes: string[];
+  textContent: string;
+}> {
+  const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+  const provider = await createOfflineProvider(neurolink);
+  const responseParts = Array.isArray(responseText)
+    ? responseText
+    : [responseText];
+  const execute = stub(provider, "executeStream", async () => ({
+    stream: makeTextStream(...responseParts),
+    provider: "openai",
+    model: "gpt-4o-mini",
+  }));
+  const create = stub(
+    AIProviderFactory,
+    "createProvider",
+    async () => provider,
+  );
+
+  const ttsAudioChunks: Array<{ type: "tts_audio"; audio: TTSChunk }> = [];
+  const chunkTypes: string[] = [];
+  let textContent = "";
+
+  await withStubs([create, execute], async () => {
+    const result = await neurolink.stream({
+      input: { text: "exercise public streaming TTS" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      tts,
+    });
+    for await (const chunk of result.stream) {
+      if (isTTSAudioChunk(chunk)) {
+        chunkTypes.push("tts_audio");
+        ttsAudioChunks.push(chunk);
+        if (ttsAudioChunks.length >= audioChunkLimit) {
+          break;
+        }
+        continue;
+      }
+      if (
+        chunk !== null &&
+        typeof chunk === "object" &&
+        "content" in chunk &&
+        typeof chunk.content === "string"
+      ) {
+        chunkTypes.push("text");
+        textContent += chunk.content;
+        continue;
+      }
+      chunkTypes.push("other");
+    }
+  });
+
+  return { ttsAudioChunks, chunkTypes, textContent };
 }
 
 const registrySnapshot = snapshotTTSRegistry();
@@ -436,6 +818,1847 @@ await test("stream() synthesizes when tts.enabled is set, without useAiResponse"
     resolvedAudio,
     "streamResult.audio resolved without useAiResponse",
   );
+});
+
+await test("#481: stream() prefers native chunks and normalizes their global metadata", async () => {
+  const provider = uniqueProvider("native-order");
+  const fallbackCalls: string[] = [];
+  const nativeCalls: string[] = [];
+  const nativeBytes = [
+    Buffer.from("alpha"),
+    Buffer.from("beta"),
+    Buffer.from("gamma"),
+  ];
+  const { handler } = makeStubHandler({
+    synthesize: async (text: string) => {
+      fallbackCalls.push(text);
+      const buffer = Buffer.from("buffered-fallback");
+      return { buffer, format: "mp3", size: buffer.length };
+    },
+    synthesizeStream: (text: string) => {
+      nativeCalls.push(text);
+      return (async function* () {
+        for (const [index, data] of nativeBytes.entries()) {
+          yield {
+            data,
+            format: "mp3",
+            index: 40 + index,
+            isFinal: true,
+            cumulativeSize: 999,
+            voice: "native-voice",
+            sampleRate: 24000,
+          };
+        }
+      })();
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(provider, handler);
+
+  const { ttsAudioChunks, resolvedAudio } = await runPublicTtsStream({
+    enabled: true,
+    provider,
+    voice: "requested-voice",
+  });
+  const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+  assertEqual(
+    fallbackCalls.length,
+    0,
+    "native dispatch avoids buffered synthesis",
+  );
+  assertEqual(
+    nativeCalls.length,
+    1,
+    "one buffered text segment enters the native stream",
+  );
+  assertEqual(
+    audio.length,
+    3,
+    "one text segment exposes all three provider reads",
+  );
+  assertEqual(
+    Buffer.concat(audio.map((chunk) => chunk.data)).toString(),
+    "alphabetagamma",
+    "provider byte order survives public streaming",
+  );
+  assertEqual(
+    audio.map((chunk) => chunk.index).join(","),
+    "0,1,2",
+    "provider-local indexes are normalized globally",
+  );
+  assertEqual(
+    audio.map((chunk) => chunk.cumulativeSize).join(","),
+    "5,9,14",
+    "cumulative size is recomputed from emitted bytes",
+  );
+  assertEqual(
+    audio.filter((chunk) => chunk.isFinal).length,
+    1,
+    "exactly one normalized chunk is final",
+  );
+  assertEqual(
+    audio.at(-1)?.isFinal,
+    true,
+    "the last normalized chunk is final",
+  );
+  assertEqual(
+    resolvedAudio?.buffer.toString(),
+    "alphabetagamma",
+    "the public aggregate preserves native bytes",
+  );
+  assertEqual(
+    resolvedAudio?.sampleRate,
+    24000,
+    "the public aggregate preserves native sample rate",
+  );
+});
+
+await test("#481: a later native segment failure retains partial audio and structured metadata", async () => {
+  const provider = uniqueProvider("native-failure");
+  const { handler } = makeStubHandler({
+    maxTextLength: 7,
+    synthesizeStream: (text: string) =>
+      (async function* () {
+        yield {
+          data: Buffer.from(`${text}:a`),
+          format: "mp3",
+          index: 90,
+          isFinal: false,
+        };
+        if (text === "Second.") {
+          throw new Error("native segment failure");
+        }
+        yield {
+          data: Buffer.from(`${text}:b`),
+          format: "mp3",
+          index: 91,
+          isFinal: true,
+        };
+      })(),
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(provider, handler);
+
+  const { ttsAudioChunks, resolvedAudio, ttsMetadata } =
+    await runPublicTtsStream(
+      { enabled: true, provider, streamingBufferSize: 1 },
+      "First. Second.",
+    );
+  const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+  assertEqual(
+    audio.length,
+    3,
+    "successful reads before the later failure remain visible",
+  );
+  assertEqual(
+    Buffer.concat(audio.map((chunk) => chunk.data)).toString(),
+    "First.:aFirst.:bSecond.:a",
+    "partial native bytes retain segment and read order",
+  );
+  assertEqual(
+    audio.filter((chunk) => chunk.isFinal).length,
+    1,
+    "partial output still has one final chunk",
+  );
+  assertEqual(
+    audio.at(-1)?.isFinal,
+    true,
+    "the last retained partial chunk is final",
+  );
+  assertEqual(
+    resolvedAudio?.buffer.toString(),
+    "First.:aFirst.:bSecond.:a",
+    "the aggregate retains partial native bytes",
+  );
+  assertEqual(
+    ttsMetadata?.success,
+    false,
+    "the aggregate records the later native failure",
+  );
+  assertEqual(
+    ttsMetadata?.error?.code,
+    TTS_ERROR_CODES.SYNTHESIS_FAILED,
+    "native failure uses the structured synthesis code",
+  );
+  assertIncludes(
+    ttsMetadata?.error?.message ?? "",
+    "segment 2",
+    "native failure identifies the failed segment",
+  );
+});
+
+await test("#481: OpenAI mocked response reads preserve bytes and proven format metadata", async () => {
+  const handler = new OpenAITTS("offline-test-key");
+  const streamMethod = handler.synthesizeStream.bind(handler);
+  const responseBytes = [
+    [Buffer.from([1, 2]), Buffer.from([3]), Buffer.from([4, 5])],
+    [Buffer.from([6]), Buffer.from([7, 8]), Buffer.from([9])],
+  ];
+  let responseIndex = 0;
+  const fetchStub = stub(
+    globalThis,
+    "fetch",
+    async (..._args: Parameters<typeof fetch>) => {
+      const chunks = responseBytes[responseIndex++];
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            for (const chunk of chunks) {
+              controller.enqueue(chunk);
+            }
+            controller.close();
+          },
+        }),
+        { status: 200 },
+      );
+    },
+  );
+  await withStubs([fetchStub], async () => {
+    for (const [caseIndex, format] of (["mp3", "pcm16"] as const).entries()) {
+      const iterable = streamMethod.call(handler, "mocked speech", { format });
+      assertNotNull(iterable, `${format} returns a native iterable`);
+      const chunks: TTSChunk[] = [];
+      for await (const chunk of iterable) {
+        chunks.push(chunk);
+      }
+      const expected = Buffer.concat(responseBytes[caseIndex]);
+      assert(
+        Buffer.concat(chunks.map((chunk) => chunk.data)).equals(expected),
+        `${format} preserves response-body byte order`,
+      );
+      assertEqual(
+        chunks.every((chunk) => chunk.format === format),
+        true,
+        `${format} metadata is preserved on every read`,
+      );
+      assertEqual(
+        chunks.every((chunk) => chunk.sampleRate === 24000),
+        true,
+        `${format} sample rate is preserved on every read`,
+      );
+      assertEqual(
+        chunks.length,
+        responseBytes[caseIndex].length,
+        `${format} yields one chunk per non-empty body read`,
+      );
+      // No provider-side finality hold: marking the last read would mean
+      // holding one read back until the next arrives, delaying every fragment
+      // by a full body read. TTSProcessor recomputes finality globally.
+      assertEqual(
+        chunks.some((chunk) => chunk.isFinal),
+        false,
+        `${format} native reads leave finality to the processor`,
+      );
+      assertEqual(
+        chunks.map((chunk) => chunk.index).join(","),
+        responseBytes[caseIndex].map((_, i) => i).join(","),
+        `${format} provider-local indexes are sequential`,
+      );
+    }
+
+    const unsupported = streamMethod.call(handler, "mocked speech", {
+      format: "wav",
+    });
+    assertEqual(
+      unsupported,
+      undefined,
+      "an unproven format selects the buffered fallback",
+    );
+  });
+  assertEqual(
+    fetchStub.callCount,
+    2,
+    "only the two proven native formats reached mocked fetch",
+  );
+});
+
+await test("#481: consumer early-break aborts the active OpenAI response read", async () => {
+  const ttsProvider = uniqueProvider("native-abort");
+  TTSProcessor.registerHandler(ttsProvider, new OpenAITTS("offline-test-key"));
+  const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+  const provider = await createOfflineProvider(neurolink);
+  const execute = stub(provider, "executeStream", async () => ({
+    stream: makeTextStream("Abort this sentence."),
+    provider: "openai",
+    model: "gpt-4o-mini",
+  }));
+  const create = stub(
+    AIProviderFactory,
+    "createProvider",
+    async () => provider,
+  );
+  let transportAborted = false;
+  let observedSignal: AbortSignal | undefined;
+  const fetchStub = stub(
+    globalThis,
+    "fetch",
+    async (...args: Parameters<typeof fetch>) => {
+      const init = args[1];
+      observedSignal = init?.signal ?? undefined;
+      let settled = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(Buffer.from("first"));
+          controller.enqueue(Buffer.from("second"));
+          controller.enqueue(Buffer.from("third"));
+          observedSignal?.addEventListener(
+            "abort",
+            () => {
+              transportAborted = true;
+              if (!settled) {
+                settled = true;
+                controller.error(new DOMException("aborted", "AbortError"));
+              }
+            },
+            { once: true },
+          );
+          timer = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              controller.close();
+            }
+          }, 200);
+          timer.unref?.();
+        },
+        cancel() {
+          if (timer) {
+            clearTimeout(timer);
+          }
+        },
+      });
+      return new Response(body, { status: 200 });
+    },
+  );
+  let audioChunksSeen = 0;
+
+  await withStubs([fetchStub, create, execute], async () => {
+    const result = await neurolink.stream({
+      input: { text: "offline" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      tts: { enabled: true, provider: ttsProvider },
+    });
+    for await (const chunk of result.stream) {
+      if (isTTSAudioChunk(chunk)) {
+        audioChunksSeen += 1;
+        break;
+      }
+    }
+  });
+
+  assertEqual(
+    audioChunksSeen,
+    1,
+    "public streaming exposes audio before the mocked body completes",
+  );
+  assertEqual(
+    fetchStub.callCount,
+    1,
+    "the native segment made one mocked HTTP request",
+  );
+  assertEqual(
+    observedSignal?.aborted,
+    true,
+    "the request controller is synchronously aborted",
+  );
+  assertEqual(
+    transportAborted,
+    true,
+    "the active mocked response read observes abort",
+  );
+});
+
+await test("#481: a native segment records the same tts.synthesize span a buffered segment does", async () => {
+  const countSynthesisSpans = () =>
+    getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+
+  const bufferedProvider = uniqueProvider("span-buffered");
+  const { handler: bufferedHandler } = makeStubHandler();
+  TTSProcessor.registerHandler(bufferedProvider, bufferedHandler);
+  getMetricsAggregator().reset();
+  await runPublicTtsStream({ enabled: true, provider: bufferedProvider });
+  const bufferedSpans = countSynthesisSpans();
+
+  const nativeProvider = uniqueProvider("span-native");
+  const { handler: nativeHandler } = makeStubHandler({
+    synthesizeStream: (text: string) =>
+      (async function* () {
+        yield {
+          data: Buffer.from(text),
+          format: "mp3",
+          index: 0,
+          isFinal: false,
+        };
+      })(),
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(nativeProvider, nativeHandler);
+  getMetricsAggregator().reset();
+  await runPublicTtsStream({ enabled: true, provider: nativeProvider });
+  const nativeSpans = countSynthesisSpans();
+
+  assertEqual(bufferedSpans, 1, "the buffered path records one synthesis span");
+  assertEqual(
+    nativeSpans,
+    bufferedSpans,
+    "the native path records the same span count",
+  );
+});
+
+await test("#481: a native transport failure keeps the buffered path's error shape", async () => {
+  const bufferedProvider = uniqueProvider("shape-buffered");
+  const { handler: bufferedHandler } = makeStubHandler({
+    synthesize: async () => {
+      throw new Error("transport went away");
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(bufferedProvider, bufferedHandler);
+  const buffered = await runPublicTtsStream({
+    enabled: true,
+    provider: bufferedProvider,
+  });
+
+  const nativeProvider = uniqueProvider("shape-native");
+  const { handler: nativeHandler } = makeStubHandler({
+    synthesizeStream: () => failingNativeStream("transport went away"),
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(nativeProvider, nativeHandler);
+  const native = await runPublicTtsStream({
+    enabled: true,
+    provider: nativeProvider,
+  });
+
+  assertEqual(
+    buffered.ttsMetadata?.error?.retriable,
+    true,
+    "the buffered path marks a raw transport failure retriable",
+  );
+  assertEqual(
+    native.ttsMetadata?.error?.retriable,
+    true,
+    "the native path marks the same failure retriable",
+  );
+  assertEqual(
+    native.ttsMetadata?.error?.code,
+    buffered.ttsMetadata?.error?.code,
+    "both paths report the same structured code",
+  );
+  assertIncludes(
+    native.ttsMetadata?.error?.message ?? "",
+    "TTS synthesis failed for provider",
+    "the native path keeps the provider-qualified message prefix",
+  );
+});
+
+await test("#481: native fragments reach the consumer while the response body is still open", async () => {
+  const ttsProvider = uniqueProvider("incremental-delivery");
+  TTSProcessor.registerHandler(ttsProvider, new OpenAITTS("offline-test-key"));
+  const neurolink = new NeuroLink({ conversationMemory: { enabled: false } });
+  const provider = await createOfflineProvider(neurolink);
+  const execute = stub(provider, "executeStream", async () => ({
+    stream: makeTextStream("Deliver this sentence."),
+    provider: "openai",
+    model: "gpt-4o-mini",
+  }));
+  const create = stub(
+    AIProviderFactory,
+    "createProvider",
+    async () => provider,
+  );
+
+  // The mocked body delivers exactly two reads and then parks. It only closes
+  // once the consumer has actually been handed audio — so a delivery path that
+  // waits for body completion cannot satisfy it, and the watchdog fires
+  // instead of the run hanging.
+  let releaseBody: () => void = () => {};
+  const bodyParked = new Promise<void>((resolve) => {
+    releaseBody = resolve;
+  });
+  let bodyClosed = false;
+  let watchdogFired = false;
+  const fetchStub = stub(globalThis, "fetch", async () => {
+    let reads = 0;
+    const body = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (reads >= 2) {
+          const watchdog = setTimeout(() => {
+            watchdogFired = true;
+            releaseBody();
+          }, 5000);
+          watchdog.unref?.();
+          await bodyParked;
+          clearTimeout(watchdog);
+          bodyClosed = true;
+          controller.close();
+          return;
+        }
+        reads += 1;
+        controller.enqueue(Buffer.from([reads]));
+      },
+    });
+    return new Response(body, { status: 200 });
+  });
+
+  let chunksBeforeBodyClose = 0;
+  let totalAudioChunks = 0;
+  await withStubs([fetchStub, create, execute], async () => {
+    const result = await neurolink.stream({
+      input: { text: "offline" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableTools: true,
+      tts: { enabled: true, provider: ttsProvider, format: "mp3" },
+    });
+    for await (const chunk of result.stream) {
+      if (isTTSAudioChunk(chunk)) {
+        totalAudioChunks += 1;
+        if (!bodyClosed) {
+          chunksBeforeBodyClose += 1;
+        }
+        releaseBody();
+      }
+    }
+  });
+
+  assertEqual(
+    watchdogFired,
+    false,
+    "audio was delivered without waiting on the parked-body watchdog",
+  );
+  assertEqual(
+    chunksBeforeBodyClose,
+    1,
+    "one fragment reached the consumer while the body was still open",
+  );
+  assertEqual(
+    totalAudioChunks,
+    2,
+    "both body reads still reach the consumer overall",
+  );
+});
+
+await test("#481: a native stream that yields no audio falls back to buffered synthesis", async () => {
+  const ttsProvider = uniqueProvider("native-empty");
+  const { handler, calls } = makeStubHandler({
+    synthesizeStream: () => emptyNativeStream(),
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { ttsAudioChunks, resolvedAudio, ttsMetadata } =
+    await runPublicTtsStream({ enabled: true, provider: ttsProvider });
+  const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+  assertEqual(calls.length, 1, "the segment is served by buffered synthesis");
+  assertEqual(audio.length, 1, "the buffered fallback produces a chunk");
+  assertEqual(
+    audio.filter((chunk) => chunk.isFinal).length,
+    1,
+    "exactly one chunk is final",
+  );
+  assertEqual(
+    ttsMetadata?.success,
+    true,
+    "the run is not reported as an unexplained failure",
+  );
+  assertNotNull(resolvedAudio, "the aggregate resolves with buffered audio");
+  assertEqual(
+    resolvedAudio?.size,
+    audio[0]?.data.length,
+    "the aggregate carries the buffered bytes",
+  );
+});
+
+await test("#481: a malfunctioning native method degrades to the buffered path", async () => {
+  const brokenNativeMethods: Array<
+    [string, () => AsyncIterable<TTSChunk> | undefined]
+  > = [
+    [
+      "throwing",
+      () => {
+        throw new Error("native setup went wrong");
+      },
+    ],
+    [
+      "non-iterable",
+      () => ({ iterable: false }) as unknown as AsyncIterable<TTSChunk>,
+    ],
+  ];
+
+  for (const [label, synthesizeStream] of brokenNativeMethods) {
+    const ttsProvider = uniqueProvider(`broken-native-${label}`);
+    const { handler, calls } = makeStubHandler({
+      synthesizeStream,
+    } as Partial<TTSHandler>);
+    TTSProcessor.registerHandler(ttsProvider, handler);
+
+    const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream({
+      enabled: true,
+      provider: ttsProvider,
+    });
+    const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+    assertEqual(
+      calls.length,
+      1,
+      `a ${label} native method falls back to buffered synthesis`,
+    );
+    assertEqual(
+      audio.length,
+      1,
+      `a ${label} native method still delivers the segment's audio`,
+    );
+    assertEqual(
+      audio.filter((chunk) => chunk.isFinal).length,
+      1,
+      `a ${label} native method still yields exactly one final chunk`,
+    );
+    assertEqual(
+      ttsMetadata?.success,
+      true,
+      `a ${label} native method does not fail the segment`,
+    );
+  }
+});
+
+await test("#481: a discovery failure that cannot be stringified still falls back to buffered synthesis", async () => {
+  const hostile = {
+    [Symbol.toPrimitive]() {
+      throw Object.create(null);
+    },
+  };
+  const ttsProvider = uniqueProvider("hostile-discovery");
+  const { handler, calls } = makeStubHandler({});
+  Object.defineProperty(handler, "synthesizeStream", {
+    configurable: true,
+    get() {
+      throw hostile;
+    },
+  });
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream({
+    enabled: true,
+    provider: ttsProvider,
+  });
+  const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+  assertEqual(
+    calls.length,
+    1,
+    "an unprintable discovery failure falls back to buffered synthesis",
+  );
+  assertEqual(
+    audio.length,
+    1,
+    "an unprintable discovery failure still delivers the segment's audio",
+  );
+  assertEqual(
+    audio.filter((chunk) => chunk.isFinal).length,
+    1,
+    "an unprintable discovery failure still yields exactly one final chunk",
+  );
+  assertEqual(
+    ttsMetadata?.success,
+    true,
+    "an unprintable discovery failure does not fail the segment",
+  );
+});
+
+await test("#481: a native failure that cannot be stringified still fails the segment shaped", async () => {
+  const hostile = {
+    [Symbol.toPrimitive]() {
+      throw Object.create(null);
+    },
+  };
+  const ttsProvider = uniqueProvider("hostile-native-failure");
+  const { handler } = makeStubHandler({
+    synthesizeStream: async function* hostileStream() {
+      yield* [];
+      throw hostile;
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { ttsMetadata } = await runPublicTtsStream({
+    enabled: true,
+    provider: ttsProvider,
+  });
+
+  assertEqual(
+    typeof ttsMetadata?.error?.code,
+    "string",
+    "an unprintable native failure still reports a structured code",
+  );
+  assertEqual(
+    ttsMetadata?.error?.retriable,
+    true,
+    "an unprintable native failure keeps the retriable flag",
+  );
+});
+
+await test("#481: a value masquerading as a shaped error is not passed through", async () => {
+  const ttsProvider = uniqueProvider("masquerade-shaped");
+  const { handler } = makeStubHandler({
+    synthesize: async () => {
+      throw makeMasqueradeTTSError();
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { ttsMetadata } = await runPublicTtsStream({
+    enabled: true,
+    provider: ttsProvider,
+  });
+
+  assertEqual(
+    typeof ttsMetadata?.error?.code,
+    "string",
+    "a masquerading error is re-shaped with a structured code",
+  );
+  assertEqual(
+    ttsMetadata?.error?.retriable,
+    true,
+    "a masquerading error keeps the retriable flag",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Hostile thrown VALUES, as distinct from values that merely refuse to
+// stringify. The case above throws something whose `Symbol.toPrimitive` traps;
+// the three factories below break the other reads a shaper performs — the
+// `.message` accessor a structured-error constructor copies, and the prototype
+// lookup every `instanceof` needs. Each one previously reached the public
+// generator raw, or cost the failure its `retriable` flag.
+//
+// None of the assertions below quote the value they exercise: a hostile
+// payload in an assertion message can match the harness's expected-provider
+// patterns and downgrade a genuine failure to a skip.
+
+/**
+ * An `Error` whose `.message` is a throwing accessor. It passes `instanceof
+ * Error`, so a shaper accepts it, and then detonates on the very next read.
+ */
+function makeUnreadableError(): Error {
+  const error = new Error("never read");
+  Object.defineProperty(error, "message", {
+    configurable: true,
+    get() {
+      throw Object.create(null);
+    },
+  });
+  return error;
+}
+
+/** A `Proxy` whose prototype trap throws, so `instanceof` itself detonates. */
+function makeProtoTrapProxy(): object {
+  return new Proxy(
+    {},
+    {
+      getPrototypeOf() {
+        throw new Error("proto trap");
+      },
+    },
+  );
+}
+
+/** A revoked `Proxy`: every internal method, `instanceof` included, throws. */
+function makeMasqueradeTTSError(): object {
+  return new Proxy(Object.create(null) as object, {
+    getPrototypeOf() {
+      return TTSError.prototype;
+    },
+    get() {
+      throw Object.create(null);
+    },
+  });
+}
+
+function makeRevokedProxy(): object {
+  const { proxy, revoke } = Proxy.revocable({}, {});
+  revoke();
+  return proxy;
+}
+
+/**
+ * Drive the public stream for a handler that fails, and report whether
+ * anything escaped without letting the escaping value near an assertion
+ * message.
+ */
+async function runHostileFailureCase(
+  ttsProvider: string,
+): Promise<{ escaped: boolean; ttsMetadata: StreamResult["ttsMetadata"] }> {
+  try {
+    const { ttsMetadata } = await runPublicTtsStream({
+      enabled: true,
+      provider: ttsProvider,
+    });
+    return { escaped: false, ttsMetadata };
+  } catch {
+    return { escaped: true, ttsMetadata: undefined };
+  }
+}
+
+await test("#481: a native failure whose message accessor throws still fails the segment shaped", async () => {
+  const ttsProvider = uniqueProvider("unreadable-native-failure");
+  const { handler } = makeStubHandler({
+    synthesizeStream: async function* unreadableStream() {
+      yield* [];
+      throw makeUnreadableError();
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { escaped, ttsMetadata } = await runHostileFailureCase(ttsProvider);
+
+  assertEqual(
+    escaped,
+    false,
+    "an unreadable native failure does not reach the consumer raw",
+  );
+  assertEqual(
+    ttsMetadata?.error?.code,
+    TTS_ERROR_CODES.SYNTHESIS_FAILED,
+    "an unreadable native failure still reports the synthesis code",
+  );
+  assertEqual(
+    ttsMetadata?.error?.retriable,
+    true,
+    "an unreadable native failure keeps the retriable flag",
+  );
+});
+
+await test("#481: a buffered failure whose message accessor throws still fails the segment shaped", async () => {
+  const ttsProvider = uniqueProvider("unreadable-buffered-failure");
+  // No native member at all: this is the path that predates native streaming.
+  const { handler } = makeStubHandler({
+    synthesize: async () => {
+      throw makeUnreadableError();
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { escaped, ttsMetadata } = await runHostileFailureCase(ttsProvider);
+
+  assertEqual(
+    escaped,
+    false,
+    "an unreadable buffered failure does not reach the consumer raw",
+  );
+  assertEqual(
+    ttsMetadata?.error?.code,
+    TTS_ERROR_CODES.SYNTHESIS_FAILED,
+    "an unreadable buffered failure still reports the synthesis code",
+  );
+  assertEqual(
+    ttsMetadata?.error?.retriable,
+    true,
+    "an unreadable buffered failure keeps the retriable flag",
+  );
+});
+
+await test("#481: a native failure thrown as a prototype-trap proxy keeps its shaped semantics", async () => {
+  const ttsProvider = uniqueProvider("proto-trap-native-failure");
+  const { handler } = makeStubHandler({
+    synthesizeStream: async function* protoTrapStream() {
+      yield* [];
+      throw makeProtoTrapProxy();
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { escaped, ttsMetadata } = await runHostileFailureCase(ttsProvider);
+
+  assertEqual(
+    escaped,
+    false,
+    "a prototype-trap failure does not reach the consumer raw",
+  );
+  assertEqual(
+    ttsMetadata?.error?.code,
+    TTS_ERROR_CODES.SYNTHESIS_FAILED,
+    "a prototype-trap failure still reports the synthesis code",
+  );
+  assertEqual(
+    ttsMetadata?.error?.retriable,
+    true,
+    "a prototype-trap failure keeps the retriable flag",
+  );
+});
+
+await test("#481: a native failure thrown as a revoked proxy keeps its shaped semantics", async () => {
+  const ttsProvider = uniqueProvider("revoked-proxy-native-failure");
+  const { handler } = makeStubHandler({
+    synthesizeStream: async function* revokedProxyStream() {
+      yield* [];
+      throw makeRevokedProxy();
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { escaped, ttsMetadata } = await runHostileFailureCase(ttsProvider);
+
+  assertEqual(
+    escaped,
+    false,
+    "a revoked-proxy failure does not reach the consumer raw",
+  );
+  assertEqual(
+    ttsMetadata?.error?.code,
+    TTS_ERROR_CODES.SYNTHESIS_FAILED,
+    "a revoked-proxy failure still reports the synthesis code",
+  );
+  assertEqual(
+    ttsMetadata?.error?.retriable,
+    true,
+    "a revoked-proxy failure keeps the retriable flag",
+  );
+});
+
+await test("#481: hostile transport failures are shaped by the OpenAI handler, not passed through", async () => {
+  const handler = new OpenAITTS("offline-test-key");
+  const cases: Array<{ label: string; make: () => unknown }> = [
+    { label: "unreadable-message", make: makeUnreadableError },
+    { label: "prototype-trap", make: makeProtoTrapProxy },
+    { label: "revoked-handle", make: makeRevokedProxy },
+    { label: "masquerade-tts-error", make: makeMasqueradeTTSError },
+  ];
+
+  for (const { label, make } of cases) {
+    for (const route of ["buffered", "native"] as const) {
+      const fetchStub = stub(
+        globalThis,
+        "fetch",
+        async (..._args: Parameters<typeof fetch>) => {
+          throw make();
+        },
+      );
+      let shapedCode: unknown;
+      let shapedRetriable: unknown;
+      let passedThrough = false;
+
+      await withStubs([fetchStub], async () => {
+        try {
+          if (route === "buffered") {
+            await handler.synthesize("hostile transport case");
+          } else {
+            const iterable = handler.synthesizeStream(
+              "hostile transport case",
+              { format: "mp3" },
+            );
+            assertNotNull(
+              iterable,
+              `the ${route} route offers a native stream`,
+            );
+            for await (const _chunk of iterable) {
+              void _chunk;
+            }
+          }
+        } catch (error) {
+          // Even asking the question has to be guarded here: `instanceof` is
+          // exactly what a revoked handle refuses to answer.
+          let shaped: boolean;
+          try {
+            shaped = error instanceof TTSError;
+          } catch {
+            shaped = false;
+          }
+          if (shaped) {
+            const ttsError = error as TTSError;
+            shapedCode = ttsError.code;
+            shapedRetriable = ttsError.retriable;
+          } else {
+            passedThrough = true;
+          }
+        }
+      });
+
+      assertEqual(
+        passedThrough,
+        false,
+        `the ${label} value on the ${route} route is not passed through unshaped`,
+      );
+      assertEqual(
+        shapedCode,
+        TTS_ERROR_CODES.SYNTHESIS_FAILED,
+        `the ${label} value on the ${route} route reports the synthesis code`,
+      );
+      assertEqual(
+        shapedRetriable,
+        true,
+        `the ${label} value on the ${route} route keeps the retriable flag`,
+      );
+    }
+  }
+});
+
+/**
+ * An `Error` whose named accessor answers the first read and throws on every
+ * one after it. Checking a value and using it are two separate reads, so a
+ * guard that only proves the first read succeeds still hands a live grenade
+ * to whatever reads it next.
+ */
+function makeOneShotUnreadableError(property: "message" | "stack"): Error {
+  const error = new Error("first read only");
+  const answer = property === "message" ? "first read only" : error.stack;
+  let reads = 0;
+  Object.defineProperty(error, property, {
+    configurable: true,
+    get() {
+      if (reads++ === 0) {
+        return answer;
+      }
+      throw Object.create(null);
+    },
+  });
+  return error;
+}
+
+await test("#481: a failure whose accessor answers once and then throws still fails the segment shaped", async () => {
+  for (const property of ["message", "stack"] as const) {
+    const ttsProvider = uniqueProvider(`one-shot-${property}`);
+    const { handler } = makeStubHandler({
+      synthesizeStream: async function* oneShotStream() {
+        yield* [];
+        throw makeOneShotUnreadableError(property);
+      },
+    } as Partial<TTSHandler>);
+    TTSProcessor.registerHandler(ttsProvider, handler);
+
+    const { escaped, ttsMetadata } = await runHostileFailureCase(ttsProvider);
+
+    assertEqual(
+      escaped,
+      false,
+      `a one-shot ${property} accessor does not reach the consumer raw`,
+    );
+    assertEqual(
+      ttsMetadata?.error?.code,
+      TTS_ERROR_CODES.SYNTHESIS_FAILED,
+      `a one-shot ${property} accessor still reports the synthesis code`,
+    );
+    assertEqual(
+      ttsMetadata?.error?.retriable,
+      true,
+      `a one-shot ${property} accessor keeps the retriable flag`,
+    );
+  }
+});
+
+await test("#481: zero-length native fragments never reach the consumer", async () => {
+  const ttsProvider = uniqueProvider("empty-fragment");
+  const { handler } = makeStubHandler({
+    synthesizeStream: () =>
+      (async function* () {
+        yield {
+          data: Buffer.from("ab"),
+          format: "mp3",
+          index: 0,
+          isFinal: false,
+        };
+        yield {
+          data: Buffer.alloc(0),
+          format: "mp3",
+          index: 1,
+          isFinal: false,
+        };
+        yield {
+          data: Buffer.from("cd"),
+          format: "mp3",
+          index: 2,
+          isFinal: true,
+        };
+      })(),
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const { ttsAudioChunks } = await runPublicTtsStream({
+    enabled: true,
+    provider: ttsProvider,
+  });
+  const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+  assertEqual(audio.length, 2, "only the non-empty fragments are delivered");
+  assertEqual(
+    audio.some((chunk) => chunk.data.length === 0),
+    false,
+    "no delivered chunk is empty",
+  );
+  assertEqual(
+    audio.map((chunk) => chunk.index).join(","),
+    "0,1",
+    "global indexes stay sequential across the dropped fragment",
+  );
+  assertEqual(
+    audio.map((chunk) => chunk.cumulativeSize).join(","),
+    "2,4",
+    "cumulative size is strictly increasing",
+  );
+});
+
+await test("#481: a recorded segment failure is reported even after shouldStop() flips", async () => {
+  const ttsProvider = uniqueProvider("stop-suppression");
+  const { handler } = makeStubHandler({
+    synthesize: async () => {
+      throw new Error("segment went wrong");
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  // The first segment fails and is recorded; only then does shouldStop() flip.
+  // Gating the trailing throw on it silently dropped an already-recorded
+  // failure for any caller driving `shouldStop` directly.
+  let stop = false;
+  async function* lateStopText(): AsyncGenerator<string> {
+    yield "First. ";
+    stop = true;
+  }
+
+  let delivered = 0;
+  let failure: unknown;
+  try {
+    for await (const chunk of TTSProcessor.synthesizeStream(
+      lateStopText(),
+      ttsProvider,
+      { streamingBufferSize: 1 },
+      () => stop,
+    )) {
+      void chunk;
+      delivered += 1;
+    }
+  } catch (error) {
+    failure = error;
+  }
+
+  assertEqual(delivered, 0, "the failed segment produced no audio");
+  assertNotNull(failure, "the recorded segment failure is surfaced");
+  assertEqual(
+    (failure as Error).name,
+    "IncrementalTTSSynthesisError",
+    "the failure keeps its structured incremental-synthesis shape",
+  );
+  assertEqual(
+    ((failure as { failedSegments?: readonly number[] }).failedSegments ?? [])
+      .length,
+    1,
+    "one segment is reported as failed",
+  );
+});
+
+await test("#481: a native segment records its tts.synthesize span when the consumer breaks mid-segment", async () => {
+  const countSynthesisSpans = () =>
+    getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+
+  // One text segment either way, so both paths attempt exactly one synthesis
+  // and owe exactly one span. The native stream carries three fragments, so
+  // the segment is still in flight when the consumer walks away: the generator
+  // is resumed with a `return` completion at its yield, which is the path that
+  // used to skip span recording entirely.
+  const bufferedProvider = uniqueProvider("break-span-buffered");
+  const { handler: bufferedHandler } = makeStubHandler();
+  TTSProcessor.registerHandler(bufferedProvider, bufferedHandler);
+  getMetricsAggregator().reset();
+  const buffered = await runPublicTtsStreamUntilAudio(
+    { enabled: true, provider: bufferedProvider },
+    "Alpha.",
+    1,
+  );
+  const bufferedSpans = countSynthesisSpans();
+
+  const nativeProvider = uniqueProvider("break-span-native");
+  const { handler: nativeHandler } = makeStubHandler({
+    synthesizeStream: (text: string) =>
+      (async function* () {
+        for (let index = 0; index < 3; index += 1) {
+          yield {
+            data: Buffer.from(`${text}-${index}`),
+            format: "mp3",
+            index,
+            isFinal: false,
+          };
+        }
+      })(),
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(nativeProvider, nativeHandler);
+  getMetricsAggregator().reset();
+  const native = await runPublicTtsStreamUntilAudio(
+    { enabled: true, provider: nativeProvider },
+    "Alpha.",
+    1,
+  );
+  const nativeSpans = countSynthesisSpans();
+
+  assertEqual(
+    buffered.ttsAudioChunks.length,
+    1,
+    "the buffered control stopped after one audio chunk",
+  );
+  assertEqual(
+    native.ttsAudioChunks.length,
+    1,
+    "the native run stopped after one audio chunk",
+  );
+  assertEqual(
+    bufferedSpans,
+    1,
+    "the buffered path records one synthesis span for the abandoned segment",
+  );
+  assertEqual(
+    nativeSpans,
+    bufferedSpans,
+    "the native path records the same span count when the consumer breaks",
+  );
+});
+
+await test("#481: buffered audio interleaves no later than it does without native streaming", async () => {
+  const provider = uniqueProvider("interleave-position");
+  const { handler } = makeStubHandler();
+  TTSProcessor.registerHandler(provider, handler);
+
+  const { chunkTypes } = await runPublicTtsStreamUntilAudio(
+    { enabled: true, provider, streamingBufferSize: 5 },
+    ["Alpha. ", "Beta. ", "Gamma. ", "Delta. ", "Epsilon. "],
+    1,
+  );
+
+  const firstAudioAt = chunkTypes.indexOf("tts_audio");
+  assert(firstAudioAt >= 0, "the run produced an audio chunk");
+  // origin/release emits [text, text, text, tts_audio] for this input. Every
+  // async-generator layer inserted between the text source and the consumer
+  // costs the first audio chunk microtask turns and pushes it a further text
+  // chunk down the stream, which is exactly what this pins. Arriving EARLIER
+  // is fine — the bound is one-sided.
+  assert(
+    firstAudioAt <= 3,
+    `the first audio chunk arrives no later than it does on release: position ${firstAudioAt}`,
+  );
+});
+
+await test("#481: a segment failure that lands after shouldStop() flips is still reported", async () => {
+  const ttsProvider = uniqueProvider("stop-during-failure");
+  let stop = false;
+  const { handler } = makeStubHandler({
+    synthesize: async () => {
+      // The flip happens INSIDE the failing synthesis, so `shouldStop()` is
+      // already true when the rejection is caught — the ordering the sibling
+      // "recorded ... even after shouldStop() flips" case does NOT cover.
+      // Suppressing here left a direct caller with silence where release
+      // raised IncrementalTTSSynthesisError.
+      stop = true;
+      throw new Error("segment went wrong");
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  async function* stopDuringText(): AsyncGenerator<string> {
+    yield "First. ";
+  }
+
+  let delivered = 0;
+  let failure: unknown;
+  try {
+    for await (const chunk of TTSProcessor.synthesizeStream(
+      stopDuringText(),
+      ttsProvider,
+      { streamingBufferSize: 1 },
+      () => stop,
+    )) {
+      void chunk;
+      delivered += 1;
+    }
+  } catch (error) {
+    failure = error;
+  }
+
+  assertEqual(delivered, 0, "the failed segment produced no audio");
+  assertNotNull(failure, "a failure landing after the flip is still surfaced");
+  assertEqual(
+    (failure as Error).name,
+    "IncrementalTTSSynthesisError",
+    "the failure keeps its structured incremental-synthesis shape",
+  );
+  assertEqual(
+    (
+      (failure as { failedSegments?: readonly number[] }).failedSegments ?? []
+    ).join(","),
+    "1",
+    "the failing segment is named",
+  );
+});
+
+await test("#481: every failed segment is reported, including one that fails after the flip", async () => {
+  const ttsProvider = uniqueProvider("stop-partial-report");
+  let stop = false;
+  let call = 0;
+  const { handler } = makeStubHandler({
+    synthesize: async () => {
+      call += 1;
+      if (call === 2) {
+        stop = true;
+      }
+      throw new Error("segment went wrong");
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  async function* twoSegments(): AsyncGenerator<string> {
+    yield "First. ";
+    yield "Second. ";
+  }
+
+  let failure: unknown;
+  try {
+    for await (const chunk of TTSProcessor.synthesizeStream(
+      twoSegments(),
+      ttsProvider,
+      { streamingBufferSize: 1 },
+      () => stop,
+    )) {
+      void chunk;
+    }
+  } catch (error) {
+    failure = error;
+  }
+
+  assertNotNull(failure, "the segment failures are surfaced");
+  assertEqual(
+    (
+      (failure as { failedSegments?: readonly number[] }).failedSegments ?? []
+    ).join(","),
+    "1,2",
+    "the segment that failed after the flip is not dropped from the report",
+  );
+});
+
+await test("#481: a zero-byte buffered result still reaches the consumer", async () => {
+  const provider = uniqueProvider("empty-buffered-result");
+  let call = 0;
+  const { handler } = makeStubHandler({
+    synthesize: async () => {
+      call += 1;
+      const buffer = call === 2 ? Buffer.alloc(0) : Buffer.from("ab");
+      return { buffer, format: "mp3", size: buffer.length };
+    },
+  } as Partial<TTSHandler>);
+  TTSProcessor.registerHandler(provider, handler);
+
+  // The empty-fragment drop is a NATIVE-path rule. The buffered path forwards
+  // whatever `synthesize()` returns and always has, so a zero-byte result is
+  // delivered and `cumulativeSize` repeats. Pinned here because the feature
+  // docs state the scope of that drop, and an unscoped claim would be false.
+  const { ttsAudioChunks } = await runPublicTtsStream(
+    { enabled: true, provider, streamingBufferSize: 5 },
+    ["Alpha. ", "Beta. ", "Gamma. "],
+  );
+  const audio = ttsAudioChunks.map((chunk) => chunk.audio);
+
+  assertEqual(audio.length, 3, "every buffered segment yielded a chunk");
+  assertEqual(
+    audio.filter((chunk) => chunk.data.length === 0).length,
+    1,
+    "the zero-byte buffered segment reached the consumer",
+  );
+  assertEqual(
+    audio.map((chunk) => chunk.cumulativeSize).join(","),
+    "2,2,4",
+    "cumulative size repeats across the empty buffered chunk",
+  );
+});
+
+await test("#481: the OpenAI request timeout is disarmed before the buffered audio download", async () => {
+  // The 30-second bound covers getting a response, not downloading one:
+  // release cleared it as soon as the fetch settled, so a large but healthy
+  // synthesis whose body takes longer than that still succeeds. Observing the
+  // arm/disarm order proves the scope in milliseconds instead of waiting 30
+  // seconds to watch a download get killed.
+  const handler = new OpenAITTS("offline-test-key");
+  const events: string[] = [];
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  let requestTimer: unknown;
+  let observedSignal: AbortSignal | undefined;
+
+  const setTimeoutStub = stub(globalThis, "setTimeout", ((
+    callback: () => void,
+    delay?: number,
+    ...rest: unknown[]
+  ) => {
+    const timer = (
+      realSetTimeout as unknown as (...args: unknown[]) => unknown
+    )(callback, delay, ...rest);
+    if (delay === 30000) {
+      requestTimer = timer;
+      events.push("arm");
+    }
+    return timer;
+  }) as unknown as typeof setTimeout);
+  const clearTimeoutStub = stub(globalThis, "clearTimeout", ((
+    timer?: unknown,
+  ) => {
+    if (timer !== undefined && timer === requestTimer) {
+      events.push("disarm");
+    }
+    return (realClearTimeout as unknown as (...args: unknown[]) => void)(timer);
+  }) as unknown as typeof clearTimeout);
+  const fetchStub = stub(
+    globalThis,
+    "fetch",
+    async (...args: Parameters<typeof fetch>) => {
+      observedSignal = args[1]?.signal ?? undefined;
+      return {
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => {
+          events.push("download");
+          return new Uint8Array([1, 2, 3, 4]).buffer;
+        },
+      } as unknown as Response;
+    },
+  );
+
+  let size: number | undefined;
+  await withStubs([setTimeoutStub, clearTimeoutStub, fetchStub], async () => {
+    const result = await handler.synthesize("Alpha.", { format: "mp3" });
+    size = result.size;
+  });
+
+  assertEqual(
+    events.join(","),
+    "arm,disarm,download",
+    "the request timeout is disarmed before the response body is read",
+  );
+  assertEqual(
+    observedSignal?.aborted,
+    false,
+    "the request signal is not aborted by a completed synthesis",
+  );
+  assertEqual(size, 4, "the downloaded audio bytes survived");
+});
+
+await test("#481: a consumer-injected throw() at a yield propagates to the caller", async () => {
+  // `AsyncGenerator.prototype.throw()` resumes a suspended generator by
+  // raising the error AT the yield. That error comes from the consumer, not
+  // from segment synthesis, and it must leave the stream exactly as it did
+  // before this loop was flattened: rejected with the SAME error, then done.
+  // When the per-segment try/catch encloses the yields instead, the segment
+  // catch swallows it — the parked chunk is re-delivered under its own index,
+  // a segment is silently dropped, and the consumer's own error comes back as
+  // an `IncrementalTTSSynthesisError` attributed to the provider.
+  const nativeFragments = (text: string) =>
+    (async function* () {
+      const tag = text.trim().slice(0, 1);
+      for (let index = 0; index < 3; index += 1) {
+        yield { data: Buffer.from(`${tag}${index}`), format: "mp3" as const };
+      }
+    })();
+
+  for (const label of ["buffered", "native"] as const) {
+    const ttsProvider = uniqueProvider(`consumer-throw-${label}`);
+    const { handler } = makeStubHandler(
+      label === "native"
+        ? ({ synthesizeStream: nativeFragments } as Partial<TTSHandler>)
+        : {},
+    );
+    TTSProcessor.registerHandler(ttsProvider, handler);
+
+    const stream = TTSProcessor.synthesizeStream(
+      (async function* () {
+        yield "Alpha one. ";
+        yield "Bravo two. ";
+        yield "Charlie three. ";
+      })(),
+      ttsProvider,
+      { streamingBufferSize: 1, format: "mp3" },
+    );
+
+    const first = await stream.next();
+    assertEqual(first.done, false, `${label}: the first chunk is delivered`);
+
+    const sentinel = new Error("consumer-injected-sentinel");
+    let rejectedWith: unknown;
+    let settledValue: IteratorResult<TTSChunk> | undefined;
+    try {
+      settledValue = await stream.throw(sentinel);
+    } catch (error) {
+      rejectedWith = error;
+    }
+
+    assert(
+      settledValue === undefined,
+      `${label}: throw() does not resume the stream with another chunk`,
+    );
+    assert(
+      rejectedWith === sentinel,
+      `${label}: throw() rejects with the consumer's own error identity`,
+    );
+
+    const afterThrow = await stream.next();
+    assertEqual(
+      afterThrow.done,
+      true,
+      `${label}: the stream is done after a consumer-injected throw`,
+    );
+  }
+});
+
+await test("#481: a handler whose Symbol.asyncIterator read throws serves the buffered path", async () => {
+  // `isNativeStream` reads a well-known symbol off the returned value, and
+  // that read can execute user code: a throwing getter, or a Proxy trap. When
+  // the read sits outside the guarded region every segment is lost with no
+  // telemetry and an unshaped error, where the buffered path delivers audio.
+  // `cancelStream` and `releaseIterator` guard the identical read.
+  const readTraps: Array<[string, () => unknown]> = [
+    [
+      "throwing-getter",
+      () => ({
+        get [Symbol.asyncIterator]() {
+          throw new Error("symbol read trap");
+        },
+      }),
+    ],
+    [
+      "revoked-proxy",
+      () => {
+        const target = (async function* () {
+          yield { data: Buffer.from("native"), format: "mp3" as const };
+        })();
+        const { proxy, revoke } = Proxy.revocable(target, {});
+        revoke();
+        return proxy;
+      },
+    ],
+  ];
+
+  for (const [label, makeCandidate] of readTraps) {
+    const ttsProvider = uniqueProvider(`symbol-read-${label}`);
+    const { handler, calls } = makeStubHandler({
+      synthesizeStream: makeCandidate,
+    } as unknown as Partial<TTSHandler>);
+    TTSProcessor.registerHandler(ttsProvider, handler);
+
+    const spansBefore = getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+
+    const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream({
+      enabled: true,
+      provider: ttsProvider,
+    });
+
+    assertEqual(
+      calls.length,
+      1,
+      `${label}: the segment falls back to buffered synthesis`,
+    );
+    assertEqual(
+      ttsAudioChunks.length,
+      1,
+      `${label}: the segment's audio still reaches the consumer`,
+    );
+    assertEqual(
+      ttsMetadata?.success,
+      true,
+      `${label}: a bad symbol read does not fail the segment`,
+    );
+
+    const spansAfter = getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+    assertEqual(
+      spansAfter - spansBefore,
+      1,
+      `${label}: the attempted segment still records its tts.synthesize span`,
+    );
+  }
+});
+
+await test("#481: a handler whose synthesizeStream member read throws serves the buffered path", async () => {
+  // Discovering the capability starts by READING `synthesizeStream` off the
+  // handler, and a property read runs consumer code whenever the member is an
+  // accessor or the handler is a Proxy. A read that throws answers the same
+  // question a non-callable member answers — the capability is not usable —
+  // so the segment belongs on the buffered path. Outside the guard it cost
+  // every segment: no audio, no `tts.synthesize` span, and a raw error
+  // reaching the caller with neither `code` nor `retriable`.
+  const memberTraps: Array<[string, () => ReturnType<typeof makeStubHandler>]> =
+    [
+      [
+        "throwing-getter",
+        () => {
+          const built = makeStubHandler();
+          Object.defineProperty(built.handler, "synthesizeStream", {
+            configurable: true,
+            enumerable: true,
+            get() {
+              throw new Error("member getter trap");
+            },
+          });
+          return built;
+        },
+      ],
+      [
+        "class-getter-over-absent-client",
+        () => {
+          // What a provider class looks like when the member is built lazily and
+          // the client it needs was never created.
+          const built = makeStubHandler();
+          Object.defineProperty(built.handler, "synthesizeStream", {
+            configurable: true,
+            enumerable: true,
+            get(this: { streamingClient?: unknown }) {
+              if (!this.streamingClient) {
+                throw new Error("streaming client not initialised");
+              }
+              return () => undefined;
+            },
+          });
+          return built;
+        },
+      ],
+      [
+        "handler-proxy-get-trap",
+        () => {
+          const built = makeStubHandler();
+          return {
+            calls: built.calls,
+            handler: new Proxy(built.handler, {
+              get(target, property, receiver) {
+                if (property === "synthesizeStream") {
+                  throw new Error("handler proxy get trap");
+                }
+                return Reflect.get(target, property, receiver);
+              },
+            }),
+          };
+        },
+      ],
+    ];
+
+  for (const [label, build] of memberTraps) {
+    const ttsProvider = uniqueProvider(`member-read-${label}`);
+    const { handler, calls } = build();
+    TTSProcessor.registerHandler(ttsProvider, handler);
+
+    const spansBefore = getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+
+    const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream({
+      enabled: true,
+      provider: ttsProvider,
+    });
+
+    assertEqual(
+      calls.length,
+      1,
+      `${label}: the segment falls back to buffered synthesis`,
+    );
+    assertEqual(
+      ttsAudioChunks.length,
+      1,
+      `${label}: the segment's audio still reaches the consumer`,
+    );
+    assertEqual(
+      ttsMetadata?.success,
+      true,
+      `${label}: a bad member read does not fail the segment`,
+    );
+    assertEqual(
+      ttsMetadata?.error,
+      undefined,
+      `${label}: a bad member read is not reported to the caller as an error`,
+    );
+
+    const spansAfter = getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+    assertEqual(
+      spansAfter - spansBefore,
+      1,
+      `${label}: the attempted segment still records its tts.synthesize span`,
+    );
+  }
+});
+
+await test("#481: the synthesizeStream member is read exactly once per segment", async () => {
+  // The member used to be read twice per segment — a truthiness gate at the
+  // call site, then again inside the resolver — so an accessor ran consumer
+  // code twice and the value that was TESTED need not be the value that was
+  // CALLED. A getter that answers differently on the second read then lost
+  // every segment, even though its first answer for each segment was a working
+  // native stream. One guarded read per segment is what collapses those two
+  // answers into one.
+  const ttsProvider = uniqueProvider("member-read-once");
+  let memberReads = 0;
+  const { handler } = makeStubHandler({
+    synthesize: async (text: string) => {
+      const buffer = Buffer.from(`buffered:${text}`);
+      return { buffer, format: "mp3", size: buffer.length };
+    },
+  } as Partial<TTSHandler>);
+  Object.defineProperty(handler, "synthesizeStream", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      memberReads += 1;
+      if (memberReads % 2 === 0) {
+        throw new Error("member getter trap on an even-numbered read");
+      }
+      return (text: string) =>
+        (async function* () {
+          yield { data: Buffer.from(`native:${text}`), format: "mp3" as const };
+        })();
+    },
+  });
+  TTSProcessor.registerHandler(ttsProvider, handler);
+
+  const spansBefore = getMetricsAggregator()
+    .getSpans()
+    .filter((span) => span.name === "tts.synthesize").length;
+
+  const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream(
+    { enabled: true, provider: ttsProvider, streamingBufferSize: 5 },
+    ["First sentence. ", "Second sentence. "],
+  );
+
+  const spansAfter = getMetricsAggregator()
+    .getSpans()
+    .filter((span) => span.name === "tts.synthesize").length;
+
+  assertEqual(memberReads, 2, "the member is read once for each of 2 segments");
+  assertEqual(
+    ttsAudioChunks.length,
+    2,
+    "a getter that throws on a later read costs no segment",
+  );
+  assertEqual(ttsMetadata?.success, true, "no segment is reported as failed");
+  assertEqual(
+    spansAfter - spansBefore,
+    2,
+    "each segment records exactly one tts.synthesize span",
+  );
+  // The read that answered is the read that was used: the first segment got
+  // the callable, the second got the throw and the buffered path.
+  assertEqual(
+    ttsAudioChunks.map((chunk) => String(chunk.audio.data)).join("|"),
+    "native:First sentence.|buffered:Second sentence.",
+    "each segment is served by the value its own single read returned",
+  );
+});
+
+await test("#481: a throwing isConfigured() is reported the same with and without a native member", async () => {
+  // `isConfigured()` is preflight, and preflight is asked on both paths.
+  // Declaring the optional native member must not change how a throwing one is
+  // reported — before the preflight came under the guard it did: the
+  // `tts.synthesize` span disappeared and the error reached the caller
+  // unnormalized, carrying neither `code` nor `retriable`.
+  const shapes: Array<[string, boolean]> = [
+    ["without a native member", false],
+    ["with a native member declared", true],
+  ];
+  const observed: string[] = [];
+
+  for (const [label, declareMember] of shapes) {
+    const ttsProvider = uniqueProvider("isconfigured-throws");
+    const overrides: Record<string, unknown> = {
+      isConfigured: () => {
+        throw new Error("credentials store unavailable");
+      },
+    };
+    if (declareMember) {
+      overrides.synthesizeStream = (text: string) =>
+        (async function* () {
+          yield { data: Buffer.from(`native:${text}`), format: "mp3" as const };
+        })();
+    }
+    const { handler } = makeStubHandler(overrides as Partial<TTSHandler>);
+    TTSProcessor.registerHandler(ttsProvider, handler);
+
+    const spansBefore = getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+
+    const { ttsAudioChunks, ttsMetadata } = await runPublicTtsStream({
+      enabled: true,
+      provider: ttsProvider,
+    });
+
+    const spansAfter = getMetricsAggregator()
+      .getSpans()
+      .filter((span) => span.name === "tts.synthesize").length;
+
+    assertEqual(
+      ttsAudioChunks.length,
+      0,
+      `${label}: a failed preflight yields no audio`,
+    );
+    assertEqual(
+      spansAfter - spansBefore,
+      1,
+      `${label}: the attempted segment still records its tts.synthesize span`,
+    );
+    observed.push(
+      [
+        ttsMetadata?.success,
+        ttsMetadata?.error?.code,
+        ttsMetadata?.error?.retriable,
+      ].join("/"),
+    );
+  }
+
+  assertEqual(
+    observed[1],
+    observed[0],
+    "declaring the native member changed how a throwing isConfigured() is reported",
+  );
+  assertEqual(
+    observed[1],
+    `false/${TTS_ERROR_CODES.SYNTHESIS_FAILED}/true`,
+    "a throwing isConfigured() reaches the caller as a normalized, retriable failure",
+  );
+});
+
+await test("#481: OpenAI TTS reports latency to first response, not to last body byte", async () => {
+  // `metadata.latency` measured time-to-response before this handler was
+  // refactored, and it is public: `TTSResult.metadata` reaches callers through
+  // `TTSProcessor.synthesize()` and through `generate({ tts })`. Moving the
+  // measurement past `arrayBuffer()` silently redefined it as
+  // time-to-last-byte. A stubbed clock that only advances during the body read
+  // pins the scope in milliseconds instead of downloading anything.
+  const handler = new OpenAITTS("offline-test-key");
+  let clock = 1_000;
+  const BODY_READ_MS = 5_000;
+
+  const dateNowStub = stub(Date, "now", () => clock);
+  const fetchStub = stub(globalThis, "fetch", async () => {
+    return {
+      ok: true,
+      status: 200,
+      arrayBuffer: async () => {
+        clock += BODY_READ_MS;
+        return new Uint8Array([1, 2, 3, 4]).buffer;
+      },
+    } as unknown as Response;
+  });
+
+  let latency: number | undefined;
+  let size: number | undefined;
+  await withStubs([dateNowStub, fetchStub], async () => {
+    const result = await handler.synthesize("Alpha.", { format: "mp3" });
+    latency = result.metadata?.latency as number | undefined;
+    size = result.size;
+  });
+
+  assertEqual(
+    latency,
+    0,
+    "reported latency excludes the audio body download entirely",
+  );
+  assertEqual(size, 4, "the audio body was really downloaded");
 });
 
 await test("registerHandler makes a provider resolvable", () => {

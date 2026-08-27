@@ -8,4 +8,4 @@
 
 > **GoogleVoiceType** = `"Standard"` \| `"WaveNet"` \| `"Neural2"` \| `"Studio"` \| `"Polyglot"`
 
-Defined in: [types/voice.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L471)
+Defined in: [types/voice.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L484)

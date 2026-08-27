@@ -8,4 +8,4 @@
 
 > **OpenAIVoice** = `"alloy"` \| `"echo"` \| `"fable"` \| `"onyx"` \| `"nova"` \| `"shimmer"`
 
-Defined in: [types/voice.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L484)
+Defined in: [types/voice.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L497)

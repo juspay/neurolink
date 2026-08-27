@@ -8,7 +8,7 @@
 
 > **OpenAITTSOptions** = [`TTSOptions`](TTSOptions.md) & `object`
 
-Defined in: [types/voice.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L494)
+Defined in: [types/voice.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L522)
 
 ## Type Declaration
 

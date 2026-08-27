@@ -8,7 +8,7 @@
 
 > **BracketCountingState** = `object`
 
-Defined in: [types/common.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L586)
+Defined in: [types/common.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L674)
 
 Shared bracket counting state and utilities
 Used by both validateJSONCompleteness and StructuredOutputParser
@@ -19,7 +19,7 @@ Used by both validateJSONCompleteness and StructuredOutputParser
 
 > **braceCount**: `number`
 
-Defined in: [types/common.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L587)
+Defined in: [types/common.ts:675](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L675)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/common.ts:587](https://github.com/juspay/neurolink/blob/relea
 
 > **bracketCount**: `number`
 
-Defined in: [types/common.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L588)
+Defined in: [types/common.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L676)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/common.ts:588](https://github.com/juspay/neurolink/blob/relea
 
 > **inString**: `boolean`
 
-Defined in: [types/common.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L589)
+Defined in: [types/common.ts:677](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L677)
 
 ---
 
@@ -43,4 +43,4 @@ Defined in: [types/common.ts:589](https://github.com/juspay/neurolink/blob/relea
 
 > **escapeNext**: `boolean`
 
-Defined in: [types/common.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L590)
+Defined in: [types/common.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L678)
