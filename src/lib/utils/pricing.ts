@@ -534,6 +534,15 @@ const PRICING: Record<
       output: 0.24 / 1_000_000,
     },
   },
+  // inference-docs.cerebras.ai model pages, checked 2026-08-27. The
+  // gemma-4-31b page's prose and structured data disagree ($2.15/$2.70 vs
+  // $0.99/$1.49); the structured data feeds the vendor's rendered pricing
+  // card, so it's used here.
+  cerebras: {
+    _default: { input: 0.35 / 1_000_000, output: 0.75 / 1_000_000 },
+    "gpt-oss-120b": { input: 0.35 / 1_000_000, output: 0.75 / 1_000_000 },
+    "gemma-4-31b": { input: 0.99 / 1_000_000, output: 1.49 / 1_000_000 },
+  },
   cohere: {
     _default: { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
     "command-r-plus": { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
@@ -702,6 +711,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
   xai: "xai",
   grok: "xai",
   groq: "groq",
+  cerebras: "cerebras",
   cohere: "cohere",
   togetherai: "together-ai",
   together: "together-ai",

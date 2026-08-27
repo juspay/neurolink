@@ -2673,6 +2673,7 @@ export class CLICommandFactory {
                 "llamacpp",
                 "xai",
                 "groq",
+                "cerebras",
                 "cohere",
                 "together-ai",
                 "fireworks",

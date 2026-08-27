@@ -1358,6 +1358,7 @@ const LINK_MAPPINGS: Record<string, string> = {
   // ── New provider getting-started guides (feat/more-providers) ─────────
   xai: "/getting-started/providers/xai",
   groq: "/getting-started/providers/groq",
+  cerebras: "/getting-started/providers/cerebras",
   replicate: "/getting-started/providers/replicate",
   voyage: "/getting-started/providers/voyage",
   stability: "/getting-started/providers/stability",

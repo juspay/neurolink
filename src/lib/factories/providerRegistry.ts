@@ -263,7 +263,8 @@ export class ProviderRegistry {
       );
 
       // Register the config-driven OpenAI-compatible catalog providers
-      // (groq, xai, together-ai, fireworks, perplexity, mistral, cloudflare).
+      // (cerebras, groq, xai, together-ai, fireworks, perplexity, mistral,
+      // cloudflare).
       // To add a new zero-quirk OpenAI-compatible provider, add one entry to
       // OPENAI_COMPAT_CATALOG (openaiCompatCatalog.ts) — not a new block here.
       for (const entry of OPENAI_COMPAT_CATALOG) {

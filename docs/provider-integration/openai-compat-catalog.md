@@ -1,7 +1,7 @@
 # OpenAI-Compatible Provider Catalog
 
-Seven OpenAI-compatible providers — Groq, xAI, Together AI, Fireworks,
-Perplexity, Mistral, Cloudflare Workers AI — are registered from a single
+Eight OpenAI-compatible providers — Cerebras, Groq, xAI, Together AI,
+Fireworks, Perplexity, Mistral, Cloudflare Workers AI — are registered from a single
 data table, `OPENAI_COMPAT_CATALOG` (`src/lib/providers/openaiCompatCatalog.ts`),
 read by one generic class, `ConfiguredOpenAICompatProvider`
 (`src/lib/providers/configuredOpenAICompat.ts`). Adding another provider to
