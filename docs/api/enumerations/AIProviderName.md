@@ -172,11 +172,19 @@ Defined in: [constants/enums.ts:28](https://github.com/juspay/neurolink/blob/rel
 
 ---
 
+### SAMBANOVA
+
+> **SAMBANOVA**: `"sambanova"`
+
+Defined in: [constants/enums.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L29)
+
+---
+
 ### COHERE
 
 > **COHERE**: `"cohere"`
 
-Defined in: [constants/enums.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L29)
+Defined in: [constants/enums.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L30)
 
 ---
 
@@ -184,7 +192,7 @@ Defined in: [constants/enums.ts:29](https://github.com/juspay/neurolink/blob/rel
 
 > **TOGETHER_AI**: `"together-ai"`
 
-Defined in: [constants/enums.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L30)
+Defined in: [constants/enums.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L31)
 
 ---
 
@@ -192,7 +200,7 @@ Defined in: [constants/enums.ts:30](https://github.com/juspay/neurolink/blob/rel
 
 > **FIREWORKS**: `"fireworks"`
 
-Defined in: [constants/enums.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L31)
+Defined in: [constants/enums.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L32)
 
 ---
 
@@ -200,7 +208,7 @@ Defined in: [constants/enums.ts:31](https://github.com/juspay/neurolink/blob/rel
 
 > **PERPLEXITY**: `"perplexity"`
 
-Defined in: [constants/enums.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L32)
+Defined in: [constants/enums.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L33)
 
 ---
 
@@ -208,7 +216,7 @@ Defined in: [constants/enums.ts:32](https://github.com/juspay/neurolink/blob/rel
 
 > **CLOUDFLARE**: `"cloudflare"`
 
-Defined in: [constants/enums.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L33)
+Defined in: [constants/enums.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L34)
 
 ---
 
@@ -216,7 +224,7 @@ Defined in: [constants/enums.ts:33](https://github.com/juspay/neurolink/blob/rel
 
 > **REPLICATE**: `"replicate"`
 
-Defined in: [constants/enums.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L34)
+Defined in: [constants/enums.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L35)
 
 ---
 
@@ -224,7 +232,7 @@ Defined in: [constants/enums.ts:34](https://github.com/juspay/neurolink/blob/rel
 
 > **VOYAGE**: `"voyage"`
 
-Defined in: [constants/enums.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L35)
+Defined in: [constants/enums.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L36)
 
 ---
 
@@ -232,7 +240,7 @@ Defined in: [constants/enums.ts:35](https://github.com/juspay/neurolink/blob/rel
 
 > **JINA**: `"jina"`
 
-Defined in: [constants/enums.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L36)
+Defined in: [constants/enums.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L37)
 
 ---
 
@@ -240,7 +248,7 @@ Defined in: [constants/enums.ts:36](https://github.com/juspay/neurolink/blob/rel
 
 > **STABILITY**: `"stability"`
 
-Defined in: [constants/enums.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L37)
+Defined in: [constants/enums.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L38)
 
 ---
 
@@ -248,7 +256,7 @@ Defined in: [constants/enums.ts:37](https://github.com/juspay/neurolink/blob/rel
 
 > **IDEOGRAM**: `"ideogram"`
 
-Defined in: [constants/enums.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L38)
+Defined in: [constants/enums.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L39)
 
 ---
 
@@ -256,7 +264,7 @@ Defined in: [constants/enums.ts:38](https://github.com/juspay/neurolink/blob/rel
 
 > **RECRAFT**: `"recraft"`
 
-Defined in: [constants/enums.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L39)
+Defined in: [constants/enums.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L40)
 
 ---
 
@@ -264,4 +272,4 @@ Defined in: [constants/enums.ts:39](https://github.com/juspay/neurolink/blob/rel
 
 > **AUTO**: `"auto"`
 
-Defined in: [constants/enums.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L40)
+Defined in: [constants/enums.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L41)

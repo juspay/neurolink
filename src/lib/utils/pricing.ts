@@ -543,6 +543,21 @@ const PRICING: Record<
     "gpt-oss-120b": { input: 0.35 / 1_000_000, output: 0.75 / 1_000_000 },
     "gemma-4-31b": { input: 0.99 / 1_000_000, output: 1.49 / 1_000_000 },
   },
+  // cloud.sambanova.ai/plans/pricing, checked 2026-08-27. MiniMax-M2.7
+  // also has a $0.06/M cached-input rate the flat model here can't express.
+  sambanova: {
+    _default: { input: 0.6 / 1_000_000, output: 1.2 / 1_000_000 },
+    "Meta-Llama-3.3-70B-Instruct": {
+      input: 0.6 / 1_000_000,
+      output: 1.2 / 1_000_000,
+    },
+    "gpt-oss-120b": { input: 0.22 / 1_000_000, output: 0.59 / 1_000_000 },
+    "DeepSeek-V3.1": { input: 3.0 / 1_000_000, output: 4.5 / 1_000_000 },
+    "DeepSeek-V3.2": { input: 3.0 / 1_000_000, output: 4.5 / 1_000_000 },
+    "MiniMax-M2.7": { input: 0.6 / 1_000_000, output: 2.4 / 1_000_000 },
+    "MiniMax-M3": { input: 0.6 / 1_000_000, output: 2.4 / 1_000_000 },
+    "gemma-4-31B-it": { input: 0.38 / 1_000_000, output: 1.15 / 1_000_000 },
+  },
   cohere: {
     _default: { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
     "command-r-plus": { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
@@ -712,6 +727,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
   grok: "xai",
   groq: "groq",
   cerebras: "cerebras",
+  sambanova: "sambanova",
   cohere: "cohere",
   togetherai: "together-ai",
   together: "together-ai",

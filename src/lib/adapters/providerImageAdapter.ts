@@ -106,6 +106,9 @@ function normalizeVisionProvider(provider: string): string {
  * Vision capability definitions for each provider
  */
 const VISION_CAPABILITIES = {
+  // SambaNova: vendor model-spec page (2026-08-27) lists gemma-4-31B-it as
+  // text+image+video; the dashboard also marks MiniMax-M3 as Vision.
+  sambanova: ["gemma-4-31B-it", "MiniMax-M3"],
   openai: [
     // GPT-5.4 family (released Mar 2026) - Latest flagship models
     "gpt-5.4",

@@ -26,6 +26,7 @@ export enum AIProviderName {
   XAI = "xai",
   GROQ = "groq",
   CEREBRAS = "cerebras",
+  SAMBANOVA = "sambanova",
   COHERE = "cohere",
   TOGETHER_AI = "together-ai",
   FIREWORKS = "fireworks",
@@ -1189,6 +1190,32 @@ export enum CerebrasModels {
   GPT_OSS_120B = "gpt-oss-120b",
   /** Google Gemma 4 31B */
   GEMMA_4_31B = "gemma-4-31b",
+}
+
+/**
+ * SambaNova Cloud models (RDU-accelerated, OpenAI-compatible API).
+ * @see https://docs.sambanova.ai
+ *
+ * Roster verified against a live authenticated `/v1/models` on 2026-08-27
+ * (exact ids — note the vendor's mixed casing). DeepSeek-V3.2 and
+ * gemma-4-31B-it are vendor "preview" models (limited capacity, may be
+ * removed at short notice); the rest are production.
+ */
+export enum SambanovaModels {
+  /** Meta Llama 3.3 70B Instruct — production default, 128K context */
+  META_LLAMA_3_3_70B_INSTRUCT = "Meta-Llama-3.3-70B-Instruct",
+  /** OpenAI GPT-OSS 120B (open-weight), 128K context */
+  GPT_OSS_120B = "gpt-oss-120b",
+  /** DeepSeek V3.1 (reasoning), 128K context */
+  DEEPSEEK_V3_1 = "DeepSeek-V3.1",
+  /** DeepSeek V3.2 (reasoning, vendor preview), 32K context */
+  DEEPSEEK_V3_2 = "DeepSeek-V3.2",
+  /** MiniMax M2.7, 192K context */
+  MINIMAX_M2_7 = "MiniMax-M2.7",
+  /** MiniMax M3 (vision per vendor dashboard) */
+  MINIMAX_M3 = "MiniMax-M3",
+  /** Google Gemma 4 31B IT (vision: text+image+video, vendor preview), 128K context */
+  GEMMA_4_31B_IT = "gemma-4-31B-it",
 }
 
 /**

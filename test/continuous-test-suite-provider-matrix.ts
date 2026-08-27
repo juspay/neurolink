@@ -260,6 +260,34 @@ async function runMatrix(): Promise<void> {
       });
     }
 
+    // ---------- vision ----------
+    if (p.vision) {
+      await test(`[${p.name}] vision describes an image`, async () => {
+        try {
+          const r = (await sdk.generate({
+            provider: p.name,
+            model: p.visionModel ?? p.defaultModel,
+            input: {
+              text: "What is the dominant color in this image? Answer with just the color name.",
+              images: ["test/fixtures/sample-screenshot.png"],
+            },
+            maxTokens: 300,
+            disableTools: true,
+          } as never)) as { content?: string };
+          // The fixture is a solid blue image. A reply without "blue" means
+          // the model never SAW it — exactly the silent image-drop failure
+          // this test exists to catch (found live 2026-08-28: the compat
+          // client dropped ai@6 file parts, so every catalog provider's
+          // vision was text-only and no suite noticed).
+          if (!r.content || !/blue/i.test(r.content)) {
+            throw new Error("response does not describe the fixture image");
+          }
+        } catch (err) {
+          skipIfProviderError(err);
+        }
+      });
+    }
+
     // ---------- embeddings ----------
     if (p.embeddings) {
       await test(`[${p.name}] embed single text`, async () => {

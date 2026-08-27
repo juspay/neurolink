@@ -8,7 +8,7 @@
 
 > **SageMakerAsLanguageModel** = `object`
 
-Defined in: [types/providers.ts:1879](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1879)
+Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1880)
 
 Structural type that captures what AI SDK's `streamText` / `generateText`
 actually invoke at runtime on a model object.
@@ -23,7 +23,7 @@ intermediate type, avoiding `as unknown as LanguageModel`.
 
 > `readonly` **specificationVersion**: `string`
 
-Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1880)
+Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1881)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/providers.ts:1880](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **provider**: `string`
 
-Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1881)
+Defined in: [types/providers.ts:1882](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1882)
 
 ---
 
@@ -39,7 +39,7 @@ Defined in: [types/providers.ts:1881](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **modelId**: `string`
 
-Defined in: [types/providers.ts:1882](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1882)
+Defined in: [types/providers.ts:1883](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1883)
 
 ---
 
@@ -47,7 +47,7 @@ Defined in: [types/providers.ts:1882](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **supportedUrls**: `Record`\<`string`, `RegExp`[]\>
 
-Defined in: [types/providers.ts:1883](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1883)
+Defined in: [types/providers.ts:1884](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1884)
 
 ## Methods
 
@@ -55,7 +55,7 @@ Defined in: [types/providers.ts:1883](https://github.com/juspay/neurolink/blob/r
 
 > **doGenerate**(`options`): `Promise`\<`unknown`\>
 
-Defined in: [types/providers.ts:1884](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1884)
+Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1885)
 
 #### Parameters
 
@@ -73,7 +73,7 @@ Defined in: [types/providers.ts:1884](https://github.com/juspay/neurolink/blob/r
 
 > **doStream**(`options`): `Promise`\<`unknown`\>
 
-Defined in: [types/providers.ts:1885](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1885)
+Defined in: [types/providers.ts:1886](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1886)
 
 #### Parameters
 

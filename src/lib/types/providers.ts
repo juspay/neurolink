@@ -213,6 +213,7 @@ export type NeurolinkCredentials = {
   xai?: { apiKey?: string; baseURL?: string };
   groq?: { apiKey?: string; baseURL?: string };
   cerebras?: { apiKey?: string; baseURL?: string };
+  sambanova?: { apiKey?: string; baseURL?: string };
   cohere?: { apiKey?: string; baseURL?: string };
   together?: { apiKey?: string; baseURL?: string };
   fireworks?: { apiKey?: string; baseURL?: string };

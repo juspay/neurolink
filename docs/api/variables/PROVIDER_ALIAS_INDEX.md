@@ -8,7 +8,7 @@
 
 > `const` **PROVIDER_ALIAS_INDEX**: `ReadonlyMap`\<`string`, [`AIProviderName`](../enumerations/AIProviderName.md)\>
 
-Defined in: [factories/providerDescriptors.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L607)
+Defined in: [factories/providerDescriptors.ts:623](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L623)
 
 O(1) alias → canonical-name lookup, covering both `aliases` and each
 descriptor's own lowercased `name`. Replaces the O(n) linear scan in

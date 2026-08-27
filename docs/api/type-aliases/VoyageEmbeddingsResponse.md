@@ -8,7 +8,7 @@
 
 > **VoyageEmbeddingsResponse** = `object`
 
-Defined in: [types/providers.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L237)
+Defined in: [types/providers.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L238)
 
 Voyage AI /embeddings response shape.
 
@@ -18,7 +18,7 @@ Voyage AI /embeddings response shape.
 
 > **object**: `"list"`
 
-Defined in: [types/providers.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L238)
+Defined in: [types/providers.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L239)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:238](https://github.com/juspay/neurolink/blob/re
 
 > **data**: `object`[]
 
-Defined in: [types/providers.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L239)
+Defined in: [types/providers.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L240)
 
 #### object
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:239](https://github.com/juspay/neurolink/blob/re
 
 > **model**: `string`
 
-Defined in: [types/providers.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L240)
+Defined in: [types/providers.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L241)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:240](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/providers.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L241)
+Defined in: [types/providers.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L242)
 
 #### total_tokens?
 

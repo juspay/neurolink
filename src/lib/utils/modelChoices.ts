@@ -22,6 +22,7 @@ import {
   XaiModels,
   GroqModels,
   CerebrasModels,
+  SambanovaModels,
   CohereModels,
   TogetherAIModels,
   FireworksModels,
@@ -338,6 +339,33 @@ const TOP_MODELS_CONFIG: Record<
       description: "Mistral 8x7B MoE, 32K context",
     },
   ],
+  [AIProviderName.SAMBANOVA]: [
+    {
+      model: SambanovaModels.META_LLAMA_3_3_70B_INSTRUCT,
+      description: "Recommended - Meta Llama 3.3 70B; production, 128K context",
+    },
+    {
+      model: SambanovaModels.GPT_OSS_120B,
+      description: "OpenAI GPT-OSS 120B (open-weight)",
+    },
+    {
+      model: SambanovaModels.DEEPSEEK_V3_1,
+      description: "DeepSeek V3.1 (reasoning)",
+    },
+    {
+      model: SambanovaModels.DEEPSEEK_V3_2,
+      description: "DeepSeek V3.2 (reasoning; vendor preview, 32K context)",
+    },
+    {
+      model: SambanovaModels.MINIMAX_M2_7,
+      description: "MiniMax M2.7, 192K context",
+    },
+    { model: SambanovaModels.MINIMAX_M3, description: "MiniMax M3 (vision)" },
+    {
+      model: SambanovaModels.GEMMA_4_31B_IT,
+      description: "Google Gemma 4 31B IT (vision; vendor preview)",
+    },
+  ],
   [AIProviderName.CEREBRAS]: [
     {
       model: CerebrasModels.GPT_OSS_120B,
@@ -589,6 +617,7 @@ const MODEL_ENUMS: Record<AIProviderName, Record<string, string> | null> = {
   [AIProviderName.XAI]: XaiModels,
   [AIProviderName.GROQ]: GroqModels,
   [AIProviderName.CEREBRAS]: CerebrasModels,
+  [AIProviderName.SAMBANOVA]: SambanovaModels,
   [AIProviderName.COHERE]: CohereModels,
   [AIProviderName.TOGETHER_AI]: TogetherAIModels,
   [AIProviderName.FIREWORKS]: FireworksModels,

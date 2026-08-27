@@ -8,7 +8,7 @@
 
 > **NativeFunctionDeclaration** = `object`
 
-Defined in: [types/providers.ts:2011](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2011)
+Defined in: [types/providers.ts:2012](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2012)
 
 A single function declaration for the Gemini native SDK.
 
@@ -18,7 +18,7 @@ A single function declaration for the Gemini native SDK.
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:2012](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2012)
+Defined in: [types/providers.ts:2013](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2013)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2012](https://github.com/juspay/neurolink/blob/r
 
 > **description**: `string`
 
-Defined in: [types/providers.ts:2013](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2013)
+Defined in: [types/providers.ts:2014](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2014)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:2013](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **parametersJsonSchema?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:2014](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2014)
+Defined in: [types/providers.ts:2015](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2015)

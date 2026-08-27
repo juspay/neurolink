@@ -521,6 +521,21 @@ export function createXaiConfig(): ProviderConfigOptions {
 /**
  * Creates Cerebras provider configuration.
  */
+export function createSambanovaConfig(): ProviderConfigOptions {
+  return {
+    providerName: "SambaNova",
+    envVarName: "SAMBANOVA_API_KEY",
+    setupUrl: "https://cloud.sambanova.ai/apis",
+    description: "API key",
+    instructions: [
+      "1. Visit: https://cloud.sambanova.ai (Google/Microsoft OAuth works)",
+      "2. Complete the profile step; note new accounts have NO free allowance — a payment method and purchased credits are required before calls succeed",
+      "3. Create an API key under API Keys",
+      "4. Set SAMBANOVA_API_KEY in your .env file",
+    ],
+  };
+}
+
 export function createCerebrasConfig(): ProviderConfigOptions {
   return {
     providerName: "Cerebras",
