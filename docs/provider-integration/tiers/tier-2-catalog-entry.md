@@ -15,15 +15,42 @@ catalog shape.
 
 ## Files touched (end state)
 
-| #   | File                                              | Change                                                                                                               |
-| --- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| 1   | `src/lib/constants/enums.ts`                      | One new `AIProviderName` member                                                                                      |
-| 2   | `src/lib/providers/openaiCompatCatalog.ts`        | One `OpenAICompatCatalogEntry` object appended to `OPENAI_COMPAT_CATALOG`                                            |
-| 3   | `src/lib/utils/providerConfig.ts`                 | One `create<Name>Config()` helper returning `ProviderConfigOptions` (referenced from Step 1's `configOptions` field) |
-| 4   | `src/lib/factories/providerDescriptors.ts`        | One `ProviderDescriptor` object appended to `PROVIDER_DESCRIPTORS`                                                   |
-| 5   | `src/lib/types/providers.ts`                      | One new `NeurolinkCredentials["<key>"]` slice                                                                        |
-| 6   | `test/continuous-test-suite-providers-mocked.ts`  | One mocked-contract section (happy-path + 401)                                                                       |
-| 7   | `docs/provider-integration/manifests/<name>.json` | New manifest (see `../manifests/README.md`)                                                                          |
+Twelve touchpoints (14 files — rows 6 and 11 span two files each), not
+the six this table originally listed — the cerebras pilot (PR
+#1561/#1564) found every one of rows 6-12 the hard way (findings #3-#5:
+two by compiler, three by CI-only test pins).
+
+| #   | File                                                                                                   | Change                                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `src/lib/constants/enums.ts`                                                                           | One new `AIProviderName` member AND a `<Name>Models` enum (live-roster-verified ids)                                     |
+| 2   | `src/lib/providers/openaiCompatCatalog.ts`                                                             | One `OpenAICompatCatalogEntry` appended to `OPENAI_COMPAT_CATALOG` (+ bump the "N zero-quirk providers" header comment)  |
+| 3   | `src/lib/utils/providerConfig.ts`                                                                      | One `create<Name>Config()` helper returning `ProviderConfigOptions` (referenced from Step 1's `configOptions` field)     |
+| 4   | `src/lib/factories/providerDescriptors.ts`                                                             | One `ProviderDescriptor` object appended to `PROVIDER_DESCRIPTORS`                                                       |
+| 5   | `src/lib/types/providers.ts`                                                                           | One new `NeurolinkCredentials["<key>"]` slice                                                                            |
+| 6   | `src/lib/models/manifests/<name>.ts` + `src/lib/models/manifestRegistry.ts`                            | Minimal model manifest (copy `groq.ts`'s `_default` pattern) + registry wiring                                           |
+| 7   | `src/lib/utils/modelChoices.ts`                                                                        | Entries in BOTH exhaustive `Record<AIProviderName,...>` tables + the `<Name>Models` import (compiler-enforced)           |
+| 8   | `src/cli/commands/setup.ts`                                                                            | `<key>: create<Name>Config()` in `EXTRA_PROVIDER_CONFIGS` + import (pinned by the wiring suite — see "Count pins" below) |
+| 9   | `test/continuous-test-suite-providers-mocked.ts`                                                       | One `OPENAI_COMPAT_PROVIDERS` spec row (happy-path + 401 + rate-limit)                                                   |
+| 10  | `test/helpers/providerMatrix.ts`                                                                       | One capability row — flags must be live-verified, not assumed (see "Live verification" below)                            |
+| 11  | `test/continuous-test-suite-provider-wiring.ts` + `test/continuous-test-suite-provider-descriptors.ts` | The five count/roster pins — see "Count pins" below                                                                      |
+| 12  | `docs/provider-integration/manifests/<name>.json`                                                      | New manifest (see `../manifests/README.md`)                                                                              |
+
+## Count pins that WILL fire on any new provider
+
+Five assertions across two suites pin the provider roster and fail the
+moment `AIProviderName` grows. **Local `pnpm run check` does not
+typecheck `test/` — the CI `test-shards (types)` job does, via
+`pnpm run check:tools-tests`** — so run that locally or you find pins
+one CI lap at a time (the cerebras pilot burned two laps this way):
+
+- `provider-wiring`: `KNOWN_CREDENTIAL_KEYS` must gain the new key
+  (compile-time `satisfies Record<keyof NeurolinkCredentials, undefined>`
+  pin), the `EXTRA_PROVIDER_CONFIGS` wizard-coverage count + test name
+  must be bumped, and the `getAvailableProviders` test name carries the
+  total-provider count.
+- `provider-descriptors`: the `getAllDescriptors` total and the
+  `apiKeyFormatPattern`-absent count both bump by one for a typical
+  Tier 2 entry.
 
 Notice `src/lib/factories/providerRegistry.ts` isn't in this table. That's
 the point of the catalog path, and it's live today: `_doRegister()` already
@@ -56,14 +83,18 @@ unless marked optional; see `type OpenAICompatCatalogEntry` in
   defaultBaseURL: "https://api.cerebras.ai/v1",
   configOptions: createCerebrasConfig(), // ProviderConfigOptions — see below
   modelEnvVar: "CEREBRAS_MODEL",
-  defaultModel: "llama3.1-70b",
-  registryDefaultModel: "llama3.1-70b",
+  // Model ids from a LIVE authenticated /v1/models probe, referenced via
+  // the <Name>Models enum — never from vendor docs. The pilot's first cut
+  // used documented-but-retired llama ids and 404'd on first live call.
+  defaultModel: CerebrasModels.GPT_OSS_120B,
+  registryDefaultModel: CerebrasModels.GPT_OSS_120B,
   registryDefaultModelChecksEnvVar: true,
-  fallbackModelName: "llama3.1-8b",
-  fallbackModels: ["llama3.1-70b", "llama3.1-8b"],
+  fallbackModelName: CerebrasModels.GEMMA_4_31B,
+  fallbackModels: [CerebrasModels.GPT_OSS_120B, CerebrasModels.GEMMA_4_31B],
   errorRules: [
     // Add vendor-specific rules only where the vendor's error bodies need a
-    // match beyond DEFAULT_ERROR_RULES — most Tier 2 providers only need:
+    // match beyond DEFAULT_ERROR_RULES. Probe the real 401 body keylessly
+    // (curl with a bad key) and cite its shape in the rule's comment:
     ...DEFAULT_ERROR_RULES,
   ],
 },
@@ -158,7 +189,7 @@ rule is its own assertion.
     baseURL: "CEREBRAS_BASE_URL",
     model: "CEREBRAS_MODEL",
   },
-  defaultModel: "llama3.1-70b",
+  defaultModel: CerebrasModels.GPT_OSS_120B,
   toolSupport: "native",
   localRuntime: false,
   healthCheck: "env-only",
@@ -254,8 +285,9 @@ today):
   envVar: "CEREBRAS_API_KEY",
   urlMatch: "api.cerebras.ai/v1/chat/completions",
   authPrefix: "Bearer ",
-  model: "llama3.1-70b",
+  model: "gpt-oss-120b",
   authErrorMatch: /cerebras|401|unauthor|api key/i,
+  rateLimitErrorMatch: /cerebras|rate.?limit|429/i,
 },
 ```
 
@@ -279,17 +311,57 @@ and 401 mapping for you without any bespoke test code.
     "src/lib/utils/providerConfig.ts",
     "src/lib/factories/providerDescriptors.ts",
     "src/lib/types/providers.ts",
-    "test/continuous-test-suite-providers-mocked.ts"
+    "src/lib/models/manifests/cerebras.ts",
+    "src/lib/models/manifestRegistry.ts",
+    "src/lib/utils/modelChoices.ts",
+    "src/cli/commands/setup.ts",
+    "test/continuous-test-suite-providers-mocked.ts",
+    "test/helpers/providerMatrix.ts",
+    "test/continuous-test-suite-provider-wiring.ts",
+    "test/continuous-test-suite-provider-descriptors.ts"
   ],
   "mockedContractSection": "LLM cerebras",
   "manualTestStatus": "not-tested"
 }
 ```
 
+`manualTestStatus` starts as `"not-tested"` and gets flipped to a dated
+live-verified note once the live matrix passes (see below) — the shipped
+`manifests/cerebras.json` shows the end state.
+
+## Live verification
+
+The mocked gates prove the wire contract, not the commercial reality.
+Three live checks are mandatory before (and one loop after) merging —
+each one caught a real defect on the cerebras pilot:
+
+1. **Roster probe first** — authenticated `GET <baseURL>/models`. Pick
+   `defaultModel`/`fallbackModels` from what the API serves TODAY.
+   Vendor docs listed four cerebras models; the live roster had two, and
+   the documented default 404'd (finding #7).
+2. **Billing policy** — confirm how a working key is obtained. Cerebras
+   has no keyless free tier: even the "$5 free credits" require saving a
+   payment card (finding #8). Record this in the provider-config
+   instructions so the setup wizard tells the truth.
+3. **Capability probes** — before filling the `providerMatrix.ts` row,
+   probe `tools` + `response_format` in one request; strict backends 400
+   (`"tools" is incompatible with "response_format"` on cerebras), which
+   is what `structuredOutputWithTools: false` records. Don't copy
+   another provider's flags on vibes.
+4. **Live matrix** — with a working key:
+   `npx tsx test/continuous-test-suite-provider-matrix.ts --provider=<name>`
+   must pass 4/4 (generate, stream, tool calling, structured output), and
+   a bare `node dist/cli/index.js generate "..." --provider <name>` must
+   resolve the default model. The pilot's first live run was 2/4 and
+   surfaced an SDK-wide bug (`tool_choice` emitted on tools-less
+   requests — fixed in #1564 and now pinned by the mocked suite), which
+   is exactly why this step exists.
+
 ## Verification commands
 
 ```bash
 pnpm run check
+pnpm run check:tools-tests   # typechecks test/ — the CI types shard; plain `check` skips it
 pnpm run lint
 pnpm run test:providers-mocked
 pnpm run test:provider-structure
@@ -310,6 +382,8 @@ check after touching anything registry-adjacent. Add a case to
 `test:error-classifier-contract` first if your entry sets
 `timeoutErrorClass` or vendor-specific `errorRules` beyond
 `DEFAULT_ERROR_RULES` (see "Escape hatch: `timeoutErrorClass`" above).
-(`pnpm run verify:provider-onboarding` doesn't exist yet as of 2026-08-19
-— it's a follow-up change to this plan (Tasks 8-9). Until it lands, treat
-the rest as the enforced minimum.)
+
+When adding your mocked-suite section, run the break-one-assertion
+ritual: flip one assertion, confirm the suite reports `✗` and exits
+non-zero (not `⊘` skip — see the assertion-message hazard in CLAUDE.md),
+then restore it.
