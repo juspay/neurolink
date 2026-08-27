@@ -8,7 +8,7 @@
 
 > **LoopSessionState** = `object`
 
-Defined in: [types/common.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L627)
+Defined in: [types/common.ts:715](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L715)
 
 State snapshot for the active REPL loop session.
 
@@ -18,7 +18,7 @@ State snapshot for the active REPL loop session.
 
 > **neurolinkInstance**: [`NeuroLink`](../classes/NeuroLink.md)
 
-Defined in: [types/common.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L628)
+Defined in: [types/common.ts:716](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L716)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/common.ts:628](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionId**: `string`
 
-Defined in: [types/common.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L629)
+Defined in: [types/common.ts:717](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L717)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/common.ts:629](https://github.com/juspay/neurolink/blob/relea
 
 > **isActive**: `boolean`
 
-Defined in: [types/common.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L630)
+Defined in: [types/common.ts:718](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L718)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/common.ts:630](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **conversationMemoryConfig?**: [`ConversationMemoryConfig`](ConversationMemoryConfig.md)
 
-Defined in: [types/common.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L631)
+Defined in: [types/common.ts:719](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L719)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/common.ts:631](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionVariables**: `Record`\<`string`, [`SessionVariableValue`](SessionVariableValue.md)\>
 
-Defined in: [types/common.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L632)
+Defined in: [types/common.ts:720](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L720)

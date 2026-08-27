@@ -8,6 +8,6 @@
 
 > **SessionVariableValue** = `string` \| `number` \| `boolean`
 
-Defined in: [types/common.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L624)
+Defined in: [types/common.ts:712](https://github.com/juspay/neurolink/blob/release/src/lib/types/common.ts#L712)
 
 Value types accepted as session variables by the loop REPL.

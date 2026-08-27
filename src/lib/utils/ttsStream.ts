@@ -292,6 +292,10 @@ export async function* interleaveTTSStream<T>(params: {
       // `return()`, so this side channel is the only thing that actually
       // reaches — and closes — the provider stream at the bottom.
       cancelStream(stream);
+      // The audio side has its own wrapper chain. Native TTS can be parked in a
+      // response-body read even after text ingestion stops, so its cancel hook
+      // must be reached directly rather than waiting for queued `.return()`.
+      cancelStream(audioIterator);
     }
     textQueue.end();
     const releases: Promise<unknown>[] = [];

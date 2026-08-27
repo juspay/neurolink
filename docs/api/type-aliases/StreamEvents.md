@@ -8,7 +8,7 @@
 
 > **StreamEvents** = `object`
 
-Defined in: [types/voice.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L419)
+Defined in: [types/voice.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L432)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/voice.ts:419](https://github.com/juspay/neurolink/blob/releas
 
 > **chunk**: (`chunk`) => `void`
 
-Defined in: [types/voice.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L420)
+Defined in: [types/voice.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L433)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [types/voice.ts:420](https://github.com/juspay/neurolink/blob/releas
 
 > **end**: () => `void`
 
-Defined in: [types/voice.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L421)
+Defined in: [types/voice.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L434)
 
 #### Returns
 
@@ -46,7 +46,7 @@ Defined in: [types/voice.ts:421](https://github.com/juspay/neurolink/blob/releas
 
 > **error**: (`error`) => `void`
 
-Defined in: [types/voice.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L422)
+Defined in: [types/voice.ts:435](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L435)
 
 #### Parameters
 
@@ -64,7 +64,7 @@ Defined in: [types/voice.ts:422](https://github.com/juspay/neurolink/blob/releas
 
 > **drain**: () => `void`
 
-Defined in: [types/voice.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L423)
+Defined in: [types/voice.ts:436](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L436)
 
 #### Returns
 
@@ -76,7 +76,7 @@ Defined in: [types/voice.ts:423](https://github.com/juspay/neurolink/blob/releas
 
 > **pause**: () => `void`
 
-Defined in: [types/voice.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L424)
+Defined in: [types/voice.ts:437](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L437)
 
 #### Returns
 
@@ -88,7 +88,7 @@ Defined in: [types/voice.ts:424](https://github.com/juspay/neurolink/blob/releas
 
 > **resume**: () => `void`
 
-Defined in: [types/voice.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L425)
+Defined in: [types/voice.ts:438](https://github.com/juspay/neurolink/blob/release/src/lib/types/voice.ts#L438)
 
 #### Returns
 

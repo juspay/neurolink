@@ -8,7 +8,7 @@
 
 > `const` **TTS_ERROR_CODES**: `object`
 
-Defined in: [utils/ttsProcessor.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L29)
+Defined in: [utils/ttsProcessor.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/utils/ttsProcessor.ts#L36)
 
 TTS-specific error codes
 

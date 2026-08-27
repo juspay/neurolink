@@ -653,6 +653,44 @@ buffered characters before a completed sentence is flushed (default: 120). A
 provider's `maxTextLength` remains a hard boundary; handlers without an override
 use the 3,000-character default.
 
+Handlers can optionally expose provider-native audio reads for each buffered
+text segment. NeuroLink prefers that capability when it supports the requested
+options and otherwise keeps the existing one-buffer-per-segment synthesis path.
+OpenAI TTS currently streams response-body reads for `mp3` and raw `pcm16`;
+`wav`, `flac`, `ogg`/`opus`, and other requested formats use buffered synthesis
+because native delivery has not been verified for those container formats.
+Custom and built-in handlers without the optional capability remain compatible.
+
+Provider-local chunk indexes and finality are not exposed directly. NeuroLink
+recomputes a single global zero-based index, cumulative byte size, and exactly
+one final chunk across all successful segments. Empty transport reads on the
+native path are dropped and never reach the consumer; the buffered path is
+unchanged and forwards whatever a handler's `synthesize()` returns, so a handler
+that answers with a zero-byte buffer still produces an empty chunk and a
+repeated cumulative size, exactly as it did before native streaming existed.
+Each read is forwarded as soon as the next one arrives — the single one-chunk
+hold is what guarantees the final flag — rather than waiting for the segment to
+complete. A handler that declines the capability for a segment, or that fails while
+NeuroLink is still working out whether the capability is there, falls back to
+buffered synthesis for that segment rather than leaving a gap — as does a
+native stream that completes without producing any audio. That covers every
+step of the question, reads as well as calls, since reading a property can run
+a getter or a proxy trap that throws: reading `synthesizeStream`, a member that
+is not callable, reading or calling `isConfigured`, the call itself throwing,
+and a returned value that is not async-iterable (its `Symbol.asyncIterator`
+being unreadable included). A throwing `isConfigured` falls back the same way
+but then fails on the buffered path as well — shaped, exactly as it would for a
+handler with no native member. A handler that simply reports itself unconfigured
+is not in that list: that segment fails with `TTS_PROVIDER_NOT_CONFIGURED`,
+exactly as it did before native streaming existed. Once the segment's own work
+begins — at the `[Symbol.asyncIterator]()` call — an error fails that segment
+like any other synthesis failure, and its audio is not re-fetched through the
+buffered path.
+If a stream consumer exits
+early, cancellation reaches an active native request rather than waiting for the
+pending response-body read to finish, and the segment that was in flight still
+records its `tts.synthesize` span.
+
 If one segment fails, NeuroLink keeps the text stream and already-yielded audio,
 attempts the remaining segments, and resolves `streamResult.audio` from the
 surviving chunks. After the stream is drained, `streamResult.ttsMetadata` reports
@@ -686,12 +724,13 @@ async function streamAndSpeak(prompt: string, voice: string) {
   }
 
   // After stream iteration, audio resolves to the concatenated TTS result.
-  // That aggregate is a byte concatenation of the independently synthesized
-  // segments: one playable stream for mp3/mpeg/mpga/pcm16, but NOT a valid
-  // file for header-bearing containers (wav, flac, m4a, mp4, webm), and a
-  // chained stream for ogg/opus that some decoders read only through its first
-  // segment. Use the per-chunk `chunk.audio.data` buffers when each segment
-  // must stand alone.
+  // Native OpenAI mp3/pcm16 chunks are transport fragments: consume them in
+  // order or use this aggregate; an individual fragment need not be playable.
+  // Buffered providers still contribute one complete buffer per text segment.
+  // Concatenating those segment buffers produces one playable stream for
+  // mp3/mpeg/mpga/pcm16, but NOT a valid file for header-bearing containers
+  // (wav, flac, m4a, mp4, webm), and a chained stream for ogg/opus that some
+  // decoders read only through its first segment.
   return {
     text: fullText,
     audio: await streamResult.audio,
