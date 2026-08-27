@@ -8,7 +8,7 @@
 
 > **MistralClient** = `object`
 
-Defined in: [types/providers.ts:1928](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1928)
+Defined in: [types/providers.ts:1929](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1929)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1928](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **chat?**: `object`
 
-Defined in: [types/providers.ts:1929](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1929)
+Defined in: [types/providers.ts:1930](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1930)
 
 #### complete?
 

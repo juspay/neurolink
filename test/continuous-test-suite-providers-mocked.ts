@@ -158,6 +158,15 @@ const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
     rateLimitErrorMatch: /groq|rate.?limit|429/i,
   },
   {
+    provider: "sambanova",
+    envVar: "SAMBANOVA_API_KEY",
+    urlMatch: "api.sambanova.ai/v1/chat/completions",
+    authPrefix: "Bearer ",
+    model: "Meta-Llama-3.3-70B-Instruct",
+    authErrorMatch: /sambanova|401|unauthor|api key/i,
+    rateLimitErrorMatch: /sambanova|rate.?limit|429/i,
+  },
+  {
     provider: "cerebras",
     envVar: "CEREBRAS_API_KEY",
     urlMatch: "api.cerebras.ai/v1/chat/completions",

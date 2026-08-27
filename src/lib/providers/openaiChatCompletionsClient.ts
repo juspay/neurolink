@@ -202,18 +202,22 @@ export const stringifyToolOutput = (output: unknown): string => {
   }
 };
 
-export const imageDataToURL = (data: unknown): string | undefined => {
+export const imageDataToURL = (
+  data: unknown,
+  mediaType?: string,
+): string | undefined => {
+  const mime = mediaType && mediaType.includes("/") ? mediaType : "image/png";
   if (typeof data === "string") {
     if (data.startsWith("data:") || /^https?:\/\//i.test(data)) {
       return data;
     }
-    return `data:image/png;base64,${data}`;
+    return `data:${mime};base64,${data}`;
   }
   if (data instanceof URL) {
     return data.toString();
   }
   if (data instanceof Uint8Array) {
-    return `data:image/png;base64,${Buffer.from(data).toString("base64")}`;
+    return `data:${mime};base64,${Buffer.from(data).toString("base64")}`;
   }
   return undefined;
 };
@@ -250,6 +254,21 @@ export const convertContentForOpenAI = (
       const url = imageDataToURL(data);
       if (url) {
         out.push({ type: "image_url", image_url: { url } });
+      }
+    } else if (p.type === "file") {
+      // ai@6 delivers images as FILE parts ({type:"file", mediaType, data}),
+      // not "image" parts. The hand-rolled client that replaced
+      // @ai-sdk/openai-compatible only handled "image"/"image_url", so every
+      // image reaching a catalog provider was silently dropped — the wire
+      // carried a text-only message (found live on sambanova/gemma-4-31B-it,
+      // 2026-08-28; affected xai vision too). Non-image file parts are still
+      // skipped: the OpenAI chat wire format has no generic file slot.
+      const fp = part as { mediaType?: string; data?: unknown };
+      if (fp.mediaType?.startsWith("image/")) {
+        const url = imageDataToURL(fp.data, fp.mediaType);
+        if (url) {
+          out.push({ type: "image_url", image_url: { url } });
+        }
       }
     }
   }

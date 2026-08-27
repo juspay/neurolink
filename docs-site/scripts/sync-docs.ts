@@ -1359,6 +1359,7 @@ const LINK_MAPPINGS: Record<string, string> = {
   xai: "/getting-started/providers/xai",
   groq: "/getting-started/providers/groq",
   cerebras: "/getting-started/providers/cerebras",
+  sambanova: "/getting-started/providers/sambanova",
   replicate: "/getting-started/providers/replicate",
   voyage: "/getting-started/providers/voyage",
   stability: "/getting-started/providers/stability",

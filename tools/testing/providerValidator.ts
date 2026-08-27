@@ -81,6 +81,7 @@ class ProviderValidator {
       "mistral",
       "groq",
       "cerebras",
+      "sambanova",
     ];
 
     this.results = {
@@ -269,6 +270,7 @@ class ProviderValidator {
       mistral: "MISTRAL_API_KEY",
       groq: "GROQ_API_KEY",
       cerebras: "CEREBRAS_API_KEY",
+      sambanova: "SAMBANOVA_API_KEY",
     };
 
     const envKey = keyMappings[provider];
@@ -292,7 +294,7 @@ class ProviderValidator {
 
     // Catalog-driven OpenAI-compatible providers (ConfiguredOpenAICompat)
     // use the in-repo wire client — no external SDK module to check.
-    const catalogBuiltIn = new Set(["cerebras"]);
+    const catalogBuiltIn = new Set(["cerebras", "sambanova"]);
 
     try {
       if (catalogBuiltIn.has(provider)) {
@@ -371,6 +373,8 @@ class ProviderValidator {
         return { test: "groq_connectivity", status: "simulated" };
       case "cerebras":
         return { test: "cerebras_connectivity", status: "simulated" };
+      case "sambanova":
+        return { test: "sambanova_connectivity", status: "simulated" };
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }

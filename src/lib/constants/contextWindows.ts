@@ -84,6 +84,17 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "gpt-oss-120b": 65_536,
     "gemma-4-31b": 65_536,
   },
+  // Vendor model-spec page (docs.sambanova.ai, checked 2026-08-27):
+  // 128K production mainline, 192K MiniMax-M2.7, 32K DeepSeek-V3.2 preview.
+  sambanova: {
+    _default: 131_072,
+    "Meta-Llama-3.3-70B-Instruct": 131_072,
+    "gpt-oss-120b": 131_072,
+    "DeepSeek-V3.1": 131_072,
+    "DeepSeek-V3.2": 32_768,
+    "MiniMax-M2.7": 196_608,
+    "gemma-4-31B-it": 131_072,
+  },
   cohere: {
     _default: 128_000,
     "command-r-plus": 128_000,

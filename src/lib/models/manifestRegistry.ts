@@ -23,6 +23,7 @@ import { llamacppManifest } from "./manifests/llamacpp.js";
 import { xaiManifest } from "./manifests/xai.js";
 import { groqManifest } from "./manifests/groq.js";
 import { cerebrasManifest } from "./manifests/cerebras.js";
+import { sambanovaManifest } from "./manifests/sambanova.js";
 import { cohereManifest } from "./manifests/cohere.js";
 import { togetherAiManifest } from "./manifests/together-ai.js";
 import { fireworksManifest } from "./manifests/fireworks.js";
@@ -63,6 +64,7 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   xai: xaiManifest,
   groq: groqManifest,
   cerebras: cerebrasManifest,
+  sambanova: sambanovaManifest,
   cohere: cohereManifest,
   "together-ai": togetherAiManifest,
   fireworks: fireworksManifest,

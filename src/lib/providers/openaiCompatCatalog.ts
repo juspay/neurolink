@@ -1,6 +1,7 @@
 import { AIProviderName } from "../constants/enums.js";
 import {
   CerebrasModels,
+  SambanovaModels,
   CloudflareModels,
   FireworksModels,
   GroqModels,
@@ -18,6 +19,7 @@ import {
 import { DEFAULT_ERROR_RULES } from "../utils/errorClassifier.js";
 import {
   createCerebrasConfig,
+  createSambanovaConfig,
   createCloudflareConfig,
   createFireworksConfig,
   createGroqConfig,
@@ -32,7 +34,7 @@ function buildCloudflareBaseURL(accountId: string): string {
 }
 
 /**
- * Config-driven catalog of the 8 zero-quirk OpenAI-compatible providers.
+ * Config-driven catalog of the 9 zero-quirk OpenAI-compatible providers.
  * Each entry fully replaces what used to be a hand-written
  * OpenAIChatCompletionsProvider subclass — see ConfiguredOpenAICompatProvider
  * for the class that reads these entries, and providerRegistry.ts for the
@@ -54,6 +56,52 @@ function buildCloudflareBaseURL(accountId: string): string {
  * Task 14's docs task for the deciding criteria).
  */
 export const OPENAI_COMPAT_CATALOG: readonly OpenAICompatCatalogEntry[] = [
+  {
+    providerName: AIProviderName.SAMBANOVA,
+    aliases: ["sambanova"],
+    apiKeyEnvVar: "SAMBANOVA_API_KEY",
+    baseURLEnvVar: "SAMBANOVA_BASE_URL",
+    defaultBaseURL: "https://api.sambanova.ai/v1",
+    configOptions: createSambanovaConfig(),
+    modelEnvVar: "SAMBANOVA_MODEL",
+    defaultModel: SambanovaModels.META_LLAMA_3_3_70B_INSTRUCT,
+    registryDefaultModel: SambanovaModels.META_LLAMA_3_3_70B_INSTRUCT,
+    registryDefaultModelChecksEnvVar: true,
+    fallbackModelName: SambanovaModels.GPT_OSS_120B,
+    fallbackModels: [
+      SambanovaModels.META_LLAMA_3_3_70B_INSTRUCT,
+      SambanovaModels.GPT_OSS_120B,
+    ],
+    errorRules: [
+      {
+        // Probed live 2026-08-27: a bad key gets HTTP 401 with an
+        // OpenAI-shaped body {"error":{"message":"Incorrect API key
+        // provided: ...","type":"authentication_error","code":
+        // "invalid_api_key"}}.
+        match: (ctx) =>
+          ctx.statusCode === 401 ||
+          /invalid_api_key|Incorrect API key|authentication_error/i.test(
+            ctx.message,
+          ),
+        errorClass: AuthenticationError,
+        message:
+          "Invalid SambaNova API key. Check SAMBANOVA_API_KEY. Get one at https://cloud.sambanova.ai/apis",
+      },
+      {
+        // Probed live 2026-08-27: a zero-balance account gets HTTP 402 with
+        // {"error":{"balance_units":0,"code":"PAYMENT_METHOD_REQUIRED",
+        //  "billing_portal_url":"https://cloud.sambanova.ai/plans/billing"}}.
+        // New accounts have NO free allowance — credits must be purchased.
+        match: (ctx) =>
+          ctx.statusCode === 402 ||
+          /PAYMENT_METHOD_REQUIRED|balance_units/i.test(ctx.message),
+        errorClass: ProviderError,
+        message:
+          "SambaNova account has no credits (new accounts have no free allowance). Add a payment method and purchase credits at https://cloud.sambanova.ai/plans/billing",
+      },
+      ...DEFAULT_ERROR_RULES,
+    ],
+  },
   {
     providerName: AIProviderName.CEREBRAS,
     aliases: ["cerebras"],

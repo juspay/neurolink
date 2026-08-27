@@ -8,7 +8,7 @@
 
 > **StepFinishEvent** = `object`
 
-Defined in: [types/providers.ts:2091](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2091)
+Defined in: [types/providers.ts:2092](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2092)
 
 Step finish event shape for multi-step generation.
 
@@ -22,7 +22,7 @@ Step finish event shape for multi-step generation.
 
 > `readonly` **toolCalls**: `ReadonlyArray`\<`unknown`\>
 
-Defined in: [types/providers.ts:2092](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2092)
+Defined in: [types/providers.ts:2093](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2093)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:2092](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **toolResults**: `ReadonlyArray`\<`unknown`\>
 
-Defined in: [types/providers.ts:2093](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2093)
+Defined in: [types/providers.ts:2094](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2094)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:2093](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **text**: `string`
 
-Defined in: [types/providers.ts:2094](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2094)
+Defined in: [types/providers.ts:2095](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2095)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:2094](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **finishReason**: `string`
 
-Defined in: [types/providers.ts:2095](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2095)
+Defined in: [types/providers.ts:2096](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2096)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:2095](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **usage**: `object`
 
-Defined in: [types/providers.ts:2096](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2096)
+Defined in: [types/providers.ts:2097](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2097)
 
 #### inputTokens?
 

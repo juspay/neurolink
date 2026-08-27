@@ -8,7 +8,7 @@
 
 > **AdaptiveSemaphoreMetrics** = `object`
 
-Defined in: [types/providers.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1362)
+Defined in: [types/providers.ts:1363](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1363)
 
 Metrics for adaptive semaphore performance tracking
 
@@ -18,7 +18,7 @@ Metrics for adaptive semaphore performance tracking
 
 > **activeRequests**: `number`
 
-Defined in: [types/providers.ts:1363](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1363)
+Defined in: [types/providers.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1364)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1363](https://github.com/juspay/neurolink/blob/r
 
 > **currentConcurrency**: `number`
 
-Defined in: [types/providers.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1364)
+Defined in: [types/providers.ts:1365](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1365)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:1364](https://github.com/juspay/neurolink/blob/r
 
 > **completedCount**: `number`
 
-Defined in: [types/providers.ts:1365](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1365)
+Defined in: [types/providers.ts:1366](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1366)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:1365](https://github.com/juspay/neurolink/blob/r
 
 > **errorCount**: `number`
 
-Defined in: [types/providers.ts:1366](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1366)
+Defined in: [types/providers.ts:1367](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1367)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:1366](https://github.com/juspay/neurolink/blob/r
 
 > **averageResponseTime**: `number`
 
-Defined in: [types/providers.ts:1367](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1367)
+Defined in: [types/providers.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1368)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/providers.ts:1367](https://github.com/juspay/neurolink/blob/r
 
 > **waitingCount**: `number`
 
-Defined in: [types/providers.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1368)
+Defined in: [types/providers.ts:1369](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1369)

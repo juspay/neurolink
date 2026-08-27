@@ -70,6 +70,7 @@ const KNOWN_CREDENTIAL_KEYS = {
   xai: undefined,
   groq: undefined,
   cerebras: undefined,
+  sambanova: undefined,
   cohere: undefined,
   together: undefined,
   fireworks: undefined,
@@ -143,7 +144,7 @@ await test("HuggingFace factory forwards the sdk instance through to BaseProvide
   );
 });
 
-await test("getAvailableProviders returns all 31 canonical providers, not the historical 10", async () => {
+await test("getAvailableProviders returns all 32 canonical providers, not the historical 10", async () => {
   const { getAvailableProviders } = await import("../dist/index.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
 
@@ -315,7 +316,7 @@ await test("delegateToProviderSetup still throws for a genuinely unknown provide
   );
 });
 
-await test("EXTRA_PROVIDER_CONFIGS covers exactly the 22 providers unhandled by the wizard's switch", async () => {
+await test("EXTRA_PROVIDER_CONFIGS covers exactly the 23 providers unhandled by the wizard's switch", async () => {
   const { EXTRA_PROVIDER_CONFIGS } =
     await import("../dist/cli/commands/setup.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
@@ -336,8 +337,8 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the 22 providers unhandled by 
   const expectedExtra = allProviders.filter((name) => !wizardHandled.has(name));
 
   assert(
-    expectedExtra.length === 22,
-    `expected 22 providers unhandled by the wizard switch, got ${expectedExtra.length}`,
+    expectedExtra.length === 23,
+    `expected 23 providers unhandled by the wizard switch, got ${expectedExtra.length}`,
   );
   for (const providerId of expectedExtra) {
     assert(

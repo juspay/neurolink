@@ -172,6 +172,17 @@ Access frontier models via hosted cloud inference APIs:
 
 [Setup Guide →](cerebras.md)
 
+### [SambaNova](sambanova.md)
+
+**RDU-accelerated open-weight flagships**
+
+- 🧠 Llama 3.3 70B (default), GPT-OSS 120B, DeepSeek V3.x, MiniMax, Gemma 4
+- 👁️ Vision on gemma-4-31B-it (image+video) and MiniMax-M3
+- 💳 No free allowance — credits required before first call
+- 🔑 API key from [cloud.sambanova.ai/apis](https://cloud.sambanova.ai/apis)
+
+[Setup Guide →](sambanova.md)
+
 ### Together AI
 
 **Hosted open-model gateway**

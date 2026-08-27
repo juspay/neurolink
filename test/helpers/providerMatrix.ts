@@ -53,6 +53,11 @@ export type ProviderEntry = Capabilities & {
    * If unset, the matrix falls back to `defaultModel`.
    */
   embeddingModel?: string;
+  /**
+   * Vision-capable model for the matrix's vision test, for providers whose
+   * defaultModel is text-only. If unset, the vision test uses defaultModel.
+   */
+  visionModel?: string;
   /** Env vars required to consider this provider available. */
   envVars: string[];
 };
@@ -408,6 +413,7 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   xai: {
     name: "xai",
     defaultModel: "grok-3",
+    visionModel: "grok-2-vision-latest",
     envVars: ["XAI_API_KEY"],
     text: true,
     streaming: true,
@@ -425,6 +431,7 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   groq: {
     name: "groq",
     defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    visionModel: "llama-3.2-90b-vision-preview",
     envVars: ["GROQ_API_KEY"],
     text: true,
     streaming: true,
@@ -458,6 +465,28 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
     videoGeneration: false,
     tts: false,
   },
+  sambanova: {
+    name: "sambanova",
+    defaultModel: "Meta-Llama-3.3-70B-Instruct",
+    visionModel: "gemma-4-31B-it",
+    envVars: ["SAMBANOVA_API_KEY"],
+    text: true,
+    streaming: true,
+    tools: true,
+    toolsWithStreaming: true,
+    structuredOutput: true,
+    // NOT yet live-verified: the account has no credits (402
+    // PAYMENT_METHOD_REQUIRED on every call, probed 2026-08-27). Flags
+    // mirror the vendor's OpenAI-compat claims; run the matrix live and
+    // probe tools+response_format before trusting these.
+    structuredOutputWithTools: false,
+    vision: true, // LIVE-VERIFIED 2026-08-28: gemma-4-31B-it described the fixture image
+    embeddings: false,
+    thinking: false,
+    imageGeneration: false,
+    videoGeneration: false,
+    tts: false,
+  },
   cohere: {
     name: "cohere",
     // Use the dated variant — the bare `command-r-plus` alias was retired
@@ -481,6 +510,7 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
   "together-ai": {
     name: "together-ai",
     defaultModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    visionModel: "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
     envVars: ["TOGETHER_API_KEY"],
     text: true,
     streaming: true,
@@ -503,6 +533,7 @@ export const PROVIDERS: Record<string, ProviderEntry> = {
     // team. `kimi-k2p5` is in the account's currently-deployed list and
     // responds reliably for chat + tool calling + structured output.
     defaultModel: "accounts/fireworks/models/kimi-k2p5",
+    visionModel: "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
     envVars: ["FIREWORKS_API_KEY"],
     text: true,
     streaming: true,

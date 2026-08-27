@@ -106,6 +106,7 @@ All fields are optional — omit any field you want to fall through to a lower-p
 | LiteLLM           | `litellm`          | `apiKey`, `baseURL`                                                                                |
 | OpenAI-Compatible | `openaiCompatible` | `apiKey`, `baseURL`                                                                                |
 | Cerebras          | `cerebras`         | `apiKey`, `baseURL`                                                                                |
+| SambaNova         | `sambanova`        | `apiKey`, `baseURL`                                                                                |
 | Ollama            | `ollama`           | `baseURL`                                                                                          |
 
 The full type definition is `NeurolinkCredentials` in `src/lib/types/providers.ts`.
