@@ -216,6 +216,36 @@ function isValidExternalMCPServerConfig(
  * ExternalServerManager
  * Core class for managing external MCP servers
  */
+/**
+ * Process-signal cleanup, shared across every manager instance.
+ *
+ * Each delegated worker constructs its own NeuroLink and therefore its own
+ * manager; registering SIGINT/SIGTERM/beforeExit per instance leaked listeners
+ * (never removed) and crossed Node's 10-listener default on multi-worker runs.
+ * One process-level trio walks the live set instead; `shutdown()` removes the
+ * instance from the set, so a disposed manager costs nothing.
+ */
+const liveManagers = new Set<ExternalServerManager>();
+let processCleanupInstalled = false;
+
+const shutdownLiveManagers = (): void => {
+  for (const manager of liveManagers) {
+    void manager.shutdown();
+  }
+};
+
+const registerManagerForProcessCleanup = (
+  manager: ExternalServerManager,
+): void => {
+  liveManagers.add(manager);
+  if (!processCleanupInstalled) {
+    processCleanupInstalled = true;
+    process.on("SIGINT", shutdownLiveManagers);
+    process.on("SIGTERM", shutdownLiveManagers);
+    process.on("beforeExit", shutdownLiveManagers);
+  }
+};
+
 export class ExternalServerManager extends EventEmitter {
   private servers: Map<string, RuntimeMCPServerInfo> = new Map();
   private config: Required<ExternalMCPManagerConfig>;
@@ -270,10 +300,12 @@ export class ExternalServerManager extends EventEmitter {
       });
     });
 
-    // Handle process cleanup
-    process.on("SIGINT", () => this.shutdown());
-    process.on("SIGTERM", () => this.shutdown());
-    process.on("beforeExit", () => this.shutdown());
+    // Handle process cleanup through the SHARED handler set: one trio of process
+    // listeners for every manager, however many instances a run constructs.
+    // Per-instance `process.on(...)` here crossed Node's 10-listener default as
+    // soon as an agent delegated to a handful of workers (each worker builds its
+    // own NeuroLink, which builds its own manager) and warned MaxListenersExceeded.
+    registerManagerForProcessCleanup(this);
   }
 
   /**
@@ -1617,6 +1649,7 @@ export class ExternalServerManager extends EventEmitter {
     }
 
     this.isShuttingDown = true;
+    liveManagers.delete(this);
     mcpLogger.info("[ExternalServerManager] Shutting down all servers...");
 
     const shutdownPromises = Array.from(this.servers.keys()).map((serverId) =>
