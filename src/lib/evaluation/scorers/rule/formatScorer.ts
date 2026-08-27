@@ -508,7 +508,7 @@ export class FormatScorer extends BaseRuleScorer {
     // First check if it's valid JSON
     try {
       JSON.parse(text);
-      // TODO(#1179): Implement full JSON Schema validation
+      // TODO(#1576): Implement full JSON Schema validation
       // For now, just check it's valid JSON
       return { passed: true, score: 1.0 };
     } catch {

@@ -319,7 +319,7 @@ export class MCPRegistryClient extends EventEmitter {
       return wellKnown;
     }
 
-    // TODO(#1179): Fetch from remote registry
+    // TODO(#1576): Fetch from remote registry
     return undefined;
   }
 
