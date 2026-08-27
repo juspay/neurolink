@@ -46,6 +46,14 @@ type ScaffoldInput = {
   out: string;
 };
 
+// Every CLI-derived value embedded in a generated TypeScript string literal
+// goes through this: JSON.stringify yields a valid, correctly-escaped TS
+// string literal even when the flag value contains quotes or backslashes.
+// (`name` itself is NAME_PATTERN-validated and safe to embed raw.)
+function tsString(value: string): string {
+  return JSON.stringify(value);
+}
+
 function toConstantCase(name: string): string {
   return name.toUpperCase().replace(/-/g, "_");
 }
@@ -133,7 +141,7 @@ function modelsEnumSnippet(input: ScaffoldInput): string {
  * pilot shipped one as its default). Record the probe date here.
  */
 export enum ${pascal}Models {
-  ${toModelConstant(input.defaultModel)} = "${input.defaultModel}",
+  ${toModelConstant(input.defaultModel)} = ${tsString(input.defaultModel)},
 }
 `;
 }
@@ -145,14 +153,14 @@ function providerConfigSnippet(input: ScaffoldInput): string {
 export function create${pascal}Config(): ProviderConfigOptions {
   return {
     providerName: "${pascal}",
-    envVarName: "${input.envVar}",
+    envVarName: ${tsString(input.envVar)},
     setupUrl: "TODO: vendor API-keys page",
     description: "API key",
     instructions: [
       "1. Visit: TODO vendor API-keys page",
       "2. Sign in / create an account (TODO: note whether the free tier requires a payment method — cerebras does)",
       "3. Create a new API key",
-      "4. Set ${input.envVar} in your .env file",
+      ${tsString(`4. Set ${input.envVar} in your .env file`)},
     ],
   };
 }
@@ -162,17 +170,17 @@ export function create${pascal}Config(): ProviderConfigOptions {
 function descriptorSnippet(input: ScaffoldInput): string {
   const constant = toConstantCase(input.name);
   const camelKey = toCamelCase(input.name);
-  const aliasesLiteral = input.aliases.map((a) => `"${a}"`).join(", ");
+  const aliasesLiteral = input.aliases.map(tsString).join(", ");
   return `  {
     name: AIProviderName.${constant},
     aliases: [${aliasesLiteral}] as const,
     credentialsKey: "${camelKey}",
     envVars: {
-      apiKey: "${input.envVar}",
+      apiKey: ${tsString(input.envVar)},
       baseURL: "${constant}_BASE_URL",
       model: "${constant}_MODEL",
     },
-    defaultModel: "${input.defaultModel}", // convention: swap for the ${toPascalCase(input.name)}Models enum member
+    defaultModel: ${tsString(input.defaultModel)}, // convention: swap for the ${toPascalCase(input.name)}Models enum member
     toolSupport: "native",
     localRuntime: false,
     healthCheck: "env-only",
@@ -191,15 +199,15 @@ function catalogEntrySnippet(input: ScaffoldInput): string {
   const pascal = toPascalCase(input.name);
   const modelConstant = toModelConstant(input.defaultModel);
   const aliasesLiteral = [input.name, ...input.aliases]
-    .map((a) => `"${a}"`)
+    .map(tsString)
     .join(", ");
   const baseURLLine = input.baseURL
-    ? `    defaultBaseURL: "${input.baseURL}",`
+    ? `    defaultBaseURL: ${tsString(input.baseURL)},`
     : `    // defaultBaseURL: "https://api.<vendor>.com/v1", // or computedBaseURL — see the type`;
   return `  {
     providerName: AIProviderName.${constant},
     aliases: [${aliasesLiteral}],
-    apiKeyEnvVar: "${input.envVar}",
+    apiKeyEnvVar: ${tsString(input.envVar)},
     baseURLEnvVar: "${constant}_BASE_URL",
 ${baseURLLine}
     configOptions: create${pascal}Config(),
@@ -254,7 +262,7 @@ export class ${className} extends BaseProvider {
     _region?: string,
     credentials?: NeurolinkCredentials["${camelKey}"],
   ) {
-    super(modelName ?? "${input.defaultModel}", AIProviderName.${constant}, sdk);
+    super(modelName ?? ${tsString(input.defaultModel)}, AIProviderName.${constant}, sdk);
     // TODO: resolve apiKey/baseURL from credentials -> env -> default,
     // build the wire client, implement executeStream()/doGenerate().
   }
@@ -276,10 +284,10 @@ function mockedTestSectionSnippet(input: ScaffoldInput): string {
 // cerebras row:
 {
   provider: "${input.name}",
-  envVar: "${input.envVar}",
+  envVar: ${tsString(input.envVar)},
   urlMatch: "<host>/v1/chat/completions", // TODO: real host
   authPrefix: "Bearer ",
-  model: "${input.defaultModel}",
+  model: ${tsString(input.defaultModel)},
   authErrorMatch: /${input.name}|401|unauthor|api key/i,
   rateLimitErrorMatch: /${input.name}|rate.?limit|429/i,
 },
@@ -369,7 +377,7 @@ generated under this directory for Tier 1.
   // (cerebras pilot, finding #2).
   const registrationLine =
     input.tier === 2
-      ? '- [ ] Splice catalog-entry.ts.snippet into OPENAI_COMPAT_CATALOG (src/lib/providers/openaiCompatCatalog.ts) and bump its "N zero-quirk providers" header comment. Do NOT add a providerRegistry.ts block — the catalog loop registers every row.'
+      ? `- [ ] Splice catalog-entry.ts.snippet into OPENAI_COMPAT_CATALOG (src/lib/providers/openaiCompatCatalog.ts), add the create${toPascalCase(input.name)}Config and ${toPascalCase(input.name)}Models imports it references at the top of that file, and bump its "N zero-quirk providers" header comment. Do NOT add a providerRegistry.ts block — the catalog loop registers every row.`
       : "- [ ] Move provider-class.ts.snippet to src/lib/providers/<name>.ts, fill in the TODOs, and add one ProviderFactory.registerProvider() block in src/lib/factories/providerRegistry.ts (dynamic import — Critical Rule 1)";
   return `# Manual checklist for "${input.name}" (Tier ${input.tier})
 

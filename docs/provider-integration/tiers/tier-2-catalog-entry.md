@@ -16,7 +16,7 @@ catalog shape.
 ## Files touched (end state)
 
 Twelve touchpoints (14 files — rows 6 and 11 span two files each), not
-the six this table originally listed — the cerebras pilot (PR
+the seven this table originally listed — the cerebras pilot (PR
 #1561/#1564) found every one of rows 6-12 the hard way (findings #3-#5:
 two by compiler, three by CI-only test pins).
 
@@ -349,9 +349,10 @@ each one caught a real defect on the cerebras pilot:
    is what `structuredOutputWithTools: false` records. Don't copy
    another provider's flags on vibes.
 4. **Live matrix** — with a working key:
-   `npx tsx test/continuous-test-suite-provider-matrix.ts --provider=<name>`
-   must pass 4/4 (generate, stream, tool calling, structured output), and
-   a bare `node dist/cli/index.js generate "..." --provider <name>` must
+   `npx tsx test/continuous-test-suite-provider-matrix.ts --provider=cerebras`
+   (substitute your provider id) must pass 4/4 (generate, stream, tool
+   calling, structured output), and a bare
+   `node dist/cli/index.js generate "..." --provider cerebras` must
    resolve the default model. The pilot's first live run was 2/4 and
    surfaced an SDK-wide bug (`tool_choice` emitted on tools-less
    requests — fixed in #1564 and now pinned by the mocked suite), which
