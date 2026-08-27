@@ -3,7 +3,7 @@
  * Provider Onboarding Completeness gate.
  *
  * For every AIProviderName member NOT in LEGACY_PROVIDERS (i.e. every
- * provider added after this gate existed), asserts the four required
+ * provider added after this gate existed), asserts the five required
  * onboarding artifacts landed together:
  *   1. A ProviderDescriptor entry (PROVIDER_DESCRIPTORS)
  *   2. Either an OpenAICompatCatalogEntry OR a concrete, registered
@@ -15,6 +15,12 @@
  *      *describes* the marker in a comment does not satisfy this check.
  *   4. A manifest file at docs/provider-integration/manifests/<name>.json
  *      (with tier4Justification present when tier === 4)
+ *   5. A capability entry in test/helpers/providerMatrix.ts — the file that
+ *      test:matrix, test:providers and test/helpers/skipIf.ts all read. Its
+ *      own header calls itself "the single source of truth for what each of
+ *      NeuroLink's providers supports" and lists "add an entry" as step 1 of
+ *      onboarding, but nothing enforced it: cerebras shipped in #1561 and the
+ *      capability sweep simply did not cover it.
  *
  * Zero network I/O, zero API keys, source-only — does not require
  * `pnpm run build` first (see docs/provider-integration/tiers/README.md
@@ -99,6 +105,88 @@ async function loadDescriptors(): Promise<ReadonlySet<string>> {
     PROVIDER_DESCRIPTORS: ReadonlyArray<{ name: string }>;
   };
   return new Set(mod.PROVIDER_DESCRIPTORS.map((d) => d.name));
+}
+
+/**
+ * Providers that predate this check and have no providerMatrix entry.
+ *
+ * Exactly one today: cerebras, which shipped in #1561 without an entry. PR
+ * #1564 adds it — remove this line when that lands, and the set becomes empty.
+ *
+ * A name listed here that HAS an entry produces a warning, not an error.
+ * Making it fatal would red-line every open pull request the moment someone
+ * closed a gap, which is the kind of self-inflicted CI outage this repo has
+ * already paid for once. The warning exists so the list cannot quietly rot —
+ * it earned its keep immediately: the first version of this set listed five
+ * more names, drawn from a scan whose regex did not allow quoted keys, and
+ * the note flagged all five as already present on the first run.
+ */
+const KNOWN_MATRIX_GAPS: ReadonlySet<string> = new Set(["cerebras"]);
+
+/**
+ * Read the provider keys out of test/helpers/providerMatrix.ts.
+ *
+ * Parsed from source rather than imported: the module pulls in test helpers,
+ * and this gate is deliberately source-only with zero network I/O so it can
+ * run without a build.
+ *
+ * Scanning is bounded to the `export const PROVIDERS` initializer, not the
+ * whole file. An earlier version matched any two-space-indented `key: {`
+ * anywhere, which a decoy proved unsafe: appending
+ *
+ *   export const UNRELATED_LOOKUP: Record<string, { note: string }> = {
+ *     cerebras: { note: "..." },
+ *   };
+ *
+ * made the gate report that cerebras had a matrix entry when it did not — a
+ * false pass on the exact condition this check exists to catch. Any object
+ * literal, or a matching line inside a block comment, could have done the same.
+ *
+ * Not finding the record is treated as a read error rather than an empty set,
+ * because "no providers found" and "the file moved" must not look alike here.
+ */
+function loadProviderMatrixNames(): {
+  names: ReadonlySet<string>;
+  readError?: string;
+} {
+  const path = join(REPO_ROOT, "test/helpers/providerMatrix.ts");
+  let src: string;
+  try {
+    src = readFileSync(path, "utf8");
+  } catch (err: unknown) {
+    return {
+      names: new Set(),
+      readError: err instanceof Error ? err.message : String(err),
+    };
+  }
+  const lines = src.split("\n");
+  const start = lines.findIndex((line) =>
+    /^export const PROVIDERS\b/.test(line),
+  );
+  if (start === -1) {
+    return {
+      names: new Set(),
+      readError:
+        "no `export const PROVIDERS` declaration in test/helpers/providerMatrix.ts",
+    };
+  }
+  const names = new Set<string>();
+  for (let i = start + 1; i < lines.length; i += 1) {
+    // The record's own closing brace, at column 0. Entries are indented, so
+    // this cannot be one of them.
+    if (/^\};/.test(lines[i])) {
+      return { names };
+    }
+    const match = /^ {2}"?([a-zA-Z0-9_-]+)"?:\s*\{/.exec(lines[i]);
+    if (match) {
+      names.add(match[1]);
+    }
+  }
+  return {
+    names: new Set(),
+    readError:
+      "`export const PROVIDERS` in test/helpers/providerMatrix.ts is never closed at column 0",
+  };
 }
 
 async function loadCatalog(): Promise<ReadonlySet<string>> {
@@ -283,6 +371,7 @@ async function main(): Promise<void> {
   ]);
   const enumMembers = loadEnumMembers(enumMemberMap);
   const nativeClasses = loadNativeProviderNames(enumMemberMap);
+  const providerMatrix = loadProviderMatrixNames();
 
   const results: CheckResult[] = [];
   for (const provider of [...enumMembers].sort()) {
@@ -308,6 +397,18 @@ async function main(): Promise<void> {
         "no mocked-contract section in continuous-test-suite-providers-mocked.ts",
       );
     }
+    if (providerMatrix.readError) {
+      problems.push(
+        `could not read test/helpers/providerMatrix.ts: ${providerMatrix.readError}`,
+      );
+    } else if (
+      !providerMatrix.names.has(provider) &&
+      !KNOWN_MATRIX_GAPS.has(provider)
+    ) {
+      problems.push(
+        "no capability entry in test/helpers/providerMatrix.ts (test:matrix, test:providers and skipIf all read it, so the provider is invisible to the capability sweep)",
+      );
+    }
     const { manifest, problem: manifestProblem } = loadManifest(provider);
     if (!manifest) {
       problems.push(
@@ -318,6 +419,20 @@ async function main(): Promise<void> {
       problems.push("tier-4 manifest missing tier4Justification");
     }
     results.push({ provider, ok: problems.length === 0, problems });
+  }
+
+  // A gap that has been closed should not stay on the list. This is a warning,
+  // not a failure: turning it fatal would red-line every open pull request the
+  // moment someone did the right thing, and a stale list is a hygiene problem
+  // rather than a correctness one.
+  const closedGaps = [...KNOWN_MATRIX_GAPS]
+    .filter((name) => providerMatrix.names.has(name))
+    .sort();
+  if (closedGaps.length > 0) {
+    console.log(
+      "\nNote: these now have providerMatrix entries and can be dropped from " +
+        `KNOWN_MATRIX_GAPS in tools/verify-provider-onboarding.ts: ${closedGaps.join(", ")}`,
+    );
   }
 
   const failures = results.filter((r) => !r.ok);
