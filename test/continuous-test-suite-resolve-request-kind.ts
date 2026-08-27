@@ -22,7 +22,9 @@
 import { defineSuite, assertEqual } from "./helpers/harness.js";
 import { resolveRequestKind } from "../src/lib/core/resolveRequestKind.js";
 
-const { test, runSuite } = defineSuite("resolveRequestKind (unit)");
+const { test, runSuite } = defineSuite("resolveRequestKind (unit)", {
+  offline: true,
+});
 
 await test("defaults to text with no hints", () => {
   assertEqual(

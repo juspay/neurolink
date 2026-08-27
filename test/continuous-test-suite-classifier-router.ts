@@ -33,7 +33,9 @@ import type {
 
 await assertDistFresh();
 
-const { test, runSuite } = defineSuite("ClassifierRouter");
+const { test, runSuite } = defineSuite("ClassifierRouter", {
+  offline: true,
+});
 
 /** Collects logger calls as `"debug:<message>"` / `"warn:<message>"` tags. */
 function makeSpyLogger(): { logger: ClassifierLogger; calls: string[] } {

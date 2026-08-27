@@ -53,7 +53,9 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Media Registry Collision Guard");
+const { test, runSuite } = defineSuite("Media Registry Collision Guard", {
+  offline: true,
+});
 
 const ALL_KINDS = [
   "tts",

@@ -211,6 +211,7 @@
     "test:archive:security": "pnpm exec tsx test/continuous-test-suite-archive-security.ts",
     "test:office:security": "pnpm exec tsx test/continuous-test-suite-office-security.ts",
     "test:model-pool": "pnpm exec tsx test/continuous-test-suite-model-pool.ts",
+    "test:agents": "pnpm exec tsx test/continuous-test-suite-agents.ts",
     "test:classifier-router": "pnpm exec tsx test/continuous-test-suite-classifier-router.ts",
     "test:vector-chroma": "pnpm exec tsx test/continuous-test-suite-vector-chroma.ts",
     "test:vector-pgvector": "pnpm exec tsx test/continuous-test-suite-vector-pgvector.ts",
