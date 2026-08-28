@@ -12363,6 +12363,46 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Whether a HITL confirmation is still awaiting a response on THIS instance.
+   *
+   * Emitting `hitl:confirmation-response` is not proof the decision landed. The
+   * forwarding listener for that event is installed once at construction, so
+   * `emitter.emit(...)` reports a listener was invoked even when nothing is
+   * waiting — the pending set lives one hop further in, on the HITL manager, and
+   * holds the `resolve`/`reject` of the suspended tool call. An instance built
+   * after the confirmation was issued (a session rebuilt from persisted state)
+   * therefore accepts the event and resolves nothing.
+   *
+   * Returns `false` in two different situations, which it deliberately does not
+   * distinguish: HITL was never configured on this instance, and the id is
+   * unknown or already settled. Both mean "emitting a response here achieves
+   * nothing", which is the question this answers. A caller that needs to tell a
+   * configuration mistake from an expired confirmation should check the HITL
+   * config separately rather than read that into this boolean.
+   *
+   * This is advisory, not atomic: it reports the state at the moment it is
+   * called. Nothing stops the confirmation timing out immediately afterwards, so
+   * emit on the answer without an `await` in between. Over the case it exists
+   * for — an instance rebuilt from persisted state, whose pending set is empty
+   * and can never repopulate for an id it never issued — absence cannot become
+   * presence, so the answer cannot go stale in the unsafe direction.
+   *
+   * @param confirmationId - The id from the `hitl:confirmation-request` event
+   * @returns `true` only if this instance is still holding that confirmation
+   *
+   * @example
+   * ```typescript
+   * if (!neurolink.hasPendingHITLConfirmation(confirmationId)) {
+   *   return refuse("This conversation has expired, so the action was not carried out.");
+   * }
+   * neurolink.getEventEmitter().emit("hitl:confirmation-response", { ... });
+   * ```
+   */
+  hasPendingHITLConfirmation(confirmationId: string): boolean {
+    return this.hitlManager?.hasPendingConfirmation(confirmationId) ?? false;
+  }
+
+  /**
    * Returns the instance-level tool-dedup configuration, or `undefined` when
    * toolDedup was not provided at construction time.
    *

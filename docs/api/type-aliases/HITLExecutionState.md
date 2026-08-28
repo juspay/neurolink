@@ -8,7 +8,7 @@
 
 > **HITLExecutionState** = `object`
 
-Defined in: [types/hitl.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L318)
+Defined in: [types/hitl.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L321)
 
 ## Properties
 
@@ -16,4 +16,4 @@ Defined in: [types/hitl.ts:318](https://github.com/juspay/neurolink/blob/release
 
 > **triggered**: `boolean`
 
-Defined in: [types/hitl.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L319)
+Defined in: [types/hitl.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/hitl.ts#L322)
