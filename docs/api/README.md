@@ -2290,6 +2290,8 @@ console.log(result.content);
 - [CliProxyClientConfigurator](type-aliases/CliProxyClientConfigurator.md)
 - [CliProxyClientApplyResult](type-aliases/CliProxyClientApplyResult.md)
 - [CliProxyClientRestoreResult](type-aliases/CliProxyClientRestoreResult.md)
+- [CliOpenCodeSnapshot](type-aliases/CliOpenCodeSnapshot.md)
+- [CliGeminiSnapshot](type-aliases/CliGeminiSnapshot.md)
 - [CliQwenSettings](type-aliases/CliQwenSettings.md)
 - [CliAccountUsageTotals](type-aliases/CliAccountUsageTotals.md)
 - [CliClientUsageTotals](type-aliases/CliClientUsageTotals.md)

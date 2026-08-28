@@ -52,6 +52,38 @@ export type CliProxyClientRestoreResult = {
 };
 
 /**
+ * Snapshot of the user's pre-existing OpenCode `provider.neurolink`.
+ *
+ * Persisted to `~/.neurolink/opencode-proxy-snapshot.json`, never inside
+ * `opencode.json` — OpenCode validates against a closed schema and rejects
+ * unknown top-level keys, so an in-file snapshot made the CLI unstartable.
+ */
+export type CliOpenCodeSnapshot = {
+  /** The user's provider.neurolink before the proxy first touched it. */
+  original: unknown;
+  /** What the writer last wrote, so apply() can recognise its own block. */
+  written?: unknown;
+};
+
+/**
+ * Snapshot of the user's pre-existing Gemini CLI `~/.gemini/.env`.
+ *
+ * The whole file is kept rather than the managed keys alone: restoring must
+ * reproduce the user's comments, ordering and unrelated variables exactly.
+ */
+export type CliGeminiSnapshot = {
+  /** The whole prior `.env`, or null when the user had no such file. */
+  originalEnv: string | null;
+  /**
+   * What the writer last wrote for each managed variable. Compared against the
+   * file on disk to detect a snapshot that has gone stale — one left behind by
+   * a restore whose cleanup failed, or overtaken by a user edit. Reusing such a
+   * record would make the next restore replay outdated values.
+   */
+  written?: { baseUrl: string; apiKey: string };
+};
+
+/**
  * Raw contents of a Qwen Code `settings.json`. Deliberately open-ended: the
  * configurator rewrites only `security.auth` and must round-trip every other
  * key the user has set, including ones this repo does not know about.

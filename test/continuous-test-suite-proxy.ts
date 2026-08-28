@@ -3039,9 +3039,773 @@ async function testUninstallRestoresClientConfigs(): Promise<boolean | null> {
       log("proxy uninstall left OpenCode pointing at the removed proxy", "red");
       return false;
     }
+    // The shipped CLI must also strip the legacy in-file snapshot keys. This is
+    // the one place the built artifact — not the source hooks — is observed
+    // healing a config the previous writer corrupted; OpenCode rejects unknown
+    // top-level keys, so leaving them behind keeps the CLI unstartable even
+    // after a clean uninstall.
+    const leftover = Object.keys(
+      after as unknown as Record<string, unknown>,
+    ).filter((k) => k.startsWith("__proxy_"));
+    if (leftover.length > 0) {
+      log(
+        `proxy uninstall left ${leftover.length} proxy-private top-level key(s) in opencode.json`,
+        "red",
+      );
+      return false;
+    }
     return true;
   } finally {
     fs.rmSync(home, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The assertion whose absence let two fatal defects ship.
+ *
+ * The existing OpenCode coverage checked that the writer wrote, returned the
+ * right boolean, and recorded the base URL — all true of a config OpenCode
+ * refuses to load. Nothing checked the output was *usable*, so both of these
+ * shipped and bricked the CLI on every invocation:
+ *
+ *   Unrecognized keys: "__proxy_original_neurolink", "__proxy_written_neurolink"
+ *   ProviderModelNotFoundError: providerID "neurolink", suggestions: []
+ *
+ * OpenCode rejects unknown top-level keys, and resolves `--model` against
+ * `provider.<id>.models` alone. These two properties are what "usable" means
+ * for this file; assert them directly rather than trusting the writer.
+ */
+async function testOpenCodeWriterOutputIsLoadable(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-load-"));
+  try {
+    process.env.XDG_CONFIG_HOME = path.join(root, "config");
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, "config", "opencode"), { recursive: true });
+    await __openCodeTestHooks.setOpenCodeProxySettings(
+      "http://127.0.0.1:55669/v1",
+    );
+    const written = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as Record<string, unknown>;
+
+    const unknownTopLevel = Object.keys(written).filter((k) =>
+      k.startsWith("__proxy_"),
+    );
+    if (unknownTopLevel.length > 0) {
+      // Naming the count, not the payload: an assertion message that quotes
+      // config content can trip isExpectedProviderError and downgrade a real
+      // failure to a skip. See CLAUDE.md.
+      log(
+        `OpenCode config carries ${unknownTopLevel.length} proxy-private top-level key(s); OpenCode rejects unknown keys`,
+        "red",
+      );
+      return false;
+    }
+
+    const provider = written.provider as
+      | Record<string, { models?: Record<string, unknown> }>
+      | undefined;
+    const models = provider?.neurolink?.models;
+    if (!models || Object.keys(models).length === 0) {
+      log(
+        "OpenCode provider.neurolink.models is empty; every --model would be unresolvable",
+        "red",
+      );
+      return false;
+    }
+
+    // The snapshot must exist, and must not be inside the managed file.
+    if (!fs.existsSync(__openCodeTestHooks.getOpenCodeSnapshotPath())) {
+      log("OpenCode snapshot was not persisted outside opencode.json", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    if (prevHome === undefined) {
+      // Leaving HOME pointed at a directory we are about to delete makes later
+      // cases resolve config under a path that no longer exists, and recreate
+      // it as leaked state.
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * A config already corrupted by the pre-fix writer must heal, not stay broken.
+ *
+ * Users who ran any previous version have the two `__proxy_*` keys on disk. If
+ * apply() only stopped writing them, those users would still have an OpenCode
+ * that refuses to start. The legacy in-file snapshot is also the only record
+ * of their original provider block, so it must be adopted, not dropped.
+ */
+async function testOpenCodeMigratesLegacyInFileSnapshot(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-migrate-"));
+  try {
+    process.env.XDG_CONFIG_HOME = path.join(root, "config");
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, "config", "opencode"), { recursive: true });
+    const url = "http://127.0.0.1:55669/v1";
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeConfigPath(),
+      JSON.stringify({
+        provider: { neurolink: { id: "neurolink", options: { baseURL: url } } },
+        __proxy_original_neurolink: { id: "neurolink", marker: "user-block" },
+      }),
+    );
+
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+    const healed = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as Record<string, unknown>;
+    if (Object.keys(healed).some((k) => k.startsWith("__proxy_"))) {
+      log("apply() left legacy proxy keys in opencode.json", "red");
+      return false;
+    }
+
+    // Restoring must hand back the block the legacy snapshot was holding.
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+    const restored = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as { provider?: { neurolink?: { marker?: string } } };
+    if (restored.provider?.neurolink?.marker !== "user-block") {
+      log("migration lost the user's original provider block", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    if (prevHome === undefined) {
+      // Leaving HOME pointed at a directory we are about to delete makes later
+      // cases resolve config under a path that no longer exists, and recreate
+      // it as leaked state.
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Gemini's `.env` is the user's file; the writer owns exactly two lines of it.
+ *
+ * Restore must be byte-exact rather than "close enough": the file routinely
+ * holds unrelated variables for other tools, plus comments and an ordering the
+ * user chose. Reconstructing it would silently reformat all of that.
+ */
+async function testGeminiEnvWriterRoundTrip(): Promise<boolean> {
+  const { __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gemini-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    const userEnv =
+      "# notes\nOTHER_TOOL=keep-me\nGEMINI_API_KEY=user-real-key\n";
+    fs.writeFileSync(__geminiTestHooks.getGeminiEnvPath(), userEnv);
+
+    await __geminiTestHooks.setGeminiProxySettings(url);
+    const applied = fs.readFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "utf8",
+    );
+    if (!applied.includes(`GOOGLE_GEMINI_BASE_URL=${url}`)) {
+      log("Gemini writer did not record the proxy base URL", "red");
+      return false;
+    }
+    if (!applied.includes("OTHER_TOOL=keep-me")) {
+      log("Gemini writer dropped an unrelated variable", "red");
+      return false;
+    }
+
+    await __geminiTestHooks.clearGeminiProxySettings(url);
+    if (
+      fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8") !== userEnv
+    ) {
+      log("Gemini restore did not reproduce the original .env exactly", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      // Leaving HOME pointed at a directory we are about to delete makes later
+      // cases resolve config under a path that no longer exists, and recreate
+      // it as leaked state.
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * A malformed snapshot must never be read as "the user had nothing here".
+ *
+ * Snapshots are ordinary files: a full disk truncates them, a person edits
+ * them, an older version leaves a different shape. `JSON.parse` accepts `{}`
+ * happily, and the restore paths then see an absent `original` — which they
+ * treat as "there was no provider block", and act on by deleting the real one.
+ * Measured before the guard: the user's provider.neurolink was destroyed.
+ */
+async function testOpenCodeMalformedSnapshotIsIgnored(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-badsnap-"));
+  try {
+    process.env.XDG_CONFIG_HOME = path.join(root, "config");
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, "config", "opencode"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".neurolink"), { recursive: true });
+    const url = "http://127.0.0.1:55669/v1";
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeConfigPath(),
+      JSON.stringify({
+        provider: {
+          neurolink: {
+            id: "neurolink",
+            marker: "user",
+            options: { baseURL: url },
+          },
+        },
+      }),
+    );
+    fs.writeFileSync(__openCodeTestHooks.getOpenCodeSnapshotPath(), "{}");
+
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+    const after = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as { provider?: { neurolink?: { marker?: string } } };
+    if (after.provider?.neurolink?.marker !== "user") {
+      log(
+        "a malformed snapshot caused restore to delete the user's provider block",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    if (prevHome === undefined) {
+      // Leaving HOME pointed at a directory we are about to delete makes later
+      // cases resolve config under a path that no longer exists, and recreate
+      // it as leaked state.
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Same hazard on the Gemini side, with a different failure shape: a snapshot
+ * without `originalEnv` handed `undefined` to the atomic writer and threw.
+ * restoreAllClients catches per-client errors, so the throw was invisible and
+ * the user stayed pointed at a proxy that was no longer running.
+ */
+async function testGeminiMalformedSnapshotIsIgnored(): Promise<boolean> {
+  const { __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-badsnap-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".neurolink"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      `OTHER_TOOL=keep-me\nGOOGLE_GEMINI_BASE_URL=${url}\nGEMINI_API_KEY=neurolink-proxy\n`,
+    );
+    fs.writeFileSync(__geminiTestHooks.getGeminiSnapshotPath(), "{}");
+
+    await __geminiTestHooks.clearGeminiProxySettings(url);
+    const after = fs.existsSync(__geminiTestHooks.getGeminiEnvPath())
+      ? fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8")
+      : "";
+    if (!after.includes("OTHER_TOOL=keep-me")) {
+      log("a malformed snapshot cost the user an unrelated variable", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      // Leaving HOME pointed at a directory we are about to delete makes later
+      // cases resolve config under a path that no longer exists, and recreate
+      // it as leaked state.
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Restore must undo our two variables, not replay the whole file.
+ *
+ * Writing `snapshot.originalEnv` over the current `.env` discards everything
+ * the user changed after apply() — and the base-URL guard cannot catch it,
+ * because the URL still matches. Measured before the fix: a line added after
+ * apply() was gone after restore.
+ */
+async function testGeminiRestoreKeepsPostApplyEdits(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-edits-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(__geminiTestHooks.getGeminiEnvPath(), "OTHER=original\n");
+
+    await geminiConfigurator.apply(url);
+    fs.appendFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "ADDED_AFTER_APPLY=important\n",
+    );
+    await geminiConfigurator.restore(url);
+
+    const after = fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8");
+    if (!after.includes("ADDED_AFTER_APPLY=important")) {
+      log("restore discarded a variable the user added after apply", "red");
+      return false;
+    }
+    if (after.includes("GOOGLE_GEMINI_BASE_URL")) {
+      log("restore left the managed base URL behind", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Two XDG roots under one HOME are two independent OpenCode installs.
+ *
+ * The snapshot path derived from HOME alone while the config path derived from
+ * XDG_CONFIG_HOME, so the second apply() overwrote the first's saved original.
+ * Measured before the fix: clearing root A restored root B's provider block
+ * onto it.
+ */
+async function testOpenCodeSnapshotIsScopedPerConfigDir(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-xdg-"));
+  try {
+    process.env.HOME = root;
+    const url = "http://127.0.0.1:55669/v1";
+    const seed = (dir: string, marker: string): void => {
+      fs.mkdirSync(path.join(root, dir, "opencode"), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, dir, "opencode", "opencode.json"),
+        JSON.stringify({
+          provider: {
+            neurolink: { id: "neurolink", marker, options: { baseURL: url } },
+          },
+        }),
+      );
+    };
+    seed("cfgA", "BLOCK-A");
+    seed("cfgB", "BLOCK-B");
+
+    process.env.XDG_CONFIG_HOME = path.join(root, "cfgA");
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+    process.env.XDG_CONFIG_HOME = path.join(root, "cfgB");
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+
+    process.env.XDG_CONFIG_HOME = path.join(root, "cfgA");
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+    const restored = JSON.parse(
+      fs.readFileSync(
+        path.join(root, "cfgA", "opencode", "opencode.json"),
+        "utf8",
+      ),
+    ) as { provider?: { neurolink?: { marker?: string } } };
+    if (restored.provider?.neurolink?.marker !== "BLOCK-A") {
+      log(
+        "restoring one XDG root did not return that root's own provider block",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * "No usable snapshot" and "no snapshot file" are different, and the gap was
+ * the user's API key.
+ *
+ * apply() gated snapshot capture on `existsSync`, so a file that existed but
+ * could not be parsed satisfied it: the placeholder went over the real key and
+ * nothing recorded it. restore() then took its no-snapshot path and removed the
+ * variable outright. Measured before the fix: the `.env` came back empty.
+ */
+async function testGeminiApplyRefusesOnUnusableSnapshot(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-unusable-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".neurolink"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "GEMINI_API_KEY=user-real-key\n",
+    );
+    fs.writeFileSync(__geminiTestHooks.getGeminiSnapshotPath(), "{}");
+
+    const applied = await geminiConfigurator.apply(url);
+    if (applied !== false) {
+      log("apply() claimed success despite an unusable snapshot", "red");
+      return false;
+    }
+    await geminiConfigurator.restore(url);
+    const after = fs.existsSync(__geminiTestHooks.getGeminiEnvPath())
+      ? fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8")
+      : "";
+    if (!after.includes("user-real-key")) {
+      log("an unusable snapshot cost the user their API key", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * A legacy record carrying only the written key proves the proxy wrote
+ * something. It does NOT prove the user had no provider block of their own,
+ * and treating it as `original: null` made restore delete a real one.
+ */
+async function testOpenCodePartialLegacyRecordIsNotRestoredFrom(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-partial-"));
+  try {
+    process.env.HOME = root;
+    process.env.XDG_CONFIG_HOME = path.join(root, "config");
+    fs.mkdirSync(path.join(root, "config", "opencode"), { recursive: true });
+    const url = "http://127.0.0.1:55669/v1";
+    const block = {
+      id: "neurolink",
+      marker: "user",
+      options: { baseURL: url },
+    };
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeConfigPath(),
+      JSON.stringify({
+        provider: { neurolink: block },
+        __proxy_written_neurolink: block,
+      }),
+    );
+
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+    const after = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as Record<string, unknown> & {
+      provider?: { neurolink?: { marker?: string } };
+    };
+    if (after.provider?.neurolink?.marker !== "user") {
+      log(
+        "a partial legacy record caused the user's block to be deleted",
+        "red",
+      );
+      return false;
+    }
+    if (Object.keys(after).some((k) => k.startsWith("__proxy_"))) {
+      log("the partial legacy key was left in opencode.json", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The unscoped snapshot is shared by every XDG root on the machine, so it must
+ * never outrank a record belonging to this config in particular. Preferring it
+ * let one root adopt another root's `original` and restore the wrong block.
+ */
+async function testOpenCodePrefersInFileSnapshotOverGlobalFallback(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-prec-"));
+  try {
+    process.env.HOME = root;
+    process.env.XDG_CONFIG_HOME = path.join(root, "cfgB");
+    fs.mkdirSync(path.join(root, "cfgB", "opencode"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".neurolink"), { recursive: true });
+    const url = "http://127.0.0.1:55669/v1";
+    const block = { id: "neurolink", options: { baseURL: url } };
+
+    // A global snapshot left by a DIFFERENT root, naming a foreign original.
+    fs.writeFileSync(
+      path.join(root, ".neurolink", "opencode-proxy-snapshot.json"),
+      JSON.stringify({ original: { id: "neurolink", marker: "ROOT-A" } }),
+    );
+    // This root's own in-file record, naming its own original.
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeConfigPath(),
+      JSON.stringify({
+        provider: { neurolink: block },
+        __proxy_original_neurolink: { id: "neurolink", marker: "ROOT-B" },
+        __proxy_written_neurolink: block,
+      }),
+    );
+
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+    const after = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeConfigPath(), "utf8"),
+    ) as { provider?: { neurolink?: { marker?: string } } };
+    if (after.provider?.neurolink?.marker !== "ROOT-B") {
+      log(
+        "restore preferred another root's global snapshot over this config's own record",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The unscoped snapshot belongs to whichever root has not migrated yet.
+ *
+ * Restore used to delete both snapshot paths unconditionally, so a root that
+ * restored from its own scoped file still removed the shared legacy one — and
+ * with it, another root's only record of its original provider block.
+ */
+async function testOpenCodeClearKeepsOtherRootsLegacySnapshot(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-oc-shared-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".neurolink"), { recursive: true });
+    const url = "http://127.0.0.1:55669/v1";
+    const legacyPath = path.join(
+      root,
+      ".neurolink",
+      "opencode-proxy-snapshot.json",
+    );
+    // Root A has not been migrated: its only record is the shared file.
+    fs.writeFileSync(
+      legacyPath,
+      JSON.stringify({ original: { id: "neurolink", marker: "A-ORIGINAL" } }),
+    );
+
+    // Root B applies (gaining a scoped snapshot) and then clears.
+    process.env.XDG_CONFIG_HOME = path.join(root, "cfgB");
+    fs.mkdirSync(path.join(root, "cfgB", "opencode"), { recursive: true });
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeConfigPath(),
+      JSON.stringify({ provider: {} }),
+    );
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+    await __openCodeTestHooks.clearOpenCodeProxySettings(url);
+
+    if (!fs.existsSync(legacyPath)) {
+      log("clearing one XDG root deleted another root's only snapshot", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Restore with no usable record must not "tidy up" the managed variables.
+ *
+ * GEMINI_API_KEY may hold the user's real key. Removing it without a snapshot
+ * to restore from destroys something unrecoverable; leaving a stale base URL
+ * behind only costs a failed request the user can diagnose.
+ */
+async function testGeminiClearWithoutSnapshotKeepsTheKey(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-nosnap-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      `GOOGLE_GEMINI_BASE_URL=${url}\nGEMINI_API_KEY=user-real-key\n`,
+    );
+
+    const restored = await geminiConfigurator.restore(url);
+    if (restored !== false) {
+      log("clear() claimed success with no snapshot to restore from", "red");
+      return false;
+    }
+    const after = fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8");
+    if (!after.includes("user-real-key")) {
+      log("clear() removed an API key it had no record of", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * A snapshot that no longer describes the file is stale, not authoritative.
+ *
+ * If restore cannot delete the snapshot, or the user edits a managed variable
+ * afterwards, reusing the stored record makes the next restore replay outdated
+ * values over the newer ones.
+ */
+async function testGeminiRecapturesStaleSnapshot(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-stale-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "GEMINI_API_KEY=first-key\n",
+    );
+
+    await geminiConfigurator.apply(url);
+    await geminiConfigurator.restore(url);
+    // Simulate a restore whose snapshot cleanup failed, then a user edit.
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiSnapshotPath(),
+      JSON.stringify({
+        originalEnv: "GEMINI_API_KEY=first-key\n",
+        written: { baseUrl: url, apiKey: "neurolink-proxy" },
+      }),
+    );
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "GEMINI_API_KEY=second-key\n",
+    );
+
+    await geminiConfigurator.apply(url);
+    await geminiConfigurator.restore(url);
+    const after = fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8");
+    if (!after.includes("second-key")) {
+      log("a stale snapshot replayed an outdated key over a newer one", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
   }
 }
 
@@ -3358,7 +4122,7 @@ async function testProxyClientRoster(): Promise<boolean> {
   const { PROXY_CLIENT_CONFIGURATORS } =
     await import("../src/cli/proxy-clients/registry.js");
   const ids = PROXY_CLIENT_CONFIGURATORS.map((c) => c.id).join(",");
-  if (ids !== "claude-code,opencode,codex,qwen-code,copilot") {
+  if (ids !== "claude-code,opencode,codex,qwen-code,copilot,gemini-cli") {
     log(
       "configurator roster or order changed — apply order is behaviour",
       "red",
@@ -3369,7 +4133,7 @@ async function testProxyClientRoster(): Promise<boolean> {
 }
 
 async function testApplyAllReportsPerClient(): Promise<boolean> {
-  const { applyAllClients, restoreAllClients } =
+  const { applyAllClients, restoreAllClients, PROXY_CLIENT_CONFIGURATORS } =
     await import("../src/cli/proxy-clients/registry.js");
   const prevHome = process.env.HOME;
   const prevXdg = process.env.XDG_CONFIG_HOME;
@@ -3383,7 +4147,7 @@ async function testApplyAllReportsPerClient(): Promise<boolean> {
     const applied = await applyAllClients("http://127.0.0.1:55669");
     if (
       applied.map((r) => r.id).join(",") !==
-      "claude-code,opencode,codex,qwen-code,copilot"
+      "claude-code,opencode,codex,qwen-code,copilot,gemini-cli"
     ) {
       log("applyAllClients returned results out of registry order", "red");
       return false;
@@ -3403,7 +4167,13 @@ async function testApplyAllReportsPerClient(): Promise<boolean> {
     }
     // The gate must be detect(), not the configurator's own internal guard:
     // an absent client must be skipped cleanly, never attempted and caught.
-    for (const id of ["claude-code", "codex", "qwen-code", "copilot"]) {
+    for (const id of [
+      "claude-code",
+      "codex",
+      "qwen-code",
+      "copilot",
+      "gemini-cli",
+    ]) {
       if (byId.get(id)?.error !== undefined) {
         log("an absent client was attempted instead of being skipped", "red");
         return false;
@@ -3411,7 +4181,7 @@ async function testApplyAllReportsPerClient(): Promise<boolean> {
     }
 
     const restored = await restoreAllClients("http://127.0.0.1:55669");
-    if (restored.length !== 5) {
+    if (restored.length !== PROXY_CLIENT_CONFIGURATORS.length) {
       log("restoreAllClients did not report every client", "red");
       return false;
     }
@@ -6639,6 +7409,71 @@ const tests: TestFunction[] = [
   {
     name: "OpenCode: writer reports whether it wrote",
     fn: testOpenCodeWriterReportsWhetherItWrote,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: writer output is loadable by OpenCode",
+    fn: testOpenCodeWriterOutputIsLoadable,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: legacy in-file snapshot migrates and heals",
+    fn: testOpenCodeMigratesLegacyInFileSnapshot,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: .env writer round-trips exactly",
+    fn: testGeminiEnvWriterRoundTrip,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: a malformed snapshot never deletes user config",
+    fn: testOpenCodeMalformedSnapshotIsIgnored,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: a malformed snapshot never loses user variables",
+    fn: testGeminiMalformedSnapshotIsIgnored,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: restore keeps edits made after apply",
+    fn: testGeminiRestoreKeepsPostApplyEdits,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: snapshot is scoped per config directory",
+    fn: testOpenCodeSnapshotIsScopedPerConfigDir,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: apply refuses when the snapshot is unusable",
+    fn: testGeminiApplyRefusesOnUnusableSnapshot,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: a partial legacy record is never restored from",
+    fn: testOpenCodePartialLegacyRecordIsNotRestoredFrom,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: this config's snapshot outranks the global fallback",
+    fn: testOpenCodePrefersInFileSnapshotOverGlobalFallback,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: clearing one root keeps another root's legacy snapshot",
+    fn: testOpenCodeClearKeepsOtherRootsLegacySnapshot,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: clear without a snapshot keeps the user's key",
+    fn: testGeminiClearWithoutSnapshotKeepsTheKey,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: a stale snapshot is re-captured, not replayed",
+    fn: testGeminiRecapturesStaleSnapshot,
     category: "proxy-config",
   },
   {

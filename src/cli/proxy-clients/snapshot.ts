@@ -86,6 +86,30 @@ export function shouldCaptureSnapshot(args: {
   return !valuesMatch(args.current, args.written);
 }
 
+/**
+ * Whether a decoded snapshot file is structurally usable.
+ *
+ * A snapshot on disk is not necessarily one we wrote: it can be truncated by a
+ * full disk, hand-edited, or left over from another version. `JSON.parse` is
+ * happy with `{}`, `[]`, `null` and `"text"`, and every one of those then reads
+ * as "a snapshot whose recorded original is absent" — which restore paths treat
+ * as "the user had nothing here", and act on by deleting the user's real
+ * config. Requiring the discriminating key present makes a malformed file fall
+ * through to the caller's no-snapshot branch, which refuses to destroy
+ * anything, instead of impersonating an empty one.
+ */
+export function isUsableSnapshot<K extends string>(
+  value: unknown,
+  requiredKey: K,
+): value is Record<K, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.prototype.hasOwnProperty.call(value, requiredKey)
+  );
+}
+
 /** Deep copy through JSON, so a snapshot cannot alias the object it describes. */
 export function cloneForSnapshot<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;

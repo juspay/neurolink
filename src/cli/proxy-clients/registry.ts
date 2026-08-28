@@ -9,6 +9,7 @@ import { openCodeConfigurator } from "./openCode.js";
 import { codexConfigurator } from "./codex.js";
 import { qwenCodeConfigurator } from "./qwenCode.js";
 import { copilotConfigurator } from "./copilot.js";
+import { geminiConfigurator } from "./gemini.js";
 
 /**
  * Every CLI the proxy auto-configures, in apply order.
@@ -23,6 +24,7 @@ export const PROXY_CLIENT_CONFIGURATORS: readonly CliProxyClientConfigurator[] =
     codexConfigurator,
     qwenCodeConfigurator,
     copilotConfigurator,
+    geminiConfigurator,
   ];
 
 /**
