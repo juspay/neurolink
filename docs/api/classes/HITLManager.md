@@ -238,3 +238,33 @@ Get count of pending confirmations
 #### Returns
 
 `number`
+
+---
+
+### hasPendingConfirmation()
+
+> **hasPendingConfirmation**(`confirmationId`): `boolean`
+
+Defined in: [hitl/hitlManager.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/hitl/hitlManager.ts#L594)
+
+Whether a specific confirmation is still awaiting a response on this manager.
+
+A pending entry holds the `resolve`/`reject` of the suspended tool call, so it
+exists only in the memory of the manager that issued it. A manager constructed
+after the confirmation was issued — a session rebuilt from persisted state, for
+example — has an empty set, and `processUserResponse` for such an id logs a
+warning and returns without resolving anything.
+
+Callers that report an outcome back to a user should check this before treating
+a delivered `hitl:confirmation-response` as acted upon: the event being received
+says a listener existed, not that anything was waiting for it.
+
+#### Parameters
+
+##### confirmationId
+
+`string`
+
+#### Returns
+
+`boolean`

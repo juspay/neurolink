@@ -310,6 +310,9 @@ export type HITLManager = {
   /** Get count of pending confirmations */
   getPendingCount(): number;
 
+  /** Whether a specific confirmation is still awaiting a response on this manager */
+  hasPendingConfirmation(confirmationId: string): boolean;
+
   /** EventEmitter methods for HITL events */
   on(event: string, listener: (...args: unknown[]) => void): HITLManager;
   emit(event: string, ...args: unknown[]): boolean;
