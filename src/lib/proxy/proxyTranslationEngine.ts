@@ -27,6 +27,7 @@ import {
   serializeOpenAIResponse,
 } from "./openaiFormat.js";
 import type { ProxyTracer } from "./proxyTracer.js";
+import { DEFAULT_PROXY_MODEL_IDS } from "../constants/proxyModels.js";
 import { logRequest } from "./requestLogger.js";
 import {
   recordAttempt,
@@ -914,7 +915,7 @@ export function buildModelsListResponse(modelRouter?: {
 
   // Always include a default entry if nothing else is configured
   if (models.length === 0) {
-    for (const id of DEFAULT_MODEL_IDS) {
+    for (const id of DEFAULT_PROXY_MODEL_IDS) {
       models.push({
         id,
         object: "model",
@@ -929,27 +930,6 @@ export function buildModelsListResponse(modelRouter?: {
     data: models,
   };
 }
-
-/**
- * Canonical default model IDs surfaced when no router is configured. Format
- * matches the IDs used throughout `src/lib/models/` and `src/lib/constants/`
- * (e.g. `claude-3-5-haiku-20241022`, not `claude-haiku-3.5-20241022`).
- */
-const DEFAULT_MODEL_IDS = [
-  // Claude 4-series (current generation, hyphen-suffix family)
-  "claude-opus-4-6",
-  "claude-sonnet-4-6",
-  "claude-haiku-4-5",
-  // Claude 4 dated variant
-  "claude-sonnet-4-20250514",
-  // Claude 3.5-series (canonical Anthropic form: claude-3-5-{variant}-{date})
-  "claude-3-5-sonnet-20241022",
-  "claude-3-5-haiku-20241022",
-  // OpenAI / Google for translated-fallback users
-  "gpt-4o",
-  "gemini-2.5-pro",
-  "gemini-2.5-flash",
-];
 
 /**
  * Build an Anthropic-shaped `/v1/models` list response.
@@ -991,7 +971,7 @@ export function buildAnthropicModelsListResponse(modelRouter?: {
   }
 
   if (ids.length === 0) {
-    ids.push(...DEFAULT_MODEL_IDS);
+    ids.push(...DEFAULT_PROXY_MODEL_IDS);
   }
 
   // Deduplicate while preserving order — multiple router sources can publish

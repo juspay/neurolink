@@ -8,7 +8,7 @@
 
 > **ProxyLedgerFileCursor** = `object`
 
-Defined in: [types/proxyClient.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L157)
+Defined in: [types/proxyClient.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L189)
 
 Incremental read position and accumulated entries for one request-log file.
 
@@ -18,7 +18,7 @@ Incremental read position and accumulated entries for one request-log file.
 
 > **offset**: `number`
 
-Defined in: [types/proxyClient.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L159)
+Defined in: [types/proxyClient.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L191)
 
 Byte offset just past the last complete line consumed.
 
@@ -28,7 +28,7 @@ Byte offset just past the last complete line consumed.
 
 > **size**: `number`
 
-Defined in: [types/proxyClient.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L160)
+Defined in: [types/proxyClient.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L192)
 
 ---
 
@@ -36,6 +36,6 @@ Defined in: [types/proxyClient.ts:160](https://github.com/juspay/neurolink/blob/
 
 > **entries**: `Map`\<`string`, [`ProxyLedgerEntry`](ProxyLedgerEntry.md)\>
 
-Defined in: [types/proxyClient.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L162)
+Defined in: [types/proxyClient.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L194)
 
 requestId -> latest known entry, so a re-logged request cannot double count.
