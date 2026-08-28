@@ -3810,6 +3810,98 @@ async function testGeminiRecapturesStaleSnapshot(): Promise<boolean> {
 }
 
 /**
+ * A migration that was interrupted must not adopt the proxy's own block as the
+ * user's original.
+ *
+ * apply() writes the external snapshot before opencode.json. If the config
+ * write then fails — reachable, because applyAllClients() catches each
+ * client's error and carries on — the retry runs against a config that still
+ * holds the legacy `__proxy_*` keys. The scoped snapshot from the failed
+ * attempt used to win precedence there, and on a migration run it is
+ * *guaranteed* to disagree with what is on disk: the old writer's block has
+ * `models: {}` while the new writer's `written` carries the full map, so
+ * valuesMatch() is always false and shouldCaptureSnapshot() re-captures. The
+ * re-capture then records the OLD PROXY BLOCK as the user's original and drops
+ * the real one the in-file record was still holding. Silent and permanent.
+ *
+ * Not an unlucky mismatch — structural to the migration path, which is exactly
+ * the path where the in-file record is the only copy of the truth.
+ */
+async function testOpenCodeInterruptedMigrationKeepsTrueOriginal(): Promise<boolean> {
+  const { __openCodeTestHooks } =
+    await import("../src/cli/proxy-clients/openCode.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), "neurolink-oc-interrupt-"),
+  );
+  try {
+    process.env.HOME = root;
+    process.env.XDG_CONFIG_HOME = path.join(root, "config");
+    fs.mkdirSync(path.join(root, "config", "opencode"), { recursive: true });
+    fs.mkdirSync(path.join(root, ".neurolink"), { recursive: true });
+    const url = "http://127.0.0.1:55669/v1";
+    const userOriginal = {
+      id: "neurolink",
+      marker: "true-user-original",
+      options: { baseURL: "https://the-users-own-endpoint" },
+    };
+    // The old writer's output: models empty, plus the in-file legacy keys.
+    const oldProxyBlock = {
+      id: "neurolink",
+      name: "NeuroLink Proxy",
+      npm: "@ai-sdk/openai-compatible",
+      env: [],
+      models: {},
+      options: { baseURL: url, apiKey: "neurolink-proxy" },
+    };
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeConfigPath(),
+      JSON.stringify({
+        provider: { neurolink: oldProxyBlock },
+        __proxy_original_neurolink: userOriginal,
+        __proxy_written_neurolink: oldProxyBlock,
+      }),
+    );
+    // The state a failed config write leaves behind: scoped snapshot landed,
+    // its `written` carries the NEW block, so it cannot match what is on disk.
+    fs.writeFileSync(
+      __openCodeTestHooks.getOpenCodeSnapshotPath(),
+      JSON.stringify({
+        original: userOriginal,
+        written: { ...oldProxyBlock, models: { "claude-haiku-4-5": {} } },
+      }),
+    );
+
+    await __openCodeTestHooks.setOpenCodeProxySettings(url);
+
+    const snap = JSON.parse(
+      fs.readFileSync(__openCodeTestHooks.getOpenCodeSnapshotPath(), "utf8"),
+    ) as { original?: { marker?: string } };
+    if (snap.original?.marker !== "true-user-original") {
+      log(
+        "an interrupted migration replaced the user's original with the proxy's own block",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
  * Regression: a stale snapshot must never outlive the value it describes.
  *
  * The snapshot-on-first-touch guard exists so a second apply() cannot record
@@ -7459,6 +7551,11 @@ const tests: TestFunction[] = [
   {
     name: "OpenCode: this config's snapshot outranks the global fallback",
     fn: testOpenCodePrefersInFileSnapshotOverGlobalFallback,
+    category: "proxy-config",
+  },
+  {
+    name: "OpenCode: an interrupted migration keeps the true original",
+    fn: testOpenCodeInterruptedMigrationKeepsTrueOriginal,
     category: "proxy-config",
   },
   {
