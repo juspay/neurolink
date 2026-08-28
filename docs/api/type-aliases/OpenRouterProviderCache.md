@@ -8,7 +8,7 @@
 
 > **OpenRouterProviderCache** = `object`
 
-Defined in: [types/providers.ts:2000](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2000)
+Defined in: [types/providers.ts:2002](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2002)
 
 OpenRouter provider static cache properties (for testing/internal use)
 
@@ -18,7 +18,7 @@ OpenRouter provider static cache properties (for testing/internal use)
 
 > **modelsCache**: `string`[]
 
-Defined in: [types/providers.ts:2001](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2001)
+Defined in: [types/providers.ts:2003](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2003)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2001](https://github.com/juspay/neurolink/blob/r
 
 > **modelsCacheTime**: `number`
 
-Defined in: [types/providers.ts:2002](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2002)
+Defined in: [types/providers.ts:2004](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2004)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2002](https://github.com/juspay/neurolink/blob/r
 
 > **toolCapableModels**: `Set`\<`string`\>
 
-Defined in: [types/providers.ts:2003](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2003)
+Defined in: [types/providers.ts:2005](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2005)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:2003](https://github.com/juspay/neurolink/blob/r
 
 > **capabilitiesCached**: `boolean`
 
-Defined in: [types/providers.ts:2004](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2004)
+Defined in: [types/providers.ts:2006](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2006)

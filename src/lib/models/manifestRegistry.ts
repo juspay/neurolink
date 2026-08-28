@@ -1,8 +1,10 @@
 import type {
+  ProviderCatalogJson,
   ProviderModelManifest,
   ProviderModelManifestEntry,
 } from "../types/index.js";
 import { PROVIDER_MAX_TOKENS } from "../core/constants.js";
+import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
 import { anthropicManifest } from "./manifests/anthropic.js";
 import { openaiManifest } from "./manifests/openai.js";
 import { azureManifest } from "./manifests/azure.js";
@@ -22,8 +24,6 @@ import { lmStudioManifest } from "./manifests/lm-studio.js";
 import { llamacppManifest } from "./manifests/llamacpp.js";
 import { xaiManifest } from "./manifests/xai.js";
 import { groqManifest } from "./manifests/groq.js";
-import { cerebrasManifest } from "./manifests/cerebras.js";
-import { sambanovaManifest } from "./manifests/sambanova.js";
 import { cohereManifest } from "./manifests/cohere.js";
 import { togetherAiManifest } from "./manifests/together-ai.js";
 import { fireworksManifest } from "./manifests/fireworks.js";
@@ -35,6 +35,64 @@ import { jinaManifest } from "./manifests/jina.js";
 import { stabilityManifest } from "./manifests/stability.js";
 import { ideogramManifest } from "./manifests/ideogram.js";
 import { recraftManifest } from "./manifests/recraft.js";
+
+/**
+ * Builds a manifest for a JSON-catalog provider from its catalog entry.
+ *
+ * Only used for cerebras and sambanova (see MANIFEST_REGISTRY below) — the
+ * catalog JSON carries no per-model `maxOutputTokens`, only a provider-wide
+ * `models.defaultMaxOutputTokens`, so every derived entry uses that ceiling.
+ * For cerebras/sambanova this is 8192, identical to their old hand-written
+ * manifests' `maxOutputTokens`. The other 7 catalog providers' hand
+ * manifests carry higher documented ceilings — 64000 for groq, xai,
+ * together-ai, fireworks and perplexity, 8192 for mistral and cloudflare —
+ * that the JSON's `defaultMaxOutputTokens` (a generic 4096 placeholder for
+ * all 7) would silently regress, so they stay hand-written, untouched.
+ *
+ * `contextWindow` falls back to `models.defaultContextWindow` when a model
+ * spec omits its own (matches resolveManifestEntry's synthesized-`_default`
+ * fallback pattern above). `aliases` is always `[]` — CatalogModelSpec has
+ * no alias field.
+ */
+function buildCatalogManifest(
+  entry: ProviderCatalogJson,
+): ProviderModelManifest {
+  const namedModels: Record<string, ProviderModelManifestEntry> =
+    Object.fromEntries(
+      Object.entries(entry.models.catalog).map(([modelId, spec]) => [
+        modelId,
+        {
+          aliases: [],
+          contextWindow:
+            spec.contextWindow ?? entry.models.defaultContextWindow,
+          maxOutputTokens: entry.models.defaultMaxOutputTokens,
+          vision: spec.vision,
+          functionCalling: entry.capabilities.tools,
+        },
+      ]),
+    );
+  return {
+    defaultContextWindow: entry.models.defaultContextWindow,
+    models: {
+      _default: {
+        aliases: [],
+        contextWindow: entry.models.defaultContextWindow,
+        maxOutputTokens: entry.models.defaultMaxOutputTokens,
+        vision: false,
+        functionCalling: entry.capabilities.tools,
+      },
+      ...namedModels,
+    },
+  };
+}
+
+const catalogManifest = (id: string): ProviderModelManifest => {
+  const entry = getCatalogJsonEntries().find((e) => e.id === id);
+  if (!entry) {
+    throw new Error(`No catalog JSON entry found for provider "${id}"`);
+  }
+  return buildCatalogManifest(entry);
+};
 
 /**
  * Every provider's model manifest, keyed by the exact AIProviderName enum
@@ -63,8 +121,8 @@ export const MANIFEST_REGISTRY: Record<string, ProviderModelManifest> = {
   llamacpp: llamacppManifest,
   xai: xaiManifest,
   groq: groqManifest,
-  cerebras: cerebrasManifest,
-  sambanova: sambanovaManifest,
+  cerebras: catalogManifest("cerebras"),
+  sambanova: catalogManifest("sambanova"),
   cohere: cohereManifest,
   "together-ai": togetherAiManifest,
   fireworks: fireworksManifest,

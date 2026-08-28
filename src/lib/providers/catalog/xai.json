@@ -1,0 +1,108 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "xai",
+  "displayName": "xAI",
+  "aliases": ["grok"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.x.ai/v1"
+  },
+  "models": {
+    "default": "grok-3",
+    "fallbacks": [
+      "grok-3",
+      "grok-3-mini",
+      "grok-2-latest",
+      "grok-2-vision-latest",
+      "grok-beta"
+    ],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "grok-3": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 3.0, "output": 15.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Latest flagship Grok"
+      },
+      "grok-3-mini": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 0.3, "output": 0.5 },
+        "vision": false,
+        "status": "production",
+        "description": "Faster + cheaper Grok 3"
+      },
+      "grok-2-latest": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 2.0, "output": 10.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Previous flagship"
+      },
+      "grok-2-vision-latest": {
+        "contextWindow": 32768,
+        "pricingPerMTok": { "input": 2.0, "output": 10.0 },
+        "vision": true,
+        "status": "production",
+        "description": "Multimodal (text + images)"
+      },
+      "grok-beta": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 5.0, "output": 15.0 },
+        "vision": false,
+        "status": "preview",
+        "description": "Pre-release / experimental"
+      }
+    },
+    "topModels": [
+      "grok-3",
+      "grok-3-mini",
+      "grok-2-vision-latest",
+      "grok-2-latest",
+      "grok-beta"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Invalid API key|Authentication|invalid_api_key",
+      "class": "authentication",
+      "message": "Invalid xAI API key. Please check your {apiKeyEnvVar} environment variable. Get one at https://console.x.ai/"
+    },
+    {
+      "pattern": "insufficient_quota|quota exceeded",
+      "class": "provider",
+      "message": "xAI account has insufficient quota. Top up at https://console.x.ai/"
+    }
+  ],
+  "setup": {
+    "url": "https://console.x.ai/",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://console.x.ai/",
+      "2. Sign in with your xAI account",
+      "3. Create an API key",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-28",
+      "method": "transcribed from pre-migration TS catalog"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
+  }
+}

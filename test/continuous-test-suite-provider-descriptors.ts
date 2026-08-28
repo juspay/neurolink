@@ -42,10 +42,22 @@ const { test, runSuite } = defineSuite("Provider Descriptors");
 await runSuite(async () => {
   logSection("ProviderFactory.getDescriptor / getAllDescriptors");
 
-  await test("getAllDescriptors returns all 32 real providers", async () => {
+  await test("getAllDescriptors returns every real provider", async () => {
     const { ProviderFactory } = await import("../dist/index.js");
+    const { CATALOG_PROVIDER_IDS } =
+      await import("../dist/providers/catalog/index.generated.js");
+    // Total = the 9 JSON-catalog providers + this literal count of
+    // hand-registered non-catalog providers (openai, anthropic, google-ai,
+    // vertex, bedrock, sagemaker, azure, huggingface, ollama, openrouter,
+    // litellm, openai-compatible, deepseek, nvidia-nim, lm-studio, llamacpp,
+    // cohere, replicate, voyage, jina, stability, ideogram, recraft).
+    // Mirrors continuous-test-suite-provider-wiring.ts's
+    // NON_CATALOG_PROVIDER_COUNT.
+    const NON_CATALOG_PROVIDER_COUNT = 23;
+    const expectedCount =
+      CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
-    assertEqual(all.length, 32, "getAllDescriptors length");
+    assertEqual(all.length, expectedCount, "getAllDescriptors length");
   });
 
   await test("getDescriptor resolves a canonical name", async () => {
@@ -303,7 +315,13 @@ await runSuite(async () => {
 
   await test("apiKeyFormatPattern: descriptors without the field simply omit it, never an empty/no-op pattern", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
-    // Every 32 canonical names, minus the 8 that legitimately set the field.
+    const { CATALOG_PROVIDER_IDS, CATALOG_JSON_ENTRIES } =
+      await import("../dist/providers/catalog/index.generated.js");
+    // These 8 hand-typed descriptors legitimately set apiKeyFormatPattern
+    // (providerDescriptors.ts's HAND_DESCRIPTORS). Mistral is a catalog
+    // provider identity but its descriptor is deliberately hand-sourced, not
+    // catalog-derived (see buildCatalogDescriptors()'s mistral exclusion) —
+    // its own catalog JSON is irrelevant to this field.
     const withPattern = new Set([
       "bedrock",
       "openai",
@@ -324,10 +342,21 @@ await runSuite(async () => {
         checkedAbsent += 1;
       }
     }
-    // Sanity: the 32-descriptor set minus the 8 with-pattern entries is 24.
+    // Mirrors continuous-test-suite-provider-wiring.ts's
+    // NON_CATALOG_PROVIDER_COUNT.
+    const NON_CATALOG_PROVIDER_COUNT = 23;
+    const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
+    // Catalog entries (excluding mistral — never catalog-derived for
+    // descriptors) that set a non-null setup.apiKeyFormat also contribute a
+    // real apiKeyFormatPattern via buildCatalogDescriptor(); today none do.
+    const catalogWithPatternCount = CATALOG_JSON_ENTRIES.filter(
+      (e) => e.id !== "mistral" && e.setup.apiKeyFormat !== null,
+    ).length;
+    const expectedAbsentCount =
+      totalCount - withPattern.size - catalogWithPatternCount;
     assertEqual(
       checkedAbsent,
-      24,
+      expectedAbsentCount,
       "apiKeyFormatPattern absence count mismatch — descriptor roster may have changed",
     );
   });
@@ -545,7 +574,7 @@ await runSuite(async () => {
     }
   });
 
-  await test("getAvailableProviders lists all 30 descriptor names", async () => {
+  await test("getAvailableProviders lists every descriptor name", async () => {
     const { getAvailableProviders } =
       await import("../dist/utils/providerUtils.js");
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");

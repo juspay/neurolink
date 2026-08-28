@@ -10,7 +10,6 @@ import {
   GoogleAIModels,
   BedrockModels,
   VertexModels,
-  MistralModels,
   OllamaModels,
   AzureOpenAIModels,
   LiteLLMModels,
@@ -19,15 +18,7 @@ import {
   OpenRouterModels,
   DeepSeekModels,
   NvidiaNimModels,
-  XaiModels,
-  GroqModels,
-  CerebrasModels,
-  SambanovaModels,
   CohereModels,
-  TogetherAIModels,
-  FireworksModels,
-  PerplexityModels,
-  CloudflareModels,
   VoyageModels,
   JinaModels,
   StabilityModels,
@@ -35,14 +26,59 @@ import {
   RecraftModels,
   ReplicateModels,
 } from "../constants/enums.js";
-import type { ModelChoice } from "../types/index.js";
+import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
+import type {
+  CatalogProviderName,
+  ModelChoice,
+  ProviderCatalogJson,
+} from "../types/index.js";
+
+/**
+ * Looks up the JSON catalog entry for a provider, if it is one of the 9
+ * JSON-catalog providers. Used to short-circuit the hand tables below so a
+ * catalog provider's models are always sourced from its catalog JSON, never
+ * from stale hand-written duplicates.
+ */
+function catalogEntryFor(
+  provider: AIProviderName,
+): ProviderCatalogJson | undefined {
+  return getCatalogJsonEntries().find((entry) => entry.id === provider);
+}
+
+/**
+ * Derives CLI-prompt entries for a catalog provider. Uses the curated
+ * `models.topModels` ordering when the JSON provides one (mapping each id to
+ * its own `models.catalog[id].description`); falls back to the full
+ * `models.catalog` in file key-order when `topModels` is absent, matching
+ * the loader's documented fallback contract.
+ */
+function catalogTopModels(
+  entry: ProviderCatalogJson,
+): { model: string; description: string }[] {
+  if (entry.models.topModels) {
+    return entry.models.topModels.map((model) => ({
+      model,
+      description: entry.models.catalog[model].description,
+    }));
+  }
+  return Object.entries(entry.models.catalog).map(([model, spec]) => ({
+    model,
+    description: spec.description,
+  }));
+}
 
 /**
  * Top models per provider with descriptions for CLI prompts
  * These are curated lists of the most commonly used/recommended models
+ *
+ * Covers every provider EXCEPT the 9 JSON-catalog providers (cerebras,
+ * cloudflare, fireworks, groq, mistral, perplexity, sambanova, together-ai,
+ * xai) — their entries are derived from `models.catalog[*].description` by
+ * `catalogTopModels()` and merged in at the accessor-function level below,
+ * never hand-duplicated here.
  */
 const TOP_MODELS_CONFIG: Record<
-  AIProviderName,
+  Exclude<AIProviderName, CatalogProviderName>,
   { model: string; description: string }[]
 > = {
   [AIProviderName.OPENAI]: [
@@ -161,25 +197,6 @@ const TOP_MODELS_CONFIG: Record<
       description: "Previous generation",
     },
     { model: AzureOpenAIModels.GPT_3_5_TURBO, description: "Legacy model" },
-  ],
-  [AIProviderName.MISTRAL]: [
-    {
-      model: MistralModels.MISTRAL_LARGE_LATEST,
-      description: "Recommended - Flagship model",
-    },
-    {
-      model: MistralModels.MISTRAL_SMALL_LATEST,
-      description: "Cost-effective",
-    },
-    {
-      model: MistralModels.CODESTRAL_LATEST,
-      description: "Specialized for code",
-    },
-    {
-      model: MistralModels.MAGISTRAL_MEDIUM_LATEST,
-      description: "Reasoning model",
-    },
-    { model: MistralModels.MISTRAL_NEMO, description: "Efficient base model" },
   ],
   [AIProviderName.OLLAMA]: [
     {
@@ -307,76 +324,6 @@ const TOP_MODELS_CONFIG: Record<
       description: "Use whatever model llama-server has loaded",
     },
   ],
-  [AIProviderName.XAI]: [
-    {
-      model: XaiModels.GROK_3,
-      description: "Recommended - Latest flagship Grok",
-    },
-    { model: XaiModels.GROK_3_MINI, description: "Faster + cheaper Grok 3" },
-    {
-      model: XaiModels.GROK_2_VISION_LATEST,
-      description: "Multimodal (text + images)",
-    },
-    { model: XaiModels.GROK_2_LATEST, description: "Previous flagship" },
-    { model: XaiModels.GROK_BETA, description: "Pre-release / experimental" },
-  ],
-  [AIProviderName.GROQ]: [
-    {
-      model: GroqModels.LLAMA_3_3_70B_VERSATILE,
-      description: "Recommended - Production default; sub-100ms",
-    },
-    {
-      model: GroqModels.LLAMA_3_1_8B_INSTANT,
-      description: "Lowest latency tier",
-    },
-    {
-      model: GroqModels.LLAMA_3_2_90B_VISION_PREVIEW,
-      description: "Multimodal (vision)",
-    },
-    { model: GroqModels.GEMMA_2_9B_IT, description: "Google Gemma 2 9B" },
-    {
-      model: GroqModels.MIXTRAL_8X7B_32768,
-      description: "Mistral 8x7B MoE, 32K context",
-    },
-  ],
-  [AIProviderName.SAMBANOVA]: [
-    {
-      model: SambanovaModels.META_LLAMA_3_3_70B_INSTRUCT,
-      description: "Recommended - Meta Llama 3.3 70B; production, 128K context",
-    },
-    {
-      model: SambanovaModels.GPT_OSS_120B,
-      description: "OpenAI GPT-OSS 120B (open-weight)",
-    },
-    {
-      model: SambanovaModels.DEEPSEEK_V3_1,
-      description: "DeepSeek V3.1 (reasoning)",
-    },
-    {
-      model: SambanovaModels.DEEPSEEK_V3_2,
-      description: "DeepSeek V3.2 (reasoning; vendor preview, 32K context)",
-    },
-    {
-      model: SambanovaModels.MINIMAX_M2_7,
-      description: "MiniMax M2.7, 192K context",
-    },
-    { model: SambanovaModels.MINIMAX_M3, description: "MiniMax M3 (vision)" },
-    {
-      model: SambanovaModels.GEMMA_4_31B_IT,
-      description: "Google Gemma 4 31B IT (vision; vendor preview)",
-    },
-  ],
-  [AIProviderName.CEREBRAS]: [
-    {
-      model: CerebrasModels.GPT_OSS_120B,
-      description:
-        "Recommended - OpenAI GPT-OSS 120B (open-weight); wafer-scale speed",
-    },
-    {
-      model: CerebrasModels.GEMMA_4_31B,
-      description: "Google Gemma 4 31B",
-    },
-  ],
   [AIProviderName.COHERE]: [
     {
       model: CohereModels.COMMAND_R_PLUS,
@@ -384,74 +331,6 @@ const TOP_MODELS_CONFIG: Record<
     },
     { model: CohereModels.COMMAND_R, description: "Smaller RAG-tuned chat" },
     { model: CohereModels.COMMAND_R7B, description: "Most compact" },
-  ],
-  [AIProviderName.TOGETHER_AI]: [
-    {
-      model: TogetherAIModels.LLAMA_3_3_70B_INSTRUCT_TURBO,
-      description: "Recommended - Llama 3.3 70B Turbo",
-    },
-    {
-      model: TogetherAIModels.LLAMA_3_1_405B_INSTRUCT_TURBO,
-      description: "Flagship 405B",
-    },
-    {
-      model: TogetherAIModels.QWEN_2_5_72B_INSTRUCT_TURBO,
-      description: "Qwen 2.5 72B Turbo",
-    },
-    {
-      model: TogetherAIModels.DEEPSEEK_R1,
-      description: "DeepSeek R1 reasoning",
-    },
-    {
-      model: TogetherAIModels.MIXTRAL_8X22B_INSTRUCT,
-      description: "Mistral 8x22B MoE",
-    },
-  ],
-  [AIProviderName.FIREWORKS]: [
-    {
-      model: FireworksModels.DEEPSEEK_V4_PRO,
-      description: "Recommended - DeepSeek V4 Pro",
-    },
-    { model: FireworksModels.GLM_5P1, description: "GLM 5.1 (Zhipu)" },
-    { model: FireworksModels.KIMI_K2P6, description: "Kimi K2.6 (Moonshot)" },
-    { model: FireworksModels.GPT_OSS_120B, description: "GPT-OSS 120B" },
-  ],
-  [AIProviderName.PERPLEXITY]: [
-    {
-      model: PerplexityModels.SONAR,
-      description: "Recommended - Sonar with web grounding",
-    },
-    { model: PerplexityModels.SONAR_PRO, description: "Better reasoning" },
-    {
-      model: PerplexityModels.SONAR_REASONING,
-      description: "Explicit reasoning traces",
-    },
-    {
-      model: PerplexityModels.SONAR_REASONING_PRO,
-      description: "Flagship reasoning + web",
-    },
-    {
-      model: PerplexityModels.SONAR_DEEP_RESEARCH,
-      description: "Long-form research with citations",
-    },
-  ],
-  [AIProviderName.CLOUDFLARE]: [
-    {
-      model: CloudflareModels.LLAMA_3_3_70B_FAST,
-      description: "Recommended - Llama 3.3 70B FP8 fast",
-    },
-    {
-      model: CloudflareModels.LLAMA_3_1_70B_INSTRUCT,
-      description: "Llama 3.1 70B",
-    },
-    {
-      model: CloudflareModels.LLAMA_3_1_8B_FAST,
-      description: "Llama 3.1 8B fast",
-    },
-    {
-      model: CloudflareModels.LLAMA_3_2_11B_VISION,
-      description: "Multimodal (vision)",
-    },
   ],
   [AIProviderName.REPLICATE]: [
     {
@@ -556,16 +435,26 @@ const TOP_MODELS_CONFIG: Record<
 };
 
 /**
- * Default models per provider (first choice/recommended)
+ * Default models per provider (first choice/recommended).
+ *
+ * Covers every provider EXCEPT the 9 JSON-catalog providers — those default
+ * models come from `models.default` in the catalog JSON, read directly by
+ * `getDefaultModel()` below. (Two of the 9 — cerebras, sambanova — never had
+ * a hand entry here at all; `getDefaultModel()` now resolves them too.)
+ *
+ * AUTO is also excluded — it never had an entry here either (matches
+ * pre-existing behavior: `getDefaultModel(AUTO)` returns `undefined`).
  */
-export const DEFAULT_MODELS: Record<string, string> = {
+export const DEFAULT_MODELS: Record<
+  Exclude<AIProviderName, CatalogProviderName | AIProviderName.AUTO>,
+  string
+> = {
   [AIProviderName.OPENAI]: OpenAIModels.GPT_4O,
   [AIProviderName.ANTHROPIC]: AnthropicModels.CLAUDE_SONNET_4_5,
   [AIProviderName.GOOGLE_AI]: GoogleAIModels.GEMINI_2_5_FLASH,
   [AIProviderName.VERTEX]: VertexModels.GEMINI_2_5_FLASH,
   [AIProviderName.BEDROCK]: BedrockModels.CLAUDE_4_5_SONNET,
   [AIProviderName.AZURE]: AzureOpenAIModels.GPT_4O,
-  [AIProviderName.MISTRAL]: MistralModels.MISTRAL_LARGE_LATEST,
   [AIProviderName.OLLAMA]: OllamaModels.LLAMA4_LATEST,
   [AIProviderName.LITELLM]: LiteLLMModels.OPENAI_GPT_4O,
   [AIProviderName.HUGGINGFACE]: HuggingFaceModels.LLAMA_3_3_70B_INSTRUCT,
@@ -578,13 +467,7 @@ export const DEFAULT_MODELS: Record<string, string> = {
   // an empty default is the documented signal to use that path.
   [AIProviderName.LM_STUDIO]: "",
   [AIProviderName.LLAMACPP]: "",
-  [AIProviderName.XAI]: XaiModels.GROK_3,
-  [AIProviderName.GROQ]: GroqModels.LLAMA_3_3_70B_VERSATILE,
   [AIProviderName.COHERE]: CohereModels.COMMAND_R_PLUS,
-  [AIProviderName.TOGETHER_AI]: TogetherAIModels.LLAMA_3_3_70B_INSTRUCT_TURBO,
-  [AIProviderName.FIREWORKS]: FireworksModels.DEEPSEEK_V4_PRO,
-  [AIProviderName.PERPLEXITY]: PerplexityModels.SONAR,
-  [AIProviderName.CLOUDFLARE]: CloudflareModels.LLAMA_3_3_70B_FAST,
   [AIProviderName.REPLICATE]: "meta/meta-llama-3-70b-instruct",
   [AIProviderName.VOYAGE]: VoyageModels.VOYAGE_3_5,
   [AIProviderName.JINA]: JinaModels.JINA_EMBEDDINGS_V3,
@@ -594,16 +477,22 @@ export const DEFAULT_MODELS: Record<string, string> = {
 };
 
 /**
- * Model enum mappings for getAllModels
+ * Model enum mappings for getAllModels.
+ *
+ * Covers every provider EXCEPT the 9 JSON-catalog providers — those model
+ * lists come from `Object.keys(models.catalog)` in the catalog JSON, read
+ * directly by `getAllModels()` below.
  */
-const MODEL_ENUMS: Record<AIProviderName, Record<string, string> | null> = {
+const MODEL_ENUMS: Record<
+  Exclude<AIProviderName, CatalogProviderName>,
+  Record<string, string> | null
+> = {
   [AIProviderName.OPENAI]: OpenAIModels,
   [AIProviderName.ANTHROPIC]: AnthropicModels,
   [AIProviderName.GOOGLE_AI]: GoogleAIModels,
   [AIProviderName.VERTEX]: VertexModels,
   [AIProviderName.BEDROCK]: BedrockModels,
   [AIProviderName.AZURE]: AzureOpenAIModels,
-  [AIProviderName.MISTRAL]: MistralModels,
   [AIProviderName.OLLAMA]: OllamaModels,
   [AIProviderName.LITELLM]: LiteLLMModels,
   [AIProviderName.HUGGINGFACE]: HuggingFaceModels,
@@ -614,15 +503,7 @@ const MODEL_ENUMS: Record<AIProviderName, Record<string, string> | null> = {
   [AIProviderName.NVIDIA_NIM]: NvidiaNimModels,
   [AIProviderName.LM_STUDIO]: null,
   [AIProviderName.LLAMACPP]: null,
-  [AIProviderName.XAI]: XaiModels,
-  [AIProviderName.GROQ]: GroqModels,
-  [AIProviderName.CEREBRAS]: CerebrasModels,
-  [AIProviderName.SAMBANOVA]: SambanovaModels,
   [AIProviderName.COHERE]: CohereModels,
-  [AIProviderName.TOGETHER_AI]: TogetherAIModels,
-  [AIProviderName.FIREWORKS]: FireworksModels,
-  [AIProviderName.PERPLEXITY]: PerplexityModels,
-  [AIProviderName.CLOUDFLARE]: CloudflareModels,
   [AIProviderName.REPLICATE]: ReplicateModels,
   [AIProviderName.VOYAGE]: VoyageModels,
   [AIProviderName.JINA]: JinaModels,
@@ -644,7 +525,12 @@ export function getTopModelChoices(
   provider: AIProviderName,
   limit = 5,
 ): ModelChoice[] {
-  const config = TOP_MODELS_CONFIG[provider];
+  const catalogEntry = catalogEntryFor(provider);
+  const config = catalogEntry
+    ? catalogTopModels(catalogEntry)
+    : TOP_MODELS_CONFIG[
+        provider as Exclude<AIProviderName, CatalogProviderName>
+      ];
   if (!config || config.length === 0) {
     return [];
   }
@@ -681,7 +567,12 @@ export function getTopModelChoices(
  * @returns Array of model identifier strings
  */
 export function getAllModels(provider: AIProviderName): string[] {
-  const modelEnum = MODEL_ENUMS[provider];
+  const catalogEntry = catalogEntryFor(provider);
+  if (catalogEntry) {
+    return Object.keys(catalogEntry.models.catalog);
+  }
+  const modelEnum =
+    MODEL_ENUMS[provider as Exclude<AIProviderName, CatalogProviderName>];
   if (!modelEnum) {
     return [];
   }
@@ -714,7 +605,16 @@ export function getAllProviderChoices(): string[] {
  * @returns Default model string for the provider
  */
 export function getDefaultModel(provider: AIProviderName): string | undefined {
-  return DEFAULT_MODELS[provider];
+  const catalogEntry = catalogEntryFor(provider);
+  if (catalogEntry) {
+    return catalogEntry.models.default;
+  }
+  return DEFAULT_MODELS[
+    provider as Exclude<
+      AIProviderName,
+      CatalogProviderName | AIProviderName.AUTO
+    >
+  ];
 }
 
 /**
@@ -783,23 +683,35 @@ export function getPopularModelsAcrossProviders(): {
     description: string;
   }[] = [];
 
+  // Take top 2 from each provider, ignoring blank auto-discovery sentinels.
+  // (Auto-discovery is surfaced separately by `getTopModelChoices` for
+  // LM Studio / llama.cpp; we don't want it to appear in the cross-
+  // provider popular-models list as an empty value.)
+  const pushTop2 = (
+    provider: AIProviderName,
+    config: { model: string; description: string }[],
+  ) => {
+    config
+      .filter((item) => item.model.length > 0)
+      .slice(0, 2)
+      .forEach((item) => {
+        popularModels.push({
+          provider,
+          model: item.model,
+          description: item.description,
+        });
+      });
+  };
+
   for (const [provider, config] of Object.entries(TOP_MODELS_CONFIG)) {
     if (config && config.length > 0) {
-      // Take top 2 from each provider, ignoring blank auto-discovery sentinels.
-      // (Auto-discovery is surfaced separately by `getTopModelChoices` for
-      // LM Studio / llama.cpp; we don't want it to appear in the cross-
-      // provider popular-models list as an empty value.)
-      config
-        .filter((item) => item.model.length > 0)
-        .slice(0, 2)
-        .forEach((item) => {
-          popularModels.push({
-            provider: provider as AIProviderName,
-            model: item.model,
-            description: item.description,
-          });
-        });
+      pushTop2(provider as AIProviderName, config);
     }
+  }
+  // JSON-catalog providers are excluded from TOP_MODELS_CONFIG above; merge
+  // their models in here, derived the same way getTopModelChoices() does.
+  for (const entry of getCatalogJsonEntries()) {
+    pushTop2(entry.id as AIProviderName, catalogTopModels(entry));
   }
 
   return popularModels;

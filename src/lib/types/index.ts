@@ -56,6 +56,8 @@ export * from "./observability.js";
 export * from "./openaiCompatible.js";
 export * from "./ppt.js";
 export * from "./processor.js";
+export * from "./providerCatalog.js";
+export * from "./providerCatalog.generated.js";
 export * from "./providers.js";
 export * from "./proxy.js";
 export * from "./proxyClient.js";

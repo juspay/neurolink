@@ -1,0 +1,121 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "cloudflare",
+  "displayName": "Cloudflare Workers AI",
+  "aliases": ["workers-ai", "cf-ai"],
+  "tier": 2,
+  "wire": {
+    "baseURLTemplate": "https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1",
+    "extraCredentials": ["accountId"],
+    "missingCredentialMessage": "CLOUDFLARE_ACCOUNT_ID is required (or pass credentials.cloudflare.accountId). Get the account id from https://dash.cloudflare.com/"
+  },
+  "models": {
+    "default": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "fallbackModelName": "@cf/meta/llama-3.1-8b-instruct-fast",
+    "fallbacks": [
+      "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      "@cf/meta/llama-3.1-70b-instruct",
+      "@cf/meta/llama-3.1-8b-instruct-fast",
+      "@cf/meta/llama-3.2-11b-vision-instruct",
+      "@cf/mistral/mistral-7b-instruct-v0.2",
+      "@cf/qwen/qwen1.5-14b-chat-awq"
+    ],
+    "defaultContextWindow": 8192,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "@cf/meta/llama-3.3-70b-instruct-fp8-fast": {
+        "enumMember": "LLAMA_3_3_70B_FAST",
+        "contextWindow": 24000,
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Llama 3.3 70B Instruct (FP8 fast)"
+      },
+      "@cf/meta/llama-3.1-70b-instruct": {
+        "enumMember": "LLAMA_3_1_70B_INSTRUCT",
+        "contextWindow": 24000,
+        "vision": false,
+        "status": "production",
+        "description": "Llama 3.1 70B Instruct"
+      },
+      "@cf/meta/llama-3.1-8b-instruct-fast": {
+        "enumMember": "LLAMA_3_1_8B_FAST",
+        "contextWindow": 24000,
+        "vision": false,
+        "status": "production",
+        "description": "Llama 3.1 8B Instruct (fast)"
+      },
+      "@cf/meta/llama-3.2-11b-vision-instruct": {
+        "enumMember": "LLAMA_3_2_11B_VISION",
+        "contextWindow": 24000,
+        "vision": true,
+        "status": "production",
+        "description": "Llama 3.2 11B Vision Instruct"
+      },
+      "@cf/mistral/mistral-7b-instruct-v0.2": {
+        "enumMember": "MISTRAL_7B_INSTRUCT_V0_2",
+        "contextWindow": 32768,
+        "vision": false,
+        "status": "production",
+        "description": "Mistral 7B Instruct v0.2"
+      },
+      "@cf/qwen/qwen1.5-14b-chat-awq": {
+        "enumMember": "QWEN_1P5_14B_CHAT_AWQ",
+        "contextWindow": 7500,
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 1.5 14B Chat AWQ"
+      },
+      "@cf/google/gemma-2b-it-lora": {
+        "enumMember": "GEMMA_2B_IT_LORA",
+        "contextWindow": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "Gemma 2B IT (LoRA)"
+      }
+    },
+    "topModels": [
+      "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      "@cf/meta/llama-3.1-70b-instruct",
+      "@cf/meta/llama-3.1-8b-instruct-fast",
+      "@cf/meta/llama-3.2-11b-vision-instruct"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Invalid API key|Authentication",
+      "class": "authentication",
+      "message": "Invalid Cloudflare API key. Use a token with Workers AI Read+Write scope. Get one at https://dash.cloudflare.com/profile/api-tokens"
+    }
+  ],
+  "setup": {
+    "url": "https://dash.cloudflare.com/profile/api-tokens",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "description": "API token (Workers AI Read+Write scope)",
+    "instructions": [
+      "1. Visit: https://dash.cloudflare.com/profile/api-tokens",
+      "2. Create a token with 'Workers AI: Read + Write' scope",
+      "3. Set {apiKeyEnvVar} in your .env file",
+      "4. Also set CLOUDFLARE_ACCOUNT_ID (find it in the dashboard URL or under 'Account ID')"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-28",
+      "method": "transcribed from pre-migration TS catalog"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
+  }
+}

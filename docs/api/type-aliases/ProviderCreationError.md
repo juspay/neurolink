@@ -8,7 +8,7 @@
 
 > **ProviderCreationError** = `object`
 
-Defined in: [types/providers.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L902)
+Defined in: [types/providers.ts:904](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L904)
 
 Error types for provider creation
 
@@ -18,7 +18,7 @@ Error types for provider creation
 
 > **code**: `"INVALID_PROVIDER"` \| `"CONFIGURATION_ERROR"` \| `"INSTANTIATION_ERROR"`
 
-Defined in: [types/providers.ts:903](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L903)
+Defined in: [types/providers.ts:905](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L905)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:903](https://github.com/juspay/neurolink/blob/re
 
 > **message**: `string`
 
-Defined in: [types/providers.ts:904](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L904)
+Defined in: [types/providers.ts:906](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L906)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:904](https://github.com/juspay/neurolink/blob/re
 
 > **provider**: `string`
 
-Defined in: [types/providers.ts:905](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L905)
+Defined in: [types/providers.ts:907](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L907)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:905](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **details?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:906](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L906)
+Defined in: [types/providers.ts:908](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L908)

@@ -3,30 +3,45 @@
  * Provider Onboarding Completeness gate.
  *
  * For every AIProviderName member NOT in LEGACY_PROVIDERS (i.e. every
- * provider added after this gate existed), asserts the five required
- * onboarding artifacts landed together:
- *   1. A ProviderDescriptor entry (PROVIDER_DESCRIPTORS)
- *   2. Either an OpenAICompatCatalogEntry OR a concrete, registered
- *      provider class (catalog-or-class)
- *   3. A mocked-contract test section in
- *      test/continuous-test-suite-providers-mocked.ts — matched with
- *      comments stripped first (see isMockedSectionSatisfied in
- *      provider-onboarding-marker.ts), so a scaffold placeholder that only
- *      *describes* the marker in a comment does not satisfy this check.
- *   4. A manifest file at docs/provider-integration/manifests/<name>.json
- *      (with tier4Justification present when tier === 4)
- *   5. A capability entry in test/helpers/providerMatrix.ts — the file that
- *      test:matrix, test:providers and test/helpers/skipIf.ts all read. Its
- *      own header calls itself "the single source of truth for what each of
- *      NeuroLink's providers supports" and lists "add an entry" as step 1 of
- *      onboarding, but nothing enforced it: cerebras shipped in #1561 and the
- *      capability sweep simply did not cover it.
+ * provider added after this gate existed), asserts onboarding landed
+ * completely. The check branches on whether the provider is one of the
+ * JSON-catalog providers (src/lib/providers/catalog/<id>.json exists):
+ *
+ *   - Catalog providers: the JSON file exists and parses via the real
+ *     zod schema (parseProviderCatalogJson). evidence.rosterVerified and
+ *     evidence.addedInPR are non-optional fields in that schema, so a
+ *     successful parse already proves both are present — a failed parse
+ *     reports exactly which field is missing/malformed. This replaces the
+ *     hand-written-provider checks below entirely: a catalog JSON entry IS
+ *     the descriptor, the catalog-or-class row, (via the data-driven mocked
+ *     suite) the mocked-contract coverage, and (via the catalog spread in
+ *     providerMatrix.ts, which carries its own completeness guard) the
+ *     capability entry — so asserting them separately would just re-check
+ *     the same file.
+ *   - Every other (hand-written) provider: the five required onboarding
+ *     artifacts must land together:
+ *     1. A ProviderDescriptor entry (PROVIDER_DESCRIPTORS)
+ *     2. Either an OpenAICompatCatalogEntry OR a concrete, registered
+ *        provider class (catalog-or-class)
+ *     3. A mocked-contract test section in
+ *        test/continuous-test-suite-providers-mocked.ts — matched with
+ *        comments stripped first (see isMockedSectionSatisfied in
+ *        provider-onboarding-marker.ts), so a scaffold placeholder that
+ *        only *describes* the marker in a comment does not satisfy this
+ *        check.
+ *     4. A manifest file at docs/provider-integration/manifests/<name>.json
+ *        (with tier4Justification present when tier === 4)
+ *     5. A capability entry in test/helpers/providerMatrix.ts — the file
+ *        that test:matrix, test:providers and test/helpers/skipIf.ts all
+ *        read. Nothing enforced it before: cerebras shipped in #1561 and
+ *        the capability sweep simply did not cover it.
  *
  * Zero network I/O, zero API keys, source-only — does not require
  * `pnpm run build` first (see docs/provider-integration/tiers/README.md
- * and this repo's tools/README notes on why: PROVIDER_DESCRIPTORS and
- * OPENAI_COMPAT_CATALOG are pure-data modules, safe to import directly
- * from src/ via tsx's on-the-fly TS loader — the same mechanism
+ * and this repo's tools/README notes on why: PROVIDER_DESCRIPTORS,
+ * OPENAI_COMPAT_CATALOG, and the catalog JSON + zod schema are all
+ * pure-data modules, safe to import directly from src/ via tsx's
+ * on-the-fly TS loader — the same mechanism
  * src/lib/factories/providerRegistry.ts already relies on for every
  * provider's dynamic import).
  *
@@ -36,6 +51,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isMockedSectionSatisfied } from "./provider-onboarding-marker.js";
+import { parseProviderCatalogJson } from "../src/lib/providers/catalog/schema.js";
 
 const REPO_ROOT = process.cwd();
 
@@ -160,24 +176,29 @@ function loadProviderMatrixNames(): {
     };
   }
   const lines = src.split("\n");
-  const start = lines.findIndex((line) =>
-    /^export const PROVIDERS\b/.test(line),
-  );
+  // Reads PROVIDER_ROWS, the ordered tuple list `PROVIDERS` is built from —
+  // not `PROVIDERS` itself, which is now a one-line Object.fromEntries() with
+  // no literal keys to scan. Only hand-written (non-catalog) rows appear
+  // here as literals; catalog providers arrive via the spread at the end and
+  // are covered by that file's own completeness guard, and they never reach
+  // this check anyway (the catalog branch returns before it).
+  const start = lines.findIndex((line) => /^const PROVIDER_ROWS\b/.test(line));
   if (start === -1) {
     return {
       names: new Set(),
       readError:
-        "no `export const PROVIDERS` declaration in test/helpers/providerMatrix.ts",
+        "no `const PROVIDER_ROWS` declaration in test/helpers/providerMatrix.ts",
     };
   }
   const names = new Set<string>();
   for (let i = start + 1; i < lines.length; i += 1) {
-    // The record's own closing brace, at column 0. Entries are indented, so
+    // The array's own closing bracket, at column 0. Entries are indented, so
     // this cannot be one of them.
-    if (/^\};/.test(lines[i])) {
+    if (/^\];/.test(lines[i])) {
       return { names };
     }
-    const match = /^ {2}"?([a-zA-Z0-9_-]+)"?:\s*\{/.exec(lines[i]);
+    // A tuple's first element: `    "openai",` (4-space indented).
+    const match = /^ {4}"([a-zA-Z0-9_-]+)",$/.exec(lines[i]);
     if (match) {
       names.add(match[1]);
     }
@@ -185,7 +206,7 @@ function loadProviderMatrixNames(): {
   return {
     names: new Set(),
     readError:
-      "`export const PROVIDERS` in test/helpers/providerMatrix.ts is never closed at column 0",
+      "`const PROVIDER_ROWS` in test/helpers/providerMatrix.ts is never closed at column 0",
   };
 }
 
@@ -291,6 +312,51 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function catalogJsonPath(provider: string): string {
+  return join(REPO_ROOT, "src/lib/providers/catalog", `${provider}.json`);
+}
+
+type CatalogCheck = { ok: boolean; problem?: string };
+
+// evidence.rosterVerified and evidence.addedInPR are both non-optional
+// fields in providerCatalogJsonSchema (see src/lib/providers/catalog/
+// schema.ts), so a successful parseProviderCatalogJson call already proves
+// they're present — a missing/malformed one surfaces as a parse failure
+// naming that exact field, which is what problem below reports.
+function checkCatalogProvider(provider: string): CatalogCheck {
+  const path = catalogJsonPath(provider);
+  let raw: string;
+  try {
+    raw = readFileSync(path, "utf8");
+  } catch (err) {
+    return {
+      ok: false,
+      problem: `could not read catalog file: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    return {
+      ok: false,
+      problem: `catalog file is not valid JSON: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  try {
+    parseProviderCatalogJson(parsed, path);
+  } catch (err) {
+    return {
+      ok: false,
+      problem: err instanceof Error ? err.message : String(err),
+    };
+  }
+
+  return { ok: true };
+}
+
 type ManifestCheck = { manifest: ProviderManifest | null; problem?: string };
 
 function loadManifest(provider: string): ManifestCheck {
@@ -376,6 +442,15 @@ async function main(): Promise<void> {
   const results: CheckResult[] = [];
   for (const provider of [...enumMembers].sort()) {
     if (LEGACY_PROVIDERS.has(provider)) {
+      continue;
+    }
+    if (existsSync(catalogJsonPath(provider))) {
+      const { ok, problem } = checkCatalogProvider(provider);
+      results.push({
+        provider,
+        ok,
+        problems: ok ? [] : [problem ?? "catalog check failed"],
+      });
       continue;
     }
     const problems: string[] = [];

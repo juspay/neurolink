@@ -1,0 +1,244 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "mistral",
+  "displayName": "Mistral",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.mistral.ai/v1"
+  },
+  "models": {
+    "default": "mistral-small-2506",
+    "fallbackModelName": "mistral-small-2506",
+    "registryDefaultModel": "mistral-large-latest",
+    "fallbacks": ["mistral-small-2506", "mistral-large-latest"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "mistral-large-latest": {
+        "contextWindow": 256000,
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Large (Latest)"
+      },
+      "mistral-large-2512": {
+        "contextWindow": 256000,
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Large 2512"
+      },
+      "mistral-medium-latest": {
+        "contextWindow": 128000,
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Medium (Latest)"
+      },
+      "mistral-medium-2508": {
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Medium 2508"
+      },
+      "mistral-small-latest": {
+        "contextWindow": 128000,
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Small (Latest)"
+      },
+      "mistral-small-2506": {
+        "vision": true,
+        "status": "production",
+        "description": "Recommended - Mistral Small 2506"
+      },
+      "magistral-medium-latest": {
+        "contextWindow": 128000,
+        "vision": true,
+        "status": "production",
+        "description": "Magistral Medium (Reasoning)"
+      },
+      "magistral-small-latest": {
+        "vision": true,
+        "status": "production",
+        "description": "Magistral Small (Reasoning)"
+      },
+      "ministral-14b-2512": {
+        "enumMember": "MINISTRAL_14B_2512",
+        "vision": false,
+        "status": "production",
+        "description": "Ministral 14B (Edge)"
+      },
+      "ministral-8b-2512": {
+        "enumMember": "MINISTRAL_8B_2512",
+        "vision": false,
+        "status": "production",
+        "description": "Ministral 8B (Edge)"
+      },
+      "ministral-3b-2512": {
+        "enumMember": "MINISTRAL_3B_2512",
+        "vision": false,
+        "status": "production",
+        "description": "Ministral 3B (Edge)"
+      },
+      "codestral-latest": {
+        "contextWindow": 256000,
+        "vision": false,
+        "status": "production",
+        "description": "Codestral (Code Generation)"
+      },
+      "codestral-2508": {
+        "contextWindow": 256000,
+        "vision": false,
+        "status": "production",
+        "description": "Codestral 2508 (Code Generation)"
+      },
+      "codestral-embed": {
+        "vision": false,
+        "status": "production",
+        "description": "Codestral Embed"
+      },
+      "devstral-medium-latest": {
+        "vision": false,
+        "status": "production",
+        "description": "Devstral Medium (Software Development)"
+      },
+      "devstral-small-latest": {
+        "vision": false,
+        "status": "production",
+        "description": "Devstral Small (Software Development)"
+      },
+      "pixtral-large": {
+        "vision": true,
+        "status": "retired",
+        "description": "Retired 2026-05-31 — use mistral-medium-latest instead"
+      },
+      "pixtral-12b": {
+        "vision": true,
+        "status": "retired",
+        "description": "Retired 2025-12-31 — use ministral-14b-2512 instead"
+      },
+      "voxtral-small-latest": {
+        "vision": false,
+        "status": "production",
+        "description": "Voxtral Small (Audio)"
+      },
+      "voxtral-mini-latest": {
+        "vision": false,
+        "status": "production",
+        "description": "Voxtral Mini (Audio)"
+      },
+      "devstral-2512": {
+        "enumMember": "DEVSTRAL_2",
+        "contextWindow": 256000,
+        "vision": false,
+        "status": "production",
+        "description": "Devstral 2 (December 2025)"
+      },
+      "devstral-small-2512": {
+        "enumMember": "DEVSTRAL_SMALL_2",
+        "contextWindow": 256000,
+        "vision": false,
+        "status": "production",
+        "description": "Devstral Small 2 (December 2025)"
+      },
+      "magistral-medium-2509": {
+        "vision": true,
+        "status": "production",
+        "description": "Magistral Medium 2509"
+      },
+      "magistral-small-2509": {
+        "vision": true,
+        "status": "production",
+        "description": "Magistral Small 2509"
+      },
+      "voxtral-mini-2602": {
+        "enumMember": "VOXTRAL_MINI_TRANSCRIBE_2",
+        "vision": false,
+        "status": "production",
+        "description": "Voxtral Mini Transcribe 2 (February 2026)"
+      },
+      "mistral-ocr-2512": {
+        "enumMember": "MISTRAL_OCR_3",
+        "vision": false,
+        "status": "production",
+        "description": "Mistral OCR 3 (December 2025)"
+      },
+      "mistral-ocr-latest": {
+        "vision": false,
+        "status": "production",
+        "description": "Mistral OCR (Latest)"
+      },
+      "mistral-nemo": {
+        "vision": false,
+        "status": "production",
+        "description": "Mistral Nemo"
+      },
+      "mistral-embed": {
+        "vision": false,
+        "status": "production",
+        "description": "Mistral Embed"
+      },
+      "mistral-moderation-latest": {
+        "vision": false,
+        "status": "production",
+        "description": "Mistral Moderation (Latest)"
+      },
+      "mistral-small-2603": {
+        "enumMember": "MISTRAL_SMALL_4",
+        "contextWindow": 256000,
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Small 4 (June 2026)"
+      },
+      "mistral-small-creative": {
+        "vision": true,
+        "status": "production",
+        "description": "Mistral Small Creative"
+      }
+    },
+    "topModels": [
+      "mistral-large-latest",
+      "mistral-small-latest",
+      "codestral-latest",
+      "magistral-medium-latest",
+      "mistral-nemo"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "API_KEY_INVALID|Invalid API key|Unauthorized",
+      "class": "authentication",
+      "message": "Invalid Mistral API key. Please check your {apiKeyEnvVar} environment variable."
+    }
+  ],
+  "quirks": {
+    "registryDefaultIgnoresModelEnvVar": true
+  },
+  "setup": {
+    "url": "https://console.mistral.ai/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://console.mistral.ai/",
+      "2. Create or sign in to your account",
+      "3. Generate a new API key"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-28",
+      "method": "transcribed from pre-migration TS catalog"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
+  }
+}

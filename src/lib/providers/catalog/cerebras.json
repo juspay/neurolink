@@ -1,0 +1,75 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "cerebras",
+  "displayName": "Cerebras",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.cerebras.ai/v1"
+  },
+  "models": {
+    "default": "gpt-oss-120b",
+    "fallbacks": ["gpt-oss-120b", "gemma-4-31b"],
+    "defaultContextWindow": 65536,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "gpt-oss-120b": {
+        "contextWindow": 65536,
+        "pricingPerMTok": { "input": 0.35, "output": 0.75 },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - OpenAI GPT-OSS 120B (open-weight); wafer-scale speed"
+      },
+      "gemma-4-31b": {
+        "contextWindow": 65536,
+        "pricingPerMTok": { "input": 0.99, "output": 1.49 },
+        "vision": false,
+        "status": "production",
+        "description": "Google Gemma 4 31B"
+      }
+    },
+    "topModels": ["gpt-oss-120b", "gemma-4-31b"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "wrong_api_key|Wrong API Key|invalid_api_key",
+      "class": "authentication",
+      "message": "Invalid Cerebras API key. Check {apiKeyEnvVar}. Get one at https://cloud.cerebras.ai"
+    }
+  ],
+  "setup": {
+    "url": "https://cloud.cerebras.ai",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://cloud.cerebras.ai",
+      "2. Sign in or create a free Cerebras account",
+      "3. Create an API key under API Keys",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-27",
+      "method": "authenticated GET /v1/models"
+    },
+    "authProbe": {
+      "date": "2026-08-26",
+      "status": 401,
+      "code": "wrong_api_key"
+    },
+    "liveMatrix": { "date": "2026-08-27", "result": "4/4" },
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1561"
+  }
+}

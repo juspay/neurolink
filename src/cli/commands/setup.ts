@@ -30,26 +30,22 @@ import type {
 import type { AIProviderName } from "../../lib/constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "../../lib/factories/providerDescriptors.js";
 import {
-  createCloudflareConfig,
   createCohereConfig,
   createDeepSeekConfig,
-  createFireworksConfig,
-  createCerebrasConfig,
-  createSambanovaConfig,
-  createGroqConfig,
   createIdeogramConfig,
   createJinaConfig,
   createNvidiaNimConfig,
   createOpenAICompatibleConfig,
-  createPerplexityConfig,
   createRecraftConfig,
   createReplicateConfig,
   createStabilityConfig,
-  createTogetherAIConfig,
   createVoyageConfig,
-  createXaiConfig,
   satisfiesFallbacks,
 } from "../../lib/utils/providerConfig.js";
+import {
+  getCatalogJsonEntries,
+  buildCatalogConfigOptions,
+} from "../../lib/providers/catalog/loader.js";
 
 // Provider information database
 const PROVIDERS: SetupProviderInfo[] = [
@@ -174,33 +170,35 @@ const PROVIDERS: SetupProviderInfo[] = [
 
 /**
  * ProviderConfigOptions for the 21 canonical AIProviderName values the
- * interactive wizard above doesn't have a bespoke handleXSetup() for. 16
- * reuse the existing createXConfig() factories in providerConfig.ts; the
- * remaining 5 (ollama, litellm, sagemaker, lm-studio, llamacpp) don't have a
- * factory and are defined inline using their real env var names. lm-studio
- * and llamacpp previously had createLmStudioConfig()/createLlamaCppConfig()
- * factories, but those were removed as dead code in a later cleanup — this
- * mirrors that removal rather than re-adding them.
+ * interactive wizard above doesn't have a bespoke handleXSetup() for. 8 are
+ * the JSON-catalog providers (cerebras, cloudflare, fireworks, groq,
+ * perplexity, sambanova, together-ai, xai — mistral is the 9th catalog
+ * provider but keeps its own handleMistralSetup() flow above, so it's
+ * excluded here), spread directly from the catalog JSON via
+ * buildCatalogConfigOptions(). 10 more reuse the existing createXConfig()
+ * factories in providerConfig.ts; the remaining 5 (ollama, litellm,
+ * sagemaker, lm-studio, llamacpp) don't have a factory and are defined
+ * inline using their real env var names. lm-studio and llamacpp previously
+ * had createLmStudioConfig()/createLlamaCppConfig() factories, but those
+ * were removed as dead code in a later cleanup — this mirrors that removal
+ * rather than re-adding them.
  */
 export const EXTRA_PROVIDER_CONFIGS: Record<string, ProviderConfigOptions> = {
   "openai-compatible": createOpenAICompatibleConfig(),
   deepseek: createDeepSeekConfig(),
   "nvidia-nim": createNvidiaNimConfig(),
-  xai: createXaiConfig(),
-  groq: createGroqConfig(),
-  cerebras: createCerebrasConfig(),
-  sambanova: createSambanovaConfig(),
   cohere: createCohereConfig(),
   replicate: createReplicateConfig(),
-  "together-ai": createTogetherAIConfig(),
-  fireworks: createFireworksConfig(),
-  perplexity: createPerplexityConfig(),
   voyage: createVoyageConfig(),
   jina: createJinaConfig(),
   stability: createStabilityConfig(),
   ideogram: createIdeogramConfig(),
   recraft: createRecraftConfig(),
-  cloudflare: createCloudflareConfig(),
+  ...Object.fromEntries(
+    getCatalogJsonEntries()
+      .filter((e) => e.id !== "mistral")
+      .map((e) => [e.id, buildCatalogConfigOptions(e)]),
+  ),
   ollama: {
     providerName: "Ollama",
     envVarName: "OLLAMA_BASE_URL",

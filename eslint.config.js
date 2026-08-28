@@ -487,6 +487,11 @@ export default [
             "test/continuous-test-suite-skills.ts",
             "test/continuous-test-suite-tool-dedup.ts",
             "test/continuous-test-suite-voice.ts",
+            // Matrix rows for catalog providers derive from the built
+            // catalog JSON — an exact-data enumeration no live call can
+            // produce; the deep dist import keeps the helper on the same
+            // module graph as the dist-importing suites that consume it.
+            "test/helpers/providerMatrix.ts",
           ],
         },
       ],

@@ -11,15 +11,7 @@ import {
   DeepSeekModels,
   NvidiaNimModels,
   OpenRouterModels,
-  XaiModels,
-  GroqModels,
-  CerebrasModels,
-  SambanovaModels,
   CohereModels,
-  TogetherAIModels,
-  FireworksModels,
-  PerplexityModels,
-  CloudflareModels,
   VoyageModels,
   JinaModels,
   StabilityModels,
@@ -28,16 +20,27 @@ import {
   ReplicateModels,
 } from "../constants/enums.js";
 import { API_KEY_FORMATS } from "../utils/providerConfig.js";
-import type { ProviderDescriptor } from "../types/index.js";
+import {
+  getCatalogJsonEntries,
+  catalogCredentialsKey,
+  catalogEnvVar,
+} from "../providers/catalog/loader.js";
+import type {
+  ProviderDescriptor,
+  ProviderCatalogJson,
+} from "../types/index.js";
 
 /**
- * Single source of truth for provider identity, credentials, defaults, and
- * runtime behavior classification. Pure data — no provider-class imports,
- * no dynamic import(), no side effects beyond building the two derived
- * lookup maps below. Order follows the AIProviderName enum declaration
- * order (enums.ts:8-40) so this file stays easy to diff against it.
+ * Hand-maintained provider identity, credentials, defaults, and runtime
+ * behavior classification for every provider EXCEPT the 8 JSON-catalog
+ * providers derived by buildCatalogDescriptors() below (see
+ * PROVIDER_DESCRIPTORS's own doc for why Mistral, a 9th catalog provider,
+ * stays here too). Pure data — no provider-class imports, no dynamic
+ * import(), no side effects beyond building the two derived lookup maps
+ * below. Order follows the AIProviderName enum declaration order
+ * (enums.ts:8-40) so this file stays easy to diff against it.
  */
-export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
+const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
   {
     name: AIProviderName.BEDROCK,
     defaultHealthSweepPriority: 5,
@@ -383,66 +386,6 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     setupUrl: "https://github.com/ggerganov/llama.cpp",
   },
   {
-    name: AIProviderName.XAI,
-    aliases: ["grok"],
-    credentialsKey: "xai",
-    envVars: {
-      apiKey: "XAI_API_KEY",
-      baseURL: "XAI_BASE_URL",
-      model: "XAI_MODEL",
-    },
-    defaultModel: XaiModels.GROK_3,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://console.x.ai/",
-  },
-  {
-    name: AIProviderName.SAMBANOVA,
-    aliases: [],
-    credentialsKey: "sambanova",
-    envVars: {
-      apiKey: "SAMBANOVA_API_KEY",
-      baseURL: "SAMBANOVA_BASE_URL",
-      model: "SAMBANOVA_MODEL",
-    },
-    defaultModel: SambanovaModels.META_LLAMA_3_3_70B_INSTRUCT,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://cloud.sambanova.ai/apis",
-  },
-  {
-    name: AIProviderName.CEREBRAS,
-    aliases: [],
-    credentialsKey: "cerebras",
-    envVars: {
-      apiKey: "CEREBRAS_API_KEY",
-      baseURL: "CEREBRAS_BASE_URL",
-      model: "CEREBRAS_MODEL",
-    },
-    defaultModel: CerebrasModels.GPT_OSS_120B,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://cloud.cerebras.ai",
-  },
-  {
-    name: AIProviderName.GROQ,
-    aliases: [],
-    credentialsKey: "groq",
-    envVars: {
-      apiKey: "GROQ_API_KEY",
-      baseURL: "GROQ_BASE_URL",
-      model: "GROQ_MODEL",
-    },
-    defaultModel: GroqModels.LLAMA_3_3_70B_VERSATILE,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://console.groq.com/keys",
-  },
-  {
     name: AIProviderName.COHERE,
     aliases: [],
     credentialsKey: "cohere",
@@ -456,66 +399,6 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     localRuntime: false,
     healthCheck: "env-only",
     setupUrl: "https://dashboard.cohere.com/api-keys",
-  },
-  {
-    name: AIProviderName.TOGETHER_AI,
-    aliases: ["together"],
-    credentialsKey: "together",
-    envVars: {
-      apiKey: "TOGETHER_API_KEY",
-      baseURL: "TOGETHER_BASE_URL",
-      model: "TOGETHER_MODEL",
-    },
-    defaultModel: TogetherAIModels.LLAMA_3_3_70B_INSTRUCT_TURBO,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://api.together.xyz/settings/api-keys",
-  },
-  {
-    name: AIProviderName.FIREWORKS,
-    aliases: [],
-    credentialsKey: "fireworks",
-    envVars: {
-      apiKey: "FIREWORKS_API_KEY",
-      baseURL: "FIREWORKS_BASE_URL",
-      model: "FIREWORKS_MODEL",
-    },
-    defaultModel: FireworksModels.DEEPSEEK_V4_PRO,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://fireworks.ai/account/api-keys",
-  },
-  {
-    name: AIProviderName.PERPLEXITY,
-    aliases: ["pplx"],
-    credentialsKey: "perplexity",
-    envVars: {
-      apiKey: "PERPLEXITY_API_KEY",
-      baseURL: "PERPLEXITY_BASE_URL",
-      model: "PERPLEXITY_MODEL",
-    },
-    defaultModel: PerplexityModels.SONAR,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://www.perplexity.ai/settings/api",
-  },
-  {
-    name: AIProviderName.CLOUDFLARE,
-    aliases: ["workers-ai", "cf-ai"],
-    credentialsKey: "cloudflare",
-    envVars: {
-      apiKey: "CLOUDFLARE_API_KEY",
-      extraRequired: ["CLOUDFLARE_ACCOUNT_ID"],
-      model: "CLOUDFLARE_MODEL",
-    },
-    defaultModel: CloudflareModels.LLAMA_3_3_70B_FAST,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://dash.cloudflare.com/profile/api-tokens",
   },
   {
     name: AIProviderName.REPLICATE,
@@ -607,6 +490,87 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     healthCheck: "env-only",
     setupUrl: "https://www.recraft.ai/api",
   },
+];
+
+/**
+ * Builds ProviderDescriptor entries for 8 of the 9 JSON-catalog providers —
+ * cerebras, cloudflare, fireworks, groq, perplexity, sambanova, together-ai,
+ * xai. Every field is derived from the catalog JSON
+ * (src/lib/providers/catalog/<id>.json), never hand-typed.
+ *
+ * Mistral is the 9th catalog provider but is deliberately excluded here and
+ * stays in HAND_DESCRIPTORS above: its JSON setup.url
+ * ("https://console.mistral.ai/") diverges from the long-shipped descriptor
+ * setupUrl ("https://console.mistral.ai/api-keys" — a real value conflict,
+ * not missing enrichment), its envVars has no `model` key the JSON would
+ * otherwise add, and it carries 3 fields (timeouts, autoSelectPriority,
+ * apiKeyFormatPattern) no JSON field produces. Deriving it would either
+ * silently change setupUrl or require as many per-field overrides as the
+ * hand entry itself — so it is left alone.
+ */
+function buildCatalogDescriptor(
+  entry: ProviderCatalogJson,
+): ProviderDescriptor {
+  // Cloudflare is the only catalog provider whose wire config is a
+  // baseURLTemplate + extra credential (accountId) rather than a plain
+  // baseURL env var — mirrors loader.ts's buildCatalogEntries()
+  // computedBaseURL.envVar formula exactly. Duplicated intentionally, the
+  // same way loader.ts itself duplicates toCamelCase from
+  // tools/codegen-catalog.ts (src/ must not import from tools/).
+  const envVars: ProviderDescriptor["envVars"] = entry.wire.baseURLTemplate
+    ? {
+        apiKey: catalogEnvVar(entry, "apiKey"),
+        extraRequired: [
+          `${entry.id.toUpperCase().replace(/-/g, "_")}_${(
+            entry.wire.extraCredentials?.[0] ?? "accountId"
+          )
+            .replace(/([A-Z])/g, "_$1")
+            .toUpperCase()}`,
+        ],
+        model: catalogEnvVar(entry, "model"),
+      }
+    : {
+        apiKey: catalogEnvVar(entry, "apiKey"),
+        baseURL: catalogEnvVar(entry, "baseURL"),
+        model: catalogEnvVar(entry, "model"),
+      };
+  return {
+    name: entry.id as AIProviderName,
+    aliases: entry.aliases,
+    credentialsKey: catalogCredentialsKey(
+      entry,
+    ) as ProviderDescriptor["credentialsKey"],
+    envVars,
+    defaultModel: entry.models.default,
+    // All 9 catalog providers currently have capabilities.tools: true, so
+    // this is runtime-identical today either way. "none" (not an invented
+    // literal — it's the union's own no-tool-support member, the same one
+    // REPLICATE/VOYAGE/JINA/STABILITY/IDEOGRAM/RECRAFT use above) is the
+    // correct false-branch if a future catalog provider ships tools: false.
+    toolSupport: entry.capabilities.tools ? "native" : "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    setupUrl: entry.setup.url,
+    ...(entry.setup.apiKeyFormat
+      ? { apiKeyFormatPattern: new RegExp(entry.setup.apiKeyFormat) }
+      : {}),
+  };
+}
+
+function buildCatalogDescriptors(): ProviderDescriptor[] {
+  return getCatalogJsonEntries()
+    .filter((entry) => entry.id !== "mistral")
+    .map(buildCatalogDescriptor);
+}
+
+/**
+ * Single source of truth for provider identity, credentials, defaults, and
+ * runtime behavior classification — the hand-maintained providers plus the
+ * 8 JSON-catalog providers derived above.
+ */
+export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
+  ...HAND_DESCRIPTORS,
+  ...buildCatalogDescriptors(),
 ];
 
 /** O(1) canonical-name → descriptor lookup. */

@@ -10,10 +10,21 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import {
+  getCatalogJsonEntries,
+  catalogEnvVar,
+} from "../../src/lib/providers/catalog/loader.js";
+import { CATALOG_PROVIDER_IDS } from "../../src/lib/providers/catalog/index.generated.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT_DIR = join(__dirname, "../..");
+
+// Every provider registered through the JSON catalog (providerRegistry.ts's
+// OPENAI_COMPAT_CATALOG loop, backed by ConfiguredOpenAICompatProvider) —
+// no external SDK module to check, and its API-key env var is defined by
+// its own JSON entry rather than hand-listed here.
+const CATALOG_PROVIDER_ID_SET = new Set<string>(CATALOG_PROVIDER_IDS);
 
 // Local to this validation script: distinct from src/lib/types' provider
 // health-check types (e.g. ProviderHealthStatusOptions), which use a
@@ -78,10 +89,10 @@ class ProviderValidator {
       "azure",
       "huggingface",
       "ollama",
-      "mistral",
-      "groq",
-      "cerebras",
-      "sambanova",
+      // The 9 JSON-catalog providers (cerebras, cloudflare, fireworks, groq,
+      // mistral, perplexity, sambanova, together-ai, xai) — derived so a new
+      // catalog entry is picked up here automatically.
+      ...CATALOG_PROVIDER_IDS,
     ];
 
     this.results = {
@@ -267,10 +278,15 @@ class ProviderValidator {
       azure: "AZURE_OPENAI_API_KEY",
       huggingface: "HUGGINGFACE_API_KEY",
       ollama: "OLLAMA_HOST",
-      mistral: "MISTRAL_API_KEY",
-      groq: "GROQ_API_KEY",
-      cerebras: "CEREBRAS_API_KEY",
-      sambanova: "SAMBANOVA_API_KEY",
+      // Catalog providers' env var names come from their own JSON entry
+      // (respects per-entry envOverrides, e.g. together-ai's
+      // TOGETHER_API_KEY) instead of being hand-guessed here.
+      ...Object.fromEntries(
+        getCatalogJsonEntries().map((entry) => [
+          entry.id,
+          catalogEnvVar(entry, "apiKey"),
+        ]),
+      ),
     };
 
     const envKey = keyMappings[provider];
@@ -288,16 +304,15 @@ class ProviderValidator {
       "aws-bedrock": "@aws-sdk/client-bedrock",
       azure: "@ai-sdk/openai",
       ollama: "ollama",
-      mistral: "@ai-sdk/mistral",
-      groq: "groq-sdk",
     };
 
-    // Catalog-driven OpenAI-compatible providers (ConfiguredOpenAICompat)
-    // use the in-repo wire client — no external SDK module to check.
-    const catalogBuiltIn = new Set(["cerebras", "sambanova"]);
-
     try {
-      if (catalogBuiltIn.has(provider)) {
+      // All 9 JSON-catalog providers (mistral and groq included — they no
+      // longer use @ai-sdk/mistral / groq-sdk, see providerRegistry.ts's
+      // OPENAI_COMPAT_CATALOG loop) share the in-repo
+      // ConfiguredOpenAICompatProvider wire client, so there is no external
+      // SDK module to resolve.
+      if (CATALOG_PROVIDER_ID_SET.has(provider)) {
         return true;
       }
       const moduleName = moduleMap[provider];
@@ -352,6 +367,17 @@ class ProviderValidator {
     // For now, we'll do basic connectivity tests
     // In a real implementation, this would make actual API calls
 
+    // Catalog providers all follow the same "<id>_connectivity" naming
+    // (hyphens normalized to underscores, matching the aws-bedrock ->
+    // aws_bedrock_connectivity convention below) — derived rather than
+    // hand-listed so a new catalog entry needs no case added here.
+    if (CATALOG_PROVIDER_ID_SET.has(provider)) {
+      return {
+        test: `${provider.replace(/-/g, "_")}_connectivity`,
+        status: "simulated",
+      };
+    }
+
     switch (provider) {
       case "openai":
         return { test: "openai_connectivity", status: "simulated" };
@@ -367,14 +393,6 @@ class ProviderValidator {
         return { test: "huggingface_connectivity", status: "simulated" };
       case "ollama":
         return { test: "ollama_connectivity", status: "simulated" };
-      case "mistral":
-        return { test: "mistral_connectivity", status: "simulated" };
-      case "groq":
-        return { test: "groq_connectivity", status: "simulated" };
-      case "cerebras":
-        return { test: "cerebras_connectivity", status: "simulated" };
-      case "sambanova":
-        return { test: "sambanova_connectivity", status: "simulated" };
       default:
         throw new Error(`Unknown provider: ${provider}`);
     }

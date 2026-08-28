@@ -8,7 +8,7 @@
 
 > **GoogleLiveAudioQueueItem** = \{ `type`: `"audio"`; `audio`: [`AudioChunk`](AudioChunk.md); \} \| \{ `type`: `"end"`; \} \| \{ `type`: `"error"`; `error`: `unknown`; \}
 
-Defined in: [types/providers.ts:2342](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2342)
+Defined in: [types/providers.ts:2344](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2344)
 
 Event pushed through the Google AI Studio voice session's internal queue
 while audio chunks stream back from the Gemini Live API.

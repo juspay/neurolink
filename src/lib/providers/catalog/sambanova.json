@@ -1,0 +1,129 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "sambanova",
+  "displayName": "SambaNova",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.sambanova.ai/v1"
+  },
+  "models": {
+    "default": "Meta-Llama-3.3-70B-Instruct",
+    "visionModel": "gemma-4-31B-it",
+    "fallbacks": ["Meta-Llama-3.3-70B-Instruct", "gpt-oss-120b"],
+    "defaultContextWindow": 131072,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "Meta-Llama-3.3-70B-Instruct": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 0.6, "output": 1.2 },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Meta Llama 3.3 70B; production, 128K context"
+      },
+      "gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 0.22, "output": 0.59 },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI GPT-OSS 120B (open-weight)"
+      },
+      "DeepSeek-V3.1": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 3, "output": 4.5 },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V3.1 (reasoning)"
+      },
+      "DeepSeek-V3.2": {
+        "contextWindow": 32768,
+        "pricingPerMTok": { "input": 3, "output": 4.5 },
+        "vision": false,
+        "status": "preview",
+        "description": "DeepSeek V3.2 (reasoning; vendor preview, 32K context)"
+      },
+      "MiniMax-M2.7": {
+        "contextWindow": 196608,
+        "pricingPerMTok": { "input": 0.6, "output": 2.4, "cachedInput": 0.06 },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M2.7, 192K context"
+      },
+      "MiniMax-M3": {
+        "pricingPerMTok": { "input": 0.6, "output": 2.4 },
+        "vision": true,
+        "status": "production",
+        "description": "MiniMax M3 (vision)"
+      },
+      "gemma-4-31B-it": {
+        "contextWindow": 131072,
+        "pricingPerMTok": { "input": 0.38, "output": 1.15 },
+        "vision": true,
+        "status": "preview",
+        "description": "Google Gemma 4 31B IT (vision; vendor preview)"
+      }
+    },
+    "topModels": [
+      "Meta-Llama-3.3-70B-Instruct",
+      "gpt-oss-120b",
+      "DeepSeek-V3.1",
+      "DeepSeek-V3.2",
+      "MiniMax-M2.7",
+      "MiniMax-M3",
+      "gemma-4-31B-it"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid_api_key|Incorrect API key|authentication_error",
+      "class": "authentication",
+      "message": "Invalid SambaNova API key. Check {apiKeyEnvVar}. Get one at https://cloud.sambanova.ai/apis"
+    },
+    {
+      "status": 402,
+      "pattern": "PAYMENT_METHOD_REQUIRED|balance_units",
+      "class": "provider",
+      "message": "SambaNova account has no credits (new accounts have no free allowance). Add a payment method and purchase credits at https://cloud.sambanova.ai/plans/billing"
+    }
+  ],
+  "setup": {
+    "url": "https://cloud.sambanova.ai/apis",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://cloud.sambanova.ai (Google/Microsoft OAuth works)",
+      "2. Complete the profile step; note new accounts have NO free allowance — a payment method and purchased credits are required before calls succeed",
+      "3. Create an API key under API Keys",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-27",
+      "method": "authenticated GET /v1/models"
+    },
+    "authProbe": {
+      "date": "2026-08-27",
+      "status": 401,
+      "code": "invalid_api_key"
+    },
+    "billingProbe": {
+      "date": "2026-08-27",
+      "status": 402,
+      "code": "PAYMENT_METHOD_REQUIRED"
+    },
+    "liveMatrix": { "date": "2026-08-28", "result": "5/5" },
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1586"
+  }
+}

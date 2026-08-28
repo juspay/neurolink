@@ -8,7 +8,7 @@
 
 > **VertexAnthropicCacheControl** = `object`
 
-Defined in: [types/providers.ts:2436](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2436)
+Defined in: [types/providers.ts:2438](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2438)
 
 Anthropic ephemeral prompt-cache breakpoint marker. Placed on a content
 block / tool / system block to make the rendered prefix up to that point a
@@ -21,4 +21,4 @@ are the only way the conversation prefix is cached across turns.
 
 > **type**: `"ephemeral"`
 
-Defined in: [types/providers.ts:2436](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2436)
+Defined in: [types/providers.ts:2438](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2438)

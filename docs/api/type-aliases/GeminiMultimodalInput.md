@@ -8,7 +8,7 @@
 
 > **GeminiMultimodalInput** = `object`
 
-Defined in: [types/providers.ts:2382](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2382)
+Defined in: [types/providers.ts:2384](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2384)
 
 Subset of `GenerateOptions["input"]` consumed by the shared Gemini-native
 multimodal-parts builder. Kept narrow so the helper doesn't depend on the
@@ -22,7 +22,7 @@ value SDK callers pass in (plain Buffer/string or `ImageWithAltText`).
 
 > `optional` **text?**: `string`
 
-Defined in: [types/providers.ts:2383](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2383)
+Defined in: [types/providers.ts:2385](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2385)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:2383](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **pdfFiles?**: (`Buffer` \| `string`)[]
 
-Defined in: [types/providers.ts:2384](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2384)
+Defined in: [types/providers.ts:2386](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2386)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:2384](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **images?**: (`Buffer` \| `string` \| \{ `data`: `Buffer` \| `string`; `altText?`: `string`; \})[]
 
-Defined in: [types/providers.ts:2385](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2385)
+Defined in: [types/providers.ts:2387](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2387)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:2385](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **nativeAudioFiles?**: [`MultimodalAudioEntry`](MultimodalAudioEntry.md)[]
 
-Defined in: [types/providers.ts:2391](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2391)
+Defined in: [types/providers.ts:2393](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2393)
 
 Audio collected during file detection, carried through to the native
 request as `inlineData`. Distinct from the user-facing `audioFiles`: these
