@@ -95,3 +95,30 @@ alone and return false.
 #### Returns
 
 `Promise`\<`boolean`\>
+
+---
+
+### postApplyNote?
+
+> `optional` **postApplyNote?**: (`proxyBaseUrl`) => `Promise`\<`string` \| `null`\>
+
+Defined in: [types/proxyClient.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L43)
+
+Something the user must still do for apply() to take effect.
+
+Writing a file is not the same as being in effect. Copilot reads its
+provider settings from the environment only, so its configurator writes a
+script the user has to source; until they do, the proxy reports a green
+check for a file nothing reads. Returning a string here lets a client say
+"written, but not yet live, and here is the one line that fixes it".
+Return null when nothing is outstanding.
+
+#### Parameters
+
+##### proxyBaseUrl
+
+`string`
+
+#### Returns
+
+`Promise`\<`string` \| `null`\>

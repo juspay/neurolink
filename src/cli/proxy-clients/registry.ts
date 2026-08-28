@@ -44,7 +44,33 @@ export async function applyAllClients(
       const applied = (await client.detect())
         ? await client.apply(proxyBaseUrl)
         : false;
-      results.push({ id: client.id, displayName: client.displayName, applied });
+      // Only ask for a note when something was actually written: a note on a
+      // client that was skipped would read as an instruction to act on a
+      // configuration that does not exist.
+      //
+      // Computed in its own try, outside apply()'s. A note is advisory; a
+      // throwing implementation must not be able to turn a successful write
+      // into `applied: false` and an error the caller reports as a failed
+      // configuration. Dormant today only because the one implementation
+      // swallows its own errors, which is not a property to rely on.
+      let note: string | null = null;
+      if (applied) {
+        try {
+          note = (await client.postApplyNote?.(proxyBaseUrl)) ?? null;
+        } catch (noteError) {
+          logger.debug(
+            `[proxy] ${client.id} post-apply note failed: ${
+              noteError instanceof Error ? noteError.message : String(noteError)
+            }`,
+          );
+        }
+      }
+      results.push({
+        id: client.id,
+        displayName: client.displayName,
+        applied,
+        ...(note === null ? {} : { note }),
+      });
     } catch (error) {
       const wrapped = error instanceof Error ? error : new Error(String(error));
       // The result already carries the id, but a caller is free to ignore it.

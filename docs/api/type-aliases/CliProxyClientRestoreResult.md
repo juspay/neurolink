@@ -8,7 +8,7 @@
 
 > **CliProxyClientRestoreResult** = `object`
 
-Defined in: [types/proxyClient.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L46)
+Defined in: [types/proxyClient.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L63)
 
 Outcome of restoring one configurator.
 
@@ -18,7 +18,7 @@ Outcome of restoring one configurator.
 
 > **id**: `string`
 
-Defined in: [types/proxyClient.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L47)
+Defined in: [types/proxyClient.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L64)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxyClient.ts:47](https://github.com/juspay/neurolink/blob/r
 
 > **displayName**: `string`
 
-Defined in: [types/proxyClient.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L48)
+Defined in: [types/proxyClient.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L65)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxyClient.ts:48](https://github.com/juspay/neurolink/blob/r
 
 > **restored**: `boolean`
 
-Defined in: [types/proxyClient.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L50)
+Defined in: [types/proxyClient.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L67)
 
 True only when a previous configuration was actually restored.
 
@@ -44,4 +44,4 @@ True only when a previous configuration was actually restored.
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/proxyClient.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L51)
+Defined in: [types/proxyClient.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L68)

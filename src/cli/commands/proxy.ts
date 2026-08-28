@@ -3334,6 +3334,12 @@ async function startProxyRuntime(params: {
         logger.always(
           chalk.green(`  ✓ Auto-configured ${result.displayName} settings`),
         );
+        if (result.note) {
+          // A written file is not the same as a live configuration. Printing
+          // the check without this reads as "done" for a client that is still
+          // talking to its own upstream.
+          logger.always(chalk.yellow(`    ↳ ${result.note}`));
+        }
         logger.always(
           chalk.dim(
             `    Restart ${result.displayName} to connect through proxy`,
@@ -5278,6 +5284,9 @@ export const proxySetupCommand: CommandModule = {
         }
         if (result.applied) {
           console.info(chalk.green(`  ✓ ${result.displayName} configured`));
+          if (result.note) {
+            console.info(chalk.yellow(`    ↳ ${result.note}`));
+          }
         }
       }
 

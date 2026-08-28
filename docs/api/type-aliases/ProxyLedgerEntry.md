@@ -8,7 +8,7 @@
 
 > **ProxyLedgerEntry** = `object`
 
-Defined in: [types/proxyClient.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L175)
+Defined in: [types/proxyClient.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L192)
 
 One request as recorded in the proxy request log, reduced to what costing needs.
 
@@ -18,7 +18,7 @@ One request as recorded in the proxy request log, reduced to what costing needs.
 
 > **account**: `string`
 
-Defined in: [types/proxyClient.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L176)
+Defined in: [types/proxyClient.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L193)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxyClient.ts:176](https://github.com/juspay/neurolink/blob/
 
 > **clientApp**: `string`
 
-Defined in: [types/proxyClient.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L178)
+Defined in: [types/proxyClient.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L195)
 
 Derived calling CLI; see CliAccountUsageTotals.byClient.
 
@@ -36,7 +36,7 @@ Derived calling CLI; see CliAccountUsageTotals.byClient.
 
 > **accountType**: `string`
 
-Defined in: [types/proxyClient.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L179)
+Defined in: [types/proxyClient.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L196)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/proxyClient.ts:179](https://github.com/juspay/neurolink/blob/
 
 > **model**: `string`
 
-Defined in: [types/proxyClient.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L180)
+Defined in: [types/proxyClient.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L197)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/proxyClient.ts:180](https://github.com/juspay/neurolink/blob/
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/proxyClient.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L181)
+Defined in: [types/proxyClient.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L198)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/proxyClient.ts:181](https://github.com/juspay/neurolink/blob/
 
 > **inputTokens**: `number`
 
-Defined in: [types/proxyClient.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L182)
+Defined in: [types/proxyClient.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L199)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/proxyClient.ts:182](https://github.com/juspay/neurolink/blob/
 
 > **outputTokens**: `number`
 
-Defined in: [types/proxyClient.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L183)
+Defined in: [types/proxyClient.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L200)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/proxyClient.ts:183](https://github.com/juspay/neurolink/blob/
 
 > **cacheReadTokens**: `number`
 
-Defined in: [types/proxyClient.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L184)
+Defined in: [types/proxyClient.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L201)
 
 ---
 
@@ -84,4 +84,4 @@ Defined in: [types/proxyClient.ts:184](https://github.com/juspay/neurolink/blob/
 
 > **cacheCreationTokens**: `number`
 
-Defined in: [types/proxyClient.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L185)
+Defined in: [types/proxyClient.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L202)

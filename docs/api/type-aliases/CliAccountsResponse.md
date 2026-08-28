@@ -8,7 +8,7 @@
 
 > **CliAccountsResponse** = `object`
 
-Defined in: [types/proxyClient.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L160)
+Defined in: [types/proxyClient.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L177)
 
 Response body of GET /accounts.
 
@@ -18,7 +18,7 @@ Response body of GET /accounts.
 
 > **generatedAt**: `number`
 
-Defined in: [types/proxyClient.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L161)
+Defined in: [types/proxyClient.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L178)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxyClient.ts:161](https://github.com/juspay/neurolink/blob/
 
 > **usageDate**: `string`
 
-Defined in: [types/proxyClient.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L163)
+Defined in: [types/proxyClient.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L180)
 
 UTC date whose request log the usage totals cover.
 
@@ -36,7 +36,7 @@ UTC date whose request log the usage totals cover.
 
 > **quotaFromSnapshot**: `boolean`
 
-Defined in: [types/proxyClient.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L165)
+Defined in: [types/proxyClient.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L182)
 
 True when quota came from the stored snapshot rather than a live fetch.
 
@@ -46,7 +46,7 @@ True when quota came from the stored snapshot rather than a live fetch.
 
 > **usageError**: `string` \| `null`
 
-Defined in: [types/proxyClient.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L167)
+Defined in: [types/proxyClient.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L184)
 
 Set when the usage totals could not be read at all.
 
@@ -56,7 +56,7 @@ Set when the usage totals could not be read at all.
 
 > **quotaError**: `string` \| `null`
 
-Defined in: [types/proxyClient.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L169)
+Defined in: [types/proxyClient.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L186)
 
 Set when the quota snapshot could not be read; rows still carry status.
 
@@ -66,7 +66,7 @@ Set when the quota snapshot could not be read; rows still carry status.
 
 > **costBasis**: `"api-equivalent"`
 
-Defined in: [types/proxyClient.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L170)
+Defined in: [types/proxyClient.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L187)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/proxyClient.ts:170](https://github.com/juspay/neurolink/blob/
 
 > **accounts**: [`CliAccountsRow`](CliAccountsRow.md)[]
 
-Defined in: [types/proxyClient.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L171)
+Defined in: [types/proxyClient.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L188)
