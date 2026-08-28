@@ -184,12 +184,25 @@ async function resolveOpenCodeSnapshot(
   /** Which store supplied it — restore may only delete the one it consumed. */
   source: "scoped" | "in-file" | "unscoped" | null;
 }> {
+  // An in-file legacy record outranks everything, because its presence means
+  // more than "here is a snapshot": the config still carries `__proxy_*` keys,
+  // so the previous migration did not complete. That record is the only one
+  // that predates the proxy, and on a migration run it is guaranteed to
+  // disagree with a scoped snapshot — the old writer's block has `models: {}`
+  // while the new writer's `written` carries the full map, so valuesMatch() is
+  // always false and shouldCaptureSnapshot() re-captures. Re-capturing there
+  // adopts the proxy's OWN block as the user's "original" and discards the
+  // real one, silently and permanently.
+  //
+  // Reachable whenever apply() wrote the scoped snapshot and then failed to
+  // write opencode.json: applyAllClients() catches per-client errors, so the
+  // retry runs against a config still holding the legacy keys.
+  if (inFileLegacy !== null) {
+    return { snapshot: inFileLegacy, source: "in-file" };
+  }
   const scoped = await readSnapshotFile(getOpenCodeSnapshotPath());
   if (scoped !== null) {
     return { snapshot: scoped, source: "scoped" };
-  }
-  if (inFileLegacy !== null) {
-    return { snapshot: inFileLegacy, source: "in-file" };
   }
   const unscoped = await readSnapshotFile(getLegacyOpenCodeSnapshotPath());
   return unscoped === null
