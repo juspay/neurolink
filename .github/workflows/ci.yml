@@ -970,17 +970,55 @@ jobs:
           # This job is non-blocking on purpose. These are measured once, not
           # proven stable, and `security-suites` is a required check that
           # blocks every open pull request when it breaks.
-          # name@seconds, longest first. The weights are measured wall-clock
-          # from run 32808851519, and they affect BALANCE ONLY — never which
-          # suites run. A stale weight makes one shard slower; it can never
-          # cause a suite to be skipped or run twice. An entry with no @weight
-          # still runs, at an assumed 30s.
+          # name@seconds, longest first. The weights affect BALANCE ONLY —
+          # never which suites run. A stale weight makes one shard slower; it
+          # can never cause a suite to be skipped or run twice. An entry with
+          # no @weight still runs, at an assumed 30s.
+          #
+          # Refreshed 2026-08-27: median of 13 runs, read from this job's own
+          # logs. The previous set came from a single run (32808851519) and one
+          # entry had gone badly stale — test:tts:unit was still carrying 367s
+          # after the deadlock fix in #1550 cut it to a median of 140s, a 2.6x
+          # overstatement that survived because nothing re-measures.
+          #
+          # To re-measure, do NOT time these locally: a developer machine is
+          # faster than a runner AND has credentials, so suites that skip in CI
+          # do real work here. Measuring test:tts:unit locally gives ~73s
+          # against a CI median of 140s — wrong by nearly half, in the
+          # direction that would have made the imbalance look worse than it is.
+          # Read the real thing instead; the ::group:: markers below are
+          # timestamped in the raw job log:
+          #
+          #   gh api repos/juspay/neurolink/actions/jobs/<id>/logs | awk '
+          #     function secs(ts,   a) { split(substr(ts,12,8), a, ":")
+          #                              return a[1]*3600 + a[2]*60 + a[3] }
+          #     /##\[group\]test:/        { t=secs($1); n=$2; sub(/^##\[group\]/,"",n) }
+          #     /##\[endgroup\]/ && n!="" { d=secs($1)-t; if (d<0) d+=86400
+          #                              printf "%s@%d\n", n, d; n="" }'
+          #
+          # That prints `suite@seconds` — the exact shape of a SUITES line, so
+          # the output pastes straight in. It avoids gawk's mktime(), which BSD
+          # awk (macOS) does not have, and adds a day's seconds back when a job
+          # crosses midnight UTC. It was run against a captured log before being
+          # written down here, which the version it replaces was not: that one
+          # bound the timestamp only at ::group:: and never read the ::endgroup::
+          # one, so it printed a start time and a `##[group]`-prefixed name and
+          # never computed a duration at all.
+          #
+          # Take a median across several runs, not one sample: the observed
+          # per-suite range is wide (test:tts:unit spans 95s to 155s).
+          #
+          # Two entries are skip-times, not work-times. test:tool-reliability
+          # and test:autoresearch are live-tier and have no credentials here, so
+          # what is being weighted is how long they take to decide to skip. That
+          # is the correct number for THIS job, and the wrong number to reuse
+          # anywhere that runs them for real.
           #
           # Round-robin by list position was the previous scheme. It balances
           # the COUNT of suites, which is the wrong quantity: the measured
-          # spread is 1s to 367s, so equal counts gave shards of 33s and 485s.
+          # spread is 1s to 140s, so equal counts gave shards of 90s and 241s.
           SUITES="
-            test:tts:unit@367
+            test:tts:unit@140
             test:agent-delegation@78
             test:background-commands@23
             test:agent-tasks@13
@@ -991,33 +1029,33 @@ jobs:
             test:video-abort@3
             test:classifier-router@3
             test:resolve-request-kind@1
-            test:vertex-loop-characterization@96
-            test:tool-reliability@51
-            test:auth@45
-            test:vertex-claude-characterization@45
+            test:vertex-loop-characterization@100
+            test:tool-reliability@57
+            test:auth@50
+            test:vertex-claude-characterization@46
             test:openai-compat-catalog@24
-            test:openai-compat-streaming-retry@19
+            test:provider-descriptors@17
+            test:openai-compat-streaming-retry@16
             test:servers@16
-            test:anthropic-streaming-retry@15
-            test:provider-descriptors@14
-            test:adjust-body-after-400@12
             test:video:unit@12
+            test:adjust-body-after-400@10
+            test:anthropic-streaming-retry@10
             test:dynamic@10
             test:local-usage@8
-            test:provider-fallback-latency@5
-            test:codex@4
+            test:provider-fallback-latency@6
+            test:codex@5
             test:credentials@4
-            test:music:unit@4
             test:stt:unit@4
             test:avatar:unit@3
             test:mcp@3
+            test:model-manifests@3
+            test:music:unit@3
             test:provider-fallback@3
             test:realtime:unit@3
             test:tool-resolution@3
             test:autoresearch@2
             test:loop-engine@2
             test:handler-registry@1
-            test:model-manifests@1
           "
           # Normalise every entry to name@weight (missing or non-numeric
           # weights become 30), then sort by weight descending. Greedy
