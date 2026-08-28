@@ -67,19 +67,20 @@ zero protocol work.
 
 ### Coverage, verified on this machine
 
-| CLI          | Installed                     | Verdict                   | Mechanism                                                    |
-| ------------ | ----------------------------- | ------------------------- | ------------------------------------------------------------ |
-| Claude Code  | yes                           | **live**                  | `ANTHROPIC_BASE_URL`                                         |
-| Codex        | yes                           | **live**                  | `config.toml` `base_url` + `wire_api="responses"`            |
-| OpenCode     | 1.3.13                        | **live**                  | `provider.neurolink` in `opencode.json` (fixed: #1366/#1367) |
-| Qwen Code    | `@qwen-code/qwen-code@0.17.0` | **live**                  | `security.auth.baseUrl` → `/v1/chat/completions`             |
-| Copilot CLI  | `@github/copilot@1.0.56`      | **live**                  | `COPILOT_PROVIDER_*` via a sourceable env script             |
-| Hermes Agent | no                            | easy (unverified on disk) | `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL`                     |
-| Gemini CLI   | `@google/gemini-cli@0.53.0`   | moderate                  | `GOOGLE_GEMINI_BASE_URL`, API-key mode only                  |
-| Cursor       | `cursor-agent` 2026.05.28     | **refuted**               | env vars are dead code — proven by live test                 |
-| Antigravity  | 1.107.0                       | hard                      | proprietary Cascade protobuf                                 |
-| Grok CLI     | no                            | unconfirmed               | not installed                                                |
-| Kiro CLI     | no                            | hard                      | fixed AWS hosts, OAuth device flow                           |
+| CLI          | Installed                     | Verdict                   | Mechanism                                                      |
+| ------------ | ----------------------------- | ------------------------- | -------------------------------------------------------------- |
+| Claude Code  | yes                           | **live**                  | `ANTHROPIC_BASE_URL`                                           |
+| Codex        | yes                           | **live**                  | `config.toml` `base_url` + `wire_api="responses"`              |
+| OpenCode     | 1.3.13                        | **live**                  | `provider.neurolink` in `opencode.json` (fixed: #1366/#1367)   |
+| Qwen Code    | `@qwen-code/qwen-code@0.17.0` | **live**                  | `security.auth.baseUrl` → `/v1/chat/completions`               |
+| Copilot CLI  | `@github/copilot@1.0.56`      | **live**                  | `COPILOT_PROVIDER_*` via a sourceable env script               |
+| Hermes Agent | no                            | easy (unverified on disk) | `ANTHROPIC_BASE_URL` / `OPENAI_BASE_URL`                       |
+| Gemini CLI   | `@google/gemini-cli@0.53.0`   | moderate                  | `GOOGLE_GEMINI_BASE_URL`, API-key mode only                    |
+| Amp          | `0.0.1780291930-gf6d536`      | **hard**                  | `AMP_URL` honoured, but fronts a proprietary backend — see §7c |
+| Cursor       | `cursor-agent` 2026.05.28     | **refuted**               | env vars are dead code — proven by live test                   |
+| Antigravity  | 1.107.0                       | hard                      | proprietary Cascade protobuf                                   |
+| Grok CLI     | no                            | unconfirmed               | not installed                                                  |
+| Kiro CLI     | no                            | hard                      | fixed AWS hosts, OAuth device flow                             |
 
 Near-term: **2 live → 6** — five of those are now live (Claude Code, Codex, OpenCode, Qwen Code, Copilot CLI), with config-writer work only and zero new route modules. The remaining one is Hermes Agent, which the table above marks easy but unverified on disk.
 
@@ -87,7 +88,8 @@ Near-term: **2 live → 6** — five of those are now live (Claude Code, Codex, 
 > audit added after verifying it directly. It is still not the whole field: SARA
 > tracks **Amp**, which neither of the others does, while PokeTokenBar tracks
 > Hermes, Kiro, Antigravity and Grok, which SARA does not. **The union is 12.**
-> Scope coverage against the union, not any single list.
+> Scope coverage against the union, not any single list. Amp is now exhaustively
+> assessed — see §7c — and is **not onboardable** as a config-writer client.
 
 ---
 
@@ -539,7 +541,7 @@ at it, run one trivial command, and see whether anything arrives.
 | CLI                    | Override                 | Result                                                                          |
 | ---------------------- | ------------------------ | ------------------------------------------------------------------------------- |
 | **Gemini CLI** 0.53.0  | `GOOGLE_GEMINI_BASE_URL` | **Honoured — traffic arrives.** Verdict upgraded from assumed to verified.      |
-| **Amp** 0.0.1780291930 | `AMP_URL`                | **Honoured — but not a config-writer CLI.**                                     |
+| **Amp** 0.0.1780291930 | `AMP_URL`                | **Honoured — but fronts a proprietary backend. Not onboardable; see §7c.**      |
 | **Hermes Agent**       | —                        | Cannot be verified: not installed, no binary and no config dir on this machine. |
 | **Grok CLI**           | —                        | Cannot be verified: not installed; two rival npm packages claim the name.       |
 
@@ -574,6 +576,12 @@ bundle vendors Google's GenAI SDK, so `generateContent` strings inside it
 describe a dependency and not Amp's own wire — worth knowing before someone
 greps for them and concludes otherwise.
 
+This was the assessment with no `AMP_API_KEY` set, so the login prompt was as
+far as the CLI got. **§7c re-runs this with a key supplied, past the login
+prompt, and reaches a materially worse conclusion: Amp is not "new-wire-format
+like Gemini," it is a proprietary control-plane CLI, and pointing it at this
+proxy makes it fail every invocation rather than merely fail to find a route.**
+
 ### Hermes and Grok — unverifiable here, and that is the finding
 
 Neither is installed: no binary on `PATH`, no `~/.hermes` or `~/.config/hermes`,
@@ -584,6 +592,118 @@ for Hermes remains exactly that — it was never validated, and the
 Recording this rather than leaving the rows ambiguous: the blocker is
 availability, not difficulty, and the first step for either is installing it —
 not writing a configurator against a guessed config surface.
+
+---
+
+## 7c. Amp CLI, exhaustively assessed (2026-08-29)
+
+§7b's Amp finding stopped at the login prompt because no `AMP_API_KEY` was
+set. Supplying a placeholder key (`AMP_API_KEY=test-capture-key`) bypasses the
+OAuth flow and lets the CLI proceed — which is what actually settles whether
+Amp is onboardable as a `CliProxyClientConfigurator`, not merely whether
+`AMP_URL` is honoured.
+
+**Config surface, confirmed from the installed binary (`0.0.1780291930-gf6d536`,
+`@sourcegraph/amp` wrapping `@ampcode/cli`) and matching a live `amp --help`:**
+
+- `AMP_URL` (env, highest precedence; default `https://ampcode.com/`) — the
+  same variable §7b tested.
+- A persisted `"url"` key in the global settings file, default
+  `~/.config/amp/settings.json` (resolved via `XDG_CONFIG_HOME || ~/.config`
+  — no macOS-specific `Application Support` branch; confirmed both from the
+  bundle's path-resolution constants and from `amp --help` reporting exactly
+  that path on this machine).
+- `AMP_SETTINGS_FILE` — overrides the settings-file path outright; used
+  throughout this investigation to keep every probe out of the user's real
+  `~/.config/amp/settings.json`.
+- `AMP_HOME`, `AMP_LOG_LEVEL`, `AMP_LOG_FILE` — logging/home overrides, not
+  routing-relevant.
+- `AMP_API_KEY` (env) or a settings-file `apiKey` — bearer credential.
+
+None of this contradicts §7b. What's new is what happens once the CLI is
+actually let past login.
+
+**Two probes against a local capture server (not the live proxy), both with
+`AMP_URL` and `AMP_SETTINGS_FILE` redirected into a scratch directory and
+`AMP_API_KEY` set to a placeholder:**
+
+1. A naive stub returning `200 {"error":"capture-server-stub"}` for every
+   request. Amp's client reads `$.error.code`, gets `undefined` back from a
+   string error, and fails with a garbled `getUserInfo error: undefined` — an
+   artifact of the stub's shape, not a finding on its own, but it already
+   shows the first call Amp makes once past login is
+   `POST /api/internal?getUserInfo`.
+2. A properly-shaped server returning `{"ok":true,"result":{...}}` envelopes
+   for `getUserInfo` and `loadPlugins`. With those two calls satisfied, Amp
+   proceeded to `POST /api/thread-actors` with body
+   `{"executorType":"local-client","agentMode":"smart"}` — a third, distinct
+   proprietary RPC that provisions the agent's execution thread. No model
+   call was ever attempted; the run was stopped once this third call landed,
+   since answering it too would mean building out Amp's orchestration layer,
+   not a completions endpoint.
+
+So the actual call sequence, before Amp ever needs a model response, is:
+`/api/internal?getUserInfo` → `/api/internal?loadPlugins` → `/api/thread-actors`.
+All three are bespoke JSON-RPC-shaped endpoints private to Amp's backend, and
+none of them map onto any of the proxy's four wire doors (`/v1/messages`,
+`/v1/chat/completions`, `/backend-api/codex/responses`,
+`/v1beta/models/{model}:generateContent`).
+
+The bundle also contains `/api/provider/{anthropic,openai/v1,google}`
+sub-paths. These are **not** something the CLI calls directly once `AMP_URL`
+is repointed — they are the internal sub-paths Amp's own backend (or a
+self-hosted Amp Enterprise gateway) uses to reach upstream model providers.
+The CLI cannot reach them without first clearing the `/api/internal` and
+`/api/thread-actors` calls above, so implementing just the provider sub-paths
+would not unblock anything. (This also corrects §7b's aside about vendored
+Google GenAI SDK strings: that observation stands on its own, but it is a
+separate red herring from these internal provider sub-paths, not the same
+one.)
+
+**Confirmation against the real live proxy** (`neurolink proxy start`,
+`http://127.0.0.1:55669`, the same instance used elsewhere in this document):
+pointing an installed Amp at it with `AMP_API_KEY` set reproduces the same
+`/api/internal?getUserInfo` call, which the proxy answers with its default
+`404` (no such route exists on any of its four doors), and Amp exits
+immediately:
+
+```
+Error: API request for getUserInfo failed: 404
+```
+
+No model call is attempted — the CLI fails structurally before reaching that
+stage, so this is not a case of "wrong door, add a route" the way Gemini's
+`ModelNotFoundError: 404` was in §7b. A `404` on `/api/internal` cannot
+possibly reach the proxy's upstream-attempt accounting, so the routing proof
+here is the `404` response and Amp's fatal exit themselves, not a
+`stats.totalAttempts` counter delta — that counter is only a clean signal for
+a _positive_ routing proof, and this is a negative one by construction.
+
+**Verdict: Amp is not onboardable as a `CliProxyClientConfigurator`, and no
+`amp.ts` was written.** This is a different failure mode from Copilot's
+sourceable-script problem (§3's "one client that needs a shell, not a file"):
+an un-sourced Copilot script is _inert_ — Copilot keeps working exactly as it
+did before the proxy touched it. Pointing Amp's `AMP_URL` at this proxy is
+**actively harmful** — every invocation hard-fails with a fatal error until an
+operator reverts the setting, because the proxy does not implement (and
+cannot cheaply implement) Amp's proprietary auth/user-info RPC, its thread
+orchestration RPC, or the OAuth login flow found in §7b. Shipping a
+configurator that "successfully" applies this URL would leave users with a
+broken `amp` CLI and a proxy that reports success — worse than not onboarding
+it at all, and precisely the outcome this document's §3 and the Copilot
+precedent warn against reproducing.
+
+`registry.ts`'s six configurators (Claude Code, OpenCode, Codex, Qwen Code,
+Copilot, Gemini CLI) are unchanged; no config file outside this worktree's
+scratch directory was ever written, and no real `~/.config/amp` or `~/.amp`
+was touched. Amp's coverage-table verdict (§1) is revised from an unassessed
+slot in the twelve-CLI union to **hard** — alongside Antigravity and Kiro, not
+alongside Gemini's config-writer-adjacent "moderate."
+
+Worth flagging for whoever revisits this against a newer Amp release: the
+`/api/internal` query-string RPC style (`?getUserInfo`, `?loadPlugins`) reads
+as intentionally proprietary rather than an accidental subset of some open
+protocol — there is no partial-compatibility shortcut here to chase.
 
 ---
 
