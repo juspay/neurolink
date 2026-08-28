@@ -3902,6 +3902,123 @@ async function testOpenCodeInterruptedMigrationKeepsTrueOriginal(): Promise<bool
 }
 
 /**
+ * A written file is not a live configuration.
+ *
+ * Copilot reads provider settings from the environment only — `app.js`
+ * resolves COPILOT_PROVIDER_BASE_URL through `process.env` with no config-file
+ * fallback — so its configurator writes a script the user must source. Until
+ * they do, Copilot talks to GitHub while the proxy prints a green check. On
+ * the machine this was developed against the script was sourced in no profile
+ * at all, so that check had been wrong for its entire existence.
+ */
+async function testCopilotReportsWhenItsScriptIsNotSourced(): Promise<boolean> {
+  const { applyAllClients, restoreAllClients } =
+    await import("../src/cli/proxy-clients/registry.js");
+  const prevHome = process.env.HOME;
+  const prevXdg = process.env.XDG_CONFIG_HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cop-note-"));
+  try {
+    process.env.HOME = root;
+    // XDG_CONFIG_HOME too, not just HOME. This drives the whole roster, and
+    // OpenCode resolves its config dir through XDG_CONFIG_HOME first — leaving
+    // it unscoped means a developer who has it set gets their real
+    // opencode.json rewritten by a test. testApplyAllReportsPerClient one
+    // function away already scopes both; this diverged from it.
+    process.env.XDG_CONFIG_HOME = path.join(root, ".config");
+    fs.mkdirSync(path.join(root, ".copilot"), { recursive: true });
+
+    const before = (await applyAllClients("http://127.0.0.1:55669")).find(
+      (r) => r.id === "copilot",
+    );
+    if (before?.applied !== true) {
+      log("Copilot writer did not report a successful write", "red");
+      return false;
+    }
+    if (!before.note) {
+      log(
+        "Copilot reported plain success for a script no profile sources",
+        "red",
+      );
+      return false;
+    }
+
+    // Once a profile sources it, the outstanding action is gone.
+    fs.writeFileSync(
+      path.join(root, ".zshrc"),
+      "[ -f ~/.neurolink/copilot-env.sh ] && . ~/.neurolink/copilot-env.sh\n",
+    );
+    const after = (await applyAllClients("http://127.0.0.1:55669")).find(
+      (r) => r.id === "copilot",
+    );
+    if (after?.note) {
+      log("Copilot still reported an outstanding action once sourced", "red");
+      return false;
+    }
+    // Leave nothing applied, matching testApplyAllReportsPerClient.
+    await restoreAllClients("http://127.0.0.1:55669");
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    if (prevXdg === undefined) {
+      delete process.env.XDG_CONFIG_HOME;
+    } else {
+      process.env.XDG_CONFIG_HOME = prevXdg;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Copilot's BYOK path refuses to start without an explicit model, so a script
+ * that stops at the base URL leaves the user passing --model on every single
+ * invocation. Measured before the fix: `copilot -p "..."` exited 1 with "BYOK
+ * providers require an explicit model".
+ *
+ * The default is written through `${VAR:-default}` so a user who exports their
+ * own choice before sourcing keeps it.
+ */
+async function testCopilotEnvScriptSetsAModelId(): Promise<boolean> {
+  const { __copilotTestHooks } =
+    await import("../src/cli/proxy-clients/copilot.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-cop-model-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".copilot"), { recursive: true });
+    await __copilotTestHooks.setCopilotProxySettings(
+      "http://127.0.0.1:55669/v1",
+    );
+    const script = fs.readFileSync(
+      __copilotTestHooks.getCopilotEnvPath(),
+      "utf8",
+    );
+    if (!script.includes("COPILOT_PROVIDER_MODEL_ID")) {
+      log(
+        "Copilot env script sets no model id; BYOK refuses to start without one",
+        "red",
+      );
+      return false;
+    }
+    if (!script.includes("COPILOT_PROVIDER_MODEL_ID:-")) {
+      log("Copilot model id is not user-overridable", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
  * Regression: a stale snapshot must never outlive the value it describes.
  *
  * The snapshot-on-first-touch guard exists so a second apply() cannot record
@@ -7751,6 +7868,16 @@ const tests: TestFunction[] = [
   {
     name: "Proxy clients: Qwen apply/restore round-trips a real settings file",
     fn: testQwenConfiguratorRoundTrip,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Copilot reports when its script is not sourced",
+    fn: testCopilotReportsWhenItsScriptIsNotSourced,
+    category: "proxy-config",
+  },
+  {
+    name: "Proxy clients: Copilot env script sets a model id",
+    fn: testCopilotEnvScriptSetsAModelId,
     category: "proxy-config",
   },
   {

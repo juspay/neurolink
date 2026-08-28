@@ -30,6 +30,17 @@ export type CliProxyClientConfigurator = {
    * alone and return false.
    */
   restore: (proxyBaseUrl: string) => Promise<boolean>;
+  /**
+   * Something the user must still do for apply() to take effect.
+   *
+   * Writing a file is not the same as being in effect. Copilot reads its
+   * provider settings from the environment only, so its configurator writes a
+   * script the user has to source; until they do, the proxy reports a green
+   * check for a file nothing reads. Returning a string here lets a client say
+   * "written, but not yet live, and here is the one line that fixes it".
+   * Return null when nothing is outstanding.
+   */
+  postApplyNote?: (proxyBaseUrl: string) => Promise<string | null>;
 };
 
 /** Outcome of applying one configurator, for per-client CLI reporting. */
@@ -38,6 +49,12 @@ export type CliProxyClientApplyResult = {
   displayName: string;
   /** True only when the configurator actually wrote configuration. */
   applied: boolean;
+  /**
+   * Set when the write landed but is not yet in effect — see
+   * CliProxyClientConfigurator.postApplyNote. Callers must render this; a
+   * silent note is the failure it exists to prevent.
+   */
+  note?: string;
   /** Present when the configurator threw; the caller decides how loud to be. */
   error?: Error;
 };

@@ -34,3 +34,18 @@ export const DEFAULT_PROXY_MODEL_IDS: readonly string[] = [
   "gemini-2.5-pro",
   "gemini-2.5-flash",
 ];
+
+/**
+ * The model a client is pointed at when it requires one and the user has not
+ * chosen.
+ *
+ * Copilot's BYOK path refuses to start without an explicit model —
+ * `copilot -p "..."` fails with "BYOK providers require an explicit model" —
+ * so a configurator that writes a base URL and stops has produced something
+ * unusable without an extra flag on every invocation.
+ *
+ * Sonnet rather than Opus or Haiku, matching the reasoning already recorded on
+ * DEFAULT_MODELS_BY_TIER's `api` entry in src/lib/models/anthropicModels.ts:
+ * the balance most callers want when nobody has expressed a preference.
+ */
+export const DEFAULT_PROXY_MODEL_ID = "claude-sonnet-4-6";
