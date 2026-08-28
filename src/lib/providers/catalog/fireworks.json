@@ -1,0 +1,124 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "fireworks",
+  "displayName": "Fireworks AI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.fireworks.ai/inference/v1"
+  },
+  "models": {
+    "default": "accounts/fireworks/models/deepseek-v4-pro",
+    "testModel": "accounts/fireworks/models/kimi-k2p6",
+    "fallbackModelName": "accounts/fireworks/models/deepseek-v4-pro",
+    "fallbacks": [
+      "accounts/fireworks/models/deepseek-v4-pro",
+      "accounts/fireworks/models/glm-5p1",
+      "accounts/fireworks/models/glm-5",
+      "accounts/fireworks/models/kimi-k2p6",
+      "accounts/fireworks/models/kimi-k2p5",
+      "accounts/fireworks/models/gpt-oss-120b"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "accounts/fireworks/models/deepseek-v4-pro": {
+        "enumMember": "DEEPSEEK_V4_PRO",
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - DeepSeek V4 Pro, current general-purpose default"
+      },
+      "accounts/fireworks/models/glm-5p1": {
+        "enumMember": "GLM_5P1",
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.1 — Zhipu flagship"
+      },
+      "accounts/fireworks/models/glm-5": {
+        "enumMember": "GLM_5",
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5 — broader coverage"
+      },
+      "accounts/fireworks/models/kimi-k2p6": {
+        "enumMember": "KIMI_K2P6",
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K2.6 — Moonshot flagship"
+      },
+      "accounts/fireworks/models/kimi-k2p5": {
+        "enumMember": "KIMI_K2P5",
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K2.5 — preceding Kimi"
+      },
+      "accounts/fireworks/models/gpt-oss-120b": {
+        "enumMember": "GPT_OSS_120B",
+        "vision": false,
+        "status": "production",
+        "description": "GPT-OSS 120B — Apache-2.0 OpenAI weights"
+      },
+      "accounts/fireworks/models/llama-v3p2-90b-vision-instruct": {
+        "enumMember": "LLAMA_V3P2_90B_VISION_INSTRUCT",
+        "vision": true,
+        "status": "production",
+        "description": "Llama 3.2 90B Vision Instruct — vision-capable; restored from the pre-migration adapter's vision map (contextWindow/pricing not yet re-verified)"
+      },
+      "accounts/fireworks/models/llama-v3p2-11b-vision-instruct": {
+        "enumMember": "LLAMA_V3P2_11B_VISION_INSTRUCT",
+        "vision": true,
+        "status": "production",
+        "description": "Llama 3.2 11B Vision Instruct — vision-capable; restored from the pre-migration adapter's vision map (contextWindow/pricing not yet re-verified)"
+      },
+      "accounts/fireworks/models/phi-3-vision-128k-instruct": {
+        "enumMember": "PHI_3_VISION_128K_INSTRUCT",
+        "vision": true,
+        "status": "production",
+        "description": "Phi-3 Vision 128K Instruct — vision-capable; restored from the pre-migration adapter's vision map (contextWindow/pricing not yet re-verified)"
+      }
+    },
+    "topModels": [
+      "accounts/fireworks/models/deepseek-v4-pro",
+      "accounts/fireworks/models/glm-5p1",
+      "accounts/fireworks/models/kimi-k2p6",
+      "accounts/fireworks/models/gpt-oss-120b"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Invalid API key|Authentication",
+      "class": "authentication",
+      "message": "Invalid Fireworks API key. Get one at https://fireworks.ai/account/api-keys"
+    }
+  ],
+  "setup": {
+    "url": "https://fireworks.ai/account/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://fireworks.ai/account/api-keys",
+      "2. Sign in to your Fireworks AI account",
+      "3. Create a new API key",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-28",
+      "method": "transcribed from pre-migration TS catalog"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
+  }
+}

@@ -138,99 +138,123 @@ type OpenAICompatSpec = {
   rateLimitErrorMatch?: RegExp;
 };
 
-const OPENAI_COMPAT_PROVIDERS: OpenAICompatSpec[] = [
-  {
-    provider: "xai",
-    envVar: "XAI_API_KEY",
-    urlMatch: "api.x.ai/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "grok-3",
-    authErrorMatch: /xai|401|unauthor|api key/i,
-    rateLimitErrorMatch: /xai|rate.?limit|429/i,
-  },
-  {
-    provider: "groq",
-    envVar: "GROQ_API_KEY",
-    urlMatch: "api.groq.com/openai/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "llama-3.3-70b-versatile",
-    authErrorMatch: /groq|401|unauthor|api key/i,
-    rateLimitErrorMatch: /groq|rate.?limit|429/i,
-  },
-  {
-    provider: "sambanova",
-    envVar: "SAMBANOVA_API_KEY",
-    urlMatch: "api.sambanova.ai/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "Meta-Llama-3.3-70B-Instruct",
-    authErrorMatch: /sambanova|401|unauthor|api key/i,
-    rateLimitErrorMatch: /sambanova|rate.?limit|429/i,
-  },
-  {
-    provider: "cerebras",
-    envVar: "CEREBRAS_API_KEY",
-    urlMatch: "api.cerebras.ai/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "gpt-oss-120b",
-    authErrorMatch: /cerebras|401|unauthor|api key/i,
-    rateLimitErrorMatch: /cerebras|rate.?limit|429/i,
-  },
-  {
-    provider: "together-ai",
-    envVar: "TOGETHER_API_KEY",
-    urlMatch: "api.together.xyz/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    authErrorMatch: /together|401|unauthor|api key/i,
-    rateLimitErrorMatch: /together|rate.?limit|429/i,
-  },
-  {
-    provider: "fireworks",
-    envVar: "FIREWORKS_API_KEY",
-    urlMatch: "api.fireworks.ai/inference/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "accounts/fireworks/models/llama-v3p3-70b-instruct",
-    authErrorMatch: /fireworks|401|unauthor|api key/i,
-    rateLimitErrorMatch: /fireworks|rate.?limit|429/i,
-  },
-  {
-    provider: "perplexity",
-    envVar: "PERPLEXITY_API_KEY",
-    urlMatch: "api.perplexity.ai",
-    authPrefix: "Bearer ",
-    model: "sonar",
-    authErrorMatch: /perplex|401|unauthor|api key/i,
-    rateLimitErrorMatch: /perplex|rate.?limit|429/i,
-  },
-  {
-    provider: "cohere",
-    envVar: "COHERE_API_KEY",
-    urlMatch: "api.cohere.com/compatibility/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "command-r-plus",
-    authErrorMatch: /cohere|401|unauthor|api key/i,
-  },
-  {
-    provider: "cloudflare",
-    envVar: "CLOUDFLARE_API_KEY",
-    extraEnv: { CLOUDFLARE_ACCOUNT_ID: "mock-account-id-1234" },
-    urlMatch:
-      "api.cloudflare.com/client/v4/accounts/mock-account-id-1234/ai/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-    authErrorMatch: /cloudflare|401|unauthor|api key/i,
-    rateLimitErrorMatch: /cloudflare|rate.?limit|429/i,
-  },
-  {
-    provider: "mistral",
-    envVar: "MISTRAL_API_KEY",
-    urlMatch: "api.mistral.ai/v1/chat/completions",
-    authPrefix: "Bearer ",
-    model: "mistral-small-2506",
-    authErrorMatch: /mistral|401|unauthor|api key/i,
-    rateLimitErrorMatch: /mistral|rate.?limit|429/i,
-  },
-];
+// ── Catalog-derived Tier-2 provider specs ──────────────────────────────
+// Deliberately REIMPLEMENTS the loader's env-var/URL conventions instead
+// of importing catalogEnvVar from dist/providers/catalog/loader.js. That
+// function is also what the runtime provider construction path uses to
+// read the very env var this suite sets — importing it here would make
+// the derivation tautological: a bug in catalogEnvVar would compute the
+// same (wrong) env var on both sides and every assertion below would
+// still pass. Hand-deriving the convention independently means a real
+// divergence between this file's understanding and the loader's actual
+// behavior surfaces as a genuine failure (wrong env var -> provider
+// never picks up the fake key -> URL/auth/401 assertions fail for real).
+// See src/lib/providers/catalog/loader.ts for the authoritative version.
+type CatalogWireEnvOverrides = {
+  apiKey?: string;
+  baseURL?: string;
+  model?: string;
+};
+type CatalogJsonEntry = {
+  id: string;
+  wire: {
+    baseURL?: string;
+    baseURLTemplate?: string;
+    extraCredentials?: string[];
+    envOverrides?: CatalogWireEnvOverrides;
+  };
+  models: { default: string };
+};
+
+function derivedCatalogEnvVar(
+  entry: CatalogJsonEntry,
+  kind: "apiKey" | "baseURL" | "model",
+): string {
+  const override = entry.wire.envOverrides?.[kind];
+  if (override) {
+    return override;
+  }
+  const base = entry.id.toUpperCase().replace(/-/g, "_");
+  const suffix =
+    kind === "apiKey" ? "API_KEY" : kind === "baseURL" ? "BASE_URL" : "MODEL";
+  return `${base}_${suffix}`;
+}
+
+// Computed-base-URL env var for template providers (Cloudflare's account
+// id), mirroring the loader's `${ID}_${EXTRA_SNAKE_CASE}` convention.
+function derivedComputedBaseURLEnvVar(entry: CatalogJsonEntry): string {
+  const base = entry.id.toUpperCase().replace(/-/g, "_");
+  const extra = entry.wire.extraCredentials?.[0] ?? "accountId";
+  const extraSnake = extra.replace(/([A-Z])/g, "_$1").toUpperCase();
+  return `${base}_${extraSnake}`;
+}
+
+// Resolves wire.baseURL (or wire.baseURLTemplate with a dummy value for
+// its one placeholder) down to `host+path/chat/completions`, the shape
+// every OpenAI-compat spec's urlMatch has always used. Cloudflare's
+// baseURLTemplate resolves through the SAME branch here — its derived
+// urlMatch is byte-identical to the suite's pre-catalog hand-written one
+// (verified against "mock-account-id-1234"), so no bespoke handling is
+// needed to preserve today's coverage.
+function derivedChatCompletionsUrl(entry: CatalogJsonEntry): {
+  urlMatch: string;
+  extraEnv?: Record<string, string>;
+} {
+  if (entry.wire.baseURL) {
+    const parsed = new URL(entry.wire.baseURL);
+    const path = parsed.pathname.replace(/\/$/, "");
+    return { urlMatch: `${parsed.host}${path}/chat/completions` };
+  }
+  const template = entry.wire.baseURLTemplate;
+  const extraKey = entry.wire.extraCredentials?.[0];
+  if (!template || !extraKey) {
+    throw new Error(
+      `catalog entry ${entry.id} must have wire.baseURL, or wire.baseURLTemplate with exactly one extraCredentials entry`,
+    );
+  }
+  const dummyValue = "mock-account-id-1234";
+  const resolved = new URL(template.replace(`{${extraKey}}`, dummyValue));
+  const path = resolved.pathname.replace(/\/$/, "");
+  return {
+    urlMatch: `${resolved.host}${path}/chat/completions`,
+    extraEnv: { [derivedComputedBaseURLEnvVar(entry)]: dummyValue },
+  };
+}
+
+async function buildOpenAICompatProviders(): Promise<OpenAICompatSpec[]> {
+  const { CATALOG_JSON_ENTRIES } =
+    (await import("../dist/providers/catalog/index.generated.js")) as {
+      CATALOG_JSON_ENTRIES: CatalogJsonEntry[];
+    };
+
+  const derived: OpenAICompatSpec[] = CATALOG_JSON_ENTRIES.map((entry) => {
+    const { urlMatch, extraEnv } = derivedChatCompletionsUrl(entry);
+    return {
+      provider: entry.id,
+      envVar: derivedCatalogEnvVar(entry, "apiKey"),
+      ...(extraEnv ? { extraEnv } : {}),
+      urlMatch,
+      authPrefix: "Bearer ",
+      model: entry.models.default,
+      authErrorMatch: new RegExp(`${entry.id}|401|unauthor|api key`, "i"),
+      rateLimitErrorMatch: new RegExp(`${entry.id}|rate.?limit|429`, "i"),
+    };
+  });
+
+  return [
+    ...derived,
+    // Cohere is NOT a JSON-catalog provider (no src/lib/providers/catalog/
+    // cohere.json) — it stays hand-written, appended after the derived rows.
+    {
+      provider: "cohere",
+      envVar: "COHERE_API_KEY",
+      urlMatch: "api.cohere.com/compatibility/v1/chat/completions",
+      authPrefix: "Bearer ",
+      model: "command-r-plus",
+      authErrorMatch: /cohere|401|unauthor|api key/i,
+    },
+  ];
+}
 
 async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
   const section = `LLM ${spec.provider}`;
@@ -415,7 +439,8 @@ async function runOpenAICompatSection(): Promise<void> {
   console.log(
     "\n=== LLM OpenAI-compat (xAI/Groq/Together/Fireworks/Perplexity/Cohere/Cloudflare) ===",
   );
-  for (const spec of OPENAI_COMPAT_PROVIDERS) {
+  const specs = await buildOpenAICompatProviders();
+  for (const spec of specs) {
     await runOpenAICompatProvider(spec);
   }
 }

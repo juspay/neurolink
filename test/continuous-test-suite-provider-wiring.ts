@@ -30,7 +30,10 @@ import "dotenv/config";
 import { createServer, type Server } from "node:http";
 import { defineSuite, assert } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
-import type { NeurolinkCredentials } from "../src/lib/types/index.js";
+import type {
+  NeurolinkCredentials,
+  CatalogCredentialKey,
+} from "../src/lib/types/index.js";
 // Type-only (erased at compile time, no second runtime module graph — see
 // the ALL-DIST header above): needed only so the fake sdk below can be
 // typed as the real `NeuroLink` class instead of an untyped/`any` value.
@@ -46,9 +49,13 @@ assertDistFresh();
 
 const { test, runSuite } = defineSuite("Provider Wiring");
 
-// A compile-time-verified enumeration of every NeurolinkCredentials key. If a
-// key is renamed/removed in NeurolinkCredentials, this literal fails to
-// typecheck, so it can't silently drift from the real type.
+// A compile-time-verified enumeration of every NeurolinkCredentials key that
+// belongs to a NON-catalog provider. If a key is renamed/removed in
+// NeurolinkCredentials, or a provider moves into/out of the JSON catalog,
+// this literal fails to typecheck (Exclude<> collapses the omitted key set),
+// so it can't silently drift from the real type. The 9 catalog providers'
+// credential keys (CatalogCredentialKey) are read from the built catalog at
+// runtime instead — see the union below.
 const KNOWN_CREDENTIAL_KEYS = {
   openai: undefined,
   anthropic: undefined,
@@ -57,7 +64,6 @@ const KNOWN_CREDENTIAL_KEYS = {
   bedrock: undefined,
   sagemaker: undefined,
   azure: undefined,
-  mistral: undefined,
   huggingFace: undefined,
   openrouter: undefined,
   litellm: undefined,
@@ -67,22 +73,17 @@ const KNOWN_CREDENTIAL_KEYS = {
   nvidiaNim: undefined,
   lmStudio: undefined,
   llamacpp: undefined,
-  xai: undefined,
-  groq: undefined,
-  cerebras: undefined,
-  sambanova: undefined,
   cohere: undefined,
-  together: undefined,
-  fireworks: undefined,
-  perplexity: undefined,
-  cloudflare: undefined,
   replicate: undefined,
   voyage: undefined,
   jina: undefined,
   stability: undefined,
   ideogram: undefined,
   recraft: undefined,
-} satisfies Record<keyof NeurolinkCredentials, undefined>;
+} satisfies Record<
+  Exclude<keyof NeurolinkCredentials, CatalogCredentialKey>,
+  undefined
+>;
 
 await test("every registered AIProviderName resolves to a real NeurolinkCredentials key", async () => {
   const { ProviderRegistry } = await import("../dist/index.js");
@@ -91,8 +92,15 @@ await test("every registered AIProviderName resolves to a real NeurolinkCredenti
   const { ProviderFactory, resolveCredentialKey } =
     await import("../dist/factories/providerFactory.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
+  const { CATALOG_JSON_ENTRIES } =
+    await import("../dist/providers/catalog/index.generated.js");
+  const { catalogCredentialsKey } =
+    await import("../dist/providers/catalog/loader.js");
 
-  const knownKeys = new Set(Object.keys(KNOWN_CREDENTIAL_KEYS));
+  const knownKeys = new Set([
+    ...Object.keys(KNOWN_CREDENTIAL_KEYS),
+    ...CATALOG_JSON_ENTRIES.map(catalogCredentialsKey),
+  ]);
   const providerNames = Object.values(AIProviderName).filter(
     (name) => name !== AIProviderName.AUTO,
   );
@@ -144,7 +152,7 @@ await test("HuggingFace factory forwards the sdk instance through to BaseProvide
   );
 });
 
-await test("getAvailableProviders returns all 32 canonical providers, not the historical 10", async () => {
+await test("getAvailableProviders returns every canonical provider, not a stale historical subset", async () => {
   const { getAvailableProviders } = await import("../dist/index.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
 
@@ -316,10 +324,12 @@ await test("delegateToProviderSetup still throws for a genuinely unknown provide
   );
 });
 
-await test("EXTRA_PROVIDER_CONFIGS covers exactly the 23 providers unhandled by the wizard's switch", async () => {
+await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the wizard's switch", async () => {
   const { EXTRA_PROVIDER_CONFIGS } =
     await import("../dist/cli/commands/setup.js");
   const { AIProviderName } = await import("../dist/constants/enums.js");
+  const { CATALOG_PROVIDER_IDS } =
+    await import("../dist/providers/catalog/index.generated.js");
   const wizardHandled = new Set([
     "google-ai",
     "openai",
@@ -328,17 +338,35 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the 23 providers unhandled by 
     "bedrock",
     "vertex",
     "huggingface",
-    "mistral",
+    "mistral", // catalog provider, but still wizard-handled specially
     "openrouter",
   ]);
   const allProviders = Object.values(AIProviderName).filter(
     (name) => name !== AIProviderName.AUTO,
   );
+
+  // Total canonical provider count = the 9 JSON-catalog providers + this
+  // literal count of hand-registered non-catalog providers (openai,
+  // anthropic, google-ai, vertex, bedrock, sagemaker, azure, huggingface,
+  // ollama, openrouter, litellm, openai-compatible, deepseek, nvidia-nim,
+  // lm-studio, llamacpp, cohere, replicate, voyage, jina, stability,
+  // ideogram, recraft). Onboarding a new catalog provider grows
+  // CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
+  // hand-written provider bumps this literal.
+  const NON_CATALOG_PROVIDER_COUNT = 23;
+  const totalProviderCount =
+    CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
+  assert(
+    allProviders.length === totalProviderCount,
+    `expected ${totalProviderCount} canonical providers, got ${allProviders.length}`,
+  );
+
   const expectedExtra = allProviders.filter((name) => !wizardHandled.has(name));
+  const expectedExtraCount = totalProviderCount - wizardHandled.size;
 
   assert(
-    expectedExtra.length === 23,
-    `expected 23 providers unhandled by the wizard switch, got ${expectedExtra.length}`,
+    expectedExtra.length === expectedExtraCount,
+    `expected ${expectedExtraCount} providers unhandled by the wizard switch, got ${expectedExtra.length}`,
   );
   for (const providerId of expectedExtra) {
     assert(
@@ -403,6 +431,152 @@ await test("Replicate credentials still accept the legacy apiToken/baseUrl namin
     internal.apiToken === "r8_test_legacy_style",
     "expected apiToken from the legacy credential field to still work",
   );
+});
+
+await test("catalog-provider enum surfaces are byte-identical to the pre-JSON-migration snapshot", async () => {
+  const enums = await import("../dist/constants/enums.js");
+  // Captured from dist on 2026-08-28, BEFORE the JSON-catalog migration.
+  // If this test fails, generated enums drifted from the frozen public
+  // surface — fix the codegen or the enumMember overrides, never this
+  // literal.
+  const frozen: Record<string, Record<string, string>> = {
+    GroqModels: {
+      LLAMA_3_3_70B_VERSATILE: "llama-3.3-70b-versatile",
+      LLAMA_3_1_8B_INSTANT: "llama-3.1-8b-instant",
+      GEMMA_2_9B_IT: "gemma2-9b-it",
+      MIXTRAL_8X7B_32768: "mixtral-8x7b-32768",
+      LLAMA_GUARD_3_8B: "llama-guard-3-8b",
+      LLAMA_3_2_90B_VISION_PREVIEW: "llama-3.2-90b-vision-preview",
+      LLAMA_3_2_11B_VISION_PREVIEW: "llama-3.2-11b-vision-preview",
+    },
+    XaiModels: {
+      GROK_3: "grok-3",
+      GROK_3_MINI: "grok-3-mini",
+      GROK_2_LATEST: "grok-2-latest",
+      GROK_2_VISION_LATEST: "grok-2-vision-latest",
+      GROK_BETA: "grok-beta",
+    },
+    TogetherAIModels: {
+      LLAMA_3_3_70B_INSTRUCT_TURBO: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      LLAMA_3_1_405B_INSTRUCT_TURBO:
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+      LLAMA_3_1_70B_INSTRUCT_TURBO:
+        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+      LLAMA_3_1_8B_INSTRUCT_TURBO:
+        "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      MIXTRAL_8X22B_INSTRUCT: "mistralai/Mixtral-8x22B-Instruct-v0.1",
+      MIXTRAL_8X7B_INSTRUCT: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+      QWEN_2_5_72B_INSTRUCT_TURBO: "Qwen/Qwen2.5-72B-Instruct-Turbo",
+      QWEN_2_5_CODER_32B: "Qwen/Qwen2.5-Coder-32B-Instruct",
+      DEEPSEEK_R1: "deepseek-ai/DeepSeek-R1",
+      DEEPSEEK_V3: "deepseek-ai/DeepSeek-V3",
+      GEMMA_2_27B_IT: "google/gemma-2-27b-it",
+      WIZARDLM_2_8X22B: "microsoft/WizardLM-2-8x22B",
+    },
+    FireworksModels: {
+      DEEPSEEK_V4_PRO: "accounts/fireworks/models/deepseek-v4-pro",
+      GLM_5P1: "accounts/fireworks/models/glm-5p1",
+      GLM_5: "accounts/fireworks/models/glm-5",
+      KIMI_K2P6: "accounts/fireworks/models/kimi-k2p6",
+      KIMI_K2P5: "accounts/fireworks/models/kimi-k2p5",
+      GPT_OSS_120B: "accounts/fireworks/models/gpt-oss-120b",
+    },
+    PerplexityModels: {
+      SONAR: "sonar",
+      SONAR_PRO: "sonar-pro",
+      SONAR_REASONING: "sonar-reasoning",
+      SONAR_REASONING_PRO: "sonar-reasoning-pro",
+      SONAR_DEEP_RESEARCH: "sonar-deep-research",
+    },
+    MistralModels: {
+      MISTRAL_LARGE_LATEST: "mistral-large-latest",
+      MISTRAL_LARGE_2512: "mistral-large-2512",
+      MISTRAL_MEDIUM_LATEST: "mistral-medium-latest",
+      MISTRAL_MEDIUM_2508: "mistral-medium-2508",
+      MISTRAL_SMALL_LATEST: "mistral-small-latest",
+      MISTRAL_SMALL_2506: "mistral-small-2506",
+      MAGISTRAL_MEDIUM_LATEST: "magistral-medium-latest",
+      MAGISTRAL_SMALL_LATEST: "magistral-small-latest",
+      MINISTRAL_14B_2512: "ministral-14b-2512",
+      MINISTRAL_8B_2512: "ministral-8b-2512",
+      MINISTRAL_3B_2512: "ministral-3b-2512",
+      CODESTRAL_LATEST: "codestral-latest",
+      CODESTRAL_2508: "codestral-2508",
+      CODESTRAL_EMBED: "codestral-embed",
+      DEVSTRAL_MEDIUM_LATEST: "devstral-medium-latest",
+      DEVSTRAL_SMALL_LATEST: "devstral-small-latest",
+      PIXTRAL_LARGE: "pixtral-large",
+      PIXTRAL_12B: "pixtral-12b",
+      VOXTRAL_SMALL_LATEST: "voxtral-small-latest",
+      VOXTRAL_MINI_LATEST: "voxtral-mini-latest",
+      DEVSTRAL_2: "devstral-2512",
+      DEVSTRAL_SMALL_2: "devstral-small-2512",
+      MAGISTRAL_MEDIUM_2509: "magistral-medium-2509",
+      MAGISTRAL_SMALL_2509: "magistral-small-2509",
+      VOXTRAL_MINI_TRANSCRIBE_2: "voxtral-mini-2602",
+      MISTRAL_OCR_3: "mistral-ocr-2512",
+      MISTRAL_OCR_LATEST: "mistral-ocr-latest",
+      MISTRAL_NEMO: "mistral-nemo",
+      MISTRAL_EMBED: "mistral-embed",
+      MISTRAL_MODERATION_LATEST: "mistral-moderation-latest",
+      MISTRAL_SMALL_4: "mistral-small-2603",
+      MISTRAL_SMALL_CREATIVE: "mistral-small-creative",
+    },
+    CloudflareModels: {
+      LLAMA_3_3_70B_FAST: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      LLAMA_3_1_70B_INSTRUCT: "@cf/meta/llama-3.1-70b-instruct",
+      LLAMA_3_1_8B_FAST: "@cf/meta/llama-3.1-8b-instruct-fast",
+      LLAMA_3_2_11B_VISION: "@cf/meta/llama-3.2-11b-vision-instruct",
+      MISTRAL_7B_INSTRUCT_V0_2: "@cf/mistral/mistral-7b-instruct-v0.2",
+      QWEN_1P5_14B_CHAT_AWQ: "@cf/qwen/qwen1.5-14b-chat-awq",
+      GEMMA_2B_IT_LORA: "@cf/google/gemma-2b-it-lora",
+    },
+    CerebrasModels: {
+      GPT_OSS_120B: "gpt-oss-120b",
+      GEMMA_4_31B: "gemma-4-31b",
+    },
+    SambanovaModels: {
+      META_LLAMA_3_3_70B_INSTRUCT: "Meta-Llama-3.3-70B-Instruct",
+      GPT_OSS_120B: "gpt-oss-120b",
+      DEEPSEEK_V3_1: "DeepSeek-V3.1",
+      DEEPSEEK_V3_2: "DeepSeek-V3.2",
+      MINIMAX_M2_7: "MiniMax-M2.7",
+      MINIMAX_M3: "MiniMax-M3",
+      GEMMA_4_31B_IT: "gemma-4-31B-it",
+    },
+  };
+  for (const [enumName, members] of Object.entries(frozen)) {
+    const actual = (enums as Record<string, unknown>)[enumName] as Record<
+      string,
+      string
+    >;
+    assert(actual !== undefined, `enum missing from dist: ${enumName}`);
+    for (const [member, value] of Object.entries(members)) {
+      assert(
+        actual[member] === value,
+        `enum member drifted: ${enumName}.${member}`,
+      );
+    }
+  }
+  const providerNames = Object.values(
+    (enums as { AIProviderName: Record<string, string> }).AIProviderName,
+  );
+  for (const id of [
+    "groq",
+    "xai",
+    "together-ai",
+    "fireworks",
+    "perplexity",
+    "mistral",
+    "cloudflare",
+    "cerebras",
+    "sambanova",
+  ]) {
+    assert(
+      providerNames.includes(id),
+      `AIProviderName missing catalog id: ${id}`,
+    );
+  }
 });
 
 await runSuite();

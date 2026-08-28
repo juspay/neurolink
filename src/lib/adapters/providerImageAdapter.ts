@@ -7,6 +7,7 @@ import type { Content, ImageWithAltText } from "../types/index.js";
 import { ImageProcessor } from "../utils/imageProcessor.js";
 import { logger } from "../utils/logger.js";
 import { resolveManifestEntryStrict } from "../models/manifestRegistry.js";
+import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
 
 /**
  * Simplified logger for essential error reporting only
@@ -103,12 +104,51 @@ function normalizeVisionProvider(provider: string): string {
 }
 
 /**
+ * Vision-capable models for 8 of the 9 JSON-catalog providers, derived from
+ * models.catalog[*].vision. Only a provider with ≥1 vision model gets a key
+ * here — an absent key and a present-but-empty array are handled identically
+ * by supportsVision()/getSupportedModels()/getVisionProviders() below (all
+ * three treat "no entry" and "empty array" the same way), so omitting the
+ * all-empty providers (cerebras, together-ai, fireworks, perplexity — none
+ * has a vision model in the current catalog) changes nothing at runtime.
+ * Fireworks previously had 3 hand-written vision entries
+ * ("phi-3-vision-128k-instruct", "llama-v3p2-90b/11b-vision-instruct");
+ * none of those model ids exist in the catalog's current (fully refreshed)
+ * roster, so they are gone along with the rest of that roster, not silently
+ * dropped by this derivation.
+ *
+ * Mistral is the 9th catalog provider but is excluded here and stays fully
+ * hand-written in VISION_CAPABILITIES.mistral below: its JSON vision list
+ * (14 exact model ids) diverges from the hand list in both directions — the
+ * hand list carries bare-name fallback entries ("mistral-small",
+ * "mistral-medium", "magistral-small", "magistral-medium") that widen
+ * supportsVision()'s substring match to any future dated variant, which the
+ * JSON's exact-id list doesn't reproduce, and some hand ids
+ * ("mistral-small-3.2", "mistral-medium-3.1") don't correspond to any
+ * catalog entry at all. Deriving it would silently narrow vision matching
+ * for a currently-shipping provider, so it is left alone — the same
+ * treatment Mistral already got in providerDescriptors.ts and pricing.ts
+ * for analogous real-value-mismatch reasons.
+ */
+const CATALOG_VISION_MODELS: Record<string, readonly string[]> =
+  Object.fromEntries(
+    getCatalogJsonEntries()
+      .filter((entry) => entry.id !== "mistral")
+      .flatMap((entry) => {
+        const visionModels = Object.entries(entry.models.catalog)
+          .filter(([, spec]) => spec.vision)
+          .map(([modelId]) => modelId);
+        return visionModels.length > 0
+          ? [[entry.id, visionModels] as const]
+          : [];
+      }),
+  );
+
+/**
  * Vision capability definitions for each provider
  */
-const VISION_CAPABILITIES = {
-  // SambaNova: vendor model-spec page (2026-08-27) lists gemma-4-31B-it as
-  // text+image+video; the dashboard also marks MiniMax-M3 as Vision.
-  sambanova: ["gemma-4-31B-it", "MiniMax-M3"],
+const VISION_CAPABILITIES: Record<string, readonly string[]> = {
+  ...CATALOG_VISION_MODELS,
   openai: [
     // GPT-5.4 family (released Mar 2026) - Latest flagship models
     "gpt-5.4",
@@ -512,24 +552,12 @@ const VISION_CAPABILITIES = {
     "qwen2-vl",
     "phi-3-vision",
   ],
-  // xAI: only grok-2-vision is multimodal today
-  xai: ["grok-2-vision-latest"],
-  // Groq: vision models are explicit "*-vision-preview" variants
-  groq: ["llama-3.2-90b-vision-preview", "llama-3.2-11b-vision-preview"],
+  // xai, groq, sambanova, cloudflare — derived from the JSON catalog, see
+  // CATALOG_VISION_MODELS above. cerebras, together-ai, fireworks,
+  // perplexity are also catalog providers but have no vision-capable model
+  // in the current catalog, so they contribute no key (see comment above).
   // Cohere: command-r* are text-only (no vision); empty list
   cohere: [] as readonly string[],
-  // Together AI: text-only by default; add vision variants if/when used.
-  "together-ai": [] as readonly string[],
-  // Fireworks: vision via Phi-3-Vision and Llama 3.2 vision variants.
-  fireworks: [
-    "accounts/fireworks/models/phi-3-vision-128k-instruct",
-    "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
-    "accounts/fireworks/models/llama-v3p2-11b-vision-instruct",
-  ],
-  // Perplexity Sonar — text-only with web grounding.
-  perplexity: [] as readonly string[],
-  // Cloudflare: explicit vision variants only.
-  cloudflare: ["@cf/meta/llama-3.2-11b-vision-instruct"],
   // Replicate: vision capability depends on the specific model id.
   replicate: ["llava", "llama-3.2-vision", "moondream", "qwen2-vl"],
   // Voyage / Jina — embedding-only, not multimodal in this sense.

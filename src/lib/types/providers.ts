@@ -198,7 +198,6 @@ export type NeurolinkCredentials = {
     // best-effort deployment-name heuristic is used.
     useMaxCompletionTokens?: boolean;
   };
-  mistral?: { apiKey?: string; baseURL?: string };
   huggingFace?: { apiKey?: string; baseURL?: string };
   openrouter?: { apiKey?: string; baseURL?: string };
   litellm?: { apiKey?: string; baseURL?: string };
@@ -210,15 +209,18 @@ export type NeurolinkCredentials = {
   // behind an auth-proxying reverse-proxy.
   lmStudio?: { apiKey?: string; baseURL?: string };
   llamacpp?: { apiKey?: string; baseURL?: string };
-  xai?: { apiKey?: string; baseURL?: string };
-  groq?: { apiKey?: string; baseURL?: string };
+  // ── BEGIN GENERATED(credentials): provider catalog (pnpm run codegen:catalog) ──
   cerebras?: { apiKey?: string; baseURL?: string };
-  sambanova?: { apiKey?: string; baseURL?: string };
-  cohere?: { apiKey?: string; baseURL?: string };
-  together?: { apiKey?: string; baseURL?: string };
+  cloudflare?: { apiKey?: string; baseURL?: string; accountId?: string };
   fireworks?: { apiKey?: string; baseURL?: string };
+  groq?: { apiKey?: string; baseURL?: string };
+  mistral?: { apiKey?: string; baseURL?: string };
   perplexity?: { apiKey?: string; baseURL?: string };
-  cloudflare?: { apiKey?: string; accountId?: string; baseURL?: string };
+  sambanova?: { apiKey?: string; baseURL?: string };
+  together?: { apiKey?: string; baseURL?: string };
+  xai?: { apiKey?: string; baseURL?: string };
+  // ── END GENERATED(credentials) ──
+  cohere?: { apiKey?: string; baseURL?: string };
   replicate?: {
     apiToken?: string;
     baseUrl?: string;

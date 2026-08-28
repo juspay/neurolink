@@ -1,0 +1,351 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$comment": "Documentation-grade mirror of src/lib/providers/catalog/schema.ts for editor red-squiggle validation. The zod schema is authoritative \u2014 keep this file in sync by hand when that one changes. This mirror cannot express the zod schema's cross-field refinements (e.g. models.default must be a key of models.catalog, wire's baseURL-XOR-baseURLTemplate rule, errorRules requiring status or pattern); those are enforced only at parse time by parseProviderCatalogJson.",
+  "title": "NeuroLink Provider Catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "displayName",
+    "aliases",
+    "tier",
+    "wire",
+    "models",
+    "capabilities",
+    "errorRules",
+    "setup",
+    "evidence"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Editor-only pointer to this file. Accepted and ignored by the parser."
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "displayName": {
+      "type": "string"
+    },
+    "enumTypeName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$",
+      "description": "Exported <Name>Models enum name override. Default: PascalCase(id) + \"Models\"."
+    },
+    "credentialsKey": {
+      "type": "string",
+      "description": "Overrides the derived camelCase NeurolinkCredentials key. Required where the derived name would rename a pre-existing public credential field (see together-ai -> \"together\")."
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tier": {
+      "const": 2
+    },
+    "wire": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "baseURL": {
+          "type": "string"
+        },
+        "baseURLTemplate": {
+          "type": "string"
+        },
+        "extraCredentials": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
+          },
+          "maxItems": 1
+        },
+        "missingCredentialMessage": {
+          "type": "string"
+        },
+        "envOverrides": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "apiKey": {
+              "type": "string"
+            },
+            "baseURL": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default",
+        "fallbacks",
+        "defaultContextWindow",
+        "defaultMaxOutputTokens",
+        "catalog"
+      ],
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "fallbacks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "fallbackModelName": {
+          "type": "string",
+          "description": "Default: fallbacks[1] ?? fallbacks[0]."
+        },
+        "registryDefaultModel": {
+          "type": "string",
+          "description": "Default: models.default."
+        },
+        "defaultContextWindow": {
+          "type": "number"
+        },
+        "defaultMaxOutputTokens": {
+          "type": "number"
+        },
+        "catalog": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["vision", "status", "description"],
+            "properties": {
+              "contextWindow": {
+                "type": "number"
+              },
+              "maxOutputTokens": {
+                "type": "number"
+              },
+              "pricingPerMTok": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["input", "output"],
+                "properties": {
+                  "input": {
+                    "type": "number"
+                  },
+                  "output": {
+                    "type": "number"
+                  },
+                  "cachedInput": {
+                    "type": "number"
+                  }
+                }
+              },
+              "vision": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string",
+                "enum": ["production", "preview", "retired"]
+              },
+              "description": {
+                "type": "string"
+              },
+              "enumMember": {
+                "type": "string",
+                "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
+              }
+            }
+          }
+        },
+        "topModels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Ordered curated subset of catalog keys for wizard/choice surfaces. Falls back to the full catalog in file order when absent."
+        },
+        "visionModel": {
+          "type": "string",
+          "description": "The live-verified vision model capability tests should exercise. Must be a key of models.catalog whose entry has vision: true (enforced by the zod schema, not expressible here). Default: first vision:true model in file order."
+        },
+        "testModel": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The live-verified model the capability matrix drives, for providers whose default is retired upstream or gated off the testing account. May name a model outside models.catalog. Default: models.default. Never affects the runtime default."
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "streaming",
+        "tools",
+        "toolsWithStreaming",
+        "structuredOutput",
+        "structuredOutputWithTools",
+        "embeddings",
+        "thinking"
+      ],
+      "properties": {
+        "text": {
+          "type": "boolean"
+        },
+        "streaming": {
+          "type": "boolean"
+        },
+        "tools": {
+          "type": "boolean"
+        },
+        "toolsWithStreaming": {
+          "type": "boolean"
+        },
+        "structuredOutput": {
+          "type": "boolean"
+        },
+        "structuredOutputWithTools": {
+          "type": "boolean"
+        },
+        "embeddings": {
+          "type": "boolean"
+        },
+        "thinking": {
+          "type": "boolean"
+        }
+      }
+    },
+    "errorRules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["class", "message"],
+        "properties": {
+          "status": {
+            "type": "number"
+          },
+          "pattern": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string",
+            "enum": [
+              "authentication",
+              "rate-limit",
+              "invalid-model",
+              "network",
+              "provider"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "quirks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "timeoutErrorClass": {
+          "const": "provider"
+        },
+        "registryDefaultIgnoresModelEnvVar": {
+          "type": "boolean"
+        }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "apiKeyFormat", "billingPolicy", "instructions"],
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "apiKeyFormat": {
+          "type": ["string", "null"]
+        },
+        "billingPolicy": {
+          "type": "string",
+          "enum": ["free-tier", "free-with-card", "no-free-tier"]
+        },
+        "instructions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "Label shown by the setup wizard for the credential (default: \"API key\")."
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rosterVerified", "liveMatrix", "addedInPR"],
+      "properties": {
+        "rosterVerified": {
+          "$ref": "#/definitions/probeEvidence"
+        },
+        "authProbe": {
+          "$ref": "#/definitions/probeEvidence"
+        },
+        "billingProbe": {
+          "$ref": "#/definitions/probeEvidence"
+        },
+        "liveMatrix": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["date", "result"],
+          "properties": {
+            "date": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "result": {
+              "type": "string"
+            }
+          }
+        },
+        "addedInPR": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "probeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["date"],
+      "properties": {
+        "date": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "status": {
+          "type": "number"
+        },
+        "code": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

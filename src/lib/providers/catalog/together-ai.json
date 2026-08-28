@@ -1,0 +1,172 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "together-ai",
+  "displayName": "Together AI",
+  "enumTypeName": "TogetherAIModels",
+  "credentialsKey": "together",
+  "aliases": ["together"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.together.xyz/v1",
+    "envOverrides": {
+      "apiKey": "TOGETHER_API_KEY",
+      "baseURL": "TOGETHER_BASE_URL",
+      "model": "TOGETHER_MODEL"
+    }
+  },
+  "models": {
+    "default": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+    "fallbackModelName": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    "fallbacks": [
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+      "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+      "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+      "mistralai/Mixtral-8x22B-Instruct-v0.1",
+      "Qwen/Qwen2.5-72B-Instruct-Turbo",
+      "deepseek-ai/DeepSeek-R1",
+      "deepseek-ai/DeepSeek-V3"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+        "enumMember": "LLAMA_3_3_70B_INSTRUCT_TURBO",
+        "contextWindow": 128000,
+        "pricingPerMTok": { "input": 0.88, "output": 0.88 },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Llama 3.3 70B Turbo"
+      },
+      "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
+        "enumMember": "LLAMA_3_1_405B_INSTRUCT_TURBO",
+        "contextWindow": 128000,
+        "pricingPerMTok": { "input": 3.5, "output": 3.5 },
+        "vision": false,
+        "status": "production",
+        "description": "Flagship 405B"
+      },
+      "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
+        "enumMember": "LLAMA_3_1_70B_INSTRUCT_TURBO",
+        "contextWindow": 128000,
+        "pricingPerMTok": { "input": 0.88, "output": 0.88 },
+        "vision": false,
+        "status": "production",
+        "description": "Llama 3.1 70B Instruct Turbo"
+      },
+      "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
+        "enumMember": "LLAMA_3_1_8B_INSTRUCT_TURBO",
+        "contextWindow": 128000,
+        "pricingPerMTok": { "input": 0.18, "output": 0.18 },
+        "vision": false,
+        "status": "production",
+        "description": "Llama 3.1 8B Instruct Turbo — fastest"
+      },
+      "mistralai/Mixtral-8x22B-Instruct-v0.1": {
+        "enumMember": "MIXTRAL_8X22B_INSTRUCT",
+        "contextWindow": 65536,
+        "pricingPerMTok": { "input": 1.2, "output": 1.2 },
+        "vision": false,
+        "status": "production",
+        "description": "Mistral 8x22B MoE"
+      },
+      "mistralai/Mixtral-8x7B-Instruct-v0.1": {
+        "enumMember": "MIXTRAL_8X7B_INSTRUCT",
+        "contextWindow": 32768,
+        "pricingPerMTok": { "input": 0.6, "output": 0.6 },
+        "vision": false,
+        "status": "production",
+        "description": "Mixtral 8x7B Instruct"
+      },
+      "Qwen/Qwen2.5-72B-Instruct-Turbo": {
+        "enumMember": "QWEN_2_5_72B_INSTRUCT_TURBO",
+        "contextWindow": 32768,
+        "pricingPerMTok": { "input": 1.2, "output": 1.2 },
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 2.5 72B Turbo"
+      },
+      "Qwen/Qwen2.5-Coder-32B-Instruct": {
+        "enumMember": "QWEN_2_5_CODER_32B",
+        "contextWindow": 32768,
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 2.5 Coder 32B Instruct"
+      },
+      "deepseek-ai/DeepSeek-R1": {
+        "enumMember": "DEEPSEEK_R1",
+        "contextWindow": 64000,
+        "pricingPerMTok": { "input": 7.0, "output": 7.0 },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek R1 reasoning"
+      },
+      "deepseek-ai/DeepSeek-V3": {
+        "enumMember": "DEEPSEEK_V3",
+        "contextWindow": 64000,
+        "pricingPerMTok": { "input": 1.25, "output": 1.25 },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V3"
+      },
+      "google/gemma-2-27b-it": {
+        "enumMember": "GEMMA_2_27B_IT",
+        "contextWindow": 8192,
+        "vision": false,
+        "status": "production",
+        "description": "Google Gemma 2 27B IT"
+      },
+      "microsoft/WizardLM-2-8x22B": {
+        "enumMember": "WIZARDLM_2_8X22B",
+        "contextWindow": 65536,
+        "vision": false,
+        "status": "production",
+        "description": "WizardLM 2 8x22B"
+      }
+    },
+    "topModels": [
+      "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+      "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+      "Qwen/Qwen2.5-72B-Instruct-Turbo",
+      "deepseek-ai/DeepSeek-R1",
+      "mistralai/Mixtral-8x22B-Instruct-v0.1"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Invalid API key|Authentication",
+      "class": "authentication",
+      "message": "Invalid Together AI API key. Get one at https://api.together.xyz/settings/api-keys"
+    }
+  ],
+  "setup": {
+    "url": "https://api.together.xyz/settings/api-keys",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "instructions": [
+      "1. Visit: https://api.together.xyz/settings/api-keys",
+      "2. Sign in to your Together AI account",
+      "3. Create a new API key",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-28",
+      "method": "transcribed from pre-migration TS catalog"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
+  }
+}

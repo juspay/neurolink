@@ -9,10 +9,12 @@ import "dotenv/config";
  *
  * This file replaces the per-provider feature loops scattered across
  * `continuous-test-suite-providers.ts`. Adding a new provider becomes:
- *   1. Add an entry to `PROVIDERS` in providerMatrix.ts
- *   2. Set capability flags
- *   3. Set `defaultModel` and `envVars[]`
- *   4. Run `npx tsx test/continuous-test-suite-provider-matrix.ts`
+ *   - Catalog (Tier-2) provider: author `src/lib/providers/catalog/<id>.json`
+ *     and run `pnpm run codegen:catalog && pnpm run build` — its matrix row
+ *     derives from the JSON; nothing to edit here or in providerMatrix.ts.
+ *   - Non-catalog provider: add a hand row to `PROVIDERS` in
+ *     providerMatrix.ts (capability flags, `defaultModel`, `envVars[]`).
+ *   Then run `npx tsx test/continuous-test-suite-provider-matrix.ts`
  *
  * Run:  npx tsx test/continuous-test-suite-provider-matrix.ts
  *       npx tsx test/continuous-test-suite-provider-matrix.ts --provider=openai

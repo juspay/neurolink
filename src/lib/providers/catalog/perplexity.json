@@ -1,0 +1,103 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "perplexity",
+  "displayName": "Perplexity",
+  "aliases": ["pplx"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.perplexity.ai"
+  },
+  "models": {
+    "default": "sonar",
+    "fallbacks": [
+      "sonar",
+      "sonar-pro",
+      "sonar-reasoning",
+      "sonar-reasoning-pro",
+      "sonar-deep-research"
+    ],
+    "defaultContextWindow": 127000,
+    "defaultMaxOutputTokens": 4096,
+    "catalog": {
+      "sonar": {
+        "contextWindow": 127000,
+        "pricingPerMTok": { "input": 1.0, "output": 1.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Sonar with web grounding"
+      },
+      "sonar-pro": {
+        "contextWindow": 200000,
+        "pricingPerMTok": { "input": 3.0, "output": 15.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Better reasoning"
+      },
+      "sonar-reasoning": {
+        "contextWindow": 127000,
+        "pricingPerMTok": { "input": 1.0, "output": 5.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Explicit reasoning traces"
+      },
+      "sonar-reasoning-pro": {
+        "contextWindow": 127000,
+        "pricingPerMTok": { "input": 2.0, "output": 8.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Flagship reasoning + web"
+      },
+      "sonar-deep-research": {
+        "contextWindow": 200000,
+        "pricingPerMTok": { "input": 2.0, "output": 8.0 },
+        "vision": false,
+        "status": "production",
+        "description": "Long-form research with citations"
+      }
+    },
+    "topModels": [
+      "sonar",
+      "sonar-pro",
+      "sonar-reasoning",
+      "sonar-reasoning-pro",
+      "sonar-deep-research"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": false,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Invalid API key|Authentication",
+      "class": "authentication",
+      "message": "Invalid Perplexity API key. Get one at https://www.perplexity.ai/settings/api"
+    }
+  ],
+  "setup": {
+    "url": "https://www.perplexity.ai/settings/api",
+    "apiKeyFormat": null,
+    "billingPolicy": "no-free-tier",
+    "instructions": [
+      "1. Visit: https://www.perplexity.ai/settings/api",
+      "2. Sign in to your Perplexity account",
+      "3. Create a new API key (Sonar tier)",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-08-28",
+      "method": "transcribed from pre-migration TS catalog"
+    },
+    "liveMatrix": null,
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
+  }
+}

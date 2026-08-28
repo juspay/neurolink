@@ -3,6 +3,90 @@ import {
   getManifestForProvider,
   resolveManifestEntryExact,
 } from "../models/manifestRegistry.js";
+import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
+
+/**
+ * Per-model pricing for the JSON-catalog providers, derived from
+ * models.catalog[*].pricingPerMTok (dollars-per-million → dollars-per-token,
+ * matching this file's unit convention). `_default` is the rate of the
+ * provider's own models.default model — mirroring what every hand-written
+ * catalog-provider block already did pre-migration (e.g. xai's `_default`
+ * was always grok-3's rate, xai's default model).
+ *
+ * `pricingPerMTok.cachedInput`, where present, maps to this file's
+ * `cacheRead` field — same semantics (price for a cached-read hit), just a
+ * different field name in the two shapes.
+ *
+ * A provider contributes no block here when its catalog carries zero
+ * `pricingPerMTok` data anywhere — fireworks (a fully refreshed model
+ * roster with no sourced pricing yet) and cloudflare (bills per "neuron",
+ * not per token — there's no USD-per-token figure to source). Both stay
+ * entirely hand-written below with their pre-existing symbolic/estimated
+ * rates, since the JSON has nothing to derive. Mistral's catalog likewise
+ * has no pricingPerMTok data, and its hand block below uses coarse model
+ * names ("mistral-large", "codestral", …) that don't match the JSON's real
+ * ids ("mistral-large-latest", "codestral-latest", …) — it stays
+ * hand-written too.
+ */
+const CATALOG_PRICING: Record<
+  string,
+  Record<
+    string,
+    {
+      input: number;
+      output: number;
+      cacheRead?: number;
+      cacheCreation?: number;
+    }
+  >
+> = Object.fromEntries(
+  getCatalogJsonEntries().flatMap((entry) => {
+    const priced = Object.fromEntries(
+      Object.entries(entry.models.catalog).flatMap(([modelId, spec]) =>
+        spec.pricingPerMTok
+          ? [
+              [
+                modelId,
+                {
+                  input: spec.pricingPerMTok.input / 1_000_000,
+                  output: spec.pricingPerMTok.output / 1_000_000,
+                  ...(spec.pricingPerMTok.cachedInput !== undefined
+                    ? { cacheRead: spec.pricingPerMTok.cachedInput / 1_000_000 }
+                    : {}),
+                },
+              ] as const,
+            ]
+          : [],
+      ),
+    );
+    if (Object.keys(priced).length === 0) {
+      return [];
+    }
+    const defaultRate =
+      entry.models.catalog[entry.models.default]?.pricingPerMTok;
+    return [
+      [
+        entry.id,
+        {
+          ...(defaultRate
+            ? {
+                _default: {
+                  input: defaultRate.input / 1_000_000,
+                  output: defaultRate.output / 1_000_000,
+                  // Without this, a request falling back to `_default`
+                  // bills cached tokens at the full input rate.
+                  ...(defaultRate.cachedInput !== undefined
+                    ? { cacheRead: defaultRate.cachedInput / 1_000_000 }
+                    : {}),
+                },
+              }
+            : {}),
+          ...priced,
+        },
+      ] as const,
+    ];
+  }),
+);
 
 /**
  * Per-token pricing data (USD per token). Updated Feb 2026.
@@ -499,65 +583,9 @@ const PRICING: Record<
   llamacpp: {
     _default: { input: 0, output: 0 },
   },
-  xai: {
-    _default: { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
-    "grok-3": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
-    "grok-3-mini": { input: 0.3 / 1_000_000, output: 0.5 / 1_000_000 },
-    "grok-2-latest": { input: 2.0 / 1_000_000, output: 10.0 / 1_000_000 },
-    "grok-2-vision-latest": {
-      input: 2.0 / 1_000_000,
-      output: 10.0 / 1_000_000,
-    },
-    "grok-beta": { input: 5.0 / 1_000_000, output: 15.0 / 1_000_000 },
-  },
-  groq: {
-    _default: { input: 0.59 / 1_000_000, output: 0.79 / 1_000_000 },
-    "llama-3.3-70b-versatile": {
-      input: 0.59 / 1_000_000,
-      output: 0.79 / 1_000_000,
-    },
-    "llama-3.1-8b-instant": {
-      input: 0.05 / 1_000_000,
-      output: 0.08 / 1_000_000,
-    },
-    "llama-3.2-90b-vision-preview": {
-      input: 0.9 / 1_000_000,
-      output: 0.9 / 1_000_000,
-    },
-    "llama-3.2-11b-vision-preview": {
-      input: 0.18 / 1_000_000,
-      output: 0.18 / 1_000_000,
-    },
-    "gemma2-9b-it": { input: 0.2 / 1_000_000, output: 0.2 / 1_000_000 },
-    "mixtral-8x7b-32768": {
-      input: 0.24 / 1_000_000,
-      output: 0.24 / 1_000_000,
-    },
-  },
-  // inference-docs.cerebras.ai model pages, checked 2026-08-27. The
-  // gemma-4-31b page's prose and structured data disagree ($2.15/$2.70 vs
-  // $0.99/$1.49); the structured data feeds the vendor's rendered pricing
-  // card, so it's used here.
-  cerebras: {
-    _default: { input: 0.35 / 1_000_000, output: 0.75 / 1_000_000 },
-    "gpt-oss-120b": { input: 0.35 / 1_000_000, output: 0.75 / 1_000_000 },
-    "gemma-4-31b": { input: 0.99 / 1_000_000, output: 1.49 / 1_000_000 },
-  },
-  // cloud.sambanova.ai/plans/pricing, checked 2026-08-27. MiniMax-M2.7
-  // also has a $0.06/M cached-input rate the flat model here can't express.
-  sambanova: {
-    _default: { input: 0.6 / 1_000_000, output: 1.2 / 1_000_000 },
-    "Meta-Llama-3.3-70B-Instruct": {
-      input: 0.6 / 1_000_000,
-      output: 1.2 / 1_000_000,
-    },
-    "gpt-oss-120b": { input: 0.22 / 1_000_000, output: 0.59 / 1_000_000 },
-    "DeepSeek-V3.1": { input: 3.0 / 1_000_000, output: 4.5 / 1_000_000 },
-    "DeepSeek-V3.2": { input: 3.0 / 1_000_000, output: 4.5 / 1_000_000 },
-    "MiniMax-M2.7": { input: 0.6 / 1_000_000, output: 2.4 / 1_000_000 },
-    "MiniMax-M3": { input: 0.6 / 1_000_000, output: 2.4 / 1_000_000 },
-    "gemma-4-31B-it": { input: 0.38 / 1_000_000, output: 1.15 / 1_000_000 },
-  },
+  // xai, groq, cerebras, sambanova — derived from the JSON catalog, see
+  // CATALOG_PRICING above.
+  ...CATALOG_PRICING,
   cohere: {
     _default: { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
     "command-r-plus": { input: 2.5 / 1_000_000, output: 10.0 / 1_000_000 },
@@ -567,45 +595,7 @@ const PRICING: Record<
       output: 0.15 / 1_000_000,
     },
   },
-  "together-ai": {
-    _default: { input: 0.88 / 1_000_000, output: 0.88 / 1_000_000 },
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
-      input: 0.88 / 1_000_000,
-      output: 0.88 / 1_000_000,
-    },
-    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
-      input: 3.5 / 1_000_000,
-      output: 3.5 / 1_000_000,
-    },
-    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
-      input: 0.88 / 1_000_000,
-      output: 0.88 / 1_000_000,
-    },
-    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": {
-      input: 0.18 / 1_000_000,
-      output: 0.18 / 1_000_000,
-    },
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": {
-      input: 1.2 / 1_000_000,
-      output: 1.2 / 1_000_000,
-    },
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": {
-      input: 0.6 / 1_000_000,
-      output: 0.6 / 1_000_000,
-    },
-    "Qwen/Qwen2.5-72B-Instruct-Turbo": {
-      input: 1.2 / 1_000_000,
-      output: 1.2 / 1_000_000,
-    },
-    "deepseek-ai/DeepSeek-R1": {
-      input: 7.0 / 1_000_000,
-      output: 7.0 / 1_000_000,
-    },
-    "deepseek-ai/DeepSeek-V3": {
-      input: 1.25 / 1_000_000,
-      output: 1.25 / 1_000_000,
-    },
-  },
+  // together-ai — derived from the JSON catalog, see CATALOG_PRICING above.
   fireworks: {
     _default: { input: 0.9 / 1_000_000, output: 0.9 / 1_000_000 },
     "accounts/fireworks/models/llama-v3p1-70b-instruct": {
@@ -641,20 +631,7 @@ const PRICING: Record<
       output: 3.0 / 1_000_000,
     },
   },
-  perplexity: {
-    _default: { input: 1.0 / 1_000_000, output: 1.0 / 1_000_000 },
-    sonar: { input: 1.0 / 1_000_000, output: 1.0 / 1_000_000 },
-    "sonar-pro": { input: 3.0 / 1_000_000, output: 15.0 / 1_000_000 },
-    "sonar-reasoning": { input: 1.0 / 1_000_000, output: 5.0 / 1_000_000 },
-    "sonar-reasoning-pro": {
-      input: 2.0 / 1_000_000,
-      output: 8.0 / 1_000_000,
-    },
-    "sonar-deep-research": {
-      input: 2.0 / 1_000_000,
-      output: 8.0 / 1_000_000,
-    },
-  },
+  // perplexity — derived from the JSON catalog, see CATALOG_PRICING above.
   cloudflare: {
     // Cloudflare bills per "neuron"; symbolic per-token rate so cost
     // attribution dashboards have non-zero values.
@@ -697,6 +674,23 @@ const PRICING: Record<
 };
 
 /**
+ * Derives the catalog-provider rows of PROVIDER_ALIASES from each entry's
+ * own `id` and `aliases` — the same stripped-lowercase key format the hand
+ * rows below use ("together-ai" -> "togetherai", "workers-ai" -> "workersai").
+ */
+function buildCatalogProviderAliases(): Record<string, string> {
+  return Object.fromEntries(
+    getCatalogJsonEntries().flatMap((entry) => {
+      const stripped = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
+      return [
+        [stripped(entry.id), entry.id] as const,
+        ...entry.aliases.map((alias) => [stripped(alias), entry.id] as const),
+      ];
+    }),
+  );
+}
+
+/**
  * Map of normalized provider aliases to canonical PRICING keys.
  * After stripping non-alpha characters, e.g. "google-ai" becomes "googleai".
  */
@@ -708,8 +702,6 @@ const PROVIDER_ALIASES: Record<string, string> = {
   openai: "openai",
   vertex: "vertex",
   google: "google",
-  mistral: "mistral",
-  mistralai: "mistral",
   azure: "openai",
   azureopenai: "openai",
   bedrock: "anthropic",
@@ -723,20 +715,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
   nvidia: "nvidia-nim",
   lmstudio: "lm-studio",
   llamacpp: "llamacpp",
-  xai: "xai",
-  grok: "xai",
-  groq: "groq",
-  cerebras: "cerebras",
-  sambanova: "sambanova",
   cohere: "cohere",
-  togetherai: "together-ai",
-  together: "together-ai",
-  fireworks: "fireworks",
-  perplexity: "perplexity",
-  pplx: "perplexity",
-  cloudflare: "cloudflare",
-  workersai: "cloudflare",
-  cfai: "cloudflare",
   replicate: "replicate",
   voyage: "voyage",
   voyageai: "voyage",
@@ -747,6 +726,14 @@ const PROVIDER_ALIASES: Record<string, string> = {
   sd: "stability",
   ideogram: "ideogram",
   recraft: "recraft",
+  // 9 JSON-catalog providers (cerebras, cloudflare, fireworks, groq,
+  // mistral, perplexity, sambanova, together-ai, xai), derived from each
+  // entry's id/aliases above.
+  ...buildCatalogProviderAliases(),
+  // Not in mistral.json's `aliases` array (only "grok", "together",
+  // "pplx", "workers-ai"/"cf-ai" are real catalog aliases) — a pre-existing
+  // lenient alias kept explicitly since it can't be derived from the catalog.
+  mistralai: "mistral",
 };
 
 /**

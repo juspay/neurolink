@@ -34,7 +34,13 @@ if [[ "$BRANCH_NAME" != "HEAD" ]]; then
   
   echo "🎨 Running format..."
   npm run format:staged
-  
+
+  # Provider-catalog codegen freshness — fails fast, before the longer
+  # check/validate stages, if the per-provider JSON changed but the
+  # generated enums/types/index were not regenerated to match.
+  echo "🧬 Checking provider catalog codegen is current..."
+  npm run codegen:catalog -- --check
+
   # `validate:all` is `validate && lint && validate:env && validate:security`,
   # so calling `lint` separately above ran the repo-wide prettier+eslint
   # twice. Measured here: lint 115s, validate:all 110s — validate:all is

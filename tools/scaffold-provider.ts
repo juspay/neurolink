@@ -3,10 +3,16 @@
  * Provider scaffolding tool (Tier 1-4 onboarding).
  *
  * Given {name, tier, baseURL, envVar, defaultModel, aliases}, generates
- * the boilerplate snippets an engineer splices into the real source
- * files, plus a manifest stub and the tier-specific manual checklist.
- * Never edits repo source directly — everything lands under --out
- * (default .scaffold-output/<name>/) for review before copy-paste.
+ * the tier-appropriate starting point plus a manual checklist. Never edits
+ * repo source directly — everything lands under --out (default
+ * .scaffold-output/<name>/) for review first.
+ *
+ * Tier 2 (zero-quirk OpenAI-compatible) emits exactly TWO files: a
+ * pre-filled `<name>.json` catalog entry and MANUAL-CHECKLIST.md. That JSON
+ * is the whole integration — `pnpm run codegen:catalog` writes the enum
+ * member, the <Name>Models enum and the credentials key, and the provider
+ * suites derive their rows and counts from it. Tier 3/4 still get the
+ * source snippets, since real quirk hooks stay code.
  *
  * Usage:
  *   npx tsx tools/scaffold-provider.ts --name=cerebras --tier=2 \
@@ -194,35 +200,82 @@ function descriptorSnippet(input: ScaffoldInput): string {
 // tools/** is excluded from `pnpm run check`, nothing caught it until a
 // human spliced the snippet (cerebras pilot, finding #1). If you change
 // the type, change this template in the same commit.
-function catalogEntrySnippet(input: ScaffoldInput): string {
-  const constant = toConstantCase(input.name);
-  const pascal = toPascalCase(input.name);
-  const modelConstant = toModelConstant(input.defaultModel);
-  const aliasesLiteral = [input.name, ...input.aliases]
-    .map(tsString)
-    .join(", ");
-  const baseURLLine = input.baseURL
-    ? `    defaultBaseURL: ${tsString(input.baseURL)},`
-    : `    // defaultBaseURL: "https://api.<vendor>.com/v1", // or computedBaseURL — see the type`;
-  return `  {
-    providerName: AIProviderName.${constant},
-    aliases: [${aliasesLiteral}],
-    apiKeyEnvVar: ${tsString(input.envVar)},
-    baseURLEnvVar: "${constant}_BASE_URL",
-${baseURLLine}
-    configOptions: create${pascal}Config(),
-    modelEnvVar: "${constant}_MODEL",
-    defaultModel: ${pascal}Models.${modelConstant},
-    registryDefaultModel: ${pascal}Models.${modelConstant},
-    registryDefaultModelChecksEnvVar: true,
-    fallbackModelName: ${pascal}Models.${modelConstant}, // TODO: second live model if the roster has one
-    fallbackModels: [${pascal}Models.${modelConstant}],
-    errorRules: [
-      // TODO: probe the vendor's real 401 body keylessly first (curl with a
-      // bad key) and add an auth rule citing that exact shape, then:
-      ...DEFAULT_ERROR_RULES,
-    ],
+// Tier 2's single deliverable: the catalog JSON that drives EVERYTHING
+// (enum member, <Name>Models enum, credentials key, descriptor, config,
+// context windows, pricing, vision map, model choices, mocked spec row,
+// matrix row, count assertions). Emitted pre-filled from the flags with
+// TODO markers where only a live probe can supply the truth. The author
+// fills the TODOs and runs `pnpm run codegen:catalog` — nothing else.
+//
+// Deliberately hand-built as text rather than JSON.stringify'd from an
+// object: the TODO comments-as-values and the field ORDER are the
+// instructions. Every interpolated flag value goes through JSON.stringify
+// (via tsString) so quotes/backslashes in a flag can't break the JSON.
+function catalogJson(input: ScaffoldInput): string {
+  const wireBlock = input.baseURL
+    ? `    "baseURL": ${tsString(input.baseURL)}`
+    : `    "baseURL": "https://api.TODO.com/v1"`;
+  const envOverride =
+    input.envVar === `${toConstantCase(input.name)}_API_KEY`
+      ? ""
+      : `,\n    "envOverrides": { "apiKey": ${tsString(input.envVar)} }`;
+  return `{
+  "$schema": "./provider-catalog.schema.json",
+  "id": ${tsString(input.name)},
+  "displayName": "TODO: human-readable vendor name",
+  "aliases": [${input.aliases.map(tsString).join(", ")}],
+  "tier": 2,
+  "wire": {
+${wireBlock}${envOverride}
   },
+  "models": {
+    "default": ${tsString(input.defaultModel)},
+    "fallbacks": [${tsString(input.defaultModel)}],
+    "defaultContextWindow": 0,
+    "defaultMaxOutputTokens": 0,
+    "catalog": {
+      ${tsString(input.defaultModel)}: {
+        "vision": false,
+        "status": "production",
+        "description": "TODO: one line shown in the CLI model picker"
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "TODO|invalid_api_key",
+      "class": "authentication",
+      "message": "Invalid TODO API key. Check {apiKeyEnvVar}. Get one at TODO"
+    }
+  ],
+  "setup": {
+    "url": "TODO: console/API-keys URL",
+    "apiKeyFormat": null,
+    "billingPolicy": "TODO: free-tier | free-with-card | no-free-tier",
+    "instructions": [
+      "1. Visit: TODO",
+      "2. Sign in or create an account",
+      "3. Create an API key",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": { "date": "TODO", "method": "authenticated GET /v1/models" },
+    "liveMatrix": null,
+    "addedInPR": "TODO: full PR URL"
+  }
+}
 `;
 }
 
@@ -274,29 +327,8 @@ export class ${className} extends BaseProvider {
 `;
 }
 
+// Tier 3/4 only — Tier 2's mocked spec row derives from the catalog JSON.
 function mockedTestSectionSnippet(input: ScaffoldInput): string {
-  if (input.tier === 2) {
-    return `// --- ${toPascalCase(input.name)} (Tier 2) ---
-// Tier 2 needs ONE spec row appended to the OPENAI_COMPAT_PROVIDERS
-// array in test/continuous-test-suite-providers-mocked.ts — the shared
-// runner covers happy-path, 401 and 429 mapping (plus the tools-less
-// tool_choice-absence invariant) for every row. Adapt from the shipped
-// cerebras row:
-{
-  provider: "${input.name}",
-  envVar: ${tsString(input.envVar)},
-  urlMatch: "<host>/v1/chat/completions", // TODO: real host
-  authPrefix: "Bearer ",
-  model: ${tsString(input.defaultModel)},
-  authErrorMatch: /${input.name}|401|unauthor|api key/i,
-  rateLimitErrorMatch: /${input.name}|rate.?limit|429/i,
-},
-// REQUIRED: the row's "${MOCKED_SECTION_FIELD}" field must carry this
-// provider's name as real executable code — tools/verify-provider-onboarding.ts
-// strips comments before checking, so this snippet satisfies the gate only
-// once spliced in as code.
-`;
-  }
   return `// --- ${toPascalCase(input.name)} (Tier ${input.tier}) ---
 // TODO: this comment block is a placeholder, not a test — it must be
 // replaced, not pasted in as-is. Copy the nearest existing section in
@@ -369,16 +401,69 @@ generated under this directory for Tier 1.
       new AIProviderName members
 `;
   }
+  if (input.tier === 2) {
+    return `# Manual checklist for "${input.name}" (Tier 2)
+
+Full guide: docs/provider-integration/${doc}
+
+Tier 2 onboarding is ONE FILE. This directory holds a pre-filled
+\`${input.name}.json\`; every other artifact is machine-generated from it.
+Do not hand-write enum members, descriptors, config helpers, model
+choices, credentials keys, test rows or count pins — codegen and the
+derived suites produce all of them.
+
+## Live probes FIRST (they supply the TODOs)
+
+- [ ] Roster: authenticated \`GET ${input.baseURL ?? "<baseURL>"}/models\`.
+      Pick \`models.default\`, \`fallbacks\` and every \`catalog\` key from
+      what the API serves TODAY — vendor docs list retired ids that 404
+      (the cerebras pilot shipped one as its default). Record the date in
+      \`evidence.rosterVerified\`.
+- [ ] Auth shape: curl with a deliberately bad key; put the real status +
+      body pattern in \`errorRules\` and \`evidence.authProbe\`.
+- [ ] Billing: how a working key is obtained (free tier? card required for
+      "free" credits?) → \`setup.billingPolicy\`. A 402 probe goes in
+      \`evidence.billingProbe\`.
+- [ ] Capabilities: verify \`structuredOutputWithTools\` with a real
+      tools+response_format call — do not assume it.
+- [ ] Context window / max output / pricing: from the vendor's published
+      numbers. Omit a field rather than invent a number.
+
+## Fill in and generate
+
+- [ ] Move \`${input.name}.json\` to \`src/lib/providers/catalog/\` and
+      replace every TODO (the file will not validate until you do).
+- [ ] \`pnpm run codegen:catalog\` — writes the enum member, the
+      \`${toPascalCase(input.name)}Models\` enum, the credentials key and
+      the generated index. Re-run after any JSON edit; CI fails on stale
+      output.
+- [ ] \`pnpm run build\` — the derived test suites read the BUILT catalog,
+      so an unbuilt change silently tests the old data.
+
+## Gates (no count pins to bump — they derive)
+
+- [ ] \`pnpm run check && pnpm run lint && pnpm run test:providers-mocked\`
+- [ ] \`npx tsx test/continuous-test-suite-provider-wiring.ts\`
+- [ ] \`npx tsx test/continuous-test-suite-provider-descriptors.ts\`
+- [ ] \`pnpm run verify:provider-onboarding\` — requires the catalog JSON to
+      parse AND carry \`evidence.rosterVerified\` + \`evidence.addedInPR\`.
+
+## Live verification (with a working key)
+
+- [ ] \`npx tsx test/continuous-test-suite-provider-matrix.ts --provider=${input.name}\`
+      — expect generate, stream, tool calling and structured output to pass.
+- [ ] \`node dist/cli/index.js generate "..." --provider ${input.name}\`
+      (no \`--model\` — proves the default resolves live).
+- [ ] Record the result in \`evidence.liveMatrix\` and the PR URL in
+      \`evidence.addedInPR\`.
+- [ ] If the catalog default is retired/gated on your account, set
+      \`models.testModel\` to a live-verified id — the matrix drives that
+      instead, without changing the runtime default.
+`;
+  }
   const camelKey = toCamelCase(input.name);
-  // Tier 2 has NO registerProvider() block — the catalog loop in
-  // providerRegistry._doRegister() registers every OPENAI_COMPAT_CATALOG
-  // row generically (the registry's own comment says "not a new block
-  // here"). Telling Tier 2 authors to add one was checklist drift
-  // (cerebras pilot, finding #2).
   const registrationLine =
-    input.tier === 2
-      ? `- [ ] Splice catalog-entry.ts.snippet into OPENAI_COMPAT_CATALOG (src/lib/providers/openaiCompatCatalog.ts), add the create${toPascalCase(input.name)}Config and ${toPascalCase(input.name)}Models imports it references at the top of that file, and bump its "N zero-quirk providers" header comment. Do NOT add a providerRegistry.ts block — the catalog loop registers every row.`
-      : "- [ ] Move provider-class.ts.snippet to src/lib/providers/<name>.ts, fill in the TODOs, and add one ProviderFactory.registerProvider() block in src/lib/factories/providerRegistry.ts (dynamic import — Critical Rule 1)";
+    "- [ ] Move provider-class.ts.snippet to src/lib/providers/<name>.ts, fill in the TODOs, and add one ProviderFactory.registerProvider() block in src/lib/factories/providerRegistry.ts (dynamic import — Critical Rule 1)";
   return `# Manual checklist for "${input.name}" (Tier ${input.tier})
 
 Full guide: docs/provider-integration/${doc}
@@ -454,7 +539,13 @@ function main(): void {
   const input = parseArgs(process.argv.slice(2));
   mkdirSync(input.out, { recursive: true });
 
-  if (input.tier !== 1) {
+  // Tier 2 emits exactly two artifacts: the catalog JSON and its checklist.
+  // Every snippet the older scaffold produced for Tier 2 is now generated
+  // from that JSON by `pnpm run codegen:catalog` or derived by the suites.
+  if (input.tier === 2) {
+    writeFileSync(join(input.out, `${input.name}.json`), catalogJson(input));
+  }
+  if (input.tier === 3 || input.tier === 4) {
     writeFileSync(
       join(input.out, "enum-entry.ts.snippet"),
       enumEntrySnippet(input),
@@ -471,20 +562,10 @@ function main(): void {
       join(input.out, "provider-config.ts.snippet"),
       providerConfigSnippet(input),
     );
-  }
-  if (input.tier === 2) {
-    writeFileSync(
-      join(input.out, "catalog-entry.ts.snippet"),
-      catalogEntrySnippet(input),
-    );
-  }
-  if (input.tier === 3 || input.tier === 4) {
     writeFileSync(
       join(input.out, "provider-class.ts.snippet"),
       providerClassSnippet(input),
     );
-  }
-  if (input.tier !== 1) {
     writeFileSync(
       join(input.out, "mocked-test-section.ts.snippet"),
       mockedTestSectionSnippet(input),

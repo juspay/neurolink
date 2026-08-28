@@ -8,7 +8,7 @@
 
 > **NativeToolDeclarationsResult** = `object`
 
-Defined in: [types/providers.ts:2031](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2031)
+Defined in: [types/providers.ts:2033](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2033)
 
 Return value of buildNativeToolDeclarations.
 
@@ -23,7 +23,7 @@ MUST be hidden from tool-call metadata exposed to consumers.
 
 > **toolsConfig**: [`NativeToolsConfig`](NativeToolsConfig.md)
 
-Defined in: [types/providers.ts:2032](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2032)
+Defined in: [types/providers.ts:2034](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2034)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/providers.ts:2032](https://github.com/juspay/neurolink/blob/r
 
 > **executeMap**: `Map`\<`string`, `Tool`\[`"execute"`\]\>
 
-Defined in: [types/providers.ts:2033](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2033)
+Defined in: [types/providers.ts:2035](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2035)
 
 ---
 
@@ -39,4 +39,4 @@ Defined in: [types/providers.ts:2033](https://github.com/juspay/neurolink/blob/r
 
 > **originalNameMap**: `Map`\<`string`, `string`\>
 
-Defined in: [types/providers.ts:2034](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2034)
+Defined in: [types/providers.ts:2036](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2036)

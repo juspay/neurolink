@@ -193,18 +193,21 @@ jobs:
           fi
           echo "✅ docs/api matches the source it documents."
 
+      # Provider-catalog codegen freshness — the per-provider JSON in
+      # src/lib/providers/catalog/*.json is the source of truth; the enums,
+      # credential keys, and catalog index it drives must never drift from it.
+      - name: 🧬 Check provider catalog codegen is current
+        if: matrix.group == 'validate'
+        run: |
+          echo "🧬 Checking generated provider-catalog code is current..."
+          pnpm run codegen:catalog -- --check
+          git diff --exit-code -- src/
+
       - name: 🚫 Check banned dependencies
         if: matrix.group == 'validate'
         run: |
           echo "🔍 Verifying no banned packages leaked into production dependencies..."
           pnpm run check:deps
-
-      # tools/ and scripts/ are excluded from the root tsconfig, so the files a
-      # workflow actually depends on were never typechecked. That is how the
-      # provider onboarding gate shipped reading a field that does not exist.
-      - name: 🔎 Typecheck CI-critical scripts and tools
-        if: matrix.group == 'types'
-        run: pnpm run check:ci-scripts
 
       # test/ is excluded from tsconfig too, so `check` never looks at the
       # suites. A full typecheck there is 296 errors and a separate cleanup;
@@ -252,6 +255,18 @@ jobs:
       - name: Build package
         if: matrix.group == 'types' && steps.dist-cache.outputs.cache-hit != 'true'
         run: pnpm run build
+
+      # tools/ and scripts/ are excluded from the root tsconfig, so the files a
+      # workflow actually depends on were never typechecked. That is how the
+      # provider onboarding gate shipped reading a field that does not exist.
+      #
+      # Runs AFTER the build: this config also covers test/helpers/**, and
+      # providerMatrix.ts derives the catalog providers' capability rows from
+      # the BUILT catalog (dist/providers/catalog/**). On an unbuilt tree those
+      # imports do not resolve, which is a missing dist, not a type error.
+      - name: 🔎 Typecheck CI-critical scripts and tools
+        if: matrix.group == 'types'
+        run: pnpm run check:ci-scripts
 
       # After the build, deliberately: these suites import ../dist/index.js, so
       # on an unbuilt tree every such import fails and cascades to ~769 errors.

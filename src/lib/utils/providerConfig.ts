@@ -19,7 +19,25 @@ import type {
 } from "../types/index.js";
 
 import { logger } from "./logger.js";
+import {
+  getCatalogJsonEntries,
+  buildCatalogConfigOptions,
+} from "../providers/catalog/loader.js";
 // Re-export subscription types for convenience
+
+/**
+ * Looks up a JSON catalog entry by id and derives its ProviderConfigOptions.
+ * Backs the 9 catalog providers' create<Name>Config() delegations below —
+ * the JSON catalog (src/lib/providers/catalog/<id>.json) is their single
+ * source of truth.
+ */
+function catalogConfigOptions(id: string): ProviderConfigOptions {
+  const entry = getCatalogJsonEntries().find((e) => e.id === id);
+  if (!entry) {
+    throw new Error(`Unknown catalog provider id: ${id}`);
+  }
+  return buildCatalogConfigOptions(entry);
+}
 
 /**
  * API key format validation patterns (extracted from advanced validation system)
@@ -361,17 +379,7 @@ export function createHuggingFaceConfig(): ProviderConfigOptions {
  * Creates Mistral provider configuration
  */
 export function createMistralConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Mistral",
-    envVarName: "MISTRAL_API_KEY",
-    setupUrl: "https://console.mistral.ai/",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://console.mistral.ai/",
-      "2. Create or sign in to your account",
-      "3. Generate a new API key",
-    ],
-  };
+  return catalogConfigOptions("mistral");
 }
 
 /**
@@ -504,69 +512,25 @@ export function createNvidiaNimConfig(): ProviderConfigOptions {
  * Creates xAI Grok provider configuration.
  */
 export function createXaiConfig(): ProviderConfigOptions {
-  return {
-    providerName: "xAI",
-    envVarName: "XAI_API_KEY",
-    setupUrl: "https://console.x.ai/",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://console.x.ai/",
-      "2. Sign in with your xAI account",
-      "3. Create an API key",
-      "4. Set XAI_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("xai");
 }
 
 /**
- * Creates Cerebras provider configuration.
+ * Creates SambaNova provider configuration.
  */
 export function createSambanovaConfig(): ProviderConfigOptions {
-  return {
-    providerName: "SambaNova",
-    envVarName: "SAMBANOVA_API_KEY",
-    setupUrl: "https://cloud.sambanova.ai/apis",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://cloud.sambanova.ai (Google/Microsoft OAuth works)",
-      "2. Complete the profile step; note new accounts have NO free allowance — a payment method and purchased credits are required before calls succeed",
-      "3. Create an API key under API Keys",
-      "4. Set SAMBANOVA_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("sambanova");
 }
 
 export function createCerebrasConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Cerebras",
-    envVarName: "CEREBRAS_API_KEY",
-    setupUrl: "https://cloud.cerebras.ai",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://cloud.cerebras.ai",
-      "2. Sign in or create a free Cerebras account",
-      "3. Create an API key under API Keys",
-      "4. Set CEREBRAS_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("cerebras");
 }
 
 /**
  * Creates Groq provider configuration.
  */
 export function createGroqConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Groq",
-    envVarName: "GROQ_API_KEY",
-    setupUrl: "https://console.groq.com/keys",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://console.groq.com/keys",
-      "2. Sign in to your Groq account",
-      "3. Create a new API key",
-      "4. Set GROQ_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("groq");
 }
 
 /**
@@ -609,54 +573,21 @@ export function createReplicateConfig(): ProviderConfigOptions {
  * Creates Together AI provider configuration.
  */
 export function createTogetherAIConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Together AI",
-    envVarName: "TOGETHER_API_KEY",
-    setupUrl: "https://api.together.xyz/settings/api-keys",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://api.together.xyz/settings/api-keys",
-      "2. Sign in to your Together AI account",
-      "3. Create a new API key",
-      "4. Set TOGETHER_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("together-ai");
 }
 
 /**
  * Creates Fireworks AI provider configuration.
  */
 export function createFireworksConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Fireworks AI",
-    envVarName: "FIREWORKS_API_KEY",
-    setupUrl: "https://fireworks.ai/account/api-keys",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://fireworks.ai/account/api-keys",
-      "2. Sign in to your Fireworks AI account",
-      "3. Create a new API key",
-      "4. Set FIREWORKS_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("fireworks");
 }
 
 /**
  * Creates Perplexity provider configuration.
  */
 export function createPerplexityConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Perplexity",
-    envVarName: "PERPLEXITY_API_KEY",
-    setupUrl: "https://www.perplexity.ai/settings/api",
-    description: "API key",
-    instructions: [
-      "1. Visit: https://www.perplexity.ai/settings/api",
-      "2. Sign in to your Perplexity account",
-      "3. Create a new API key (Sonar tier)",
-      "4. Set PERPLEXITY_API_KEY in your .env file",
-    ],
-  };
+  return catalogConfigOptions("perplexity");
 }
 
 /**
@@ -756,18 +687,7 @@ export function createRecraftConfig(): ProviderConfigOptions {
  * AND `CLOUDFLARE_ACCOUNT_ID` since the endpoint is per-account.
  */
 export function createCloudflareConfig(): ProviderConfigOptions {
-  return {
-    providerName: "Cloudflare Workers AI",
-    envVarName: "CLOUDFLARE_API_KEY",
-    setupUrl: "https://dash.cloudflare.com/profile/api-tokens",
-    description: "API token (Workers AI Read+Write scope)",
-    instructions: [
-      "1. Visit: https://dash.cloudflare.com/profile/api-tokens",
-      "2. Create a token with 'Workers AI: Read + Write' scope",
-      "3. Set CLOUDFLARE_API_KEY in your .env file",
-      "4. Also set CLOUDFLARE_ACCOUNT_ID (find it in the dashboard URL or under 'Account ID')",
-    ],
-  };
+  return catalogConfigOptions("cloudflare");
 }
 
 /**

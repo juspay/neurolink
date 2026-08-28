@@ -14,6 +14,38 @@
 import { DynamicModelProvider } from "../core/dynamicModels.js";
 import { logger } from "../utils/logger.js";
 import { resolveManifestEntryStrict } from "../models/manifestRegistry.js";
+import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
+
+/**
+ * Per-provider context window blocks for the 9 JSON-catalog providers
+ * (cerebras, cloudflare, fireworks, groq, mistral, perplexity, sambanova,
+ * together-ai, xai), derived from models.catalog[*].contextWindow +
+ * defaultContextWindow — the catalog JSON (src/lib/providers/catalog/<id>.json)
+ * is their single source of truth. A catalog model with no recorded
+ * contextWindow (e.g. fireworks' current roster — none of its models have a
+ * sourced value yet) is simply omitted here, same as it was never a key in
+ * the pre-migration table either; the `_default` / prefix-match /
+ * DEFAULT_CONTEXT_WINDOW fallback chain in getContextWindowSize() below
+ * covers it exactly as it always has.
+ */
+const CATALOG_CONTEXT_WINDOWS: Record<
+  string,
+  Record<string, number>
+> = Object.fromEntries(
+  getCatalogJsonEntries().map((entry) => [
+    entry.id,
+    {
+      _default: entry.models.defaultContextWindow,
+      ...Object.fromEntries(
+        Object.entries(entry.models.catalog).flatMap(([modelId, spec]) =>
+          spec.contextWindow !== undefined
+            ? [[modelId, spec.contextWindow] as const]
+            : [],
+        ),
+      ),
+    },
+  ]),
+);
 
 /** Default context window when provider/model is unknown */
 export const DEFAULT_CONTEXT_WINDOW = 128_000;
@@ -57,93 +89,11 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
   llamacpp: {
     _default: 8_192,
   },
-  xai: {
-    _default: 131_072,
-    "grok-3": 131_072,
-    "grok-3-mini": 131_072,
-    "grok-2-latest": 131_072,
-    "grok-2-vision-latest": 32_768,
-    "grok-beta": 131_072,
-  },
-  groq: {
-    _default: 128_000,
-    "llama-3.3-70b-versatile": 131_072,
-    "llama-3.1-8b-instant": 128_000,
-    "llama-3.2-90b-vision-preview": 128_000,
-    "llama-3.2-11b-vision-preview": 128_000,
-    "llama-guard-3-8b": 8_192,
-    "gemma2-9b-it": 8_192,
-    "mixtral-8x7b-32768": 32_768,
-  },
-  // Free tier serves 65k context per model; paid tiers 131k
-  // (inference-docs.cerebras.ai model pages, checked 2026-08-27). The
-  // tier isn't knowable from the key, so budget against the free-tier
-  // floor — compacting early is safe, overrunning a 65k window is not.
-  cerebras: {
-    _default: 65_536,
-    "gpt-oss-120b": 65_536,
-    "gemma-4-31b": 65_536,
-  },
-  // Vendor model-spec page (docs.sambanova.ai, checked 2026-08-27):
-  // 128K production mainline, 192K MiniMax-M2.7, 32K DeepSeek-V3.2 preview.
-  sambanova: {
-    _default: 131_072,
-    "Meta-Llama-3.3-70B-Instruct": 131_072,
-    "gpt-oss-120b": 131_072,
-    "DeepSeek-V3.1": 131_072,
-    "DeepSeek-V3.2": 32_768,
-    "MiniMax-M2.7": 196_608,
-    "gemma-4-31B-it": 131_072,
-  },
   cohere: {
     _default: 128_000,
     "command-r-plus": 128_000,
     "command-r": 128_000,
     "command-r7b-12-2024": 128_000,
-  },
-  "together-ai": {
-    _default: 128_000,
-    "meta-llama/Llama-3.3-70B-Instruct-Turbo": 128_000,
-    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": 128_000,
-    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": 128_000,
-    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": 128_000,
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": 65_536,
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": 32_768,
-    "Qwen/Qwen2.5-72B-Instruct-Turbo": 32_768,
-    "Qwen/Qwen2.5-Coder-32B-Instruct": 32_768,
-    "deepseek-ai/DeepSeek-R1": 64_000,
-    "deepseek-ai/DeepSeek-V3": 64_000,
-    "google/gemma-2-27b-it": 8_192,
-    "microsoft/WizardLM-2-8x22B": 65_536,
-  },
-  fireworks: {
-    _default: 128_000,
-    "accounts/fireworks/models/llama-v3p1-70b-instruct": 131_072,
-    "accounts/fireworks/models/llama-v3p1-405b-instruct": 128_000,
-    "accounts/fireworks/models/llama-v3p1-8b-instruct": 128_000,
-    "accounts/fireworks/models/llama-v3p3-70b-instruct": 128_000,
-    "accounts/fireworks/models/mixtral-8x22b-instruct": 65_536,
-    "accounts/fireworks/models/qwen2p5-72b-instruct": 32_768,
-    "accounts/fireworks/models/qwen2p5-coder-32b-instruct": 32_768,
-    "accounts/fireworks/models/deepseek-v3": 64_000,
-  },
-  perplexity: {
-    _default: 127_000,
-    sonar: 127_000,
-    "sonar-pro": 200_000,
-    "sonar-reasoning": 127_000,
-    "sonar-reasoning-pro": 127_000,
-    "sonar-deep-research": 200_000,
-  },
-  cloudflare: {
-    _default: 8_192,
-    "@cf/meta/llama-3.3-70b-instruct-fp8-fast": 24_000,
-    "@cf/meta/llama-3.1-70b-instruct": 24_000,
-    "@cf/meta/llama-3.1-8b-instruct-fast": 24_000,
-    "@cf/meta/llama-3.2-11b-vision-instruct": 24_000,
-    "@cf/mistral/mistral-7b-instruct-v0.2": 32_768,
-    "@cf/qwen/qwen1.5-14b-chat-awq": 7_500,
-    "@cf/google/gemma-2b-it-lora": 4_096,
   },
   replicate: {
     // Per-model — Replicate hosts arbitrary models; sensible default.
@@ -358,19 +308,6 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     "gpt-4-turbo": 128_000,
     "gpt-4": 8_192,
   },
-  mistral: {
-    _default: 128_000,
-    "mistral-large-latest": 256_000,
-    "mistral-large-2512": 256_000,
-    "mistral-medium-latest": 128_000,
-    "mistral-small-latest": 128_000,
-    "codestral-latest": 256_000,
-    "codestral-2508": 256_000,
-    "devstral-2512": 256_000,
-    "devstral-small-2512": 256_000,
-    "magistral-medium-latest": 128_000,
-    "mistral-small-2603": 256_000,
-  },
   ollama: {
     _default: 128_000,
   },
@@ -387,6 +324,7 @@ export const MODEL_CONTEXT_WINDOWS: Record<string, Record<string, number>> = {
     // Qwen3 VL — 32K context
     "qwen3-vl-8b-instruct": 32_768,
   },
+  ...CATALOG_CONTEXT_WINDOWS,
 };
 
 /**
