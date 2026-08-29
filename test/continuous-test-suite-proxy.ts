@@ -4058,6 +4058,196 @@ async function testCopilotEnvScriptSetsAModelId(): Promise<boolean> {
 }
 
 /**
+ * A duplicated key silently wins over ours.
+ *
+ * Gemini CLI resolves `.env` with dotenv, which takes the LAST assignment —
+ * measured, not assumed: a file listing the proxy URL first and a dead port
+ * second sent the request to the dead port. The helpers matched with "m" and
+ * no "g", so a pre-existing duplicate left our value overridden while apply()
+ * reported success and Gemini went on talking to Google.
+ *
+ * Restore has the mirror of it: clearing only the first occurrence leaves a
+ * later assignment still pointing at a proxy that is no longer running.
+ */
+async function testGeminiCollapsesDuplicateManagedKeys(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-dup-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:59999\nOTHER_TOOL=keep-me\nGOOGLE_GEMINI_BASE_URL=http://127.0.0.1:58888\n",
+    );
+
+    await geminiConfigurator.apply(url);
+    const applied = fs.readFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "utf8",
+    );
+    const matches = applied.match(/^GOOGLE_GEMINI_BASE_URL=.*$/gm) ?? [];
+    if (matches.length !== 1) {
+      log(
+        `apply left ${matches.length} base-URL assignments; dotenv resolves the last, so ours can be overridden`,
+        "red",
+      );
+      return false;
+    }
+    if (!matches[0]?.endsWith(url)) {
+      log("the surviving base-URL assignment is not the proxy's", "red");
+      return false;
+    }
+    if (!applied.includes("OTHER_TOOL=keep-me")) {
+      log("collapsing duplicates dropped an unrelated variable", "red");
+      return false;
+    }
+
+    // Restore puts back the value the user actually had — which here IS a base
+    // URL, their own, so its presence is correct. What must not survive is a
+    // second assignment or the proxy's value: dotenv resolves the last, so
+    // either would leave the CLI pointed somewhere the user did not choose.
+    await geminiConfigurator.restore(url);
+    const restored = fs.readFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "utf8",
+    );
+    const after = restored.match(/^GOOGLE_GEMINI_BASE_URL=.*$/gm) ?? [];
+    if (after.length !== 1) {
+      log(
+        `restore left ${after.length} base-URL assignments; dotenv resolves the last`,
+        "red",
+      );
+      return false;
+    }
+    if (after[0]?.includes(url)) {
+      log("restore left the proxy's base URL in place", "red");
+      return false;
+    }
+    if (!restored.includes("OTHER_TOOL=keep-me")) {
+      log("restore dropped an unrelated variable", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * Ownership must be judged on the assignment the CLI actually resolves.
+ *
+ * dotenv takes the last one, so a user who appends their own
+ * GOOGLE_GEMINI_BASE_URL after apply() has already repointed Gemini — our line
+ * is still on the page but no longer in effect. Checking the first assignment
+ * saw our value, passed the ownership test, and restore then deleted the
+ * endpoint the CLI was using. Measured before the fix: the user's endpoint was
+ * gone and restore reported success.
+ */
+async function testGeminiRestoreRespectsAUserRepoint(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-repoint-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    fs.writeFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "GEMINI_API_KEY=user-key\n",
+    );
+    await geminiConfigurator.apply(url);
+    fs.appendFileSync(
+      __geminiTestHooks.getGeminiEnvPath(),
+      "GOOGLE_GEMINI_BASE_URL=https://the-users-own-endpoint\n",
+    );
+
+    const restored = await geminiConfigurator.restore(url);
+    const after = fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8");
+    if (!after.includes("the-users-own-endpoint")) {
+      log(
+        "restore deleted the endpoint the user had repointed Gemini at",
+        "red",
+      );
+      return false;
+    }
+    if (restored !== false) {
+      log("restore claimed success on a config it does not own", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
+ * The round-trip must be byte-exact on CRLF too.
+ *
+ * The existing round-trip case fixtures an LF-only `.env`, which is precisely
+ * where a line-ending bug cannot show: replacing "\n" with "\n" is a no-op. A
+ * rewrite that captured the terminator and re-emitted a bare LF therefore
+ * passed it while silently converting CRLF to LF — and on the ordinary
+ * single-occurrence path, not just on duplicates. Gemini CLI is cross-platform,
+ * so a Windows-authored .env is not an exotic input.
+ *
+ * The suite had zero `\r` literals anywhere before this case.
+ */
+async function testGeminiRoundTripsCrlfExactly(): Promise<boolean> {
+  const { geminiConfigurator, __geminiTestHooks } =
+    await import("../src/cli/proxy-clients/gemini.js");
+  const prevHome = process.env.HOME;
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "neurolink-gm-crlf-"));
+  try {
+    process.env.HOME = root;
+    fs.mkdirSync(path.join(root, ".gemini"), { recursive: true });
+    const url = "http://127.0.0.1:55669";
+    const original =
+      "FOO=bar\r\nGOOGLE_GEMINI_BASE_URL=http://original\r\nBAZ=qux\r\n";
+    fs.writeFileSync(__geminiTestHooks.getGeminiEnvPath(), original);
+
+    await geminiConfigurator.apply(url);
+    await geminiConfigurator.restore(url);
+
+    const back = fs.readFileSync(__geminiTestHooks.getGeminiEnvPath(), "utf8");
+    if (back !== original) {
+      // Naming the discrepancy, not printing the payload: a message quoting
+      // file content can match isExpectedProviderError() and downgrade a real
+      // failure to a skip.
+      const changed = back.includes("\r\nGOOGLE_GEMINI_BASE_URL")
+        ? "content"
+        : "line ending on the managed key";
+      log(
+        `CRLF .env did not round-trip byte-exactly — ${changed} differs`,
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    if (prevHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = prevHome;
+    }
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+/**
  * Regression: a stale snapshot must never outlive the value it describes.
  *
  * The snapshot-on-first-touch guard exists so a second apply() cannot record
@@ -7667,6 +7857,21 @@ const tests: TestFunction[] = [
   {
     name: "OpenCode: legacy in-file snapshot migrates and heals",
     fn: testOpenCodeMigratesLegacyInFileSnapshot,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: restore respects a user repoint",
+    fn: testGeminiRestoreRespectsAUserRepoint,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: a CRLF .env round-trips byte-exactly",
+    fn: testGeminiRoundTripsCrlfExactly,
+    category: "proxy-config",
+  },
+  {
+    name: "Gemini CLI: duplicate managed keys are collapsed",
+    fn: testGeminiCollapsesDuplicateManagedKeys,
     category: "proxy-config",
   },
   {
