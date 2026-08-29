@@ -12,6 +12,7 @@ import type {
   LocalUsageAggregateReport,
   LocalUsageCliId,
   LocalUsageReaderFailure,
+  LocalUsageScanError,
 } from "../types/index.js";
 import {
   createLocalUsageReader,
@@ -38,6 +39,7 @@ export async function readAllLocalUsage(
   const totals: LocalUsageAggregateReport["totals"] = {};
   const failures: LocalUsageReaderFailure[] = [];
   const notInstalled: LocalUsageCliId[] = [];
+  const scanErrors: LocalUsageScanError[] = [];
 
   // Filtered BEFORE construction, not after: `only` decides which stores are
   // opened at all. Reading all of them and discarding the rest cost 28s for a
@@ -56,6 +58,7 @@ export async function readAllLocalUsage(
       }
       const result = await reader.scan(options);
       totals[cliId] = result.totals;
+      scanErrors.push(...result.errors);
     } catch (error) {
       // One reader throwing must not lose the others' results.
       failures.push({
@@ -70,5 +73,6 @@ export async function readAllLocalUsage(
     totals,
     failures,
     notInstalled,
+    scanErrors,
   };
 }

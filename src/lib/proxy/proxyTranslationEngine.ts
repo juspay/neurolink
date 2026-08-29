@@ -29,6 +29,7 @@ import {
 import type { ProxyTracer } from "./proxyTracer.js";
 import { DEFAULT_PROXY_MODEL_IDS } from "../constants/proxyModels.js";
 import { logRequest } from "./requestLogger.js";
+import { buildClientAttribution } from "./clientAttribution.js";
 import {
   recordAttempt,
   recordAttemptError,
@@ -640,6 +641,11 @@ export async function handleTranslatedStreamRequest(args: {
           toolCount: Object.keys(parsed.tools).length,
           account: "translation",
           accountType: "translation",
+          // Without this the translated doors record no calling client at all.
+          // The Gemini door serves every request through this engine, so its
+          // rows carried a null clientApp and a null userAgent — not merely
+          // "unknown", but nothing to attribute after the fact either.
+          ...buildClientAttribution(ctx.headers),
           responseStatus: terminalStatus,
           responseTimeMs: Date.now() - requestStartTime,
           ...(terminalErrorType ? { errorType: terminalErrorType } : {}),
@@ -792,6 +798,7 @@ export async function handleTranslatedJsonRequest(args: {
         toolCount: Object.keys(parsed.tools).length,
         account: "translation",
         accountType: "translation",
+        ...buildClientAttribution(ctx.headers),
         responseStatus: 200,
         responseTimeMs: Date.now() - requestStartTime,
         inputTokens: resolvedUsage.input,
@@ -846,6 +853,7 @@ export async function handleTranslatedJsonRequest(args: {
     toolCount: Object.keys(parsed.tools).length,
     account: "translation",
     accountType: "translation",
+    ...buildClientAttribution(ctx.headers),
     responseStatus: terminalFailureStatus,
     responseTimeMs: Date.now() - requestStartTime,
     errorType: "generation_error",

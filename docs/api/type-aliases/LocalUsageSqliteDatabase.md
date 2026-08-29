@@ -8,7 +8,7 @@
 
 > **LocalUsageSqliteDatabase** = `object`
 
-Defined in: [types/localUsage.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L194)
+Defined in: [types/localUsage.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L273)
 
 The slice of `node:sqlite`'s `DatabaseSync` the OpenCode reader uses.
 
@@ -23,7 +23,7 @@ called keeps that check small and honest.
 
 > **prepare**: (`sql`) => `object`
 
-Defined in: [types/localUsage.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L195)
+Defined in: [types/localUsage.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L274)
 
 #### Parameters
 
@@ -55,7 +55,7 @@ Defined in: [types/localUsage.ts:195](https://github.com/juspay/neurolink/blob/r
 
 > **close**: () => `void`
 
-Defined in: [types/localUsage.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L196)
+Defined in: [types/localUsage.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L275)
 
 #### Returns
 

@@ -2701,10 +2701,37 @@ async function testPerClientAttribution(): Promise<boolean | null> {
   const logPath = path.join(logsDir, `proxy-${today}.jsonl`);
   const sizeBefore = fs.existsSync(logPath) ? fs.statSync(logPath).size : 0;
 
-  // Two distinct callers: one the classifier knows, one it does not.
+  // Every string here was captured from the real CLI — from this machine's
+  // proxy request log, or from a header-capture server the CLI was pointed at.
+  // None is invented, which is the standing rule for this table: a guessed
+  // prefix that never matches is indistinguishable from one that works.
+  //
+  // The last three are the ones that matter most. `OpenAI/JS` and the spoofed
+  // MSIE string are both sent by real CLIs we would like to name, and both
+  // MUST stay unknown: `OpenAI/JS` is the stock OpenAI SDK UA sent by every
+  // caller of that SDK, and the MSIE string was captured from Copilot CLI AND
+  // Gemini CLI, so it identifies no client at all. They are pinned here so a
+  // later "helpful" mapping fails this test instead of silently misfiling
+  // unrelated traffic.
   const agents = [
     { ua: "claude-cli/2.1.223 (external, cli)", expect: "claude-code" },
+    {
+      ua: "opencode/1.3.13 ai-sdk/provider-utils/4.0.21 runtime/bun/1.3.13",
+      expect: "opencode",
+    },
+    { ua: "QwenCode/0.17.0 (darwin; arm64)", expect: "qwen-code" },
+    {
+      ua: "GeminiCLI-tui/0.53.0/gemini-3.1-pro-preview (darwin; arm64; terminal)",
+      expect: "gemini-cli",
+    },
+    { ua: "codex_exec/0.147.0 (Mac OS 26.6.0; arm64)", expect: "codex" },
     { ua: "some-unreleased-cli/9.9.9", expect: "unknown" },
+    // Copilot CLI, both of the strings it actually sends.
+    { ua: "OpenAI/JS 5.20.1", expect: "unknown" },
+    {
+      ua: "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
+      expect: "unknown",
+    },
   ];
   for (const a of agents) {
     await fetchProxy("/v1/messages", {
@@ -2743,15 +2770,19 @@ async function testPerClientAttribution(): Promise<boolean | null> {
     return null;
   }
 
-  const seen = new Map<string, string | undefined>();
+  // Keyed by User-Agent, not by clientApp. Four of the callers above are
+  // expected to classify as "unknown", and a clientApp-keyed map would let
+  // them overwrite each other — turning a wrong answer for one caller into a
+  // pass as long as any single unknown row landed.
+  const seen = new Map<string, string>();
   for (const line of appended) {
     try {
       const rec = JSON.parse(line) as {
         clientApp?: string;
         userAgent?: string;
       };
-      if (rec.clientApp) {
-        seen.set(rec.clientApp, rec.userAgent);
+      if (rec.clientApp && rec.userAgent) {
+        seen.set(rec.userAgent, rec.clientApp);
       }
     } catch {
       // partial trailing line
@@ -2759,9 +2790,18 @@ async function testPerClientAttribution(): Promise<boolean | null> {
   }
 
   for (const a of agents) {
-    if (!seen.has(a.expect)) {
+    const actual = seen.get(a.ua);
+    if (actual === undefined) {
+      // Precondition, not a result: a UA that never reached the log says
+      // nothing about how it would have been classified. Fail loudly rather
+      // than let a request that never happened read as agreement.
+      log(`no request log row carried the User-Agent for ${a.expect}`, "red");
+      return false;
+    }
+    if (actual !== a.expect) {
       log(
-        `request log carried no attribution for the ${a.expect} caller`,
+        `attribution mismatch — a caller expected to classify as ${a.expect} ` +
+          `classified as ${actual} instead`,
         "red",
       );
       return false;
@@ -2770,8 +2810,7 @@ async function testPerClientAttribution(): Promise<boolean | null> {
   // The raw header must survive for the client the classifier cannot name,
   // otherwise every unrecognised CLI collapses into one indistinguishable
   // bucket and the feature is useless exactly where it is most needed.
-  const rawForUnknown = seen.get("unknown");
-  if (!rawForUnknown || !rawForUnknown.startsWith("some-unreleased-cli/")) {
+  if (!seen.has("some-unreleased-cli/9.9.9")) {
     log("an unrecognised client lost its raw User-Agent", "red");
     return false;
   }

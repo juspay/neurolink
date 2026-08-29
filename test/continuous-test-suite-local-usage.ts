@@ -274,6 +274,135 @@ function openCodeMessage(tokens: {
 }
 
 /**
+ * Build a temp HOME containing one Qwen Code transcript, and optionally a
+ * second one nested under the first — matching the recursive `chats/` walk
+ * the reader does for the same reason `claudeCodeReader.ts` recurses under
+ * `subagents/`.
+ */
+function writeQwenFixtureHome(lines: string[], nestedLines?: string[]): string {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-qwenusage-"));
+  const chats = path.join(home, ".qwen", "projects", "-tmp-fixture", "chats");
+  fs.mkdirSync(chats, { recursive: true });
+  const sessionFile = path.join(chats, "session-a.jsonl");
+  fs.writeFileSync(sessionFile, lines.join("\n") + "\n");
+  backdate(sessionFile);
+  if (nestedLines) {
+    const nested = path.join(chats, "session-a");
+    fs.mkdirSync(nested, { recursive: true });
+    const subFile = path.join(nested, "sub-session.jsonl");
+    fs.writeFileSync(subFile, nestedLines.join("\n") + "\n");
+    backdate(subFile);
+  }
+  return home;
+}
+
+function qwenAssistantLine(
+  uuid: string,
+  model: string,
+  usage: Record<string, number>,
+): string {
+  return JSON.stringify({
+    type: "assistant",
+    uuid,
+    model,
+    usageMetadata: usage,
+  });
+}
+
+/**
+ * Build a temp HOME containing one Gemini CLI transcript, and optionally a
+ * second nested under it — matching `chats/<parentSessionId>/<subId>.jsonl`
+ * subagent nesting.
+ */
+function writeGeminiFixtureHome(
+  bodyLines: string[],
+  nestedBodyLines?: string[],
+): string {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-geminiusage-"));
+  const chats = path.join(home, ".gemini", "tmp", "fixture-project", "chats");
+  fs.mkdirSync(chats, { recursive: true });
+  const header = JSON.stringify({
+    sessionId: "session-a",
+    projectHash: "abc123",
+    startTime: "2026-05-01T00:00:00.000Z",
+    lastUpdated: "2026-05-01T00:00:00.000Z",
+    kind: "interactive",
+  });
+  const sessionFile = path.join(chats, "session-a.jsonl");
+  fs.writeFileSync(sessionFile, [header, ...bodyLines].join("\n") + "\n");
+  backdate(sessionFile);
+  if (nestedBodyLines) {
+    const nested = path.join(chats, "session-a");
+    fs.mkdirSync(nested, { recursive: true });
+    const subFile = path.join(nested, "sub-agent.jsonl");
+    fs.writeFileSync(subFile, [header, ...nestedBodyLines].join("\n") + "\n");
+    backdate(subFile);
+  }
+  return home;
+}
+
+function geminiMessage(
+  id: string,
+  model: string,
+  tokens?: Record<string, number>,
+): Record<string, unknown> {
+  return { id, type: "gemini", model, tokens };
+}
+
+function geminiBareLine(msg: Record<string, unknown>): string {
+  return JSON.stringify(msg);
+}
+
+function geminiSetMessagesLine(msgs: Array<Record<string, unknown>>): string {
+  return JSON.stringify({ $set: { messages: msgs } });
+}
+
+/**
+ * Build a temp HOME containing a Copilot CLI SQLite store, written with the
+ * same `node:sqlite` the reader uses so the fixture cannot drift from the
+ * shape the reader expects by using a different writer — same discipline as
+ * `writeOpenCodeFixtureHome`.
+ */
+async function writeCopilotFixtureHome(
+  rows: Array<{
+    model: string;
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    reasoning: number;
+    createdAt: string;
+  }>,
+): Promise<string> {
+  const { DatabaseSync } = await import("node:sqlite");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-copilotusage-"));
+  const dir = path.join(home, ".copilot");
+  fs.mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(path.join(dir, "session-store.db"));
+  db.exec(
+    "CREATE TABLE assistant_usage_events (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, turn_index INTEGER, model TEXT, input_tokens INTEGER, output_tokens INTEGER, cache_read_tokens INTEGER, cache_write_tokens INTEGER, reasoning_tokens INTEGER, created_at TEXT)",
+  );
+  const insert = db.prepare(
+    "INSERT INTO assistant_usage_events (session_id, turn_index, model, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  rows.forEach((r, index) => {
+    insert.run(
+      "ses_fixture",
+      index,
+      r.model,
+      r.input,
+      r.output,
+      r.cacheRead,
+      r.cacheWrite,
+      r.reasoning,
+      r.createdAt,
+    );
+  });
+  db.close();
+  return home;
+}
+
+/**
  * Run the built CLI as a subprocess.
  *
  * SIGKILL rather than the default SIGTERM: spawnSync's `timeout` sends
@@ -319,6 +448,40 @@ async function runAllTests(): Promise<void> {
       claude?.dedupStrategy === "message-id-keep-max",
       "the claude-code descriptor does not declare the keep-max dedup strategy",
     );
+
+    const qwen = descriptors.find((d) => d.id === "qwen-code");
+    assert(qwen !== undefined, "no qwen-code reader is registered");
+    assert(
+      qwen?.dedupStrategy === "message-id-keep-max",
+      "the qwen-code descriptor does not declare the keep-max dedup strategy",
+    );
+    assert(
+      qwen?.costConfidence === "unavailable",
+      "the qwen-code descriptor does not declare cost confidence unavailable",
+    );
+
+    const gemini = descriptors.find((d) => d.id === "gemini-cli");
+    assert(gemini !== undefined, "no gemini-cli reader is registered");
+    assert(
+      gemini?.dedupStrategy === "message-id-keep-max",
+      "the gemini-cli descriptor does not declare the keep-max dedup strategy",
+    );
+    assert(
+      gemini?.costConfidence === "unavailable",
+      "the gemini-cli descriptor does not declare cost confidence unavailable",
+    );
+
+    const copilot = descriptors.find((d) => d.id === "copilot");
+    assert(copilot !== undefined, "no copilot reader is registered");
+    assert(
+      copilot?.dedupStrategy === "rowid-high-water-mark",
+      "the copilot descriptor does not declare the rowid-high-water-mark dedup strategy",
+    );
+    assert(
+      copilot?.requiresSqlite === true,
+      "the copilot descriptor does not declare requiresSqlite",
+    );
+
     log(`registered readers: ${descriptors.map((d) => d.id).join(", ")}`);
   });
 
@@ -1142,6 +1305,866 @@ async function runAllTests(): Promise<void> {
       "two scans of identical input produced different totals",
     );
     log("scanning is idempotent across calls");
+  });
+
+  await test("Qwen Code: a re-logged turn counts once, at its largest total", async () => {
+    // Same rationale as the Claude Code case above: a resumed session can
+    // re-log the same uuid with a higher output count than the first write.
+    // Picking maxima on t1 and t2 from different ends defeats first-write-wins
+    // AND last-write-wins simultaneously.
+    const home = writeQwenFixtureHome([
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 10,
+        candidatesTokenCount: 50,
+        cachedContentTokenCount: 0,
+      }),
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 10,
+        candidatesTokenCount: 120,
+        cachedContentTokenCount: 0,
+      }),
+      qwenAssistantLine("t2", "claude-sonnet-4-5", {
+        promptTokenCount: 5,
+        candidatesTokenCount: 90,
+        cachedContentTokenCount: 0,
+      }),
+      qwenAssistantLine("t2", "claude-sonnet-4-5", {
+        promptTokenCount: 5,
+        candidatesTokenCount: 30,
+        cachedContentTokenCount: 0,
+      }),
+    ]);
+
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["qwen-code"];
+    assert(totals !== undefined, "the qwen-code reader produced no totals");
+    assert(
+      totals?.requests === 2,
+      "a re-logged Qwen Code turn was not deduplicated to one request",
+    );
+    assert(
+      totals?.outputTokens === 210,
+      "Qwen Code dedup did not keep the largest output count per turn",
+    );
+    log("Qwen Code: a resumed turn is counted once, at its largest total");
+  });
+
+  await test("Qwen Code: cached tokens are a subset of prompt tokens, and thoughts fold into output", async () => {
+    const home = writeQwenFixtureHome([
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 1000,
+        candidatesTokenCount: 200,
+        thoughtsTokenCount: 50,
+        cachedContentTokenCount: 300,
+      }),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["qwen-code"];
+    assert(totals !== undefined, "the qwen-code reader produced no totals");
+    assert(
+      totals?.inputTokens === 700,
+      "Qwen Code added cached tokens on top of prompt instead of subtracting them",
+    );
+    assert(
+      totals?.cacheReadTokens === 300,
+      "Qwen Code did not carry cached tokens through as cacheReadTokens",
+    );
+    assert(
+      totals?.outputTokens === 250,
+      "Qwen Code did not fold thoughts tokens into output",
+    );
+    log(
+      "Qwen Code cached tokens are subtracted out of prompt; thoughts fold into output",
+    );
+  });
+
+  await test("Qwen Code: nested chat transcripts under chats/ are counted, not skipped", async () => {
+    const home = writeQwenFixtureHome(
+      [
+        qwenAssistantLine("top", "claude-sonnet-4-5", {
+          promptTokenCount: 1,
+          candidatesTokenCount: 10,
+        }),
+      ],
+      [
+        qwenAssistantLine("nested", "claude-sonnet-4-5", {
+          promptTokenCount: 1,
+          candidatesTokenCount: 40,
+        }),
+      ],
+    );
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["qwen-code"];
+    assert(totals !== undefined, "the qwen-code reader produced no totals");
+    assert(
+      totals?.requests === 2,
+      "a Qwen Code transcript nested under chats/ was not read",
+    );
+    assert(
+      totals?.outputTokens === 50,
+      "output tokens from a nested Qwen Code transcript were not counted",
+    );
+    log(
+      "Qwen Code transcripts nested under chats/ (subagent lineage) are included",
+    );
+  });
+
+  await test("Qwen Code: non-assistant records and malformed lines are skipped, not failed", async () => {
+    const home = writeQwenFixtureHome([
+      JSON.stringify({ type: "user", uuid: "u1" }),
+      JSON.stringify({ type: "assistant", uuid: "no-usage" }),
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 2,
+        candidatesTokenCount: 20,
+      }),
+      "",
+      "not json at all",
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["qwen-code"];
+    assert(totals !== undefined, "the qwen-code reader produced no totals");
+    assert(
+      report.failures.length === 0,
+      "a non-assistant record or torn line was reported as a reader failure",
+    );
+    assert(
+      totals?.requests === 1,
+      "non-assistant or usage-less Qwen Code records were miscounted as turns",
+    );
+    log(
+      "Qwen Code tolerates non-assistant records, usage-less assistant lines, and a torn trailing line",
+    );
+  });
+
+  await test("Qwen Code: cost is always unavailable, and every turn is reported unpriced", async () => {
+    const home = writeQwenFixtureHome([
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 5,
+        candidatesTokenCount: 15,
+      }),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["qwen-code"];
+    assert(totals !== undefined, "the qwen-code reader produced no totals");
+    assert(
+      totals?.costConfidence === "unavailable",
+      "Qwen Code reported a cost confidence other than unavailable",
+    );
+    assert(totals?.costUsd === 0, "Qwen Code invented a dollar cost");
+    assert(
+      totals?.unpricedRequests === totals?.requests,
+      "not every Qwen Code turn was reported as unpriced",
+    );
+    assert(
+      totals?.unpricedModels.includes("claude-sonnet-4-5") === true,
+      "the model behind unpriced Qwen Code turns was not named",
+    );
+    log("Qwen Code reports real tokens and an explicitly unavailable cost");
+  });
+
+  await test("Qwen Code: sinceDays filters files by mtime, not just contents", async () => {
+    const home = writeQwenFixtureHome([
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 5,
+        candidatesTokenCount: 9,
+      }),
+    ]);
+    const chats = path.join(home, ".qwen", "projects", "-tmp-fixture", "chats");
+    const file = path.join(chats, "session-a.jsonl");
+    const longAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    fs.utimesSync(file, longAgo, longAgo);
+
+    const [narrow, wide] = await withHome(home, async () => [
+      await readAllLocalUsage({ sinceDays: 1 }),
+      await readAllLocalUsage({ sinceDays: Infinity }),
+    ]);
+    assert(
+      (narrow.totals["qwen-code"]?.requests ?? 0) === 0,
+      "a 1-day window read a Qwen Code transcript backdated 3 days",
+    );
+    assert(
+      (wide.totals["qwen-code"]?.requests ?? 0) === 1,
+      "an unbounded window failed to read a 3-day-old Qwen Code transcript",
+    );
+    log("Qwen Code respects sinceDays via file mtime");
+  });
+
+  await test("Qwen Code: this machine's real transcripts scan coherently", async () => {
+    const realProjects = path.join(os.homedir(), ".qwen", "projects");
+    if (!fs.existsSync(realProjects)) {
+      throw new Error("SKIP: no ~/.qwen/projects on this machine");
+    }
+    const reader = await createLocalUsageReader("qwen-code");
+    assert(
+      await reader.detect(),
+      "detect() denied a Qwen Code store that exists",
+    );
+
+    const week = await reader.scan({ sinceDays: 7 });
+    const all = await reader.scan({ sinceDays: Infinity });
+
+    if (all.totals.requests === 0) {
+      throw new Error("SKIP: no Qwen Code activity recorded on this machine");
+    }
+    assert(
+      all.filesScanned >= week.filesScanned,
+      "a wider Qwen Code window scanned fewer files than a narrower one",
+    );
+    assert(
+      all.totals.requests >= week.totals.requests,
+      "a wider Qwen Code window produced fewer requests than a narrower one",
+    );
+    assert(
+      all.totals.costConfidence === "unavailable" && all.totals.costUsd === 0,
+      "real Qwen Code data produced an invented cost",
+    );
+    assert(
+      all.totals.inputTokens >= 0 && all.totals.outputTokens >= 0,
+      "real Qwen Code totals were negative",
+    );
+    log(
+      `real Qwen Code scan: ${all.totals.requests} turns over ${all.filesScanned} files`,
+    );
+  });
+
+  await test("Gemini CLI: a message logged twice (once token-less, once with tokens) counts once", async () => {
+    // recordMessage() pushes a token-less record first; recordMessageTokens()
+    // re-pushes the same id once usage arrives. pushMessage() always appends,
+    // so the same id can appear twice in one file — see geminiCliReader.ts.
+    const home = writeGeminiFixtureHome([
+      geminiBareLine(geminiMessage("g1", "gemini-3.5-flash")),
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 100,
+          output: 40,
+          cached: 0,
+          thoughts: 10,
+          tool: 0,
+          total: 150,
+        }),
+      ),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      totals?.requests === 1,
+      "a Gemini CLI message re-logged once tokens arrived was double-counted",
+    );
+    assert(
+      totals?.outputTokens === 50,
+      "the token-less Gemini CLI duplicate won over the token-bearing one",
+    );
+    log(
+      "Gemini CLI: a message logged before and after its tokens arrive counts once",
+    );
+  });
+
+  await test("Gemini CLI: a duplicated id with two token-bearing records keeps the largest total", async () => {
+    // Distinct from the token-less-then-filled race above: here every
+    // record carries tokens. Two ids, each duplicated with the larger
+    // total on OPPOSITE ends (g1: small then large; g2: large then small)
+    // — the only setup that defeats first-write-wins AND last-write-wins
+    // simultaneously, proving the comparison is really max-based rather
+    // than positional. Same shape as the Qwen Code and Claude Code cases.
+    const home = writeGeminiFixtureHome([
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 50,
+          output: 30,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 80,
+        }),
+      ),
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 50,
+          output: 120,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 170,
+        }),
+      ),
+      geminiBareLine(
+        geminiMessage("g2", "gemini-3.5-flash", {
+          input: 20,
+          output: 90,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 110,
+        }),
+      ),
+      geminiBareLine(
+        geminiMessage("g2", "gemini-3.5-flash", {
+          input: 20,
+          output: 15,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 35,
+        }),
+      ),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      totals?.requests === 2,
+      "duplicated Gemini CLI ids were not deduplicated to one request each",
+    );
+    assert(
+      totals?.outputTokens === 210,
+      "Gemini CLI dedup did not keep the larger of two token-bearing records for each id",
+    );
+    log(
+      "Gemini CLI: a duplicated id keeps whichever record has the larger total, regardless of write order",
+    );
+  });
+
+  await test("Gemini CLI: cached tokens are a subset of input, and thoughts/tool fold into output", async () => {
+    const home = writeGeminiFixtureHome([
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3-flash-preview", {
+          input: 12121,
+          output: 1,
+          cached: 4073,
+          thoughts: 222,
+          tool: 5,
+          total: 12349,
+        }),
+      ),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      totals?.inputTokens === 8048,
+      "Gemini CLI added cached tokens on top of input instead of subtracting them",
+    );
+    assert(
+      totals?.cacheReadTokens === 4073,
+      "Gemini CLI did not carry cached tokens through as cacheReadTokens",
+    );
+    assert(
+      totals?.outputTokens === 228,
+      "Gemini CLI did not fold thoughts/tool tokens into output",
+    );
+    log(
+      "Gemini CLI cached tokens are subtracted out of input; thoughts/tool fold into output",
+    );
+  });
+
+  await test("Gemini CLI: both the $set bootstrap wrapper and bare-appended messages are read", async () => {
+    const home = writeGeminiFixtureHome([
+      geminiSetMessagesLine([{ id: "user-1", type: "user" }]),
+      geminiSetMessagesLine([
+        geminiMessage("g-wrapped", "gemini-3.5-flash", {
+          input: 10,
+          output: 5,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 15,
+        }),
+      ]),
+      JSON.stringify({ $set: { lastUpdated: "2026-05-01T00:01:00.000Z" } }),
+      geminiBareLine(
+        geminiMessage("g-bare", "gemini-3.5-flash", {
+          input: 20,
+          output: 9,
+          cached: 0,
+          thoughts: 1,
+          tool: 0,
+          total: 30,
+        }),
+      ),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      totals?.requests === 2,
+      "one of the two Gemini CLI message shapes (wrapped vs bare) was not read",
+    );
+    assert(
+      totals?.outputTokens === 15,
+      "Gemini CLI output totals did not match both message shapes combined",
+    );
+    log(
+      "Gemini CLI reads both $set.messages[]-wrapped and bare-appended message records",
+    );
+  });
+
+  await test("Gemini CLI: subagent transcripts nested under chats/<parentId>/ are counted", async () => {
+    const home = writeGeminiFixtureHome(
+      [
+        geminiBareLine(
+          geminiMessage("top", "gemini-3.5-flash", {
+            input: 1,
+            output: 10,
+            cached: 0,
+            thoughts: 0,
+            tool: 0,
+            total: 11,
+          }),
+        ),
+      ],
+      [
+        geminiBareLine(
+          geminiMessage("nested", "gemini-3.5-flash", {
+            input: 1,
+            output: 40,
+            cached: 0,
+            thoughts: 0,
+            tool: 0,
+            total: 41,
+          }),
+        ),
+      ],
+    );
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      totals?.requests === 2,
+      "a Gemini CLI subagent transcript nested under chats/<parentId>/ was not read",
+    );
+    assert(
+      totals?.outputTokens === 50,
+      "output tokens from a nested Gemini CLI subagent transcript were not counted",
+    );
+    log(
+      "Gemini CLI transcripts nested under chats/<parentSessionId>/ (subagent lineage) are included",
+    );
+  });
+
+  await test("Gemini CLI: non-gemini records, the header line, and malformed lines are skipped", async () => {
+    const home = writeGeminiFixtureHome([
+      geminiBareLine({ id: "u1", type: "user" }),
+      geminiBareLine({ id: "i1", type: "info" }),
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 2,
+          output: 20,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 22,
+        }),
+      ),
+      "",
+      "not json at all",
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      report.failures.length === 0,
+      "a non-gemini record or torn line was reported as a Gemini CLI reader failure",
+    );
+    assert(
+      totals?.requests === 1,
+      "non-gemini Gemini CLI records were miscounted as turns",
+    );
+    log(
+      "Gemini CLI tolerates non-gemini records, the header line, and a torn trailing line",
+    );
+  });
+
+  await test("Gemini CLI: cost is always unavailable, and every turn is reported unpriced", async () => {
+    const home = writeGeminiFixtureHome([
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 5,
+          output: 15,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 20,
+        }),
+      ),
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["gemini-cli"];
+    assert(totals !== undefined, "the gemini-cli reader produced no totals");
+    assert(
+      totals?.costConfidence === "unavailable",
+      "Gemini CLI reported a cost confidence other than unavailable",
+    );
+    assert(totals?.costUsd === 0, "Gemini CLI invented a dollar cost");
+    assert(
+      totals?.unpricedRequests === totals?.requests,
+      "not every Gemini CLI turn was reported as unpriced",
+    );
+    assert(
+      totals?.unpricedModels.includes("gemini-3.5-flash") === true,
+      "the model behind unpriced Gemini CLI turns was not named",
+    );
+    log(
+      "Gemini CLI reports real tokens and an explicitly unavailable cost across all three auth modes",
+    );
+  });
+
+  await test("Gemini CLI: sinceDays filters files by mtime, not just contents", async () => {
+    const home = writeGeminiFixtureHome([
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 5,
+          output: 9,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 14,
+        }),
+      ),
+    ]);
+    const chats = path.join(home, ".gemini", "tmp", "fixture-project", "chats");
+    const file = path.join(chats, "session-a.jsonl");
+    const longAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    fs.utimesSync(file, longAgo, longAgo);
+
+    const [narrow, wide] = await withHome(home, async () => [
+      await readAllLocalUsage({ sinceDays: 1 }),
+      await readAllLocalUsage({ sinceDays: Infinity }),
+    ]);
+    assert(
+      (narrow.totals["gemini-cli"]?.requests ?? 0) === 0,
+      "a 1-day window read a Gemini CLI transcript backdated 3 days",
+    );
+    assert(
+      (wide.totals["gemini-cli"]?.requests ?? 0) === 1,
+      "an unbounded window failed to read a 3-day-old Gemini CLI transcript",
+    );
+    log("Gemini CLI respects sinceDays via file mtime");
+  });
+
+  await test("Gemini CLI: this machine's real transcripts scan coherently", async () => {
+    const realTmp = path.join(os.homedir(), ".gemini", "tmp");
+    if (!fs.existsSync(realTmp)) {
+      throw new Error("SKIP: no ~/.gemini/tmp on this machine");
+    }
+    const reader = await createLocalUsageReader("gemini-cli");
+    assert(
+      await reader.detect(),
+      "detect() denied a Gemini CLI store that exists",
+    );
+    const week = await reader.scan({ sinceDays: 7 });
+    const all = await reader.scan({ sinceDays: Infinity });
+    if (all.totals.requests === 0) {
+      throw new Error("SKIP: no Gemini CLI activity recorded on this machine");
+    }
+    assert(
+      all.filesScanned >= week.filesScanned,
+      "a wider Gemini CLI window scanned fewer files than a narrower one",
+    );
+    assert(
+      all.totals.requests >= week.totals.requests,
+      "a wider Gemini CLI window produced fewer requests than a narrower one",
+    );
+    assert(
+      all.totals.costConfidence === "unavailable" && all.totals.costUsd === 0,
+      "real Gemini CLI data produced an invented cost",
+    );
+    assert(
+      all.totals.inputTokens >= 0 && all.totals.outputTokens >= 0,
+      "real Gemini CLI totals were negative",
+    );
+    log(
+      `real Gemini CLI scan: ${all.totals.requests} turns over ${all.filesScanned} files`,
+    );
+  });
+
+  await test("Copilot CLI: cache read and write tokens are both a subset of input tokens", async () => {
+    const home = await writeCopilotFixtureHome([
+      {
+        model: "claude-haiku-4-5",
+        input: 24050,
+        output: 3,
+        cacheRead: 0,
+        cacheWrite: 24047,
+        reasoning: 0,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["copilot"];
+    assert(totals !== undefined, "the copilot reader produced no totals");
+    assert(
+      totals?.inputTokens === 3,
+      "Copilot CLI added cache tokens on top of input instead of subtracting them",
+    );
+    assert(
+      totals?.cacheCreationTokens === 24047,
+      "Copilot CLI did not carry cache-write tokens through as cacheCreationTokens",
+    );
+    log(
+      "Copilot CLI subtracts both cache-read and cache-write out of input tokens",
+    );
+  });
+
+  await test("Copilot CLI: reasoning tokens fold into output", async () => {
+    const home = await writeCopilotFixtureHome([
+      {
+        model: "claude-sonnet-4-6",
+        input: 100,
+        output: 40,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 25,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["copilot"];
+    assert(totals !== undefined, "the copilot reader produced no totals");
+    assert(
+      totals?.outputTokens === 65,
+      "Copilot CLI did not fold reasoning tokens into output",
+    );
+    log("Copilot CLI folds reasoning tokens into output");
+  });
+
+  await test("Copilot CLI: rows with every token field zero are not counted as turns", async () => {
+    const home = await writeCopilotFixtureHome([
+      {
+        model: "claude-haiku-4-5",
+        input: 10,
+        output: 5,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 0,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        model: "claude-haiku-4-5",
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 0,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["copilot"];
+    assert(totals !== undefined, "the copilot reader produced no totals");
+    assert(
+      totals?.requests === 1,
+      "a Copilot CLI row with every token field zero was counted as a turn",
+    );
+    log("Copilot CLI skips rows whose token fields are all zero");
+  });
+
+  await test("Copilot CLI: created_at time filtering excludes rows outside the window", async () => {
+    const old = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    const recent = new Date().toISOString();
+    const home = await writeCopilotFixtureHome([
+      {
+        model: "claude-haiku-4-5",
+        input: 10,
+        output: 5,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 0,
+        createdAt: old,
+      },
+      {
+        model: "claude-haiku-4-5",
+        input: 20,
+        output: 8,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 0,
+        createdAt: recent,
+      },
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: 30 }),
+    );
+    const totals = report.totals["copilot"];
+    assert(totals !== undefined, "the copilot reader produced no totals");
+    assert(
+      totals?.requests === 1,
+      "Copilot CLI's time filter did not exclude the row outside the window",
+    );
+    assert(
+      totals?.inputTokens === 20,
+      "Copilot CLI's time filter counted the wrong row",
+    );
+    log(
+      "Copilot CLI's created_at time filter excludes rows outside the requested window",
+    );
+  });
+
+  await test("Copilot CLI: cost is always unavailable, and every turn is reported unpriced", async () => {
+    const home = await writeCopilotFixtureHome([
+      {
+        model: "claude-haiku-4-5",
+        input: 5,
+        output: 15,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 0,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    const report = await withHome(home, () =>
+      readAllLocalUsage({ sinceDays: Infinity }),
+    );
+    const totals = report.totals["copilot"];
+    assert(totals !== undefined, "the copilot reader produced no totals");
+    assert(
+      totals?.costConfidence === "unavailable",
+      "Copilot CLI reported a cost confidence other than unavailable",
+    );
+    assert(totals?.costUsd === 0, "Copilot CLI invented a dollar cost");
+    assert(
+      totals?.unpricedRequests === totals?.requests,
+      "not every Copilot CLI turn was reported as unpriced",
+    );
+    assert(
+      totals?.unpricedModels.includes("claude-haiku-4-5") === true,
+      "the model behind unpriced Copilot CLI turns was not named",
+    );
+    log("Copilot CLI reports real tokens and an explicitly unavailable cost");
+  });
+
+  await test("Copilot CLI: this machine's real store scans coherently", async () => {
+    const realDb = path.join(os.homedir(), ".copilot", "session-store.db");
+    if (!fs.existsSync(realDb)) {
+      throw new Error("SKIP: no Copilot CLI store on this machine");
+    }
+    const reader = await createLocalUsageReader("copilot");
+    assert(
+      await reader.detect(),
+      "detect() denied a Copilot CLI store that exists",
+    );
+    const all = await reader.scan({ sinceDays: Infinity });
+    if (all.totals.requests === 0) {
+      throw new Error("SKIP: Copilot CLI store has no usage-bearing rows");
+    }
+    assert(
+      all.errors.length === 0,
+      "reading the real Copilot CLI store reported an error",
+    );
+    assert(
+      all.totals.costConfidence === "unavailable" && all.totals.costUsd === 0,
+      "Copilot CLI invented a cost despite reporting none of its own",
+    );
+    assert(
+      all.totals.unpricedRequests === all.totals.requests,
+      "not every real Copilot CLI turn was reported as unpriced",
+    );
+    assert(
+      all.totals.unpricedModels.length > 0,
+      "no models were named behind the unpriced Copilot CLI turns",
+    );
+    log(
+      `real Copilot CLI scan: ${all.totals.requests} turns, models ${all.totals.unpricedModels.slice(0, 3).join(", ")}`,
+    );
+  });
+
+  await test("Qwen Code, Gemini CLI and Copilot CLI: repeated scans of the same data agree", async () => {
+    const qHome = writeQwenFixtureHome([
+      qwenAssistantLine("t1", "claude-sonnet-4-5", {
+        promptTokenCount: 4,
+        candidatesTokenCount: 40,
+      }),
+      qwenAssistantLine("t2", "claude-sonnet-4-5", {
+        promptTokenCount: 6,
+        candidatesTokenCount: 60,
+      }),
+    ]);
+    const [qFirst, qSecond] = await withHome(qHome, async () => [
+      await readAllLocalUsage({ sinceDays: Infinity }),
+      await readAllLocalUsage({ sinceDays: Infinity }),
+    ]);
+    assert(
+      JSON.stringify(qFirst.totals["qwen-code"]) ===
+        JSON.stringify(qSecond.totals["qwen-code"]),
+      "two scans of identical Qwen Code fixture data produced different totals",
+    );
+
+    const gHome = writeGeminiFixtureHome([
+      geminiBareLine(
+        geminiMessage("g1", "gemini-3.5-flash", {
+          input: 4,
+          output: 40,
+          cached: 0,
+          thoughts: 0,
+          tool: 0,
+          total: 44,
+        }),
+      ),
+    ]);
+    const [gFirst, gSecond] = await withHome(gHome, async () => [
+      await readAllLocalUsage({ sinceDays: Infinity }),
+      await readAllLocalUsage({ sinceDays: Infinity }),
+    ]);
+    assert(
+      JSON.stringify(gFirst.totals["gemini-cli"]) ===
+        JSON.stringify(gSecond.totals["gemini-cli"]),
+      "two scans of identical Gemini CLI fixture data produced different totals",
+    );
+
+    const cHome = await writeCopilotFixtureHome([
+      {
+        model: "claude-haiku-4-5",
+        input: 4,
+        output: 40,
+        cacheRead: 0,
+        cacheWrite: 0,
+        reasoning: 0,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    const [cFirst, cSecond] = await withHome(cHome, async () => [
+      await readAllLocalUsage({ sinceDays: Infinity }),
+      await readAllLocalUsage({ sinceDays: Infinity }),
+    ]);
+    assert(
+      JSON.stringify(cFirst.totals["copilot"]) ===
+        JSON.stringify(cSecond.totals["copilot"]),
+      "two scans of identical Copilot CLI fixture data produced different totals",
+    );
+
+    log(
+      "Qwen Code, Gemini CLI and Copilot CLI scans are idempotent across calls",
+    );
   });
 }
 

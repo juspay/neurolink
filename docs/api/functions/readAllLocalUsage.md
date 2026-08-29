@@ -8,7 +8,7 @@
 
 > **readAllLocalUsage**(`options?`): `Promise`\<[`LocalUsageAggregateReport`](../type-aliases/LocalUsageAggregateReport.md)\>
 
-Defined in: [localUsage/index.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/localUsage/index.ts#L35)
+Defined in: [localUsage/index.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/localUsage/index.ts#L36)
 
 Scan every registered reader whose CLI is actually present on this machine.
 

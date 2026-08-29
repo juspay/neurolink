@@ -8,7 +8,7 @@
 
 > **LocalUsageScanResult** = `object`
 
-Defined in: [types/localUsage.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L83)
+Defined in: [types/localUsage.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L94)
 
 What one reader's `scan()` returns.
 
@@ -18,7 +18,7 @@ What one reader's `scan()` returns.
 
 > **cliId**: [`LocalUsageCliId`](LocalUsageCliId.md)
 
-Defined in: [types/localUsage.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L84)
+Defined in: [types/localUsage.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L95)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:84](https://github.com/juspay/neurolink/blob/re
 
 > **totals**: [`LocalUsageTotals`](LocalUsageTotals.md)
 
-Defined in: [types/localUsage.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L85)
+Defined in: [types/localUsage.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L96)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/localUsage.ts:85](https://github.com/juspay/neurolink/blob/re
 
 > **filesScanned**: `number`
 
-Defined in: [types/localUsage.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L87)
+Defined in: [types/localUsage.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L98)
 
 Files opened during this scan, after any time filter.
 
@@ -44,4 +44,4 @@ Files opened during this scan, after any time filter.
 
 > **errors**: [`LocalUsageScanError`](LocalUsageScanError.md)[]
 
-Defined in: [types/localUsage.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L88)
+Defined in: [types/localUsage.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L99)

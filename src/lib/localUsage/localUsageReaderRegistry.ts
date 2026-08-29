@@ -89,3 +89,48 @@ registerLocalUsageReader({
     return createOpenCodeReader();
   },
 });
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "qwen-code",
+    displayName: "Qwen Code",
+    verified: true,
+    dedupStrategy: "message-id-keep-max",
+    costConfidence: "unavailable",
+    requiresSqlite: false,
+  },
+  factory: async () => {
+    const { createQwenCodeReader } = await import("./qwenCodeReader.js");
+    return createQwenCodeReader();
+  },
+});
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "gemini-cli",
+    displayName: "Gemini CLI",
+    verified: true,
+    dedupStrategy: "message-id-keep-max",
+    costConfidence: "unavailable",
+    requiresSqlite: false,
+  },
+  factory: async () => {
+    const { createGeminiCliReader } = await import("./geminiCliReader.js");
+    return createGeminiCliReader();
+  },
+});
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "copilot",
+    displayName: "Copilot CLI",
+    verified: true,
+    dedupStrategy: "rowid-high-water-mark",
+    costConfidence: "unavailable",
+    requiresSqlite: true,
+  },
+  factory: async () => {
+    const { createCopilotCliReader } = await import("./copilotCliReader.js");
+    return createCopilotCliReader();
+  },
+});

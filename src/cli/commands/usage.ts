@@ -94,7 +94,11 @@ export class UsageCommandFactory {
     // given with no value, which is a mistake and must be rejected — a
     // truthiness check treats the two as the same and silently scans every
     // reader instead, reporting everything for a request that named nothing.
-    const wanted = argv.cli;
+    // "copilot-cli" is the pre-rename spelling and is still in the published
+    // LocalUsageCliId union, so it must keep resolving. Normalised here rather
+    // than registered twice: two descriptors for one reader would show the CLI
+    // twice in every report.
+    const wanted = argv.cli === "copilot-cli" ? "copilot" : argv.cli;
     const known = getLocalUsageDescriptors().map((d) => d.id);
     if (
       wanted !== undefined &&
@@ -197,6 +201,22 @@ export class UsageCommandFactory {
       logger.always(
         chalk.yellow(`  ${failure.cliId} failed: ${failure.message}`),
       );
+    }
+    // A reader that read nine of ten transcripts still reports totals, and
+    // those totals are wrong by the tenth. Printed next to the numbers they
+    // undercut, because a silently short total is the failure mode this whole
+    // command exists to avoid.
+    if (report.scanErrors.length > 0) {
+      logger.always(
+        chalk.yellow(
+          `  ${report.scanErrors.length} file(s) could not be read; totals are incomplete`,
+        ),
+      );
+      for (const scanError of report.scanErrors.slice(0, 5)) {
+        logger.always(
+          chalk.dim(`    ${scanError.cliId}: ${scanError.message}`),
+        );
+      }
     }
     logger.always("");
   }

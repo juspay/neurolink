@@ -22,6 +22,17 @@ export type LocalUsageCliId =
   | "gemini-cli"
   | "opencode"
   | "qwen-code"
+  // "copilot", not "copilot-cli": this id is user-facing through
+  // `usage local --cli <id>`, and every other reader id already matches its
+  // proxy-client configurator id exactly. Diverging on one of them means
+  // `--cli copilot` errors for the CLI the proxy itself calls "copilot".
+  | "copilot"
+  /**
+   * @deprecated Use "copilot". Retained because this literal is already part
+   * of the published `LocalUsageCliId`, so dropping it would break any caller
+   * that names it. `usage local --cli copilot-cli` still resolves, normalised
+   * to "copilot" at the input boundary.
+   */
   | "copilot-cli"
   | "cursor"
   | "amp"
@@ -152,6 +163,15 @@ export type LocalUsageAggregateReport = {
   totals: Partial<Record<LocalUsageCliId, LocalUsageTotals>>;
   /** CLIs whose reader could not be created, detected, or scanned, and why. */
   failures: LocalUsageReaderFailure[];
+  /**
+   * Per-file problems from readers that otherwise succeeded.
+   *
+   * Distinct from `failures`, which is a reader that threw. A scan can read
+   * nine of ten transcripts and still be wrong by the tenth; without this the
+   * shortfall is invisible and the totals look authoritative. Readers have
+   * always collected these — nothing consumed them until now.
+   */
+  scanErrors: LocalUsageScanError[];
   /** CLIs with no local store on this machine — absent, not failed. */
   notInstalled: LocalUsageCliId[];
 };
@@ -181,6 +201,65 @@ export type LocalUsageCodexSessionRollup = {
   cached: number;
   /** token_count events where the cumulative total actually advanced. */
   billableEvents: number;
+};
+
+/**
+ * The `usageMetadata` object exactly as Qwen Code writes it into a transcript
+ * line — Google GenAI's `usageMetadata` shape, camelCase, every field
+ * optional because not every assistant record carries one. See
+ * `qwenCodeReader.ts` for why `cachedContentTokenCount` is subtracted out of
+ * `promptTokenCount` rather than added.
+ */
+export type LocalUsageQwenRawUsage = {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  thoughtsTokenCount?: number;
+  totalTokenCount?: number;
+  cachedContentTokenCount?: number;
+};
+
+/**
+ * The `tokens` object exactly as Gemini CLI writes it onto a `type: "gemini"`
+ * message record — mapped straight from the GenAI response's own
+ * `usageMetadata` by the CLI's own `recordMessageTokens()`. See
+ * `geminiCliReader.ts` for why `cached` is subtracted out of `input` rather
+ * than added, and why `thoughts`/`tool` fold into output.
+ */
+export type LocalUsageGeminiCliTokens = {
+  input?: number;
+  output?: number;
+  cached?: number;
+  thoughts?: number;
+  tool?: number;
+  total?: number;
+};
+
+/**
+ * A `type: "gemini"` message record as read out of a chat transcript line —
+ * whether it arrived bare-appended or unwrapped from a `$set.messages[]`
+ * bootstrap entry. See `geminiCliReader.ts` for both shapes.
+ */
+export type LocalUsageGeminiMessageRecord = {
+  id?: string;
+  type?: string;
+  model?: string;
+  tokens?: LocalUsageGeminiCliTokens;
+};
+
+/**
+ * One row of Copilot CLI's `assistant_usage_events` SQLite table, restricted
+ * to the columns `copilotCliReader.ts` actually reads. `cache_read_tokens`
+ * and `cache_write_tokens` are both subsets of `input_tokens` — see that
+ * reader's module header for the arithmetic proof.
+ */
+export type LocalUsageCopilotUsageRow = {
+  model: string | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  reasoning_tokens: number | null;
+  created_at: string | null;
 };
 
 /**
