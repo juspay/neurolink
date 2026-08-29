@@ -68,21 +68,53 @@ function upsertEnvVars(original: string, vars: Record<string, string>): string {
     // Match an assignment at line start, tolerating `export ` and surrounding
     // spaces. Anchored per-line so a key mentioned inside a comment or another
     // value is not rewritten.
-    const re = new RegExp(`^[ \\t]*(?:export[ \\t]+)?${key}[ \\t]*=.*$`, "m");
     const line = `${key}=${value}`;
+    const all = new RegExp(
+      `^[ \t]*(?:export[ \t]+)?${key}[ \t]*=.*(?:\r?\n|$)`,
+      "gm",
+    );
+    const occurrences = text.match(all)?.length ?? 0;
+    if (occurrences === 0) {
+      text = `${text.length > 0 && !text.endsWith("\n") ? `${text}\n` : text}${line}\n`;
+      continue;
+    }
+    // Rewrite the FIRST occurrence in place — position is the user's and a
+    // byte-exact restore depends on keeping it — then drop any later ones.
+    //
+    // Dropping them is not tidiness. Gemini CLI's dotenv takes the LAST
+    // assignment: with a duplicate left in place our value is silently
+    // overridden and Gemini talks to Google while the writer reports success.
+    // Measured: a .env with the proxy URL first and a dead port second sent the
+    // request to the dead port.
+    let seen = 0;
     // A function replacement, never a string: `String.replace` expands `$&`,
     // `$1` and friends inside a replacement *string*, so a proxy key
     // containing `$&` would be stored as the matched assignment instead of
-    // itself. The callback form treats the value as literal.
-    text = re.test(text)
-      ? text.replace(re, () => line)
-      : `${text.length > 0 && !text.endsWith("\n") ? `${text}\n` : text}${line}\n`;
+    // itself.
+    text = text.replace(all, (match) => {
+      seen += 1;
+      if (seen > 1) {
+        return "";
+      }
+      // Re-emit the terminator that was matched, not an assumed LF. The regex
+      // captures `\r?\n`, and `"…\r\n".endsWith("\n")` is true, so testing for
+      // LF alone silently rewrote a CRLF line ending to LF — breaking the
+      // byte-exact round-trip this function's own contract promises, on the
+      // ordinary single-occurrence path rather than only on duplicates.
+      // Gemini CLI is cross-platform; a Windows-authored .env is not exotic.
+      const terminator = match.endsWith("\r\n")
+        ? "\r\n"
+        : match.endsWith("\n")
+          ? "\n"
+          : "";
+      return `${line}${terminator}`;
+    });
   }
   return text;
 }
 
 /**
- * Read the managed variables' values out of an `.env` body.
+ * Read the managed variables' effective values out of an `.env` body.
  *
  * Restore needs the original *values*, not the original file: replaying a
  * whole snapshot would discard everything the user changed after apply().
@@ -90,12 +122,16 @@ function upsertEnvVars(original: string, vars: Record<string, string>): string {
 function readManagedVars(envText: string): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   for (const key of [BASE_URL_VAR, API_KEY_VAR]) {
-    const m = new RegExp(
-      `^[ \\t]*(?:export[ \\t]+)?${key}[ \\t]*=(.*)$`,
-      "m",
-    ).exec(envText);
-    if (m) {
-      out[key] = m[1] ?? "";
+    // The LAST assignment, because that is the one dotenv resolves to. Reading
+    // the first would restore a value the CLI never actually used.
+    const all = [
+      ...envText.matchAll(
+        new RegExp(`^[ \\t]*(?:export[ \\t]+)?${key}[ \\t]*=(.*)$`, "gm"),
+      ),
+    ];
+    const last = all[all.length - 1];
+    if (last) {
+      out[key] = last[1] ?? "";
     }
   }
   return out;
@@ -105,9 +141,12 @@ function readManagedVars(envText: string): Record<string, string | undefined> {
 function removeEnvVars(original: string, keys: string[]): string {
   let text = original;
   for (const key of keys) {
+    // Global: a duplicated key must be cleared everywhere. Removing only the
+    // first leaves a later assignment behind, and dotenv takes the LAST one —
+    // so a "restored" .env would still be pointing at the proxy.
     const re = new RegExp(
       `^[ \\t]*(?:export[ \\t]+)?${key}[ \\t]*=.*(?:\\r?\\n|$)`,
-      "m",
+      "gm",
     );
     text = text.replace(re, "");
   }
@@ -237,14 +276,16 @@ export async function clearGeminiProxySettings(
     return false;
   }
 
-  const configured = new RegExp(
-    `^[ \\t]*(?:export[ \\t]+)?${BASE_URL_VAR}[ \\t]*=[ \\t]*(.*)$`,
-    "m",
-  ).exec(current);
-  if (!configured) {
+  // The EFFECTIVE assignment, not the first one on the page. dotenv resolves
+  // the last, so a user who appended their own base URL after apply() has
+  // already repointed Gemini — even though our line is still sitting above
+  // theirs. Checking the first saw our value, passed the ownership test, and
+  // restore then deleted the endpoint the CLI was actually using.
+  const configuredUrl = readManagedVars(current)[BASE_URL_VAR];
+  if (configuredUrl === undefined) {
     return false;
   }
-  if (expectedBaseUrl && configured[1]?.trim() !== expectedBaseUrl) {
+  if (expectedBaseUrl && configuredUrl.trim() !== expectedBaseUrl) {
     // Pointed somewhere else — the user's choice, not ours to revert.
     logger.debug(
       "[proxy] Gemini clear: base URL is not the one we wrote, leaving it intact",
