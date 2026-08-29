@@ -8,7 +8,7 @@
 
 > **LocalUsageTotals** = `object`
 
-Defined in: [types/localUsage.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L56)
+Defined in: [types/localUsage.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L67)
 
 Aggregated totals for one CLI, one scan.
 
@@ -18,7 +18,7 @@ Aggregated totals for one CLI, one scan.
 
 > **requests**: `number`
 
-Defined in: [types/localUsage.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L57)
+Defined in: [types/localUsage.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L68)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:57](https://github.com/juspay/neurolink/blob/re
 
 > **inputTokens**: `number`
 
-Defined in: [types/localUsage.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L58)
+Defined in: [types/localUsage.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L69)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/localUsage.ts:58](https://github.com/juspay/neurolink/blob/re
 
 > **outputTokens**: `number`
 
-Defined in: [types/localUsage.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L59)
+Defined in: [types/localUsage.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L70)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/localUsage.ts:59](https://github.com/juspay/neurolink/blob/re
 
 > **cacheReadTokens**: `number`
 
-Defined in: [types/localUsage.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L60)
+Defined in: [types/localUsage.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L71)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/localUsage.ts:60](https://github.com/juspay/neurolink/blob/re
 
 > **cacheCreationTokens**: `number`
 
-Defined in: [types/localUsage.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L61)
+Defined in: [types/localUsage.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L72)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/localUsage.ts:61](https://github.com/juspay/neurolink/blob/re
 
 > **costUsd**: `number`
 
-Defined in: [types/localUsage.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L62)
+Defined in: [types/localUsage.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L73)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/localUsage.ts:62](https://github.com/juspay/neurolink/blob/re
 
 > **costConfidence**: [`LocalUsageCostConfidence`](LocalUsageCostConfidence.md)
 
-Defined in: [types/localUsage.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L68)
+Defined in: [types/localUsage.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L79)
 
 The weakest confidence contributing to `costUsd`. A totals row mixing
 modeled and heuristic entries must report the weaker one, otherwise the
@@ -78,7 +78,7 @@ aggregate looks better-sourced than its worst input.
 
 > **unpricedRequests**: `number`
 
-Defined in: [types/localUsage.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L70)
+Defined in: [types/localUsage.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L81)
 
 Turns whose model had no pricing entry, so contributed 0 to costUsd.
 
@@ -88,6 +88,6 @@ Turns whose model had no pricing entry, so contributed 0 to costUsd.
 
 > **unpricedModels**: `string`[]
 
-Defined in: [types/localUsage.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L72)
+Defined in: [types/localUsage.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L83)
 
 Distinct model ids behind `unpricedRequests`, for diagnosis.

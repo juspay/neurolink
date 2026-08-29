@@ -8,7 +8,7 @@
 
 > **LocalUsageClaudeRawUsage** = `object`
 
-Defined in: [types/localUsage.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L164)
+Defined in: [types/localUsage.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L184)
 
 The `message.usage` object exactly as Claude Code writes it into a
 transcript line — snake_case, and every field optional because older
@@ -20,7 +20,7 @@ transcripts predate some of them.
 
 > `optional` **input_tokens?**: `number`
 
-Defined in: [types/localUsage.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L165)
+Defined in: [types/localUsage.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L185)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/localUsage.ts:165](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **output_tokens?**: `number`
 
-Defined in: [types/localUsage.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L166)
+Defined in: [types/localUsage.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L186)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/localUsage.ts:166](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cache_read_input_tokens?**: `number`
 
-Defined in: [types/localUsage.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L167)
+Defined in: [types/localUsage.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L187)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/localUsage.ts:167](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cache_creation_input_tokens?**: `number`
 
-Defined in: [types/localUsage.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L168)
+Defined in: [types/localUsage.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L188)

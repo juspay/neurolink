@@ -8,7 +8,7 @@
 
 > **LocalUsageSqliteDatabaseCtor** = (`path`, `options?`) => [`LocalUsageSqliteDatabase`](LocalUsageSqliteDatabase.md)
 
-Defined in: [types/localUsage.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L200)
+Defined in: [types/localUsage.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L279)
 
 Constructor shape for the same.
 

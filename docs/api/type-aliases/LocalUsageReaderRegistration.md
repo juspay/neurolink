@@ -8,7 +8,7 @@
 
 > **LocalUsageReaderRegistration** = `object`
 
-Defined in: [types/localUsage.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L136)
+Defined in: [types/localUsage.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L147)
 
 One entry in the registry map.
 
@@ -18,7 +18,7 @@ One entry in the registry map.
 
 > **descriptor**: [`LocalUsageReaderDescriptor`](LocalUsageReaderDescriptor.md)
 
-Defined in: [types/localUsage.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L137)
+Defined in: [types/localUsage.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L148)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/localUsage.ts:137](https://github.com/juspay/neurolink/blob/r
 
 > **factory**: [`LocalUsageReaderFactoryFn`](LocalUsageReaderFactoryFn.md)
 
-Defined in: [types/localUsage.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L138)
+Defined in: [types/localUsage.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L149)
