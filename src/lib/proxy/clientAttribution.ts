@@ -43,34 +43,37 @@ const CLIENT_PREFIXES: ReadonlyArray<readonly [string, string]> = [
 ];
 
 /**
- * Deliberately NOT mapped, with the measurement that ruled each one out.
+ * Deliberately NOT mapped, and why each was ruled out.
  *
- * Copilot CLI is the one client here that cannot be identified from its
- * User-Agent, and both of the strings it sends are actively unsafe to key on:
+ * These two strings are unrelated to each other. They are grouped only because
+ * both were candidates for a Copilot mapping at some point, and neither can
+ * carry one.
  *
- * - `OpenAI/JS 5.20.1` — the stock OpenAI JS SDK UA, sent by every caller of
- *   that SDK. Mapping it to Copilot would file unrelated OpenAI-SDK traffic
- *   under Copilot's name, which is worse than leaving it unattributed.
- - `Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)` — not a
- *   CLI's User-Agent at all. This is what `curl` sends on a machine whose
- *   `~/.curlrc` sets `user-agent`, so every curl-driven caller on such a host
- *   shares it: scripts, agents, health probes. It accounted for the largest
- *   single block of `unknown` rows in the log this table was measured against,
- *   which is exactly what made it tempting.
+ * - `OpenAI/JS 5.20.1` — Copilot CLI's actual User-Agent, and the problem is
+ *   that it is not Copilot's alone: it is the stock OpenAI JS SDK string, sent
+ *   by every caller of that SDK. Mapping it would file unrelated OpenAI-SDK
+ *   traffic under Copilot's name, which is worse than leaving it unattributed.
+ *   Copilot also sends `x-initiator` and `x-interaction-type`, but neither is
+ *   exclusive to it either, so it stays `unknown` and remains traceable
+ *   through the stored raw header.
+ *
+ * - `Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)` — not a
+ *   CLI's User-Agent at all, and in particular NOT Copilot's. It is what
+ *   `curl` sends on a machine whose `~/.curlrc` sets `user-agent`, so every
+ *   curl-driven caller on such a host shares it: scripts, agents, health
+ *   probes. It accounted for the largest single block of `unknown` rows in the
+ *   log this table was measured against, which is exactly what made it
+ *   tempting.
  *
  *   Recorded because the first pass got this wrong in a way worth naming. The
- *   string was seen arriving at two capture servers during Copilot CLI and
- *   Gemini CLI runs and was written up as "sent by both CLIs". It was neither:
- *   it was the aliveness `curl` fired at each capture server moments before
- *   the CLI, picking up that host's curlrc. The paths gave it away on review —
- *   the Gemini-side hit was a bare `GET /v1beta/models`, which is the probe's
- *   URL and not one the CLI requests. A shared string across two unrelated
- *   clients should have read as "shared dependency or shared tooling", not as
- *   a property of either client.
- *
- * Copilot does send `x-initiator` and `x-interaction-type`, but neither is
- * exclusive to it either. Attributing it needs a signal nobody has found yet,
- * so it stays `unknown` and remains traceable through the stored raw header.
+ *   string was seen arriving at two capture servers during a Copilot CLI run
+ *   and a Gemini CLI run, and was written up as "sent by both CLIs". It was
+ *   sent by neither: it was the aliveness `curl` fired at each capture server
+ *   moments before the CLI was pointed at it, picking up that host's curlrc.
+ *   The request paths gave it away on review — the Gemini-side hit was a bare
+ *   `GET /v1beta/models`, which is the probe's URL and not one the CLI
+ *   requests. An identical unusual string arriving from two unrelated clients
+ *   is evidence of shared tooling, never a property of either client.
  */
 
 /**

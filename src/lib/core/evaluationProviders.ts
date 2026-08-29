@@ -149,7 +149,7 @@ export function getBestAvailableProvider(
 }
 
 /**
- Record actual provider performance for optimization
+ * Record actual provider performance for optimization
  */
 
 export function recordProviderPerformanceFromMetrics(
