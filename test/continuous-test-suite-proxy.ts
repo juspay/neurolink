@@ -659,11 +659,44 @@ async function testCodexModelsDiscovery(): Promise<boolean | null> {
     log(`Codex /models answered with status ${resp.status}`, "green");
     return true;
   } catch (err) {
+    // A transport failure here has two very different causes, and reporting
+    // both the same way is what was wrong before. This used to return false
+    // unconditionally, so a dropped connection to the throwaway proxy THIS
+    // SUITE spawned was reported as "Codex model discovery is unroutable". It
+    // did exactly that twice while `codex exec` was answering correctly
+    // through the same proxy and the route itself returned 200.
+    //
+    // But turning it into an unconditional skip is the opposite error: a route
+    // that deadlocks or resets the connection is a real defect, and it
+    // presents as a transport failure too. So distinguish them with a
+    // precondition rather than a guess — ask whether the proxy is answering at
+    // all. If /status responds, the process is healthy and this route
+    // specifically failed: that is a genuine finding and must FAIL. If /status
+    // is also unreachable, the harness lost its server and this case observed
+    // nothing, which is a SKIP.
+    //
+    // (Most catch blocks in this file return false. That is right for them —
+    // they assert on a response they did receive. This one is bounded by
+    // whether a request could be made at all.)
+    let proxyAlive: boolean;
+    try {
+      const health = await fetchProxy("/status");
+      proxyAlive = health.ok;
+    } catch {
+      proxyAlive = false;
+    }
+    if (proxyAlive) {
+      log(
+        "Codex model discovery threw while the proxy was still answering /status — the route itself failed",
+        "red",
+      );
+      return false;
+    }
     log(
-      `Codex models endpoint error: ${err instanceof Error ? err.message : String(err)}`,
-      "red",
+      "the spawned proxy stopped answering entirely, so Codex model discovery was never observed",
+      "yellow",
     );
-    return false;
+    return null;
   }
 }
 

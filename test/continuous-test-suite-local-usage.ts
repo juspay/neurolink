@@ -660,6 +660,88 @@ async function runAllTests(): Promise<void> {
     log("an absent store reports as notInstalled rather than as an error");
   });
 
+  await test("widening the window never reads less, across the whole range", async () => {
+    // A fixture, not this machine's store. The absurd rungs are full sweeps,
+    // and on a real 17k-file store nine of them take longer than the whole
+    // rest of this suite — the first version of this case timed out at ten
+    // minutes. Controlled mtimes also make the ladder actually vary, which a
+    // single-age store never would.
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-monotonic-"));
+    const project = path.join(home, ".claude", "projects", "-tmp-ladder");
+    fs.mkdirSync(project, { recursive: true });
+    const ages = [2, 60, 900]; // days old
+    ages.forEach((ageDays, i) => {
+      const f = path.join(project, `session-${i}.jsonl`);
+      fs.writeFileSync(
+        f,
+        assistantLine(`msg_L${i}`, "claude-sonnet-4-5", {
+          input_tokens: 3,
+          output_tokens: 4,
+        }) + "\n",
+      );
+      const when = new Date(Date.now() - ageDays * 86_400_000);
+      fs.utimesSync(f, when, when);
+    });
+
+    // Rungs chosen to cross each fixture age and then run off the end of any
+    // possible history: 1e15 and 1e300 stay finite, MAX_VALUE overflows its
+    // span. All three mean all-history, and the cliff this guards against
+    // appeared precisely between two neighbouring absurd values.
+    const ladder = [1, 30, 100, 365, 36_500, 1e15, 1e300, Number.MAX_VALUE];
+    // The per-reader surface, not readAllLocalUsage: the aggregate reports
+    // totals keyed by CLI and carries no filesScanned of its own, so the
+    // file-count half of monotonicity is only observable here.
+    const { scans, all } = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("claude-code");
+      const out: Array<{ days: number; files: number; requests: number }> = [];
+      for (const days of ladder) {
+        const r = await reader.scan({ sinceDays: days });
+        out.push({
+          days,
+          files: r.filesScanned,
+          requests: r.totals.requests,
+        });
+      }
+      return {
+        scans: out,
+        all: await reader.scan({ sinceDays: Infinity }),
+      };
+    });
+
+    // Precondition: the ladder must actually climb, or every comparison
+    // below is 0 >= 0 and this proves nothing.
+    assert(
+      all.filesScanned === ages.length,
+      "the fixture store did not scan as authored",
+    );
+    assert(
+      scans[0].files < all.filesScanned,
+      "the narrowest rung already read the whole fixture; the ladder cannot climb",
+    );
+
+    for (let i = 1; i < scans.length; i++) {
+      assert(
+        scans[i].files >= scans[i - 1].files,
+        `widening the window scanned fewer files at rung ${i}`,
+      );
+      assert(
+        scans[i].requests >= scans[i - 1].requests,
+        `widening the window counted fewer requests at rung ${i}`,
+      );
+    }
+    // Monotonicity alone still permits a ladder that plateaus below
+    // all-history. The top rung must reach it.
+    assert(
+      scans[scans.length - 1].files === all.filesScanned,
+      "the widest finite window disagreed with Infinity",
+    );
+
+    fs.rmSync(home, { recursive: true, force: true });
+    log(
+      `monotonic across ${ladder.length} rungs, ${scans[0].files} to ${all.filesScanned} files, top rung agrees with Infinity`,
+    );
+  });
+
   await test("this machine's real transcripts scan coherently", async () => {
     const realProjects = path.join(os.homedir(), ".claude", "projects");
     if (!fs.existsSync(realProjects)) {
