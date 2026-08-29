@@ -51,16 +51,40 @@ const CLIENT_PREFIXES: ReadonlyArray<readonly [string, string]> = [
  * - `OpenAI/JS 5.20.1` — the stock OpenAI JS SDK UA, sent by every caller of
  *   that SDK. Mapping it to Copilot would file unrelated OpenAI-SDK traffic
  *   under Copilot's name, which is worse than leaving it unattributed.
- * - `Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)` — a
- *   spoofed browser string. It looks like a fingerprint and is not one: it was
- *   captured from **both** Copilot CLI and Gemini CLI, so it identifies no
- *   client at all. (It also accounts for the largest single block of
- *   `unknown` rows in this machine's log, which is what made it tempting.)
+ - `Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)` — not a
+ *   CLI's User-Agent at all. This is what `curl` sends on a machine whose
+ *   `~/.curlrc` sets `user-agent`, so every curl-driven caller on such a host
+ *   shares it: scripts, agents, health probes. It accounted for the largest
+ *   single block of `unknown` rows in the log this table was measured against,
+ *   which is exactly what made it tempting.
+ *
+ *   Recorded because the first pass got this wrong in a way worth naming. The
+ *   string was seen arriving at two capture servers during Copilot CLI and
+ *   Gemini CLI runs and was written up as "sent by both CLIs". It was neither:
+ *   it was the aliveness `curl` fired at each capture server moments before
+ *   the CLI, picking up that host's curlrc. The paths gave it away on review —
+ *   the Gemini-side hit was a bare `GET /v1beta/models`, which is the probe's
+ *   URL and not one the CLI requests. A shared string across two unrelated
+ *   clients should have read as "shared dependency or shared tooling", not as
+ *   a property of either client.
  *
  * Copilot does send `x-initiator` and `x-interaction-type`, but neither is
  * exclusive to it either. Attributing it needs a signal nobody has found yet,
  * so it stays `unknown` and remains traceable through the stored raw header.
  */
+
+/**
+ * The client names this table can produce.
+ *
+ * Exported so a test can check the roster of CLIs the proxy configures against
+ * the roster it can actually name. Those two lists drifted apart silently once
+ * already: five configurators shipped while the table still knew only Claude
+ * Code, and nothing failed, because an unattributed client looks exactly like
+ * a quiet one.
+ */
+export function getMappedClientNames(): ReadonlySet<string> {
+  return new Set(CLIENT_PREFIXES.map(([, name]) => name));
+}
 
 /** Cap stored User-Agents. They are attacker-influenced and unbounded. */
 const MAX_USER_AGENT_CHARS = 200;

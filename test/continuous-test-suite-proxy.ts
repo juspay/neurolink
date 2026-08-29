@@ -2706,13 +2706,12 @@ async function testPerClientAttribution(): Promise<boolean | null> {
   // None is invented, which is the standing rule for this table: a guessed
   // prefix that never matches is indistinguishable from one that works.
   //
-  // The last three are the ones that matter most. `OpenAI/JS` and the spoofed
-  // MSIE string are both sent by real CLIs we would like to name, and both
-  // MUST stay unknown: `OpenAI/JS` is the stock OpenAI SDK UA sent by every
-  // caller of that SDK, and the MSIE string was captured from Copilot CLI AND
-  // Gemini CLI, so it identifies no client at all. They are pinned here so a
-  // later "helpful" mapping fails this test instead of silently misfiling
-  // unrelated traffic.
+  // The last three MUST stay unknown, and are pinned so a later "helpful"
+  // mapping fails this test instead of silently misfiling unrelated traffic.
+  // `OpenAI/JS` is the stock OpenAI SDK UA, sent by every caller of that SDK —
+  // Copilot CLI among them, which is why Copilot cannot be named this way. The
+  // MSIE string is not a CLI's UA at all: it is what curl sends on a host whose
+  // ~/.curlrc sets one, so it is shared by every curl-driven caller there.
   const agents = [
     { ua: "claude-cli/2.1.223 (external, cli)", expect: "claude-code" },
     {
@@ -2726,8 +2725,9 @@ async function testPerClientAttribution(): Promise<boolean | null> {
     },
     { ua: "codex_exec/0.147.0 (Mac OS 26.6.0; arm64)", expect: "codex" },
     { ua: "some-unreleased-cli/9.9.9", expect: "unknown" },
-    // Copilot CLI, both of the strings it actually sends.
+    // Copilot CLI's own request.
     { ua: "OpenAI/JS 5.20.1", expect: "unknown" },
+    // Any curl caller on a host with a user-agent in ~/.curlrc.
     {
       ua: "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
       expect: "unknown",
@@ -2815,6 +2815,92 @@ async function testPerClientAttribution(): Promise<boolean | null> {
     return false;
   }
   log(`attributed ${seen.size} distinct clients from live traffic`, "green");
+  return true;
+}
+
+/**
+ * Every CLI the proxy configures must be one the proxy can also name.
+ *
+ * These two rosters are maintained in different files by different reflexes —
+ * you add a configurator to onboard a CLI, and you add a User-Agent prefix
+ * only once you have watched that CLI's traffic. They drifted apart in exactly
+ * that gap: five configurators shipped while CLIENT_PREFIXES still knew only
+ * Claude Code, so five of six CLIs were filed as "unknown" and the per-client
+ * usage feature reported one bucket while looking entirely healthy. Nothing
+ * failed, because an unattributed client is indistinguishable from a quiet one.
+ *
+ * So the check is structural rather than behavioural: adding a configurator
+ * now fails here until someone either measures its User-Agent or writes down
+ * why it cannot be measured.
+ */
+const UNATTRIBUTABLE_CLIENTS: ReadonlyMap<string, string> = new Map([
+  [
+    "copilot",
+    "sends the stock `OpenAI/JS <version>` SDK User-Agent, which every caller " +
+      "of that SDK sends; mapping it would misfile unrelated traffic",
+  ],
+]);
+
+async function testEveryConfiguredClientIsAttributable(): Promise<boolean> {
+  const { PROXY_CLIENT_CONFIGURATORS } =
+    await import("../src/cli/proxy-clients/registry.js");
+  const { getMappedClientNames } =
+    await import("../src/lib/proxy/clientAttribution.js");
+  const mapped = getMappedClientNames();
+
+  // Precondition. An empty or tiny roster would make every assertion below
+  // pass by having nothing to check, which is the failure mode this whole
+  // suite keeps rediscovering.
+  if (PROXY_CLIENT_CONFIGURATORS.length < 5) {
+    log(
+      "configurator roster looks truncated; the check would be vacuous",
+      "red",
+    );
+    return false;
+  }
+
+  for (const client of PROXY_CLIENT_CONFIGURATORS) {
+    if (mapped.has(client.id)) {
+      continue;
+    }
+    const reason = UNATTRIBUTABLE_CLIENTS.get(client.id);
+    if (!reason) {
+      log(
+        `a configured client has no User-Agent mapping and no recorded reason ` +
+          `for lacking one — measure its User-Agent and add the prefix, or add ` +
+          `it to UNATTRIBUTABLE_CLIENTS saying why that is impossible`,
+        "red",
+      );
+      return false;
+    }
+  }
+
+  // The exception list must not outlive its exceptions either: an entry for a
+  // client that has since been mapped, or removed, is stale documentation that
+  // would let a real regression hide behind it.
+  for (const id of UNATTRIBUTABLE_CLIENTS.keys()) {
+    const stillConfigured = PROXY_CLIENT_CONFIGURATORS.some((c) => c.id === id);
+    if (!stillConfigured) {
+      log(
+        "an unattributable-client exception names a client that is no longer configured",
+        "red",
+      );
+      return false;
+    }
+    if (mapped.has(id)) {
+      log(
+        "an unattributable-client exception names a client that is now mapped",
+        "red",
+      );
+      return false;
+    }
+  }
+
+  log(
+    `all ${PROXY_CLIENT_CONFIGURATORS.length} configured clients are either ` +
+      `attributable or documented as not being so`,
+    "green",
+  );
   return true;
 }
 
@@ -8107,6 +8193,10 @@ const tests: TestFunction[] = [
   {
     name: "Attribution: the request log records the calling CLI",
     fn: testPerClientAttribution,
+  },
+  {
+    name: "Attribution: every configured client is attributable or documented",
+    fn: testEveryConfiguredClientIsAttributable,
     category: "proxy-config",
   },
   {
