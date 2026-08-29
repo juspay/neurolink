@@ -1224,6 +1224,15 @@ export type TextGenerationOptions = {
      */
     images?: Array<Buffer | string | ImageWithAltText>;
     pdfFiles?: Array<Buffer | string>; // Support for PDF inputs (for image generation with Vertex AI)
+    /**
+     * CSV files to inline as tabular text, with tool instructions appended.
+     *
+     * Declared here because `processExplicitCsvFiles` has always read it and
+     * the internal `GenerateOptions` has always carried it — it was missing
+     * only from the public type, so callers reaching the shipped behaviour had
+     * to widen the type themselves to do it.
+     */
+    csvFiles?: Array<Buffer | string>;
     files?: Array<Buffer | string | FileWithMetadata>; // Auto-detect file types (including video for analysis)
     /** Director Mode segments (2-10). When provided, Director Mode is activated. */
     segments?: DirectorSegment[];
