@@ -961,7 +961,41 @@ jobs:
           #
           # The 55669 in that suite is a config string it writes into client
           # config files and asserts on — never a request target — so an
-          # operator's own proxy listening there does not affect it.
+          # operator's own proxy listening there does not affect it. That is
+          # correct: fetchProxy targets PROXY_PORT, which is 9876.
+          #
+          # It is also incomplete, in the direction that misleads. The suite is
+          # NOT isolated from a running proxy, because the coupling is the log
+          # file rather than the port. startProxy() spawns with neither --dev
+          # nor a HOME override, so its request log resolves to
+          # ~/.neurolink/logs/proxy-<date>.jsonl — the same append-only file an
+          # operator's own daemon writes to. testPerClientAttribution then
+          # stats that path via os.homedir(), sends its two requests, and reads
+          # back everything appended past the recorded offset. Both proxies'
+          # records land in that window: on the machine where this was checked,
+          # the last 4000 lines held 397 claude-code and 198 unknown entries,
+          # the latter being the test's own synthetic user-agent mixed in with
+          # live traffic.
+          #
+          # What that does and does not establish, stated separately because
+          # the difference is the whole value of it:
+          #
+          #   Established, by reading the spawn and confirmed in the log: the
+          #   read-back window is shared, unscoped, and not synchronised with
+          #   anything.
+          #
+          #   NOT established: that concurrency is the cause. The failure was
+          #   seen twice while other work drove a second proxy, but two
+          #   deliberate attempts to reproduce it — one with sustained load,
+          #   one with three parallel generators — both passed 88/0. Treat the
+          #   correlation as a lead, not a diagnosis.
+          #
+          # For CI the shared-log path is probably not it, since a runner has
+          # no second proxy; the race the paragraph above names remains the
+          # better hypothesis there. The value here is that the read-back has
+          # no synchronisation to rely on in either environment, and that an
+          # investigator should stop treating "no operator proxy on 55669" as
+          # evidence of isolation.
           #
           # test:model-not-found-retryable is also absent: it skips entirely
           # without credentials, so it could only ever no-op here — the same
