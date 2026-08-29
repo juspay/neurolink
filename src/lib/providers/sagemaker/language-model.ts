@@ -26,6 +26,7 @@ import type {
 } from "../../types/index.js";
 import { createAdaptiveSemaphore } from "./adaptive-semaphore.js";
 import { logger } from "../../utils/logger.js";
+import { isAbortError } from "../../utils/errorHandling.js";
 
 /**
  * Base synthetic streaming delay in milliseconds for simulating real-time response
@@ -159,6 +160,21 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
   }
 
   /**
+   * Read the caller's abort signal out of the AI SDK's call options.
+   *
+   * `doGenerate`/`doStream` type `options` as `Record<string, unknown>`, so the
+   * value arrives as `unknown` even though `LanguageModelV2CallOptions`
+   * declares `abortSignal?: AbortSignal`. `instanceof` is a real runtime check
+   * rather than an assertion, which is what rule 14 asks for here.
+   */
+  private readAbortSignal(
+    options: Record<string, unknown>,
+  ): AbortSignal | undefined {
+    const signal = options.abortSignal;
+    return signal instanceof AbortSignal ? signal : undefined;
+  }
+
+  /**
    * Generate text synchronously using SageMaker endpoint
    */
   async doGenerate(options: Record<string, unknown>): Promise<{
@@ -223,6 +239,7 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
         Body: JSON.stringify(sagemakerRequest),
         ContentType: "application/json",
         Accept: "application/json",
+        abortSignal: this.readAbortSignal(options),
       });
 
       // Parse SageMaker response
@@ -364,6 +381,11 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
         error: error instanceof Error ? error.message : String(error),
       });
 
+      // An abort is not a provider failure: wrapping it here would restore
+      // the fabricated 500 the client guard just avoided.
+      if (isAbortError(error)) {
+        throw error;
+      }
       throw handleSageMakerError(error, this.modelConfig.endpointName);
     }
   }
@@ -423,6 +445,7 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
           Body: JSON.stringify(requestWithStreaming),
           ContentType: this.modelConfig.contentType || "application/json",
           Accept: this.modelConfig.accept || "application/json",
+          abortSignal: this.readAbortSignal(options),
         });
 
         // Create intelligent streaming response
@@ -468,6 +491,14 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
           },
         };
       } catch (streamingError) {
+        // A cancelled turn is not a missing capability. This fallback exists
+        // for endpoints that cannot stream; re-issuing doGenerate() here with
+        // the same already-aborted signal only adds a wasted call and a
+        // misleading warning before the abort surfaces anyway.
+        if (isAbortError(streamingError)) {
+          throw streamingError;
+        }
+
         logger.warn("Streaming failed, falling back to non-streaming", {
           endpointName: this.modelConfig.endpointName,
           error:
@@ -532,6 +563,11 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
         error: error instanceof Error ? error.message : String(error),
       });
 
+      // An abort is not a provider failure: wrapping it here would restore
+      // the fabricated 500 the client guard just avoided.
+      if (isAbortError(error)) {
+        throw error;
+      }
       throw handleSageMakerError(error, this.modelConfig.endpointName);
     }
   }
@@ -944,6 +980,11 @@ export class SageMakerLanguageModel implements SageMakerAsLanguageModel {
         batchSize: prompts.length,
       });
 
+      // An abort is not a provider failure: wrapping it here would restore
+      // the fabricated 500 the client guard just avoided.
+      if (isAbortError(error)) {
+        throw error;
+      }
       throw handleSageMakerError(error, this.modelConfig.endpointName);
     }
   }

@@ -1508,6 +1508,16 @@ export type InvokeEndpointParams = {
   TargetVariant?: string;
   /** Inference ID for request tracking */
   InferenceId?: string;
+  /**
+   * Cancels the in-flight HTTP request, not just the loop around it.
+   *
+   * Named in camelCase deliberately: every other field here mirrors an AWS
+   * `InvokeEndpointCommandInput` member and keeps its PascalCase, whereas this
+   * one is a transport option handed to `client.send()` as
+   * `@smithy/types` `HttpHandlerOptions` — it is never part of the command
+   * payload, and spelling it differently keeps that boundary visible.
+   */
+  abortSignal?: AbortSignal;
 };
 
 /**

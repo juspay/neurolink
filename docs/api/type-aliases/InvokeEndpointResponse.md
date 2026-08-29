@@ -8,7 +8,7 @@
 
 > **InvokeEndpointResponse** = `object`
 
-Defined in: [types/providers.ts:1516](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1516)
+Defined in: [types/providers.ts:1526](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1526)
 
 Response from SageMaker endpoint invocation
 
@@ -18,7 +18,7 @@ Response from SageMaker endpoint invocation
 
 > `optional` **Body?**: `Uint8Array`
 
-Defined in: [types/providers.ts:1518](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1518)
+Defined in: [types/providers.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1528)
 
 Response body
 
@@ -28,7 +28,7 @@ Response body
 
 > `optional` **ContentType?**: `string`
 
-Defined in: [types/providers.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1520)
+Defined in: [types/providers.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1530)
 
 Content type of the response
 
@@ -38,7 +38,7 @@ Content type of the response
 
 > `optional` **InvokedProductionVariant?**: `string`
 
-Defined in: [types/providers.ts:1522](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1522)
+Defined in: [types/providers.ts:1532](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1532)
 
 Invoked production variant
 
@@ -48,6 +48,6 @@ Invoked production variant
 
 > `optional` **CustomAttributes?**: `string`
 
-Defined in: [types/providers.ts:1524](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1524)
+Defined in: [types/providers.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1534)
 
 Custom attributes in the response
