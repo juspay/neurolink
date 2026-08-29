@@ -16,10 +16,33 @@
  * Three fixes in three files each closed one door and left the others open.
  * The logic lives here once now, so the next door closes everywhere at once.
  *
- * Contract: `Infinity` is the ONLY value meaning all-history. Anything that is
- * not a usable finite window — NaN, negative, or so large the arithmetic stops
- * being finite — collapses to a zero-length window, which is what a
- * nonsensical request should read as.
+ * Contract, stated as the two directions rather than as one rule, because the
+ * single-sentence version of it was wrong here for weeks:
+ *
+ *   - `0`, negatives, `-Infinity` and `NaN` are NOT windows. They collapse to
+ *     a zero-length one and read nothing. Two of the three historical defects
+ *     above are here (`0` and `NaN`); `-Infinity` and negatives are the same
+ *     class and were fixed with them.
+ *   - `Infinity`, and any finite value whose window is longer than any
+ *     history, mean ALL HISTORY. The THIRD historical defect — `MAX_VALUE` —
+ *     lives in this bucket, not the one above: what was wrong about it was the
+ *     mechanism (a `-Infinity` cutoff), never the outcome. A window of 1e308 days covers every
+ *     transcript that could exist, so "everything" is the right answer to it
+ *     and "nothing" is a wrong one.
+ *
+ * The prose here used to say the opposite of that second point — that a span
+ * too large to stay finite "collapses to a zero-length window". The code never
+ * did that, and the code was right. Anyone reconciling the two by changing the
+ * code re-creates a defect this suite has already seen once: asserting
+ * absurd-means-nothing produces a NON-MONOTONIC CLIFF, where 2.07e300 read
+ * everything, 2.09e300 read nothing, and `Infinity` read everything again.
+ * That was found by running the CLI — `usage local --since 999999999999`
+ * reported 518,576 turns while `--since 1e308` reported 39 — not by reading
+ * either the code or this comment.
+ *
+ * The invariant that actually holds, and the one worth testing, is
+ * MONOTONICITY: a wider window never reads less than a narrower one, across
+ * the whole range including the absurd end.
  */
 export const DEFAULT_SINCE_DAYS = 30;
 
@@ -27,7 +50,13 @@ const MS_PER_DAY = 86_400_000;
 
 /**
  * @returns the epoch-ms cutoff a scan must not read past, or `undefined` for an
- * unbounded (all-history) scan — which only `Infinity` produces.
+ * unbounded (all-history) scan.
+ *
+ * `undefined` has TWO sources, not one, and this line used to name only the
+ * first: an explicit `Infinity`, and any finite request whose span overflows
+ * (`Number.MAX_VALUE`). They mean the same thing on purpose — see the contract
+ * above — but a reader who believes only `Infinity` reaches this branch will
+ * mis-handle the second.
  */
 export function resolveScanCutoffMs(
   sinceDays: number | undefined,
