@@ -422,10 +422,12 @@ Consequences worth knowing before you go looking for them:
 directly.** If it does, it will be rejected, and the failure appears as a
 release-job error rather than anything resembling a permissions problem.
 
-### ⚠️ Reading a CI result: four ways this repo has misread one
+### ⚠️ Reading a CI result: six ways this repo has misread one
 
-Every incident below produced a confident wrong answer, and all four are the
-same mistake — treating the _absence_ of a signal as a signal. They are recorded
+Every incident below produced a confident wrong answer. The first four are the
+same mistake — treating the _absence_ of a signal as a signal. The last two are
+its close relatives: reading a signal the tool never emitted, and getting the
+same wrong answer twice from two passes that shared an input. They are recorded
 together because each one cost real time before it was spotted.
 
 **1. `CANCELLED` is not a failure.** Superseded runs report `CANCELLED`, and this
@@ -459,6 +461,31 @@ request. Deduplicate by name, as above.
 successfully and prints nothing, which reads as "no failures". Use
 `gh pr view <N> --json statusCheckRollup` instead — the failure mode of the
 wrong command here is silence, not an error.
+
+**5. An exit code from the shell is not a result from the tool.** The four
+above are all "the tool ran and the signal was misread". This one is worse:
+the tool never ran. A gate invoked as `pnpm run check > "$out"` where `$out`
+is a directory fails in the redirect, before the command starts, and reports
+exit 1 — indistinguishable at a glance from a real failure, while the output
+file is empty in exactly the way a clean run also leaves it. It was hit twice
+in one day, and in both directions: once read as a broken build, once as a
+clean one. Check that the output actually contains the tool's own output
+before believing either verdict, and prefer a path you created over one you
+assumed was a file.
+
+**6. A verifier that shares an input with the claim it checks is not
+adversarial about that input.** An adversarial review pass exists to refute a
+finding, but it can only do that on evidence the finding did not supply. Two
+reviewers in this repo both read `pull/<N>/head` from a shared clone while
+other agents were fetching different pull requests into it, so `FETCH_HEAD`
+had moved: the first produced a finding that was already false at the head it
+was told to read, and the second "confirmed" it from the same stale object.
+The result was a confident, verified, wrong finding reported to another
+author. Pin to the sha — `gh api repos/<owner>/<repo>/pulls/<N> --jq
+.head.sha` — at **both** stages, and treat any check that reuses the input,
+tooling or assumption under test as unverified. This is the same failure as
+the probe below, one level up: agreement between two passes is not evidence
+when they share the thing that is wrong.
 
 The same rule generalises past CI, and is worth applying to any probe: **an
 assertion about something NOT happening needs a precondition proving the thing
