@@ -91,3 +91,19 @@ Target variant for A/B testing
 Defined in: [types/providers.ts:1510](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1510)
 
 Inference ID for request tracking
+
+---
+
+### abortSignal?
+
+> `optional` **abortSignal?**: `AbortSignal`
+
+Defined in: [types/providers.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1520)
+
+Cancels the in-flight HTTP request, not just the loop around it.
+
+Named in camelCase deliberately: every other field here mirrors an AWS
+`InvokeEndpointCommandInput` member and keeps its PascalCase, whereas this
+one is a transport option handed to `client.send()` as
+`@smithy/types` `HttpHandlerOptions` — it is never part of the command
+payload, and spelling it differently keeps that boundary visible.

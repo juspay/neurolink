@@ -328,4 +328,113 @@ await test("a call with no per-request credentials still uses the environment", 
   }
 });
 
+/**
+ * A stand-in that accepts the request and never answers, so the only thing
+ * that can end the call is the caller's abort.
+ */
+async function startSilentStandIn(): Promise<StandIn> {
+  let requests = 0;
+  const sockets = new Set<{ destroy: () => void }>();
+  const server: Server = createServer((req) => {
+    requests++;
+    req.resume();
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.on("close", () => sockets.delete(socket));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    get requests() {
+      return requests;
+    },
+    port: typeof address === "object" && address ? address.port : 0,
+    close: async () => {
+      for (const socket of sockets) {
+        socket.destroy();
+      }
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  } as StandIn;
+}
+
+await test("an aborted SageMaker turn ends promptly and still reads as an abort", async () => {
+  // Two properties, and the suite needs both because fixing either alone still
+  // leaves cancellation broken.
+  //
+  // Wiring the signal into the transport is what first lets client.send()
+  // reject on abort. But SageMakerError's constructor overwrites `.name`, and
+  // handleSageMakerError()'s generic fallback stamps `statusCode: 500` on
+  // anything it does not recognise. The retry classifier duck-types that
+  // status, reads 5xx as transient, and re-runs the turn twice more at the
+  // 10s no-hint floor — each attempt rejecting instantly because the signal is
+  // still aborted, without a request ever leaving the process.
+  //
+  // Measured before the fix: 21,996ms and `name` reading "Error". After: about
+  // half a second and "AbortError". The bound below is deliberately far above
+  // the observed figure and far below one retry cycle, so this fails on the
+  // regression rather than on a slow machine.
+  const server = await startSilentStandIn();
+  const restoreEnv = withoutAwsEnv();
+  // The MCP path resolves the provider differently and does not carry the
+  // per-request credentials this suite relies on; skipping it keeps the case
+  // about cancellation rather than about provider construction.
+  const priorSkipMcp = process.env.NEUROLINK_SKIP_MCP;
+  process.env.NEUROLINK_SKIP_MCP = "true";
+  const controller = new AbortController();
+  const startedAt = Date.now();
+  let thrown: unknown;
+  try {
+    const nl = new NeuroLink();
+    const timer = setTimeout(() => controller.abort(), 300);
+    try {
+      await nl.generate({
+        input: { text: "hi" },
+        provider: "sagemaker",
+        maxTokens: 16,
+        credentials: credentialsFor(server.port),
+        abortSignal: controller.signal,
+      });
+    } catch (error) {
+      thrown = error;
+    } finally {
+      clearTimeout(timer);
+    }
+    const elapsed = Date.now() - startedAt;
+
+    // Precondition first: an assertion about the abort means nothing unless
+    // the request actually went out and the signal actually fired.
+    assert(
+      server.requests > 0,
+      "the endpoint was never reached, so the abort path was not exercised",
+    );
+    assert(
+      controller.signal.aborted,
+      "the signal never fired, so the turn ended for some other reason",
+    );
+    assert(thrown !== undefined, "the aborted turn ended without any error");
+
+    // Shape only — never the payload. A message quoting provider-ish text is
+    // reclassified as a skip by isExpectedProviderError() and would hide this.
+    const name = thrown instanceof Error ? thrown.name : "";
+    assert(
+      name === "AbortError",
+      "the cancellation lost its identity before reaching the caller",
+    );
+    assert(
+      elapsed < 5_000,
+      "the aborted turn was retried instead of ending, exceeding the bound",
+    );
+  } finally {
+    if (priorSkipMcp === undefined) {
+      delete process.env.NEUROLINK_SKIP_MCP;
+    } else {
+      process.env.NEUROLINK_SKIP_MCP = priorSkipMcp;
+    }
+    restoreEnv();
+    await server.close();
+  }
+});
+
 await runSuite();

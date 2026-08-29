@@ -26,6 +26,7 @@ import {
   getRetryDelay,
 } from "./errors.js";
 import { logger } from "../../utils/logger.js";
+import { isAbortError } from "../../utils/errorHandling.js";
 import { tryImport } from "../../utils/tryImport.js";
 
 /**
@@ -163,7 +164,12 @@ export class SageMakerRuntimeClient {
       const command = new InvokeEndpointCommand(input);
       const client = await this.getClient();
       const response = (await this.executeWithRetry(
-        () => client.send(command),
+        // The signal goes to the transport, not just to whatever loop is
+        // above us: without it an aborted call keeps its HTTP request in
+        // flight until the endpoint answers. An AbortError matches none of
+        // RETRYABLE_ERROR_CONDITIONS, so executeWithRetry surfaces it rather
+        // than re-issuing a request the caller has already abandoned.
+        () => client.send(command, { abortSignal: params.abortSignal }),
         params.EndpointName,
       )) as InvokeEndpointCommandOutput;
 
@@ -182,6 +188,16 @@ export class SageMakerRuntimeClient {
         CustomAttributes: response.CustomAttributes,
       };
     } catch (error) {
+      // The signal now reaches the transport, so this catch sees real
+      // AbortErrors for the first time — and must not wrap them.
+      // SageMakerError's constructor overwrites `.name`, and its generic
+      // fallback stamps `statusCode: 500`, which the retry classifier reads as
+      // "transient, try again". That fabricated status is what turned a
+      // cancellation into three attempts and 22 seconds.
+      if (isAbortError(error)) {
+        throw error;
+      }
+
       const duration = Date.now() - startTime;
       logger.error("SageMaker endpoint invocation failed", {
         endpointName: params.EndpointName,
@@ -233,7 +249,9 @@ export class SageMakerRuntimeClient {
       const command = new InvokeEndpointWithResponseStreamCommand(input);
       const client = await this.getClient();
       const response = (await this.executeWithRetry(
-        () => client.send(command),
+        // As above — an abort must tear down the response stream's connection,
+        // not merely stop the consumer reading from it.
+        () => client.send(command, { abortSignal: params.abortSignal }),
         params.EndpointName,
       )) as InvokeEndpointWithResponseStreamCommandOutput;
 
@@ -264,6 +282,16 @@ export class SageMakerRuntimeClient {
         InvokedProductionVariant: response.InvokedProductionVariant,
       };
     } catch (error) {
+      // The signal now reaches the transport, so the streaming catch sees real
+      // AbortErrors for the first time — and must not wrap them.
+      // SageMakerError's constructor overwrites `.name`, and its generic
+      // fallback stamps `statusCode: 500`, which the retry classifier reads as
+      // "transient, try again". That fabricated status is what turned a
+      // cancellation into three attempts and 22 seconds.
+      if (isAbortError(error)) {
+        throw error;
+      }
+
       const duration = Date.now() - startTime;
       logger.error("SageMaker streaming invocation failed", {
         endpointName: params.EndpointName,
