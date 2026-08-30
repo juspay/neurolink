@@ -8,7 +8,7 @@
 
 > **LocalUsageAggregateReport** = `object`
 
-Defined in: [types/localUsage.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L160)
+Defined in: [types/localUsage.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L229)
 
 Top-level output of scanning every registered, detected reader.
 
@@ -18,7 +18,7 @@ Top-level output of scanning every registered, detected reader.
 
 > **generatedAt**: `string`
 
-Defined in: [types/localUsage.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L161)
+Defined in: [types/localUsage.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L230)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:161](https://github.com/juspay/neurolink/blob/r
 
 > **totals**: `Partial`\<`Record`\<[`LocalUsageCliId`](LocalUsageCliId.md), [`LocalUsageTotals`](LocalUsageTotals.md)\>\>
 
-Defined in: [types/localUsage.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L163)
+Defined in: [types/localUsage.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L232)
 
 Only CLIs whose store was detected AND scanned appear here.
 
@@ -36,7 +36,7 @@ Only CLIs whose store was detected AND scanned appear here.
 
 > **failures**: [`LocalUsageReaderFailure`](LocalUsageReaderFailure.md)[]
 
-Defined in: [types/localUsage.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L165)
+Defined in: [types/localUsage.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L234)
 
 CLIs whose reader could not be created, detected, or scanned, and why.
 
@@ -46,7 +46,7 @@ CLIs whose reader could not be created, detected, or scanned, and why.
 
 > **scanErrors**: [`LocalUsageScanError`](LocalUsageScanError.md)[]
 
-Defined in: [types/localUsage.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L174)
+Defined in: [types/localUsage.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L243)
 
 Per-file problems from readers that otherwise succeeded.
 
@@ -61,6 +61,6 @@ always collected these — nothing consumed them until now.
 
 > **notInstalled**: [`LocalUsageCliId`](LocalUsageCliId.md)[]
 
-Defined in: [types/localUsage.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L176)
+Defined in: [types/localUsage.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L245)
 
 CLIs with no local store on this machine — absent, not failed.

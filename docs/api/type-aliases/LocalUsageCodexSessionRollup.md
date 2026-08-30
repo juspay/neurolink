@@ -8,7 +8,7 @@
 
 > **LocalUsageCodexSessionRollup** = `object`
 
-Defined in: [types/localUsage.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L197)
+Defined in: [types/localUsage.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L266)
 
 One Codex rollout reduced to its session-level totals.
 
@@ -21,7 +21,7 @@ per-turn values — see `codexReader.ts` for why summing overstates by ~63%.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/localUsage.ts:198](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L198)
+Defined in: [types/localUsage.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L267)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/localUsage.ts:198](https://github.com/juspay/neurolink/blob/r
 
 > **input**: `number`
 
-Defined in: [types/localUsage.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L199)
+Defined in: [types/localUsage.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L268)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/localUsage.ts:199](https://github.com/juspay/neurolink/blob/r
 
 > **output**: `number`
 
-Defined in: [types/localUsage.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L200)
+Defined in: [types/localUsage.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L269)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/localUsage.ts:200](https://github.com/juspay/neurolink/blob/r
 
 > **cached**: `number`
 
-Defined in: [types/localUsage.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L201)
+Defined in: [types/localUsage.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L270)
 
 ---
 
@@ -53,6 +53,6 @@ Defined in: [types/localUsage.ts:201](https://github.com/juspay/neurolink/blob/r
 
 > **billableEvents**: `number`
 
-Defined in: [types/localUsage.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L203)
+Defined in: [types/localUsage.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L272)
 
 token_count events where the cumulative total actually advanced.

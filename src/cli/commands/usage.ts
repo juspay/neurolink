@@ -144,14 +144,26 @@ export class UsageCommandFactory {
     const quiet = rows.filter(([, t]) => t && t.requests === 0);
     const active = rows.filter(([, t]) => t && t.requests > 0);
 
+    // What `requests` counts is not the same for every reader, so the label is
+    // read off the descriptor rather than hard-coded. Printing "turns" for a
+    // reader that counts sessions is a small lie that makes a Cursor row look
+    // directly comparable to a Claude Code row, which it is not.
+    const unitById = new Map(
+      getLocalUsageDescriptors().map((d) => [d.id, d.requestUnit ?? "turn"]),
+    );
+
     for (const [cliId, totals] of active) {
       if (!totals) {
         continue;
       }
       const cached = totals.cacheReadTokens + totals.cacheCreationTokens;
       logger.always(chalk.cyan(`  ${cliId}`));
+      const unit = unitById.get(cliId as never) ?? "turn";
       logger.always(
-        `    turns   ${UsageCommandFactory.formatTokens(totals.requests)}`,
+        unit === "session-snapshot"
+          ? `    sessions ${UsageCommandFactory.formatTokens(totals.requests)}` +
+              chalk.dim("   (context snapshots, not per-turn usage)")
+          : `    turns   ${UsageCommandFactory.formatTokens(totals.requests)}`,
       );
       logger.always(
         `    input   ${UsageCommandFactory.formatTokens(totals.inputTokens)}` +

@@ -134,3 +134,19 @@ registerLocalUsageReader({
     return createCopilotCliReader();
   },
 });
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "cursor",
+    displayName: "Cursor",
+    verified: true,
+    dedupStrategy: "last-write-wins",
+    costConfidence: "unavailable",
+    requiresSqlite: true,
+    requestUnit: "session-snapshot",
+  },
+  factory: async () => {
+    const { createCursorReader } = await import("./cursorReader.js");
+    return createCursorReader();
+  },
+});

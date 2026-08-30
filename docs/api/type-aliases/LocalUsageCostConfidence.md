@@ -8,7 +8,7 @@
 
 > **LocalUsageCostConfidence** = `"modeled"` \| `"unavailable"` \| `"heuristic"`
 
-Defined in: [types/localUsage.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L52)
+Defined in: [types/localUsage.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L100)
 
 How much to trust a computed cost figure.
 

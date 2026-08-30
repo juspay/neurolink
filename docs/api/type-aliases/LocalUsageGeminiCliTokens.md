@@ -8,7 +8,7 @@
 
 > **LocalUsageGeminiCliTokens** = `object`
 
-Defined in: [types/localUsage.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L228)
+Defined in: [types/localUsage.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L297)
 
 The `tokens` object exactly as Gemini CLI writes it onto a `type: "gemini"`
 message record — mapped straight from the GenAI response's own
@@ -22,7 +22,7 @@ than added, and why `thoughts`/`tool` fold into output.
 
 > `optional` **input?**: `number`
 
-Defined in: [types/localUsage.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L229)
+Defined in: [types/localUsage.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L298)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/localUsage.ts:229](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **output?**: `number`
 
-Defined in: [types/localUsage.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L230)
+Defined in: [types/localUsage.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L299)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/localUsage.ts:230](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cached?**: `number`
 
-Defined in: [types/localUsage.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L231)
+Defined in: [types/localUsage.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L300)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/localUsage.ts:231](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **thoughts?**: `number`
 
-Defined in: [types/localUsage.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L232)
+Defined in: [types/localUsage.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L301)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/localUsage.ts:232](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **tool?**: `number`
 
-Defined in: [types/localUsage.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L233)
+Defined in: [types/localUsage.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L302)
 
 ---
 
@@ -62,4 +62,4 @@ Defined in: [types/localUsage.ts:233](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **total?**: `number`
 
-Defined in: [types/localUsage.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L234)
+Defined in: [types/localUsage.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L303)

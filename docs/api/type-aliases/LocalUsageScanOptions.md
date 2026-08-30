@@ -8,7 +8,7 @@
 
 > **LocalUsageScanOptions** = `object`
 
-Defined in: [types/localUsage.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L119)
+Defined in: [types/localUsage.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L188)
 
 Options accepted by every reader's `scan()` and by the aggregator.
 
@@ -18,7 +18,7 @@ Options accepted by every reader's `scan()` and by the aggregator.
 
 > `optional` **sinceDays?**: `number`
 
-Defined in: [types/localUsage.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L127)
+Defined in: [types/localUsage.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L196)
 
 Only read files modified within this many days. Defaults to 30.
 

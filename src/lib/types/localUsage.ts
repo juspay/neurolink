@@ -35,6 +35,54 @@ export type LocalUsageCliId =
    */
   | "copilot-cli"
   | "cursor"
+  /*
+   * The five below are declared but have NO reader, and each is a measured
+   * finding rather than a to-do. They stay in the union because the id set is
+   * the published vocabulary of `usage local --cli <id>`, and because the next
+   * person to consider one of them should find the evidence here instead of
+   * re-deriving it. `createLocalUsageReader` throws a naming-the-registered-ids
+   * error for all of them, which is the correct answer to "read a store that
+   * does not exist".
+   *
+   * amp — threads are SERVER-side. `amp threads list` returns a real thread
+   *   (`T-019e82e0-…`, 1 message) that is absent from `~/.local/share/amp/
+   *   threads/`, and the CLI log shows the session arriving over a transport
+   *   as `[thread-client] Received server message`. Amp does expose
+   *   `amp threads usage`, so the data exists — just not on disk. A reader
+   *   here would have to become a network client, which is a different thing
+   *   from every other reader in this folder.
+   *
+   * antigravity — the readable state has no usage, and the store that might
+   *   is opaque. Two places were checked, and the first pass of this comment
+   *   named only one of them, which is why it is spelled out here.
+   *   `…/Antigravity/User/globalStorage/state.vscdb` holds
+   *   `antigravityUnifiedStateSync.trajectorySummaries`, which decodes
+   *   (base64 → protobuf) to `{title, step-count, timestamps, uuid,
+   *   workspace}` — no tokens, no window, no model — and its sibling
+   *   `…modelCredits` key is empty. The conversations themselves live
+   *   elsewhere, at `~/.gemini/antigravity/conversations/*.pb` (4 files,
+   *   5.3 MB here), and those are not protobuf in any readable sense: 8.000
+   *   bits/byte of entropy, all 256 byte values present, and zero printable
+   *   runs — compressed or encrypted at rest. So the tokens may well be
+   *   recorded; they are simply not reachable without reversing Antigravity's
+   *   storage layer, and there is no stated total to validate a guess against.
+   *
+   * hermes — no official CLI to measure. The only npm package is
+   *   `hermes-agent`, self-described as an "Unofficial npm bridge"
+   *   (github.com/wyrtensi/hermes-agent-npm). A reader written against it
+   *   would describe a third-party repackaging, not Hermes.
+   *
+   * grok — the id does not name one product. npm carries at least eight
+   *   competing "grok cli" packages (`@vibe-kit/grok-cli`, `grok-cli`,
+   *   `@stevederico/grok-cli`, `@spikewang/grok-cli`, …) with no dominant
+   *   one. Picking one and calling its format "grok" would be a guess wearing
+   *   an id.
+   *
+   * kiro — not present on any machine this has been checked against, so there
+   *   is nothing to measure. Unlike the four above this is an absence of
+   *   evidence rather than evidence of absence: it may well be readable, and
+   *   nobody has looked at a real store.
+   */
   | "amp"
   | "hermes"
   | "kiro"
@@ -62,6 +110,22 @@ export type LocalUsageDedupStrategy =
   | "last-write-wins"
   | "rowid-high-water-mark"
   | "session-dag";
+
+/**
+ * What one unit of `LocalUsageTotals.requests` actually counts.
+ *
+ * Not cosmetic. Every reader but one counts assistant turns, so the CLI could
+ * safely print "turns" for all of them. Cursor persists no per-turn record at
+ * all — only a snapshot of the current context, one per session however many
+ * turns that session ran — so printing "turns 1" for a two-hundred-turn
+ * session states something false. The unit travels with the number for the
+ * same reason `costConfidence` does: a figure rendered without saying what it
+ * counts is the failure this whole subsystem exists to avoid.
+ *
+ * Optional on the descriptor, defaulting to "turn", so adding it does not
+ * break an existing caller constructing a descriptor of its own.
+ */
+export type LocalUsageRequestUnit = "turn" | "session-snapshot";
 
 /** Aggregated totals for one CLI, one scan. */
 export type LocalUsageTotals = {
@@ -113,6 +177,11 @@ export type LocalUsageReaderDescriptor = {
   costConfidence: LocalUsageCostConfidence;
   /** Whether reading this CLI's store needs a SQLite binding. */
   requiresSqlite: boolean;
+  /**
+   * What `LocalUsageTotals.requests` counts for this reader. Absent means
+   * "turn", which is what every reader except Cursor records.
+   */
+  requestUnit?: LocalUsageRequestUnit;
 };
 
 /** Options accepted by every reader's `scan()` and by the aggregator. */
@@ -270,6 +339,21 @@ export type LocalUsageCopilotUsageRow = {
  * runtime rather than trusting a type assertion — naming only what is actually
  * called keeps that check small and honest.
  */
+/**
+ * One decoded protobuf field from a Cursor root blob. Wire types 0 (varint)
+ * and 2 (length-delimited) only — the two Cursor actually uses; fixed-width
+ * fields are skipped by the decoder rather than represented.
+ */
+export type LocalUsageWireField =
+  | { field: number; kind: "varint"; value: number }
+  | { field: number; kind: "bytes"; value: Uint8Array };
+
+/**
+ * One entry in Cursor's context breakdown — `system_prompt`, `tools`, `rules`
+ * and friends — carrying the token count that entry occupies in context.
+ */
+export type LocalUsageContextPart = { name: string; tokens: number };
+
 export type LocalUsageSqliteDatabase = {
   prepare: (sql: string) => { all: (...params: unknown[]) => unknown[] };
   close: () => void;

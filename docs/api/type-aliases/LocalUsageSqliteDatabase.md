@@ -8,14 +8,7 @@
 
 > **LocalUsageSqliteDatabase** = `object`
 
-Defined in: [types/localUsage.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L273)
-
-The slice of `node:sqlite`'s `DatabaseSync` the OpenCode reader uses.
-
-Deliberately minimal. `node:sqlite` is still flagged experimental and may
-change shape between Node releases, so the reader validates this much at
-runtime rather than trusting a type assertion — naming only what is actually
-called keeps that check small and honest.
+Defined in: [types/localUsage.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L357)
 
 ## Properties
 
@@ -23,7 +16,7 @@ called keeps that check small and honest.
 
 > **prepare**: (`sql`) => `object`
 
-Defined in: [types/localUsage.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L274)
+Defined in: [types/localUsage.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L358)
 
 #### Parameters
 
@@ -55,7 +48,7 @@ Defined in: [types/localUsage.ts:274](https://github.com/juspay/neurolink/blob/r
 
 > **close**: () => `void`
 
-Defined in: [types/localUsage.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L275)
+Defined in: [types/localUsage.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L359)
 
 #### Returns
 

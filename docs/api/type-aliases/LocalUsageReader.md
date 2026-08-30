@@ -8,7 +8,7 @@
 
 > **LocalUsageReader** = `object`
 
-Defined in: [types/localUsage.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L131)
+Defined in: [types/localUsage.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L200)
 
 The contract every reader implements — one per CLI.
 
@@ -18,7 +18,7 @@ The contract every reader implements — one per CLI.
 
 > **descriptor**: [`LocalUsageReaderDescriptor`](LocalUsageReaderDescriptor.md)
 
-Defined in: [types/localUsage.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L132)
+Defined in: [types/localUsage.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L201)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:132](https://github.com/juspay/neurolink/blob/r
 
 > **detect**: () => `Promise`\<`boolean`\>
 
-Defined in: [types/localUsage.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L138)
+Defined in: [types/localUsage.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L207)
 
 Whether this CLI's local store appears to exist on this machine at all —
 the same "do not report on something never installed" discipline the proxy
@@ -42,7 +42,7 @@ client configurators use before writing a config.
 
 > **scan**: (`options?`) => `Promise`\<[`LocalUsageScanResult`](LocalUsageScanResult.md)\>
 
-Defined in: [types/localUsage.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L139)
+Defined in: [types/localUsage.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L208)
 
 #### Parameters
 

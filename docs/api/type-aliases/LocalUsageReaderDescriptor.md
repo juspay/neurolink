@@ -8,7 +8,7 @@
 
 > **LocalUsageReaderDescriptor** = `object`
 
-Defined in: [types/localUsage.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L103)
+Defined in: [types/localUsage.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L167)
 
 Static metadata, available without constructing a reader.
 
@@ -18,7 +18,7 @@ Static metadata, available without constructing a reader.
 
 > **id**: [`LocalUsageCliId`](LocalUsageCliId.md)
 
-Defined in: [types/localUsage.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L104)
+Defined in: [types/localUsage.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L168)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:104](https://github.com/juspay/neurolink/blob/r
 
 > **displayName**: `string`
 
-Defined in: [types/localUsage.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L105)
+Defined in: [types/localUsage.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L169)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/localUsage.ts:105](https://github.com/juspay/neurolink/blob/r
 
 > **verified**: `boolean`
 
-Defined in: [types/localUsage.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L111)
+Defined in: [types/localUsage.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L175)
 
 True only for readers checked against real data on a real machine. An
 honesty marker, not a completeness claim — an unverified reader may still
@@ -46,7 +46,7 @@ be correct, it just has not been shown to be.
 
 > **dedupStrategy**: [`LocalUsageDedupStrategy`](LocalUsageDedupStrategy.md)
 
-Defined in: [types/localUsage.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L112)
+Defined in: [types/localUsage.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L176)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/localUsage.ts:112](https://github.com/juspay/neurolink/blob/r
 
 > **costConfidence**: [`LocalUsageCostConfidence`](LocalUsageCostConfidence.md)
 
-Defined in: [types/localUsage.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L113)
+Defined in: [types/localUsage.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L177)
 
 ---
 
@@ -62,6 +62,17 @@ Defined in: [types/localUsage.ts:113](https://github.com/juspay/neurolink/blob/r
 
 > **requiresSqlite**: `boolean`
 
-Defined in: [types/localUsage.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L115)
+Defined in: [types/localUsage.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L179)
 
 Whether reading this CLI's store needs a SQLite binding.
+
+---
+
+### requestUnit?
+
+> `optional` **requestUnit?**: [`LocalUsageRequestUnit`](LocalUsageRequestUnit.md)
+
+Defined in: [types/localUsage.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L184)
+
+What `LocalUsageTotals.requests` counts for this reader. Absent means
+"turn", which is what every reader except Cursor records.
