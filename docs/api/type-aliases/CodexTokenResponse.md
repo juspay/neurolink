@@ -8,7 +8,7 @@
 
 > **CodexTokenResponse** = `object`
 
-Defined in: [types/codex.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L49)
+Defined in: [types/codex.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L53)
 
 Raw OpenAI OAuth token endpoint response.
 
@@ -18,7 +18,7 @@ Raw OpenAI OAuth token endpoint response.
 
 > `optional` **access_token?**: `string`
 
-Defined in: [types/codex.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L50)
+Defined in: [types/codex.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L54)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:50](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **refresh_token?**: `string`
 
-Defined in: [types/codex.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L51)
+Defined in: [types/codex.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L55)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:51](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **id_token?**: `string`
 
-Defined in: [types/codex.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L52)
+Defined in: [types/codex.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L56)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/codex.ts:52](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **token_type?**: `string`
 
-Defined in: [types/codex.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L53)
+Defined in: [types/codex.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L57)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/codex.ts:53](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **expires_in?**: `number`
 
-Defined in: [types/codex.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L54)
+Defined in: [types/codex.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L58)

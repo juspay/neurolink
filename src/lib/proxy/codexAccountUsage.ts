@@ -8,6 +8,8 @@
  */
 
 import { tokenStore } from "../auth/tokenStore.js";
+import type { CodexProxyStatusAccountIdentity } from "../types/index.js";
+import { normalizeAnthropicAccountKey } from "./accountSelection.js";
 import {
   CODEX_ORIGINATOR,
   CODEX_USAGE_URL,
@@ -27,6 +29,28 @@ import type {
 } from "../types/index.js";
 
 export const CODEX_ACCOUNT_PREFIX = "codex:";
+
+/** Keep an account label in the Codex namespace used by its token store. */
+export function normalizeCodexAccountKey(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.startsWith(CODEX_ACCOUNT_PREFIX)
+    ? trimmed
+    : `${CODEX_ACCOUNT_PREFIX}${trimmed}`;
+}
+
+/** Resolve the provider-qualified key used to render a proxy status row. */
+export function resolveProxyStatusAccountIdentity(
+  label: string,
+  type: string,
+): CodexProxyStatusAccountIdentity {
+  if (type === "oauth" || type === "api_key") {
+    return { provider: "anthropic", key: normalizeAnthropicAccountKey(label) };
+  }
+  if (type === "codex-oauth") {
+    return { provider: "codex", key: normalizeCodexAccountKey(label) };
+  }
+  return { provider: "other", key: null };
+}
 
 /** Enumerate Codex OAuth accounts from the token store for usage refresh. */
 export async function listCodexAccountsForUsage(): Promise<

@@ -8,7 +8,7 @@
 
 > **CodexUsageResponse** = `object`
 
-Defined in: [types/codex.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L76)
+Defined in: [types/codex.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L80)
 
 Loose shape of the Codex usage endpoint response.
 
@@ -18,7 +18,7 @@ Loose shape of the Codex usage endpoint response.
 
 > `optional` **rate_limits?**: [`CodexRateLimits`](CodexRateLimits.md) \| `null`
 
-Defined in: [types/codex.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L77)
+Defined in: [types/codex.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L81)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/codex.ts:77](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **plan_type?**: `string` \| `null`
 
-Defined in: [types/codex.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L78)
+Defined in: [types/codex.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L82)

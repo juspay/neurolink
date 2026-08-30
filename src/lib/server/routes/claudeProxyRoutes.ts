@@ -62,6 +62,11 @@ import {
   serializeClaudeResponse,
 } from "../../proxy/claudeFormat.js";
 import {
+  CodexFallbackResponseError,
+  consumeCodexFallbackResponse,
+  convertClaudeRequestToCodex,
+} from "../../proxy/codexFallback.js";
+import {
   buildAnthropicModelsListResponse,
   buildTranslationOptions,
   extractText,
@@ -181,6 +186,7 @@ import type {
   AnthropicAttemptLogger,
   AnthropicAuthRetryResult,
   AnthropicEntitlementFailure,
+  AnthropicInvalidRequestFailure,
   AnthropicLoopState,
   AnthropicScopedExhaustion,
   AnthropicNonOkResult,
@@ -191,8 +197,10 @@ import type {
   ClaudeLoggedErrorBuilder,
   ClaudeRequest,
   ClaudeProxyRouteRuntimeOptions,
+  DeferredClaudeAccountFailure,
   ClaudeSnapshot,
   ClaudeSnapshotBody,
+  CodexFallbackResult,
   InternalResult,
   LoadedClaudeAccountContext,
   ModelRouterInterface,
@@ -231,6 +239,8 @@ import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
 import { raceWithAbort, withTimeout } from "../../utils/async/withTimeout.js";
 import { ProviderHealthChecker } from "../../utils/providerHealth.js";
+import { handleCodexResponsesRequest } from "./codexProxyRoutes.js";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -3534,11 +3544,9 @@ async function handleClaudePassthroughJsonResponse(args: {
  */
 async function applyShareAccountGates(args: {
   accounts: ProxyPassthroughAccount[];
-  ctx: ServerContext;
-  buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
 }): Promise<{
   accounts: ProxyPassthroughAccount[];
-  refusal?: { response: unknown; status: number; message: string };
+  refusal?: DeferredClaudeAccountFailure;
 }> {
   const share = getShareContext();
   if (!share) {
@@ -3603,26 +3611,16 @@ async function applyShareAccountGates(args: {
     grant,
     retryAfterSeconds: earliestShareRecoverySeconds(views, now),
   });
-  // Assigned, not merged into an existing object: a refusal is often the first
-  // thing to touch this context, and only copying when headers already existed
-  // meant the borrower learned nothing about why it was refused.
-  args.ctx.responseHeaders = {
-    ...(args.ctx.responseHeaders ?? {}),
-    ...refusal.headers,
-  };
   logger.always(
     `[proxy] share ${share.peerLabel} withheld: ${reason} (${decision.excluded.length} accounts)`,
   );
   return {
     accounts: [],
     refusal: {
-      response: args.buildLoggedClaudeError(
-        refusal.status,
-        refusal.body.error.message,
-        refusal.body.error.type,
-      ),
       status: refusal.status,
       message: refusal.body.error.message,
+      errorType: refusal.body.error.type,
+      responseHeaders: refusal.headers,
     },
   };
 }
@@ -4204,29 +4202,25 @@ function earliestShareRecoverySeconds(
 async function loadClaudeProxyAccounts(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
-  tracer?: ProxyTracer;
-  requestStartTime: number;
   accountStrategy: "round-robin" | "fill-first";
   primaryAccountKey?: string;
   accountAllowlist?: AccountAllowlist;
   quotaRoutingEnabled?: boolean;
   sessionSoftLimit?: number;
   sessionResetToleranceMs?: number;
-  buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   setRoutingDecision: (decision: ProxyAccountRoutingDecision) => void;
-}): Promise<LoadedClaudeAccountContext | { response: unknown }> {
+}): Promise<
+  LoadedClaudeAccountContext | { failure: DeferredClaudeAccountFailure }
+> {
   const {
     ctx,
     body,
-    tracer,
-    requestStartTime,
     accountStrategy,
     primaryAccountKey,
     accountAllowlist,
     quotaRoutingEnabled = isQuotaRoutingEnabled(),
     sessionSoftLimit = getSessionSoftLimit(),
     sessionResetToleranceMs = getSessionResetToleranceMs(),
-    buildLoggedClaudeError,
     setRoutingDecision,
   } = args;
   const fs = await import("fs");
@@ -4459,14 +4453,12 @@ async function loadClaudeProxyAccounts(args: {
         message: "OAuth authentication is not allowed for this organization.",
         errorCode: "oauth_not_allowed_for_organization",
       });
-      tracer?.setError("permission_error", entitlementMessage);
-      tracer?.end(403, Date.now() - requestStartTime);
       return {
-        response: buildLoggedClaudeError(
-          403,
-          entitlementMessage,
-          "permission_error",
-        ),
+        failure: {
+          status: 403,
+          message: entitlementMessage,
+          errorType: "permission_error",
+        },
       };
     }
     const noCredentialsMessage = accountAllowlist
@@ -4474,10 +4466,12 @@ async function loadClaudeProxyAccounts(args: {
       : compoundKeys.length > 0
         ? "Configured Anthropic accounts are disabled or unavailable"
         : "No Anthropic credentials found";
-    tracer?.setError("authentication_error", noCredentialsMessage);
-    tracer?.end(401, Date.now() - requestStartTime);
     return {
-      response: buildLoggedClaudeError(401, noCredentialsMessage),
+      failure: {
+        status: 401,
+        message: noCredentialsMessage,
+        errorType: "authentication_error",
+      },
     };
   }
 
@@ -4525,22 +4519,20 @@ async function loadClaudeProxyAccounts(args: {
         `Ask the lender to widen the share, or use a model it allows.`
       : `Borrowed account(s) are no longer covered by a lease: ${detail}. ` +
         `Run 'neurolink proxy peer sync' to check in with the lender, or ask them to resume the share.`;
-    tracer?.setError("permission_error", leaseMessage);
-    tracer?.end(403, Date.now() - requestStartTime);
     return {
-      response: buildLoggedClaudeError(403, leaseMessage, "permission_error"),
+      failure: {
+        status: 403,
+        message: leaseMessage,
+        errorType: "permission_error",
+      },
     };
   }
 
   const shareFiltered = await applyShareAccountGates({
     accounts: leasedAccounts,
-    ctx,
-    buildLoggedClaudeError,
   });
   if (shareFiltered.refusal) {
-    tracer?.setError("rate_limit_error", shareFiltered.refusal.message);
-    tracer?.end(shareFiltered.refusal.status, Date.now() - requestStartTime);
-    return { response: shareFiltered.refusal.response };
+    return { failure: shareFiltered.refusal };
   }
   const enabledAccounts = shareFiltered.accounts;
 
@@ -4548,9 +4540,13 @@ async function loadClaudeProxyAccounts(args: {
     const reauthMsg = formatReauthMessage(
       accounts.map((account) => account.label),
     );
-    tracer?.setError("authentication_error", reauthMsg);
-    tracer?.end(401, Date.now() - requestStartTime);
-    return { response: buildLoggedClaudeError(401, reauthMsg) };
+    return {
+      failure: {
+        status: 401,
+        message: reauthMsg,
+        errorType: "authentication_error",
+      },
+    };
   }
 
   const { orderedAccounts, metricsByKey } = selectClaudeProxyAccountOrder({
@@ -4826,6 +4822,165 @@ async function executeClaudeFallbackWithRetry(
 }
 
 /**
+ * Run the configured `codex` fallback through the native pooled Codex route.
+ *
+ * The inner response is fully buffered and validated before this function
+ * creates a single Claude frame. That preserves the proxy's no-replay-after-
+ * output guarantee when Codex returns an incomplete stream.
+ */
+async function executeClaudeCodexFallback(args: {
+  ctx: ServerContext;
+  body: ClaudeRequest;
+  model: string;
+  tracer?: ProxyTracer;
+  requestStartTime: number;
+  logProxyBody: ProxyBodyCaptureLogger;
+  logFinalRequest: (
+    status: number,
+    accountLabel: string,
+    accountType: string,
+    errorType?: string,
+    errorMessage?: string,
+    extra?: {
+      inputTokens?: number;
+      outputTokens?: number;
+      cacheCreationTokens?: number;
+      cacheReadTokens?: number;
+    },
+  ) => void;
+}): Promise<unknown> {
+  const {
+    ctx,
+    body,
+    model,
+    tracer,
+    requestStartTime,
+    logProxyBody,
+    logFinalRequest,
+  } = args;
+  const codexCtx: ServerContext = {
+    ...ctx,
+    requestId: `${ctx.requestId}:codex-fallback`,
+    method: "POST",
+    path: "/backend-api/codex/responses",
+    headers: {
+      "content-type": "application/json",
+      accept: "text/event-stream",
+    },
+    query: {},
+    params: {},
+    body: convertClaudeRequestToCodex(body, model),
+    // Keep the child attribution isolated until its stream has passed
+    // validation. A failed Codex attempt must not look like a served request.
+    responseHeaders: {},
+  };
+  const codexResponse = await handleCodexResponsesRequest(codexCtx);
+  const codexHeaders = { ...(codexCtx.responseHeaders ?? {}) };
+  let parsed: CodexFallbackResult;
+  try {
+    parsed = await consumeCodexFallbackResponse(codexResponse);
+  } catch (error) {
+    if (error instanceof CodexFallbackResponseError) {
+      logger.always(
+        `[proxy] Codex fallback returned ${error.status}: ${sanitizeForLog(error.responseBody, 500)}`,
+      );
+    }
+    throw error;
+  }
+  if (Object.keys(codexHeaders).length > 0) {
+    ctx.responseHeaders ??= {};
+    Object.assign(ctx.responseHeaders, redactHeadersForBorrower(codexHeaders));
+  }
+
+  const accountLabel = codexHeaders["x-neurolink-account"] ?? "";
+  const accountType = codexHeaders["x-neurolink-account-type"] ?? "codex-oauth";
+  const internal: InternalResult = {
+    content: parsed.text,
+    // Keep the original Anthropic model in the client wire response. The
+    // attribution headers above expose that Codex served the fallback.
+    model: body.model,
+    finishReason: parsed.finishReason,
+    ...(parsed.usage ? { usage: parsed.usage } : {}),
+    toolCalls: parsed.toolCalls,
+  };
+
+  if (body.stream) {
+    const serializer = new ClaudeStreamSerializer(
+      body.model,
+      parsed.usage?.input ?? 0,
+    );
+    const frames: string[] = [];
+    for (const frame of serializer.start()) {
+      frames.push(frame);
+    }
+    if (parsed.text) {
+      for (const frame of serializer.pushDelta(parsed.text)) {
+        frames.push(frame);
+      }
+    }
+    for (const toolCall of parsed.toolCalls) {
+      for (const frame of serializer.pushToolUse(
+        generateToolUseId(),
+        toolCall.toolName,
+        toolCall.args,
+      )) {
+        frames.push(frame);
+      }
+    }
+    for (const frame of serializer.finish(
+      parsed.usage?.output,
+      parsed.finishReason,
+    )) {
+      frames.push(frame);
+    }
+
+    tracer?.end(200, Date.now() - requestStartTime);
+    logFinalRequest(200, accountLabel, accountType, undefined, undefined, {
+      inputTokens: parsed.usage?.input,
+      outputTokens: parsed.usage?.output,
+      cacheCreationTokens: parsed.usage?.cacheCreationTokens,
+      cacheReadTokens: parsed.usage?.cacheReadTokens,
+    });
+    const bufferedBody = frames.join("");
+    logProxyBody({
+      phase: "client_response",
+      headers: { "content-type": "text/event-stream" },
+      body: bufferedBody,
+      bodySize: Buffer.byteLength(bufferedBody, "utf8"),
+      contentType: "text/event-stream",
+      responseStatus: 200,
+      durationMs: Date.now() - requestStartTime,
+    });
+    async function* sseGenerator(): AsyncIterable<string> {
+      for (const frame of frames) {
+        yield frame;
+      }
+    }
+    return sseGenerator();
+  }
+
+  tracer?.end(200, Date.now() - requestStartTime);
+  const clientResponse = serializeClaudeResponse(internal, body.model);
+  logFinalRequest(200, accountLabel, accountType, undefined, undefined, {
+    inputTokens: parsed.usage?.input,
+    outputTokens: parsed.usage?.output,
+    cacheCreationTokens: parsed.usage?.cacheCreationTokens,
+    cacheReadTokens: parsed.usage?.cacheReadTokens,
+  });
+  const clientResponseText = JSON.stringify(clientResponse);
+  logProxyBody({
+    phase: "client_response",
+    headers: { "content-type": "application/json" },
+    body: clientResponseText,
+    bodySize: Buffer.byteLength(clientResponseText, "utf8"),
+    contentType: "application/json",
+    responseStatus: 200,
+    durationMs: Date.now() - requestStartTime,
+  });
+  return clientResponse;
+}
+
+/**
  * Try each borrowable peer in priority order once the local pool is spent.
  *
  * Returns a `Response` for a stream — which must keep streaming — the parsed
@@ -4898,10 +5053,24 @@ async function tryBorrowFromPeers(args: {
   return null;
 }
 
+function getCodexFallbackInvalidRequestFailure(
+  error: unknown,
+): AnthropicInvalidRequestFailure | null {
+  if (!(error instanceof CodexFallbackResponseError) || error.status !== 400) {
+    return null;
+  }
+  return {
+    status: error.status,
+    body: error.responseBody,
+    contentType: "application/json",
+  };
+}
+
 async function tryConfiguredClaudeFallbackChain(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   parsedFallbackRequest: ParsedClaudeRequest;
+  fallbackPlan?: ProxyTranslationPlan;
   modelRouter?: ModelRouterInterface;
   tracer?: ProxyTracer;
   requestStartTime: number;
@@ -4919,24 +5088,30 @@ async function tryConfiguredClaudeFallbackChain(args: {
       cacheReadTokens?: number;
     },
   ) => void;
-}): Promise<{ response: unknown | null; lastErrorMessage?: string }> {
+}): Promise<{
+  response: unknown | null;
+  lastErrorMessage?: string;
+  invalidRequestFailure?: AnthropicInvalidRequestFailure;
+}> {
   const {
     ctx,
     body,
     parsedFallbackRequest,
+    fallbackPlan: providedFallbackPlan,
     modelRouter,
     tracer,
     requestStartTime,
     logProxyBody,
     logFinalRequest,
   } = args;
-  const chain = modelRouter?.getFallbackChain() ?? [];
-  const fallbackPlan = buildProxyTranslationPlan(
-    { provider: "anthropic", model: body.model },
-    chain,
-    body.model,
-    parsedFallbackRequest,
-  );
+  const fallbackPlan =
+    providedFallbackPlan ??
+    buildProxyTranslationPlan(
+      { provider: "anthropic", model: body.model },
+      modelRouter?.getFallbackChain() ?? [],
+      body.model,
+      parsedFallbackRequest,
+    );
   logProxyBody({
     phase: "routing_decision",
     contentType: "application/json",
@@ -4952,52 +5127,68 @@ async function tryConfiguredClaudeFallbackChain(args: {
     reason: "all_anthropic_accounts_exhausted",
   });
   let lastFallbackError: string | undefined;
+  let invalidRequestFailure: AnthropicInvalidRequestFailure | undefined;
 
   for (const fallback of fallbackPlan.attempts.slice(1)) {
     if (!fallback.provider || !fallback.model) {
       continue;
     }
-
-    const availability =
-      await ProviderHealthChecker.checkFallbackProviderAvailability(
-        fallback.provider,
-        fallback.model,
-      );
-    if (!availability.available) {
-      const reason = availability.reason ?? "provider unavailable";
-      logger.always(
-        `[proxy] fallback ${fallback.provider}/${fallback.model} health-check failed (${reason}), skipping`,
-      );
-      recordFallbackAttempt({
-        provider: fallback.provider,
-        model: fallback.model,
-        status: "failure",
-        errorMessage: `[unavailable] ${reason}`,
-        durationMs: 0,
-      });
-      lastFallbackError = `[${fallback.provider}/${fallback.model}] unavailable: ${reason}`;
-      continue;
-    }
-
     const fallbackStart = Date.now();
     try {
       logger.always(
         `[proxy] fallback → ${fallback.provider}/${fallback.model}`,
       );
-      const options = buildProxyFallbackOptions(parsedFallbackRequest, {
-        provider: fallback.provider,
-        model: fallback.model,
-      });
-      const response = await executeClaudeFallbackWithRetry({
-        ctx,
-        body,
-        tracer,
-        requestStartTime,
-        logProxyBody,
-        logFinalRequest,
-        options: options as Parameters<ServerContext["neurolink"]["stream"]>[0],
-        providerLabel: fallback.provider,
-      });
+      let response: unknown;
+      if (fallback.provider === "codex") {
+        // Codex is a local OAuth account pool, not a generic SDK provider.
+        // Calling its native route preserves account rotation and cooldowns.
+        response = await executeClaudeCodexFallback({
+          ctx,
+          body,
+          model: fallback.model,
+          tracer,
+          requestStartTime,
+          logProxyBody,
+          logFinalRequest,
+        });
+      } else {
+        const availability =
+          await ProviderHealthChecker.checkFallbackProviderAvailability(
+            fallback.provider,
+            fallback.model,
+          );
+        if (!availability.available) {
+          const reason = availability.reason ?? "provider unavailable";
+          logger.always(
+            `[proxy] fallback ${fallback.provider}/${fallback.model} health-check failed (${reason}), skipping`,
+          );
+          recordFallbackAttempt({
+            provider: fallback.provider,
+            model: fallback.model,
+            status: "failure",
+            errorMessage: `[unavailable] ${reason}`,
+            durationMs: 0,
+          });
+          lastFallbackError = `[${fallback.provider}/${fallback.model}] unavailable: ${reason}`;
+          continue;
+        }
+        const options = buildProxyFallbackOptions(parsedFallbackRequest, {
+          provider: fallback.provider,
+          model: fallback.model,
+        });
+        response = await executeClaudeFallbackWithRetry({
+          ctx,
+          body,
+          tracer,
+          requestStartTime,
+          logProxyBody,
+          logFinalRequest,
+          options: options as Parameters<
+            ServerContext["neurolink"]["stream"]
+          >[0],
+          providerLabel: fallback.provider,
+        });
+      }
       recordFallbackAttempt({
         provider: fallback.provider,
         model: fallback.model,
@@ -5011,16 +5202,20 @@ async function tryConfiguredClaudeFallbackChain(args: {
         attemptCount: fallbackPlan.attempts.slice(1).length,
         reason: "fallback_success",
       });
-      // A different provider produced this response — say so, and report no
-      // quota. Emitting the last Anthropic snapshot here would attribute one
-      // provider's capacity to another's output.
-      publishLimitHeaders(ctx, {
-        quota: null,
-        source: "none",
-        servedBy: fallback.provider,
-      });
+      if (fallback.provider !== "codex") {
+        // A different provider produced this response — say so, and report no
+        // quota. Emitting the last Anthropic snapshot here would attribute one
+        // provider's capacity to another's output.
+        publishLimitHeaders(ctx, {
+          quota: null,
+          source: "none",
+          servedBy: fallback.provider,
+        });
+      }
       return { response };
     } catch (fallbackErr) {
+      invalidRequestFailure ??=
+        getCodexFallbackInvalidRequestFailure(fallbackErr) ?? undefined;
       const errMsg = redactProviderErrorMessage(
         fallbackErr instanceof Error
           ? fallbackErr.message
@@ -5067,7 +5262,11 @@ async function tryConfiguredClaudeFallbackChain(args: {
     }
   }
 
-  return { response: null, lastErrorMessage: lastFallbackError };
+  return {
+    response: null,
+    lastErrorMessage: lastFallbackError,
+    ...(invalidRequestFailure ? { invalidRequestFailure } : {}),
+  };
 }
 
 async function tryAutoClaudeFallback(args: {
@@ -5354,41 +5553,46 @@ function buildClaudeAnthropicFailureResponse(args: {
     );
   }
 
-  if (invalidRequestFailure) {
-    tracer?.setError(
-      "invalid_request_error",
-      summarizeErrorMessage(invalidRequestFailure.body),
+  if (invalidRequestFailure && !sawRateLimit) {
+    const parsedUpstream = parseClaudeErrorBody(invalidRequestFailure.body);
+    const preserveUpstreamBody = parsedUpstream.message !== undefined;
+    const message = summarizeErrorMessage(
+      parsedUpstream.message ?? invalidRequestFailure.body,
     );
+    const errorBodyText = preserveUpstreamBody
+      ? invalidRequestFailure.body
+      : JSON.stringify(
+          buildClaudeError(
+            invalidRequestFailure.status,
+            message,
+            "invalid_request_error",
+          ),
+        );
+    const contentType = preserveUpstreamBody
+      ? (invalidRequestFailure.contentType ?? "application/json")
+      : "application/json";
+    tracer?.setError("invalid_request_error", message);
     tracer?.end(invalidRequestFailure.status, Date.now() - requestStartTime);
-    try {
-      const parsedError = JSON.parse(invalidRequestFailure.body);
-      logFinalRequest(
-        invalidRequestFailure.status,
-        "",
-        "final",
-        "invalid_request_error",
-        summarizeErrorMessage(invalidRequestFailure.body),
-      );
-      logProxyBody({
-        phase: "client_response",
-        headers: {
-          "content-type":
-            invalidRequestFailure.contentType ?? "application/json",
-        },
-        body: invalidRequestFailure.body,
-        bodySize: Buffer.byteLength(invalidRequestFailure.body, "utf8"),
-        contentType: invalidRequestFailure.contentType ?? "application/json",
-        responseStatus: invalidRequestFailure.status,
-        durationMs: Date.now() - requestStartTime,
-      });
-      return parsedError;
-    } catch {
-      return buildLoggedClaudeError(
-        invalidRequestFailure.status,
-        summarizeErrorMessage(invalidRequestFailure.body),
-        "invalid_request_error",
-      );
-    }
+    logFinalRequest(
+      invalidRequestFailure.status,
+      "",
+      "final",
+      "invalid_request_error",
+      message,
+    );
+    logProxyBody({
+      phase: "client_response",
+      headers: { "content-type": contentType },
+      body: errorBodyText,
+      bodySize: Buffer.byteLength(errorBodyText, "utf8"),
+      contentType,
+      responseStatus: invalidRequestFailure.status,
+      durationMs: Date.now() - requestStartTime,
+    });
+    return new Response(errorBodyText, {
+      status: invalidRequestFailure.status,
+      headers: { "content-type": contentType },
+    });
   }
 
   if ((sawNetworkError || sawTransientFailure) && !sawRateLimit) {
@@ -7411,6 +7615,7 @@ async function handleAnthropicNonOkResponse(args: {
     contentType?: string;
   } | null;
   entitlementFailure: AnthropicEntitlementFailure | null;
+  allowConfiguredModelFallback?: boolean;
 }): Promise<AnthropicNonOkResult> {
   const {
     response,
@@ -7430,6 +7635,7 @@ async function handleAnthropicNonOkResponse(args: {
     sawTransientFailure,
     invalidRequestFailure,
     entitlementFailure,
+    allowConfiguredModelFallback = false,
   } = args;
   let currentLastError = lastError;
   let currentAuthFailureMessage = authFailureMessage;
@@ -7673,6 +7879,30 @@ async function handleAnthropicNonOkResponse(args: {
   }
 
   if (response.status === 404) {
+    if (
+      allowConfiguredModelFallback &&
+      isAnthropicModelNotFound(response.status, errBody)
+    ) {
+      // An upstream model retirement is provider-wide, not an account failure.
+      // Do not cool or disable an account; leave the configured translation
+      // fallback eligible so legacy Anthropic aliases can use the Codex target.
+      logger.always(
+        `[proxy] ← 404 account=${account.label} model unavailable; trying configured fallback`,
+      );
+      logAttempt(404, "not_found_error", summarizeErrorMessage(errBody));
+      tracer?.setError("not_found_error", summarizeErrorMessage(errBody));
+      tracer?.recordRetry(account.label, "model_not_found");
+      currentLastError = summarizeErrorMessage(errBody);
+      return {
+        continueLoop: false,
+        lastError: currentLastError,
+        authFailureMessage: currentAuthFailureMessage,
+        sawTransientFailure: currentSawTransientFailure,
+        invalidRequestFailure: currentInvalidRequestFailure,
+        entitlementFailure: currentEntitlementFailure,
+        upstreamSpan: undefined,
+      };
+    }
     logger.always(`[proxy] ← 404 account=${account.label}`);
     logAttempt(404, "not_found_error", summarizeErrorMessage(errBody));
     tracer?.setError("not_found_error", summarizeErrorMessage(errBody));
@@ -8483,6 +8713,30 @@ function shouldAttemptClaudeFallback(loopState: AnthropicLoopState): boolean {
   return loopState.invalidRequestFailure === null;
 }
 
+function buildDeferredClaudeAccountFailureResponse(args: {
+  ctx: ServerContext;
+  tracer?: ProxyTracer;
+  requestStartTime: number;
+  failure: DeferredClaudeAccountFailure;
+  buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
+}): unknown {
+  const { ctx, tracer, requestStartTime, failure, buildLoggedClaudeError } =
+    args;
+  if (failure.responseHeaders) {
+    ctx.responseHeaders = {
+      ...(ctx.responseHeaders ?? {}),
+      ...failure.responseHeaders,
+    };
+  }
+  tracer?.setError(failure.errorType, failure.message);
+  tracer?.end(failure.status, Date.now() - requestStartTime);
+  return buildLoggedClaudeError(
+    failure.status,
+    failure.message,
+    failure.errorType,
+  );
+}
+
 async function handleAnthropicRoutedClaudeRequest(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
@@ -8518,30 +8772,75 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     setRoutingDecision,
   } = args;
   const parsedRequest = parseClaudeRequest(body);
+  const configuredFallbackPlan = buildProxyTranslationPlan(
+    { provider: "anthropic", model: body.model },
+    modelRouter?.getFallbackChain() ?? [],
+    body.model,
+    parsedRequest,
+  );
+  const hasConfiguredFallback = configuredFallbackPlan.attempts
+    .slice(1)
+    .some((attempt) => Boolean(attempt.provider && attempt.model));
   const loadedAccounts = await loadClaudeProxyAccounts({
     ctx,
     body,
-    tracer,
-    requestStartTime,
     accountStrategy,
     primaryAccountKey,
     accountAllowlist,
     quotaRoutingEnabled,
     sessionSoftLimit,
     sessionResetToleranceMs,
-    buildLoggedClaudeError,
     setRoutingDecision,
   });
-  if ("response" in loadedAccounts) {
+  if ("failure" in loadedAccounts) {
     // No usable local account. A node that has none of its own — or whose only
     // accounts are disabled — is still entitled to borrow: that is the whole
-    // point of being lent capacity. Peers are tried before the credentials
-    // error is returned, and the error stands if none of them serves.
+    // point of being lent capacity. Peers and explicitly configured fallbacks
+    // are tried before returning the credential error.
     const peerOnlyResult = await tryBorrowFromPeers({ body, logFinalRequest });
     if (peerOnlyResult) {
       return peerOnlyResult;
     }
-    return loadedAccounts.response;
+    const configuredFallbackResult = await tryConfiguredClaudeFallbackChain({
+      ctx,
+      body,
+      parsedFallbackRequest: parsedRequest,
+      fallbackPlan: configuredFallbackPlan,
+      modelRouter,
+      tracer,
+      requestStartTime,
+      logProxyBody,
+      logFinalRequest,
+    });
+    if (configuredFallbackResult.response) {
+      return configuredFallbackResult.response;
+    }
+    if (configuredFallbackResult.invalidRequestFailure) {
+      return buildClaudeAnthropicFailureResponse({
+        tracer,
+        requestStartTime,
+        authFailureMessage: null,
+        authCooldownMessage: null,
+        invalidRequestFailure: configuredFallbackResult.invalidRequestFailure,
+        entitlementFailure: null,
+        scopedExhaustion: null,
+        sawNetworkError: false,
+        sawTransientFailure: false,
+        sawRateLimit: false,
+        lastError: undefined,
+        orderedAccounts: [],
+        buildLoggedClaudeError,
+        logProxyBody,
+        logFinalRequest,
+      });
+    }
+    return buildDeferredClaudeAccountFailureResponse({
+      ctx,
+      tracer,
+      requestStartTime,
+      failure: loadedAccounts.failure,
+      buildLoggedClaudeError,
+    });
   }
 
   const {
@@ -8999,6 +9298,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             sawTransientFailure: loopState.sawTransientFailure,
             invalidRequestFailure: loopState.invalidRequestFailure,
             entitlementFailure: loopState.entitlementFailure,
+            allowConfiguredModelFallback: hasConfiguredFallback,
           });
           loopState.lastError = nonOkResult.lastError;
           loopState.authFailureMessage = nonOkResult.authFailureMessage;
@@ -9123,6 +9423,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       ctx,
       body,
       parsedFallbackRequest: parsedRequest,
+      fallbackPlan: configuredFallbackPlan,
       modelRouter,
       tracer,
       requestStartTime,
@@ -9132,11 +9433,25 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     if (configuredFallbackResult.response) {
       return configuredFallbackResult.response;
     }
+    if (
+      configuredFallbackResult.invalidRequestFailure &&
+      !loopState.sawRateLimit
+    ) {
+      // A converted Codex request can be rejected independently of the original
+      // Anthropic request. Preserve a real pool 429 as the actionable terminal
+      // response when both occurred.
+      loopState.invalidRequestFailure =
+        configuredFallbackResult.invalidRequestFailure;
+    }
     fallbackFailureMessage = configuredFallbackResult.lastErrorMessage;
 
     // A translation-layer-selected provider is only permitted by an explicit
     // routing setting. Empty fallback chains otherwise stay within OAuth.
-    if (!loopState.sawRateLimit && modelRouter?.isAutoFallbackEnabled?.()) {
+    if (
+      loopState.invalidRequestFailure === null &&
+      !loopState.sawRateLimit &&
+      modelRouter?.isAutoFallbackEnabled?.()
+    ) {
       const autoFallbackResult = await tryAutoClaudeFallback({
         ctx,
         body,
@@ -10570,6 +10885,21 @@ export function isInvalidRequestError(
 }
 
 /**
+ * A 404 for a retired model can be served by an explicitly configured fallback;
+ * other 404s remain terminal so a bad endpoint or resource is never disguised.
+ */
+function isAnthropicModelNotFound(status: number, errBody: string): boolean {
+  if (status !== 404) {
+    return false;
+  }
+  const parsed = parseClaudeErrorBody(errBody);
+  return (
+    parsed.errorType === "not_found_error" &&
+    (parsed.message ?? "").toLowerCase().includes("model")
+  );
+}
+
+/**
  * A subscription-specific beta rejection. Anthropic returns
  * `400 invalid_request_error` with a message like
  * "The long context beta is not yet available for this subscription." when an
@@ -10864,7 +11194,10 @@ export const __testHooks = {
   redactProviderErrorMessage,
   isUpstreamOverload,
   getOverloadRotationDelayMs,
+  redactHeadersForBorrower,
   shouldAttemptClaudeFallback,
+  isAnthropicModelNotFound,
+  getCodexFallbackInvalidRequestFailure,
   executeClaudeFallbackWithRetry,
   buildClaudeAnthropicFailureResponse,
   isAccountEntitlementError,
