@@ -52,6 +52,12 @@ export type CatalogErrorRuleJson = {
 
 export type CatalogQuirks = {
   timeoutErrorClass?: "provider";
+  /** Vendor speaks OpenAI for chat but restricts how message content is
+   *  encoded. "string": `messages[].content` must be a plain string —
+   *  the content-parts array and the `null` OpenAI uses on an assistant
+   *  message with tool_calls are both rejected with HTTP 400. Normalized by
+   *  ConfiguredOpenAICompatProvider so tool round-trips work. */
+  messageContentFormat?: "string";
   registryDefaultIgnoresModelEnvVar?: boolean;
 };
 

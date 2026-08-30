@@ -242,3 +242,14 @@ the classifier's default (six of the seven catalog entries).
 #### Returns
 
 [`ProviderError`](../classes/ProviderError.md)
+
+---
+
+### messageContentFormat?
+
+> `optional` **messageContentFormat?**: `"string"`
+
+Defined in: [types/providers.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L814)
+
+See CatalogQuirks.messageContentFormat — a vendor that accepts
+`messages[].content` only as a plain string.

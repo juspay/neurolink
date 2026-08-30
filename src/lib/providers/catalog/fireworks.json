@@ -8,49 +8,23 @@
     "baseURL": "https://api.fireworks.ai/inference/v1"
   },
   "models": {
-    "default": "accounts/fireworks/models/deepseek-v4-pro",
-    "testModel": "accounts/fireworks/models/kimi-k2p6",
-    "fallbackModelName": "accounts/fireworks/models/deepseek-v4-pro",
+    "default": "accounts/fireworks/models/kimi-k2p6",
+    "fallbackModelName": "accounts/fireworks/models/gpt-oss-120b",
     "fallbacks": [
-      "accounts/fireworks/models/deepseek-v4-pro",
-      "accounts/fireworks/models/glm-5p1",
-      "accounts/fireworks/models/glm-5",
       "accounts/fireworks/models/kimi-k2p6",
-      "accounts/fireworks/models/kimi-k2p5",
-      "accounts/fireworks/models/gpt-oss-120b"
+      "accounts/fireworks/models/gpt-oss-120b",
+      "accounts/fireworks/models/kimi-k3",
+      "accounts/fireworks/models/qwen3p8-max",
+      "accounts/fireworks/models/glm-5p3"
     ],
     "defaultContextWindow": 128000,
     "defaultMaxOutputTokens": 4096,
     "catalog": {
-      "accounts/fireworks/models/deepseek-v4-pro": {
-        "enumMember": "DEEPSEEK_V4_PRO",
-        "vision": false,
-        "status": "production",
-        "description": "Recommended - DeepSeek V4 Pro, current general-purpose default"
-      },
-      "accounts/fireworks/models/glm-5p1": {
-        "enumMember": "GLM_5P1",
-        "vision": false,
-        "status": "production",
-        "description": "GLM 5.1 — Zhipu flagship"
-      },
-      "accounts/fireworks/models/glm-5": {
-        "enumMember": "GLM_5",
-        "vision": false,
-        "status": "production",
-        "description": "GLM 5 — broader coverage"
-      },
       "accounts/fireworks/models/kimi-k2p6": {
         "enumMember": "KIMI_K2P6",
-        "vision": false,
+        "vision": true,
         "status": "production",
-        "description": "Kimi K2.6 — Moonshot flagship"
-      },
-      "accounts/fireworks/models/kimi-k2p5": {
-        "enumMember": "KIMI_K2P5",
-        "vision": false,
-        "status": "production",
-        "description": "Kimi K2.5 — preceding Kimi"
+        "description": "Recommended - Kimi K2.6, Moonshot flagship; vision-capable"
       },
       "accounts/fireworks/models/gpt-oss-120b": {
         "enumMember": "GPT_OSS_120B",
@@ -58,30 +32,84 @@
         "status": "production",
         "description": "GPT-OSS 120B — Apache-2.0 OpenAI weights"
       },
-      "accounts/fireworks/models/llama-v3p2-90b-vision-instruct": {
-        "enumMember": "LLAMA_V3P2_90B_VISION_INSTRUCT",
+      "accounts/fireworks/models/kimi-k3": {
+        "enumMember": "KIMI_K3",
         "vision": true,
         "status": "production",
-        "description": "Llama 3.2 90B Vision Instruct — vision-capable; restored from the pre-migration adapter's vision map (contextWindow/pricing not yet re-verified)"
+        "description": "Kimi K3 — newest Moonshot generation; vision-capable"
+      },
+      "accounts/fireworks/models/qwen3p8-max": {
+        "enumMember": "QWEN3P8_MAX",
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.8 Max — vision-capable"
+      },
+      "accounts/fireworks/models/glm-5p3": {
+        "enumMember": "GLM_5P3",
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.3 — Zhipu flagship"
+      },
+      "accounts/fireworks/models/minimax-m3": {
+        "enumMember": "MINIMAX_M3",
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M3"
+      },
+      "accounts/fireworks/models/deepseek-v4-flash-0731": {
+        "enumMember": "DEEPSEEK_V4_FLASH_0731",
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash — low-latency DeepSeek"
+      },
+      "accounts/fireworks/models/deepseek-v4-pro": {
+        "enumMember": "DEEPSEEK_V4_PRO",
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 as a usable id — still on the Fireworks roster but never answers: a real chat call hangs past 120s on this account"
+      },
+      "accounts/fireworks/models/glm-5p1": {
+        "enumMember": "GLM_5P1",
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Fireworks returns 404 'not deployed'"
+      },
+      "accounts/fireworks/models/glm-5": {
+        "enumMember": "GLM_5",
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Fireworks returns 404 'not deployed'"
+      },
+      "accounts/fireworks/models/kimi-k2p5": {
+        "enumMember": "KIMI_K2P5",
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Fireworks returns 404 'not deployed'"
+      },
+      "accounts/fireworks/models/llama-v3p2-90b-vision-instruct": {
+        "enumMember": "LLAMA_V3P2_90B_VISION_INSTRUCT",
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Fireworks returns 404 'not deployed'"
       },
       "accounts/fireworks/models/llama-v3p2-11b-vision-instruct": {
         "enumMember": "LLAMA_V3P2_11B_VISION_INSTRUCT",
-        "vision": true,
-        "status": "production",
-        "description": "Llama 3.2 11B Vision Instruct — vision-capable; restored from the pre-migration adapter's vision map (contextWindow/pricing not yet re-verified)"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Fireworks returns 404 'not deployed'"
       },
       "accounts/fireworks/models/phi-3-vision-128k-instruct": {
         "enumMember": "PHI_3_VISION_128K_INSTRUCT",
-        "vision": true,
-        "status": "production",
-        "description": "Phi-3 Vision 128K Instruct — vision-capable; restored from the pre-migration adapter's vision map (contextWindow/pricing not yet re-verified)"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Fireworks returns 404 'not deployed'"
       }
     },
     "topModels": [
-      "accounts/fireworks/models/deepseek-v4-pro",
-      "accounts/fireworks/models/glm-5p1",
       "accounts/fireworks/models/kimi-k2p6",
-      "accounts/fireworks/models/gpt-oss-120b"
+      "accounts/fireworks/models/gpt-oss-120b",
+      "accounts/fireworks/models/kimi-k3",
+      "accounts/fireworks/models/qwen3p8-max"
     ]
   },
   "capabilities": {
@@ -115,10 +143,13 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-08-28",
-      "method": "transcribed from pre-migration TS catalog"
+      "date": "2026-08-30",
+      "method": "GET /models against the live account, cross-checked with a real chat call per id"
     },
-    "liveMatrix": null,
+    "liveMatrix": {
+      "date": "2026-08-30",
+      "result": "The previous default, deepseek-v4-pro, is the reason a roster listing is never sufficient evidence here: it is still listed but a real chat call hangs past 120s, so the default moved to kimi-k2p6 (200 OK). Six ids return 404 'not deployed', including all three old vision models. Vision did not disappear with them: re-tested with a valid 64x64 PNG, kimi-k2p6, kimi-k3 and qwen3p8-max all describe the image correctly, while glm-5p3 answers 'does not support image inputs'. gpt-oss-20b is listed but 404s and was therefore not added."
+    },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   }
 }

@@ -1,6 +1,8 @@
 import type { AIProviderName } from "../constants/enums.js";
 import type {
   OpenAICompatCatalogEntry,
+  OpenAICompatChatMessage,
+  OpenAICompatChatRequest,
   OpenAICompatCredentials,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
@@ -14,6 +16,28 @@ import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
 /**
+ * Collapse OpenAI's `content` union down to the plain string that
+ * string-only vendors accept. Image parts carry no string representation and
+ * are dropped — a provider that cannot accept a content array cannot accept
+ * inline images either.
+ */
+const flattenMessageContent = (
+  content: OpenAICompatChatMessage["content"],
+): string => {
+  if (typeof content === "string") {
+    return content;
+  }
+  // An assistant message with tool_calls legitimately has null content;
+  // the empty string is its string-only equivalent.
+  if (content === null || content === undefined) {
+    return "";
+  }
+  return content
+    .map((part) => (part.type === "text" ? part.text : ""))
+    .join("");
+};
+
+/**
  * Generic OpenAI-compatible provider driven entirely by an
  * OpenAICompatCatalogEntry. Replaces a hand-written subclass for any
  * provider whose only differences from its siblings are credentials, base
@@ -24,6 +48,22 @@ import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
  * adjustBodyAfter400, getChatCompletionsURL, getAuthHeaders,
  * suppressResponseFormatWithTools, ...) it does NOT belong in the catalog —
  * write a dedicated subclass instead (see deepseek.ts, azureOpenai.ts).
+ *
+ * The exception is a WIRE DIALECT: a vendor that speaks OpenAI for ordinary
+ * chat but encodes one part of the request differently. Expressing that as
+ * data (the catalog's `messageContentFormat`) keeps the provider a
+ * one-JSON-file entry instead of promoting it to a hand-written subclass
+ * over a single incompatibility.
+ *
+ * Today that is Cloudflare Workers AI, whose OpenAI-compatible endpoint
+ * accepts `messages[].content` only as a plain string — never the
+ * content-parts array OpenAI allows, and never the `null` that OpenAI uses
+ * on an assistant message carrying tool_calls. Its schema rejects both with
+ * HTTP 400 ("Type mismatch of '/messages/N/content'"). That bites precisely
+ * on the second turn of a tool call, so single-turn chat looks healthy while
+ * every tool round-trip fails. Normalizing content to a string below is the
+ * whole fix: tools, tool_choice, the `tool` role and `tool_calls` are all
+ * accepted as-is.
  */
 export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvider {
   private readonly entry: OpenAICompatCatalogEntry;
@@ -70,6 +110,23 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
 
   protected getFallbackModels(): string[] {
     return this.entry.fallbackModels;
+  }
+
+  protected adjustRequestBody(
+    body: OpenAICompatChatRequest,
+    modelId: string,
+  ): OpenAICompatChatRequest {
+    const adjusted = super.adjustRequestBody(body, modelId);
+    if (this.entry.messageContentFormat !== "string") {
+      return adjusted;
+    }
+    return {
+      ...adjusted,
+      messages: adjusted.messages.map((message) => ({
+        ...message,
+        content: flattenMessageContent(message.content),
+      })),
+    };
   }
 
   protected formatProviderError(error: unknown): Error {

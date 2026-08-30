@@ -151,6 +151,7 @@ const catalogErrorRuleJsonSchema = z
 
 const catalogQuirksSchema = z.strictObject({
   timeoutErrorClass: z.literal("provider").optional(),
+  messageContentFormat: z.literal("string").optional(),
   registryDefaultIgnoresModelEnvVar: z.boolean().optional(),
 });
 

@@ -809,6 +809,9 @@ export type OpenAICompatCatalogEntry = {
    * the classifier's default (six of the seven catalog entries).
    */
   timeoutErrorClass?: new (message: string, provider?: string) => ProviderError;
+  /** See CatalogQuirks.messageContentFormat — a vendor that accepts
+   *  `messages[].content` only as a plain string. */
+  messageContentFormat?: "string";
 };
 
 /** The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()

@@ -8,23 +8,38 @@
     "baseURL": "https://api.x.ai/v1"
   },
   "models": {
-    "default": "grok-3",
-    "fallbacks": [
-      "grok-3",
-      "grok-3-mini",
-      "grok-2-latest",
-      "grok-2-vision-latest",
-      "grok-beta"
-    ],
+    "default": "grok-4.6",
+    "fallbacks": ["grok-4.6", "grok-4.5", "grok-4.3", "grok-3", "grok-3-mini"],
     "defaultContextWindow": 131072,
     "defaultMaxOutputTokens": 4096,
     "catalog": {
+      "grok-4.6": {
+        "enumMember": "GROK_4_6",
+        "contextWindow": 131072,
+        "vision": true,
+        "status": "production",
+        "description": "Recommended - Grok 4.6, current flagship; vision-capable"
+      },
+      "grok-4.5": {
+        "enumMember": "GROK_4_5",
+        "contextWindow": 131072,
+        "vision": true,
+        "status": "production",
+        "description": "Grok 4.5 — vision-capable"
+      },
+      "grok-4.3": {
+        "enumMember": "GROK_4_3",
+        "contextWindow": 131072,
+        "vision": true,
+        "status": "production",
+        "description": "Grok 4.3 — vision-capable"
+      },
       "grok-3": {
         "contextWindow": 131072,
         "pricingPerMTok": { "input": 3.0, "output": 15.0 },
         "vision": false,
         "status": "production",
-        "description": "Recommended - Latest flagship Grok"
+        "description": "Grok 3 — still served, though absent from the /models roster"
       },
       "grok-3-mini": {
         "contextWindow": 131072,
@@ -37,31 +52,26 @@
         "contextWindow": 131072,
         "pricingPerMTok": { "input": 2.0, "output": 10.0 },
         "vision": false,
-        "status": "production",
-        "description": "Previous flagship"
+        "status": "retired",
+        "description": "Retired 2026-08 — xAI rejects it as an invalid model"
       },
       "grok-2-vision-latest": {
         "contextWindow": 32768,
         "pricingPerMTok": { "input": 2.0, "output": 10.0 },
-        "vision": true,
-        "status": "production",
-        "description": "Multimodal (text + images)"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — xAI rejects it as an invalid model; vision moved to the grok-4.x line"
       },
       "grok-beta": {
         "contextWindow": 131072,
         "pricingPerMTok": { "input": 5.0, "output": 15.0 },
         "vision": false,
-        "status": "preview",
-        "description": "Pre-release / experimental"
+        "status": "retired",
+        "description": "Retired 2026-08 — xAI rejects it as an invalid model"
       }
     },
-    "topModels": [
-      "grok-3",
-      "grok-3-mini",
-      "grok-2-vision-latest",
-      "grok-2-latest",
-      "grok-beta"
-    ]
+    "visionModel": "grok-4.6",
+    "topModels": ["grok-4.6", "grok-4.5", "grok-4.3", "grok-3"]
   },
   "capabilities": {
     "text": true,
@@ -99,10 +109,13 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-08-28",
-      "method": "transcribed from pre-migration TS catalog"
+      "date": "2026-08-30",
+      "method": "GET /models against the live account, cross-checked with a real chat call per id"
     },
-    "liveMatrix": null,
+    "liveMatrix": {
+      "date": "2026-08-30",
+      "result": "grok-2-latest, grok-2-vision-latest and grok-beta are rejected as invalid models. The grok-4.x line replaces them: 4.3/4.5/4.6 all answer, and all three read a 64x64 PNG correctly, so vision moved there from the retired grok-2-vision-latest. An earlier probe with an 8x8 PNG reported no vision — that was xAI answering 'Invalid PNG image', a complaint about the file rather than the capability. grok-3 and grok-3-mini are kept because they still serve, even though xAI's /models roster omits them: roster absence is not evidence of death here."
+    },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   }
 }

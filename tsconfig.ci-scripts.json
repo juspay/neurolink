@@ -32,6 +32,7 @@
     "scripts/env-validation.ts",
     "scripts/security-check.ts",
     "tools/verify-provider-onboarding.ts",
+    "tools/check-model-liveness.ts",
     "tools/testing/proxyLifecycleBenchmark.ts",
     "tools/testing/proxyRollingHandoffBenchmark.ts",
     "tools/testing/proxyTransportBenchmark.ts",
