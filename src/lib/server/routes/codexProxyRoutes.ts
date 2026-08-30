@@ -44,15 +44,25 @@ import {
   parseCodexRateLimitHeaders,
 } from "../../proxy/codexAccountUsage.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
-import { logRequest } from "../../proxy/requestLogger.js";
+import { trackProxyResponse } from "../../proxy/proxyActivity.js";
+import { logRequest, logRequestAttempt } from "../../proxy/requestLogger.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
+import {
+  recordAttempt,
+  recordAttemptError,
+  recordFinalError,
+  recordFinalSuccess,
+} from "../../proxy/usageStats.js";
 import type {
-  AccountCoolingReason,
   AccountQuota,
+  CodexAttemptLogExtra,
+  CodexFinalLogExtra,
+  CodexRefreshTokenStore,
   CodexRuntimeAccount,
+  CodexTokenRefresher,
+  RateLimitCoolingReason,
   RouteGroup,
   ServerContext,
-  RequestLogEntry,
 } from "../../types/index.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
@@ -62,6 +72,40 @@ const DEFAULT_TRANSIENT_COOLDOWN_MS = 60_000;
 const MAX_TRANSIENT_COOLDOWN_MS = 15 * 60 * 1000;
 /** Brief park after a refresh attempt that never reached a verdict. */
 const CODEX_AUTH_COOLDOWN_MS = 60_000;
+const CODEX_ACCOUNT_TYPE = "codex-oauth";
+const CODEX_FALLBACK_METADATA_KEY = "neurolink.codexFallback";
+
+function getCodexTransportErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const directCode = (error as { code?: unknown }).code;
+  if (typeof directCode === "string") {
+    return directCode;
+  }
+  const cause = (error as { cause?: unknown }).cause;
+  if (!cause || typeof cause !== "object") {
+    return undefined;
+  }
+  const causeCode = (cause as { code?: unknown }).code;
+  return typeof causeCode === "string" ? causeCode : undefined;
+}
+
+function codexTransportScope(
+  error: unknown,
+): "shared_provider_transport" | "connection_transport" {
+  const code = getCodexTransportErrorCode(error);
+  return code === "ENOTFOUND" || code === "EAI_AGAIN"
+    ? "shared_provider_transport"
+    : "connection_transport";
+}
+
+function summarizeCodexUpstreamError(
+  errorText: string,
+  fallback: string,
+): string {
+  return sanitizeForLog(errorText).slice(0, 200) || fallback;
+}
 
 /**
  * In-flight proactive refreshes, keyed by account.
@@ -77,10 +121,11 @@ const codexRefreshInFlight = new Map<
   Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }>
 >();
 
-/** Refresh an account's token at most once at a time. */
-async function refreshCodexTokenOnce(
+async function refreshCodexTokenOnceWithDependencies(
   key: string,
   refreshToken: string,
+  store: CodexRefreshTokenStore,
+  refresh: CodexTokenRefresher,
 ): Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }> {
   const existing = codexRefreshInFlight.get(key);
   if (existing) {
@@ -91,19 +136,45 @@ async function refreshCodexTokenOnce(
     // request that captured the pool just before a previous refresh completed
     // holds a token that has since been rotated; using it would spend a real
     // attempt on a grant the server has already invalidated.
-    const latest = await tokenStore.peekTokens(key).catch(() => null);
+    const latest = await store.peekTokens(key).catch(() => null);
     const current = latest?.refreshToken ?? refreshToken;
-    const refreshed = await refreshCodexToken(current);
-    return {
+    const refreshed = await refresh(current);
+    const resolved = {
       accessToken: refreshed.accessToken,
       refreshToken: refreshed.refreshToken ?? current,
-      expiresAt: refreshed.expiresAt,
+      expiresAt:
+        refreshed.expiresAt ?? latest?.expiresAt ?? Date.now() + 3_600_000,
     };
+    // Hold the single-flight slot through persistence. Releasing it after the
+    // OAuth response but before this write lets a third request read the old
+    // rotating refresh token, receive an invalid_grant, and disable an account
+    // another request has already healed.
+    if (latest) {
+      await store.saveTokens(key, {
+        ...resolved,
+        tokenType: "Bearer",
+        ...(latest.scope ? { scope: latest.scope } : {}),
+      });
+    }
+    return resolved;
   })().finally(() => {
     codexRefreshInFlight.delete(key);
   });
   codexRefreshInFlight.set(key, pending);
   return pending;
+}
+
+/** Refresh an account's token at most once at a time. */
+async function refreshCodexTokenOnce(
+  key: string,
+  refreshToken: string,
+): Promise<{ accessToken: string; refreshToken: string; expiresAt?: number }> {
+  return refreshCodexTokenOnceWithDependencies(
+    key,
+    refreshToken,
+    tokenStore,
+    refreshCodexToken,
+  );
 }
 
 // Headers we never forward upstream (hop-by-hop, client creds, or things we
@@ -159,13 +230,6 @@ async function loadCodexProxyAccounts(): Promise<CodexRuntimeAccount[]> {
         const refreshed = await refreshCodexTokenOnce(key, tokens.refreshToken);
         accessToken = refreshed.accessToken;
         expiresAt = refreshed.expiresAt ?? expiresAt;
-        await tokenStore.saveTokens(key, {
-          accessToken,
-          refreshToken: refreshed.refreshToken,
-          expiresAt: expiresAt ?? Date.now() + 3_600_000,
-          tokenType: "Bearer",
-          scope: tokens.scope,
-        });
       } catch (error) {
         // Keep the stale token; a 401 upstream will trigger rotation.
         logger.debug(
@@ -260,7 +324,7 @@ function planCodexCooldown(
   quota: AccountQuota | null,
   retryAfterMs: number,
   now: number,
-): { coolingUntil: number; reason: AccountCoolingReason } {
+): { coolingUntil: number; reason: RateLimitCoolingReason } {
   // A reported reset can already be in the past — a stale header, or a clock
   // skew. Taken literally the account is eligible again immediately and the
   // pool re-sends to something the provider just rejected.
@@ -323,21 +387,16 @@ export async function handleCodexResponsesRequest(
       ? ((body as Record<string, unknown>).model as string)
       : "-";
 
-  const writeLog = (
-    account: string,
+  // A Codex call made as an inner Anthropic fallback is an upstream attempt,
+  // not an independently final client request. The parent fallback owns the
+  // final status and can still recover with a later provider.
+  const isFallbackRequest =
+    ctx.metadata?.[CODEX_FALLBACK_METADATA_KEY] === true;
+
+  const writeFinalLog = (
+    account: CodexRuntimeAccount | undefined,
     responseStatus: number,
-    extra: Partial<
-      Pick<
-        RequestLogEntry,
-        | "errorType"
-        | "errorMessage"
-        | "provider"
-        | "inputTokens"
-        | "outputTokens"
-        | "cacheReadTokens"
-        | "cacheCreationTokens"
-      >
-    > = {},
+    extra: CodexFinalLogExtra = {},
   ): Promise<void> =>
     logRequest({
       timestamp: new Date().toISOString(),
@@ -349,17 +408,83 @@ export async function handleCodexResponsesRequest(
       toolCount: Array.isArray((body as Record<string, unknown>).tools)
         ? ((body as Record<string, unknown>).tools as unknown[]).length
         : 0,
-      account,
-      accountType: "codex-oauth",
+      account: account?.label ?? "",
+      ...(account ? { accountKey: account.key } : {}),
+      accountType: account ? CODEX_ACCOUNT_TYPE : "",
+      // This is the cost provider. accountKey and the response header identify
+      // the actual Codex pool that supplied the credential.
+      provider: "openai",
       ...buildClientAttribution(ctx.headers),
       responseStatus,
       responseTimeMs: Date.now() - requestStartTime,
       ...extra,
     });
 
+  let finalOutcomeRecorded = false;
+  const recordFinalOutcome = async (
+    account: CodexRuntimeAccount | undefined,
+    responseStatus: number,
+    extra: CodexFinalLogExtra = {},
+  ): Promise<void> => {
+    if (isFallbackRequest || finalOutcomeRecorded) {
+      return;
+    }
+    finalOutcomeRecorded = true;
+    if (responseStatus >= 400) {
+      recordFinalError(
+        responseStatus,
+        account?.label,
+        account ? CODEX_ACCOUNT_TYPE : undefined,
+        {
+          requestId: ctx.requestId,
+          ...(account ? { accountKey: account.key } : {}),
+          errorType: extra.errorType,
+          terminalOutcome: extra.terminalOutcome ?? "handler_error",
+          message: extra.errorMessage,
+          errorCode: extra.errorCode,
+        },
+      );
+    } else {
+      recordFinalSuccess(
+        account?.label,
+        account ? CODEX_ACCOUNT_TYPE : undefined,
+      );
+    }
+    await writeFinalLog(account, responseStatus, extra);
+  };
+
+  const writeAttempt = (
+    account: CodexRuntimeAccount,
+    attempt: number,
+    startedAt: number,
+    responseStatus: number,
+    extra: CodexAttemptLogExtra = {},
+  ): void => {
+    void logRequestAttempt({
+      timestamp: new Date().toISOString(),
+      requestId: ctx.requestId,
+      attempt,
+      method: ctx.method,
+      path: ctx.path,
+      model,
+      stream: true,
+      toolCount: Array.isArray((body as Record<string, unknown>).tools)
+        ? ((body as Record<string, unknown>).tools as unknown[]).length
+        : 0,
+      account: account.label,
+      accountKey: account.key,
+      accountType: CODEX_ACCOUNT_TYPE,
+      provider: "openai",
+      responseStatus,
+      responseTimeMs: Date.now() - requestStartTime,
+      attemptDurationMs: Date.now() - startedAt,
+      ...extra,
+    }).catch(() => undefined);
+  };
+
   const accounts = await loadCodexProxyAccounts();
   if (accounts.length === 0) {
-    await writeLog("", 401, {
+    await recordFinalOutcome(undefined, 401, {
       errorType: "no_accounts",
       errorMessage: "No Codex accounts",
     });
@@ -386,7 +511,7 @@ export async function handleCodexResponsesRequest(
     const retryAfterSec = soonest
       ? Math.max(1, Math.ceil((soonest - now) / 1000))
       : 60;
-    await writeLog("", 429, {
+    await recordFinalOutcome(undefined, 429, {
       errorType: "all_accounts_cooling",
       errorMessage: "All Codex accounts are rate-limited",
     });
@@ -410,13 +535,17 @@ export async function handleCodexResponsesRequest(
   let attempt = 0;
   let lastErrorMessage = "All Codex accounts failed";
   let lastErrorStatus = 502;
+  let lastAttemptedAccount: CodexRuntimeAccount | undefined;
 
   for (const account of eligible) {
-    attempt += 1;
     let authRetried = false;
 
     // Same-account loop only re-runs once, for a post-401 token refresh.
     for (;;) {
+      attempt += 1;
+      const attemptStartedAt = Date.now();
+      lastAttemptedAccount = account;
+      recordAttempt(account.label, CODEX_ACCOUNT_TYPE);
       let upstream: Response;
       try {
         upstream = await fetch(CODEX_RESPONSES_URL, {
@@ -435,6 +564,20 @@ export async function handleCodexResponsesRequest(
             error instanceof Error ? error.message : String(error),
           )}`,
         );
+        const errorMessage = summarizeCodexUpstreamError(
+          error instanceof Error ? error.message : String(error),
+          "Codex upstream request failed",
+        );
+        const errorCode = getCodexTransportErrorCode(error);
+        const transportScope = codexTransportScope(error);
+        recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
+        writeAttempt(account, attempt, attemptStartedAt, 502, {
+          errorType: "network_error",
+          errorMessage,
+          ...(errorCode ? { errorCode } : {}),
+          transportScope,
+          retryable: true,
+        });
         lastErrorMessage = "Codex upstream request failed";
         lastErrorStatus = 502;
         break; // rotate to next account
@@ -454,7 +597,7 @@ export async function handleCodexResponsesRequest(
           );
         }
         publishCodexHeaders(ctx, account, attempt, quota);
-        await writeLog(account.label, upstream.status);
+        writeAttempt(account, attempt, attemptStartedAt, upstream.status);
         const headers: Record<string, string> = {
           "content-type":
             upstream.headers.get("content-type") ?? "text/event-stream",
@@ -463,37 +606,57 @@ export async function handleCodexResponsesRequest(
           ...(ctx.responseHeaders ?? {}),
         };
 
-        // Tap the relay for token usage. The log above is written first and
-        // unconditionally so a request is never lost when a client hangs up
-        // mid-stream; this emits a second record for the same requestId
-        // carrying the counts, which proxyAnalysis merges. If the stream shape
-        // is not recognised, usage resolves null and nothing extra is written —
-        // i.e. exactly the previous behaviour.
         if (!upstream.body) {
+          await recordFinalOutcome(account, upstream.status, {
+            terminalOutcome: "bodyless",
+          });
           return new Response(upstream.body, {
             status: upstream.status,
             headers,
           });
         }
         const { stream: usageTap, usage: usageSeen } = createCodexUsageTap();
-        usageSeen
-          .then((usage) => {
-            if (!usage) {
-              return;
-            }
-            return writeLog(account.label, upstream.status, {
-              provider: "openai",
-              inputTokens: usage.inputTokens,
-              outputTokens: usage.outputTokens,
-              cacheReadTokens: usage.cacheReadTokens,
-              cacheCreationTokens: usage.cacheCreationTokens,
-            });
-          })
-          .catch(() => undefined);
-
-        return new Response(upstream.body.pipeThrough(usageTap), {
+        const relay = new Response(upstream.body.pipeThrough(usageTap), {
           status: upstream.status,
           headers,
+        });
+        return trackProxyResponse(relay, () => undefined, {
+          onTerminal: ({ outcome }) => {
+            void usageSeen
+              .then((usage) => {
+                const usageExtra = usage
+                  ? {
+                      inputTokens: usage.inputTokens,
+                      outputTokens: usage.outputTokens,
+                      cacheReadTokens: usage.cacheReadTokens,
+                      cacheCreationTokens: usage.cacheCreationTokens,
+                    }
+                  : {};
+                if (outcome === "completed" || outcome === "bodyless") {
+                  return recordFinalOutcome(account, upstream.status, {
+                    terminalOutcome: outcome,
+                    ...usageExtra,
+                  });
+                }
+                return recordFinalOutcome(
+                  account,
+                  outcome === "client_cancelled" ? 499 : 502,
+                  {
+                    errorType:
+                      outcome === "client_cancelled"
+                        ? "client_cancelled"
+                        : "stream_error",
+                    errorMessage:
+                      outcome === "client_cancelled"
+                        ? "Client cancelled Codex stream"
+                        : "Codex upstream stream failed",
+                    terminalOutcome: outcome,
+                    ...usageExtra,
+                  },
+                );
+              })
+              .catch(() => undefined);
+          },
         });
       }
 
@@ -505,6 +668,16 @@ export async function handleCodexResponsesRequest(
         !authRetried &&
         account.refreshToken
       ) {
+        const errorMessage = summarizeCodexUpstreamError(
+          errText,
+          "Codex authentication rejected upstream",
+        );
+        recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
+        writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+          errorType: "authentication_error",
+          errorMessage,
+          retryable: true,
+        });
         authRetried = true;
         const staleTokens = {
           accessToken: account.token,
@@ -512,17 +685,14 @@ export async function handleCodexResponsesRequest(
           expiresAt: account.expiresAt ?? 0,
         };
         try {
-          const refreshed = await refreshCodexToken(account.refreshToken);
+          const refreshed = await refreshCodexTokenOnce(
+            account.key,
+            account.refreshToken,
+          );
           account.token = refreshed.accessToken;
           account.refreshToken = refreshed.refreshToken ?? account.refreshToken;
           account.expiresAt = refreshed.expiresAt ?? account.expiresAt;
           account.accountId = resolveCodexAccountId(refreshed.accessToken);
-          await tokenStore.saveTokens(account.key, {
-            accessToken: account.token,
-            refreshToken: account.refreshToken,
-            expiresAt: account.expiresAt ?? Date.now() + 3_600_000,
-            tokenType: "Bearer",
-          });
           continue; // retry same account with the fresh token
         } catch (error) {
           if (isPermanentCodexRefreshFailure(error)) {
@@ -575,6 +745,25 @@ export async function handleCodexResponsesRequest(
           plan.coolingUntil,
           plan.reason,
         ).catch(() => undefined);
+        const rateLimitKind =
+          plan.reason === "transient" ? "transient" : "quota";
+        const errorMessage = summarizeCodexUpstreamError(
+          errText,
+          "Codex account rate-limited",
+        );
+        recordAttemptError(
+          account.label,
+          CODEX_ACCOUNT_TYPE,
+          upstream.status,
+          rateLimitKind,
+        );
+        writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+          errorType: "rate_limit_error",
+          errorMessage,
+          retryable: true,
+          rateLimitKind,
+          cooldownReason: plan.reason,
+        });
         lastErrorStatus = 429;
         lastErrorMessage = "Codex account rate-limited";
         break; // rotate
@@ -591,13 +780,24 @@ export async function handleCodexResponsesRequest(
           "auth",
         ).catch(() => undefined);
       }
+      const errorMessage = summarizeCodexUpstreamError(errText, "Codex error");
+      const errorType =
+        upstream.status === 401 || upstream.status === 403
+          ? "authentication_error"
+          : "api_error";
+      recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
+      writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+        errorType,
+        errorMessage,
+        retryable: upstream.status >= 500,
+      });
       lastErrorStatus = upstream.status >= 500 ? 502 : upstream.status;
-      lastErrorMessage = sanitizeForLog(errText).slice(0, 200) || "Codex error";
+      lastErrorMessage = errorMessage;
       break; // rotate
     }
   }
 
-  await writeLog("", lastErrorStatus, {
+  await recordFinalOutcome(lastAttemptedAccount, lastErrorStatus, {
     errorType: "all_accounts_failed",
     errorMessage: lastErrorMessage,
   });
@@ -689,18 +889,15 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
         if (!authRetried && account.refreshToken) {
           authRetried = true;
           try {
-            const refreshed = await refreshCodexToken(account.refreshToken);
+            const refreshed = await refreshCodexTokenOnce(
+              account.key,
+              account.refreshToken,
+            );
             account.token = refreshed.accessToken;
             account.refreshToken =
               refreshed.refreshToken ?? account.refreshToken;
             account.expiresAt = refreshed.expiresAt ?? account.expiresAt;
             account.accountId = resolveCodexAccountId(refreshed.accessToken);
-            await tokenStore.saveTokens(account.key, {
-              accessToken: account.token,
-              refreshToken: account.refreshToken,
-              expiresAt: account.expiresAt ?? Date.now() + 3_600_000,
-              tokenType: "Bearer",
-            });
             continue; // retry this account with the fresh token
           } catch {
             // No cooldown and no disable, unlike the responses path: the
@@ -769,5 +966,6 @@ export const __testHooks = {
   buildCodexUpstreamHeaders,
   planCodexCooldown,
   refreshCodexTokenOnce,
+  refreshCodexTokenOnceWithDependencies,
   codexRefreshInFlightSize: (): number => codexRefreshInFlight.size,
 };

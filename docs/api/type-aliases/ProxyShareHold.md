@@ -8,7 +8,7 @@
 
 > **ProxyShareHold** = `object`
 
-Defined in: [types/proxy.ts:3845](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3845)
+Defined in: [types/proxy.ts:3915](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3915)
 
 An open pre-authorization against a grant's balance.
 
@@ -18,7 +18,7 @@ An open pre-authorization against a grant's balance.
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:3846](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3846)
+Defined in: [types/proxy.ts:3916](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3916)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3846](https://github.com/juspay/neurolink/blob/relea
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:3847](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3847)
+Defined in: [types/proxy.ts:3917](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3917)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3847](https://github.com/juspay/neurolink/blob/relea
 
 > **coins**: `number`
 
-Defined in: [types/proxy.ts:3848](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3848)
+Defined in: [types/proxy.ts:3918](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3918)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:3848](https://github.com/juspay/neurolink/blob/relea
 
 > **openedAt**: `number`
 
-Defined in: [types/proxy.ts:3849](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3849)
+Defined in: [types/proxy.ts:3919](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3919)

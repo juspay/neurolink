@@ -8,7 +8,7 @@
 
 > **KoaRateLimitEntry** = `object`
 
-Defined in: [types/proxy.ts:1491](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1491)
+Defined in: [types/proxy.ts:1558](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1558)
 
 Rate limit store entry (Koa adapter).
 
@@ -18,7 +18,7 @@ Rate limit store entry (Koa adapter).
 
 > **count**: `number`
 
-Defined in: [types/proxy.ts:1492](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1492)
+Defined in: [types/proxy.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1559)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:1492](https://github.com/juspay/neurolink/blob/relea
 
 > **resetAt**: `number`
 
-Defined in: [types/proxy.ts:1493](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1493)
+Defined in: [types/proxy.ts:1560](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1560)

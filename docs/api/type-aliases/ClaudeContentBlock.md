@@ -8,4 +8,4 @@
 
 > **ClaudeContentBlock** = [`ClaudeTextBlock`](ClaudeTextBlock.md) \| [`ClaudeImageBlock`](ClaudeImageBlock.md) \| [`ClaudeToolUseBlock`](ClaudeToolUseBlock.md) \| [`ClaudeToolResultBlock`](ClaudeToolResultBlock.md) \| [`ClaudeThinkingBlock`](ClaudeThinkingBlock.md)
 
-Defined in: [types/proxy.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L93)
+Defined in: [types/proxy.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L94)

@@ -12,7 +12,7 @@ import type { PPTGenerationResult } from "./ppt.js";
 import type { AvatarResult } from "./avatar.js";
 import type { MusicResult } from "./music.js";
 import type { OAuthTokens } from "./auth.js";
-import type { AccountQuota } from "./proxy.js";
+import type { AccountQuota, ProxyPassthroughAccount } from "./proxy.js";
 import type { ClaudeSubscriptionTier } from "./subscription.js";
 import type { ServerFramework } from "./server.js";
 import type { AuthProviderType } from "./auth.js";
@@ -1095,7 +1095,7 @@ export type AuthCommandArgs = BaseCommandArgs & {
   label?: string;
   account?: string;
   force?: boolean;
-  /** `auth list --refresh`: fetch fresh limits from Anthropic before listing */
+  /** `auth list --refresh`: fetch fresh provider limits before listing */
   refresh?: boolean;
   /** Path to the proxy config YAML, used by set-/get-/clear-primary */
   config?: string;
@@ -1111,12 +1111,54 @@ export type AuthCommandArgs = BaseCommandArgs & {
   _?: (string | number)[];
 };
 
+/** Refresh state for a provider-qualified account. */
+export type AuthListRefreshStatus =
+  | "refreshed"
+  | "snapshot"
+  | "unavailable"
+  | "not_supported";
+
+/** Fresh-limit result for one provider-qualified account. */
+export type AuthListRefreshAccountResult = {
+  /** Provider prefix parsed from the configured account key. */
+  provider: string;
+  /** A missing limit is explicit rather than being rendered as an unexplained dash. */
+  status: AuthListRefreshStatus;
+  error?: string;
+};
+
+/** One direct quota-adapter result used by `auth list --refresh`. */
+export type AuthListDirectQuotaRefreshResult =
+  | { status: "refreshed"; quota: AccountQuota }
+  | { status: "unavailable" | "not_supported"; error?: string };
+
+/** Provider-specific quota capability used by the generic auth-list refresh. */
+export type AuthListQuotaRefreshAdapter = {
+  /** A successful local proxy `/limits` response is authoritative for this provider. */
+  supportsProxyRefresh?: boolean;
+  listAccounts: () => Promise<ProxyPassthroughAccount[]>;
+  priorQuotaKeys: (account: ProxyPassthroughAccount) => readonly string[];
+  refreshAccount: (
+    account: ProxyPassthroughAccount,
+    options: { prior: AccountQuota | null },
+  ) => Promise<AuthListDirectQuotaRefreshResult>;
+};
+
+/** Applies one account's explicit auth-list refresh state. */
+export type AuthListRefreshResultSetter = (
+  key: string,
+  status: AuthListRefreshStatus,
+  error?: string,
+) => void;
+
 /** Outcome of the `auth list --refresh` fresh-limit fetch. */
 export type AuthListRefreshOutcome = {
   /** How the fresh limits were obtained ("none" when every path failed). */
-  via: "proxy" | "direct" | "none";
-  /** Freshly fetched quotas keyed by account label; null when none fetched. */
+  via: "proxy" | "direct" | "mixed" | "none";
+  /** Freshly fetched quotas keyed by provider-qualified account key. */
   quotas: Record<string, AccountQuota> | null;
+  /** Per-account refresh status, also keyed by provider-qualified account key. */
+  accounts: Record<string, AuthListRefreshAccountResult>;
   /** Per-account and transport errors, already formatted for display. */
   errors: string[];
 };
@@ -1440,7 +1482,7 @@ export type ProviderSetupConfig = {
 // AUTH COMMAND (from cli/commands/auth.ts)
 // =============================================================================
 
-/** Providers supported by the `neurolink auth` command. */
+/** Providers with first-class credential flows implemented by `neurolink auth`. */
 export type SupportedProvider = "anthropic" | "codex";
 
 // =============================================================================

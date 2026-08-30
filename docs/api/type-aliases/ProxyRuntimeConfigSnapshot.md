@@ -8,7 +8,7 @@
 
 > **ProxyRuntimeConfigSnapshot** = [`ProxyRequestRoutingSnapshot`](ProxyRequestRoutingSnapshot.md) & `object`
 
-Defined in: [types/proxy.ts:2921](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2921)
+Defined in: [types/proxy.ts:2988](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2988)
 
 Immutable last-known-good proxy configuration published at runtime.
 

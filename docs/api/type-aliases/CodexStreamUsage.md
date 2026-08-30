@@ -8,7 +8,7 @@
 
 > **CodexStreamUsage** = `object`
 
-Defined in: [types/proxy.ts:2074](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2074)
+Defined in: [types/proxy.ts:2141](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2141)
 
 Token usage scraped from a Codex (OpenAI Responses) SSE stream.
 
@@ -25,7 +25,7 @@ a null result as "not observed", never as "zero tokens".
 
 > **inputTokens**: `number`
 
-Defined in: [types/proxy.ts:2075](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2075)
+Defined in: [types/proxy.ts:2142](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2142)
 
 ---
 
@@ -33,7 +33,7 @@ Defined in: [types/proxy.ts:2075](https://github.com/juspay/neurolink/blob/relea
 
 > **outputTokens**: `number`
 
-Defined in: [types/proxy.ts:2076](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2076)
+Defined in: [types/proxy.ts:2143](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2143)
 
 ---
 
@@ -41,7 +41,7 @@ Defined in: [types/proxy.ts:2076](https://github.com/juspay/neurolink/blob/relea
 
 > **cacheReadTokens**: `number`
 
-Defined in: [types/proxy.ts:2077](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2077)
+Defined in: [types/proxy.ts:2144](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2144)
 
 ---
 
@@ -49,7 +49,7 @@ Defined in: [types/proxy.ts:2077](https://github.com/juspay/neurolink/blob/relea
 
 > **cacheCreationTokens**: `number`
 
-Defined in: [types/proxy.ts:2079](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2079)
+Defined in: [types/proxy.ts:2146](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2146)
 
 Cache writes, which bill at a premium over both reads and plain input.
 
@@ -59,4 +59,4 @@ Cache writes, which bill at a premium over both reads and plain input.
 
 > **reasoningTokens**: `number`
 
-Defined in: [types/proxy.ts:2080](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2080)
+Defined in: [types/proxy.ts:2147](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2147)

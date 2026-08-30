@@ -34,6 +34,9 @@ globalThis.fetch = async (input, init) => {
   const externalProvider =
     hostname === "api.anthropic.com" ||
     hostname === "api.openai.com" ||
+    hostname === "auth.openai.com" ||
+    hostname === "chatgpt.com" ||
+    hostname.endsWith(".chatgpt.com") ||
     hostname.endsWith(".googleapis.com");
   const liveProxy =
     (hostname === "127.0.0.1" ||

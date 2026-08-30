@@ -17,6 +17,7 @@ import {
   stat,
 } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
+import { normalizeAnthropicAccountKey } from "./accountSelection.js";
 import type {
   AccountStats,
   PersistedProxyTerminalErrorSnapshot,
@@ -102,6 +103,38 @@ function emptyTerminalErrorJournal(
     counts: emptyTerminalErrorCounts(),
     recent: [],
   };
+}
+
+/**
+ * Statistics must never use an email/label as their primary map key. One
+ * person can authenticate both provider pools with the same email, and a
+ * bare key silently merged their attempts, limits, and failures into one row.
+ *
+ * Keep non-account pseudo rows (passthrough, peer, internal) untouched. The
+ * display label remains separate so the CLI stays readable while persisted
+ * counters retain a collision-proof identity.
+ */
+function resolveStatsAccountIdentity(
+  label: string,
+  type: string,
+): { key: string; label: string } {
+  if (type === "codex-oauth") {
+    const key = label.startsWith("codex:") ? label : `codex:${label}`;
+    return {
+      key,
+      label: label.startsWith("codex:") ? label.slice("codex:".length) : label,
+    };
+  }
+  if (type === "oauth" || type === "api_key") {
+    const key = normalizeAnthropicAccountKey(label);
+    return {
+      key,
+      label: label.startsWith("anthropic:")
+        ? label.slice("anthropic:".length)
+        : label,
+    };
+  }
+  return { key: label, label };
 }
 
 function cloneTerminalErrorSummary(
@@ -222,6 +255,10 @@ function createTerminalErrorSummary(args: {
   details?: ProxyTerminalErrorDetails;
 }): ProxyTerminalErrorSummary {
   const { now, status, accountLabel, accountType, details } = args;
+  const accountIdentity =
+    accountLabel && accountType
+      ? resolveStatsAccountIdentity(accountLabel, accountType)
+      : undefined;
   const errorType = clipTerminalErrorField(details?.errorType);
   const message = details?.message
     ? stripTerminalErrorControlCharacters(
@@ -244,6 +281,13 @@ function createTerminalErrorSummary(args: {
       : {}),
     ...(clipTerminalErrorField(accountLabel)
       ? { account: clipTerminalErrorField(accountLabel) }
+      : {}),
+    ...(clipTerminalErrorField(details?.accountKey ?? accountIdentity?.key)
+      ? {
+          accountKey: clipTerminalErrorField(
+            details?.accountKey ?? accountIdentity?.key,
+          ),
+        }
       : {}),
     ...(clipTerminalErrorField(accountType)
       ? { accountType: clipTerminalErrorField(accountType) }
@@ -284,7 +328,9 @@ function mergeAccountStats(
   if (!left) {
     return cloneAccount(right);
   }
+  const key = right.key ?? left.key;
   return {
+    ...(key ? { key } : {}),
     label: right.label || left.label,
     type: right.type || left.type,
     attemptCount: left.attemptCount + right.attemptCount,
@@ -340,6 +386,8 @@ function validAccountStats(value: unknown): value is AccountStats {
   }
   const candidate = value as Partial<AccountStats>;
   return (
+    (candidate.key === undefined ||
+      (typeof candidate.key === "string" && candidate.key.length > 0)) &&
     typeof candidate.label === "string" &&
     typeof candidate.type === "string" &&
     finiteNonNegativeInteger(candidate.attemptCount) &&
@@ -379,7 +427,8 @@ function validStats(value: unknown): value is ProxyStats {
     return false;
   }
   return Object.entries(candidate.accounts).every(
-    ([label, account]) => validAccountStats(account) && label === account.label,
+    ([key, account]) =>
+      validAccountStats(account) && key === (account.key ?? account.label),
   );
 }
 
@@ -407,6 +456,10 @@ function validTerminalErrorSummary(
     TERMINAL_ERROR_CATEGORIES.includes(candidate.category) &&
     validOptionalString(candidate.requestId, MAX_TERMINAL_ERROR_FIELD_LENGTH) &&
     validOptionalString(candidate.account, MAX_TERMINAL_ERROR_FIELD_LENGTH) &&
+    validOptionalString(
+      candidate.accountKey,
+      MAX_TERMINAL_ERROR_FIELD_LENGTH,
+    ) &&
     validOptionalString(
       candidate.accountType,
       MAX_TERMINAL_ERROR_FIELD_LENGTH,
@@ -794,8 +847,22 @@ export class ProxyUsageStatsStore {
     return cloneStats(this.stats);
   }
 
-  getAccountStats(label: string): AccountStats | undefined {
-    const account = this.stats.accounts[label];
+  getAccountStats(label: string, type?: string): AccountStats | undefined {
+    const direct = this.stats.accounts[label];
+    if (direct) {
+      return cloneAccount(direct);
+    }
+    const identity = type
+      ? resolveStatsAccountIdentity(label, type)
+      : undefined;
+    const account = identity
+      ? this.stats.accounts[identity.key]
+      : (() => {
+          const matches = Object.values(this.stats.accounts).filter(
+            (candidate) => candidate.label === label,
+          );
+          return matches.length === 1 ? matches[0] : undefined;
+        })();
     return account ? cloneAccount(account) : undefined;
   }
 
@@ -1186,9 +1253,11 @@ export class ProxyUsageStatsStore {
     label: string,
     type: string,
   ): AccountStats {
-    if (!target.accounts[label]) {
-      target.accounts[label] = {
-        label,
+    const identity = resolveStatsAccountIdentity(label, type);
+    if (!target.accounts[identity.key]) {
+      target.accounts[identity.key] = {
+        key: identity.key,
+        label: identity.label,
         type,
         attemptCount: 0,
         attemptErrorCount: 0,
@@ -1200,7 +1269,7 @@ export class ProxyUsageStatsStore {
         lastAttemptAt: 0,
       };
     }
-    return target.accounts[label];
+    return target.accounts[identity.key];
   }
 
   private scheduleFlush(): void {
@@ -1451,8 +1520,11 @@ export async function getReconciledUsageSnapshot(): Promise<ProxyUsageStatsSnaps
   return defaultStore.reconcileUsageSnapshot();
 }
 
-export function getAccountStats(label: string): AccountStats | undefined {
-  return defaultStore.getAccountStats(label);
+export function getAccountStats(
+  label: string,
+  type?: string,
+): AccountStats | undefined {
+  return defaultStore.getAccountStats(label, type);
 }
 
 export function getTerminalErrors(): ProxyTerminalErrorJournal {

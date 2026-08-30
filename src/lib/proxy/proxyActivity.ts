@@ -88,6 +88,16 @@ export function trackProxyResponse(
   let observedBodyBytes = 0;
   let responseChunks = 0;
   let settled = false;
+  let sourceClosed = false;
+  // A framework can cancel its adapter after the upstream stream has already
+  // closed. Snapshot reader.closed before cancel() so that normal cleanup is
+  // not recorded as a client-aborted request.
+  void reader.closed.then(
+    () => {
+      sourceClosed = true;
+    },
+    () => undefined,
+  );
 
   const settle = (outcome: ProxyResponseTerminalOutcome): void => {
     if (settled) {
@@ -130,7 +140,11 @@ export function trackProxyResponse(
       }
     },
     async cancel(reason) {
-      settle("client_cancelled");
+      // Read the state before cancelling: reader.cancel() itself rejects the
+      // closed promise for a genuinely active source, which is too late to
+      // distinguish it from a source that had already ended normally.
+      await Promise.resolve();
+      settle(sourceClosed ? "completed" : "client_cancelled");
       await withTimeout(
         reader.cancel(reason),
         PROXY_RESPONSE_CANCEL_TIMEOUT_MS,

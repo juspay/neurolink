@@ -8,7 +8,7 @@
 
 > **RollingQueuedSocket** = `object`
 
-Defined in: [types/proxy.ts:2761](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2761)
+Defined in: [types/proxy.ts:2828](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2828)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2761](https://github.com/juspay/neurolink/blob/relea
 
 > **socket**: [`TransferableProxySocket`](TransferableProxySocket.md)
 
-Defined in: [types/proxy.ts:2762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2762)
+Defined in: [types/proxy.ts:2829](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2829)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:2762](https://github.com/juspay/neurolink/blob/relea
 
 > **timeout**: `NodeJS.Timeout`
 
-Defined in: [types/proxy.ts:2763](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2763)
+Defined in: [types/proxy.ts:2830](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2830)

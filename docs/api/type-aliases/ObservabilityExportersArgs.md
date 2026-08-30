@@ -8,6 +8,6 @@
 
 > **ObservabilityExportersArgs** = [`ObservabilityCommandArgs`](ObservabilityCommandArgs.md)
 
-Defined in: [types/cli.ts:1190](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1190)
+Defined in: [types/cli.ts:1232](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1232)
 
 Observability exporters sub-command args

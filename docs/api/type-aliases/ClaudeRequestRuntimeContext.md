@@ -8,7 +8,7 @@
 
 > **ClaudeRequestRuntimeContext** = `object`
 
-Defined in: [types/proxy.ts:795](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L795)
+Defined in: [types/proxy.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L852)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:795](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tracer?**: `ProxyTracer`
 
-Defined in: [types/proxy.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L796)
+Defined in: [types/proxy.ts:853](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L853)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:796](https://github.com/juspay/neurolink/blob/releas
 
 > **requestStartTime**: `number`
 
-Defined in: [types/proxy.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L797)
+Defined in: [types/proxy.ts:854](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L854)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:797](https://github.com/juspay/neurolink/blob/releas
 
 > **logProxyBody**: [`ProxyBodyCaptureLogger`](ProxyBodyCaptureLogger.md)
 
-Defined in: [types/proxy.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L798)
+Defined in: [types/proxy.ts:855](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L855)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:798](https://github.com/juspay/neurolink/blob/releas
 
 > **logFinalRequest**: [`ClaudeFinalRequestLogger`](ClaudeFinalRequestLogger.md)
 
-Defined in: [types/proxy.ts:799](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L799)
+Defined in: [types/proxy.ts:856](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L856)
 
 ---
 
@@ -48,4 +48,4 @@ Defined in: [types/proxy.ts:799](https://github.com/juspay/neurolink/blob/releas
 
 > **buildLoggedClaudeError**: [`ClaudeLoggedErrorBuilder`](ClaudeLoggedErrorBuilder.md)
 
-Defined in: [types/proxy.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L800)
+Defined in: [types/proxy.ts:857](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L857)

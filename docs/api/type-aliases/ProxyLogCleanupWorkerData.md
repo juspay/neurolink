@@ -8,7 +8,7 @@
 
 > **ProxyLogCleanupWorkerData** = `object`
 
-Defined in: [types/proxy.ts:3005](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3005)
+Defined in: [types/proxy.ts:3072](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3072)
 
 Data passed to the isolated proxy log-retention worker.
 
@@ -18,7 +18,7 @@ Data passed to the isolated proxy log-retention worker.
 
 > **logsDir**: `string`
 
-Defined in: [types/proxy.ts:3006](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3006)
+Defined in: [types/proxy.ts:3073](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3073)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3006](https://github.com/juspay/neurolink/blob/relea
 
 > **maxAgeDays**: `number`
 
-Defined in: [types/proxy.ts:3007](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3007)
+Defined in: [types/proxy.ts:3074](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3074)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:3007](https://github.com/juspay/neurolink/blob/relea
 
 > **maxSizeMb**: `number`
 
-Defined in: [types/proxy.ts:3008](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3008)
+Defined in: [types/proxy.ts:3075](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3075)

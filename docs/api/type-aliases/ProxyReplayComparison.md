@@ -8,7 +8,7 @@
 
 > **ProxyReplayComparison** = `object`
 
-Defined in: [types/proxy.ts:2221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2221)
+Defined in: [types/proxy.ts:2288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2288)
 
 Redacted direct-upstream response and comparison with captured evidence.
 
@@ -18,7 +18,7 @@ Redacted direct-upstream response and comparison with captured evidence.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:2222](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2222)
+Defined in: [types/proxy.ts:2289](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2289)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2222](https://github.com/juspay/neurolink/blob/relea
 
 > **kind**: `"neurolink.proxy.replay-comparison"`
 
-Defined in: [types/proxy.ts:2223](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2223)
+Defined in: [types/proxy.ts:2290](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2290)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2223](https://github.com/juspay/neurolink/blob/relea
 
 > **requestId**: `string`
 
-Defined in: [types/proxy.ts:2224](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2224)
+Defined in: [types/proxy.ts:2291](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2291)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2224](https://github.com/juspay/neurolink/blob/relea
 
 > **selectedAttempt**: `number`
 
-Defined in: [types/proxy.ts:2225](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2225)
+Defined in: [types/proxy.ts:2292](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2292)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2225](https://github.com/juspay/neurolink/blob/relea
 
 > **endpoint**: `string`
 
-Defined in: [types/proxy.ts:2226](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2226)
+Defined in: [types/proxy.ts:2293](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2293)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2226](https://github.com/juspay/neurolink/blob/relea
 
 > **request**: `object`
 
-Defined in: [types/proxy.ts:2227](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2227)
+Defined in: [types/proxy.ts:2294](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2294)
 
 #### method
 
@@ -86,7 +86,7 @@ Defined in: [types/proxy.ts:2227](https://github.com/juspay/neurolink/blob/relea
 
 > **captured**: \{ `status`: `number` \| `null`; `contentType`: `string` \| `null`; `bodySha256`: `string` \| `null`; `bodyBytes`: `number` \| `null`; `bodyTruncated`: `boolean`; `jsonShape`: `string`[] \| `null`; \} \| `null`
 
-Defined in: [types/proxy.ts:2234](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2234)
+Defined in: [types/proxy.ts:2301](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2301)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [types/proxy.ts:2234](https://github.com/juspay/neurolink/blob/relea
 
 > **direct**: `object`
 
-Defined in: [types/proxy.ts:2242](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2242)
+Defined in: [types/proxy.ts:2309](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2309)
 
 #### status
 
@@ -146,7 +146,7 @@ Defined in: [types/proxy.ts:2242](https://github.com/juspay/neurolink/blob/relea
 
 > **comparison**: `object`
 
-Defined in: [types/proxy.ts:2255](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2255)
+Defined in: [types/proxy.ts:2322](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2322)
 
 #### statusMatches
 

@@ -8,7 +8,7 @@
 
 > **LoadProxyConfigOptions** = `object`
 
-Defined in: [types/proxy.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L499)
+Defined in: [types/proxy.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L500)
 
 Options for loadProxyConfig.
 
@@ -18,7 +18,7 @@ Options for loadProxyConfig.
 
 > `optional` **resolveEnv?**: `boolean`
 
-Defined in: [types/proxy.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L501)
+Defined in: [types/proxy.ts:502](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L502)
 
 Resolve environment variables in string values (default: true)
 
@@ -28,6 +28,6 @@ Resolve environment variables in string values (default: true)
 
 > `optional` **env?**: `Record`\<`string`, `string` \| `undefined`\>
 
-Defined in: [types/proxy.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L503)
+Defined in: [types/proxy.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L504)
 
 Custom environment object (defaults to process.env)

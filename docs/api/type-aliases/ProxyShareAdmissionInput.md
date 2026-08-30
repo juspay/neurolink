@@ -8,7 +8,7 @@
 
 > **ProxyShareAdmissionInput** = `object`
 
-Defined in: [types/proxy.ts:3519](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3519)
+Defined in: [types/proxy.ts:3589](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3589)
 
 Everything `evaluateShareAdmission` needs. Pure input — no I/O.
 
@@ -18,7 +18,7 @@ Everything `evaluateShareAdmission` needs. Pure input — no I/O.
 
 > **grant**: [`ProxyShareGrant`](ProxyShareGrant.md)
 
-Defined in: [types/proxy.ts:3520](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3520)
+Defined in: [types/proxy.ts:3590](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3590)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3520](https://github.com/juspay/neurolink/blob/relea
 
 > **now**: `number`
 
-Defined in: [types/proxy.ts:3521](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3521)
+Defined in: [types/proxy.ts:3591](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3591)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3521](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/proxy.ts:3523](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3523)
+Defined in: [types/proxy.ts:3593](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3593)
 
 Requested model, used against the model allowlist.
 
@@ -44,7 +44,7 @@ Requested model, used against the model allowlist.
 
 > **counters**: [`ProxyShareRuntimeCounters`](ProxyShareRuntimeCounters.md)
 
-Defined in: [types/proxy.ts:3524](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3524)
+Defined in: [types/proxy.ts:3594](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3594)
 
 ---
 
@@ -52,6 +52,6 @@ Defined in: [types/proxy.ts:3524](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **coinBalance?**: `number`
 
-Defined in: [types/proxy.ts:3526](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3526)
+Defined in: [types/proxy.ts:3596](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3596)
 
 Remaining coins; omitted for an unlimited grant.

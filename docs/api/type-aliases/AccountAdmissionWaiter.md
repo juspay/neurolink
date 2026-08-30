@@ -8,7 +8,7 @@
 
 > **AccountAdmissionWaiter** = `object`
 
-Defined in: [types/proxy.ts:888](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L888)
+Defined in: [types/proxy.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L945)
 
 One queued request waiting for per-account admission capacity.
 
@@ -18,7 +18,7 @@ One queued request waiting for per-account admission capacity.
 
 > **capacity**: `number`
 
-Defined in: [types/proxy.ts:889](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L889)
+Defined in: [types/proxy.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L946)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:889](https://github.com/juspay/neurolink/blob/releas
 
 > **resolve**: (`lease`) => `void`
 
-Defined in: [types/proxy.ts:890](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L890)
+Defined in: [types/proxy.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L947)
 
 #### Parameters
 

@@ -8,7 +8,7 @@
 
 > **ProxyWorkerSocketMessage** = `object`
 
-Defined in: [types/proxy.ts:2612](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2612)
+Defined in: [types/proxy.ts:2679](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2679)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2612](https://github.com/juspay/neurolink/blob/relea
 
 > **type**: `"proxy-worker:socket"`
 
-Defined in: [types/proxy.ts:2613](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2613)
+Defined in: [types/proxy.ts:2680](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2680)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:2613](https://github.com/juspay/neurolink/blob/relea
 
 > **generation**: `number`
 
-Defined in: [types/proxy.ts:2614](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2614)
+Defined in: [types/proxy.ts:2681](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2681)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:2614](https://github.com/juspay/neurolink/blob/relea
 
 > **socketId**: `string`
 
-Defined in: [types/proxy.ts:2615](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2615)
+Defined in: [types/proxy.ts:2682](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2682)

@@ -629,39 +629,99 @@ await test("importCodexAuthFile rejects credentials that cannot be pooled", asyn
   assertEqual(credential.planType, "pro", "the plan type must survive import");
 });
 
-await test("a proactive refresh runs once for concurrent callers", async () => {
-  // OpenAI rotates the refresh token on every call, so simultaneous refreshes
-  // invalidate each other and the losers look like a rejected grant — which is
-  // what disables an account and gets its credential deleted by auth cleanup.
-  const originalFetch = globalThis.fetch;
+await test("a proactive refresh stays single-flight until the rotated token persists", async () => {
+  // OpenAI rotates the refresh token on every call. The second caller starts
+  // after the first has received its response but before the first write
+  // completes: releasing the lock early would call the authorization server
+  // again with r1, which is how a healthy account gets disabled.
+  const { TokenStore } = await import("../src/lib/auth/tokenStore.js");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: join(
+      mkdtempSync(join(tmpdir(), "neurolink-codex-refresh-")),
+      "tokens.json",
+    ),
+  });
+  await store.saveTokens("codex:shared", {
+    accessToken: "old-access",
+    refreshToken: "r1",
+    expiresAt: Date.now() + 3_600_000,
+    tokenType: "Bearer",
+  });
+
   let calls = 0;
-  globalThis.fetch = (async () => {
+  let releaseRefresh: (() => void) | undefined;
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+  let refreshStarted: (() => void) | undefined;
+  const refreshStartedPromise = new Promise<void>((resolve) => {
+    refreshStarted = resolve;
+  });
+  let releaseSave: (() => void) | undefined;
+  const saveReleased = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  let saveStarted: (() => void) | undefined;
+  const saveStartedPromise = new Promise<void>((resolve) => {
+    saveStarted = resolve;
+  });
+  const delayedStore = {
+    peekTokens: store.peekTokens.bind(store),
+    saveTokens: async (...args: Parameters<typeof store.saveTokens>) => {
+      saveStarted?.();
+      await saveReleased;
+      await store.saveTokens(...args);
+    },
+  };
+  const refresh = async () => {
     calls += 1;
-    await new Promise((r) => setTimeout(r, 30));
-    return new Response(
-      JSON.stringify({ access_token: fakeCodexJwt({}), refresh_token: "r2" }),
-      { status: 200, headers: { "content-type": "application/json" } },
-    );
-  }) as typeof globalThis.fetch;
-  try {
-    const results = await Promise.all(
-      Array.from({ length: 5 }, () =>
-        __testHooks.refreshCodexTokenOnce("codex:shared", "r1"),
-      ),
-    );
-    assertEqual(calls, 1, "five concurrent refreshes must make one token call");
-    assert(
-      results.every((r) => r.refreshToken === "r2"),
-      "every caller must receive the same rotated token",
-    );
-    assertEqual(
-      __testHooks.codexRefreshInFlightSize(),
-      0,
-      "the in-flight entry must be released after settling",
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+    refreshStarted?.();
+    await refreshReleased;
+    return {
+      accessToken: fakeCodexJwt({}),
+      refreshToken: "r2",
+      expiresAt: Date.now() + 3_600_000,
+    };
+  };
+
+  const first = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:shared",
+    "r1",
+    delayedStore,
+    refresh,
+  );
+  await refreshStartedPromise;
+  releaseRefresh?.();
+  await saveStartedPromise;
+  const second = __testHooks.refreshCodexTokenOnceWithDependencies(
+    "codex:shared",
+    "r1",
+    delayedStore,
+    refresh,
+  );
+  assertEqual(
+    calls,
+    1,
+    "a caller during token persistence must share the original refresh",
+  );
+  releaseSave?.();
+
+  const results = await Promise.all([first, second]);
+  assert(
+    results.every((result) => result.refreshToken === "r2"),
+    "every caller must receive the same rotated token",
+  );
+  assertEqual(
+    (await store.peekTokens("codex:shared"))?.refreshToken,
+    "r2",
+    "the rotated token must persist before the single-flight lock releases",
+  );
+  assertEqual(
+    __testHooks.codexRefreshInFlightSize(),
+    0,
+    "the in-flight entry must be released after settling",
+  );
 });
 
 // ---------------------------------------------------------------------------

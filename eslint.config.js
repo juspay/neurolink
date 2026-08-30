@@ -411,6 +411,10 @@ export default [
             // real surface. Its last two cases drive the built CLI and are
             // deliberately outside the exception.
             "test/continuous-test-suite-codex.ts",
+            // Synthetic Codex response streams, upstream transport failures,
+            // and provider-qualified persistence all need exact outcomes that
+            // a live request cannot safely or deterministically reproduce.
+            "test/codex-quota-observability.test.ts",
             // Internal agentic-loop-engine primitives (streamChannel,
             // nativeToolFormat, loopEngine) have no exported surface at all
             // — none of src/lib/core/{streamChannel,nativeToolFormat,

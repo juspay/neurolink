@@ -180,14 +180,13 @@ jobs:
         with:
           github-token: ${{ secrets.YAMA_GITHUB_TOKEN }}
           ai-provider: litellm
-          # Model alias on the LiteLLM gateway the LITELLM_* secrets point at
-          # (grid.breezehq.dev). The gateway exposes general / general-fast /
-          # coder; the old private-large alias no longer exists there.
-          ai-model: general-fast
+          # Model alias authorized for the LiteLLM team behind the LITELLM_*
+          # secrets. Keep this aligned with the team's permitted fast model.
+          ai-model: open-fast-sa
           # Explore/verification subagents run on the SAME model as the main
           # review (this is also the action's default when omitted — set
           # explicitly so the choice is visible).
-          explore-model: general-fast
+          explore-model: open-fast-sa
           litellm-base-url: ${{ secrets.LITELLM_BASE_URL }}
           litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
           config-path: .yama/config.yaml

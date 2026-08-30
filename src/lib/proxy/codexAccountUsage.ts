@@ -42,7 +42,20 @@ export function normalizeCodexAccountKey(value: string): string {
 export function resolveProxyStatusAccountIdentity(
   label: string,
   type: string,
+  persistedKey?: string,
 ): CodexProxyStatusAccountIdentity {
+  // Current counter snapshots persist the provider-qualified key. Prefer it
+  // over the display type so a future type rename cannot move an account into
+  // the wrong cooldown/disabled namespace.
+  if (persistedKey?.toLowerCase().startsWith("anthropic:")) {
+    return {
+      provider: "anthropic",
+      key: normalizeAnthropicAccountKey(persistedKey),
+    };
+  }
+  if (persistedKey?.startsWith(CODEX_ACCOUNT_PREFIX)) {
+    return { provider: "codex", key: persistedKey };
+  }
   if (type === "oauth" || type === "api_key") {
     return { provider: "anthropic", key: normalizeAnthropicAccountKey(label) };
   }

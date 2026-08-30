@@ -8,7 +8,7 @@
 
 > **SetupHuggingFaceArgs** = `object`
 
-Defined in: [types/cli.ts:1661](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1661)
+Defined in: [types/cli.ts:1703](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1703)
 
 Arguments for `neurolink setup huggingface`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink setup huggingface`.
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:1662](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1662)
+Defined in: [types/cli.ts:1704](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1704)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1662](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **non-interactive?**: `boolean`
 
-Defined in: [types/cli.ts:1663](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1663)
+Defined in: [types/cli.ts:1705](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1705)

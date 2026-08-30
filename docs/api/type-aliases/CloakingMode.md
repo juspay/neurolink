@@ -8,6 +8,6 @@
 
 > **CloakingMode** = `"auto"` \| `"always"` \| `"never"`
 
-Defined in: [types/proxy.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L367)
+Defined in: [types/proxy.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L368)
 
 Cloaking mode configuration.

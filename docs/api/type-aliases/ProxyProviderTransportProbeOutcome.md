@@ -8,4 +8,4 @@
 
 > **ProxyProviderTransportProbeOutcome** = `"recovered"` \| `"failed"` \| `"abandoned"`
 
-Defined in: [types/proxy.ts:545](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L545)
+Defined in: [types/proxy.ts:546](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L546)
