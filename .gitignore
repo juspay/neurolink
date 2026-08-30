@@ -190,3 +190,9 @@ NEUROLINK_SDK_GAPS.md
 
 # Subagent-driven-development scratch workspace (ledger, briefs, review packages)
 .superpowers/
+
+# Yama v6: the memory DATABASE (.yama/memory/hippocampus.sqlite) is committed —
+# its WAL/SHM siblings and the run logs are not
+.yama/memory/*.sqlite-*
+.yama/*.log
+.yama/.env

@@ -1,0 +1,43 @@
+{
+  "provider": ["litellm", "litellm"],
+  "model": ["open-fast-sa", "open-large-sa"],
+  "maxSteps": 120,
+  "userId": "neurolink-repo",
+  "systemPrompt": "You are Yama, the pull-request review agent for the NeuroLink repository. You run inside .yama/; the repository root is the parent directory (../). Use your tools, skills and memory; be concrete and cite files and lines.",
+  "learnPrompt": "Pull request ${pr} of ${GITHUB_REPOSITORY} has been merged. This is a read-only retrospective: do NOT post, edit, resolve or react to anything on the PR. Using the github tools, read the PR's title, description and final diff summary, every review comment Yama posted, every author and reviewer reply, and the resolution state of each thread. Then work out what the review got right and wrong: findings the author refuted or that proved false positives (state the general rule that would have avoided each), findings the author accepted and fixed (confirm the convention behind them), replies that settled a project convention, and any finding ignored and merged anyway. End with a section titled 'Learnings' stating each durable lesson as a standalone, imperative, repo-specific sentence a future review of a DIFFERENT pull request can apply directly. If the discussion teaches nothing durable, end with 'Learnings: none.'",
+  "learn": {
+    "commit": true,
+    "push": true,
+    "remote": "origin",
+    "branch": "release",
+    "commitPrefix": "chore(yama): ",
+    "skipCiToken": "[skip ci]"
+  },
+  "timeouts": {
+    "requestTimeoutMs": 300000,
+    "turnTimeoutMs": 2400000,
+    "stallTimeoutMs": 180000
+  },
+  "compaction": {
+    "enabled": true,
+    "threshold": 0.8
+  },
+  "summarization": {
+    "provider": "litellm",
+    "model": "open-fast-sa"
+  },
+  "memory": {
+    "path": "memory/hippocampus.sqlite",
+    "maxWords": 500,
+    "flushWaitMs": 20000
+  },
+  "skills": {
+    "path": "skills",
+    "discovery": "tool"
+  },
+  "delegation": {
+    "enabled": true,
+    "maxConcurrent": 3
+  },
+  "generateOptions": {}
+}

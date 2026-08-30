@@ -1,0 +1,26 @@
+{
+  "servers": {
+    "github": {
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "description": "GitHub hosted MCP server — pull request data, files, review comments",
+      "headers": {
+        "Authorization": "Bearer ${YAMA_GITHUB_TOKEN}"
+      },
+      "timeout": 30000
+    },
+    "code-review-graph": {
+      "transport": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "code-review-graph==2.3.7",
+        "code-review-graph",
+        "serve"
+      ],
+      "description": "Tree-sitter code graph — blast radius, callers/dependents, flows, architecture overview",
+      "cwd": "..",
+      "timeout": 60000
+    }
+  }
+}

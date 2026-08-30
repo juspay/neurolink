@@ -1,1 +1,4 @@
 action-dist/** linguist-generated=true
+
+# The committed Yama memory database is binary; keep diffs and merges quiet.
+.yama/memory/*.sqlite binary -diff
