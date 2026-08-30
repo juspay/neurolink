@@ -51,9 +51,21 @@ import {
 import {
   codexRateLimitsToQuota,
   parseCodexRateLimitHeaders,
+  resolveProxyStatusAccountIdentity,
 } from "../src/lib/proxy/codexAccountUsage.js";
+import {
+  CodexFallbackResponseError,
+  consumeCodexFallbackResponse,
+  convertClaudeRequestToCodex,
+  parseCodexFallbackSSE,
+} from "../src/lib/proxy/codexFallback.js";
+import { runWithShareContext } from "../src/lib/proxy/shareContext.js";
+import { __testHooks as claudeProxyTestHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { __testHooks } from "../src/lib/server/routes/codexProxyRoutes.js";
-import type { CodexRuntimeAccount } from "../src/lib/types/index.js";
+import type {
+  CodexRuntimeAccount,
+  ProxyShareRequestContext,
+} from "../src/lib/types/index.js";
 import { assert, assertEqual, defineSuite, runCLI } from "./helpers/harness.js";
 
 const { test, runSuite } = defineSuite("Codex Pool Engine", {
@@ -63,6 +75,13 @@ const { test, runSuite } = defineSuite("Codex Pool Engine", {
 /** Fixed clock so reset arithmetic is deterministic. */
 const NOW = 1_800_000_000_000;
 const NOW_SECONDS = Math.floor(NOW / 1000);
+const BORROWED_REQUEST_CONTEXT: ProxyShareRequestContext = {
+  grantId: "test-grant",
+  peerLabel: "test-peer",
+  level: "live",
+  gates: {},
+  ledger: "unlimited",
+};
 
 function account(
   label: string,
@@ -75,6 +94,77 @@ function account(
     ...over,
   } as CodexRuntimeAccount;
 }
+
+// ---------------------------------------------------------------------------
+// Status identity
+// ---------------------------------------------------------------------------
+
+await test("status keeps same-label Anthropic and Codex cooldowns separate", () => {
+  const label = "shared@example.com";
+  const anthropic = resolveProxyStatusAccountIdentity(label, "oauth");
+  const codex = resolveProxyStatusAccountIdentity(label, "codex-oauth");
+
+  assertEqual(
+    anthropic.key,
+    "anthropic:shared@example.com",
+    "Anthropic status must use the Anthropic account key",
+  );
+  assertEqual(
+    codex.key,
+    "codex:shared@example.com",
+    "Codex status must use the Codex account key",
+  );
+  assert(
+    anthropic.provider !== codex.provider && anthropic.key !== codex.key,
+    "a shared email must not share provider cooldown state",
+  );
+});
+
+await test("status treats Anthropic API-key accounts as Anthropic", () => {
+  const apiKey = resolveProxyStatusAccountIdentity("env", "api_key");
+  assertEqual(
+    apiKey.provider,
+    "anthropic",
+    "Anthropic API-key rows must retain their provider identity",
+  );
+  assertEqual(
+    apiKey.key,
+    "anthropic:env",
+    "Anthropic API-key rows must use the Anthropic cooldown key",
+  );
+});
+
+await test("borrowed Codex fallback hides lender attribution headers", () => {
+  const headers = runWithShareContext(BORROWED_REQUEST_CONTEXT, () =>
+    claudeProxyTestHooks.redactHeadersForBorrower({
+      "x-neurolink-account": "lender@example.com",
+      "x-neurolink-account-type": "codex-oauth",
+      "x-neurolink-pool-accounts": "3",
+      "x-neurolink-served-by": "codex",
+    }),
+  );
+
+  assertEqual(
+    headers["x-neurolink-account"],
+    undefined,
+    "borrowed fallback exposed the lender account label",
+  );
+  assertEqual(
+    headers["x-neurolink-account-type"],
+    undefined,
+    "borrowed fallback exposed the lender account type",
+  );
+  assertEqual(
+    headers["x-neurolink-pool-accounts"],
+    undefined,
+    "borrowed fallback exposed lender pool metadata",
+  );
+  assertEqual(
+    headers["x-neurolink-served-by"],
+    "codex",
+    "borrowed fallback hid provider attribution",
+  );
+});
 
 // ---------------------------------------------------------------------------
 // Ordering
@@ -988,6 +1078,537 @@ await test("codex capture holds its byte cap against a single oversized chunk", 
     }
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Claude -> Codex fallback wire bridge
+// ---------------------------------------------------------------------------
+
+await test("Claude fallback converts system, history, tools, and tool results", () => {
+  const request = convertClaudeRequestToCodex(
+    {
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 777,
+      system: [
+        { type: "text", text: "Follow the system policy." },
+        { type: "text", text: "Return concise answers." },
+      ],
+      temperature: 0.3,
+      top_p: 0.8,
+      messages: [
+        { role: "user", content: "Find the release status." },
+        {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I will look it up." },
+            {
+              type: "tool_use",
+              id: "toolu_lookup",
+              name: "lookup_release",
+              input: { branch: "release" },
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "toolu_lookup",
+              content: "release is healthy",
+            },
+            { type: "text", text: "Summarize that result." },
+          ],
+        },
+      ],
+      tools: [
+        {
+          name: "lookup_release",
+          description: "Read release status.",
+          input_schema: {
+            type: "object",
+            properties: { branch: { type: "string" } },
+            required: ["branch"],
+          },
+        },
+      ],
+      tool_choice: { type: "tool", name: "lookup_release" },
+    },
+    "gpt-5.6-terra",
+  );
+
+  assertEqual(request.model, "gpt-5.6-terra", "fallback model was not used");
+  assertEqual(request.store, false, "Codex backend requires store=false");
+  assertEqual(request.stream, true, "fallback must buffer an SSE response");
+  assertEqual(
+    request.instructions,
+    "Follow the system policy.\n\nReturn concise answers.",
+    "system blocks were not preserved as Codex instructions",
+  );
+  assert(
+    !("max_output_tokens" in request),
+    "Anthropic max_tokens must not reach the Codex backend",
+  );
+  assert(
+    !("temperature" in request),
+    "Anthropic temperature must not reach the Codex backend",
+  );
+  assert(
+    !("top_p" in request),
+    "Anthropic top_p must not reach the Codex backend",
+  );
+  assertEqual(
+    JSON.stringify(request.tool_choice),
+    JSON.stringify({ type: "function", name: "lookup_release" }),
+    "named tool choice was not translated",
+  );
+  assertEqual(
+    request.tools?.[0]?.type,
+    "function",
+    "tool type was not translated",
+  );
+  assertEqual(
+    (request.tools?.[0]?.parameters.required as string[] | undefined)?.[0],
+    "branch",
+    "tool schema was not preserved",
+  );
+  assertEqual(request.input.length, 5, "conversation items were not preserved");
+  assertEqual(
+    (request.input[1] as { role?: string }).role,
+    "assistant",
+    "assistant history lost its role",
+  );
+  assertEqual(
+    (request.input[2] as { type?: string }).type,
+    "function_call",
+    "assistant tool use was not translated",
+  );
+  assertEqual(
+    (request.input[3] as { type?: string }).type,
+    "function_call_output",
+    "tool result was not translated",
+  );
+  assertEqual(
+    (request.input[3] as { call_id?: string }).call_id,
+    "toolu_lookup",
+    "tool result no longer matches the prior tool call",
+  );
+});
+
+await test("Claude fallback maps automatic and required tool choices", () => {
+  const base = {
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 64,
+    messages: [{ role: "user" as const, content: "Use a tool." }],
+  };
+  const auto = convertClaudeRequestToCodex(
+    { ...base, tool_choice: { type: "auto" } },
+    "gpt-5.6-terra",
+  );
+  const required = convertClaudeRequestToCodex(
+    { ...base, tool_choice: { type: "any" } },
+    "gpt-5.6-terra",
+  );
+  const none = convertClaudeRequestToCodex(
+    { ...base, tool_choice: { type: "none" } },
+    "gpt-5.6-terra",
+  );
+  assertEqual(auto.tool_choice, "auto", "automatic tool choice changed");
+  assertEqual(
+    required.tool_choice,
+    "required",
+    "required tool choice was not translated",
+  );
+  assertEqual(none.tool_choice, "none", "disabled tool choice changed");
+});
+
+await test("Codex fallback parses text SSE and usage only after completion", () => {
+  const parsed = parseCodexFallbackSSE(
+    [
+      "event: response.output_text.delta",
+      'data: {"type":"response.output_text.delta","delta":"Hello "}',
+      "",
+      "event: response.output_text.delta",
+      'data: {"type":"response.output_text.delta","delta":"world"}',
+      "",
+      "event: response.completed",
+      'data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":12,"output_tokens":5,"input_tokens_details":{"cached_tokens":3,"cache_write_tokens":2}}}}',
+      "",
+    ].join("\n"),
+  );
+  assertEqual(parsed.text, "Hello world", "text deltas were not joined");
+  assertEqual(parsed.finishReason, "end_turn", "text finish reason changed");
+  assertEqual(parsed.usage?.input, 12, "input usage was not read");
+  assertEqual(parsed.usage?.output, 5, "output usage was not read");
+  assertEqual(
+    parsed.usage?.cacheReadTokens,
+    3,
+    "cache-read usage was not read",
+  );
+  assertEqual(
+    parsed.usage?.cacheCreationTokens,
+    2,
+    "cache-creation usage was not read",
+  );
+});
+
+await test("Codex fallback ignores unrecognized SSE extension fields", () => {
+  const parsed = parseCodexFallbackSSE(
+    [
+      "event: response.output_text.delta",
+      "trace: upstream-extension",
+      "field-without-a-value",
+      'data: {"type":"response.output_text.delta","delta":"Hello"}',
+      "",
+      "event: response.completed",
+      'data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1}}}',
+      "",
+    ].join("\n"),
+  );
+  assertEqual(
+    parsed.text,
+    "Hello",
+    "extension fields discarded a valid response",
+  );
+});
+
+await test("Codex fallback parses completed function calls", () => {
+  const parsed = parseCodexFallbackSSE(
+    [
+      "event: response.output_item.done",
+      'data: {"type":"response.output_item.done","item":{"type":"function_call","call_id":"call_123","name":"lookup_release","arguments":"{\\"branch\\":\\"release\\"}"}}',
+      "",
+      "event: response.completed",
+      'data: {"type":"response.completed","response":{"status":"completed","usage":{"input_tokens":9,"output_tokens":4}}}',
+      "",
+    ].join("\n"),
+  );
+  assertEqual(parsed.text, "", "tool-only response invented text");
+  assertEqual(parsed.finishReason, "tool_use", "tool finish reason changed");
+  assertEqual(parsed.toolCalls.length, 1, "function call was not captured");
+  assertEqual(
+    parsed.toolCalls[0]?.toolCallId,
+    "call_123",
+    "function call id was not preserved",
+  );
+  assertEqual(
+    parsed.toolCalls[0]?.args.branch as string,
+    "release",
+    "function call arguments were not parsed",
+  );
+});
+
+await test("Codex fallback recovers final text when delta events are absent", () => {
+  const parsed = parseCodexFallbackSSE(
+    [
+      "event: response.output_item.done",
+      'data: {"type":"response.output_item.done","item":{"type":"message","content":[{"type":"output_text","text":"final answer"}]}}',
+      "",
+      "event: response.completed",
+      'data: {"type":"response.completed","response":{"status":"completed"}}',
+      "",
+    ].join("\n"),
+  );
+  assertEqual(
+    parsed.text,
+    "final answer",
+    "completed message text was not used as a fallback",
+  );
+});
+
+await test("Codex fallback rejects empty, malformed, and incomplete streams", () => {
+  const cases = [
+    [
+      "empty",
+      [
+        "event: response.completed",
+        'data: {"type":"response.completed","response":{"status":"completed"}}',
+        "",
+      ].join("\n"),
+    ],
+    [
+      "malformed",
+      ["event: response.output_text.delta", "data: {not-json}", ""].join("\n"),
+    ],
+    [
+      "incomplete",
+      [
+        "event: response.output_text.delta",
+        'data: {"type":"response.output_text.delta","delta":"partial"}',
+        "",
+      ].join("\n"),
+    ],
+  ] as const;
+  for (const [name, stream] of cases) {
+    let rejected = false;
+    try {
+      parseCodexFallbackSSE(stream);
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, `${name} Codex stream was treated as a success`);
+  }
+});
+
+await test("Codex fallback consumes non-success responses before rejecting", async () => {
+  const response = new Response('{"error":{"message":"quota exhausted"}}', {
+    status: 429,
+    headers: { "content-type": "application/json" },
+  });
+  let rejected = false;
+  try {
+    await consumeCodexFallbackResponse(response);
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, "non-success Codex response was treated as a success");
+  assert(response.bodyUsed, "non-success Codex response body was not consumed");
+});
+
+await test("an unavailable Anthropic model remains eligible for configured fallback", async () => {
+  const account = {
+    key: "anthropic:legacy@example.com",
+    label: "legacy@example.com",
+    token: "test-token",
+    type: "oauth" as const,
+  };
+  const run = (
+    allowConfiguredModelFallback: boolean,
+    message = "model: claude-3-5-sonnet",
+  ) =>
+    claudeProxyTestHooks.handleAnthropicNonOkResponse({
+      response: new Response(
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "not_found_error",
+            message,
+          },
+        }),
+        { status: 404, headers: { "content-type": "application/json" } },
+      ),
+      account: account as never,
+      accountState: {
+        consecutiveRefreshFailures: 0,
+        permanentlyDisabled: false,
+      } as never,
+      enabledAccounts: [account] as never,
+      orderedAccounts: [account] as never,
+      requestStartTime: Date.now(),
+      fetchStartMs: Date.now(),
+      attemptNumber: 1,
+      logAttempt: () => undefined,
+      logProxyBody: () => undefined,
+      logFinalRequest: () => undefined,
+      lastError: undefined,
+      authFailureMessage: null,
+      sawTransientFailure: false,
+      invalidRequestFailure: null,
+      entitlementFailure: null,
+      allowConfiguredModelFallback,
+    });
+
+  const fallbackEligible = await run(true);
+  assertEqual(
+    fallbackEligible.continueLoop,
+    false,
+    "model-not-found should end the Anthropic account loop",
+  );
+  assertEqual(
+    fallbackEligible.response,
+    undefined,
+    "model-not-found should reach the configured fallback",
+  );
+  assertEqual(
+    fallbackEligible.invalidRequestFailure,
+    null,
+    "model-not-found should not suppress configured fallback",
+  );
+
+  const terminal = await run(false);
+  const terminalError = terminal.response as {
+    type?: string;
+    error?: { type?: string };
+  };
+  if (!terminalError) {
+    throw new Error("unconfigured model-not-found did not remain terminal");
+  }
+  assertEqual(
+    terminalError.type,
+    "error",
+    "unconfigured model-not-found did not retain Claude error shape",
+  );
+  assertEqual(
+    terminalError.error?.type,
+    "not_found_error",
+    "unconfigured model-not-found did not retain error type",
+  );
+
+  const unrelated = await run(true, "resource: missing-file");
+  const unrelatedError = unrelated.response as {
+    type?: string;
+    error?: { type?: string };
+  };
+  if (!unrelatedError) {
+    throw new Error("unrelated 404 did not remain terminal");
+  }
+  assertEqual(
+    unrelatedError.error?.type,
+    "not_found_error",
+    "configured fallback captured an unrelated 404",
+  );
+});
+
+await test("Codex fallback preserves a request error without an Anthropic cooldown", async () => {
+  const responseBody = JSON.stringify({
+    error: {
+      type: "invalid_request_error",
+      message: "The image data you provided does not represent a valid image.",
+    },
+  });
+  const invalidRequestFailure =
+    claudeProxyTestHooks.getCodexFallbackInvalidRequestFailure(
+      new CodexFallbackResponseError(400, responseBody),
+    );
+  assert(invalidRequestFailure !== null, "Codex 400 was not retained");
+  assertEqual(
+    claudeProxyTestHooks.getCodexFallbackInvalidRequestFailure(
+      new CodexFallbackResponseError(429, responseBody),
+    ),
+    null,
+    "Codex quota errors must not be treated as invalid requests",
+  );
+
+  const result = claudeProxyTestHooks.buildClaudeAnthropicFailureResponse({
+    tracer: undefined,
+    requestStartTime: Date.now(),
+    authFailureMessage: null,
+    authCooldownMessage: null,
+    invalidRequestFailure,
+    entitlementFailure: null,
+    scopedExhaustion: null,
+    sawNetworkError: false,
+    sawTransientFailure: false,
+    sawRateLimit: false,
+    lastError: undefined,
+    orderedAccounts: [],
+    buildLoggedClaudeError: (() => {
+      throw new Error("invalid request should build a direct HTTP response");
+    }) as never,
+    logProxyBody: () => undefined,
+    logFinalRequest: () => undefined,
+  });
+  if (!(result instanceof Response)) {
+    throw new Error("invalid request did not retain HTTP status");
+  }
+  assertEqual(result.status, 400, "Codex 400 was rewritten unexpectedly");
+  const body = (await result.json()) as {
+    type?: string;
+    error?: { type?: string; message?: string };
+  };
+  assertEqual(body.type, "error", "response was not Claude-compatible");
+  assertEqual(
+    body.error?.type,
+    "invalid_request_error",
+    "response did not retain invalid_request_error",
+  );
+  assert(
+    body.error?.message?.includes("does not represent a valid image") === true,
+    "response did not retain the Codex validation message",
+  );
+});
+
+await test("Claude invalid requests retain structured upstream error details", async () => {
+  const responseBody = JSON.stringify({
+    type: "error",
+    error: {
+      type: "invalid_request_error",
+      message: `The invalid field is messages[0].content: ${"x".repeat(220)}`,
+      details: { error_code: "invalid_field" },
+    },
+  });
+  const result = claudeProxyTestHooks.buildClaudeAnthropicFailureResponse({
+    tracer: undefined,
+    requestStartTime: Date.now(),
+    authFailureMessage: null,
+    authCooldownMessage: null,
+    invalidRequestFailure: {
+      status: 400,
+      body: responseBody,
+      contentType: "application/vnd.anthropic+json; charset=utf-8",
+    },
+    entitlementFailure: null,
+    scopedExhaustion: null,
+    sawNetworkError: false,
+    sawTransientFailure: false,
+    sawRateLimit: false,
+    lastError: undefined,
+    orderedAccounts: [],
+    buildLoggedClaudeError: (() => {
+      throw new Error("invalid request should build a direct HTTP response");
+    }) as never,
+    logProxyBody: () => undefined,
+    logFinalRequest: () => undefined,
+  });
+  if (!(result instanceof Response)) {
+    throw new Error("invalid request did not retain HTTP status");
+  }
+  assertEqual(result.status, 400, "invalid request did not retain HTTP status");
+  assertEqual(
+    result.headers.get("content-type"),
+    "application/vnd.anthropic+json; charset=utf-8",
+    "invalid request did not retain the upstream content type",
+  );
+  assertEqual(
+    await result.text(),
+    responseBody,
+    "invalid request discarded structured upstream error detail",
+  );
+});
+
+await test("Anthropic cooldown wins over a Codex fallback request error", async () => {
+  const invalidRequestFailure =
+    claudeProxyTestHooks.getCodexFallbackInvalidRequestFailure(
+      new CodexFallbackResponseError(
+        400,
+        JSON.stringify({ error: { message: "invalid converted request" } }),
+      ),
+    );
+  assert(invalidRequestFailure !== null, "Codex 400 was not retained");
+
+  const result = claudeProxyTestHooks.buildClaudeAnthropicFailureResponse({
+    tracer: undefined,
+    requestStartTime: Date.now(),
+    authFailureMessage: null,
+    authCooldownMessage: null,
+    invalidRequestFailure,
+    entitlementFailure: null,
+    scopedExhaustion: null,
+    sawNetworkError: false,
+    sawTransientFailure: false,
+    sawRateLimit: true,
+    lastError: undefined,
+    orderedAccounts: [],
+    buildLoggedClaudeError: (() => {
+      throw new Error("rate limit should build a direct HTTP response");
+    }) as never,
+    logProxyBody: () => undefined,
+    logFinalRequest: () => undefined,
+  });
+  if (!(result instanceof Response)) {
+    throw new Error("rate limit did not retain HTTP status");
+  }
+  assertEqual(result.status, 429, "Codex 400 masked the Anthropic cooldown");
+  const body = (await result.json()) as {
+    type?: string;
+    error?: { type?: string };
+  };
+  assertEqual(body.type, "error", "response was not Claude-compatible");
+  assertEqual(
+    body.error?.type,
+    "overloaded_error",
+    "response did not retain rate-limit semantics",
+  );
 });
 
 await runSuite();

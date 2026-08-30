@@ -12,6 +12,7 @@ export * from "./artifact.js";
 export * from "./auth.js";
 export * from "./autoresearch.js";
 export * from "./circuitBreakerErrors.js";
+export * from "./claudeProxy.js";
 export * from "./cli.js";
 export * from "./client.js";
 export * from "./codex.js";

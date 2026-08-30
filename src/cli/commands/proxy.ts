@@ -81,6 +81,7 @@ import {
   normalizeAnthropicAccountKey,
   shouldLoadFallbackCredential,
 } from "../../lib/proxy/accountSelection.js";
+import { resolveProxyStatusAccountIdentity } from "../../lib/proxy/codexAccountUsage.js";
 import {
   beginProxyRequest,
   getProxyActivitySnapshot,
@@ -2173,11 +2174,12 @@ export async function createProxyStartApp(params: {
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      return {};
+      return {} as Record<string, PersistedAccountCooldown>;
     });
     const storedAccountKeys = new Set<string>();
     const storedAccountExpirations = new Map<string, number>();
     const disabledAccountKeys = new Set<string>();
+    const disabledProviderAccountKeys = new Set<string>();
     let accountInventoryLoaded = false;
     try {
       const { tokenStore } = await import("../../lib/auth/tokenStore.js");
@@ -2230,6 +2232,7 @@ export async function createProxyStartApp(params: {
       }
       for (const key of inventory.disabledKeys) {
         disabledAccountKeys.add(normalizeAnthropicAccountKey(key));
+        disabledProviderAccountKeys.add(key);
       }
     } catch (err) {
       logger.debug(
@@ -2266,36 +2269,62 @@ export async function createProxyStartApp(params: {
     const accountRows: NonNullable<StatusStats["accounts"]> = Object.values(
       stats.accounts,
     ).map((account) => {
-      const normalizedKey = normalizeAnthropicAccountKey(account.label);
-      const isLegacyAccount =
-        account.type === "oauth" && account.label === legacyAccountLabel;
-      const accountKey = storedAccountKeys.has(normalizedKey)
-        ? normalizedKey
-        : isLegacyAccount
-          ? LEGACY_ANTHROPIC_ACCOUNT_KEY
-          : account.label === "env"
-            ? ENV_ANTHROPIC_ACCOUNT_KEY
-            : normalizedKey;
-      const isStored = storedAccountKeys.has(accountKey) || isLegacyAccount;
-      const { allowed, expired, cooling } = deriveAccountAllowance(
-        accountKey,
-        now,
-        activeAccountAllowlist,
-        storedAccountExpirations,
-        cooldowns,
+      const identity = resolveProxyStatusAccountIdentity(
+        account.label,
+        account.type,
       );
+      const isAnthropicAccount = identity.provider === "anthropic";
+      const isCodexAccount = identity.provider === "codex";
+      const normalizedKey =
+        identity.provider === "anthropic" ? identity.key : null;
+      const isLegacyAccount =
+        isAnthropicAccount && account.label === legacyAccountLabel;
+      const accountKey = isAnthropicAccount
+        ? storedAccountKeys.has(normalizedKey ?? "")
+          ? normalizedKey
+          : isLegacyAccount
+            ? LEGACY_ANTHROPIC_ACCOUNT_KEY
+            : account.label === "env"
+              ? ENV_ANTHROPIC_ACCOUNT_KEY
+              : normalizedKey
+        : identity.key;
+      const isStored =
+        isAnthropicAccount &&
+        accountKey !== null &&
+        (storedAccountKeys.has(accountKey) || isLegacyAccount);
+      const { allowed, expired, cooling } =
+        isAnthropicAccount && accountKey !== null
+          ? deriveAccountAllowance(
+              accountKey,
+              now,
+              activeAccountAllowlist,
+              storedAccountExpirations,
+              cooldowns,
+            )
+          : {
+              allowed: true,
+              expired: false,
+              cooling:
+                accountKey !== null &&
+                (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
+            };
+      const isDisabled =
+        (isAnthropicAccount &&
+          accountKey !== null &&
+          disabledAccountKeys.has(accountKey)) ||
+        (isCodexAccount &&
+          accountKey !== null &&
+          disabledProviderAccountKeys.has(accountKey));
       const accountStatus =
         account.type === "internal"
           ? "internal"
-          : disabledAccountKeys.has(accountKey)
+          : isDisabled
             ? "disabled"
-            : expired
+            : isAnthropicAccount && expired
               ? "expired"
-              : !allowed
+              : isAnthropicAccount && !allowed
                 ? "excluded"
-                : accountInventoryLoaded &&
-                    account.type === "oauth" &&
-                    !isStored
+                : accountInventoryLoaded && isAnthropicAccount && !isStored
                   ? "removed"
                   : cooling
                     ? "cooling"
@@ -2314,12 +2343,14 @@ export async function createProxyStartApp(params: {
         cooling,
         status: accountStatus,
         allowed: account.type === "internal" ? undefined : allowed,
-        expired: account.type === "oauth" ? expired : undefined,
+        expired: isAnthropicAccount ? expired : undefined,
       };
     });
     const representedAccountKeys = new Set(
       accountRows
-        .filter((account) => account.type === "oauth")
+        .filter(
+          (account) => account.type === "oauth" || account.type === "api_key",
+        )
         .map((account) => normalizeAnthropicAccountKey(account.label)),
     );
     for (const accountKey of storedAccountKeys) {

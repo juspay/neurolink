@@ -8,7 +8,7 @@
 
 > **CodexImportedCredential** = `object`
 
-Defined in: [types/codex.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L34)
+Defined in: [types/codex.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L38)
 
 Result of importing a Codex credential (from auth.json or the OAuth flow).
 
@@ -18,7 +18,7 @@ Result of importing a Codex credential (from auth.json or the OAuth flow).
 
 > **accessToken**: `string`
 
-Defined in: [types/codex.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L35)
+Defined in: [types/codex.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L39)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:35](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/codex.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L36)
+Defined in: [types/codex.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L40)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:36](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **idToken?**: `string`
 
-Defined in: [types/codex.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L37)
+Defined in: [types/codex.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L41)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/codex.ts:37](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **accountId?**: `string`
 
-Defined in: [types/codex.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L39)
+Defined in: [types/codex.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L43)
 
 ChatGPT account id (from auth.json or decoded from the access token).
 
@@ -52,7 +52,7 @@ ChatGPT account id (from auth.json or decoded from the access token).
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/codex.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L41)
+Defined in: [types/codex.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L45)
 
 Epoch ms when the access token expires (decoded from the JWT `exp`).
 
@@ -62,7 +62,7 @@ Epoch ms when the access token expires (decoded from the JWT `exp`).
 
 > `optional` **planType?**: `string`
 
-Defined in: [types/codex.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L43)
+Defined in: [types/codex.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L47)
 
 ChatGPT plan type decoded from the token, for display only.
 
@@ -72,6 +72,6 @@ ChatGPT plan type decoded from the token, for display only.
 
 > `optional` **email?**: `string`
 
-Defined in: [types/codex.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L45)
+Defined in: [types/codex.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L49)
 
 Account email decoded from the id token, for the account label.

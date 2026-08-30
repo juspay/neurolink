@@ -312,7 +312,7 @@ function publishCodexHeaders(
 }
 
 /** Core pooled handler for POST /backend-api/codex/responses. */
-async function handleCodexResponsesRequest(
+export async function handleCodexResponsesRequest(
   ctx: ServerContext,
 ): Promise<Response> {
   const requestStartTime = Date.now();

@@ -12,7 +12,11 @@
  * maps onto the session fields and its secondary window onto the weekly fields.
  */
 
-import type { AccountCoolingReason, AccountQuota } from "./proxy.js";
+import type {
+  AccountCoolingReason,
+  AccountQuota,
+  InternalResult,
+} from "./proxy.js";
 
 /** Token block inside `~/.codex/auth.json`. */
 export type CodexAuthFileTokens = {
@@ -98,4 +102,62 @@ export type CodexRuntimeAccount = {
    *  account is therefore eligible again, so the success path can delete the
    *  spent record — nothing else ever reaps it. */
   expiredCooldownUntil?: number;
+};
+
+/** Provider-qualified account identity used by proxy status rendering. */
+export type CodexProxyStatusAccountIdentity =
+  | { provider: "anthropic"; key: string }
+  | { provider: "codex"; key: string }
+  | { provider: "other"; key: null };
+
+/** A text or image content part accepted by the Codex Responses backend. */
+export type CodexContentPart =
+  | { type: "input_text"; text: string }
+  | { type: "output_text"; text: string }
+  | { type: "input_image"; image_url: string };
+
+/** A single item in a Codex Responses request. */
+export type CodexResponsesInputItem =
+  | {
+      role: "user" | "assistant";
+      content: CodexContentPart[];
+    }
+  | {
+      type: "function_call";
+      call_id: string;
+      name: string;
+      arguments: string;
+    }
+  | {
+      type: "function_call_output";
+      call_id: string;
+      output: string;
+    };
+
+/** Request shape used to bridge Anthropic Messages traffic to Codex Responses. */
+export type CodexResponsesRequest = {
+  model: string;
+  input: CodexResponsesInputItem[];
+  stream: true;
+  store: false;
+  instructions?: string;
+  tools?: Array<{
+    type: "function";
+    name: string;
+    description?: string;
+    parameters: Record<string, unknown>;
+  }>;
+  tool_choice?:
+    | "auto"
+    | "required"
+    | "none"
+    | { type: "function"; name: string };
+};
+
+/** Fully buffered Codex result rendered back as an Anthropic response. */
+export type CodexFallbackResult = {
+  text: string;
+  toolCalls: NonNullable<InternalResult["toolCalls"]>;
+  usage?: NonNullable<InternalResult["usage"]>;
+  finishReason: "end_turn" | "tool_use";
 };
