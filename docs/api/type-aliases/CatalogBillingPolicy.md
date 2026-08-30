@@ -8,4 +8,4 @@
 
 > **CatalogBillingPolicy** = `"free-tier"` \| `"free-with-card"` \| `"no-free-tier"`
 
-Defined in: [types/providerCatalog.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L58)
+Defined in: [types/providerCatalog.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L64)

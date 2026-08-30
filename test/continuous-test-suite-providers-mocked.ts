@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
+import { jsonSchema } from "ai";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -2587,6 +2588,392 @@ async function runAnthropicSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: Cloudflare message-content normalization (catalog quirk
+// messageContentFormat: "string").
+//
+// Regression guard. Cloudflare's OpenAI-compatible endpoint accepts
+// `messages[].content` ONLY as a plain string: it rejects both OpenAI's
+// content-parts array and the `null` that OpenAI puts on an assistant
+// message carrying tool_calls, with HTTP 400 "Type mismatch of
+// '/messages/N/content'". The first turn of a conversation has string
+// content already, so plain chat looked healthy while EVERY tool
+// round-trip failed on the follow-up turn — which is why this asserts on
+// the second request, not the first.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runCloudflareContentFormatSection(): Promise<void> {
+  const section = "LLM cloudflare (messageContentFormat)";
+  console.log(`\n=== ${section} ===`);
+
+  setEnv("CLOUDFLARE_API_KEY", "test-fake-cloudflare-credential");
+  setEnv("CLOUDFLARE_ACCOUNT_ID", "test-account-id");
+
+  const model = "@cf/meta/llama-3.1-8b-instruct-fast";
+  const { NeuroLink } = await import("../dist/index.js");
+
+  const toolCallResponse = {
+    id: "chatcmpl-mock",
+    object: "chat.completion",
+    created: 0,
+    model,
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "multiply",
+                arguments: JSON.stringify({ a: 17, b: 4 }),
+              },
+            },
+          ],
+        },
+        finish_reason: "tool_calls",
+      },
+    ],
+    usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+  };
+
+  try {
+    let turn = 0;
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.cloudflare.com",
+          respond: () => {
+            turn += 1;
+            return {
+              status: 200,
+              json:
+                turn === 1 ? toolCallResponse : openAIChatResponse("68", model),
+            };
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        await nl.generate({
+          provider: "cloudflare",
+          model,
+          input: { text: "What is 17 times 4? Use the multiply tool." },
+          tools: {
+            multiply: {
+              description: "Multiply two numbers",
+              inputSchema: jsonSchema<{ a: number; b: number }>({
+                type: "object",
+                properties: { a: { type: "number" }, b: { type: "number" } },
+                required: ["a", "b"],
+              }),
+              execute: async ({ a, b }) => ({ result: a * b }),
+            },
+          },
+        });
+
+        expect(
+          calls.length >= 2,
+          `expected a follow-up turn after the tool call — saw ${calls.length} request(s)`,
+        );
+
+        // Every message of every turn must carry string content. The
+        // follow-up turn is where the assistant tool_calls message (null
+        // content) and the tool-result message appear.
+        for (const [index, call] of calls.entries()) {
+          const body = (call.bodyJson ?? {}) as {
+            messages?: Array<{ role?: string; content?: unknown }>;
+          };
+          expect(
+            Array.isArray(body.messages),
+            `turn ${index + 1}: body.messages is an array`,
+          );
+          for (const [position, message] of (body.messages ?? []).entries()) {
+            expectEq(
+              typeof message.content,
+              "string",
+              `turn ${index + 1} message ${position} (role=${String(message.role)}) content type`,
+            );
+          }
+        }
+
+        // The assistant's tool_calls must survive normalization — only the
+        // content encoding changes, never the tool wiring.
+        const followUp = (calls[1]?.bodyJson ?? {}) as {
+          messages?: Array<{ role?: string; tool_calls?: unknown[] }>;
+        };
+        const assistantWithCalls = (followUp.messages ?? []).find(
+          (m) => m.role === "assistant" && Array.isArray(m.tool_calls),
+        );
+        expect(
+          assistantWithCalls !== undefined,
+          "follow-up turn preserves the assistant message's tool_calls",
+        );
+      },
+    );
+    record(results, `${section}: tool round-trip sends string content`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: tool round-trip sends string content`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: invalid-model fallback (anti-rot "survive" layer).
+//
+// Vendors retire models without warning. An InvalidModelError is classified
+// non-retryable — correctly, since switching PROVIDER cannot fix a bad model
+// id — which meant the fallback chain stopped dead and the caller got an
+// error while the same provider was still serving other models named in the
+// catalog's own `fallbacks`. Groq shipped exactly that state: all seven
+// catalogued ids retired upstream, default included.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runInvalidModelFallbackSection(): Promise<void> {
+  const section = "LLM groq (invalid-model fallback)";
+  console.log(`\n=== ${section} ===`);
+
+  setEnv("GROQ_API_KEY", "test-fake-groq-credential");
+  const { NeuroLink } = await import("../dist/index.js");
+
+  const deadModel = "llama-3.3-70b-versatile"; // retired upstream 2026-08
+  try {
+    const requested: string[] = [];
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.groq.com",
+          respond: (req) => {
+            const body = (req.bodyJson ?? {}) as { model?: string };
+            const model = String(body.model ?? "");
+            requested.push(model);
+            if (model === deadModel) {
+              return {
+                status: 404,
+                json: {
+                  error: {
+                    message: `The model \`${model}\` does not exist or you do not have access to it.`,
+                    type: "invalid_request_error",
+                    code: "model_not_found",
+                  },
+                },
+              };
+            }
+            return { status: 200, json: openAIChatResponse("pong", model) };
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "groq",
+          model: deadModel,
+          input: { text: "ping" },
+          disableTools: true,
+        });
+
+        expect(
+          requested.length >= 2,
+          `expected a retry after the invalid-model rejection — saw ${requested.length} request(s)`,
+        );
+        expectEq(requested[0], deadModel, "first attempt uses the dead model");
+        expect(
+          requested[1] !== deadModel,
+          "second attempt switches to a different model",
+        );
+        expect(
+          (result.content ?? "").toLowerCase().includes("pong"),
+          "caller still receives a completed generation",
+        );
+      },
+    );
+    record(results, `${section}: retired model falls back to a live one`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: retired model falls back to a live one`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── Streaming. OpenAI-compatible streams are lazy: the request only goes
+  // out on the consumer's first pull, so a retired model fails deep inside
+  // iteration rather than in stream()'s try/catch. The retry therefore sits
+  // below the lifecycle wrapper, and is only legal while the stream has
+  // emitted no real content.
+  try {
+    const requested: string[] = [];
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.groq.com",
+          respond: (req) => {
+            const body = (req.bodyJson ?? {}) as { model?: string };
+            const model = String(body.model ?? "");
+            requested.push(model);
+            if (model === deadModel) {
+              return {
+                status: 404,
+                json: {
+                  error: {
+                    message: `The model \`${model}\` does not exist or you do not have access to it.`,
+                    type: "invalid_request_error",
+                    code: "model_not_found",
+                  },
+                },
+              };
+            }
+            return {
+              status: 200,
+              contentType: "text/event-stream",
+              text: sseBody([
+                {
+                  id: "chatcmpl-mock",
+                  object: "chat.completion.chunk",
+                  created: 0,
+                  model,
+                  choices: [
+                    {
+                      index: 0,
+                      delta: { content: "pong" },
+                      finish_reason: null,
+                    },
+                  ],
+                },
+                {
+                  id: "chatcmpl-mock",
+                  object: "chat.completion.chunk",
+                  created: 0,
+                  model,
+                  choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+                },
+              ]),
+            };
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const res = await nl.stream({
+          provider: "groq",
+          model: deadModel,
+          input: { text: "ping" },
+          disableTools: true,
+        });
+        let text = "";
+        for await (const chunk of res.stream) {
+          text +=
+            typeof chunk === "string"
+              ? chunk
+              : ((chunk as { content?: string })?.content ?? "");
+        }
+
+        expect(
+          requested.length >= 2,
+          `expected a retry after the invalid-model rejection — saw ${requested.length} request(s)`,
+        );
+        expectEq(requested[0], deadModel, "first attempt uses the dead model");
+        expect(
+          requested[1] !== deadModel,
+          "second attempt switches to a different model",
+        );
+        expect(
+          text.includes("pong"),
+          "consumer receives the fallback model's streamed content",
+        );
+      },
+    );
+    record(
+      results,
+      `${section}: retired model falls back when streaming`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: retired model falls back when streaming`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── A caller that owns fallback order (the Claude proxy sets
+  // disableInternalFallback on its stream calls) must get the invalid-model
+  // error as-is: no silent switch to another model.
+  try {
+    const requested: string[] = [];
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.groq.com",
+          respond: (req) => {
+            const body = (req.bodyJson ?? {}) as { model?: string };
+            requested.push(String(body.model ?? ""));
+            return {
+              status: 404,
+              json: {
+                error: {
+                  message: `The model \`${String(body.model ?? "")}\` does not exist or you do not have access to it.`,
+                  type: "invalid_request_error",
+                  code: "model_not_found",
+                },
+              },
+            };
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        let streamThrew = false;
+        try {
+          const res = await nl.stream({
+            provider: "groq",
+            model: deadModel,
+            input: { text: "ping" },
+            disableTools: true,
+            disableInternalFallback: true,
+          });
+          for await (const _chunk of res.stream) {
+            // drain
+          }
+        } catch {
+          streamThrew = true;
+        }
+        expect(streamThrew, "stream() surfaces the invalid-model error");
+        expect(requested.length >= 1, "stream() reached the provider");
+        expect(
+          requested.every((m) => m === deadModel),
+          "stream() never switched models — every request used the requested model",
+        );
+      },
+    );
+    record(
+      results,
+      `${section}: disableInternalFallback keeps the invalid-model error`,
+      true,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: disableInternalFallback keeps the invalid-model error`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: Vertex (construction + formatProviderError contract only —
 // gaxios routes ADC token exchange through node-fetch, not globalThis.fetch,
 // so installMockFetch() cannot intercept it. This section verifies
@@ -2841,6 +3228,8 @@ async function main(): Promise<void> {
     await runOpenAISection();
     await runAzureSection();
     await runAnthropicSection();
+    await runCloudflareContentFormatSection();
+    await runInvalidModelFallbackSection();
     await runVertexSection();
     await runBedrockSection();
   } finally {

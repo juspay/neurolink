@@ -1232,18 +1232,30 @@ export enum CloudflareModels {
 }
 
 export enum FireworksModels {
+  KIMI_K2P6 = "accounts/fireworks/models/kimi-k2p6",
+  GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b",
+  KIMI_K3 = "accounts/fireworks/models/kimi-k3",
+  QWEN3P8_MAX = "accounts/fireworks/models/qwen3p8-max",
+  GLM_5P3 = "accounts/fireworks/models/glm-5p3",
+  MINIMAX_M3 = "accounts/fireworks/models/minimax-m3",
+  DEEPSEEK_V4_FLASH_0731 = "accounts/fireworks/models/deepseek-v4-flash-0731",
   DEEPSEEK_V4_PRO = "accounts/fireworks/models/deepseek-v4-pro",
   GLM_5P1 = "accounts/fireworks/models/glm-5p1",
   GLM_5 = "accounts/fireworks/models/glm-5",
-  KIMI_K2P6 = "accounts/fireworks/models/kimi-k2p6",
   KIMI_K2P5 = "accounts/fireworks/models/kimi-k2p5",
-  GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b",
   LLAMA_V3P2_90B_VISION_INSTRUCT = "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
   LLAMA_V3P2_11B_VISION_INSTRUCT = "accounts/fireworks/models/llama-v3p2-11b-vision-instruct",
   PHI_3_VISION_128K_INSTRUCT = "accounts/fireworks/models/phi-3-vision-128k-instruct",
 }
 
 export enum GroqModels {
+  GPT_OSS_120B = "openai/gpt-oss-120b",
+  GPT_OSS_20B = "openai/gpt-oss-20b",
+  QWEN_3_8_27B = "qwen/qwen3.8-27b",
+  QWEN_3_6_27B = "qwen/qwen3.6-27b",
+  COMPOUND = "groq/compound",
+  COMPOUND_MINI = "groq/compound-mini",
+  ALLAM_2_7B = "allam-2-7b",
   LLAMA_3_3_70B_VERSATILE = "llama-3.3-70b-versatile",
   LLAMA_3_1_8B_INSTANT = "llama-3.1-8b-instant",
   GEMMA_2_9B_IT = "gemma2-9b-it",
@@ -1322,6 +1334,9 @@ export enum TogetherAIModels {
 }
 
 export enum XaiModels {
+  GROK_4_6 = "grok-4.6",
+  GROK_4_5 = "grok-4.5",
+  GROK_4_3 = "grok-4.3",
   GROK_3 = "grok-3",
   GROK_3_MINI = "grok-3-mini",
   GROK_2_LATEST = "grok-2-latest",

@@ -8,7 +8,7 @@
 
 > **CatalogSetup** = `object`
 
-Defined in: [types/providerCatalog.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L63)
+Defined in: [types/providerCatalog.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L69)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:63](https://github.com/juspay/neurolink/bl
 
 > **url**: `string`
 
-Defined in: [types/providerCatalog.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L64)
+Defined in: [types/providerCatalog.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L70)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:64](https://github.com/juspay/neurolink/bl
 
 > **apiKeyFormat**: `string` \| `null`
 
-Defined in: [types/providerCatalog.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L65)
+Defined in: [types/providerCatalog.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L71)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:65](https://github.com/juspay/neurolink/bl
 
 > **billingPolicy**: [`CatalogBillingPolicy`](CatalogBillingPolicy.md)
 
-Defined in: [types/providerCatalog.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L66)
+Defined in: [types/providerCatalog.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L72)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/providerCatalog.ts:66](https://github.com/juspay/neurolink/bl
 
 > **instructions**: `string`[]
 
-Defined in: [types/providerCatalog.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L67)
+Defined in: [types/providerCatalog.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L73)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/providerCatalog.ts:67](https://github.com/juspay/neurolink/bl
 
 > `optional` **description?**: `string`
 
-Defined in: [types/providerCatalog.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L74)
+Defined in: [types/providerCatalog.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L80)
 
 Config-options description shown to callers for this credential.
 Default: "API key". Set explicitly where the legacy entry's

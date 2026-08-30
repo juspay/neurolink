@@ -9,55 +9,77 @@
   },
   "models": {
     "default": "Meta-Llama-3.3-70B-Instruct",
-    "visionModel": "gemma-4-31B-it",
+    "visionModel": "Meta-Llama-3.3-70B-Instruct",
     "fallbacks": ["Meta-Llama-3.3-70B-Instruct", "gpt-oss-120b"],
     "defaultContextWindow": 131072,
     "defaultMaxOutputTokens": 8192,
     "catalog": {
       "Meta-Llama-3.3-70B-Instruct": {
         "contextWindow": 131072,
-        "pricingPerMTok": { "input": 0.6, "output": 1.2 },
-        "vision": false,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 1.2
+        },
+        "vision": true,
         "status": "production",
-        "description": "Recommended - Meta Llama 3.3 70B; production, 128K context"
+        "description": "Recommended - Meta Llama 3.3 70B; production, 128K context; vision-capable"
       },
       "gpt-oss-120b": {
         "contextWindow": 131072,
-        "pricingPerMTok": { "input": 0.22, "output": 0.59 },
+        "pricingPerMTok": {
+          "input": 0.22,
+          "output": 0.59
+        },
         "vision": false,
         "status": "production",
         "description": "OpenAI GPT-OSS 120B (open-weight)"
       },
       "DeepSeek-V3.1": {
         "contextWindow": 131072,
-        "pricingPerMTok": { "input": 3, "output": 4.5 },
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 4.5
+        },
         "vision": false,
         "status": "production",
         "description": "DeepSeek V3.1 (reasoning)"
       },
       "DeepSeek-V3.2": {
         "contextWindow": 32768,
-        "pricingPerMTok": { "input": 3, "output": 4.5 },
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 4.5
+        },
         "vision": false,
         "status": "preview",
         "description": "DeepSeek V3.2 (reasoning; vendor preview, 32K context)"
       },
       "MiniMax-M2.7": {
         "contextWindow": 196608,
-        "pricingPerMTok": { "input": 0.6, "output": 2.4, "cachedInput": 0.06 },
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.06
+        },
         "vision": false,
         "status": "production",
         "description": "MiniMax M2.7, 192K context"
       },
       "MiniMax-M3": {
-        "pricingPerMTok": { "input": 0.6, "output": 2.4 },
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4
+        },
         "vision": true,
         "status": "production",
         "description": "MiniMax M3 (vision)"
       },
       "gemma-4-31B-it": {
         "contextWindow": 131072,
-        "pricingPerMTok": { "input": 0.38, "output": 1.15 },
+        "pricingPerMTok": {
+          "input": 0.38,
+          "output": 1.15
+        },
         "vision": true,
         "status": "preview",
         "description": "Google Gemma 4 31B IT (vision; vendor preview)"
@@ -123,7 +145,10 @@
       "status": 402,
       "code": "PAYMENT_METHOD_REQUIRED"
     },
-    "liveMatrix": { "date": "2026-08-28", "result": "5/5" },
+    "liveMatrix": {
+      "date": "2026-08-30",
+      "result": "Six of seven ids answer. Vision re-tested with a valid 64x64 PNG: gemma-4-31B-it and Meta-Llama-3.3-70B-Instruct both describe it correctly, so Meta-Llama's vision flag is now true. MiniMax-M3 returned 429 'currently experiencing high demand' — the model is served and simply busy, so it stays production rather than being retired; its declared vision support is therefore still unverified."
+    },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1586"
   }
 }

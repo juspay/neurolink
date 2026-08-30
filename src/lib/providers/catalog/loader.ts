@@ -149,6 +149,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
       base.baseURLEnvVar = catalogEnvVar(entry, "baseURL");
       base.defaultBaseURL = entry.wire.baseURL;
     }
+    if (entry.quirks?.messageContentFormat) {
+      base.messageContentFormat = entry.quirks.messageContentFormat;
+    }
     if (entry.quirks?.timeoutErrorClass === "provider") {
       base.timeoutErrorClass = ProviderError;
     }

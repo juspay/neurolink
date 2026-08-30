@@ -1,0 +1,110 @@
+name: Catalog Model Liveness (Nightly)
+
+on:
+  schedule:
+    # 04:00 UTC daily — an hour after live-matrix, so the two sweeps don't
+    # hammer the same provider accounts concurrently and trip rate limits.
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  model-liveness:
+    name: 🩺 Catalog Model Liveness
+    runs-on: ubuntu-latest
+    # Not a required check: it calls real vendor APIs and must not block
+    # merges on an upstream outage. It is not allowed to fail *silently*
+    # either — that is the whole point of the issue-filing step below.
+    # Groq retired its entire llama/gemma/mixtral lineup and every id in its
+    # catalog entry went dead while nightly CI stayed green, because the
+    # matrix sweep skips providers whose keys are absent and silence read as
+    # success.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      # check:models is source-only and buildless by design, so there is no
+      # build step here: it reads the catalog JSON and talks to vendors over
+      # HTTP. A broken build must not be able to hide model rot.
+      - name: Check catalog model liveness
+        id: liveness
+        run: |
+          set +e
+          pnpm run check:models 2>&1 | tee liveness.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        env:
+          # NOTE: these must match the names the catalog derives
+          # (<ID>_API_KEY), not whatever the vendor's own docs call them.
+          # live-matrix.yml passes CLOUDFLARE_API_TOKEN, which nothing reads,
+          # so Cloudflare has been silently skipped in that workflow.
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+
+      - name: Open or update the rot-tracking issue
+        if: steps.liveness.outputs.exit_code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="Catalog model rot: a provider default is retired upstream"
+          BODY_FILE=$(mktemp)
+          {
+            echo "\`check:models\` found at least one provider whose **default model** the vendor no longer serves."
+            echo
+            echo "Run: $RUN_URL"
+            echo
+            echo '```'
+            cat liveness.txt
+            echo '```'
+            echo
+            echo "Fix by updating the provider's \`src/lib/providers/catalog/<id>.json\`:"
+            echo "set \`models.default\` to a live id, mark the retired ids \`\"status\": \"retired\"\`"
+            echo "(do not delete them — the frozen public-surface snapshot pins their enum members),"
+            echo "and refresh \`evidence.rosterVerified\`."
+            echo
+            echo "_Filed automatically by \`.github/workflows/model-liveness.yml\`._"
+          } > "$BODY_FILE"
+
+          # One rolling issue, not one per night: reopen and comment on the
+          # existing one so this cannot spam the tracker into being muted.
+          EXISTING=$(gh issue list --state open --label model-rot \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file "$BODY_FILE"
+            echo "commented on #$EXISTING"
+          else
+            gh label create model-rot \
+              --description "A catalog provider's default model is retired upstream" \
+              --color B60205 2>/dev/null || true
+            gh issue create --title "$TITLE" --label model-rot --body-file "$BODY_FILE"
+          fi
+
+      - name: Fail the run when a default model is dead
+        if: steps.liveness.outputs.exit_code != '0'
+        run: exit 1

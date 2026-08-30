@@ -149,6 +149,28 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
    * Hardcoded model names returned from `getAvailableModels()` when the
    * remote `/models` endpoint can't be reached. Default empty.
    */
+  /**
+   * Feed the catalog's `fallbacks` to BaseProvider's invalid-model retry, so
+   * a default the vendor has retired degrades to the next live model in the
+   * entry instead of failing the call outright.
+   */
+  protected getModelFallbacks(): string[] {
+    return this.getFallbackModels();
+  }
+
+  /**
+   * `resolvedModel` memoizes the first id this provider resolved, and
+   * getAISDKModel() builds its wire model from that memo rather than from
+   * `modelName`. Leaving it stale here silently defeats the invalid-model
+   * fallback: modelName advances to the next candidate while every request
+   * still carries the retired id, so each retry fails for the same reason
+   * the first attempt did.
+   */
+  protected refreshHandlersForModel(model: string): void {
+    this.resolvedModel = model;
+    super.refreshHandlersForModel(model);
+  }
+
   protected getFallbackModels(): string[] {
     return [];
   }

@@ -15,19 +15,26 @@
     "catalog": {
       "gpt-oss-120b": {
         "contextWindow": 65536,
-        "pricingPerMTok": { "input": 0.35, "output": 0.75 },
+        "pricingPerMTok": {
+          "input": 0.35,
+          "output": 0.75
+        },
         "vision": false,
         "status": "production",
         "description": "Recommended - OpenAI GPT-OSS 120B (open-weight); wafer-scale speed"
       },
       "gemma-4-31b": {
         "contextWindow": 65536,
-        "pricingPerMTok": { "input": 0.99, "output": 1.49 },
-        "vision": false,
+        "pricingPerMTok": {
+          "input": 0.99,
+          "output": 1.49
+        },
+        "vision": true,
         "status": "production",
-        "description": "Google Gemma 4 31B"
+        "description": "Google Gemma 4 31B — vision-capable"
       }
     },
+    "visionModel": "gemma-4-31b",
     "topModels": ["gpt-oss-120b", "gemma-4-31b"]
   },
   "capabilities": {
@@ -69,7 +76,10 @@
       "status": 401,
       "code": "wrong_api_key"
     },
-    "liveMatrix": { "date": "2026-08-27", "result": "4/4" },
+    "liveMatrix": {
+      "date": "2026-08-30",
+      "result": "Both ids answer. Vision re-tested with a valid 64x64 PNG: gemma-4-31b describes it correctly, so its vision flag is now true (it was false); gpt-oss-120b answers \"Content type 'image_url' is not supported by selected model\"."
+    },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1561"
   }
 }

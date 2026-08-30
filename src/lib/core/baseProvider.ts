@@ -35,7 +35,21 @@ import {
   isAbortError,
   NeuroLinkError,
 } from "../utils/errorHandling.js";
-import { ProviderError } from "../types/index.js";
+import { InvalidModelError, ProviderError } from "../types/index.js";
+
+/**
+ * `instanceof` is not reliable here. The published bundle and the source tree
+ * are separate module graphs, so an InvalidModelError built by the error
+ * classifier can fail an `instanceof` against the class this file imported —
+ * silently, with a clean typecheck. The constructor-name check is the same
+ * approach the OTel error-type mapping below already uses.
+ */
+function isInvalidModelError(error: unknown): boolean {
+  return (
+    error instanceof InvalidModelError ||
+    (error instanceof Error && error.constructor.name === "InvalidModelError")
+  );
+}
 import { sanitizeErrorCause } from "../utils/logSanitize.js";
 import { createAnalytics as buildAnalytics } from "./analytics.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
@@ -475,8 +489,25 @@ export abstract class BaseProvider implements AIProvider {
       // anything that doesn't go through streamText) bypass it. Wrapping
       // here makes the callbacks fire for every provider, regardless of
       // streaming implementation.
-      return this.wrapStreamWithLifecycleCallbacks(realStreamResult, options);
+      return this.wrapStreamWithLifecycleCallbacks(
+        this.withStreamModelFallback(realStreamResult, options, analysisSchema),
+        options,
+      );
     } catch (realStreamError) {
+      // Retired-model fallback runs FIRST, before any lifecycle callback has
+      // fired and before a single chunk has reached the consumer: onChunk and
+      // onFinish are only wired on the success path above, and onError fires
+      // further down this same catch. That ordering is what makes retrying a
+      // stream safe at all — nothing observable has happened yet.
+      const recovered = await this.retryStreamWithFallbackModel(
+        realStreamError,
+        options,
+        analysisSchema,
+      );
+      if (recovered) {
+        return recovered;
+      }
+
       // The fallback is BROAD, not narrow: only the terminal errors listed
       // below (abort, timeout, 401/403, quota, rate limit, authentication)
       // re-throw. Every other failure — including a genuine configuration or
@@ -536,6 +567,225 @@ export abstract class BaseProvider implements AIProvider {
         throw this.handleProviderError(realStreamError);
       }
     }
+  }
+
+  /**
+   * Swap in a fallback model when a stream dies on a retired id before it has
+   * produced anything.
+   *
+   * OpenAI-compatible streaming is lazy: executeStream() returns a
+   * StreamResult without touching the network, and the request only goes out
+   * on the consumer's first pull. A retired model therefore does NOT fail in
+   * stream()'s try/catch — it fails deep inside iteration. This wrapper sits
+   * UNDER wrapStreamWithLifecycleCallbacks precisely so that a failed first
+   * attempt is invisible: onChunk, onFinish and onError all belong to the
+   * layer above and never observe it.
+   *
+   * The `yielded` guards are the safety property. A stream is only retried
+   * while it has emitted nothing; once a single chunk has reached the
+   * consumer the output is committed, and any later failure propagates
+   * untouched rather than replaying a half-delivered response.
+   */
+  private withStreamModelFallback(
+    result: StreamResult,
+    options: StreamOptions,
+    analysisSchema: ValidationSchema | undefined,
+  ): StreamResult {
+    // The caller owns fallback order (the Claude proxy sets this): hand the
+    // stream back untouched so an invalid model surfaces as exactly that.
+    if (options.disableInternalFallback === true) {
+      return result;
+    }
+    const provider = this;
+    const source = result.stream;
+    // Iterate through explicit iterators so a consumer break can be forwarded
+    // to the one that is actually in flight (see the cancel hook below): a
+    // generator's own return() is queued behind a pending next(), and a
+    // source that is waiting on a slow vendor would never see the break.
+    const sourceIterator = source[Symbol.asyncIterator]();
+    let activeStream: unknown = source;
+    let activeIterator: { return?: (value?: unknown) => unknown } =
+      sourceIterator;
+    const iterableOf = <T>(iterator: AsyncIterator<T>): AsyncIterable<T> => ({
+      [Symbol.asyncIterator]: () => iterator,
+    });
+
+    // A failing stream still emits one chunk before it throws: the no-output
+    // sentinel, {content: "", metadata: {noOutput: true, ...}}. That is a
+    // marker, not output, so it must not count as committed — otherwise the
+    // guard below blocks every retry it exists to allow. Only that sentinel
+    // and a bare empty text chunk are withheld; everything else — reasoning
+    // deltas ({content: "", reasoning}), tool-call deltas, audio and image
+    // chunks — IS output, commits the stream, and is yielded immediately so
+    // real-time streaming is untouched. Withheld chunks are released in order
+    // once real output arrives, at end of stream, or before any error that is
+    // not retried; they are dropped only when a fallback model takes over.
+    const isWithheld = (chunk: unknown): boolean => {
+      if (typeof chunk === "string") {
+        return chunk.length === 0;
+      }
+      if (typeof chunk !== "object" || chunk === null) {
+        return false;
+      }
+      const shape = chunk as {
+        content?: unknown;
+        metadata?: { noOutput?: unknown };
+      };
+      if (shape.metadata?.noOutput === true) {
+        return true;
+      }
+      return shape.content === "" && Object.keys(shape).length === 1;
+    };
+
+    async function* withFallback(): AsyncGenerator<unknown, void, unknown> {
+      let committed = false;
+      const held: unknown[] = [];
+      try {
+        for await (const chunk of iterableOf(sourceIterator)) {
+          if (isWithheld(chunk)) {
+            held.push(chunk);
+            continue;
+          }
+          committed = true;
+          while (held.length > 0) {
+            yield held.shift();
+          }
+          yield chunk;
+        }
+        while (held.length > 0) {
+          yield held.shift();
+        }
+        return;
+      } catch (error) {
+        if (
+          committed ||
+          !isInvalidModelError(provider.formatProviderError(error))
+        ) {
+          // Not retrying: release what was withheld — the sentinel included —
+          // so the consumer sees exactly what the unwrapped stream produced
+          // before the error.
+          while (held.length > 0) {
+            yield held.shift();
+          }
+          throw error;
+        }
+        const requestedModel = provider.modelName;
+        const candidates = provider
+          .getModelFallbacks()
+          .filter((model) => model !== requestedModel);
+        for (const candidate of candidates) {
+          logger.warn(
+            `[${provider.providerName}] model "${requestedModel}" was rejected as invalid — retrying stream with fallback "${candidate}". This provider's catalog entry is stale; run "pnpm run check:models".`,
+          );
+          provider.refreshHandlersForModel(candidate);
+          let retryCommitted = false;
+          const retryHeld: unknown[] = [];
+          try {
+            const retry = await provider.executeStream(options, analysisSchema);
+            const retryIterator = retry.stream[Symbol.asyncIterator]();
+            activeStream = retry.stream;
+            activeIterator = retryIterator;
+            for await (const chunk of iterableOf(retryIterator)) {
+              if (isWithheld(chunk)) {
+                retryHeld.push(chunk);
+                continue;
+              }
+              retryCommitted = true;
+              while (retryHeld.length > 0) {
+                yield retryHeld.shift();
+              }
+              yield chunk;
+            }
+            while (retryHeld.length > 0) {
+              yield retryHeld.shift();
+            }
+            return;
+          } catch (retryError) {
+            // Same rule as above: once this candidate has emitted real
+            // content its output is committed, and moving to another model
+            // would splice two different responses together.
+            if (retryCommitted) {
+              throw retryError;
+            }
+          }
+        }
+        provider.refreshHandlersForModel(requestedModel);
+        // Every fallback failed too: release the original attempt's withheld
+        // chunks, then surface the ORIGINAL error — it names the model the
+        // caller asked for.
+        while (held.length > 0) {
+          yield held.shift();
+        }
+        throw error;
+      }
+    }
+
+    const wrapped = withFallback();
+    // Same contract as wrapStreamWithLifecycleCallbacks: a consumer break
+    // (cancelStream on the outer stream) must close the live upstream
+    // iterator directly, not wait for this generator to reach its next
+    // yield. Without this, the TTS early-break path — and any consumer that
+    // stops mid-stream — would leave the vendor request open until the next
+    // chunk arrived.
+    attachStreamCancel(wrapped, () => {
+      cancelStream(activeStream);
+      releaseIterator(activeIterator);
+    });
+    return {
+      ...result,
+      stream: wrapped as StreamResult["stream"],
+    };
+  }
+
+  /**
+   * The eager half of the retired-model stream fallback, for providers whose
+   * executeStream() reaches the network before returning (see
+   * runGenerateWithModelFallback for the generate() half and the reasoning).
+   *
+   * Returns a working StreamResult when a fallback model succeeds, or
+   * undefined to mean "not recoverable — carry on with the original error".
+   * Returning rather than throwing is deliberate: every existing path in the
+   * caller's catch (the broad fake-streaming fallback, the terminal-error
+   * re-throw, the onError firing) is left exactly as it was, so behaviour
+   * changes only when a fallback actually succeeds.
+   */
+  private async retryStreamWithFallbackModel(
+    error: unknown,
+    options: StreamOptions,
+    analysisSchema: ValidationSchema | undefined,
+  ): Promise<StreamResult | undefined> {
+    if (options.disableInternalFallback === true) {
+      return undefined;
+    }
+    // executeStream() surfaces the raw transport error, so classify it the
+    // way this provider would before deciding. formatProviderError is
+    // contractually return-only, never throw.
+    if (!isInvalidModelError(this.formatProviderError(error))) {
+      return undefined;
+    }
+    const requestedModel = this.modelName;
+    const candidates = this.getModelFallbacks().filter(
+      (model) => model !== requestedModel,
+    );
+    for (const candidate of candidates) {
+      logger.warn(
+        `[${this.providerName}] model "${requestedModel}" was rejected as invalid — retrying stream with fallback "${candidate}". This provider's catalog entry is stale; run "pnpm run check:models".`,
+      );
+      this.refreshHandlersForModel(candidate);
+      try {
+        const result = await this.executeStream(options, analysisSchema);
+        return this.wrapStreamWithLifecycleCallbacks(result, options);
+      } catch {
+        // Any failure on a candidate — stale id or otherwise — just moves to
+        // the next one. Nothing is reported from here: if none succeed the
+        // caller still handles the ORIGINAL error, which names the model the
+        // caller actually asked for.
+      }
+    }
+    // Restore the caller's model so a failed request does not leave this
+    // instance silently pointing at the last fallback it tried.
+    this.refreshHandlersForModel(requestedModel);
+    return undefined;
   }
 
   /**
@@ -1474,29 +1724,115 @@ export abstract class BaseProvider implements AIProvider {
     this.validateOptions(options);
     const startTime = Date.now();
 
-    // OTEL span for provider-level generate tracing
-    // Use startActiveSpan pattern via context.with() so child spans become descendants
-    const otelSpan = tracers.provider.startSpan("neurolink.provider.generate", {
-      kind: SpanKind.CLIENT,
-      attributes: {
-        [ATTR.GEN_AI_SYSTEM]: this.providerName || "unknown",
-        [ATTR.GEN_AI_MODEL]: this.modelName || options.model || "unknown",
-        [ATTR.GEN_AI_OPERATION]: "generate",
-        [ATTR.NL_PROVIDER]: this.providerName || "unknown",
-      },
-    });
-    // Set this span as the active context so child spans (GenerationHandler, etc.) become descendants
-    const activeCtx = trace.setSpan(context.active(), otelSpan);
-    const otelSpanState = { ended: false };
+    // One span per attempt. runGenerateInActiveContext ends the span on the
+    // way out (success or failure), so a model-fallback retry must not reuse
+    // it — an ended span would swallow the retry's attributes and report the
+    // model that failed rather than the one that served.
+    const attempt = async (): Promise<EnhancedGenerateResult | null> => {
+      // OTEL span for provider-level generate tracing
+      // Use startActiveSpan pattern via context.with() so child spans become descendants
+      const otelSpan = tracers.provider.startSpan(
+        "neurolink.provider.generate",
+        {
+          kind: SpanKind.CLIENT,
+          attributes: {
+            [ATTR.GEN_AI_SYSTEM]: this.providerName || "unknown",
+            [ATTR.GEN_AI_MODEL]: this.modelName || options.model || "unknown",
+            [ATTR.GEN_AI_OPERATION]: "generate",
+            [ATTR.NL_PROVIDER]: this.providerName || "unknown",
+          },
+        },
+      );
+      // Set this span as the active context so child spans (GenerationHandler, etc.) become descendants
+      const activeCtx = trace.setSpan(context.active(), otelSpan);
+      const otelSpanState = { ended: false };
 
-    return await context.with(activeCtx, async () =>
-      this.runGenerateInActiveContext(
-        options,
-        startTime,
-        otelSpan,
-        otelSpanState,
-      ),
-    );
+      return await context.with(activeCtx, async () =>
+        this.runGenerateInActiveContext(
+          options,
+          startTime,
+          otelSpan,
+          otelSpanState,
+        ),
+      );
+    };
+
+    // TextGenerationOptions does not declare the flag (it lives on
+    // StreamOptions), but callers that own fallback order pass it on both
+    // paths, so honour it here as well.
+    const callerOwnsFallback =
+      "disableInternalFallback" in options &&
+      options.disableInternalFallback === true;
+    return await this.runGenerateWithModelFallback(attempt, callerOwnsFallback);
+  }
+
+  /**
+   * Models the catalog names are the models a vendor served when the entry was
+   * last verified. Vendors retire them without warning, and until this existed
+   * the runtime had no answer for that: an InvalidModelError is classified
+   * non-retryable (correctly — another *provider* cannot fix a bad model id),
+   * so the fallback chain stopped dead and the caller got an error even though
+   * the same provider was still serving four other models listed right there
+   * in the catalog's `fallbacks`.
+   *
+   * So on an invalid-model error only, walk this provider's fallbacks. Every
+   * switch is a loud WARN: the caller asked for one model and is getting
+   * another, which they must be able to see in the logs. Any other error type
+   * propagates untouched on the first attempt.
+   *
+   * stream() gets the same treatment via retryStreamWithFallbackModel, which
+   * is safe for the same reason it is cheap: the retry happens before any
+   * lifecycle callback has fired and before a chunk has reached the consumer,
+   * so there is no observable output to replay.
+   */
+  private async runGenerateWithModelFallback(
+    attempt: () => Promise<EnhancedGenerateResult | null>,
+    callerOwnsFallback: boolean,
+  ): Promise<EnhancedGenerateResult | null> {
+    const requestedModel = this.modelName;
+    try {
+      return await attempt();
+    } catch (error) {
+      if (callerOwnsFallback || !isInvalidModelError(error)) {
+        throw error;
+      }
+      const candidates = this.getModelFallbacks().filter(
+        (model) => model !== requestedModel,
+      );
+      if (candidates.length === 0) {
+        throw error;
+      }
+      for (const candidate of candidates) {
+        logger.warn(
+          `[${this.providerName}] model "${requestedModel}" was rejected as invalid — retrying with fallback "${candidate}". This provider's catalog entry is stale; run "pnpm run check:models".`,
+        );
+        this.refreshHandlersForModel(candidate);
+        try {
+          return await attempt();
+        } catch (retryError) {
+          if (!isInvalidModelError(retryError)) {
+            // Restore the caller's model: this failure is unrelated to the
+            // model id, so the instance must not be left on a fallback.
+            this.refreshHandlersForModel(requestedModel);
+            throw retryError;
+          }
+          // This fallback is stale too — keep walking the list.
+        }
+      }
+      // Every fallback was rejected as well. Restore the caller's model so a
+      // failed request does not leave this instance silently repointed, and
+      // surface the ORIGINAL error: it names the model the caller asked for.
+      this.refreshHandlersForModel(requestedModel);
+      throw error;
+    }
+  }
+
+  /**
+   * Model ids to try when this provider rejects its current model as invalid.
+   * Empty by default; catalog-driven providers return their `fallbacks`.
+   */
+  protected getModelFallbacks(): string[] {
+    return [];
   }
   /**
    * Alias for generate method - implements AIProvider interface

@@ -8,7 +8,7 @@
 
 > **CatalogCapabilities** = `object`
 
-Defined in: [types/providerCatalog.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L92)
+Defined in: [types/providerCatalog.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L98)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:92](https://github.com/juspay/neurolink/bl
 
 > **text**: `boolean`
 
-Defined in: [types/providerCatalog.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L93)
+Defined in: [types/providerCatalog.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L99)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:93](https://github.com/juspay/neurolink/bl
 
 > **streaming**: `boolean`
 
-Defined in: [types/providerCatalog.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L94)
+Defined in: [types/providerCatalog.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L100)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:94](https://github.com/juspay/neurolink/bl
 
 > **tools**: `boolean`
 
-Defined in: [types/providerCatalog.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L95)
+Defined in: [types/providerCatalog.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L101)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/providerCatalog.ts:95](https://github.com/juspay/neurolink/bl
 
 > **toolsWithStreaming**: `boolean`
 
-Defined in: [types/providerCatalog.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L96)
+Defined in: [types/providerCatalog.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L102)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/providerCatalog.ts:96](https://github.com/juspay/neurolink/bl
 
 > **structuredOutput**: `boolean`
 
-Defined in: [types/providerCatalog.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L97)
+Defined in: [types/providerCatalog.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L103)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/providerCatalog.ts:97](https://github.com/juspay/neurolink/bl
 
 > **structuredOutputWithTools**: `boolean`
 
-Defined in: [types/providerCatalog.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L98)
+Defined in: [types/providerCatalog.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L104)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/providerCatalog.ts:98](https://github.com/juspay/neurolink/bl
 
 > **embeddings**: `boolean`
 
-Defined in: [types/providerCatalog.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L99)
+Defined in: [types/providerCatalog.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L105)
 
 ---
 
@@ -72,4 +72,4 @@ Defined in: [types/providerCatalog.ts:99](https://github.com/juspay/neurolink/bl
 
 > **thinking**: `boolean`
 
-Defined in: [types/providerCatalog.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L100)
+Defined in: [types/providerCatalog.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L106)

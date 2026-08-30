@@ -262,6 +262,11 @@
         },
         "registryDefaultIgnoresModelEnvVar": {
           "type": "boolean"
+        },
+        "messageContentFormat": {
+          "type": "string",
+          "enum": ["string"],
+          "description": "Vendor accepts messages[].content only as a plain string, rejecting OpenAI's content-parts array and the null used on an assistant message with tool_calls. Normalized by ConfiguredOpenAICompatProvider."
         }
       }
     },

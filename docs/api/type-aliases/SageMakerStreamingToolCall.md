@@ -8,7 +8,7 @@
 
 > **SageMakerStreamingToolCall** = `object`
 
-Defined in: [types/providers.ts:1597](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1597)
+Defined in: [types/providers.ts:1600](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1600)
 
 Streaming tool call information (Phase 2.3)
 
@@ -18,7 +18,7 @@ Streaming tool call information (Phase 2.3)
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:1599](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1599)
+Defined in: [types/providers.ts:1602](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1602)
 
 Tool call identifier
 
@@ -28,7 +28,7 @@ Tool call identifier
 
 > `optional` **name?**: `string`
 
-Defined in: [types/providers.ts:1601](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1601)
+Defined in: [types/providers.ts:1604](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1604)
 
 Tool/function name
 
@@ -38,7 +38,7 @@ Tool/function name
 
 > `optional` **arguments?**: `string`
 
-Defined in: [types/providers.ts:1603](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1603)
+Defined in: [types/providers.ts:1606](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1606)
 
 Partial or complete arguments as JSON string
 
@@ -48,7 +48,7 @@ Partial or complete arguments as JSON string
 
 > **type**: `"function"`
 
-Defined in: [types/providers.ts:1605](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1605)
+Defined in: [types/providers.ts:1608](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1608)
 
 Tool call type
 
@@ -58,7 +58,7 @@ Tool call type
 
 > `optional` **complete?**: `boolean`
 
-Defined in: [types/providers.ts:1607](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1607)
+Defined in: [types/providers.ts:1610](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1610)
 
 Indicates if this tool call is complete
 
@@ -68,6 +68,6 @@ Indicates if this tool call is complete
 
 > `optional` **argumentsDelta?**: `string`
 
-Defined in: [types/providers.ts:1609](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1609)
+Defined in: [types/providers.ts:1612](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1612)
 
 Delta text for incremental argument building

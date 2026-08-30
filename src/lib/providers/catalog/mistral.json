@@ -106,14 +106,14 @@
         "description": "Devstral Small (Software Development)"
       },
       "pixtral-large": {
-        "vision": true,
+        "vision": false,
         "status": "retired",
-        "description": "Retired 2026-05-31 — use mistral-medium-latest instead"
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       },
       "pixtral-12b": {
         "vision": true,
-        "status": "retired",
-        "description": "Retired 2025-12-31 — use ministral-14b-2512 instead"
+        "status": "production",
+        "description": "Pixtral 12B — vision-capable; re-verified live 2026-08-30"
       },
       "voxtral-small-latest": {
         "vision": false,
@@ -136,18 +136,18 @@
         "enumMember": "DEVSTRAL_SMALL_2",
         "contextWindow": 256000,
         "vision": false,
-        "status": "production",
-        "description": "Devstral Small 2 (December 2025)"
+        "status": "retired",
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       },
       "magistral-medium-2509": {
-        "vision": true,
-        "status": "production",
-        "description": "Magistral Medium 2509"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       },
       "magistral-small-2509": {
-        "vision": true,
-        "status": "production",
-        "description": "Magistral Small 2509"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       },
       "voxtral-mini-2602": {
         "enumMember": "VOXTRAL_MINI_TRANSCRIBE_2",
@@ -168,8 +168,8 @@
       },
       "mistral-nemo": {
         "vision": false,
-        "status": "production",
-        "description": "Mistral Nemo"
+        "status": "retired",
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       },
       "mistral-embed": {
         "vision": false,
@@ -178,8 +178,8 @@
       },
       "mistral-moderation-latest": {
         "vision": false,
-        "status": "production",
-        "description": "Mistral Moderation (Latest)"
+        "status": "retired",
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       },
       "mistral-small-2603": {
         "enumMember": "MISTRAL_SMALL_4",
@@ -189,17 +189,18 @@
         "description": "Mistral Small 4 (June 2026)"
       },
       "mistral-small-creative": {
-        "vision": true,
-        "status": "production",
-        "description": "Mistral Small Creative"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — absent from Mistral's roster and rejected as an invalid model"
       }
     },
+    "visionModel": "mistral-medium-latest",
     "topModels": [
       "mistral-large-latest",
       "mistral-small-latest",
       "codestral-latest",
       "magistral-medium-latest",
-      "mistral-nemo"
+      "pixtral-12b"
     ]
   },
   "capabilities": {
@@ -235,10 +236,13 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-08-28",
-      "method": "transcribed from pre-migration TS catalog"
+      "date": "2026-08-30",
+      "method": "GET /models against the live account, cross-checked with a real chat call per id"
     },
-    "liveMatrix": null,
+    "liveMatrix": {
+      "date": "2026-08-30",
+      "result": "17 ids answer normally. A chat probe alone was not enough to judge the rest, because Mistral rejects every non-chat model with the same generic 'Invalid model' text: cross-referencing the roster shows mistral-embed, codestral-embed, mistral-ocr-latest, mistral-ocr-2512, voxtral-mini-latest and voxtral-mini-2602 are all still listed and alive — they are embedding, OCR and audio models that a chat endpoint is right to refuse — so they keep production status. An id is marked retired only when BOTH signals agree: absent from the roster AND rejected by a live chat call. pixtral-12b is the one id where they disagree — the roster omits it but a real call returns 200, so it was moved back to production, on the rule that a live 200 outranks a roster omission. mistral-large-latest and mistral-large-2512 answer 403 'not available in your subscription tier': a plan limit on this account, not a retirement, so they stay production. visionModel is pinned to mistral-medium-latest because the otherwise-first vision id, mistral-large-latest, is behind that plan gate."
+    },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   }
 }

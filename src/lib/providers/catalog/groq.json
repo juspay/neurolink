@@ -8,75 +8,121 @@
     "baseURL": "https://api.groq.com/openai/v1"
   },
   "models": {
-    "default": "llama-3.3-70b-versatile",
-    "testModel": "openai/gpt-oss-120b",
+    "default": "openai/gpt-oss-120b",
     "fallbacks": [
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant",
-      "gemma2-9b-it",
-      "mixtral-8x7b-32768",
-      "llama-3.2-90b-vision-preview",
-      "llama-3.2-11b-vision-preview"
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
+      "groq/compound"
     ],
     "defaultContextWindow": 128000,
     "defaultMaxOutputTokens": 4096,
     "catalog": {
+      "openai/gpt-oss-120b": {
+        "enumMember": "GPT_OSS_120B",
+        "contextWindow": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - GPT-OSS 120B, Groq's flagship open model"
+      },
+      "openai/gpt-oss-20b": {
+        "enumMember": "GPT_OSS_20B",
+        "contextWindow": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "GPT-OSS 20B — lower latency, smaller model"
+      },
+      "qwen/qwen3.8-27b": {
+        "enumMember": "QWEN_3_8_27B",
+        "contextWindow": 131072,
+        "vision": true,
+        "status": "production",
+        "description": "Qwen 3.8 27B — Groq's only vision-capable model"
+      },
+      "qwen/qwen3.6-27b": {
+        "enumMember": "QWEN_3_6_27B",
+        "contextWindow": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Qwen 3.6 27B"
+      },
+      "groq/compound": {
+        "enumMember": "COMPOUND",
+        "contextWindow": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Groq Compound — agentic system with built-in tool use"
+      },
+      "groq/compound-mini": {
+        "enumMember": "COMPOUND_MINI",
+        "contextWindow": 131072,
+        "vision": false,
+        "status": "production",
+        "description": "Groq Compound Mini — lighter agentic system"
+      },
+      "allam-2-7b": {
+        "enumMember": "ALLAM_2_7B",
+        "contextWindow": 4096,
+        "vision": false,
+        "status": "production",
+        "description": "ALLaM 2 7B — Arabic-focused model"
+      },
       "llama-3.3-70b-versatile": {
         "contextWindow": 131072,
         "pricingPerMTok": { "input": 0.59, "output": 0.79 },
         "vision": false,
-        "status": "production",
-        "description": "Recommended - Production default; sub-100ms"
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq returns 404 'does not exist'"
       },
       "llama-3.1-8b-instant": {
         "contextWindow": 128000,
         "pricingPerMTok": { "input": 0.05, "output": 0.08 },
         "vision": false,
-        "status": "production",
-        "description": "Lowest latency tier"
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq returns 404 'does not exist'"
       },
       "gemma2-9b-it": {
         "enumMember": "GEMMA_2_9B_IT",
         "contextWindow": 8192,
         "pricingPerMTok": { "input": 0.2, "output": 0.2 },
         "vision": false,
-        "status": "production",
-        "description": "Google Gemma 2 9B"
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq reports 'decommissioned'"
       },
       "mixtral-8x7b-32768": {
         "contextWindow": 32768,
         "pricingPerMTok": { "input": 0.24, "output": 0.24 },
         "vision": false,
-        "status": "production",
-        "description": "Mistral 8x7B MoE, 32K context"
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq reports 'decommissioned'"
       },
       "llama-guard-3-8b": {
         "contextWindow": 8192,
         "vision": false,
-        "status": "production",
-        "description": "Llama Guard 3 8B — safety classifier"
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq reports 'decommissioned'"
       },
       "llama-3.2-90b-vision-preview": {
         "contextWindow": 128000,
         "pricingPerMTok": { "input": 0.9, "output": 0.9 },
-        "vision": true,
-        "status": "preview",
-        "description": "Multimodal (vision)"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq reports 'decommissioned'"
       },
       "llama-3.2-11b-vision-preview": {
         "contextWindow": 128000,
         "pricingPerMTok": { "input": 0.18, "output": 0.18 },
-        "vision": true,
-        "status": "preview",
-        "description": "Llama 3.2 11B Vision Preview — smaller multimodal"
+        "vision": false,
+        "status": "retired",
+        "description": "Retired 2026-08 — Groq reports 'decommissioned'"
       }
     },
+    "visionModel": "qwen/qwen3.8-27b",
     "topModels": [
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant",
-      "llama-3.2-90b-vision-preview",
-      "gemma2-9b-it",
-      "mixtral-8x7b-32768"
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "qwen/qwen3.8-27b",
+      "groq/compound"
     ]
   },
   "capabilities": {
@@ -118,10 +164,13 @@
   },
   "evidence": {
     "rosterVerified": {
-      "date": "2026-08-28",
-      "method": "transcribed from pre-migration TS catalog"
+      "date": "2026-08-30",
+      "method": "GET /models against the live account, cross-checked with a real chat call per id"
     },
-    "liveMatrix": null,
+    "liveMatrix": {
+      "date": "2026-08-30",
+      "result": "All 7 previously-catalogued ids are gone: Groq answers 404 'does not exist' for the llama ids and 'has been decommissioned' for gemma2/mixtral/llama-guard/llama-3.2-vision. The 7 replacements listed here each returned 200 to a real chat call. Vision was re-tested with a valid 64x64 PNG: qwen/qwen3.8-27b describes the image correctly and is the only vision-capable id; gpt-oss-120b and groq/compound reject an image part with 'messages[0].content must be a string'."
+    },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   }
 }

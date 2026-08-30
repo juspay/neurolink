@@ -8,7 +8,7 @@
 
 > **NativeFunctionCall** = `object`
 
-Defined in: [types/providers.ts:2050](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2050)
+Defined in: [types/providers.ts:2053](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2053)
 
 A single function call returned by the Gemini model.
 
@@ -18,7 +18,7 @@ A single function call returned by the Gemini model.
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:2051](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2051)
+Defined in: [types/providers.ts:2054](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2054)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:2051](https://github.com/juspay/neurolink/blob/r
 
 > **args**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:2052](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2052)
+Defined in: [types/providers.ts:2055](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2055)
