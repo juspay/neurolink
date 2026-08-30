@@ -14,10 +14,8 @@ import type {
   AuthValidateArgs,
   AuthHealthArgs,
 } from "../../lib/types/index.js";
-/**
- * Supported providers for authentication
- */
-const SUPPORTED_PROVIDERS = ["anthropic", "codex"] as const;
+/** Providers with first-class credential flows in `neurolink auth`. */
+const AUTH_LOGIN_PROVIDERS = ["anthropic", "codex"] as const;
 
 /**
  * Auth Command Factory
@@ -310,7 +308,7 @@ export class AuthCommandFactory {
       .positional("provider", {
         type: "string",
         description: "AI provider to authenticate with",
-        choices: SUPPORTED_PROVIDERS,
+        choices: AUTH_LOGIN_PROVIDERS,
         demandOption: true,
       })
       .option("method", {
@@ -365,7 +363,7 @@ export class AuthCommandFactory {
       .positional("provider", {
         type: "string",
         description: "AI provider to log out from",
-        choices: SUPPORTED_PROVIDERS,
+        choices: AUTH_LOGIN_PROVIDERS,
         demandOption: true,
       })
       .example("$0 auth logout anthropic", "Clear all Anthropic credentials");
@@ -380,7 +378,7 @@ export class AuthCommandFactory {
         type: "string",
         description:
           "AI provider to check (optional, shows all if not specified)",
-        choices: SUPPORTED_PROVIDERS,
+        choices: AUTH_LOGIN_PROVIDERS,
       })
       .example("$0 auth status", "Show status for all configured providers")
       .example(
@@ -398,7 +396,7 @@ export class AuthCommandFactory {
       .positional("provider", {
         type: "string",
         description: "AI provider to refresh tokens for",
-        choices: SUPPORTED_PROVIDERS,
+        choices: AUTH_LOGIN_PROVIDERS,
         demandOption: true,
       })
       .example("$0 auth refresh anthropic", "Refresh Anthropic OAuth tokens");
@@ -413,7 +411,7 @@ export class AuthCommandFactory {
         type: "boolean",
         default: false,
         description:
-          "Fetch fresh limits from Anthropic for all OAuth accounts before listing (via the running proxy when available)",
+          "Refresh available provider limits for authenticated accounts; show unsupported providers explicitly",
       })
       .example("$0 auth list", "List all authenticated accounts")
       .example("$0 auth list --format json", "List accounts in JSON format")
@@ -430,8 +428,7 @@ export class AuthCommandFactory {
     return yargs
       .positional("provider", {
         type: "string",
-        description: "AI provider to remove account from",
-        choices: SUPPORTED_PROVIDERS,
+        description: "Provider namespace to remove an account from",
         demandOption: true,
       })
       .option("label", {

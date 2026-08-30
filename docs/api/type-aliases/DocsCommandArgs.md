@@ -8,7 +8,7 @@
 
 > **DocsCommandArgs** = `object`
 
-Defined in: [types/cli.ts:1203](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1203)
+Defined in: [types/cli.ts:1245](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1245)
 
 Docs command arguments
 
@@ -18,7 +18,7 @@ Docs command arguments
 
 > `optional` **transport?**: `"stdio"` \| `"http"`
 
-Defined in: [types/cli.ts:1204](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1204)
+Defined in: [types/cli.ts:1246](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1246)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1204](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **port?**: `number`
 
-Defined in: [types/cli.ts:1205](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1205)
+Defined in: [types/cli.ts:1247](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1247)

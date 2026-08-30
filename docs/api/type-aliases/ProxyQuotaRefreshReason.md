@@ -8,4 +8,4 @@
 
 > **ProxyQuotaRefreshReason** = `"startup_unknown"` \| `"handoff_prewarm"` \| `"ambiguous_snapshot"` \| `"manual"`
 
-Defined in: [types/proxy.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L527)
+Defined in: [types/proxy.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L528)

@@ -8,7 +8,7 @@
 
 > **InternalResult** = `object`
 
-Defined in: [types/proxy.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L243)
+Defined in: [types/proxy.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L244)
 
 Minimal subset of NeuroLink's GenerateResult that the proxy layer consumes.
 Kept intentionally narrow so the proxy layer does not depend on every
@@ -20,7 +20,7 @@ field of the full type.
 
 > **content**: `string`
 
-Defined in: [types/proxy.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L244)
+Defined in: [types/proxy.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L245)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/proxy.ts:244](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **model?**: `string`
 
-Defined in: [types/proxy.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L245)
+Defined in: [types/proxy.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L246)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/proxy.ts:245](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **finishReason?**: `string`
 
-Defined in: [types/proxy.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L246)
+Defined in: [types/proxy.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L247)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/proxy.ts:246](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/proxy.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L248)
+Defined in: [types/proxy.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L249)
 
 Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought parts)
 
@@ -54,7 +54,7 @@ Thinking/reasoning text from provider (Anthropic thinking blocks, Gemini thought
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/proxy.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L249)
+Defined in: [types/proxy.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L250)
 
 #### input
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:249](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **toolCalls?**: `object`[]
 
-Defined in: [types/proxy.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L256)
+Defined in: [types/proxy.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L257)
 
 #### toolCallId
 

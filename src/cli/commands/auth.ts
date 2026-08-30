@@ -39,10 +39,13 @@ import {
 import type {
   AccountQuota,
   AuthCommandArgs,
+  AuthListQuotaRefreshAdapter,
+  AuthListRefreshResultSetter,
   AuthListRefreshOutcome,
   AuthStatusResult,
   CliProxyConfigDoc,
   OAuthTokens as OAuthTokensType,
+  ProxyPassthroughAccount,
   ProxyLimitsRefreshResponse,
   ProxyState,
   StoredCredentials,
@@ -105,8 +108,10 @@ const ANTHROPIC_CONSOLE_OAUTH_CONFIG = {
     "https://api.anthropic.com/api/oauth/claude_cli/create_api_key",
 };
 
-// Supported providers
-const SUPPORTED_PROVIDERS = ["anthropic", "codex"] as const;
+// Providers with first-class credential flows in `neurolink auth`. This is
+// intentionally narrower than the CLI's full AI-provider catalog: `auth list`
+// renders every provider-qualified account stored by the CLI.
+const AUTH_LOGIN_PROVIDERS = ["anthropic", "codex"] as const;
 
 // =============================================================================
 // SUBCOMMAND HANDLERS
@@ -124,10 +129,10 @@ export async function handleLogin(argv: AuthCommandArgs): Promise<void> {
     const provider = argv.provider?.toLowerCase() as SupportedProvider;
 
     // Validate provider
-    if (!SUPPORTED_PROVIDERS.includes(provider)) {
+    if (!AUTH_LOGIN_PROVIDERS.includes(provider)) {
       logger.error(
         chalk.red(
-          `Unsupported provider: ${provider}. Supported: ${SUPPORTED_PROVIDERS.join(", ")}`,
+          `Unsupported provider: ${provider}. Supported: ${AUTH_LOGIN_PROVIDERS.join(", ")}`,
         ),
       );
       process.exit(1);
@@ -385,13 +390,196 @@ export function formatQuotaWindowRows(quota: AccountQuota): string[] {
 /**
  * Fetch fresh limits for `auth list --refresh`.
  *
- * Prefers the running proxy's GET /limits endpoint so the proxy's in-memory
- * routing state is refreshed as a side effect; falls back to fetching the
- * usage endpoint directly from this process (persisting through the same
- * quota store) when no proxy is running or the call fails.
+ * Every provider-qualified token-store account receives an explicit result.
+ * The running proxy is authoritative for provider adapters that declare proxy
+ * support, or for namespaces it returns. Registered direct adapters fill in
+ * the remaining namespaces. Providers with no quota adapter are shown as
+ * `not_supported`, never silently omitted.
  */
-async function refreshAccountLimitsForList(): Promise<AuthListRefreshOutcome> {
+function providerFromAccountKey(key: string): string {
+  const separator = key.indexOf(":");
+  const provider = (separator === -1 ? key : key.slice(0, separator))
+    .trim()
+    .toLowerCase();
+  return provider || "unknown";
+}
+
+const DIRECT_QUOTA_REFRESH_CONCURRENCY = 3;
+
+// Provider-specific protocol knowledge is kept behind this capability map.
+// The CLI result itself remains provider-generic: adding a new adapter only
+// requires registering it here, while every other configured provider still
+// receives an explicit `not_supported` result.
+const PROVIDER_QUOTA_ADAPTERS: Readonly<
+  Record<string, AuthListQuotaRefreshAdapter>
+> = {
+  anthropic: {
+    supportsProxyRefresh: true,
+    listAccounts: () => listAnthropicAccountsForUsage(),
+    priorQuotaKeys: (account) => [account.key, account.label],
+    async refreshAccount(account, { prior }) {
+      if (account.type !== "oauth") {
+        return { status: "not_supported" };
+      }
+      const result = await fetchAccountUsage(account);
+      if (result.ok === false) {
+        return { status: "unavailable", error: result.error };
+      }
+      const quota = usageToQuota(result.usage, { now: Date.now(), prior });
+      if (!quota) {
+        return {
+          status: "unavailable",
+          error: "usage payload had no recognizable limit windows",
+        };
+      }
+      return { status: "refreshed", quota };
+    },
+  },
+  codex: {
+    listAccounts: () => listCodexAccountsForUsage(),
+    priorQuotaKeys: (account) => [account.key],
+    async refreshAccount(account) {
+      if (account.type !== "oauth") {
+        return { status: "not_supported" };
+      }
+      const result = await fetchCodexAccountUsage(account);
+      if (result.ok === false) {
+        return result.reason === "not_oauth"
+          ? { status: "not_supported" }
+          : { status: "unavailable", error: `usage ${result.reason}` };
+      }
+      return { status: "refreshed", quota: result.quota };
+    },
+  },
+};
+
+async function refreshDirectProviderLimits(options: {
+  provider: string;
+  adapter: AuthListQuotaRefreshAdapter;
+  accountKeys: readonly string[];
+  prior: Record<string, AccountQuota>;
+  quotas: Record<string, AccountQuota>;
+  errors: string[];
+  accountResults: AuthListRefreshOutcome["accounts"];
+  setAccountResult: AuthListRefreshResultSetter;
+}): Promise<boolean> {
+  const {
+    provider,
+    adapter,
+    accountKeys,
+    prior,
+    quotas,
+    errors,
+    accountResults,
+    setAccountResult,
+  } = options;
+  let accounts: ProxyPassthroughAccount[];
+  try {
+    accounts = await adapter.listAccounts();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    for (const key of accountKeys) {
+      if (providerFromAccountKey(key) === provider) {
+        setAccountResult(key, "unavailable", message);
+      }
+    }
+    errors.push(`${provider} accounts: ${message}`);
+    return false;
+  }
+
+  let attemptedDirectRefresh = false;
+  let nextIndex = 0;
+  const worker = async (): Promise<void> => {
+    for (;;) {
+      const index = nextIndex++;
+      if (index >= accounts.length) {
+        return;
+      }
+      const account = accounts[index];
+      if (
+        accountResults[account.key]?.status === "refreshed" ||
+        accountResults[account.key]?.status === "snapshot"
+      ) {
+        continue;
+      }
+
+      if (account.type === "oauth") {
+        attemptedDirectRefresh = true;
+      }
+      try {
+        const priorQuota =
+          adapter
+            .priorQuotaKeys(account)
+            .map((key) => prior[key])
+            .find((quota) => quota !== undefined) ?? null;
+        const result = await adapter.refreshAccount(account, {
+          prior: priorQuota,
+        });
+        if (result.status === "refreshed") {
+          await saveAccountQuota(account.key, result.quota);
+          quotas[account.key] = result.quota;
+          setAccountResult(account.key, "refreshed");
+          continue;
+        }
+
+        setAccountResult(account.key, result.status, result.error);
+        if (result.status === "unavailable" && result.error) {
+          errors.push(`${provider}:${account.label}: ${result.error}`);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setAccountResult(account.key, "unavailable", message);
+        errors.push(`${provider}:${account.label}: ${message}`);
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      {
+        length: Math.min(
+          DIRECT_QUOTA_REFRESH_CONCURRENCY,
+          accounts.length || 1,
+        ),
+      },
+      () => worker(),
+    ),
+  );
+  return attemptedDirectRefresh;
+}
+
+async function refreshAccountLimitsForList(
+  accountKeys: readonly string[],
+): Promise<AuthListRefreshOutcome> {
   const errors: string[] = [];
+  const quotas: Record<string, AccountQuota> = {};
+  const accountResults: AuthListRefreshOutcome["accounts"] = {};
+  const proxyRefreshedProviders = new Set<string>();
+  let refreshedViaProxy = false;
+  let refreshedDirectly = false;
+
+  const setAccountResult: AuthListRefreshResultSetter = (
+    key,
+    status,
+    error,
+  ): void => {
+    accountResults[key] = {
+      provider: providerFromAccountKey(key),
+      status,
+      ...(error ? { error } : {}),
+    };
+  };
+
+  // `auth list` supports arbitrary provider-prefixed token-store entries.
+  // Providers with no quota adapter stay visible as explicitly unsupported
+  // rather than being rendered as an unexplained unavailable account.
+  for (const accountKey of accountKeys) {
+    setAccountResult(accountKey, "not_supported");
+  }
+
+  const configuredProviders = new Set(
+    accountKeys.map((accountKey) => providerFromAccountKey(accountKey)),
+  );
 
   const proxyState = detectRunningProxyState();
   if (proxyState?.port) {
@@ -405,128 +593,96 @@ async function refreshAccountLimitsForList(): Promise<AuthListRefreshOutcome> {
       });
       if (response.ok) {
         const payload = (await response.json()) as ProxyLimitsRefreshResponse;
-        const quotas: Record<string, AccountQuota> = {};
-        for (const result of payload.results) {
-          if (result.quota) {
-            quotas[result.account] = result.quota;
-          }
-          if (result.status === "error" && result.error) {
-            errors.push(`${result.account}: ${result.error}`);
+        for (const provider of configuredProviders) {
+          if (PROVIDER_QUOTA_ADAPTERS[provider]?.supportsProxyRefresh) {
+            proxyRefreshedProviders.add(provider);
+            refreshedViaProxy = true;
           }
         }
-        return { via: "proxy", quotas, errors };
+        for (const result of payload.results) {
+          // The proxy already returns the canonical key. Keep the fallback for
+          // a pre-provider-key proxy during a rolling package transition.
+          const key = result.key || `anthropic:${result.account}`;
+          proxyRefreshedProviders.add(providerFromAccountKey(key));
+          refreshedViaProxy = true;
+          if (result.quota) {
+            quotas[key] = result.quota;
+          }
+          setAccountResult(
+            key,
+            result.status === "refreshed"
+              ? "refreshed"
+              : result.quota
+                ? "snapshot"
+                : result.status === "skipped_api_key"
+                  ? "not_supported"
+                  : "unavailable",
+            result.error,
+          );
+          if (result.status === "error" && result.error) {
+            errors.push(
+              `${providerFromAccountKey(key)}:${result.account}: ${result.error}`,
+            );
+          }
+        }
       }
-      errors.push(
-        `running proxy /limits returned HTTP ${response.status}; fetching directly`,
-      );
+      if (!response.ok) {
+        errors.push(
+          `running proxy /limits returned HTTP ${response.status}; trying direct quota adapters`,
+        );
+      }
     } catch {
       // Keep the message generic: a raw fetch error can echo the requested
       // URL, and this string reaches the text and JSON CLI output.
-      errors.push("running proxy /limits unreachable; fetching directly");
-    }
-  }
-
-  try {
-    const accounts = await listAnthropicAccountsForUsage();
-    const prior = await loadAccountQuotas().catch(
-      () => ({}) as Record<string, AccountQuota>,
-    );
-    const quotas: Record<string, AccountQuota> = {};
-    const CONCURRENCY = 3;
-    let nextIndex = 0;
-    const worker = async (): Promise<void> => {
-      for (;;) {
-        const index = nextIndex++;
-        if (index >= accounts.length) {
-          return;
-        }
-        const account = accounts[index];
-        if (account.type !== "oauth") {
-          continue; // api_key accounts have no subscription windows
-        }
-        // Isolate failures per account: one rejection must not abort the
-        // Promise.all sweep or discard the other accounts' refreshed quotas.
-        try {
-          const result = await fetchAccountUsage(account);
-          if (!result.ok) {
-            errors.push(`${account.label}: ${result.error}`);
-            continue;
-          }
-          const quota = usageToQuota(result.usage, {
-            now: Date.now(),
-            prior: prior[account.label] ?? null,
-          });
-          if (!quota) {
-            errors.push(
-              `${account.label}: usage payload had no recognizable limit windows`,
-            );
-            continue;
-          }
-          await saveAccountQuota(account.label, quota);
-          quotas[account.label] = quota;
-        } catch (err) {
-          errors.push(
-            `${account.label}: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-    };
-    try {
-      await Promise.all(
-        Array.from(
-          { length: Math.min(CONCURRENCY, accounts.length || 1) },
-          () => worker(),
-        ),
-      );
-    } finally {
-      // The quota store's debounced flush timer is unref()'d and this process
-      // is short-lived — flush now (even on a partial sweep) or the completed
-      // saves never reach disk.
-      await flushAccountQuotas().catch(() => undefined);
-    }
-
-    // Codex accounts: fetch the ChatGPT usage windows. Keyed by the full
-    // `codex:` account key so quota never collides with an anthropic account
-    // that shares a bare label.
-    try {
-      const codexAccounts = await listCodexAccountsForUsage();
-      for (const account of codexAccounts) {
-        if (account.type !== "oauth") {
-          continue;
-        }
-        try {
-          const result = await fetchCodexAccountUsage(account);
-          if (!result.ok) {
-            errors.push(`${account.label}: codex usage ${result.reason}`);
-            continue;
-          }
-          await saveAccountQuota(account.key, result.quota);
-          quotas[account.key] = result.quota;
-        } catch (err) {
-          errors.push(
-            `${account.label}: ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-    } catch (err) {
-      // Enumeration can throw before the per-account guard is reached. Without
-      // this the failure escapes to the outer handler and the Anthropic quotas
-      // fetched just above are dropped, reporting a total failure for a
-      // Codex-only problem.
       errors.push(
-        `codex accounts: ${err instanceof Error ? err.message : String(err)}`,
+        "running proxy /limits unreachable; trying direct quota adapters",
       );
-    } finally {
-      await flushAccountQuotas().catch(() => undefined);
     }
-
-    return { via: "direct", quotas, errors };
-  } catch (err) {
-    errors.push(
-      `direct limit fetch failed (${err instanceof Error ? err.message : String(err)})`,
-    );
-    return { via: "none", quotas: null, errors };
   }
+
+  const prior = await loadAccountQuotas().catch(
+    () => ({}) as Record<string, AccountQuota>,
+  );
+  try {
+    for (const [provider, adapter] of Object.entries(PROVIDER_QUOTA_ADAPTERS)) {
+      if (
+        !configuredProviders.has(provider) ||
+        proxyRefreshedProviders.has(provider)
+      ) {
+        continue;
+      }
+      refreshedDirectly =
+        (await refreshDirectProviderLimits({
+          provider,
+          adapter,
+          accountKeys,
+          prior,
+          quotas,
+          errors,
+          accountResults,
+          setAccountResult,
+        })) || refreshedDirectly;
+    }
+  } finally {
+    // The quota store's debounced flush timer is unref()'d and this process is
+    // short-lived — flush every completed provider snapshot before returning.
+    await flushAccountQuotas().catch(() => undefined);
+  }
+
+  const via =
+    refreshedViaProxy && refreshedDirectly
+      ? "mixed"
+      : refreshedViaProxy
+        ? "proxy"
+        : refreshedDirectly
+          ? "direct"
+          : "none";
+  return {
+    via,
+    quotas: Object.keys(quotas).length > 0 ? quotas : null,
+    accounts: accountResults,
+    errors,
+  };
 }
 
 /**
@@ -638,10 +794,10 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
       }),
     );
 
-    // Optionally fetch FRESH limits from Anthropic before rendering.
+    // Optionally fetch fresh provider limits before rendering.
     let refreshOutcome: AuthListRefreshOutcome | undefined;
     if (argv.refresh) {
-      refreshOutcome = await refreshAccountLimitsForList();
+      refreshOutcome = await refreshAccountLimitsForList(allKeys);
     }
 
     // Load persisted quota data (captured from proxy responses), then overlay
@@ -659,10 +815,20 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
     if (argv.format === "json") {
       // Merge quota data into each account object for JSON output
       const withQuota = enrichedAccounts.map((acct) => {
-        const quotaKey =
-          acct.provider === "codex" ? acct.key : (acct.label ?? acct.key);
-        const quota = quotas[quotaKey] ?? null;
-        return { ...acct, quota };
+        const quota =
+          quotas[acct.key] ??
+          // Old Anthropic snapshots used bare labels. Read them once so an
+          // upgrade does not hide a useful historic reading, but all new
+          // writes use the provider-qualified key above.
+          (acct.provider === "anthropic" && acct.label
+            ? quotas[acct.label]
+            : undefined) ??
+          null;
+        return {
+          ...acct,
+          quota,
+          refresh: refreshOutcome?.accounts[acct.key] ?? null,
+        };
       });
       if (refreshOutcome) {
         // --refresh envelopes the array so the fetch outcome travels with it.
@@ -672,6 +838,7 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
               refresh: {
                 via: refreshOutcome.via,
                 errors: refreshOutcome.errors,
+                accounts: refreshOutcome.accounts,
               },
               accounts: withQuota,
             },
@@ -687,7 +854,7 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
         if (refreshOutcome.via !== "none") {
           logger.always(
             chalk.gray(
-              `\nFetched fresh limits from Anthropic (${refreshOutcome.via === "proxy" ? "via running proxy" : "direct"}).`,
+              `\nFetched fresh limits (${refreshOutcome.via === "proxy" ? "via running proxy" : refreshOutcome.via === "direct" ? "direct provider APIs" : "via the running proxy and direct provider APIs"}).`,
             ),
           );
         }
@@ -697,12 +864,18 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
       }
       logger.always(chalk.bold("\nAuthenticated Accounts:\n"));
 
-      // Check if any account has quota data to decide column layout
-      const hasQuota = enrichedAccounts.some((acct) => {
-        const quotaKey =
-          acct.provider === "codex" ? acct.key : (acct.label ?? acct.key);
-        return quotas[quotaKey] !== undefined;
-      });
+      // `--refresh` always shows the limit columns, including an explicit
+      // unavailable/not-supported state. A blank table silently looked like a
+      // healthy Codex account had no quota information.
+      const hasQuota =
+        !!refreshOutcome ||
+        enrichedAccounts.some(
+          (acct) =>
+            quotas[acct.key] !== undefined ||
+            (acct.provider === "anthropic" && acct.label
+              ? quotas[acct.label] !== undefined
+              : false),
+        );
 
       // Table header
       // Why an account is (or isn't) in the proxy pool. Without this a
@@ -715,12 +888,12 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
       const colEmail = "EMAIL".padEnd(28);
       const colStatus = "TOKEN STATUS".padEnd(14);
       const colProvider = "PROVIDER".padEnd(12);
-      const colSession = hasQuota ? "SESSION".padEnd(10) : "";
-      const colWeekly = hasQuota ? "WEEKLY".padEnd(10) : "";
+      const colSession = hasQuota ? "SESSION".padEnd(14) : "";
+      const colWeekly = hasQuota ? "WEEKLY".padEnd(14) : "";
       logger.always(
         `  ${chalk.gray(colKey)} ${chalk.gray(colProvider)} ${chalk.gray(colEmail)} ${chalk.gray(colStatus)}${hasQuota ? ` ${chalk.gray(colSession)} ${chalk.gray(colWeekly)}` : ""}`,
       );
-      logger.always(`  ${chalk.gray("-".repeat(hasQuota ? 100 : 78))}`);
+      logger.always(`  ${chalk.gray("-".repeat(hasQuota ? 108 : 78))}`);
 
       for (const acct of enrichedAccounts) {
         const displayLabel = (acct.label ?? acct.key).padEnd(20);
@@ -736,21 +909,23 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
           statusText = chalk.yellow("unknown".padEnd(14));
         }
 
-        const quotaKey =
-          acct.provider === "codex" ? acct.key : (acct.label ?? acct.key);
-        const quota = quotas[quotaKey];
+        const quota =
+          quotas[acct.key] ??
+          (acct.provider === "anthropic" && acct.label
+            ? quotas[acct.label]
+            : undefined);
         const poolNote = poolState[acct.key];
 
         if (hasQuota && quota) {
           const qc = formatQuotaColumns(quota);
           logger.always(
-            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText} ${qc.sessionText.padEnd(10)} ${qc.weeklyText.padEnd(10)}`,
+            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText} ${qc.sessionText.padEnd(14)} ${qc.weeklyText.padEnd(14)}`,
           );
           const indent = " ".repeat(2 + 20 + 1 + 12 + 1 + 28 + 1 + 14 + 1);
           // Second line: reset times (indented under session/weekly columns)
           if (qc.sessionReset || qc.weeklyReset) {
             logger.always(
-              `${indent}${(qc.sessionReset || "").padEnd(10)} ${qc.weeklyReset || ""}`,
+              `${indent}${(qc.sessionReset || "").padEnd(14)} ${qc.weeklyReset || ""}`,
             );
           }
           // Dynamic per-plan windows (e.g. the Fable-only weekly limit)
@@ -761,12 +936,19 @@ export async function handleList(argv: AuthCommandArgs): Promise<void> {
             logger.always(`${indent}${poolNote}`);
           }
         } else {
+          const refreshState = refreshOutcome?.accounts[acct.key];
+          const unavailableText =
+            refreshState?.status === "not_supported"
+              ? "not supported"
+              : refreshOutcome
+                ? "unavailable"
+                : "-";
           const apiKeyNote =
             refreshOutcome && acct.tokenType && acct.tokenType !== "Bearer"
               ? chalk.gray("  (api key — not refreshed)")
               : "";
           logger.always(
-            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${hasQuota ? "  -          -" : ""}${apiKeyNote}`,
+            `  ${chalk.cyan(displayLabel)} ${displayProvider} ${displayEmail} ${statusText}${hasQuota ? ` ${chalk.yellow(unavailableText.padEnd(14))} ${chalk.gray("n/a".padEnd(14))}` : ""}${apiKeyNote}`,
           );
           if (poolNote) {
             logger.always(`  ${poolNote}`);
@@ -859,10 +1041,10 @@ export async function handleLogout(argv: AuthCommandArgs): Promise<void> {
     const provider = argv.provider?.toLowerCase() as SupportedProvider;
 
     // Validate provider
-    if (!SUPPORTED_PROVIDERS.includes(provider)) {
+    if (!AUTH_LOGIN_PROVIDERS.includes(provider)) {
       logger.error(
         chalk.red(
-          `Unsupported provider: ${provider}. Supported: ${SUPPORTED_PROVIDERS.join(", ")}`,
+          `Unsupported provider: ${provider}. Supported: ${AUTH_LOGIN_PROVIDERS.join(", ")}`,
         ),
       );
       process.exit(1);
@@ -977,7 +1159,7 @@ export async function handleStatus(argv: AuthCommandArgs): Promise<void> {
     // If provider specified, show just that provider
     const providersToCheck: SupportedProvider[] = provider
       ? [provider]
-      : [...SUPPORTED_PROVIDERS];
+      : [...AUTH_LOGIN_PROVIDERS];
 
     const results: AuthStatusResult[] = [];
 
@@ -1122,10 +1304,10 @@ export async function handleRefresh(argv: AuthCommandArgs): Promise<void> {
     const provider = argv.provider?.toLowerCase() as SupportedProvider;
 
     // Validate provider
-    if (!SUPPORTED_PROVIDERS.includes(provider)) {
+    if (!AUTH_LOGIN_PROVIDERS.includes(provider)) {
       logger.error(
         chalk.red(
-          `Unsupported provider: ${provider}. Supported: ${SUPPORTED_PROVIDERS.join(", ")}`,
+          `Unsupported provider: ${provider}. Supported: ${AUTH_LOGIN_PROVIDERS.join(", ")}`,
         ),
       );
       process.exit(1);

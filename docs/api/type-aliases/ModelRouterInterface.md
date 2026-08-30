@@ -8,7 +8,7 @@
 
 > **ModelRouterInterface** = `object`
 
-Defined in: [types/proxy.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L41)
+Defined in: [types/proxy.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L42)
 
 Type describing the ModelRouter contract.
 Defined here to avoid a circular dependency between types and implementation.
@@ -19,7 +19,7 @@ Defined here to avoid a circular dependency between types and implementation.
 
 > `optional` **getModelMappings?**: () => [`ModelMapping`](ModelMapping.md)[]
 
-Defined in: [types/proxy.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L47)
+Defined in: [types/proxy.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L48)
 
 #### Returns
 
@@ -31,7 +31,7 @@ Defined in: [types/proxy.ts:47](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **getPassthroughModels?**: () => `string`[]
 
-Defined in: [types/proxy.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L48)
+Defined in: [types/proxy.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L49)
 
 #### Returns
 
@@ -43,7 +43,7 @@ Defined in: [types/proxy.ts:48](https://github.com/juspay/neurolink/blob/release
 
 > **resolve**(`requestedModel`): [`RouteResult`](RouteResult.md)
 
-Defined in: [types/proxy.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L42)
+Defined in: [types/proxy.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L43)
 
 #### Parameters
 
@@ -61,7 +61,7 @@ Defined in: [types/proxy.ts:42](https://github.com/juspay/neurolink/blob/release
 
 > **isClaudeTarget**(`requestedModel`): `boolean`
 
-Defined in: [types/proxy.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L43)
+Defined in: [types/proxy.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L44)
 
 #### Parameters
 
@@ -79,7 +79,7 @@ Defined in: [types/proxy.ts:43](https://github.com/juspay/neurolink/blob/release
 
 > **getFallbackChain**(): [`FallbackEntry`](FallbackEntry.md)[]
 
-Defined in: [types/proxy.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L44)
+Defined in: [types/proxy.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L45)
 
 #### Returns
 
@@ -91,7 +91,7 @@ Defined in: [types/proxy.ts:44](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **isAutoFallbackEnabled**(): `boolean`
 
-Defined in: [types/proxy.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L45)
+Defined in: [types/proxy.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L46)
 
 #### Returns
 
@@ -103,7 +103,7 @@ Defined in: [types/proxy.ts:45](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **getMaxInflightPerAccount**(): `number` \| `undefined`
 
-Defined in: [types/proxy.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L46)
+Defined in: [types/proxy.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L47)
 
 #### Returns
 

@@ -8,7 +8,7 @@
 
 > **SSEMessageStop** = `object`
 
-Defined in: [types/proxy.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L217)
+Defined in: [types/proxy.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L218)
 
 ## Properties
 
@@ -16,4 +16,4 @@ Defined in: [types/proxy.ts:217](https://github.com/juspay/neurolink/blob/releas
 
 > **type**: `"message_stop"`
 
-Defined in: [types/proxy.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L218)
+Defined in: [types/proxy.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L219)

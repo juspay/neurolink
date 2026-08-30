@@ -75,7 +75,6 @@ import { startProxyLogCleanupScheduler } from "../../lib/proxy/logCleanupSchedul
 import {
   anthropicAccountKeysEqual,
   createAccountAllowlist,
-  ENV_ANTHROPIC_ACCOUNT_KEY,
   isAccountAllowed,
   LEGACY_ANTHROPIC_ACCOUNT_KEY,
   normalizeAnthropicAccountKey,
@@ -162,13 +161,9 @@ const gatedShareRequests = new WeakSet<Request>();
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
 /** How long shutdown waits on the share listener before moving on. */
 const SHARE_LISTENER_CLOSE_TIMEOUT_MS = 10_000;
-const LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS = 5_000;
 const PROXY_STATUS_TOKEN_READ_TIMEOUT_MS = 2_000;
 const PROXY_STATUS_RECONCILE_TIMEOUT_MS = 750;
 const PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS = 750;
-let legacyStatusAccountCache:
-  | { credentialsPath: string; expiresAt: number; label: string | null }
-  | undefined;
 // Allowed drift between a pid's OS-reported start time and the persisted
 // ProxySupervisorState.startTime before processLooksLikeProxySupervisor
 // treats it as a confident mismatch (recycled pid). Generous on purpose:
@@ -542,45 +537,6 @@ async function resolveStatusPrimaryAccount(
     label: fallbackLabel,
     source: "fallback",
   };
-}
-
-async function resolveLegacyStatusAccountLabel(
-  storedAnthropicAccountCount: number,
-): Promise<string | null> {
-  if (storedAnthropicAccountCount !== 0) {
-    return null;
-  }
-  const credentialsPath = join(
-    homedir(),
-    ".neurolink",
-    "anthropic-credentials.json",
-  );
-  const now = Date.now();
-  if (
-    legacyStatusAccountCache?.credentialsPath === credentialsPath &&
-    legacyStatusAccountCache.expiresAt > now
-  ) {
-    return legacyStatusAccountCache.label;
-  }
-  let label: string | null = null;
-  try {
-    const { readFile } = await import("node:fs/promises");
-    const parsed = JSON.parse(await readFile(credentialsPath, "utf8")) as {
-      email?: string;
-      oauth?: { accessToken?: string };
-    };
-    if (parsed.oauth?.accessToken) {
-      label = parsed.email?.trim() || "legacy-default";
-    }
-  } catch {
-    label = null;
-  }
-  legacyStatusAccountCache = {
-    credentialsPath,
-    expiresAt: now + LEGACY_STATUS_ACCOUNT_CACHE_TTL_MS,
-    label,
-  };
-  return label;
 }
 
 function deriveAccountAllowance(
@@ -1412,6 +1368,7 @@ function redactStatusAccounts(
   return rows.map((row, index) => ({
     ...row,
     label: `account-${index + 1}`,
+    ...(row.key !== undefined ? { key: null } : {}),
     ...(row.email !== undefined ? { email: null } : {}),
   }));
 }
@@ -2176,25 +2133,32 @@ export async function createProxyStartApp(params: {
       );
       return {} as Record<string, PersistedAccountCooldown>;
     });
-    const storedAccountKeys = new Set<string>();
+    const storedAnthropicAccountKeys = new Set<string>();
+    const storedCodexAccountKeys = new Set<string>();
     const storedAccountExpirations = new Map<string, number>();
-    const disabledAccountKeys = new Set<string>();
     const disabledProviderAccountKeys = new Set<string>();
     let accountInventoryLoaded = false;
     try {
       const { tokenStore } = await import("../../lib/auth/tokenStore.js");
-      const storedKeys = await withTimeout(
-        tokenStore.listByPrefix("anthropic:"),
+      const [anthropicKeys, codexKeys] = await withTimeout(
+        Promise.all([
+          tokenStore.listByPrefix("anthropic:"),
+          tokenStore.listByPrefix("codex:"),
+        ]),
         PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
         "[proxy] /status account enumeration timed out",
       );
-      for (const key of storedKeys) {
-        storedAccountKeys.add(normalizeAnthropicAccountKey(key));
+      for (const key of anthropicKeys) {
+        storedAnthropicAccountKeys.add(normalizeAnthropicAccountKey(key));
+      }
+      for (const key of codexKeys) {
+        storedCodexAccountKeys.add(key);
       }
       // Once account names are known, preserve them even when optional token
       // metadata is slow. That keeps the status table useful and avoids
       // incorrectly presenting known accounts as removed.
       accountInventoryLoaded = true;
+      const storedKeys = [...anthropicKeys, ...codexKeys];
       const inventory = await withTimeout(
         (async () => {
           const tokenExpirations = await Promise.all(
@@ -2224,15 +2188,18 @@ export async function createProxyStartApp(params: {
       );
       for (const expiration of inventory.tokenExpirations) {
         if (expiration) {
-          storedAccountExpirations.set(
-            normalizeAnthropicAccountKey(expiration[0]),
-            expiration[1],
-          );
+          const key = expiration[0].startsWith("anthropic:")
+            ? normalizeAnthropicAccountKey(expiration[0])
+            : expiration[0];
+          storedAccountExpirations.set(key, expiration[1]);
         }
       }
       for (const key of inventory.disabledKeys) {
-        disabledAccountKeys.add(normalizeAnthropicAccountKey(key));
-        disabledProviderAccountKeys.add(key);
+        disabledProviderAccountKeys.add(
+          key.startsWith("anthropic:")
+            ? normalizeAnthropicAccountKey(key)
+            : key,
+        );
       }
     } catch (err) {
       logger.debug(
@@ -2241,13 +2208,6 @@ export async function createProxyStartApp(params: {
         }`,
       );
     }
-    const legacyAccountLabel = accountInventoryLoaded
-      ? await withTimeout(
-          resolveLegacyStatusAccountLabel(storedAccountKeys.size),
-          PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
-          "[proxy] /status legacy account inspection timed out",
-        ).catch(() => null)
-      : null;
     const now = Date.now();
     const health = buildProxyHealthResponse(readiness, {
       strategy: activeStrategy,
@@ -2266,70 +2226,71 @@ export async function createProxyStartApp(params: {
     }));
     const activeUpdaterPid =
       supervisorState?.updaterPid ?? runtimeState?.updaterPid;
-    const accountRows: NonNullable<StatusStats["accounts"]> = Object.values(
+    const accountRows: NonNullable<StatusStats["accounts"]> = Object.entries(
       stats.accounts,
-    ).map((account) => {
-      const identity = resolveProxyStatusAccountIdentity(
-        account.label,
-        account.type,
-      );
+    ).map(([persistedMapKey, account]) => {
+      // Legacy snapshots used their bare map key as an inferred identity. Do
+      // not map those old rows to a provider based on an email: the same email
+      // can be present in both pools. New records carry account.key.
+      const persistedKey = account.key ?? null;
+      const identity = persistedKey
+        ? resolveProxyStatusAccountIdentity(
+            account.label,
+            account.type,
+            persistedKey,
+          )
+        : { provider: "other" as const, key: null };
+      const isLegacyUnattributed =
+        persistedKey === null &&
+        (account.type === "oauth" ||
+          account.type === "api_key" ||
+          account.type === "codex-oauth");
       const isAnthropicAccount = identity.provider === "anthropic";
       const isCodexAccount = identity.provider === "codex";
-      const normalizedKey =
-        identity.provider === "anthropic" ? identity.key : null;
-      const isLegacyAccount =
-        isAnthropicAccount && account.label === legacyAccountLabel;
-      const accountKey = isAnthropicAccount
-        ? storedAccountKeys.has(normalizedKey ?? "")
-          ? normalizedKey
-          : isLegacyAccount
-            ? LEGACY_ANTHROPIC_ACCOUNT_KEY
-            : account.label === "env"
-              ? ENV_ANTHROPIC_ACCOUNT_KEY
-              : normalizedKey
-        : identity.key;
+      const accountKey = identity.key ?? (persistedKey || persistedMapKey);
       const isStored =
-        isAnthropicAccount &&
-        accountKey !== null &&
-        (storedAccountKeys.has(accountKey) || isLegacyAccount);
-      const { allowed, expired, cooling } =
-        isAnthropicAccount && accountKey !== null
-          ? deriveAccountAllowance(
-              accountKey,
-              now,
-              activeAccountAllowlist,
-              storedAccountExpirations,
-              cooldowns,
-            )
-          : {
+        (isAnthropicAccount && storedAnthropicAccountKeys.has(accountKey)) ||
+        (isCodexAccount && storedCodexAccountKeys.has(accountKey));
+      const providerState = isAnthropicAccount
+        ? deriveAccountAllowance(
+            accountKey,
+            now,
+            activeAccountAllowlist,
+            storedAccountExpirations,
+            cooldowns,
+          )
+        : isCodexAccount
+          ? {
               allowed: true,
-              expired: false,
-              cooling:
-                accountKey !== null &&
-                (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
-            };
+              expired:
+                (storedAccountExpirations.get(accountKey) ?? 0) > 0 &&
+                (storedAccountExpirations.get(accountKey) ?? 0) <= now,
+              cooling: (cooldowns[accountKey]?.coolingUntil ?? 0) > now,
+            }
+          : { allowed: true, expired: false, cooling: false };
       const isDisabled =
-        (isAnthropicAccount &&
-          accountKey !== null &&
-          disabledAccountKeys.has(accountKey)) ||
-        (isCodexAccount &&
-          accountKey !== null &&
-          disabledProviderAccountKeys.has(accountKey));
+        !isLegacyUnattributed && disabledProviderAccountKeys.has(accountKey);
       const accountStatus =
         account.type === "internal"
           ? "internal"
-          : isDisabled
-            ? "disabled"
-            : isAnthropicAccount && expired
-              ? "expired"
-              : isAnthropicAccount && !allowed
-                ? "excluded"
-                : accountInventoryLoaded && isAnthropicAccount && !isStored
-                  ? "removed"
-                  : cooling
-                    ? "cooling"
-                    : "active";
+          : isLegacyUnattributed
+            ? "unattributed"
+            : isDisabled
+              ? "disabled"
+              : providerState.expired
+                ? "expired"
+                : isAnthropicAccount && !providerState.allowed
+                  ? "excluded"
+                  : accountInventoryLoaded &&
+                      (isAnthropicAccount || isCodexAccount) &&
+                      !isStored
+                    ? "removed"
+                    : providerState.cooling
+                      ? "cooling"
+                      : "active";
       return {
+        key: isLegacyUnattributed ? null : accountKey,
+        provider: isLegacyUnattributed ? "unknown" : identity.provider,
         label: account.label,
         type: account.type,
         attempts: account.attemptCount,
@@ -2340,20 +2301,25 @@ export async function createProxyStartApp(params: {
         rateLimits: account.rateLimitCount,
         transientRateLimits: account.transientRateLimitCount,
         quotaRateLimits: account.quotaRateLimitCount,
-        cooling,
+        cooling: providerState.cooling,
         status: accountStatus,
-        allowed: account.type === "internal" ? undefined : allowed,
-        expired: isAnthropicAccount ? expired : undefined,
+        allowed:
+          account.type === "internal" ? undefined : providerState.allowed,
+        expired:
+          isAnthropicAccount || isCodexAccount
+            ? providerState.expired
+            : undefined,
       };
     });
     const representedAccountKeys = new Set(
-      accountRows
-        .filter(
-          (account) => account.type === "oauth" || account.type === "api_key",
-        )
-        .map((account) => normalizeAnthropicAccountKey(account.label)),
+      accountRows.flatMap((account) =>
+        account.key &&
+        (account.provider === "anthropic" || account.provider === "codex")
+          ? [account.key]
+          : [],
+      ),
     );
-    for (const accountKey of storedAccountKeys) {
+    for (const accountKey of storedAnthropicAccountKeys) {
       if (representedAccountKeys.has(accountKey)) {
         continue;
       }
@@ -2365,6 +2331,8 @@ export async function createProxyStartApp(params: {
         cooldowns,
       );
       accountRows.push({
+        key: accountKey,
+        provider: "anthropic",
         label: accountKey.slice("anthropic:".length),
         type: "oauth",
         attempts: 0,
@@ -2376,7 +2344,7 @@ export async function createProxyStartApp(params: {
         transientRateLimits: 0,
         quotaRateLimits: 0,
         cooling,
-        status: disabledAccountKeys.has(accountKey)
+        status: disabledProviderAccountKeys.has(accountKey)
           ? "disabled"
           : expired
             ? "expired"
@@ -2386,6 +2354,39 @@ export async function createProxyStartApp(params: {
                 ? "cooling"
                 : "active",
         allowed,
+        expired,
+      });
+    }
+    for (const accountKey of storedCodexAccountKeys) {
+      if (representedAccountKeys.has(accountKey)) {
+        continue;
+      }
+      const expiresAt = storedAccountExpirations.get(accountKey);
+      const expired =
+        expiresAt !== undefined && expiresAt > 0 && expiresAt <= now;
+      const cooling = (cooldowns[accountKey]?.coolingUntil ?? 0) > now;
+      accountRows.push({
+        key: accountKey,
+        provider: "codex",
+        label: accountKey.slice("codex:".length),
+        type: "codex-oauth",
+        attempts: 0,
+        requests: 0,
+        success: 0,
+        errors: 0,
+        attemptErrors: 0,
+        rateLimits: 0,
+        transientRateLimits: 0,
+        quotaRateLimits: 0,
+        cooling,
+        status: disabledProviderAccountKeys.has(accountKey)
+          ? "disabled"
+          : expired
+            ? "expired"
+            : cooling
+              ? "cooling"
+              : "active",
+        allowed: true,
         expired,
       });
     }
@@ -3912,7 +3913,8 @@ function printStatusStats(stats: StatusStats): void {
     if (lastError) {
       const cause = lastError.errorType ?? lastError.category;
       const code = lastError.errorCode ? `/${lastError.errorCode}` : "";
-      const account = lastError.account ? ` account=${lastError.account}` : "";
+      const accountIdentity = lastError.accountKey ?? lastError.account;
+      const account = accountIdentity ? ` account=${accountIdentity}` : "";
       console.info(
         `    Last error:  ${new Date(lastError.at).toISOString()} ${cause}${code} status=${lastError.status}${account}`,
       );

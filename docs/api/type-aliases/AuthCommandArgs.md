@@ -58,7 +58,7 @@ Auth command arguments interface
 
 > `optional` **refresh?**: `boolean`
 
-`auth list --refresh`: fetch fresh limits from Anthropic before listing
+`auth list --refresh`: fetch fresh provider limits before listing
 
 ### config?
 

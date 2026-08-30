@@ -8,7 +8,7 @@
 
 > **ProxyConfigFile** = `object`
 
-Defined in: [types/proxy.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L483)
+Defined in: [types/proxy.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L484)
 
 Top-level proxy configuration structure.
 
@@ -18,7 +18,7 @@ Top-level proxy configuration structure.
 
 > `optional` **version?**: `number`
 
-Defined in: [types/proxy.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L485)
+Defined in: [types/proxy.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L486)
 
 Configuration schema version
 
@@ -28,7 +28,7 @@ Configuration schema version
 
 > `optional` **defaultProvider?**: `string`
 
-Defined in: [types/proxy.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L487)
+Defined in: [types/proxy.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L488)
 
 Default provider name to apply when not specified per-account
 
@@ -38,7 +38,7 @@ Default provider name to apply when not specified per-account
 
 > `optional` **defaultBaseUrl?**: `string`
 
-Defined in: [types/proxy.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L489)
+Defined in: [types/proxy.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L490)
 
 Default base URL applied to accounts that omit baseUrl
 
@@ -48,7 +48,7 @@ Default base URL applied to accounts that omit baseUrl
 
 > **accounts**: `Record`\<`string`, [`ProxyAccountConfig`](ProxyAccountConfig.md)[]\>
 
-Defined in: [types/proxy.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L491)
+Defined in: [types/proxy.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L492)
 
 Map of provider names to their account lists
 
@@ -58,7 +58,7 @@ Map of provider names to their account lists
 
 > `optional` **routing?**: `Partial`\<[`ProxyRoutingConfig`](ProxyRoutingConfig.md)\>
 
-Defined in: [types/proxy.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L493)
+Defined in: [types/proxy.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L494)
 
 Routing configuration (strategy, model mappings, fallback chain)
 
@@ -68,6 +68,6 @@ Routing configuration (strategy, model mappings, fallback chain)
 
 > `optional` **cloaking?**: [`CloakingConfig`](CloakingConfig.md)
 
-Defined in: [types/proxy.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L495)
+Defined in: [types/proxy.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L496)
 
 Cloaking plugin configuration

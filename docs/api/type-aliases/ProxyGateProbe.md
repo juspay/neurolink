@@ -8,7 +8,7 @@
 
 > **ProxyGateProbe** = `object`
 
-Defined in: [types/cli.ts:2148](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2148)
+Defined in: [types/cli.ts:2190](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2190)
 
 What `proxy expose` learned by asking the running proxy directly.
 
@@ -18,7 +18,7 @@ What `proxy expose` learned by asking the running proxy directly.
 
 > **gated**: `boolean`
 
-Defined in: [types/cli.ts:2149](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2149)
+Defined in: [types/cli.ts:2191](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2191)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:2149](https://github.com/juspay/neurolink/blob/release
 
 > **reachable**: `boolean`
 
-Defined in: [types/cli.ts:2150](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2150)
+Defined in: [types/cli.ts:2192](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2192)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:2150](https://github.com/juspay/neurolink/blob/release
 
 > **detail**: `string`
 
-Defined in: [types/cli.ts:2151](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2151)
+Defined in: [types/cli.ts:2193](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2193)

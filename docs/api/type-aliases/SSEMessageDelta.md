@@ -8,7 +8,7 @@
 
 > **SSEMessageDelta** = `object`
 
-Defined in: [types/proxy.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L211)
+Defined in: [types/proxy.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L212)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:211](https://github.com/juspay/neurolink/blob/releas
 
 > **type**: `"message_delta"`
 
-Defined in: [types/proxy.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L212)
+Defined in: [types/proxy.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L213)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:212](https://github.com/juspay/neurolink/blob/releas
 
 > **delta**: `object`
 
-Defined in: [types/proxy.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L213)
+Defined in: [types/proxy.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L214)
 
 #### stop_reason
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:213](https://github.com/juspay/neurolink/blob/releas
 
 > **usage**: `object`
 
-Defined in: [types/proxy.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L214)
+Defined in: [types/proxy.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L215)
 
 #### output_tokens
 

@@ -8,7 +8,7 @@
 
 > **InteractiveProviderConfig** = `object`
 
-Defined in: [types/cli.ts:1731](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1731)
+Defined in: [types/cli.ts:1773](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1773)
 
 Provider config row used by the interactive setup wizard.
 
@@ -18,7 +18,7 @@ Provider config row used by the interactive setup wizard.
 
 > **id**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/cli.ts:1732](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1732)
+Defined in: [types/cli.ts:1774](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1774)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1732](https://github.com/juspay/neurolink/blob/release
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:1733](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1733)
+Defined in: [types/cli.ts:1775](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1775)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1733](https://github.com/juspay/neurolink/blob/release
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1734](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1734)
+Defined in: [types/cli.ts:1776](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1776)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1734](https://github.com/juspay/neurolink/blob/release
 
 > **envVars**: `object`[]
 
-Defined in: [types/cli.ts:1735](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1735)
+Defined in: [types/cli.ts:1777](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1777)
 
 #### key
 

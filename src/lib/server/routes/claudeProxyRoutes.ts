@@ -31,6 +31,7 @@ import {
   ENV_ANTHROPIC_ACCOUNT_KEY,
   isAccountAllowed,
   LEGACY_ANTHROPIC_ACCOUNT_KEY,
+  normalizeAnthropicAccountKey,
   shouldLoadFallbackCredential,
 } from "../../proxy/accountSelection.js";
 import {
@@ -256,6 +257,37 @@ const BLOCKED_UPSTREAM_HEADERS = new Set([
 ]);
 const PROXY_INTERNAL_ACCOUNT_LABEL = "proxy/internal";
 const PROXY_INTERNAL_ACCOUNT_TYPE = "internal";
+
+function resolveRequestLogAccountIdentity(
+  accountLabel: string | undefined,
+  accountType: string | undefined,
+): { accountKey?: string; provider?: string } {
+  if (!accountLabel) {
+    return {};
+  }
+  if (accountType === "codex-oauth") {
+    return {
+      accountKey: accountLabel.startsWith("codex:")
+        ? accountLabel
+        : `codex:${accountLabel}`,
+      provider: "openai",
+    };
+  }
+  if (
+    accountType === "oauth" ||
+    accountType === "api_key" ||
+    accountType === "passthrough"
+  ) {
+    return {
+      accountKey:
+        accountType === "passthrough"
+          ? accountLabel
+          : normalizeAnthropicAccountKey(accountLabel),
+      provider: "anthropic",
+    };
+  }
+  return {};
+}
 
 // ---------------------------------------------------------------------------
 // Module-level state
@@ -1011,7 +1043,8 @@ function reconcileCooldownFromQuota(
 
 /**
  * Seed each account's runtime quota from the persisted snapshots in
- * ~/.neurolink/account-quotas.json (keyed by label). Runtime state is
+ * ~/.neurolink/account-quotas.json (keyed by provider-qualified account key).
+ * Runtime state is
  * in-memory only, so without this the quota-aware ordering is blind after a
  * proxy restart: all accounts tie, selection falls back to token-store
  * enumeration order, and the first account served becomes self-reinforcing
@@ -1031,8 +1064,13 @@ async function seedRuntimeQuotasFromDisk(
     const now = Date.now();
     for (const account of accounts) {
       const state = getOrCreateRuntimeState(account.key);
-      if (!state.quota && persistedQuotas[account.label]) {
-        state.quota = persistedQuotas[account.label];
+      if (!state.quota) {
+        // Before provider identity was introduced, Anthropic snapshots were
+        // written under the bare display label. Keep that reading as an
+        // upgrade bridge, but never write new data back under the ambiguous
+        // key: a Codex login can legitimately use the same email.
+        state.quota =
+          persistedQuotas[account.key] ?? persistedQuotas[account.label];
       }
       const persistedCooldown = persistedCooldowns[account.key];
       if (
@@ -1102,7 +1140,7 @@ async function applyAccountUsageResult(
       },
     );
   }
-  await saveAccountQuota(account.label, quota).catch(() => {
+  await saveAccountQuota(account.key, quota).catch(() => {
     // Non-fatal: quota persistence is best-effort.
   });
   return quota;
@@ -1184,7 +1222,12 @@ async function refreshAccountLimits(
       key: account.key,
       type: account.type,
       status,
-      quota: quota ?? state?.quota ?? persisted[account.label] ?? null,
+      quota:
+        quota ??
+        state?.quota ??
+        persisted[account.key] ??
+        persisted[account.label] ??
+        null,
     };
     if (error !== undefined) {
       result.error = error;
@@ -1258,7 +1301,7 @@ async function refreshAccountLimits(
           account,
           fetchResult,
           refresh.startedAt,
-          persisted[account.label] ?? null,
+          persisted[account.key] ?? persisted[account.label] ?? null,
         );
         if (!quota) {
           results[index] = buildResult(
@@ -3990,7 +4033,7 @@ async function auditCompleteShareHeartbeat(
     return { paused: false, detail: "no provisioned account recorded" };
   }
   const state = accountRuntimeState.get(`anthropic:${accountLabel}`);
-  const stats = getAccountStats(accountLabel);
+  const stats = getAccountStats(accountLabel, "oauth");
   const { verdict, shouldPause } = await recordAuditObservation({
     grantId: grant.id,
     accountLabel,
@@ -4870,6 +4913,7 @@ async function executeClaudeCodexFallback(args: {
     query: {},
     params: {},
     body: convertClaudeRequestToCodex(body, model),
+    metadata: { ...ctx.metadata, "neurolink.codexFallback": true },
     // Keep the child attribution isolated until its stream has passed
     // validation. A failed Codex attempt must not look like a served request.
     responseHeaders: {},
@@ -5805,7 +5849,7 @@ async function handleAnthropicSuccessfulResponse(args: {
         },
       );
     }
-    saveAccountQuota(account.label, quota).catch(() => {
+    saveAccountQuota(account.key, quota).catch(() => {
       // Non-fatal: quota persistence is best-effort
     });
   }
@@ -6802,7 +6846,7 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
         },
       );
     }
-    saveAccountQuota(account.label, retryQuota).catch((error) => {
+    saveAccountQuota(account.key, retryQuota).catch((error) => {
       logger.debug("[proxy] Failed to persist account quota after auth retry", {
         account: account.label,
         error: error instanceof Error ? error.message : String(error),
@@ -7219,7 +7263,7 @@ async function handleAnthropicAuthRetry(args: {
           accountState.coolingReason = retryPlan.reason;
         }
         if (retryQuota429) {
-          saveAccountQuota(account.label, retryQuota429).catch(() => {
+          saveAccountQuota(account.key, retryQuota429).catch(() => {
             // Non-fatal: routing already has the in-memory snapshot.
           });
         }
@@ -8093,9 +8137,16 @@ function createClaudeRequestRuntimeContext(args: {
       : status >= 400
         ? PROXY_INTERNAL_ACCOUNT_TYPE
         : undefined;
+    const finalAccountIdentity = resolveRequestLogAccountIdentity(
+      finalAccountLabel,
+      finalAccountType,
+    );
     if (status >= 400) {
       recordFinalError(status, finalAccountLabel, finalAccountType, {
         requestId: ctx.requestId,
+        ...(finalAccountIdentity.accountKey
+          ? { accountKey: finalAccountIdentity.accountKey }
+          : {}),
         errorType,
         terminalOutcome:
           errorType === "client_cancelled"
@@ -8119,7 +8170,13 @@ function createClaudeRequestRuntimeContext(args: {
       stream: !!body.stream,
       toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
       account: finalAccountLabel ?? "",
+      ...(finalAccountIdentity.accountKey
+        ? { accountKey: finalAccountIdentity.accountKey }
+        : {}),
       accountType: finalAccountType ?? "",
+      ...(finalAccountIdentity.provider
+        ? { provider: finalAccountIdentity.provider }
+        : {}),
       ...buildClientAttribution(ctx.headers),
       responseStatus: status,
       responseTimeMs: Date.now() - requestStartTime,
@@ -8206,6 +8263,10 @@ function createAnthropicAttemptLogger(args: {
   const { ctx, body, toolCount, requestStart, tracer, account, attemptNumber } =
     args;
   const attemptStartedAt = Date.now();
+  const accountIdentity = resolveRequestLogAccountIdentity(
+    account.label,
+    account.type,
+  );
   return (status, errorType, errorMessage, extra) => {
     const attemptCompletedAt = Date.now();
     const traceCtx = tracer?.getTraceContext();
@@ -8219,7 +8280,11 @@ function createAnthropicAttemptLogger(args: {
       stream: !!body.stream,
       toolCount,
       account: account.label,
+      accountKey: account.key,
       accountType: account.type,
+      ...(accountIdentity.provider
+        ? { provider: accountIdentity.provider }
+        : {}),
       responseStatus: status,
       responseTimeMs: attemptCompletedAt - requestStart,
       attemptDurationMs:
@@ -9117,7 +9182,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
                 accountState.quota,
                 fetchResult.quota,
               );
-              saveAccountQuota(account.label, fetchResult.quota).catch(() => {
+              saveAccountQuota(account.key, fetchResult.quota).catch(() => {
                 // Non-fatal: routing already has the in-memory snapshot.
               });
             }

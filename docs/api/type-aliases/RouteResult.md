@@ -8,7 +8,7 @@
 
 > **RouteResult** = `object`
 
-Defined in: [types/proxy.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L453)
+Defined in: [types/proxy.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L454)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:453](https://github.com/juspay/neurolink/blob/releas
 
 > **provider**: `string` \| `null`
 
-Defined in: [types/proxy.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L454)
+Defined in: [types/proxy.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L455)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:454](https://github.com/juspay/neurolink/blob/releas
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:455](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L455)
+Defined in: [types/proxy.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L456)

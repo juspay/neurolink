@@ -8,6 +8,6 @@
 
 > **ProxyShareProvisionOutcome** = \{ `ok`: `true`; `request`: [`ProxyShareProvisionRequest`](ProxyShareProvisionRequest.md); \} \| \{ `ok`: `false`; `reason`: `string`; \}
 
-Defined in: [types/proxy.ts:3718](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3718)
+Defined in: [types/proxy.ts:3788](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3788)
 
 Result of lodging or authorizing a split-PKCE provisioning request.

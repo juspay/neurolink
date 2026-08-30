@@ -8,7 +8,7 @@
 
 > **AccountAdmissionLease** = `object`
 
-Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L878)
+Defined in: [types/proxy.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L935)
 
 A release handle for one in-flight request admitted to an OAuth account.
 
@@ -18,7 +18,7 @@ A release handle for one in-flight request admitted to an OAuth account.
 
 > **release**(): `void`
 
-Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L878)
+Defined in: [types/proxy.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L935)
 
 #### Returns
 

@@ -8,7 +8,7 @@
 
 > **EvaluateRunArgs** = [`BaseEvaluateArgs`](BaseEvaluateArgs.md) & `object`
 
-Defined in: [types/cli.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1486)
+Defined in: [types/cli.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1528)
 
 Arguments for `neurolink evaluate run`.
 

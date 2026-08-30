@@ -33,6 +33,7 @@ import type {
   CloakingConfig,
 } from "./subscription.js";
 import type { RouteDeprecation } from "./server.js";
+import type { StoredOAuthTokens } from "./auth.js";
 
 /**
  * Type describing the ModelRouter contract.
@@ -670,6 +671,8 @@ export type RequestLogEntry = {
   stream: boolean;
   toolCount: number;
   account: string;
+  /** Provider-qualified account key for collision-free reconstruction. */
+  accountKey?: string;
   accountType: string;
   responseStatus: number;
   responseTimeMs: number;
@@ -689,6 +692,13 @@ export type RequestLogEntry = {
    * cross-provider model lookup rather than assuming Anthropic.
    */
   provider?: string;
+  /** Terminal state of the client-facing response when known. */
+  terminalOutcome?:
+    | "completed"
+    | "bodyless"
+    | "client_cancelled"
+    | "stream_error"
+    | "handler_error";
   /**
    * Which CLI made the request, derived from User-Agent, and the raw header it
    * was derived from.
@@ -719,6 +729,8 @@ export type RequestAttemptLogEntry = {
   stream: boolean;
   toolCount: number;
   account: string;
+  /** Provider-qualified account key for collision-free reconstruction. */
+  accountKey?: string;
   accountType: string;
   responseStatus: number;
   /** End-to-end request age when this attempt completed. */
@@ -741,11 +753,56 @@ export type RequestAttemptLogEntry = {
   outputTokens?: number;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /** Provider that received this upstream attempt. */
+  provider?: string;
   /** OTel trace ID for correlation with distributed traces */
   traceId?: string;
   /** OTel span ID for correlation with distributed traces */
   spanId?: string;
 };
+
+/** Additional fields recorded when a Codex response becomes client-final. */
+export type CodexFinalLogExtra = Partial<
+  Pick<
+    RequestLogEntry,
+    | "errorType"
+    | "errorMessage"
+    | "errorCode"
+    | "transportScope"
+    | "inputTokens"
+    | "outputTokens"
+    | "cacheReadTokens"
+    | "cacheCreationTokens"
+    | "terminalOutcome"
+  >
+>;
+
+/** Additional fields recorded for each upstream Codex account attempt. */
+export type CodexAttemptLogExtra = Partial<
+  Pick<
+    RequestAttemptLogEntry,
+    | "errorType"
+    | "errorMessage"
+    | "errorCode"
+    | "transportScope"
+    | "retryable"
+    | "rateLimitKind"
+    | "cooldownReason"
+  >
+>;
+
+/** Minimal persistence contract needed by Codex rotating-token refreshes. */
+export type CodexRefreshTokenStore = {
+  peekTokens(provider: string): Promise<StoredOAuthTokens | null>;
+  saveTokens(provider: string, tokens: StoredOAuthTokens): Promise<void>;
+};
+
+/** Result contract for a Codex OAuth refresh operation. */
+export type CodexTokenRefresher = (refreshToken: string) => Promise<{
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: number;
+}>;
 
 export type ProxyBodyCaptureInput = {
   phase: string;
@@ -1040,6 +1097,8 @@ export type ProxyTerminalErrorSummary = {
   category: ProxyTerminalErrorCategory;
   requestId?: string;
   account?: string;
+  /** Provider-qualified account identity when the failure was attributable. */
+  accountKey?: string;
   accountType?: string;
   errorType?: string;
   errorCode?: string;
@@ -1050,6 +1109,8 @@ export type ProxyTerminalErrorSummary = {
 /** Optional terminal context supplied when a final request error is recorded. */
 export type ProxyTerminalErrorDetails = {
   requestId?: string;
+  /** Exact provider-qualified account key when the caller has it. */
+  accountKey?: string;
   errorType?: string;
   errorCode?: string;
   terminalOutcome?: string;
@@ -1057,6 +1118,12 @@ export type ProxyTerminalErrorDetails = {
 };
 
 export type AccountStats = {
+  /**
+   * Provider-qualified account identity for rows written by current builds.
+   * Omitted only by legacy snapshots whose bare map keys are intentionally
+   * treated as unattributed rather than guessed at during status rendering.
+   */
+  key?: string;
   label: string;
   type: string;
   attemptCount: number;
@@ -3039,6 +3106,9 @@ export type StatusStats = {
   /** Whether this status response reconciled shared state or used local memory. */
   snapshotSource?: "reconciled" | "memory";
   accounts?: {
+    /** Provider-qualified key; null for explicitly unattributed legacy rows. */
+    key?: string | null;
+    provider?: "anthropic" | "codex" | "other" | "unknown";
     label: string;
     type: string;
     attempts?: number;

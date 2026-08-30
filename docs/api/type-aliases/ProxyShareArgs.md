@@ -8,7 +8,7 @@
 
 > **ProxyShareArgs** = `object`
 
-Defined in: [types/cli.ts:2098](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2098)
+Defined in: [types/cli.ts:2140](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2140)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:2098](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **action?**: [`ProxyShareCliAction`](ProxyShareCliAction.md)
 
-Defined in: [types/cli.ts:2099](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2099)
+Defined in: [types/cli.ts:2141](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2141)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:2099](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **value?**: `string`
 
-Defined in: [types/cli.ts:2101](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2101)
+Defined in: [types/cli.ts:2143](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2143)
 
 Positional argument for actions that take one, e.g. `share url <url>`.
 
@@ -34,7 +34,7 @@ Positional argument for actions that take one, e.g. `share url <url>`.
 
 > `optional` **clear?**: `boolean`
 
-Defined in: [types/cli.ts:2103](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2103)
+Defined in: [types/cli.ts:2145](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2145)
 
 `share url --clear`: forget this node's recorded public address.
 
@@ -44,7 +44,7 @@ Defined in: [types/cli.ts:2103](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **peer?**: `string`
 
-Defined in: [types/cli.ts:2104](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2104)
+Defined in: [types/cli.ts:2146](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2146)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/cli.ts:2104](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **fromAccount?**: `string`
 
-Defined in: [types/cli.ts:2106](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2106)
+Defined in: [types/cli.ts:2148](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2148)
 
 Lender account a complete share is minted from, for drift auditing.
 
@@ -62,7 +62,7 @@ Lender account a complete share is minted from, for drift auditing.
 
 > `optional` **code?**: `string`
 
-Defined in: [types/cli.ts:2108](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2108)
+Defined in: [types/cli.ts:2150](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2150)
 
 Authorization code from the lender's browser, for split provisioning.
 
@@ -72,7 +72,7 @@ Authorization code from the lender's browser, for split provisioning.
 
 > `optional` **ttl?**: `string`
 
-Defined in: [types/cli.ts:2110](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2110)
+Defined in: [types/cli.ts:2152](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2152)
 
 `share note`: how long the note stays redeemable.
 
@@ -82,7 +82,7 @@ Defined in: [types/cli.ts:2110](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **memo?**: `string`
 
-Defined in: [types/cli.ts:2112](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2112)
+Defined in: [types/cli.ts:2154](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2154)
 
 `share note`: free-text note carried on the coin note itself.
 
@@ -92,7 +92,7 @@ Defined in: [types/cli.ts:2112](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **offlineGrace?**: `string`
 
-Defined in: [types/cli.ts:2114](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2114)
+Defined in: [types/cli.ts:2156](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2156)
 
 Complete-mode lease shape.
 
@@ -102,7 +102,7 @@ Complete-mode lease shape.
 
 > `optional` **heartbeat?**: `string`
 
-Defined in: [types/cli.ts:2115](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2115)
+Defined in: [types/cli.ts:2157](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2157)
 
 ---
 
@@ -110,7 +110,7 @@ Defined in: [types/cli.ts:2115](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **leaseTtl?**: `string`
 
-Defined in: [types/cli.ts:2116](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2116)
+Defined in: [types/cli.ts:2158](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2158)
 
 ---
 
@@ -118,7 +118,7 @@ Defined in: [types/cli.ts:2116](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **publicUrl?**: `string`
 
-Defined in: [types/cli.ts:2118](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2118)
+Defined in: [types/cli.ts:2160](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2160)
 
 Public URL this node is reachable at, used to mint a share link.
 
@@ -128,7 +128,7 @@ Public URL this node is reachable at, used to mint a share link.
 
 > `optional` **level?**: `string`
 
-Defined in: [types/cli.ts:2119](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2119)
+Defined in: [types/cli.ts:2161](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2161)
 
 ---
 
@@ -136,7 +136,7 @@ Defined in: [types/cli.ts:2119](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **preset?**: `string`
 
-Defined in: [types/cli.ts:2120](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2120)
+Defined in: [types/cli.ts:2162](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2162)
 
 ---
 
@@ -144,7 +144,7 @@ Defined in: [types/cli.ts:2120](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **ledger?**: `string`
 
-Defined in: [types/cli.ts:2121](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2121)
+Defined in: [types/cli.ts:2163](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2163)
 
 ---
 
@@ -152,7 +152,7 @@ Defined in: [types/cli.ts:2121](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **coins?**: `number`
 
-Defined in: [types/cli.ts:2122](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2122)
+Defined in: [types/cli.ts:2164](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2164)
 
 ---
 
@@ -160,7 +160,7 @@ Defined in: [types/cli.ts:2122](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **refill?**: `string`
 
-Defined in: [types/cli.ts:2123](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2123)
+Defined in: [types/cli.ts:2165](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2165)
 
 ---
 
@@ -168,7 +168,7 @@ Defined in: [types/cli.ts:2123](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **maxSlice?**: `string`
 
-Defined in: [types/cli.ts:2124](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2124)
+Defined in: [types/cli.ts:2166](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2166)
 
 ---
 
@@ -176,7 +176,7 @@ Defined in: [types/cli.ts:2124](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **maxSlicePerAccount?**: `string`
 
-Defined in: [types/cli.ts:2125](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2125)
+Defined in: [types/cli.ts:2167](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2167)
 
 ---
 
@@ -184,7 +184,7 @@ Defined in: [types/cli.ts:2125](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **reserve?**: `string`
 
-Defined in: [types/cli.ts:2126](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2126)
+Defined in: [types/cli.ts:2168](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2168)
 
 ---
 
@@ -192,7 +192,7 @@ Defined in: [types/cli.ts:2126](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **spillover?**: `string`
 
-Defined in: [types/cli.ts:2127](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2127)
+Defined in: [types/cli.ts:2169](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2169)
 
 ---
 
@@ -200,7 +200,7 @@ Defined in: [types/cli.ts:2127](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **models?**: `string`[]
 
-Defined in: [types/cli.ts:2128](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2128)
+Defined in: [types/cli.ts:2170](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2170)
 
 ---
 
@@ -208,7 +208,7 @@ Defined in: [types/cli.ts:2128](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **accounts?**: `string`[]
 
-Defined in: [types/cli.ts:2129](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2129)
+Defined in: [types/cli.ts:2171](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2171)
 
 ---
 
@@ -216,7 +216,7 @@ Defined in: [types/cli.ts:2129](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **rate?**: `string`
 
-Defined in: [types/cli.ts:2130](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2130)
+Defined in: [types/cli.ts:2172](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2172)
 
 ---
 
@@ -224,7 +224,7 @@ Defined in: [types/cli.ts:2130](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **concurrency?**: `number`
 
-Defined in: [types/cli.ts:2131](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2131)
+Defined in: [types/cli.ts:2173](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2173)
 
 ---
 
@@ -232,7 +232,7 @@ Defined in: [types/cli.ts:2131](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **schedule?**: `string`
 
-Defined in: [types/cli.ts:2132](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2132)
+Defined in: [types/cli.ts:2174](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2174)
 
 ---
 
@@ -240,7 +240,7 @@ Defined in: [types/cli.ts:2132](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **expires?**: `string`
 
-Defined in: [types/cli.ts:2133](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2133)
+Defined in: [types/cli.ts:2175](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2175)
 
 ---
 
@@ -248,7 +248,7 @@ Defined in: [types/cli.ts:2133](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **note?**: `string`
 
-Defined in: [types/cli.ts:2134](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2134)
+Defined in: [types/cli.ts:2176](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2176)
 
 ---
 
@@ -256,7 +256,7 @@ Defined in: [types/cli.ts:2134](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **to?**: `string`
 
-Defined in: [types/cli.ts:2135](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2135)
+Defined in: [types/cli.ts:2177](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2177)
 
 ---
 
@@ -264,7 +264,7 @@ Defined in: [types/cli.ts:2135](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/cli.ts:2136](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2136)
+Defined in: [types/cli.ts:2178](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2178)
 
 ---
 
@@ -272,4 +272,4 @@ Defined in: [types/cli.ts:2136](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **dev?**: `boolean`
 
-Defined in: [types/cli.ts:2137](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2137)
+Defined in: [types/cli.ts:2179](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2179)
