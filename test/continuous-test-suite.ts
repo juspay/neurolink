@@ -4456,6 +4456,46 @@ async function testClaudeFormatRuntime(): Promise<boolean | null> {
   try {
     const { parseClaudeRequest, serializeClaudeResponse, buildClaudeError } =
       await import("../dist/proxy/claudeFormat.js");
+    const { parseOpenAIRequest } =
+      await import("../dist/proxy/openaiFormat.js");
+
+    // The same regression on the OTHER side of the boundary. claudeFormat's fold
+    // exists to mirror parseOpenAIRequest's handling of inline system messages, so
+    // a guard on only one of them leaves the mirrored path free to drift: an
+    // inline system message must reach systemPrompt and must NOT stay in the
+    // conversation, wherever in the list it appears.
+    const openaiInline = parseOpenAIRequest({
+      model: "gpt-4",
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "system", content: "Inline system reminder" },
+        { role: "assistant", content: "Hi there" },
+        { role: "user", content: "What is 2+2?" },
+      ],
+    } as unknown as Parameters<typeof parseOpenAIRequest>[0]);
+    if (
+      typeof openaiInline.systemPrompt !== "string" ||
+      !openaiInline.systemPrompt.includes("Inline system reminder")
+    ) {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "parseOpenAIRequest did not fold an inline system message into systemPrompt",
+      );
+      return false;
+    }
+    if (
+      openaiInline.conversationMessages.some(
+        (m: { role: string }) => m.role === "system",
+      )
+    ) {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "parseOpenAIRequest left an inline system message in conversationMessages",
+      );
+      return false;
+    }
 
     // Parse request
     const parsed = parseClaudeRequest({
@@ -4473,6 +4513,77 @@ async function testClaudeFormatRuntime(): Promise<boolean | null> {
         "ClaudeFormat Runtime",
         "FAIL",
         `Parse wrong prompt: ${parsed.prompt}`,
+      );
+      return false;
+    }
+
+    // Regression: an inline "system"-role message (invalid per the Messages
+    // API spec, but not rejected by the proxy's runtime parsing) must fold
+    // into systemPrompt instead of leaking into conversationMessages — a
+    // stray system message anywhere but index 0 is rejected by
+    // OpenAI-compatible fallback backends (LiteLLM/vLLM chat templates).
+    const parsedWithInlineSystem = parseClaudeRequest({
+      model: "claude-sonnet-4",
+      max_tokens: 1024,
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "system", content: "Inline system reminder" },
+        { role: "assistant", content: "Hi there" },
+        { role: "user", content: "What is 2+2?" },
+      ],
+      system: "You are helpful",
+    } as unknown as Parameters<typeof parseClaudeRequest>[0]);
+    // systemPrompt is typed string | Array<text-block>; the parser only ever
+    // emits a string, so a non-string here is itself a failure.
+    const inlineSystemPrompt = parsedWithInlineSystem.systemPrompt;
+    if (typeof inlineSystemPrompt !== "string") {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "Inline system fold produced a non-string systemPrompt",
+      );
+      return false;
+    }
+    // Three separate properties, and the suite needs all three. Asserting only
+    // that the inline text arrived is satisfied by an implementation that
+    // OVERWRITES systemPrompt rather than appending to it — the pre-existing
+    // prompt would be silently dropped and this would still pass. Asserting
+    // the order too is what pins the append rather than a prepend.
+    const inlineIdx = inlineSystemPrompt.indexOf("Inline system reminder");
+    const originalIdx = inlineSystemPrompt.indexOf("You are helpful");
+    if (inlineIdx === -1) {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "Inline system message was not folded into systemPrompt",
+      );
+      return false;
+    }
+    if (originalIdx === -1) {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "Folding the inline system message discarded the request's own system prompt",
+      );
+      return false;
+    }
+    if (originalIdx > inlineIdx) {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "Inline system text was placed ahead of the request's own system prompt",
+      );
+      return false;
+    }
+    if (
+      parsedWithInlineSystem.conversationMessages.some(
+        (m: { role: string }) => m.role === "system",
+      )
+    ) {
+      logTest(
+        "ClaudeFormat Runtime",
+        "FAIL",
+        "Inline system message leaked into conversationMessages",
       );
       return false;
     }
