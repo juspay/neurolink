@@ -8,7 +8,7 @@
 
 > **LocalUsageQwenRawUsage** = `object`
 
-Defined in: [types/localUsage.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L213)
+Defined in: [types/localUsage.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L282)
 
 The `usageMetadata` object exactly as Qwen Code writes it into a transcript
 line — Google GenAI's `usageMetadata` shape, camelCase, every field
@@ -22,7 +22,7 @@ optional because not every assistant record carries one. See
 
 > `optional` **promptTokenCount?**: `number`
 
-Defined in: [types/localUsage.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L214)
+Defined in: [types/localUsage.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L283)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/localUsage.ts:214](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **candidatesTokenCount?**: `number`
 
-Defined in: [types/localUsage.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L215)
+Defined in: [types/localUsage.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L284)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/localUsage.ts:215](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **thoughtsTokenCount?**: `number`
 
-Defined in: [types/localUsage.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L216)
+Defined in: [types/localUsage.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L285)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/localUsage.ts:216](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **totalTokenCount?**: `number`
 
-Defined in: [types/localUsage.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L217)
+Defined in: [types/localUsage.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L286)
 
 ---
 
@@ -54,4 +54,4 @@ Defined in: [types/localUsage.ts:217](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cachedContentTokenCount?**: `number`
 
-Defined in: [types/localUsage.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L218)
+Defined in: [types/localUsage.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L287)

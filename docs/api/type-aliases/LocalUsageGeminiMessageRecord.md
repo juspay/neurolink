@@ -8,7 +8,7 @@
 
 > **LocalUsageGeminiMessageRecord** = `object`
 
-Defined in: [types/localUsage.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L242)
+Defined in: [types/localUsage.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L311)
 
 A `type: "gemini"` message record as read out of a chat transcript line —
 whether it arrived bare-appended or unwrapped from a `$set.messages[]`
@@ -20,7 +20,7 @@ bootstrap entry. See `geminiCliReader.ts` for both shapes.
 
 > `optional` **id?**: `string`
 
-Defined in: [types/localUsage.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L243)
+Defined in: [types/localUsage.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L312)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/localUsage.ts:243](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **type?**: `string`
 
-Defined in: [types/localUsage.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L244)
+Defined in: [types/localUsage.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L313)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/localUsage.ts:244](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **model?**: `string`
 
-Defined in: [types/localUsage.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L245)
+Defined in: [types/localUsage.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L314)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/localUsage.ts:245](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **tokens?**: [`LocalUsageGeminiCliTokens`](LocalUsageGeminiCliTokens.md)
 
-Defined in: [types/localUsage.ts:246](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L246)
+Defined in: [types/localUsage.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L315)

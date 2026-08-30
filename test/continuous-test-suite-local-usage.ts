@@ -2248,6 +2248,383 @@ async function runAllTests(): Promise<void> {
       "Qwen Code, Gemini CLI and Copilot CLI scans are idempotent across calls",
     );
   });
+
+  await testCursorReader();
+}
+
+/* ------------------------------------------------------------------ *
+ * Cursor
+ * ------------------------------------------------------------------ */
+
+/**
+ * Minimal protobuf wire encoder, enough to build a Cursor root blob.
+ *
+ * Hand-rolled rather than pulled from a library on purpose: the reader parses
+ * this format with its own hand-rolled decoder, and a fixture written by a
+ * third-party encoder would be testing that library's agreement with itself.
+ * Twenty lines here keep the fixture and the code under test independent.
+ */
+function pbVarint(value: number): number[] {
+  const out: number[] = [];
+  let v = value;
+  while (v > 127) {
+    out.push((v % 128) + 128);
+    v = Math.floor(v / 128);
+  }
+  out.push(v);
+  return out;
+}
+
+function pbTag(field: number, wire: number): number[] {
+  return pbVarint(field * 8 + wire);
+}
+
+function pbUint(field: number, value: number): number[] {
+  return [...pbTag(field, 0), ...pbVarint(value)];
+}
+
+function pbBytes(field: number, body: number[]): number[] {
+  return [...pbTag(field, 2), ...pbVarint(body.length), ...body];
+}
+
+function pbString(field: number, value: string): number[] {
+  return pbBytes(field, [...Buffer.from(value, "utf8")]);
+}
+
+/** One `{id, label, tokens, characters}` context-breakdown entry. */
+function cursorPart(name: string, tokens: number, chars: number): number[] {
+  return [
+    ...pbString(1, name),
+    ...pbString(2, name.replace(/_/g, " ")),
+    ...pbUint(3, tokens),
+    ...pbUint(4, chars),
+  ];
+}
+
+/**
+ * Build a Cursor root blob.
+ *
+ * `statedTotal` is deliberately a separate argument from the parts: the whole
+ * point of the reader's cross-check is that it refuses a blob where the two
+ * disagree, and a fixture builder that derived the total from the parts could
+ * never express that case.
+ */
+function cursorRootBlob(
+  parts: Array<{ name: string; tokens: number; chars: number }>,
+  statedTotal: number,
+  windowTokens = 200_000,
+): Buffer {
+  const inner = [
+    ...pbUint(1, statedTotal),
+    ...pbUint(2, windowTokens),
+    ...parts.flatMap((p) => pbBytes(3, cursorPart(p.name, p.tokens, p.chars))),
+  ];
+  const block = [
+    ...pbUint(1, statedTotal),
+    ...pbUint(2, windowTokens),
+    ...pbBytes(3, inner),
+  ];
+  return Buffer.from([...pbBytes(5, block), ...pbString(22, "cli")]);
+}
+
+/**
+ * A root blob carrying a legitimate breakdown container PLUS an unrelated
+ * two-string field that also holds a count, PLUS a stray varint equal to the
+ * inflated sum.
+ *
+ * All three ingredients exist in real Cursor data — field 21 is the two-string
+ * field, and a 643-byte real blob already holds seventeen distinct varints —
+ * which is why this is a fixture rather than a hypothetical.
+ */
+function cursorRootBlobWithDecoy(
+  parts: Array<{ name: string; tokens: number; chars: number }>,
+  statedTotal: number,
+  decoy: { name: string; tokens: number; chars: number },
+  collidingVarint: number,
+): Buffer {
+  const container = [
+    ...pbUint(1, statedTotal),
+    ...pbUint(2, 200_000),
+    ...parts.flatMap((p) => pbBytes(3, cursorPart(p.name, p.tokens, p.chars))),
+  ];
+  return Buffer.from([
+    ...pbBytes(5, container),
+    // The decoy sits at the ROOT, exactly where the real workspace descriptor
+    // sits — outside the container, so a container-scoped search cannot see it.
+    ...pbBytes(21, cursorPart(decoy.name, decoy.tokens, decoy.chars)),
+    ...pbUint(26, collidingVarint),
+  ]);
+}
+
+/**
+ * Build a temp HOME containing a Cursor chat store, written with the same
+ * `node:sqlite` the reader uses.
+ */
+async function writeCursorFixtureHome(
+  rootBlob: Buffer,
+  options?: { latestRootBlobId?: string; corruptMetaHex?: boolean },
+): Promise<string> {
+  const { DatabaseSync } = await import("node:sqlite");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-cursorusage-"));
+  const dir = path.join(
+    home,
+    ".cursor",
+    "chats",
+    "d192d0da1542259a4cf7bc8c39559abd",
+    "9b8eb805-fce9-4c6e-80f8-bd4a0641b4db",
+  );
+  fs.mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(path.join(dir, "store.db"));
+  db.exec("CREATE TABLE blobs (id TEXT PRIMARY KEY, data BLOB)");
+  db.exec("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)");
+
+  // Content-addressed exactly as Cursor does it: the blob id is the SHA-256 of
+  // the bytes. A fixture using an arbitrary id would not exercise the lookup.
+  const { createHash } = await import("crypto");
+  const blobId =
+    options?.latestRootBlobId ??
+    createHash("sha256").update(rootBlob).digest("hex");
+  db.prepare("INSERT INTO blobs (id, data) VALUES (?, ?)").run(
+    blobId,
+    rootBlob,
+  );
+
+  const metaJson = JSON.stringify({
+    agentId: "9b8eb805-fce9-4c6e-80f8-bd4a0641b4db",
+    latestRootBlobId: blobId,
+    name: "Fixture",
+    mode: "default",
+    createdAt: Date.now(),
+    lastUsedModel: "default",
+  });
+  // Hex-encoded, which is how Cursor stores it — a plain-JSON fixture would
+  // pass a reader that never learned about the encoding.
+  const metaValue = options?.corruptMetaHex
+    ? metaJson
+    : Buffer.from(metaJson, "utf8").toString("hex");
+  db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run("0", metaValue);
+  db.close();
+  return home;
+}
+
+async function testCursorReader(): Promise<void> {
+  await test("Cursor reader recovers the context-token total from a real blob shape", async () => {
+    // The reference machine's actual numbers, so the fixture asserts against a
+    // measured composition rather than round invented ones.
+    const parts = [
+      { name: "system_prompt", tokens: 480, chars: 1959 },
+      { name: "tools", tokens: 11_592, chars: 47_291 },
+      { name: "rules", tokens: 9257, chars: 37_783 },
+      { name: "skills", tokens: 6621, chars: 27_024 },
+      { name: "subagents", tokens: 391, chars: 1594 },
+      { name: "conversation", tokens: 143, chars: 586 },
+    ];
+    const expected = parts.reduce((a, p) => a + p.tokens, 0);
+    assert(
+      expected === 28_484,
+      "fixture parts no longer sum to the reference total",
+    );
+
+    const home = await writeCursorFixtureHome(cursorRootBlob(parts, expected));
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("cursor");
+      return reader.scan({ sinceDays: Infinity });
+    });
+
+    assert(result.errors.length === 0, "Cursor fixture scan reported errors");
+    assert(
+      result.filesScanned === 1,
+      "Cursor scan did not open exactly one store",
+    );
+    assert(
+      result.totals.requests === 1,
+      "Cursor scan did not count exactly one session snapshot",
+    );
+    assert(
+      result.totals.inputTokens === expected,
+      "Cursor scan did not recover the summed context-token total",
+    );
+    assert(
+      result.totals.costUsd === 0 &&
+        result.totals.costConfidence === "unavailable",
+      "Cursor reader invented a cost figure for a subscription CLI",
+    );
+    log(`Cursor fixture: recovered ${expected} context tokens from 6 parts`);
+  });
+
+  await test("Cursor reader refuses a blob whose parts contradict its stated total", async () => {
+    // The non-vacuity probe for the cross-check. Same parts, but the blob
+    // claims a total they do not sum to — which is what a format change looks
+    // like from the outside. A reader without the check would happily report
+    // the parts' sum and nobody would learn the format had moved.
+    const parts = [
+      { name: "system_prompt", tokens: 480, chars: 1959 },
+      { name: "tools", tokens: 11_592, chars: 47_291 },
+    ];
+    const truthfulSum = parts.reduce((a, p) => a + p.tokens, 0);
+    const home = await writeCursorFixtureHome(
+      cursorRootBlob(parts, truthfulSum + 1),
+    );
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("cursor");
+      return reader.scan({ sinceDays: Infinity });
+    });
+
+    assert(
+      result.totals.inputTokens === 0 && result.totals.requests === 0,
+      "Cursor reader counted a blob whose parts contradict its stated total",
+    );
+    assert(
+      result.errors.length === 1,
+      "Cursor reader dropped a contradictory blob silently instead of reporting it",
+    );
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the contradictory store was never opened, so the refusal proves nothing",
+    );
+    log("Cursor cross-check rejects a contradictory blob and reports it");
+  });
+
+  await test("Cursor reader treats an unreadable meta row as no data, not as zero usage", async () => {
+    const parts = [
+      { name: "system_prompt", tokens: 480, chars: 1959 },
+      { name: "conversation", tokens: 143, chars: 586 },
+    ];
+    const home = await writeCursorFixtureHome(cursorRootBlob(parts, 623), {
+      corruptMetaHex: true,
+    });
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("cursor");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the store was never opened",
+    );
+    assert(
+      result.totals.requests === 0,
+      "Cursor reader counted a session it could not read the meta row of",
+    );
+    log("Cursor reader survives a meta row that is not hex-encoded JSON");
+  });
+
+  await test("Cursor reader honours the scan window", async () => {
+    // Two entries, not one. A container is only recognised when it holds at
+    // least two — a lone two-string message is far likelier to be unrelated
+    // noise than a breakdown — and Cursor's real breakdown always carries its
+    // full fixed set of eight, so a one-entry fixture was never realistic.
+    const parts = [
+      { name: "system_prompt", tokens: 480, chars: 1959 },
+      { name: "conversation", tokens: 143, chars: 586 },
+    ];
+    const home = await writeCursorFixtureHome(cursorRootBlob(parts, 623));
+    const dbPath = path.join(
+      home,
+      ".cursor",
+      "chats",
+      "d192d0da1542259a4cf7bc8c39559abd",
+      "9b8eb805-fce9-4c6e-80f8-bd4a0641b4db",
+      "store.db",
+    );
+    // Age the store past a 30-day window without waiting 30 days.
+    const old = new Date(Date.now() - 90 * 86_400_000);
+    fs.utimesSync(dbPath, old, old);
+
+    const [narrow, wide] = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("cursor");
+      return [
+        await reader.scan({ sinceDays: 30 }),
+        await reader.scan({ sinceDays: Infinity }),
+      ];
+    });
+    assert(
+      wide.totals.inputTokens === 623,
+      "precondition failed: the wide window read nothing, so the narrow result proves nothing",
+    );
+    assert(
+      narrow.filesScanned === 0 && narrow.totals.inputTokens === 0,
+      "Cursor reader read a store older than the requested window",
+    );
+    log("Cursor reader excludes a 90-day-old store from a 30-day window");
+  });
+
+  await test("Cursor reader is not fooled by an unrelated two-string field that carries a count", async () => {
+    // The adversarial-review case, kept as a regression. The first version of
+    // the extractor collected shape-matching submessages from ANYWHERE in the
+    // tree and accepted the total if it equalled ANY varint anywhere. This
+    // machine's real root blob already carries such a field — field 21 is
+    // {1: "/Users/…/feat/support-for-ide", 2: "feat/support-for-ide"} — and it
+    // was being folded in as a zero-token entry. Give a field like that a
+    // count, let the inflated sum collide with any other varint in the blob,
+    // and the reader returned a confidently wrong number: measured at 337
+    // where the truth was 300.
+    const parts = [
+      { name: "system_prompt", tokens: 100, chars: 400 },
+      { name: "tools", tokens: 200, chars: 800 },
+    ];
+    const trueTotal = 300;
+    const decoy = { name: "claude-3-7", tokens: 37, chars: 0 };
+    const inflated = trueTotal + decoy.tokens;
+
+    const home = await writeCursorFixtureHome(
+      cursorRootBlobWithDecoy(parts, trueTotal, decoy, inflated),
+    );
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("cursor");
+      return reader.scan({ sinceDays: Infinity });
+    });
+
+    assert(
+      result.filesScanned === 1,
+      "precondition failed: the decoy store was never opened, so this proves nothing",
+    );
+    assert(
+      result.totals.inputTokens !== inflated,
+      "Cursor reader returned the inflated total produced by an unrelated field",
+    );
+    assert(
+      result.totals.inputTokens === trueTotal,
+      "Cursor reader did not recover the true container total past the decoy",
+    );
+    log("Cursor reader ignores a counted decoy field and a colliding varint");
+  });
+
+  await test("Cursor reader on this machine's real store", async () => {
+    const real = path.join(os.homedir(), ".cursor", "chats");
+    if (!fs.existsSync(real)) {
+      throw new Error("SKIP: no ~/.cursor/chats on this machine");
+    }
+    const reader = await createLocalUsageReader("cursor");
+    assert(
+      await reader.detect(),
+      "detect() missed an existing ~/.cursor/chats",
+    );
+    const result = await reader.scan({ sinceDays: Infinity });
+    // PRECONDITION, and the reason this test was nearly worthless as written.
+    // The assertion below used to read `filesScanned === 0 || inputTokens > 0`,
+    // which is satisfied for free whenever no store was opened — an ordinary
+    // state for a machine with Cursor installed and no chat history yet.
+    // Directory-exists is not store-exists, so the skip has to key on what was
+    // actually read, not on what directory happens to be present.
+    if (result.filesScanned === 0) {
+      throw new Error("SKIP: ~/.cursor/chats holds no readable store.db");
+    }
+    assert(
+      result.errors.length === 0,
+      "scanning this machine's real Cursor store reported errors",
+    );
+    // Not an equality assertion: the real store changes as Cursor is used. With
+    // the precondition above a store WAS opened, so a zero total now means the
+    // parse found nothing and reported nothing — the exact failure being
+    // guarded against.
+    assert(
+      result.totals.inputTokens > 0,
+      "a real Cursor store was opened but produced no context tokens and no error",
+    );
+    log(
+      `Cursor real store: ${result.filesScanned} session(s), ${result.totals.inputTokens} context tokens`,
+    );
+  });
 }
 
 await runSuite(runAllTests);

@@ -8,7 +8,7 @@
 
 > **LocalUsageScanError** = `object`
 
-Defined in: [types/localUsage.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L87)
+Defined in: [types/localUsage.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L151)
 
 A non-fatal per-file problem, surfaced instead of aborting the scan.
 
@@ -18,7 +18,7 @@ A non-fatal per-file problem, surfaced instead of aborting the scan.
 
 > **cliId**: [`LocalUsageCliId`](LocalUsageCliId.md)
 
-Defined in: [types/localUsage.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L88)
+Defined in: [types/localUsage.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L152)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:88](https://github.com/juspay/neurolink/blob/re
 
 > **filePath**: `string`
 
-Defined in: [types/localUsage.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L89)
+Defined in: [types/localUsage.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L153)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/localUsage.ts:89](https://github.com/juspay/neurolink/blob/re
 
 > **message**: `string`
 
-Defined in: [types/localUsage.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L90)
+Defined in: [types/localUsage.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L154)

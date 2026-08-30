@@ -8,7 +8,7 @@
 
 > **LocalUsageCopilotUsageRow** = `object`
 
-Defined in: [types/localUsage.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L255)
+Defined in: [types/localUsage.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L324)
 
 One row of Copilot CLI's `assistant_usage_events` SQLite table, restricted
 to the columns `copilotCliReader.ts` actually reads. `cache_read_tokens`
@@ -21,7 +21,7 @@ reader's module header for the arithmetic proof.
 
 > **model**: `string` \| `null`
 
-Defined in: [types/localUsage.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L256)
+Defined in: [types/localUsage.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L325)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/localUsage.ts:256](https://github.com/juspay/neurolink/blob/r
 
 > **input_tokens**: `number` \| `null`
 
-Defined in: [types/localUsage.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L257)
+Defined in: [types/localUsage.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L326)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/localUsage.ts:257](https://github.com/juspay/neurolink/blob/r
 
 > **output_tokens**: `number` \| `null`
 
-Defined in: [types/localUsage.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L258)
+Defined in: [types/localUsage.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L327)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/localUsage.ts:258](https://github.com/juspay/neurolink/blob/r
 
 > **cache_read_tokens**: `number` \| `null`
 
-Defined in: [types/localUsage.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L259)
+Defined in: [types/localUsage.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L328)
 
 ---
 
@@ -53,7 +53,7 @@ Defined in: [types/localUsage.ts:259](https://github.com/juspay/neurolink/blob/r
 
 > **cache_write_tokens**: `number` \| `null`
 
-Defined in: [types/localUsage.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L260)
+Defined in: [types/localUsage.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L329)
 
 ---
 
@@ -61,7 +61,7 @@ Defined in: [types/localUsage.ts:260](https://github.com/juspay/neurolink/blob/r
 
 > **reasoning_tokens**: `number` \| `null`
 
-Defined in: [types/localUsage.ts:261](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L261)
+Defined in: [types/localUsage.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L330)
 
 ---
 
@@ -69,4 +69,4 @@ Defined in: [types/localUsage.ts:261](https://github.com/juspay/neurolink/blob/r
 
 > **created_at**: `string` \| `null`
 
-Defined in: [types/localUsage.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L262)
+Defined in: [types/localUsage.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L331)

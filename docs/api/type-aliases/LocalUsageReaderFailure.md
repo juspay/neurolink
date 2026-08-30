@@ -8,7 +8,7 @@
 
 > **LocalUsageReaderFailure** = `object`
 
-Defined in: [types/localUsage.ts:154](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L154)
+Defined in: [types/localUsage.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L223)
 
 A whole reader failing — not installed, or threw — so the aggregate report
 can carry successes and failures side by side rather than losing both.
@@ -19,7 +19,7 @@ can carry successes and failures side by side rather than losing both.
 
 > **cliId**: [`LocalUsageCliId`](LocalUsageCliId.md)
 
-Defined in: [types/localUsage.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L155)
+Defined in: [types/localUsage.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L224)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/localUsage.ts:155](https://github.com/juspay/neurolink/blob/r
 
 > **message**: `string`
 
-Defined in: [types/localUsage.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L156)
+Defined in: [types/localUsage.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L225)

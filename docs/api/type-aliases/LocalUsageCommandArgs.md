@@ -8,7 +8,7 @@
 
 > **LocalUsageCommandArgs** = `object`
 
-Defined in: [types/localUsage.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L285)
+Defined in: [types/localUsage.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L369)
 
 Arguments for the `neurolink usage local` command.
 
@@ -18,7 +18,7 @@ Arguments for the `neurolink usage local` command.
 
 > **since**: `number`
 
-Defined in: [types/localUsage.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L286)
+Defined in: [types/localUsage.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L370)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/localUsage.ts:286](https://github.com/juspay/neurolink/blob/r
 
 > **json**: `boolean`
 
-Defined in: [types/localUsage.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L287)
+Defined in: [types/localUsage.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L371)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/localUsage.ts:287](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **cli?**: `string`
 
-Defined in: [types/localUsage.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L288)
+Defined in: [types/localUsage.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L372)
