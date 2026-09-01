@@ -8,7 +8,7 @@
 
 > **HTTPRetryConfig** = `object`
 
-Defined in: [types/mcp.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L945)
+Defined in: [types/mcp.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L964)
 
 HTTP retry configuration for MCP transport
 
@@ -18,7 +18,7 @@ HTTP retry configuration for MCP transport
 
 > **maxAttempts**: `number`
 
-Defined in: [types/mcp.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L947)
+Defined in: [types/mcp.ts:966](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L966)
 
 Maximum retry attempts (default: 3)
 
@@ -28,7 +28,7 @@ Maximum retry attempts (default: 3)
 
 > **initialDelay**: `number`
 
-Defined in: [types/mcp.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L949)
+Defined in: [types/mcp.ts:968](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L968)
 
 Initial delay in ms (default: 1000)
 
@@ -38,7 +38,7 @@ Initial delay in ms (default: 1000)
 
 > **maxDelay**: `number`
 
-Defined in: [types/mcp.ts:951](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L951)
+Defined in: [types/mcp.ts:970](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L970)
 
 Maximum delay in ms (default: 30000)
 
@@ -48,7 +48,7 @@ Maximum delay in ms (default: 30000)
 
 > **backoffMultiplier**: `number`
 
-Defined in: [types/mcp.ts:953](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L953)
+Defined in: [types/mcp.ts:972](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L972)
 
 Backoff multiplier (default: 2)
 
@@ -58,6 +58,6 @@ Backoff multiplier (default: 2)
 
 > **retryableStatusCodes**: `number`[]
 
-Defined in: [types/mcp.ts:955](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L955)
+Defined in: [types/mcp.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L974)
 
 HTTP status codes that trigger retry

@@ -1,6 +1,10 @@
 import { logger } from "./logger.js";
 import type { ToolCallRepairFunction, ToolSet } from "../types/index.js";
-import type { JSONSchema7, LanguageModelV3ToolCall } from "../types/index.js";
+import type {
+  JSONSchema7,
+  LanguageModelV3ToolCall,
+  ToolNameResolution,
+} from "../types/index.js";
 
 /**
  * Create an `experimental_repairToolCall` handler for streamText/generateText.
@@ -33,43 +37,43 @@ export function createToolCallRepair(): ToolCallRepairFunction<ToolSet> {
 // ─── Tool Name Repair ──────────────────────────────────────────────
 
 /**
- * Attempt to match a wrong tool name against available tool names.
- * Strategies (in order): case-insensitive exact → substring → Levenshtein.
+ * Match a possibly-misspelled tool name against a list of available tool
+ * names. Strategies (in order): case-insensitive exact → unambiguous
+ * substring → Levenshtein.
+ *
+ * Pulled out of `repairToolName` so the same matching policy can be reused
+ * outside the AI-SDK generation loop — `experimental_repairToolCall` only
+ * runs inside `streamText`/`generateText`, so a name typo at a direct MCP
+ * execution boundary (`NeuroLink.executeExternalMCPTool`) previously had no
+ * recovery at all. This function is pure name-matching: no `LanguageModelV3ToolCall`,
+ * no logging, so callers with a different call shape can reuse it directly.
  */
-function repairToolName(
-  toolCall: LanguageModelV3ToolCall,
+export function resolveToolName(
+  calledName: string,
   availableTools: string[],
-): LanguageModelV3ToolCall | null {
-  const called = toolCall.toolName;
-
+): ToolNameResolution | null {
   // Guard: empty or whitespace-only tool name cannot be meaningfully repaired
-  if (!called || called.trim().length === 0) {
+  if (!calledName || calledName.trim().length === 0) {
     return null;
   }
 
   // 1. Case-insensitive exact match
   const ciMatch = availableTools.find(
-    (t) => t.toLowerCase() === called.toLowerCase(),
+    (t) => t.toLowerCase() === calledName.toLowerCase(),
   );
   if (ciMatch) {
-    logger.debug(
-      `[ToolCallRepair] Name repair (case): "${called}" → "${ciMatch}"`,
-    );
-    return { ...toolCall, toolName: ciMatch };
+    return { name: ciMatch, strategy: "case" };
   }
 
   // 2. Substring match: "search_file" is substring of "search_files" or vice versa.
   // Only accept when exactly one tool matches to avoid ambiguous repairs.
-  const calledLower = called.toLowerCase();
+  const calledLower = calledName.toLowerCase();
   const subCandidates = availableTools.filter((t) => {
     const tLower = t.toLowerCase();
     return tLower.includes(calledLower) || calledLower.includes(tLower);
   });
   if (subCandidates.length === 1) {
-    logger.debug(
-      `[ToolCallRepair] Name repair (substring): "${called}" → "${subCandidates[0]}"`,
-    );
-    return { ...toolCall, toolName: subCandidates[0] };
+    return { name: subCandidates[0], strategy: "substring" };
   }
 
   // 3. Levenshtein distance — accept if normalized distance < 0.3
@@ -78,7 +82,7 @@ function repairToolName(
   let bestNormalized = Infinity;
   for (const t of availableTools) {
     const dist = levenshtein(calledLower, t.toLowerCase());
-    const maxLen = Math.max(called.length, t.length);
+    const maxLen = Math.max(calledName.length, t.length);
     const normalized = maxLen === 0 ? 0 : dist / maxLen;
     if (normalized < 0.3 && normalized < bestNormalized) {
       bestNormalized = normalized;
@@ -86,16 +90,94 @@ function repairToolName(
     }
   }
   if (bestMatch) {
-    logger.debug(
-      `[ToolCallRepair] Name repair (levenshtein ${bestNormalized.toFixed(2)}): "${called}" → "${bestMatch}"`,
-    );
-    return { ...toolCall, toolName: bestMatch };
+    return { name: bestMatch, strategy: "levenshtein", score: bestNormalized };
   }
 
-  logger.debug(
-    `[ToolCallRepair] Could not repair tool name "${called}". Available: [${availableTools.join(", ")}]`,
-  );
   return null;
+}
+
+/**
+ * Rank every available tool name by similarity to `calledName` (ascending
+ * normalized Levenshtein distance) and return the closest `limit`.
+ *
+ * Used to build the candidate list on `ExternalMcpToolNotFoundError` when
+ * `resolveToolName` found no unambiguous match — unlike `resolveToolName`,
+ * this makes no accept/reject judgment, it just orders what is available so
+ * a caller (human or AI) can pick the right name themselves.
+ */
+export function rankToolNameCandidates(
+  calledName: string,
+  availableTools: string[],
+  limit = 5,
+): string[] {
+  const calledLower = calledName.toLowerCase();
+  return [...availableTools]
+    .sort(
+      (a, b) =>
+        levenshtein(calledLower, a.toLowerCase()) -
+        levenshtein(calledLower, b.toLowerCase()),
+    )
+    .slice(0, limit);
+}
+
+/**
+ * Thrown at a direct MCP execution boundary (`NeuroLink.executeExternalMCPTool`)
+ * when `resolveToolName` cannot find an unambiguous match for a requested
+ * tool name against a server's discovered tools. Distinct from the plain
+ * `Error` that `ToolDiscoveryService.executeTool` throws deeper in the stack
+ * for the same condition, so callers can distinguish "no match — here are
+ * the closest names" from every other execution failure programmatically,
+ * instead of parsing a message string.
+ */
+export class ExternalMcpToolNotFoundError extends Error {
+  /** The tool name that was requested and could not be resolved. */
+  readonly requestedName: string;
+  /** The server the tool was requested against. */
+  readonly serverId: string;
+  /** Closest available tool names on that server, capped (see `rankToolNameCandidates`). */
+  readonly candidates: string[];
+
+  constructor(requestedName: string, serverId: string, candidates: string[]) {
+    const candidateList =
+      candidates.length > 0 ? candidates.join(", ") : "(none registered)";
+    super(
+      `Tool '${requestedName}' not found for server '${serverId}'. Closest available: ${candidateList}`,
+    );
+    this.name = "ExternalMcpToolNotFoundError";
+    this.requestedName = requestedName;
+    this.serverId = serverId;
+    this.candidates = candidates;
+  }
+}
+
+/**
+ * Attempt to match a wrong tool name against available tool names and
+ * produce a repaired `LanguageModelV3ToolCall` for the AI-SDK generation
+ * path. Thin wrapper around `resolveToolName` that restores this function's
+ * original debug-log wording so generation-path behaviour is unchanged.
+ */
+function repairToolName(
+  toolCall: LanguageModelV3ToolCall,
+  availableTools: string[],
+): LanguageModelV3ToolCall | null {
+  const called = toolCall.toolName;
+
+  const resolution = resolveToolName(called, availableTools);
+  if (!resolution) {
+    logger.debug(
+      `[ToolCallRepair] Could not repair tool name "${called}". Available: [${availableTools.join(", ")}]`,
+    );
+    return null;
+  }
+
+  const label =
+    resolution.strategy === "levenshtein"
+      ? `levenshtein ${(resolution.score as number).toFixed(2)}`
+      : resolution.strategy;
+  logger.debug(
+    `[ToolCallRepair] Name repair (${label}): "${called}" → "${resolution.name}"`,
+  );
+  return { ...toolCall, toolName: resolution.name };
 }
 
 // ─── Tool Input Repair ─────────────────────────────────────────────

@@ -8,6 +8,6 @@
 
 > **LoadBalancingStrategy** = `"round-robin"` \| `"least-loaded"` \| `"random"` \| `"weighted"` \| `"failover-only"`
 
-Defined in: [types/mcp.ts:1752](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1752)
+Defined in: [types/mcp.ts:1771](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1771)
 
 Load balancing strategies

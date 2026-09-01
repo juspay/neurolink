@@ -8,7 +8,7 @@
 
 > **MCPResource** = `object`
 
-Defined in: [types/mcp.ts:1898](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1898)
+Defined in: [types/mcp.ts:1917](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1917)
 
 MCP Resource definition
 
@@ -18,7 +18,7 @@ MCP Resource definition
 
 > **uri**: `string`
 
-Defined in: [types/mcp.ts:1902](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1902)
+Defined in: [types/mcp.ts:1921](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1921)
 
 Unique resource URI
 
@@ -28,7 +28,7 @@ Unique resource URI
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1907](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1907)
+Defined in: [types/mcp.ts:1926](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1926)
 
 Human-readable name
 
@@ -38,7 +38,7 @@ Human-readable name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:1912](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1912)
+Defined in: [types/mcp.ts:1931](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1931)
 
 Resource description
 
@@ -48,7 +48,7 @@ Resource description
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/mcp.ts:1917](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1917)
+Defined in: [types/mcp.ts:1936](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1936)
 
 MIME type of the resource content
 
@@ -58,7 +58,7 @@ MIME type of the resource content
 
 > `optional` **size?**: `number`
 
-Defined in: [types/mcp.ts:1922](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1922)
+Defined in: [types/mcp.ts:1941](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1941)
 
 Resource size in bytes (if known)
 
@@ -68,7 +68,7 @@ Resource size in bytes (if known)
 
 > `optional` **dynamic?**: `boolean`
 
-Defined in: [types/mcp.ts:1927](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1927)
+Defined in: [types/mcp.ts:1946](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1946)
 
 Whether the resource content can change
 
@@ -78,7 +78,7 @@ Whether the resource content can change
 
 > `optional` **annotations?**: `object`
 
-Defined in: [types/mcp.ts:1932](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1932)
+Defined in: [types/mcp.ts:1951](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1951)
 
 Resource annotations/metadata
 

@@ -1413,6 +1413,7 @@ console.log(result.content);
 - [DiscoveredMcp](type-aliases/DiscoveredMcp.md)
 - [McpMetadata](type-aliases/McpMetadata.md)
 - [ToolDiscoveryResult](type-aliases/ToolDiscoveryResult.md)
+- [ToolNameResolution](type-aliases/ToolNameResolution.md)
 - [ExternalToolExecutionOptions](type-aliases/ExternalToolExecutionOptions.md)
 - [ToolValidationResult](type-aliases/ToolValidationResult.md)
 - [ToolRegistryEvents](type-aliases/ToolRegistryEvents.md)

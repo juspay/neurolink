@@ -8,7 +8,7 @@
 
 > **ExposableWorkflow** = `object`
 
-Defined in: [types/mcp.ts:1153](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1153)
+Defined in: [types/mcp.ts:1172](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1172)
 
 Workflow definition for MCP exposure
 
@@ -18,7 +18,7 @@ Workflow definition for MCP exposure
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1157)
+Defined in: [types/mcp.ts:1176](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1176)
 
 Unique workflow identifier
 
@@ -28,7 +28,7 @@ Unique workflow identifier
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1162](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1162)
+Defined in: [types/mcp.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1181)
 
 Human-readable workflow name
 
@@ -38,7 +38,7 @@ Human-readable workflow name
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:1167](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1167)
+Defined in: [types/mcp.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1186)
 
 Workflow description
 
@@ -48,7 +48,7 @@ Workflow description
 
 > `optional` **steps?**: `object`[]
 
-Defined in: [types/mcp.ts:1172](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1172)
+Defined in: [types/mcp.ts:1191](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1191)
 
 Workflow steps (for documentation)
 
@@ -70,7 +70,7 @@ Workflow steps (for documentation)
 
 > `optional` **inputSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1181)
+Defined in: [types/mcp.ts:1200](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1200)
 
 Input schema for the workflow
 
@@ -80,7 +80,7 @@ Input schema for the workflow
 
 > `optional` **outputSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1186)
+Defined in: [types/mcp.ts:1205](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1205)
 
 Output schema for the workflow
 
@@ -90,7 +90,7 @@ Output schema for the workflow
 
 > **execute**: (`input`, `context?`) => `Promise`\<`unknown`\>
 
-Defined in: [types/mcp.ts:1191](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1191)
+Defined in: [types/mcp.ts:1210](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1210)
 
 Workflow execution function
 
@@ -114,7 +114,7 @@ Workflow execution function
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/mcp.ts:1199](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1199)
+Defined in: [types/mcp.ts:1218](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1218)
 
 Workflow metadata
 

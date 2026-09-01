@@ -8,6 +8,6 @@
 
 > **ElicitationProtocolPayload** = [`ElicitationRequestMessage`](ElicitationRequestMessage.md) \| [`ElicitationResponseMessage`](ElicitationResponseMessage.md) \| [`ElicitationCancelMessage`](ElicitationCancelMessage.md)
 
-Defined in: [types/mcp.ts:1374](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1374)
+Defined in: [types/mcp.ts:1393](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1393)
 
 Protocol message union type

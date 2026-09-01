@@ -8,7 +8,7 @@
 
 > **MCPClientResult** = `object`
 
-Defined in: [types/mcp.ts:785](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L785)
+Defined in: [types/mcp.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L804)
 
 MCP client creation result
 Moved from src/lib/mcp/mcpClientFactory.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/mcpClientFactory.ts
 
 > **success**: `boolean`
 
-Defined in: [types/mcp.ts:787](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L787)
+Defined in: [types/mcp.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L806)
 
 Whether client creation was successful
 
@@ -29,7 +29,7 @@ Whether client creation was successful
 
 > `optional` **client?**: `Client`
 
-Defined in: [types/mcp.ts:790](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L790)
+Defined in: [types/mcp.ts:809](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L809)
 
 Created client instance
 
@@ -39,7 +39,7 @@ Created client instance
 
 > `optional` **transport?**: `Transport`
 
-Defined in: [types/mcp.ts:793](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L793)
+Defined in: [types/mcp.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L812)
 
 Created transport instance
 
@@ -49,7 +49,7 @@ Created transport instance
 
 > `optional` **process?**: `ChildProcess`
 
-Defined in: [types/mcp.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L796)
+Defined in: [types/mcp.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L815)
 
 Created process (for stdio transport)
 
@@ -59,7 +59,7 @@ Created process (for stdio transport)
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:799](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L799)
+Defined in: [types/mcp.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L818)
 
 Error message if failed
 
@@ -69,7 +69,7 @@ Error message if failed
 
 > **duration**: `number`
 
-Defined in: [types/mcp.ts:802](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L802)
+Defined in: [types/mcp.ts:821](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L821)
 
 Creation duration in milliseconds
 
@@ -79,6 +79,6 @@ Creation duration in milliseconds
 
 > `optional` **capabilities?**: `ClientCapabilities`
 
-Defined in: [types/mcp.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L805)
+Defined in: [types/mcp.ts:824](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L824)
 
 Server capabilities reported during handshake

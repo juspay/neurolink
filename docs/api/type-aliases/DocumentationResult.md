@@ -8,7 +8,7 @@
 
 > **DocumentationResult** = `object`
 
-Defined in: [types/mcp.ts:2615](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2615)
+Defined in: [types/mcp.ts:2634](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2634)
 
 Result of the AI documentation-generation workflow.
 
@@ -18,7 +18,7 @@ Result of the AI documentation-generation workflow.
 
 > **documentation**: `string`
 
-Defined in: [types/mcp.ts:2616](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2616)
+Defined in: [types/mcp.ts:2635](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2635)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2616](https://github.com/juspay/neurolink/blob/release
 
 > **sections**: `string`[]
 
-Defined in: [types/mcp.ts:2617](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2617)
+Defined in: [types/mcp.ts:2636](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2636)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2617](https://github.com/juspay/neurolink/blob/release
 
 > **examples**: `string`[]
 
-Defined in: [types/mcp.ts:2618](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2618)
+Defined in: [types/mcp.ts:2637](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2637)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:2618](https://github.com/juspay/neurolink/blob/release
 
 > **coverage**: `number`
 
-Defined in: [types/mcp.ts:2619](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2619)
+Defined in: [types/mcp.ts:2638](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2638)

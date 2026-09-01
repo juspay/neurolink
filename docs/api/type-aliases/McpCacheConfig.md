@@ -8,7 +8,7 @@
 
 > **McpCacheConfig** = `object`
 
-Defined in: [types/mcp.ts:2348](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2348)
+Defined in: [types/mcp.ts:2367](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2367)
 
 Cache configuration options
 
@@ -18,7 +18,7 @@ Cache configuration options
 
 > **ttl**: `number`
 
-Defined in: [types/mcp.ts:2352](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2352)
+Defined in: [types/mcp.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2371)
 
 Time-to-live in milliseconds (default: 5 minutes)
 
@@ -28,7 +28,7 @@ Time-to-live in milliseconds (default: 5 minutes)
 
 > **maxSize**: `number`
 
-Defined in: [types/mcp.ts:2357](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2357)
+Defined in: [types/mcp.ts:2376](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2376)
 
 Maximum number of entries (default: 500)
 
@@ -38,7 +38,7 @@ Maximum number of entries (default: 500)
 
 > **strategy**: [`CacheStrategy`](CacheStrategy.md)
 
-Defined in: [types/mcp.ts:2362](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2362)
+Defined in: [types/mcp.ts:2381](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2381)
 
 Eviction strategy (default: 'lru')
 
@@ -48,7 +48,7 @@ Eviction strategy (default: 'lru')
 
 > `optional` **enableAutoCleanup?**: `boolean`
 
-Defined in: [types/mcp.ts:2367](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2367)
+Defined in: [types/mcp.ts:2386](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2386)
 
 Enable automatic cleanup of expired entries
 
@@ -58,7 +58,7 @@ Enable automatic cleanup of expired entries
 
 > `optional` **cleanupInterval?**: `number`
 
-Defined in: [types/mcp.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2372)
+Defined in: [types/mcp.ts:2391](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2391)
 
 Cleanup interval in milliseconds (default: 60 seconds)
 
@@ -68,6 +68,6 @@ Cleanup interval in milliseconds (default: 60 seconds)
 
 > `optional` **namespace?**: `string`
 
-Defined in: [types/mcp.ts:2377](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2377)
+Defined in: [types/mcp.ts:2396](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2396)
 
 Namespace for cache keys (optional)
