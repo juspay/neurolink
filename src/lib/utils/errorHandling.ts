@@ -1407,7 +1407,11 @@ export function isAbortError(error: unknown): boolean {
     error instanceof Error &&
     (error.message?.includes("This operation was aborted") ||
       error.message?.includes("The operation was aborted") ||
-      error.message?.includes("The user aborted a request"))
+      error.message?.includes("The user aborted a request") ||
+      // Anthropic SDK's APIUserAbortError — name is plain "Error", so only
+      // the message identifies it. Missing this classified real aborts as
+      // provider failures (ERROR log + fallback consulted on a user cancel).
+      error.message?.includes("Request was aborted"))
   ) {
     return true;
   }

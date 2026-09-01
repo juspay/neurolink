@@ -8,7 +8,7 @@
 
 > **SessionMetadata** = `object`
 
-Defined in: [types/conversation.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L522)
+Defined in: [types/conversation.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L530)
 
 Lightweight session metadata for efficient session listing
 Contains only essential information without heavy message arrays
@@ -19,7 +19,7 @@ Contains only essential information without heavy message arrays
 
 > **id**: `string`
 
-Defined in: [types/conversation.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L523)
+Defined in: [types/conversation.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L531)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/conversation.ts:523](https://github.com/juspay/neurolink/blob
 
 > **title**: `string`
 
-Defined in: [types/conversation.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L524)
+Defined in: [types/conversation.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L532)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/conversation.ts:524](https://github.com/juspay/neurolink/blob
 
 > **createdAt**: `string`
 
-Defined in: [types/conversation.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L525)
+Defined in: [types/conversation.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L533)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/conversation.ts:525](https://github.com/juspay/neurolink/blob
 
 > **updatedAt**: `string`
 
-Defined in: [types/conversation.ts:526](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L526)
+Defined in: [types/conversation.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L534)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/conversation.ts:526](https://github.com/juspay/neurolink/blob
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/conversation.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L528)
+Defined in: [types/conversation.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L536)
 
 Additional metadata including agentic loop reports
 

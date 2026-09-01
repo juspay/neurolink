@@ -8,7 +8,7 @@
 
 > **AgenticLoopReportMetadata** = `object`
 
-Defined in: [types/conversation.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L558)
+Defined in: [types/conversation.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L566)
 
 Metadata for an individual agentic loop report
 A conversation session can have multiple reports tracked via this type
@@ -19,7 +19,7 @@ A conversation session can have multiple reports tracked via this type
 
 > **reportId**: `string`
 
-Defined in: [types/conversation.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L560)
+Defined in: [types/conversation.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L568)
 
 Unique identifier for this report
 
@@ -29,7 +29,7 @@ Unique identifier for this report
 
 > **reportType**: [`AgenticLoopReportType`](AgenticLoopReportType.md)
 
-Defined in: [types/conversation.ts:562](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L562)
+Defined in: [types/conversation.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L570)
 
 Platform/category of the report
 
@@ -39,7 +39,7 @@ Platform/category of the report
 
 > **reportStatus**: [`AgenticLoopReportStatus`](AgenticLoopReportStatus.md)
 
-Defined in: [types/conversation.ts:564](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L564)
+Defined in: [types/conversation.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L572)
 
 Current status of the report
 
@@ -49,7 +49,7 @@ Current status of the report
 
 > `optional` **auditPeriod?**: `object`
 
-Defined in: [types/conversation.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L566)
+Defined in: [types/conversation.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L574)
 
 Optional audit period date range for the report
 

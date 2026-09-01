@@ -8,7 +8,7 @@
 
 > **StoreConversationTurnOptions** = `object`
 
-Defined in: [types/conversation.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L482)
+Defined in: [types/conversation.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L490)
 
 Options for storing a conversation turn
 
@@ -18,7 +18,7 @@ Options for storing a conversation turn
 
 > **sessionId**: `string`
 
-Defined in: [types/conversation.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L483)
+Defined in: [types/conversation.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L491)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/conversation.ts:483](https://github.com/juspay/neurolink/blob
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/conversation.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L484)
+Defined in: [types/conversation.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L492)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/conversation.ts:484](https://github.com/juspay/neurolink/blob
 
 > **userMessage**: `string`
 
-Defined in: [types/conversation.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L485)
+Defined in: [types/conversation.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L493)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/conversation.ts:485](https://github.com/juspay/neurolink/blob
 
 > **aiResponse**: `string`
 
-Defined in: [types/conversation.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L486)
+Defined in: [types/conversation.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L494)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/conversation.ts:486](https://github.com/juspay/neurolink/blob
 
 > `optional` **startTimeStamp?**: `Date`
 
-Defined in: [types/conversation.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L487)
+Defined in: [types/conversation.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L495)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/conversation.ts:487](https://github.com/juspay/neurolink/blob
 
 > `optional` **providerDetails?**: [`ProviderDetails`](ProviderDetails.md)
 
-Defined in: [types/conversation.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L488)
+Defined in: [types/conversation.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L496)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/conversation.ts:488](https://github.com/juspay/neurolink/blob
 
 > `optional` **enableSummarization?**: `boolean`
 
-Defined in: [types/conversation.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L489)
+Defined in: [types/conversation.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L497)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/conversation.ts:489](https://github.com/juspay/neurolink/blob
 
 > `optional` **events?**: [`StreamEventSequence`](StreamEventSequence.md)[]
 
-Defined in: [types/conversation.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L490)
+Defined in: [types/conversation.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L498)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/conversation.ts:490](https://github.com/juspay/neurolink/blob
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/conversation.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L492)
+Defined in: [types/conversation.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L500)
 
 Observability request identifier for log correlation
 
@@ -92,7 +92,7 @@ Observability request identifier for log correlation
 
 > `optional` **tokenUsage?**: `object`
 
-Defined in: [types/conversation.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L494)
+Defined in: [types/conversation.ts:502](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L502)
 
 API-reported token usage from provider response
 
@@ -122,7 +122,7 @@ API-reported token usage from provider response
 
 > `optional` **thoughtSignature?**: `string`
 
-Defined in: [types/conversation.ts:502](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L502)
+Defined in: [types/conversation.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L510)
 
 Gemini 3 thought signature for reasoning continuity across turns
 
@@ -132,7 +132,7 @@ Gemini 3 thought signature for reasoning continuity across turns
 
 > `optional` **skillMessages?**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/conversation.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L515)
+Defined in: [types/conversation.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L523)
 
 Pinned skill-activation messages (skills v2) recorded during this turn.
 Inserted between the user and assistant messages so replayed history

@@ -1763,8 +1763,19 @@ export abstract class BaseProvider implements AIProvider {
     const descriptorGenerateMs = PROVIDER_DESCRIPTORS_BY_NAME.get(
       this.providerName,
     )?.timeouts?.generateMs;
-    const effectiveTimeout =
-      options.timeout ?? Math.max(descriptorGenerateMs ?? 0, 180_000);
+    // An explicit, valid turnTimeoutMs is the caller's whole-turn contract
+    // and owns this hard abort; `timeout` then keeps its per-model-call
+    // meaning (it reaches the model layer via providerOptions.neurolink).
+    // Before this, `timeout` alone bounded the ENTIRE multi-step loop, so a
+    // caller asking for a 40-minute turn of 5-minute calls was killed at 5
+    // minutes flat — mid-loop, dressed as "Request was aborted.".
+    const hasValidTurnTimeout =
+      typeof options.turnTimeoutMs === "number" &&
+      Number.isFinite(options.turnTimeoutMs) &&
+      options.turnTimeoutMs > 0;
+    const effectiveTimeout = hasValidTurnTimeout
+      ? options.turnTimeoutMs
+      : (options.timeout ?? Math.max(descriptorGenerateMs ?? 0, 180_000));
     const timeoutController = createTimeoutController(
       effectiveTimeout,
       this.providerName,
@@ -1786,6 +1797,25 @@ export abstract class BaseProvider implements AIProvider {
         tools,
         composedOptions,
       );
+    } catch (error) {
+      // When OUR timer fired, provider SDKs typically normalize the abort
+      // into their own generic cancel shape (e.g. Anthropic's
+      // APIUserAbortError, "Request was aborted.") and discard the signal's
+      // reason. The TimeoutError on the signal is the honest identity —
+      // rethrow it so logs and abort classification see a timeout, not a
+      // caller cancel. A genuine caller abort (their signal fired) keeps its
+      // original shape even if our timer also expired in the race window.
+      const reason = timeoutController?.controller.signal.aborted
+        ? timeoutController.controller.signal.reason
+        : undefined;
+      if (
+        reason instanceof TimeoutError &&
+        isAbortError(error) &&
+        options.abortSignal?.aborted !== true
+      ) {
+        throw reason;
+      }
+      throw error;
     } finally {
       timeoutController?.cleanup();
     }

@@ -8,7 +8,7 @@
 
 > **GenerateStopReason** = `"completed"` \| `"step-cap"` \| `"context-cap"` \| `"time-limit"` \| `"stalled"` \| `"aborted"` \| `"provider-error"`
 
-Defined in: [types/generate.ts:899](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L899)
+Defined in: [types/generate.ts:908](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L908)
 
 Why an agentic turn ended — the discriminator consumers should branch on
 instead of sniffing the provider-shaped `finishReason` (whose values are

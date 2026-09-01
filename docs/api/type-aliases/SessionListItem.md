@@ -8,7 +8,7 @@
 
 > **SessionListItem** = [`SessionMetadata`](SessionMetadata.md) & `object`
 
-Defined in: [types/conversation.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L576)
+Defined in: [types/conversation.ts:584](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L584)
 
 Session list item for CLI/API listing
 Extends SessionMetadata with additional display information

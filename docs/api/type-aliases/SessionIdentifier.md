@@ -8,7 +8,7 @@
 
 > **SessionIdentifier** = `object`
 
-Defined in: [types/conversation.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L474)
+Defined in: [types/conversation.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L482)
 
 Session identifier for Redis storage operations
 
@@ -18,7 +18,7 @@ Session identifier for Redis storage operations
 
 > **sessionId**: `string`
 
-Defined in: [types/conversation.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L475)
+Defined in: [types/conversation.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L483)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/conversation.ts:475](https://github.com/juspay/neurolink/blob
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/conversation.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L476)
+Defined in: [types/conversation.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L484)

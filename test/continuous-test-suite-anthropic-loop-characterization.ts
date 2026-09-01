@@ -687,4 +687,207 @@ await test("fallbackOnMaxSteps: false surfaces a capped turn instead of retrying
   );
 });
 
+// ---------------------------------------------------------------------------
+// generate-path turn-budget semantics (non-streaming doGenerate)
+//
+// Pins the 2026-09-01 curator/yama incident class: `timeout` alone used to
+// bound the ENTIRE multi-step generate loop, so a caller passing
+// `{ timeout: 300s, turnTimeoutMs: 40min }` was killed at 300s flat, and the
+// kill surfaced as the SDK's generic cancel ("Request was aborted.") logged
+// as a provider failure. The three cases below pin the repaired contract:
+// turnTimeoutMs owns the whole-turn cap, `timeout` bounds each model call,
+// an internal timer's kill carries the timer's own identity, and a genuine
+// caller cancel never consults the fallback callback.
+// ---------------------------------------------------------------------------
+
+type JsonTurn = {
+  delayMs: number;
+  message: Record<string, unknown>;
+};
+
+/** Non-streaming Messages response that asks for one tool call. */
+function jsonToolTurn(name: string, id: string): Record<string, unknown> {
+  return {
+    id,
+    type: "message",
+    role: "assistant",
+    model: MODEL,
+    content: [{ type: "tool_use", id: `${id}_use`, name, input: {} }],
+    stop_reason: "tool_use",
+    stop_sequence: null,
+    usage: { input_tokens: 5, output_tokens: 6 },
+  };
+}
+
+/** Non-streaming Messages response that answers with text and stops. */
+function jsonTextTurn(text: string): Record<string, unknown> {
+  return {
+    id: "msg_final",
+    type: "message",
+    role: "assistant",
+    model: MODEL,
+    content: [{ type: "text", text }],
+    stop_reason: "end_turn",
+    stop_sequence: null,
+    usage: { input_tokens: 5, output_tokens: 4 },
+  };
+}
+
+/** JSON stand-in for the non-streaming generate path, with per-call delay. */
+async function startJsonStandIn(
+  reply: (callIndex: number) => JsonTurn,
+): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const server: Server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      const parseBody = (): Record<string, unknown> => {
+        try {
+          return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+        } catch {
+          return {};
+        }
+      };
+      calls.push({ body: parseBody() });
+      const turn = reply(calls.length - 1);
+      setTimeout(() => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(turn.message));
+      }, turn.delayMs);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      }),
+  };
+}
+
+section("generate-path turn budget semantics");
+
+await test("an explicit turnTimeoutMs owns the whole-turn cap; timeout stays per-call", async () => {
+  // Three model calls of ~1s each under a per-call `timeout` of 2.5s and a
+  // turn cap of 30s. The pre-fix behavior armed the 2.5s value over the
+  // WHOLE loop and killed the turn mid-call 3.
+  const server = await startJsonStandIn((i) =>
+    i === 0
+      ? { delayMs: 1_000, message: jsonToolTurn("lookup", "msg_1") }
+      : i === 1
+        ? { delayMs: 1_000, message: jsonToolTurn("lookup", "msg_2") }
+        : { delayMs: 1_000, message: jsonTextTurn("budget respected") },
+  );
+  const restore = withAnthropicEnv(server.port);
+  const counter = { calls: 0 };
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.generate({
+      input: { text: "do the slow thing" },
+      provider: "anthropic",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      tools: customTool(counter),
+      timeout: 2_500,
+      turnTimeoutMs: 30_000,
+    });
+    assert(
+      (result.content ?? "").includes("budget respected"),
+      "the turn did not run to completion under an explicit turn cap",
+    );
+    assert(
+      server.calls.length === 3,
+      `the tool loop should take exactly three calls, took ${server.calls.length}`,
+    );
+    assert(counter.calls === 2, "the tool did not execute exactly twice");
+  } finally {
+    restore();
+    await server.close();
+  }
+});
+
+await test("a per-call timeout kill carries the timer's identity, not the SDK cancel shape", async () => {
+  // One call that outlives `timeout`. The surfaced error must say what
+  // actually happened (the timer fired) — the pre-fix behavior surfaced the
+  // Anthropic SDK's generic cancel wording, which reads as a caller abort.
+  const server = await startJsonStandIn(() => ({
+    delayMs: 3_000,
+    message: jsonTextTurn("too late"),
+  }));
+  const restore = withAnthropicEnv(server.port);
+  let thrown: Error | undefined;
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: { text: "hang" },
+      provider: "anthropic",
+      model: MODEL,
+      maxTokens: 32,
+      timeout: 1_000,
+    });
+  } catch (error) {
+    thrown = error instanceof Error ? error : new Error("non-error thrown");
+  } finally {
+    restore();
+    await server.close();
+  }
+  assert(thrown !== undefined, "the timer did not end the call at all");
+  const text = thrown?.message ?? "";
+  assert(
+    text.includes("timed out"),
+    "the timer's own identity did not surface on the thrown error",
+  );
+  assert(
+    !text.includes("Request was aborted"),
+    "the SDK's generic cancel shape leaked through instead of the timer identity",
+  );
+});
+
+await test("a caller abort never consults the providerFallback callback", async () => {
+  // A genuine cancel (the caller's own signal) must bubble as an abort —
+  // pre-fix, the SDK's cancel wording was not classified as an abort, so
+  // the fallback callback was consulted and the turn re-ran elsewhere.
+  const server = await startJsonStandIn(() => ({
+    delayMs: 2_500,
+    message: jsonTextTurn("should never arrive"),
+  }));
+  const restore = withAnthropicEnv(server.port);
+  const controller = new AbortController();
+  const abortTimer = setTimeout(() => controller.abort(), 250);
+  let fallbackConsulted = 0;
+  let thrown = false;
+  try {
+    const nl = new NeuroLink();
+    await nl.generate({
+      input: { text: "cancel me" },
+      provider: "anthropic",
+      model: MODEL,
+      maxTokens: 32,
+      timeout: 10_000,
+      abortSignal: controller.signal,
+      providerFallback: async () => {
+        fallbackConsulted++;
+        return null;
+      },
+    });
+  } catch {
+    thrown = true;
+  } finally {
+    clearTimeout(abortTimer);
+    restore();
+    await server.close();
+  }
+  assert(thrown, "the caller's cancel did not end the turn");
+  assert(
+    fallbackConsulted === 0,
+    `a caller cancel must not consult the fallback callback, consulted ${fallbackConsulted} time(s)`,
+  );
+});
+
 await runSuite();

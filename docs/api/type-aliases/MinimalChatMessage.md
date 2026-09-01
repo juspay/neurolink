@@ -8,7 +8,7 @@
 
 > **MinimalChatMessage** = `object`
 
-Defined in: [types/conversation.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L767)
+Defined in: [types/conversation.ts:775](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L775)
 
 Reduced ChatMessage shape used by callers (typically tests and history
 reconstructors) that pass synthetic entries into the Gemini history
@@ -21,7 +21,7 @@ fields actually read by `prependConversationMessages`.
 
 > **role**: [`ChatMessage`](ChatMessage.md)\[`"role"`\]
 
-Defined in: [types/conversation.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L768)
+Defined in: [types/conversation.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L776)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/conversation.ts:768](https://github.com/juspay/neurolink/blob
 
 > **content**: `string`
 
-Defined in: [types/conversation.ts:769](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L769)
+Defined in: [types/conversation.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L777)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/conversation.ts:769](https://github.com/juspay/neurolink/blob
 
 > `optional` **tool?**: `string`
 
-Defined in: [types/conversation.ts:770](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L770)
+Defined in: [types/conversation.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L778)
 
 ---
 
@@ -45,7 +45,7 @@ Defined in: [types/conversation.ts:770](https://github.com/juspay/neurolink/blob
 
 > `optional` **args?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/conversation.ts:771](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L771)
+Defined in: [types/conversation.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L779)
 
 ---
 
@@ -53,7 +53,7 @@ Defined in: [types/conversation.ts:771](https://github.com/juspay/neurolink/blob
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/conversation.ts:772](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L772)
+Defined in: [types/conversation.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L780)
 
 #### stepIndex?
 

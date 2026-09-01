@@ -550,6 +550,7 @@ const neurolink = new NeuroLink({
     // These are top-level conversationMemory fields, not inside contextCompaction.
     summarizationProvider: "vertex",
     summarizationModel: "gemini-2.5-flash",
+    summarizationTimeoutMs: 120000, // cap one summary call; default 60000
   },
 });
 ```

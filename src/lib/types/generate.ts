@@ -378,7 +378,14 @@ export type GenerateOptions = {
    * multi-step tool loop (Vertex Gemini / Vertex Claude), this bounds EACH
    * model call in the loop, not the whole turn — a tool-heavy turn may run
    * far longer than this value in total. Size it for the slowest single
-   * step (default 300s), and use `abortSignal` for a total-turn deadline.
+   * step (default 300s), and use `turnTimeoutMs` (or `abortSignal`) for a
+   * total-turn deadline.
+   *
+   * On the AI-SDK loop path (direct Anthropic, litellm, OpenAI-compatible)
+   * the same split holds only when `turnTimeoutMs` is ALSO set: then this
+   * value bounds each model call and `turnTimeoutMs` bounds the turn. With
+   * `turnTimeoutMs` unset, this value bounds the WHOLE turn there (the
+   * pre-existing defensive behavior, kept for backward compatibility).
    *
    * When set explicitly, a step timeout is surfaced immediately instead of
    * burning internal retries/fallbacks that would re-run the same
@@ -393,9 +400,11 @@ export type GenerateOptions = {
    * imposes no product policy).
    *
    * Enforced by the native Vertex loops (Gemini + Claude) AND the AI-SDK
-   * loop path (litellm and other OpenAI-compatible providers). On the AI-SDK
-   * path, an explicit `timeout` also engages the same wrap-up when
-   * `turnTimeoutMs` is unset. Once the wrap-up window begins (see
+   * loop path (direct Anthropic, litellm and other OpenAI-compatible
+   * providers). On the AI-SDK path this value also owns the whole-turn hard
+   * abort: when set, `timeout` keeps its per-model-call meaning instead of
+   * bounding the entire loop. An explicit `timeout` also engages the same
+   * wrap-up when `turnTimeoutMs` is unset. Once the wrap-up window begins (see
    * `wrapupTimeLeadMs`), the loop forcibly sets `toolChoice: "none"` for the
    * remaining steps — overriding any caller-supplied `toolChoice` or
    * `prepareStep` tool selection — and appends an honest time message that a

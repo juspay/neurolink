@@ -783,7 +783,16 @@ export async function generateSummary(
   );
 
   const SUMMARIZER_INIT_TIMEOUT = 15_000;
-  const SUMMARIZER_GENERATE_TIMEOUT = 60_000;
+  // Config-driven: a compaction summary of a large conversation routinely
+  // needs more than the old hard-coded 60s, and each overrun silently loses
+  // one summary (non-fatal — the turn continues) with no knob to raise it.
+  const configuredTimeoutMs = config.summarizationTimeoutMs;
+  const SUMMARIZER_GENERATE_TIMEOUT =
+    typeof configuredTimeoutMs === "number" &&
+    Number.isFinite(configuredTimeoutMs) &&
+    configuredTimeoutMs > 0
+      ? configuredTimeoutMs
+      : 60_000;
 
   try {
     if (!cachedSummarizer) {
