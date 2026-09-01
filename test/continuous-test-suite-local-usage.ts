@@ -1289,6 +1289,8 @@ async function runAllTests(): Promise<void> {
         overflowMax,
         overflowHuge,
         infinite,
+        belowCliff,
+        aboveCliff,
       ] = await withHome(home, async () => [
         await readAllLocalUsage({ sinceDays: 0 }),
         await readAllLocalUsage({ sinceDays: -5 }),
@@ -1309,6 +1311,20 @@ async function runAllTests(): Promise<void> {
         await readAllLocalUsage({ sinceDays: Number.MAX_VALUE }),
         await readAllLocalUsage({ sinceDays: 1e308 }),
         await readAllLocalUsage({ sinceDays: Infinity }),
+        // The two sides of the overflow boundary (~2.08e300 = Number.MAX_VALUE
+        // / 86_400_000), read INSIDE the fixture home. They used to sit after
+        // this block returned — after HOME was restored to the real one — so
+        // a case named "an empty window" ended by sweeping every transcript
+        // on the machine twice, concurrently, with an unbounded window.
+        // Measured: 650,530 turns in 211 s for one reader alone, against
+        // 12 ms in here. Under load that passed the suite's 240 s bound and
+        // reported as a hang in the code under test; three earlier runs had
+        // stalled at exactly this case before a watchdog caught the process
+        // reading other projects' subagent transcripts.
+        ...(await Promise.all([
+          readAllLocalUsage({ sinceDays: 2.07e300 }),
+          readAllLocalUsage({ sinceDays: 2.09e300 }),
+        ])),
       ]);
 
       assert(
@@ -1335,18 +1351,15 @@ async function runAllTests(): Promise<void> {
         (overflowHuge.totals["claude-code"]?.requests ?? 0) === 1,
         `a 1e308 sinceDays must read everything, like Infinity — expected 1 turn, got ${overflowHuge.totals["claude-code"]?.requests}`,
       );
-      // Monotonicity across the overflow boundary (~2.08e300 =
-      // Number.MAX_VALUE / 86_400_000). The two values straddle the point
-      // where the multiply stops being finite; a caller cannot see that
-      // boundary, so the answer must not change across it.
-      const [belowCliff, aboveCliff] = await Promise.all([
-        readAllLocalUsage({ sinceDays: 2.07e300 }),
-        readAllLocalUsage({ sinceDays: 2.09e300 }),
-      ]);
+      // Monotonicity across the overflow boundary: a caller cannot see where
+      // the multiply stops being finite, so the answer must not change across
+      // it. Asserted against the fixture's one turn rather than as bare
+      // equality: two full sweeps of a real machine also agree with each
+      // other, and that is precisely the case this must not pass on.
       assert(
-        (belowCliff.totals["claude-code"]?.requests ?? 0) ===
-          (aboveCliff.totals["claude-code"]?.requests ?? 0),
-        `the overflow boundary changed the answer — below and above must agree`,
+        (belowCliff.totals["claude-code"]?.requests ?? 0) === 1 &&
+          (aboveCliff.totals["claude-code"]?.requests ?? 0) === 1,
+        `the overflow boundary changed the answer, or the scan left the fixture home`,
       );
       // The control: without this, a reader that simply returned nothing for
       // every window would pass every assertion above.
