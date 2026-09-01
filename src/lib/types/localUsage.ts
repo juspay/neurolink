@@ -35,14 +35,25 @@ export type LocalUsageCliId =
    */
   | "copilot-cli"
   | "cursor"
+  | "grok"
+  | "hermes"
   /*
-   * The five below are declared but have NO reader, and each is a measured
+   * The three below are declared but have NO reader, and each is a measured
    * finding rather than a to-do. They stay in the union because the id set is
    * the published vocabulary of `usage local --cli <id>`, and because the next
    * person to consider one of them should find the evidence here instead of
    * re-deriving it. `createLocalUsageReader` throws a naming-the-registered-ids
    * error for all of them, which is the correct answer to "read a store that
    * does not exist".
+   *
+   * Two ids that used to sit in this list — `hermes` and `grok` — were wrong
+   * to be here, in the same way twice: both verdicts came from searching npm
+   * for products that are not distributed on npm. Hermes Agent is Nous
+   * Research's official Python CLI; Grok Build is xAI's official Rust CLI. Both
+   * now have readers written against stores produced by running the real
+   * binaries, and the readers' module headers carry the measurements. The
+   * lesson is the same one the Cursor reader paid for: a negative needs an
+   * instrument that could have seen the positive.
    *
    * amp — threads are SERVER-side. `amp threads list` returns a real thread
    *   (`T-019e82e0-…`, 1 message) that is absent from `~/.local/share/amp/
@@ -62,32 +73,21 @@ export type LocalUsageCliId =
    *   `…modelCredits` key is empty. The conversations themselves live
    *   elsewhere, at `~/.gemini/antigravity/conversations/*.pb` (4 files,
    *   5.3 MB here), and those are not protobuf in any readable sense: 8.000
-   *   bits/byte of entropy, all 256 byte values present, and zero printable
-   *   runs — compressed or encrypted at rest. So the tokens may well be
-   *   recorded; they are simply not reachable without reversing Antigravity's
-   *   storage layer, and there is no stated total to validate a guess against.
-   *
-   * hermes — no official CLI to measure. The only npm package is
-   *   `hermes-agent`, self-described as an "Unofficial npm bridge"
-   *   (github.com/wyrtensi/hermes-agent-npm). A reader written against it
-   *   would describe a third-party repackaging, not Hermes.
-   *
-   * grok — the id does not name one product. npm carries at least eight
-   *   competing "grok cli" packages (`@vibe-kit/grok-cli`, `grok-cli`,
-   *   `@stevederico/grok-cli`, `@spikewang/grok-cli`, …) with no dominant
-   *   one. Picking one and calling its format "grok" would be a guess wearing
-   *   an id.
+   *   bits/byte of entropy, all 256 byte values present, zero printable runs,
+   *   no gzip/zlib/zstd/lz4/xz/bzip2 magic, and headerless inflate fails —
+   *   compressed with an unknown scheme or encrypted at rest. So the tokens
+   *   may well be recorded; they are simply not reachable without reversing
+   *   Antigravity's storage layer, and there is no stated total to validate
+   *   a guess against.
    *
    * kiro — not present on any machine this has been checked against, so there
-   *   is nothing to measure. Unlike the four above this is an absence of
+   *   is nothing to measure. Unlike the two above this is an absence of
    *   evidence rather than evidence of absence: it may well be readable, and
    *   nobody has looked at a real store.
    */
   | "amp"
-  | "hermes"
   | "kiro"
-  | "antigravity"
-  | "grok";
+  | "antigravity";
 
 /**
  * How much to trust a computed cost figure.
@@ -329,6 +329,64 @@ export type LocalUsageCopilotUsageRow = {
   cache_write_tokens: number | null;
   reasoning_tokens: number | null;
   created_at: string | null;
+};
+
+/**
+ * One usage row as this subsystem reads it out of Hermes Agent's `state.db` —
+ * either a `session_model_usage` row, or a `sessions` row projected onto the
+ * same columns for a session that predates that table. Every column but the
+ * first five may be absent from an older schema and is selected with a
+ * default, so they are optional here. `at` is the row's last activity in
+ * epoch SECONDS, coalesced from whichever timestamp the schema has.
+ */
+export type LocalUsageHermesUsageRow = {
+  session_id: string;
+  model: string | null;
+  api_call_count: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens?: number | null;
+  cache_write_tokens?: number | null;
+  reasoning_tokens?: number | null;
+  estimated_cost_usd?: number | null;
+  actual_cost_usd?: number | null;
+  cost_status?: string | null;
+  at?: number | null;
+};
+
+/**
+ * The `usage` object on a Grok Build `turn_completed` session update, as
+ * appended to a session's `updates.jsonl`. camelCase, from the CLI's own
+ * serde definitions and confirmed on a real run. `modelUsage` holds the same
+ * shape per model id; `numTurns` is the process ledger's turn counter, which
+ * is how a reader tells a cumulative run from a fresh one — see
+ * `grokReader.ts`.
+ */
+export type LocalUsageGrokTurnUsage = {
+  inputTokens?: number;
+  outputTokens?: number;
+  cachedReadTokens?: number;
+  cacheCreationTokens?: number;
+  reasoningTokens?: number;
+  modelCalls?: number;
+  numTurns?: number;
+  modelUsage?: Record<string, unknown>;
+};
+
+/**
+ * One Grok Build completed turn after validation: every count a finite,
+ * non-negative safe integer, and the `modelUsage` keys collected. `turns` is
+ * the ledger's `numTurns`, which decides whether the next record continues
+ * this process run or starts a fresh one — see `grokReader.ts`.
+ */
+export type LocalUsageGrokTurn = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheCreation: number;
+  calls: number;
+  turns: number;
+  models: string[];
 };
 
 /**

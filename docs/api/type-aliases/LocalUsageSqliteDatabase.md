@@ -8,7 +8,7 @@
 
 > **LocalUsageSqliteDatabase** = `object`
 
-Defined in: [types/localUsage.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L357)
+Defined in: [types/localUsage.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L415)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/localUsage.ts:357](https://github.com/juspay/neurolink/blob/r
 
 > **prepare**: (`sql`) => `object`
 
-Defined in: [types/localUsage.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L358)
+Defined in: [types/localUsage.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L416)
 
 #### Parameters
 
@@ -48,7 +48,7 @@ Defined in: [types/localUsage.ts:358](https://github.com/juspay/neurolink/blob/r
 
 > **close**: () => `void`
 
-Defined in: [types/localUsage.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L359)
+Defined in: [types/localUsage.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L417)
 
 #### Returns
 

@@ -8,7 +8,7 @@
 
 > **LocalUsageContextPart** = `object`
 
-Defined in: [types/localUsage.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L355)
+Defined in: [types/localUsage.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L413)
 
 One entry in Cursor's context breakdown — `system_prompt`, `tools`, `rules`
 and friends — carrying the token count that entry occupies in context.
@@ -19,7 +19,7 @@ and friends — carrying the token count that entry occupies in context.
 
 > **name**: `string`
 
-Defined in: [types/localUsage.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L355)
+Defined in: [types/localUsage.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L413)
 
 ---
 
@@ -27,4 +27,4 @@ Defined in: [types/localUsage.ts:355](https://github.com/juspay/neurolink/blob/r
 
 > **tokens**: `number`
 
-Defined in: [types/localUsage.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L355)
+Defined in: [types/localUsage.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L413)

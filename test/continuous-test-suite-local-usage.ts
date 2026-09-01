@@ -2250,6 +2250,8 @@ async function runAllTests(): Promise<void> {
   });
 
   await testCursorReader();
+  await testGrokReader();
+  await testHermesReader();
 }
 
 /* ------------------------------------------------------------------ *
@@ -2405,6 +2407,484 @@ async function writeCursorFixtureHome(
   db.prepare("INSERT INTO meta (key, value) VALUES (?, ?)").run("0", metaValue);
   db.close();
   return home;
+}
+
+/**
+ * One `_x.ai/session/update` line as Grok Build appends it to a session's
+ * `updates.jsonl`. Shape taken from a sandboxed real run, not from the docs.
+ */
+function grokUpdate(
+  sessionId: string,
+  update: Record<string, unknown>,
+  timestamp: number,
+): string {
+  return JSON.stringify({
+    timestamp,
+    method: "_x.ai/session/update",
+    params: { sessionId, update },
+  });
+}
+
+function grokCompletedTurn(
+  sessionId: string,
+  promptId: string,
+  usage: {
+    input: number;
+    output: number;
+    cacheRead?: number;
+    cacheCreation?: number;
+    calls: number;
+    turns: number;
+    model: string;
+  },
+  timestamp: number,
+): string {
+  const row = {
+    inputTokens: usage.input,
+    outputTokens: usage.output,
+    totalTokens: usage.input + usage.output,
+    cachedReadTokens: usage.cacheRead ?? 0,
+    cacheCreationTokens: usage.cacheCreation ?? 0,
+    reasoningTokens: 0,
+    modelCalls: usage.calls,
+  };
+  return grokUpdate(
+    sessionId,
+    {
+      sessionUpdate: "turn_completed",
+      prompt_id: promptId,
+      stop_reason: "end_turn",
+      usage: {
+        ...row,
+        modelUsage: { [usage.model]: row },
+        numTurns: usage.turns,
+      },
+    },
+    timestamp,
+  );
+}
+
+/**
+ * Build a temp HOME holding Grok Build session streams. Grok groups sessions
+ * by URL-encoded working directory beneath `~/.grok/sessions/`, one directory
+ * per session, `updates.jsonl` inside — matching a sandboxed real run.
+ */
+function writeGrokFixtureHome(
+  sessions: Array<{ id: string; lines: string[] }>,
+): string {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-grokusage-"));
+  for (const session of sessions) {
+    const dir = path.join(
+      home,
+      ".grok",
+      "sessions",
+      "%2Ftmp%2Ffixture",
+      session.id,
+    );
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, "updates.jsonl");
+    fs.writeFileSync(file, session.lines.join("\n") + "\n");
+    backdate(file);
+  }
+  return home;
+}
+
+async function testGrokReader(): Promise<void> {
+  const A = "01a05ecf-2840-7ab2-aefc-f63d7dd955eb";
+
+  await test("Grok Build reader sums completed turns across resumed runs and skips failed ones", async () => {
+    // The two real records from the sandboxed session, verbatim in their
+    // numbers: a first prompt, then a second one after `grok -r` resumed the
+    // session in a new process. The second is NOT cumulative — 11,034, not
+    // 21,175 — and its numTurns is back at 1, which is the signal that a new
+    // process ledger started. A failed terminal record carries no usage.
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokUpdate(
+            A,
+            {
+              sessionUpdate: "turn_completed",
+              prompt_id: "p-fail",
+              stop_reason: "error",
+            },
+            1,
+          ),
+          grokCompletedTurn(
+            A,
+            "4956ab01",
+            {
+              input: 10_141,
+              output: 1,
+              calls: 1,
+              turns: 1,
+              model: "deepseek-v4-flash",
+            },
+            2,
+          ),
+          grokCompletedTurn(
+            A,
+            "dc131e3a",
+            {
+              input: 11_034,
+              output: 1,
+              calls: 1,
+              turns: 1,
+              model: "deepseek-v4-flash",
+            },
+            3,
+          ),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+
+    assert(result.errors.length === 0, "Grok fixture scan reported errors");
+    assert(
+      result.filesScanned === 1,
+      "Grok reader did not open exactly one session stream",
+    );
+    assert(
+      result.totals.requests === 2,
+      "Grok reader miscounted model calls across two completed turns and one failure",
+    );
+    assert(
+      result.totals.inputTokens === 21_175,
+      "Grok reader did not sum the two real per-run input totals",
+    );
+    assert(
+      result.totals.outputTokens === 2,
+      "Grok reader did not sum output tokens",
+    );
+    assert(
+      result.totals.costConfidence === "unavailable" &&
+        result.totals.costUsd === 0,
+      "Grok reader invented a cost figure",
+    );
+    assert(
+      result.totals.unpricedModels.length === 1 &&
+        result.totals.unpricedModels[0] === "deepseek-v4-flash",
+      "Grok reader did not preserve model attribution from modelUsage",
+    );
+  });
+
+  await test("Grok Build reader takes deltas inside one cumulative process run", async () => {
+    // Within one process Grok's ledger is cumulative: the persistence layer
+    // computes each turn as live minus previous. A reader has no process
+    // boundary to look at, so it uses numTurns — a strictly increasing count
+    // means the same ledger, and the delta is what that turn cost.
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "t1",
+            { input: 100, output: 10, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          grokCompletedTurn(
+            A,
+            "t2",
+            { input: 250, output: 25, calls: 2, turns: 2, model: "grok-4.6" },
+            2,
+          ),
+          // Resumed in a new process: back to numTurns 1, whole record counts.
+          grokCompletedTurn(
+            A,
+            "t3",
+            { input: 40, output: 4, calls: 1, turns: 1, model: "grok-4.6" },
+            3,
+          ),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.totals.inputTokens === 290,
+      "Grok reader did not take the in-run delta then add the fresh run whole",
+    );
+    assert(
+      result.totals.outputTokens === 29,
+      "Grok reader mis-summed output across a cumulative run and a fresh run",
+    );
+    assert(
+      result.totals.requests === 3,
+      "Grok reader did not derive model calls from the same delta rule",
+    );
+  });
+
+  await test("Grok Build reader counts a re-emitted terminal record for one prompt once", async () => {
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "same",
+            { input: 500, output: 5, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+          grokCompletedTurn(
+            A,
+            "same",
+            { input: 500, output: 5, calls: 1, turns: 1, model: "grok-4.6" },
+            2,
+          ),
+        ],
+      },
+      {
+        // Same prompt id in ANOTHER session must not collide: ids are scoped
+        // to their session directory.
+        id: "01a05ece-e1b0-7b82-9ccb-d6b086ef8a71",
+        lines: [
+          grokCompletedTurn(
+            "01a05ece-e1b0-7b82-9ccb-d6b086ef8a71",
+            "same",
+            { input: 7, output: 1, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+        ],
+      },
+    ]);
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(
+      result.filesScanned === 2,
+      "precondition failed: both session streams were not opened",
+    );
+    assert(
+      result.totals.inputTokens === 507,
+      "Grok reader double-counted a re-emitted terminal record, or merged prompt ids across sessions",
+    );
+    assert(
+      result.totals.requests === 2,
+      "Grok reader miscounted calls across a duplicate and a second session",
+    );
+  });
+
+  await test("Grok Build reader honours the scan window per session stream", async () => {
+    const home = writeGrokFixtureHome([
+      {
+        id: A,
+        lines: [
+          grokCompletedTurn(
+            A,
+            "old",
+            { input: 9, output: 1, calls: 1, turns: 1, model: "grok-4.6" },
+            1,
+          ),
+        ],
+      },
+    ]);
+    const file = path.join(
+      home,
+      ".grok",
+      "sessions",
+      "%2Ftmp%2Ffixture",
+      A,
+      "updates.jsonl",
+    );
+    const old = new Date(Date.now() - 90 * 86_400_000);
+    fs.utimesSync(file, old, old);
+    const [narrow, wide] = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("grok");
+      return [
+        await reader.scan({ sinceDays: 30 }),
+        await reader.scan({ sinceDays: Infinity }),
+      ];
+    });
+    assert(
+      wide.totals.inputTokens === 9,
+      "precondition failed: the wide window read nothing",
+    );
+    assert(
+      narrow.filesScanned === 0 && narrow.totals.inputTokens === 0,
+      "Grok reader read a stream older than the requested window",
+    );
+  });
+
+  await test("Grok Build reader on this machine's real store", async () => {
+    const reader = await createLocalUsageReader("grok");
+    if (!(await reader.detect())) {
+      throw new Error("SKIP: no Grok Build session store on this machine");
+    }
+    const result = await reader.scan({ sinceDays: Infinity });
+    if (result.filesScanned === 0) {
+      throw new Error(
+        "SKIP: the Grok Build sessions directory holds no update streams",
+      );
+    }
+    assert(
+      result.errors.length === 0,
+      "scanning this machine's real Grok Build store reported errors",
+    );
+    assert(
+      result.totals.inputTokens > 0,
+      "a real Grok Build stream was opened but produced no tokens and no error",
+    );
+    log(
+      `Grok Build real store: ${result.filesScanned} stream(s), ${result.totals.requests} calls`,
+    );
+  });
+}
+
+/** Build a temp HOME containing Hermes Agent's real SQLite usage shape. */
+async function writeHermesFixtureHome(): Promise<string> {
+  const { DatabaseSync } = await import("node:sqlite");
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "nl-hermesusage-"));
+  const dir = path.join(home, ".hermes");
+  fs.mkdirSync(dir, { recursive: true });
+  const db = new DatabaseSync(path.join(dir, "state.db"));
+  db.exec(
+    "CREATE TABLE sessions (id TEXT PRIMARY KEY, source TEXT NOT NULL, model TEXT, started_at REAL NOT NULL, input_tokens INTEGER DEFAULT 0, output_tokens INTEGER DEFAULT 0, cache_read_tokens INTEGER DEFAULT 0, cache_write_tokens INTEGER DEFAULT 0, reasoning_tokens INTEGER DEFAULT 0, api_call_count INTEGER DEFAULT 0, estimated_cost_usd REAL, actual_cost_usd REAL, cost_status TEXT)",
+  );
+  db.exec(
+    "CREATE TABLE session_model_usage (session_id TEXT NOT NULL, model TEXT NOT NULL, billing_provider TEXT NOT NULL DEFAULT '', billing_base_url TEXT NOT NULL DEFAULT '', billing_mode TEXT NOT NULL DEFAULT '', task TEXT NOT NULL DEFAULT '', api_call_count INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, cache_read_tokens INTEGER NOT NULL DEFAULT 0, cache_write_tokens INTEGER NOT NULL DEFAULT 0, reasoning_tokens INTEGER NOT NULL DEFAULT 0, estimated_cost_usd REAL NOT NULL DEFAULT 0, actual_cost_usd REAL NOT NULL DEFAULT 0)",
+  );
+  db.prepare(
+    "INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, api_call_count, estimated_cost_usd, actual_cost_usd, cost_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    "20260902_024456_01c233",
+    "cli",
+    "gemini-3.1-flash-lite-preview",
+    1,
+    10_568,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0.0026435,
+    null,
+    "estimated",
+  );
+  // Two usage rows, exactly as the real store held them: the primary task
+  // (task '') and the title generation Hermes ran alongside it. The session
+  // aggregate above repeats the primary row only, so a reader that summed the
+  // aggregate AND the rows would report 21,384 input tokens for this session.
+  const usage = db.prepare(
+    "INSERT INTO session_model_usage (session_id, model, billing_provider, billing_base_url, billing_mode, task, api_call_count, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, reasoning_tokens, estimated_cost_usd, actual_cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  );
+  usage.run(
+    "20260902_024456_01c233",
+    "gemini-3.1-flash-lite-preview",
+    "gemini",
+    "https://generativelanguage.googleapis.com/v1beta",
+    "",
+    "",
+    1,
+    10_568,
+    1,
+    0,
+    0,
+    0,
+    0.0026435,
+    0,
+  );
+  usage.run(
+    "20260902_024456_01c233",
+    "gemini-3.1-flash-lite-preview",
+    "gemini",
+    "https://generativelanguage.googleapis.com/v1beta",
+    "",
+    "title_generation",
+    1,
+    248,
+    8,
+    0,
+    0,
+    0,
+    0.000074,
+    0,
+  );
+  db.close();
+  return home;
+}
+
+async function testHermesReader(): Promise<void> {
+  await test("Hermes Agent reader uses the session aggregate without double-counting task rows", async () => {
+    const home = await writeHermesFixtureHome();
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("hermes");
+      return reader.scan({ sinceDays: Infinity });
+    });
+
+    assert(result.errors.length === 0, "Hermes fixture scan reported errors");
+    assert(
+      result.filesScanned === 1,
+      "Hermes reader did not open its state database",
+    );
+    // Two usage rows, two API calls: the primary task and the title
+    // generation Hermes ran alongside it. The session aggregate holds only the
+    // first, so a reader that summed sessions AND rows would report 21,384.
+    assert(
+      result.totals.requests === 2,
+      "Hermes reader did not count both recorded API calls",
+    );
+    assert(
+      result.totals.inputTokens === 10_816,
+      "Hermes reader did not sum the per-task usage rows",
+    );
+    assert(
+      result.totals.outputTokens === 9,
+      "Hermes reader did not sum per-task output tokens",
+    );
+    assert(
+      Math.abs(result.totals.costUsd - 0.0027175) < 1e-9,
+      "Hermes reader did not sum the recorded estimated costs",
+    );
+    assert(
+      result.totals.costConfidence === "modeled",
+      "Hermes reader did not mark recorded cost as modeled",
+    );
+    assert(
+      result.totals.unpricedRequests === 0,
+      "Hermes reader left a costed row unpriced",
+    );
+  });
+
+  await test("Hermes Agent reader ignores a failed session and reports its aggregate only when no usage rows exist", async () => {
+    const { DatabaseSync } = await import("node:sqlite");
+    const home = await writeHermesFixtureHome();
+    const db = new DatabaseSync(path.join(home, ".hermes", "state.db"));
+    // A failed one-shot: Hermes writes the session row with nothing in it.
+    db.prepare(
+      "INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens, api_call_count) VALUES (?, ?, ?, ?, 0, 0, 0)",
+    ).run("failed", "cli", "meta-llama/llama-3.1-8b-instruct", 2);
+    // A pre-migration session: aggregate only, no usage rows, no cost status
+    // but a positive estimate.
+    db.prepare(
+      "INSERT INTO sessions (id, source, model, started_at, input_tokens, output_tokens, api_call_count, estimated_cost_usd) VALUES (?, ?, ?, ?, 300, 20, 3, 0.001)",
+    ).run("legacy", "cli", "gemini-3.1-flash-lite-preview", 3);
+    db.close();
+    const result = await withHome(home, async () => {
+      const reader = await createLocalUsageReader("hermes");
+      return reader.scan({ sinceDays: Infinity });
+    });
+    assert(result.errors.length === 0, "Hermes mixed fixture reported errors");
+    assert(
+      result.totals.requests === 5,
+      "Hermes reader miscounted calls across usage rows and a legacy aggregate",
+    );
+    assert(
+      result.totals.inputTokens === 11_116,
+      "Hermes reader mis-summed usage rows plus a legacy aggregate",
+    );
+    assert(
+      Math.abs(result.totals.costUsd - 0.0037175) < 1e-9,
+      "Hermes reader did not accept a positive estimate without a cost status",
+    );
+  });
 }
 
 async function testCursorReader(): Promise<void> {
