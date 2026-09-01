@@ -8,7 +8,7 @@
 
 > **LocalUsageAggregateOptions** = [`LocalUsageScanOptions`](LocalUsageScanOptions.md) & `object`
 
-Defined in: [types/localUsage.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L383)
+Defined in: [types/localUsage.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L441)
 
 Options for scanning every registered reader at once.
 

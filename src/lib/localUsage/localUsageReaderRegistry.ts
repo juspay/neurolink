@@ -150,3 +150,33 @@ registerLocalUsageReader({
     return createCursorReader();
   },
 });
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "grok",
+    displayName: "Grok Build",
+    verified: true,
+    dedupStrategy: "last-write-wins",
+    costConfidence: "unavailable",
+    requiresSqlite: false,
+  },
+  factory: async () => {
+    const { createGrokReader } = await import("./grokReader.js");
+    return createGrokReader();
+  },
+});
+
+registerLocalUsageReader({
+  descriptor: {
+    id: "hermes",
+    displayName: "Hermes Agent",
+    verified: true,
+    dedupStrategy: "last-write-wins",
+    costConfidence: "modeled",
+    requiresSqlite: true,
+  },
+  factory: async () => {
+    const { createHermesReader } = await import("./hermesReader.js");
+    return createHermesReader();
+  },
+});

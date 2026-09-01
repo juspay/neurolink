@@ -6,7 +6,7 @@
 
 # Type Alias: LocalUsageCliId
 
-> **LocalUsageCliId** = `"claude-code"` \| `"codex"` \| `"gemini-cli"` \| `"opencode"` \| `"qwen-code"` \| `"copilot"` \| `"copilot-cli"` \| `"cursor"` \| `"amp"` \| `"hermes"` \| `"kiro"` \| `"antigravity"` \| `"grok"`
+> **LocalUsageCliId** = `"claude-code"` \| `"codex"` \| `"gemini-cli"` \| `"opencode"` \| `"qwen-code"` \| `"copilot"` \| `"copilot-cli"` \| `"cursor"` \| `"grok"` \| `"hermes"` \| `"amp"` \| `"kiro"` \| `"antigravity"`
 
 Defined in: [types/localUsage.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/types/localUsage.ts#L19)
 
