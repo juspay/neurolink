@@ -8,6 +8,6 @@
 
 > **CodexResponsesInputItem** = \{ `role`: `"user"` \| `"assistant"`; `content`: [`CodexContentPart`](CodexContentPart.md)[]; \} \| \{ `type`: `"function_call"`; `call_id`: `string`; `name`: `string`; `arguments`: `string`; \} \| \{ `type`: `"function_call_output"`; `call_id`: `string`; `output`: `string`; \}
 
-Defined in: [types/codex.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L120)
+Defined in: [types/codex.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L138)
 
 A single item in a Codex Responses request.

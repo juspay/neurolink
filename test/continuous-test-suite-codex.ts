@@ -50,6 +50,7 @@ import {
 } from "../src/lib/auth/codexOAuth.js";
 import {
   codexRateLimitsToQuota,
+  fetchCodexAccountUsage,
   parseCodexRateLimitHeaders,
   resolveProxyStatusAccountIdentity,
 } from "../src/lib/proxy/codexAccountUsage.js";
@@ -401,6 +402,70 @@ await test("codexRateLimitsToQuota accepts reset_after as a relative reset", () 
     NOW_SECONDS + 1800,
     "reset_after must resolve to an absolute reset",
   );
+});
+
+await test("Codex usage refresh follows the WHAM account protocol", async () => {
+  const token = fakeCodexJwt({ chatgpt_account_id: "acct-usage" });
+  const originalFetch = globalThis.fetch;
+  const beforeFetch = Math.floor(Date.now() / 1000);
+  let request: { url: string; init?: RequestInit } | undefined;
+  globalThis.fetch = (async (input, init) => {
+    request = { url: input.toString(), init };
+    return new Response(
+      JSON.stringify({
+        plan_type: "pro",
+        rate_limit: {
+          allowed: true,
+          limit_reached: false,
+          primary_window: { used_percent: 40, reset_after_seconds: 3600 },
+          secondary_window: { used_percent: 80, reset_at: NOW_SECONDS + 86400 },
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  }) as typeof globalThis.fetch;
+  try {
+    const result = await fetchCodexAccountUsage({
+      key: "codex:usage@example.com",
+      label: "usage@example.com",
+      token,
+      type: "oauth",
+    });
+    assert(result.ok, "WHAM usage response was not accepted");
+    if (!result.ok) {
+      return;
+    }
+    assertEqual(result.quota.sessionUsed, 0.4, "primary usage was not parsed");
+    assert(
+      result.quota.sessionResetAt >= beforeFetch + 3599 &&
+        result.quota.sessionResetAt <= beforeFetch + 3601,
+      "reset_after_seconds was not resolved",
+    );
+    assertEqual(result.quota.weeklyUsed, 0.8, "secondary usage was not parsed");
+    assertEqual(
+      result.quota.weeklyResetAt,
+      NOW_SECONDS + 86400,
+      "reset_at was not preserved",
+    );
+    assertEqual(
+      request?.url,
+      "https://chatgpt.com/backend-api/wham/usage",
+      "usage refresh did not call the WHAM account endpoint",
+    );
+    const headers = new Headers(request?.init?.headers);
+    assertEqual(
+      headers.get("chatgpt-account-id"),
+      "acct-usage",
+      "account identity was omitted",
+    );
+    assertEqual(
+      headers.get("authorization"),
+      `Bearer ${token}`,
+      "usage refresh did not send its account bearer",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 await test("parseCodexRateLimitHeaders tolerates absent and malformed headers", () => {

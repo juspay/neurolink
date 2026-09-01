@@ -68,6 +68,9 @@ export type CodexRateLimitWindow = {
    *  instead of degrading to the transient ceiling. */
   reset_after?: number | null;
   resets_at?: number | null;
+  /** Current WHAM usage fields. */
+  reset_after_seconds?: number | null;
+  reset_at?: number | null;
 };
 
 /** Codex rate-limit block: a primary (short) and secondary (long) window. */
@@ -78,14 +81,29 @@ export type CodexRateLimits = {
 
 /** Loose shape of the Codex usage endpoint response. */
 export type CodexUsageResponse = {
+  /** Legacy Codex usage payload. */
   rate_limits?: CodexRateLimits | null;
+  /** Current ChatGPT WHAM account-usage payload. */
+  rate_limit?: {
+    primary_window?: CodexRateLimitWindow | null;
+    secondary_window?: CodexRateLimitWindow | null;
+  } | null;
   plan_type?: string | null;
 };
 
 /** Result of a single Codex usage fetch. */
 export type CodexUsageFetchResult =
   | { ok: true; quota: AccountQuota }
-  | { ok: false; reason: "not_oauth" | "auth" | "http" | "network" | "parse" };
+  | {
+      ok: false;
+      reason:
+        | "not_oauth"
+        | "auth"
+        | "rate_limited"
+        | "http"
+        | "network"
+        | "parse";
+    };
 
 /** A Codex account with its runtime cooldown/quota state hydrated from disk. */
 export type CodexRuntimeAccount = {

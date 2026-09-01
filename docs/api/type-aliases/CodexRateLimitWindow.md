@@ -55,3 +55,21 @@ instead of degrading to the transient ceiling.
 > `optional` **resets_at?**: `number` \| `null`
 
 Defined in: [types/codex.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L70)
+
+---
+
+### reset_after_seconds?
+
+> `optional` **reset_after_seconds?**: `number` \| `null`
+
+Defined in: [types/codex.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L72)
+
+Current WHAM usage fields.
+
+---
+
+### reset_at?
+
+> `optional` **reset_at?**: `number` \| `null`
+
+Defined in: [types/codex.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L73)
