@@ -8,7 +8,7 @@
 
 > **ExternalToolExecutionOptions** = `object`
 
-Defined in: [types/mcp.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L598)
+Defined in: [types/mcp.ts:617](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L617)
 
 External MCP tool execution options
 Moved from src/lib/mcp/toolDiscoveryService.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/toolDiscoveryService.ts
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/mcp.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L600)
+Defined in: [types/mcp.ts:619](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L619)
 
 Execution timeout in milliseconds
 
@@ -29,7 +29,7 @@ Execution timeout in milliseconds
 
 > `optional` **context?**: `Partial`\<[`ExternalMCPToolContext`](ExternalMCPToolContext.md)\>
 
-Defined in: [types/mcp.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L603)
+Defined in: [types/mcp.ts:622](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L622)
 
 Additional context for execution
 
@@ -39,7 +39,7 @@ Additional context for execution
 
 > `optional` **validateInput?**: `boolean`
 
-Defined in: [types/mcp.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L606)
+Defined in: [types/mcp.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L625)
 
 Whether to validate input parameters
 
@@ -49,6 +49,6 @@ Whether to validate input parameters
 
 > `optional` **validateOutput?**: `boolean`
 
-Defined in: [types/mcp.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L609)
+Defined in: [types/mcp.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L628)
 
 Whether to validate output

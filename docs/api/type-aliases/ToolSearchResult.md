@@ -8,7 +8,7 @@
 
 > **ToolSearchResult** = `object`
 
-Defined in: [types/mcp.ts:1493](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1493)
+Defined in: [types/mcp.ts:1512](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1512)
 
 Tool search result
 
@@ -18,7 +18,7 @@ Tool search result
 
 > **tools**: [`EnhancedToolInfo`](EnhancedToolInfo.md)[]
 
-Defined in: [types/mcp.ts:1494](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1494)
+Defined in: [types/mcp.ts:1513](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1513)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1494](https://github.com/juspay/neurolink/blob/release
 
 > **totalCount**: `number`
 
-Defined in: [types/mcp.ts:1495](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1495)
+Defined in: [types/mcp.ts:1514](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1514)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1495](https://github.com/juspay/neurolink/blob/release
 
 > **criteria**: [`ToolSearchCriteria`](ToolSearchCriteria.md)
 
-Defined in: [types/mcp.ts:1496](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1496)
+Defined in: [types/mcp.ts:1515](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1515)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1496](https://github.com/juspay/neurolink/blob/release
 
 > **executionTime**: `number`
 
-Defined in: [types/mcp.ts:1497](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1497)
+Defined in: [types/mcp.ts:1516](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1516)

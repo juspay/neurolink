@@ -8,7 +8,7 @@
 
 > **MCPDiscoveredServer** = `object`
 
-Defined in: [types/mcp.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L230)
+Defined in: [types/mcp.ts:249](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L249)
 
 Auto-discovered MCP Server - High Reusability
 
@@ -18,7 +18,7 @@ Auto-discovered MCP Server - High Reusability
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L231)
+Defined in: [types/mcp.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L250)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:231](https://github.com/juspay/neurolink/blob/release/
 
 > **status**: [`MCPServerConnectionStatus`](MCPServerConnectionStatus.md)
 
-Defined in: [types/mcp.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L232)
+Defined in: [types/mcp.ts:251](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L251)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:232](https://github.com/juspay/neurolink/blob/release/
 
 > **source**: `string`
 
-Defined in: [types/mcp.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L233)
+Defined in: [types/mcp.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L252)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:233](https://github.com/juspay/neurolink/blob/release/
 
 > **transport**: [`MCPTransportType`](MCPTransportType.md)
 
-Defined in: [types/mcp.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L234)
+Defined in: [types/mcp.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L253)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:234](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L235)
+Defined in: [types/mcp.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L254)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/mcp.ts:235](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **url?**: `string`
 
-Defined in: [types/mcp.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L236)
+Defined in: [types/mcp.ts:255](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L255)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/mcp.ts:236](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **args?**: `string`[]
 
-Defined in: [types/mcp.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L237)
+Defined in: [types/mcp.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L256)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/mcp.ts:237](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/mcp.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L238)
+Defined in: [types/mcp.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L257)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/mcp.ts:238](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **metadata?**: [`MCPServerMetadata`](MCPServerMetadata.md)
 
-Defined in: [types/mcp.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L239)
+Defined in: [types/mcp.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L258)

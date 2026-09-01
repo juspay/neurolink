@@ -8,7 +8,7 @@
 
 > **ElicitationProtocolAdapterConfig** = `object`
 
-Defined in: [types/mcp.ts:1410](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1410)
+Defined in: [types/mcp.ts:1429](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1429)
 
 Protocol adapter configuration
 
@@ -18,7 +18,7 @@ Protocol adapter configuration
 
 > `optional` **manager?**: [`ElicitationManager`](../classes/ElicitationManager.md)
 
-Defined in: [types/mcp.ts:1411](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1411)
+Defined in: [types/mcp.ts:1430](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1430)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1411](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **defaultTimeout?**: `number`
 
-Defined in: [types/mcp.ts:1412](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1412)
+Defined in: [types/mcp.ts:1431](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1431)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1412](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **enableLogging?**: `boolean`
 
-Defined in: [types/mcp.ts:1413](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1413)
+Defined in: [types/mcp.ts:1432](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1432)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1413](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **customHandler?**: [`ElicitationProtocolHandler`](ElicitationProtocolHandler.md)
 
-Defined in: [types/mcp.ts:1414](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1414)
+Defined in: [types/mcp.ts:1433](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1433)

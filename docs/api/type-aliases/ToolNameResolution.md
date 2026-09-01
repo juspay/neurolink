@@ -8,7 +8,7 @@
 
 > **ToolNameResolution** = `object`
 
-Defined in: [types/mcp.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L583)
+Defined in: [types/mcp.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L602)
 
 Outcome of matching a possibly-misspelled tool name against a list of
 available tool names (see `resolveToolName` in
@@ -23,7 +23,7 @@ near-miss the same way.
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L585)
+Defined in: [types/mcp.ts:604](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L604)
 
 The resolved, available tool name.
 
@@ -33,7 +33,7 @@ The resolved, available tool name.
 
 > **strategy**: `"case"` \| `"substring"` \| `"levenshtein"`
 
-Defined in: [types/mcp.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L588)
+Defined in: [types/mcp.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L607)
 
 Which strategy produced the match, in the order they are attempted.
 
@@ -43,6 +43,6 @@ Which strategy produced the match, in the order they are attempted.
 
 > `optional` **score?**: `number`
 
-Defined in: [types/mcp.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L591)
+Defined in: [types/mcp.ts:610](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L610)
 
 Normalized Levenshtein distance (0–1) — only set when strategy is "levenshtein".

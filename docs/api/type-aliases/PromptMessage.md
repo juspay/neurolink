@@ -8,7 +8,7 @@
 
 > **PromptMessage** = `object`
 
-Defined in: [types/mcp.ts:2044](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2044)
+Defined in: [types/mcp.ts:2063](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2063)
 
 Prompt message content
 
@@ -18,7 +18,7 @@ Prompt message content
 
 > **role**: `"user"` \| `"assistant"`
 
-Defined in: [types/mcp.ts:2048](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2048)
+Defined in: [types/mcp.ts:2067](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2067)
 
 Message role
 
@@ -28,7 +28,7 @@ Message role
 
 > **content**: `object`
 
-Defined in: [types/mcp.ts:2053](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2053)
+Defined in: [types/mcp.ts:2072](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2072)
 
 Message content
 

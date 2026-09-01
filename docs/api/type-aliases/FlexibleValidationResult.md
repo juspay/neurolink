@@ -8,7 +8,7 @@
 
 > **FlexibleValidationResult** = `object`
 
-Defined in: [types/mcp.ts:831](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L831)
+Defined in: [types/mcp.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L850)
 
 Flexible validation result
 Moved from src/lib/mcp/flexibleToolValidator.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/flexibleToolValidator.ts
 
 > **isValid**: `boolean`
 
-Defined in: [types/mcp.ts:833](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L833)
+Defined in: [types/mcp.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L852)
 
 Whether validation passed
 
@@ -29,7 +29,7 @@ Whether validation passed
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:836](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L836)
+Defined in: [types/mcp.ts:855](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L855)
 
 Validation error message (for simple cases)
 
@@ -39,7 +39,7 @@ Validation error message (for simple cases)
 
 > `optional` **warnings?**: `string`[]
 
-Defined in: [types/mcp.ts:839](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L839)
+Defined in: [types/mcp.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L858)
 
 Validation warnings
 
@@ -49,7 +49,7 @@ Validation warnings
 
 > `optional` **normalizedParams?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/mcp.ts:842](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L842)
+Defined in: [types/mcp.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L861)
 
 Normalized parameters (if valid)
 
@@ -59,7 +59,7 @@ Normalized parameters (if valid)
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/mcp.ts:845](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L845)
+Defined in: [types/mcp.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L864)
 
 Validation metadata
 

@@ -8,7 +8,7 @@
 
 > **ToolSearchCriteria** = `object`
 
-Defined in: [types/mcp.ts:1437](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1437)
+Defined in: [types/mcp.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1456)
 
 Tool search criteria
 
@@ -18,7 +18,7 @@ Tool search criteria
 
 > `optional` **name?**: `string`
 
-Defined in: [types/mcp.ts:1441](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1441)
+Defined in: [types/mcp.ts:1460](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1460)
 
 Search by name (partial match)
 
@@ -28,7 +28,7 @@ Search by name (partial match)
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:1446](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1446)
+Defined in: [types/mcp.ts:1465](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1465)
 
 Search by description (keyword match)
 
@@ -38,7 +38,7 @@ Search by description (keyword match)
 
 > `optional` **serverIds?**: `string`[]
 
-Defined in: [types/mcp.ts:1451](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1451)
+Defined in: [types/mcp.ts:1470](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1470)
 
 Filter by server IDs
 
@@ -48,7 +48,7 @@ Filter by server IDs
 
 > `optional` **category?**: `string`
 
-Defined in: [types/mcp.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1456)
+Defined in: [types/mcp.ts:1475](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1475)
 
 Filter by category
 
@@ -58,7 +58,7 @@ Filter by category
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/mcp.ts:1461](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1461)
+Defined in: [types/mcp.ts:1480](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1480)
 
 Filter by tags
 
@@ -68,7 +68,7 @@ Filter by tags
 
 > `optional` **annotations?**: `Partial`\<[`MCPToolAnnotations`](MCPToolAnnotations.md)\>
 
-Defined in: [types/mcp.ts:1466](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1466)
+Defined in: [types/mcp.ts:1485](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1485)
 
 Filter by annotation flags
 
@@ -78,7 +78,7 @@ Filter by annotation flags
 
 > `optional` **includeUnavailable?**: `boolean`
 
-Defined in: [types/mcp.ts:1471](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1471)
+Defined in: [types/mcp.ts:1490](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1490)
 
 Include unavailable tools
 
@@ -88,7 +88,7 @@ Include unavailable tools
 
 > `optional` **limit?**: `number`
 
-Defined in: [types/mcp.ts:1476](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1476)
+Defined in: [types/mcp.ts:1495](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1495)
 
 Maximum results
 
@@ -98,7 +98,7 @@ Maximum results
 
 > `optional` **sortBy?**: `"name"` \| `"calls"` \| `"successRate"` \| `"avgExecutionTime"`
 
-Defined in: [types/mcp.ts:1481](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1481)
+Defined in: [types/mcp.ts:1500](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1500)
 
 Sort by field
 
@@ -108,6 +108,6 @@ Sort by field
 
 > `optional` **sortDirection?**: `"asc"` \| `"desc"`
 
-Defined in: [types/mcp.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1486)
+Defined in: [types/mcp.ts:1505](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1505)
 
 Sort direction

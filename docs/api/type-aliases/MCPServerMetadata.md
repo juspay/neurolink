@@ -8,7 +8,7 @@
 
 > **MCPServerMetadata** = `object` & `object`
 
-Defined in: [types/mcp.ts:279](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L279)
+Defined in: [types/mcp.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L298)
 
 MCP Server Metadata - Extensible
 
