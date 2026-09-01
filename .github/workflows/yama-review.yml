@@ -97,6 +97,11 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         # Pinned to the 6.x major: this wiring is the v6 config layout, and the
         # learn command this repository chains on post-merge needs >= 6.1.0.
+        #
+        # Floor raised to 6.1.1: its NeuroLink dependency (>= 12.7.8) observes a
+        # stdio MCP server dying mid-review and restarts it (juspay/neurolink
+        # #1610). On the previous floor the code-review-graph server could die
+        # silently and every later call failed with "Not connected".
         env:
           YAMA_GITHUB_TOKEN: ${{ secrets.YAMA_GITHUB_TOKEN }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
@@ -107,7 +112,7 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
         working-directory: .yama
         run: |
-          npx --yes @juspay/yama@^6.1.0 run "pr=$PR_NUMBER" "branch=$HEAD_REF" 2>&1 | tee review-run.log
+          npx --yes @juspay/yama@^6.1.1 run "pr=$PR_NUMBER" "branch=$HEAD_REF" 2>&1 | tee review-run.log
           exit "${PIPESTATUS[0]}"
 
       - name: Archive the run log
