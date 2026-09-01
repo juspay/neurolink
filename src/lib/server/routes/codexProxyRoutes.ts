@@ -44,7 +44,7 @@ import {
   parseCodexRateLimitHeaders,
 } from "../../proxy/codexAccountUsage.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
-import { trackProxyResponse } from "../../proxy/proxyActivity.js";
+import { registerProxyResponseObserver } from "../../proxy/proxyActivity.js";
 import { logRequest, logRequestAttempt } from "../../proxy/requestLogger.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
 import {
@@ -620,7 +620,7 @@ export async function handleCodexResponsesRequest(
           status: upstream.status,
           headers,
         });
-        return trackProxyResponse(relay, () => undefined, {
+        registerProxyResponseObserver(ctx.metadata, {
           onTerminal: ({ outcome }) => {
             void usageSeen
               .then((usage) => {
@@ -658,6 +658,7 @@ export async function handleCodexResponsesRequest(
               .catch(() => undefined);
           },
         });
+        return relay;
       }
 
       const errText = await upstream.text().catch(() => "");

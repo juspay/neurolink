@@ -11,6 +11,35 @@ const PROXY_RESPONSE_CANCEL_TIMEOUT_MS = 1_000;
 let activeRequests = 0;
 let lastActivityAtMs: number | null = null;
 
+// Route handlers can attach terminal observers to their request context without
+// wrapping the response body a second time. The HTTP runtime drains every
+// response through one tracker, which fans these observers out at the point
+// where bytes actually leave the proxy.
+const responseObserversByMetadata = new WeakMap<
+  object,
+  ProxyResponseTrackingObserver[]
+>();
+
+export function registerProxyResponseObserver(
+  metadata: object,
+  observer: ProxyResponseTrackingObserver,
+): void {
+  const existing = responseObserversByMetadata.get(metadata);
+  if (existing) {
+    existing.push(observer);
+    return;
+  }
+  responseObserversByMetadata.set(metadata, [observer]);
+}
+
+export function takeProxyResponseObservers(
+  metadata: object,
+): ProxyResponseTrackingObserver[] {
+  const observers = responseObserversByMetadata.get(metadata) ?? [];
+  responseObserversByMetadata.delete(metadata);
+  return observers;
+}
+
 function touchActivity(): void {
   lastActivityAtMs = Date.now();
 }
