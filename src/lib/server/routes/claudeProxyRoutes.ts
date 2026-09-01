@@ -974,11 +974,10 @@ function minutesUntil(untilMs: number, now: number): number {
 }
 
 /**
- * Proactively cool an account when a SUCCESS response reveals a window has just
- * flipped to "rejected" (the boundary request that spends the last of the quota
- * still returns 200 but reports rejected/next-reset). Parks the account until
- * its reset so the next request skips it instead of discovering the limit via a
- * 429, except when the provider explicitly enables paid overage.
+ * Reconcile quota-backed cooldowns against a fresh provider observation. A
+ * rejected window parks the account until its reset; an allowed observation for
+ * that same window releases an earlier cooldown whose reset timestamp was
+ * stale. Transient and authentication cooldowns are intentionally untouched.
  */
 function reconcileCooldownFromQuota(
   state: RuntimeAccountState,
@@ -1023,6 +1022,23 @@ function reconcileCooldownFromQuota(
     reason = "unified";
   }
   if (until === undefined) {
+    const recoveredQuotaCooldown =
+      !!state.coolingUntil &&
+      ((state.coolingReason === "weekly" && quota.weeklyStatus === "allowed") ||
+        (state.coolingReason === "session" &&
+          quota.sessionStatus === "allowed") ||
+        (state.coolingReason === "unified" &&
+          quota.unifiedStatus === "allowed"));
+    if (recoveredQuotaCooldown && state.coolingUntil) {
+      const previousCoolingUntil = state.coolingUntil;
+      const previousCoolingReason = state.coolingReason;
+      state.coolingUntil = undefined;
+      state.coolingReason = undefined;
+      logger.always(
+        `[proxy] clearing ${previousCoolingReason} cooldown from fresh provider quota`,
+      );
+      return { kind: "cleared", coolingUntil: previousCoolingUntil };
+    }
     return null;
   }
   const clamped = clampCooldownUntil(until, now, reason);

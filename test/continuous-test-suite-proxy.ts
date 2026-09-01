@@ -6615,6 +6615,82 @@ async function testCooldownReasonCeilings(): Promise<boolean | null> {
   return true;
 }
 
+async function testQuotaRefreshReleasesRecoveredCooldown(): Promise<
+  boolean | null
+> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const now = TEST_NOW;
+  const nowSec = Math.floor(now / 1000);
+  const state = {
+    coolingUntil: now + 6 * 24 * 3600 * 1000,
+    coolingReason: "weekly",
+  } as never;
+
+  const stillExhausted = __testHooks.reconcileCooldownFromQuota(
+    state,
+    makeQuota({
+      weeklyStatus: "rejected",
+      weeklyResetAt: nowSec + 6 * 24 * 3600,
+      lastUpdated: now,
+    }) as never,
+    now,
+  );
+  if (
+    stillExhausted !== null ||
+    !(state as { coolingUntil?: number }).coolingUntil
+  ) {
+    log("quota refresh: rejected weekly window must remain cooling", "red");
+    return false;
+  }
+
+  const recovered = __testHooks.reconcileCooldownFromQuota(
+    state,
+    makeQuota({
+      weeklyStatus: "allowed",
+      weeklyUsed: 0.05,
+      weeklyResetAt: nowSec + 7 * 24 * 3600,
+      lastUpdated: now + 1,
+    }) as never,
+    now + 1,
+  );
+  if (
+    recovered?.kind !== "cleared" ||
+    (state as { coolingUntil?: number }).coolingUntil !== undefined ||
+    (state as { coolingReason?: string }).coolingReason !== undefined
+  ) {
+    log("quota refresh: allowed weekly window did not release cooldown", "red");
+    return false;
+  }
+
+  const transientState = {
+    coolingUntil: now + 30_000,
+    coolingReason: "transient",
+  } as never;
+  const transientUpdate = __testHooks.reconcileCooldownFromQuota(
+    transientState,
+    makeQuota({
+      weeklyStatus: "allowed",
+      weeklyUsed: 0.05,
+      lastUpdated: now + 2,
+    }) as never,
+    now + 2,
+  );
+  if (
+    transientUpdate !== null ||
+    (transientState as { coolingUntil?: number }).coolingUntil === undefined
+  ) {
+    log("quota refresh: must not clear an unrelated transient cooldown", "red");
+    return false;
+  }
+
+  log(
+    "quota refresh: fresh weekly recovery releases only its cooldown",
+    "green",
+  );
+  return true;
+}
+
 async function testPersistedCooldownClamp(): Promise<boolean | null> {
   const { initAccountCooldown, loadAccountCooldowns } =
     await import("../src/lib/proxy/accountCooldown.js");
@@ -8295,6 +8371,11 @@ const tests: TestFunction[] = [
   {
     name: "Cooldown: per-reason ceilings",
     fn: testCooldownReasonCeilings,
+    category: "proxy-primary",
+  },
+  {
+    name: "Cooldown: fresh quota recovery releases stale weekly state",
+    fn: testQuotaRefreshReleasesRecoveredCooldown,
     category: "proxy-primary",
   },
   {
