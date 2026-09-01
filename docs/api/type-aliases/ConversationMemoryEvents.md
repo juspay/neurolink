@@ -8,7 +8,7 @@
 
 > **ConversationMemoryEvents** = `object`
 
-Defined in: [types/conversation.ts:404](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L404)
+Defined in: [types/conversation.ts:412](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L412)
 
 Events emitted by conversation memory system
 
@@ -18,7 +18,7 @@ Events emitted by conversation memory system
 
 > **session:created**: `object`
 
-Defined in: [types/conversation.ts:409](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L409)
+Defined in: [types/conversation.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L417)
 
 Emitted when a new session is created.
 The timestamp field is Unix epoch milliseconds.
@@ -43,7 +43,7 @@ Event timestamp as Unix epoch milliseconds
 
 > **turn:stored**: `object`
 
-Defined in: [types/conversation.ts:417](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L417)
+Defined in: [types/conversation.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L425)
 
 Emitted when a conversation turn is stored
 
@@ -65,7 +65,7 @@ Emitted when a conversation turn is stored
 
 > **session:cleanup**: `object`
 
-Defined in: [types/conversation.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L424)
+Defined in: [types/conversation.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L432)
 
 Emitted when a session is cleaned up
 
@@ -87,7 +87,7 @@ Emitted when a session is cleaned up
 
 > **context:injected**: `object`
 
-Defined in: [types/conversation.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L431)
+Defined in: [types/conversation.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L439)
 
 Emitted when context is injected
 

@@ -74,11 +74,24 @@ Model to use for summarization
 
 ---
 
+### summarizationTimeoutMs?
+
+> `optional` **summarizationTimeoutMs?**: `number`
+
+Defined in: [types/conversation.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L97)
+
+Wall-clock cap for one summarization generate call, in milliseconds
+(default: 60000). A summary that overruns is dropped, not fatal — the
+turn continues without it — so size this for the slowest summary a real
+conversation produces rather than losing compaction summaries silently.
+
+---
+
 ### memory?
 
 > `optional` **memory?**: [`HippocampusMemory`](HippocampusMemory.md)
 
-Defined in: [types/conversation.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L92)
+Defined in: [types/conversation.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L100)
 
 Memory SDK config (condensed key-value memory per user). Set enabled: true to activate.
 
@@ -88,7 +101,7 @@ Memory SDK config (condensed key-value memory per user). Set enabled: true to ac
 
 > `optional` **redisConfig?**: [`RedisStorageConfig`](RedisStorageConfig.md)
 
-Defined in: [types/conversation.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L95)
+Defined in: [types/conversation.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L103)
 
 Redis configuration (optional) - overrides environment variables
 
@@ -98,7 +111,7 @@ Redis configuration (optional) - overrides environment variables
 
 > `optional` **contextCompaction?**: `object`
 
-Defined in: [types/conversation.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L98)
+Defined in: [types/conversation.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L106)
 
 Context compaction configuration
 
@@ -166,7 +179,7 @@ File read budget as fraction of remaining context (default: 0.60)
 
 > `optional` **fileSummarization?**: `object`
 
-Defined in: [types/conversation.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L128)
+Defined in: [types/conversation.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L136)
 
 Configuration for automatic file content summarization when files exceed context budget
 
@@ -200,7 +213,7 @@ Configuration for automatic file content summarization when files exceed context
 
 > `optional` **maxTurnsPerSession?**: `number`
 
-Defined in: [types/conversation.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L138)
+Defined in: [types/conversation.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L146)
 
 #### Deprecated
 
@@ -212,7 +225,7 @@ Use tokenThreshold instead - Maximum number of conversation turns to keep per se
 
 > `optional` **summarizationThresholdTurns?**: `number`
 
-Defined in: [types/conversation.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L141)
+Defined in: [types/conversation.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L149)
 
 #### Deprecated
 
@@ -224,7 +237,7 @@ Use tokenThreshold instead - Turn count to trigger summarization
 
 > `optional` **summarizationTargetTurns?**: `number`
 
-Defined in: [types/conversation.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L144)
+Defined in: [types/conversation.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L152)
 
 #### Deprecated
 

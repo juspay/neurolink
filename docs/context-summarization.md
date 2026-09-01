@@ -52,6 +52,9 @@ const neurolink = new NeuroLink({
     // Use a specific provider and model for the summarization task
     summarizationProvider: "openai",
     summarizationModel: "gpt-4o-mini",
+    // Cap one summarization call (ms). Default 60000; an overrun drops
+    // that summary (non-fatal) instead of failing the turn.
+    summarizationTimeoutMs: 120000,
   },
 });
 ```
@@ -85,6 +88,10 @@ The `conversationMemory` configuration object accepts the following properties r
 - `summarizationProvider: string`
   - **Description**: The AI provider to use for the summarization task.
   - **Default**: `"vertex"`
+
+- `summarizationTimeoutMs: number`
+  - **Description**: Wall-clock cap for one summarization generate call, in milliseconds. An overrun drops that summary (non-fatal — the turn continues without it), so size it for the slowest summary a real conversation produces.
+  - **Default**: `60000`
 
 ## Order of Operations
 

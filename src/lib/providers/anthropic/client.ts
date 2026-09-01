@@ -97,6 +97,7 @@ import {
   composeAbortSignals,
   createTimeoutController,
   mergeAbortSignals,
+  TimeoutError,
 } from "../../utils/timeout.js";
 import { resolveToolChoice } from "../../utils/toolChoice.js";
 import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
@@ -1460,36 +1461,54 @@ export class AnthropicProvider extends BaseProvider {
           ...(thinking ? { thinking } : {}),
         };
 
-        // The 60s anthropic generate default was tuned for the old ~4096
-        // max_tokens. Now that the default ceiling is the model's real max,
-        // a large structured response needs more wall-clock to be produced —
-        // otherwise the inner controller aborts mid-generation (the AI-SDK
-        // doGenerate layer doesn't see the caller's `timeout`). Raise the
-        // floor to 5 min when a large output budget is in play — but only
-        // when the caller did NOT set an explicit timeout: an explicit value
-        // is a contract and must never be silently extended. The abort
-        // signal stays the real bound.
-        const callerTimeout = (options as { timeout?: number | string })
-          .timeout;
-        const callerSpecifiedTimeout =
-          callerTimeout !== undefined && callerTimeout !== null;
+        // The caller's resolved `timeout` reaches this layer only through
+        // providerOptions.neurolink.timeoutMs (AI-SDK call options carry no
+        // `timeout`; the old `options.timeout` read here never fired on V3).
+        // An explicit value is a per-call contract: never floored, never
+        // extended. Without one, the 60s anthropic default was tuned for the
+        // old ~4096 max_tokens — now that the default ceiling is the model's
+        // real max, raise the floor to 5 min when a large output budget is
+        // in play. The abort signal stays the real bound.
+        const neurolinkNs = options.providerOptions?.neurolink;
+        const forwardedTimeoutMs =
+          typeof neurolinkNs?.timeoutMs === "number" &&
+          Number.isFinite(neurolinkNs.timeoutMs) &&
+          neurolinkNs.timeoutMs > 0
+            ? neurolinkNs.timeoutMs
+            : undefined;
         const generateTimeoutMs =
-          params.max_tokens > 8192 && !callerSpecifiedTimeout
-            ? Math.max(getTimeoutForOptions(options), 300_000)
-            : getTimeoutForOptions(options);
+          forwardedTimeoutMs !== undefined
+            ? forwardedTimeoutMs
+            : params.max_tokens > 8192
+              ? Math.max(getTimeoutForOptions(options), 300_000)
+              : getTimeoutForOptions(options);
         const timeoutController = createTimeoutController(
           generateTimeoutMs,
           providerName,
           "generate",
         );
+        const requestSignal = composeAbortSignals(
+          options.abortSignal,
+          timeoutController?.controller.signal,
+        );
         let response: Anthropic.Messages.Message;
         try {
           response = await client.messages.create(params, {
-            signal: composeAbortSignals(
-              options.abortSignal,
-              timeoutController?.controller.signal,
-            ),
+            signal: requestSignal,
           });
+        } catch (error) {
+          // The Anthropic SDK collapses ANY fired signal into its generic
+          // APIUserAbortError ("Request was aborted."), discarding the
+          // signal's reason. When the abort came from one of NeuroLink's own
+          // timers (this per-call timer, or the turn-level one upstream),
+          // the TimeoutError reason is the honest identity — surface it.
+          const reason = requestSignal?.aborted
+            ? requestSignal.reason
+            : undefined;
+          if (reason instanceof TimeoutError) {
+            throw reason;
+          }
+          throw error;
         } finally {
           timeoutController?.cleanup();
         }

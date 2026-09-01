@@ -8,7 +8,7 @@
 
 > **ProviderDetails** = `object`
 
-Defined in: [types/conversation.ts:756](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L756)
+Defined in: [types/conversation.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L764)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/conversation.ts:756](https://github.com/juspay/neurolink/blob
 
 > **provider**: `string`
 
-Defined in: [types/conversation.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L757)
+Defined in: [types/conversation.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L765)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/conversation.ts:757](https://github.com/juspay/neurolink/blob
 
 > **model**: `string`
 
-Defined in: [types/conversation.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L758)
+Defined in: [types/conversation.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L766)

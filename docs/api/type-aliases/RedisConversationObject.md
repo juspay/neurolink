@@ -8,7 +8,7 @@
 
 > **RedisConversationObject** = [`ConversationBase`](ConversationBase.md) & `object`
 
-Defined in: [types/conversation.ts:670](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L670)
+Defined in: [types/conversation.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/conversation.ts#L678)
 
 Redis conversation storage object format
 Contains conversation metadata and full message history
