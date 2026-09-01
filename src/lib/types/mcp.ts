@@ -573,6 +573,25 @@ export type ToolDiscoveryResult = {
 };
 
 /**
+ * Outcome of matching a possibly-misspelled tool name against a list of
+ * available tool names (see `resolveToolName` in
+ * src/lib/utils/toolCallRepair.ts). Shared between the AI-SDK generation-path
+ * repair (`experimental_repairToolCall`) and direct MCP execution boundaries
+ * (`NeuroLink.executeExternalMCPTool`) so both recover from the same class of
+ * near-miss the same way.
+ */
+export type ToolNameResolution = {
+  /** The resolved, available tool name. */
+  name: string;
+
+  /** Which strategy produced the match, in the order they are attempted. */
+  strategy: "case" | "substring" | "levenshtein";
+
+  /** Normalized Levenshtein distance (0–1) — only set when strategy is "levenshtein". */
+  score?: number;
+};
+
+/**
  * External MCP tool execution options
  * Moved from src/lib/mcp/toolDiscoveryService.ts
  */

@@ -8,7 +8,7 @@
 
 > **RateLimiterStats** = `object`
 
-Defined in: [types/mcp.ts:975](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L975)
+Defined in: [types/mcp.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L994)
 
 Rate limiter statistics for monitoring and debugging HTTP transport rate limiting
 Provides insight into token bucket state and queue status
@@ -19,7 +19,7 @@ Provides insight into token bucket state and queue status
 
 > **tokens**: `number`
 
-Defined in: [types/mcp.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L977)
+Defined in: [types/mcp.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L996)
 
 Current number of available tokens
 
@@ -29,7 +29,7 @@ Current number of available tokens
 
 > **maxBurst**: `number`
 
-Defined in: [types/mcp.ts:979](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L979)
+Defined in: [types/mcp.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L998)
 
 Maximum burst size (token capacity)
 
@@ -39,7 +39,7 @@ Maximum burst size (token capacity)
 
 > **refillRate**: `number`
 
-Defined in: [types/mcp.ts:981](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L981)
+Defined in: [types/mcp.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1000)
 
 Token refill rate (tokens per second)
 
@@ -49,7 +49,7 @@ Token refill rate (tokens per second)
 
 > **queueLength**: `number`
 
-Defined in: [types/mcp.ts:983](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L983)
+Defined in: [types/mcp.ts:1002](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1002)
 
 Number of requests waiting in queue
 
@@ -59,6 +59,6 @@ Number of requests waiting in queue
 
 > **lastRefill**: `Date`
 
-Defined in: [types/mcp.ts:985](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L985)
+Defined in: [types/mcp.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1004)
 
 Timestamp of last token refill

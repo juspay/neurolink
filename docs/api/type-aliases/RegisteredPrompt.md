@@ -8,7 +8,7 @@
 
 > **RegisteredPrompt** = [`MCPPrompt`](MCPPrompt.md) & `object`
 
-Defined in: [types/mcp.ts:2072](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2072)
+Defined in: [types/mcp.ts:2091](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2091)
 
 Registered prompt with generator
 

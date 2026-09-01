@@ -8,7 +8,7 @@
 
 > **McpRegistryEntry** = `object`
 
-Defined in: [types/mcp.ts:1506](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1506)
+Defined in: [types/mcp.ts:1525](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1525)
 
 Registry entry for an MCP server
 
@@ -18,7 +18,7 @@ Registry entry for an MCP server
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1510](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1510)
+Defined in: [types/mcp.ts:1529](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1529)
 
 Unique identifier
 
@@ -28,7 +28,7 @@ Unique identifier
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1515](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1515)
+Defined in: [types/mcp.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1534)
 
 Server name
 
@@ -38,7 +38,7 @@ Server name
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1520)
+Defined in: [types/mcp.ts:1539](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1539)
 
 Server description
 
@@ -48,7 +48,7 @@ Server description
 
 > **version**: `string`
 
-Defined in: [types/mcp.ts:1525](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1525)
+Defined in: [types/mcp.ts:1544](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1544)
 
 Server version
 
@@ -58,7 +58,7 @@ Server version
 
 > `optional` **author?**: `string`
 
-Defined in: [types/mcp.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1530)
+Defined in: [types/mcp.ts:1549](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1549)
 
 Author or maintainer
 
@@ -68,7 +68,7 @@ Author or maintainer
 
 > `optional` **license?**: `string`
 
-Defined in: [types/mcp.ts:1535](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1535)
+Defined in: [types/mcp.ts:1554](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1554)
 
 License
 
@@ -78,7 +78,7 @@ License
 
 > `optional` **homepage?**: `string`
 
-Defined in: [types/mcp.ts:1540](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1540)
+Defined in: [types/mcp.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1559)
 
 Homepage URL
 
@@ -88,7 +88,7 @@ Homepage URL
 
 > `optional` **repository?**: `string`
 
-Defined in: [types/mcp.ts:1545](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1545)
+Defined in: [types/mcp.ts:1564](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1564)
 
 Repository URL
 
@@ -98,7 +98,7 @@ Repository URL
 
 > `optional` **npmPackage?**: `string`
 
-Defined in: [types/mcp.ts:1550](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1550)
+Defined in: [types/mcp.ts:1569](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1569)
 
 NPM package name (if applicable)
 
@@ -108,7 +108,7 @@ NPM package name (if applicable)
 
 > `optional` **installCommand?**: `string`
 
-Defined in: [types/mcp.ts:1555](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1555)
+Defined in: [types/mcp.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1574)
 
 Installation command
 
@@ -118,7 +118,7 @@ Installation command
 
 > `optional` **command?**: `string`
 
-Defined in: [types/mcp.ts:1560](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1560)
+Defined in: [types/mcp.ts:1579](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1579)
 
 Command to run the server
 
@@ -128,7 +128,7 @@ Command to run the server
 
 > `optional` **args?**: `string`[]
 
-Defined in: [types/mcp.ts:1565](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1565)
+Defined in: [types/mcp.ts:1584](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1584)
 
 Command arguments
 
@@ -138,7 +138,7 @@ Command arguments
 
 > `optional` **requiredEnvVars?**: `string`[]
 
-Defined in: [types/mcp.ts:1570](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1570)
+Defined in: [types/mcp.ts:1589](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1589)
 
 Required environment variables
 
@@ -148,7 +148,7 @@ Required environment variables
 
 > `optional` **transports?**: [`MCPTransportType`](MCPTransportType.md)[]
 
-Defined in: [types/mcp.ts:1575](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1575)
+Defined in: [types/mcp.ts:1594](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1594)
 
 Supported transport types
 
@@ -158,7 +158,7 @@ Supported transport types
 
 > `optional` **categories?**: `string`[]
 
-Defined in: [types/mcp.ts:1580](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1580)
+Defined in: [types/mcp.ts:1599](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1599)
 
 Server categories
 
@@ -168,7 +168,7 @@ Server categories
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/mcp.ts:1585](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1585)
+Defined in: [types/mcp.ts:1604](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1604)
 
 Server tags
 
@@ -178,7 +178,7 @@ Server tags
 
 > `optional` **tools?**: `string`[]
 
-Defined in: [types/mcp.ts:1590](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1590)
+Defined in: [types/mcp.ts:1609](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1609)
 
 Tool names provided by the server
 
@@ -188,7 +188,7 @@ Tool names provided by the server
 
 > `optional` **downloads?**: `number`
 
-Defined in: [types/mcp.ts:1595](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1595)
+Defined in: [types/mcp.ts:1614](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1614)
 
 Download count (popularity metric)
 
@@ -198,7 +198,7 @@ Download count (popularity metric)
 
 > `optional` **stars?**: `number`
 
-Defined in: [types/mcp.ts:1600](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1600)
+Defined in: [types/mcp.ts:1619](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1619)
 
 Star count (if from GitHub)
 
@@ -208,7 +208,7 @@ Star count (if from GitHub)
 
 > `optional` **lastUpdated?**: `string`
 
-Defined in: [types/mcp.ts:1605](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1605)
+Defined in: [types/mcp.ts:1624](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1624)
 
 Last updated date
 
@@ -218,7 +218,7 @@ Last updated date
 
 > `optional` **verified?**: `boolean`
 
-Defined in: [types/mcp.ts:1610](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1610)
+Defined in: [types/mcp.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1629)
 
 Verification status
 
@@ -228,6 +228,6 @@ Verification status
 
 > `optional` **metadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:1615](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1615)
+Defined in: [types/mcp.ts:1634](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1634)
 
 Custom metadata

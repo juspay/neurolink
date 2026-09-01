@@ -8,6 +8,6 @@
 
 > **ElicitationProtocolMessageType** = `"elicitation/request"` \| `"elicitation/response"` \| `"elicitation/cancel"`
 
-Defined in: [types/mcp.ts:1281](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1281)
+Defined in: [types/mcp.ts:1300](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1300)
 
 MCP elicitation protocol message types

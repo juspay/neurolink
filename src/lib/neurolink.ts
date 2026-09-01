@@ -342,6 +342,11 @@ import {
   createCustomToolServerInfo,
   detectCategory,
 } from "./utils/mcpDefaults.js";
+import {
+  ExternalMcpToolNotFoundError,
+  rankToolNameCandidates,
+  resolveToolName,
+} from "./utils/toolCallRepair.js";
 import { resolveModel } from "./utils/modelAliasResolver.js";
 // Import orchestration components
 import { ModelRouter } from "./utils/modelRouter.js";
@@ -16061,11 +16066,20 @@ Current user's request: ${currentInput}`;
    */
   async executeExternalMCPTool(
     serverId: string,
-    toolName: string,
+    requestedToolName: string,
     parameters: JsonObject,
     options?: { timeout?: number },
   ): Promise<unknown> {
+    // Falls back to the requested name so the catch block below still has
+    // something meaningful to log if resolution itself is what throws.
+    let toolName = requestedToolName;
     try {
+      // Direct-boundary name repair (see resolveDirectMcpToolName): an exact
+      // match returns requestedToolName unchanged, so every existing caller
+      // — including the AI-SDK generation path's createExternalMCPTool,
+      // which always calls with an already-discovered name — is unaffected.
+      toolName = this.resolveDirectMcpToolName(serverId, requestedToolName);
+
       mcpLogger.debug(
         `[NeuroLink] Executing external MCP tool: ${toolName} on ${serverId}`,
       );
@@ -16165,6 +16179,84 @@ Current user's request: ${currentInput}`;
       );
       throw error;
     }
+  }
+
+  /**
+   * Resolve a tool name for a direct external MCP execution
+   * (`executeExternalMCPTool`) against the server's currently discovered
+   * tools.
+   *
+   * `experimental_repairToolCall` only runs inside the AI-SDK's own
+   * streamText/generateText loop (see toolCallRepair.ts), so a near-miss
+   * tool name reaching `executeExternalMCPTool` directly previously had no
+   * recovery at all — just the generic `Tool 'x' not found for server 'y'`
+   * `Error` that `ToolDiscoveryService.executeTool` throws deeper in the
+   * stack. This reuses the same name-matching policy
+   * (`resolveToolName`: case-insensitive exact → unambiguous substring →
+   * Levenshtein) so a repair here is accepted under exactly the rules
+   * already proven for the generation path.
+   *
+   * Exact match is a zero-risk fast path: it is returned unchanged before
+   * any resolution attempt, so every existing caller that already sends a
+   * valid name — including the AI-SDK path's `createExternalMCPTool`, which
+   * always executes with a name it just discovered — sees no behaviour
+   * change.
+   *
+   * Deliberately does NOT attempt a repair when the server is unknown or
+   * not connected: `ExternalServerManager.executeTool` throws distinct,
+   * more accurate errors for those states ("Server 'x' not found" /
+   * "not in connected state"), and resolving against an empty tool list
+   * here would replace those with a misleading "tool not found" instead.
+   */
+  private resolveDirectMcpToolName(
+    serverId: string,
+    requestedName: string,
+  ): string {
+    const server = this.getExternalMCPServer(serverId);
+    if (!server || server.status !== "connected" || !server.client) {
+      return requestedName;
+    }
+
+    const availableNames = this.getExternalMCPServerTools(serverId).map(
+      (tool) => tool.name,
+    );
+    if (availableNames.includes(requestedName)) {
+      return requestedName;
+    }
+
+    const resolution = resolveToolName(requestedName, availableNames);
+    if (!resolution) {
+      throw new ExternalMcpToolNotFoundError(
+        requestedName,
+        serverId,
+        rankToolNameCandidates(requestedName, availableNames),
+      );
+    }
+
+    // Recorded on a short-lived span rather than the method's return value:
+    // executeExternalMCPTool returns the raw upstream tool result verbatim
+    // (widely consumed as-is, e.g. by createExternalMCPTool's execute()),
+    // so wrapping it to carry resolution metadata would be a breaking
+    // change for every existing direct caller.
+    tracers.mcp.startActiveSpan(
+      "neurolink.mcp.toolNameRepair",
+      {
+        attributes: {
+          "mcp.server_id": serverId,
+          "mcp.tool_name.requested": requestedName,
+          "mcp.tool_name.resolved": resolution.name,
+          "mcp.tool_name.repair_strategy": resolution.strategy,
+          ...(resolution.score !== undefined
+            ? { "mcp.tool_name.repair_score": resolution.score }
+            : {}),
+        },
+      },
+      (span) => span.end(),
+    );
+    mcpLogger.info(
+      `[NeuroLink] Repaired external MCP tool name at direct execution boundary: "${requestedName}" → "${resolution.name}" (${resolution.strategy}) on server '${serverId}'`,
+    );
+    return resolution.name;
   }
 
   /**

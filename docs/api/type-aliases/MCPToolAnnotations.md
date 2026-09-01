@@ -8,7 +8,7 @@
 
 > **MCPToolAnnotations** = `object`
 
-Defined in: [types/mcp.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1014)
+Defined in: [types/mcp.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1033)
 
 Tool annotation metadata for MCP tools.
 Provides hints to AI models about tool behavior and safety.
@@ -19,7 +19,7 @@ Provides hints to AI models about tool behavior and safety.
 
 > `optional` **title?**: `string`
 
-Defined in: [types/mcp.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1016)
+Defined in: [types/mcp.ts:1035](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1035)
 
 Human-readable title for the tool
 
@@ -29,7 +29,7 @@ Human-readable title for the tool
 
 > `optional` **readOnlyHint?**: `boolean`
 
-Defined in: [types/mcp.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1018)
+Defined in: [types/mcp.ts:1037](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1037)
 
 Whether the tool only reads data without side effects
 
@@ -39,7 +39,7 @@ Whether the tool only reads data without side effects
 
 > `optional` **destructiveHint?**: `boolean`
 
-Defined in: [types/mcp.ts:1020](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1020)
+Defined in: [types/mcp.ts:1039](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1039)
 
 Whether the tool performs destructive operations
 
@@ -49,7 +49,7 @@ Whether the tool performs destructive operations
 
 > `optional` **idempotentHint?**: `boolean`
 
-Defined in: [types/mcp.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1022)
+Defined in: [types/mcp.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1041)
 
 Whether the tool can be safely retried without side effects
 
@@ -59,7 +59,7 @@ Whether the tool can be safely retried without side effects
 
 > `optional` **requiresConfirmation?**: `boolean`
 
-Defined in: [types/mcp.ts:1024](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1024)
+Defined in: [types/mcp.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1043)
 
 Whether the tool requires user confirmation before execution
 
@@ -69,7 +69,7 @@ Whether the tool requires user confirmation before execution
 
 > `optional` **openWorldHint?**: `boolean`
 
-Defined in: [types/mcp.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1026)
+Defined in: [types/mcp.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1045)
 
 Whether the tool operates on an open world of resources
 
@@ -79,7 +79,7 @@ Whether the tool operates on an open world of resources
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/mcp.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1028)
+Defined in: [types/mcp.ts:1047](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1047)
 
 Custom tags for categorization and filtering
 
@@ -89,7 +89,7 @@ Custom tags for categorization and filtering
 
 > `optional` **estimatedDuration?**: `number`
 
-Defined in: [types/mcp.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1030)
+Defined in: [types/mcp.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1049)
 
 Estimated execution time in milliseconds
 
@@ -99,7 +99,7 @@ Estimated execution time in milliseconds
 
 > `optional` **rateLimitHint?**: `number`
 
-Defined in: [types/mcp.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1032)
+Defined in: [types/mcp.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1051)
 
 Rate limit hint (calls per minute)
 
@@ -109,7 +109,7 @@ Rate limit hint (calls per minute)
 
 > `optional` **costHint?**: `number`
 
-Defined in: [types/mcp.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1034)
+Defined in: [types/mcp.ts:1053](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1053)
 
 Cost hint (arbitrary units for comparison)
 
@@ -119,7 +119,7 @@ Cost hint (arbitrary units for comparison)
 
 > `optional` **complexity?**: `"simple"` \| `"medium"` \| `"complex"`
 
-Defined in: [types/mcp.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1036)
+Defined in: [types/mcp.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1055)
 
 Complexity level for UI display
 
@@ -129,7 +129,7 @@ Complexity level for UI display
 
 > `optional` **auditRequired?**: `boolean`
 
-Defined in: [types/mcp.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1038)
+Defined in: [types/mcp.ts:1057](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1057)
 
 Whether tool execution should be audited/logged
 
@@ -139,6 +139,6 @@ Whether tool execution should be audited/logged
 
 > `optional` **securityLevel?**: `"public"` \| `"internal"` \| `"restricted"`
 
-Defined in: [types/mcp.ts:1040](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1040)
+Defined in: [types/mcp.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1059)
 
 Security classification for the tool

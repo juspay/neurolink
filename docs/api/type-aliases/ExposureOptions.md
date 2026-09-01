@@ -8,7 +8,7 @@
 
 > **ExposureOptions** = `object`
 
-Defined in: [types/mcp.ts:1214](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1214)
+Defined in: [types/mcp.ts:1233](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1233)
 
 Options for exposing agents/workflows as MCP tools
 
@@ -18,7 +18,7 @@ Options for exposing agents/workflows as MCP tools
 
 > `optional` **prefix?**: `string`
 
-Defined in: [types/mcp.ts:1218](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1218)
+Defined in: [types/mcp.ts:1237](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1237)
 
 Prefix for tool names
 
@@ -28,7 +28,7 @@ Prefix for tool names
 
 > `optional` **defaultAnnotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
 
-Defined in: [types/mcp.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1223)
+Defined in: [types/mcp.ts:1242](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1242)
 
 Default annotations for all exposed tools
 
@@ -38,7 +38,7 @@ Default annotations for all exposed tools
 
 > `optional` **includeMetadataInDescription?**: `boolean`
 
-Defined in: [types/mcp.ts:1228](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1228)
+Defined in: [types/mcp.ts:1247](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1247)
 
 Whether to include metadata in tool description
 
@@ -48,7 +48,7 @@ Whether to include metadata in tool description
 
 > `optional` **nameTransformer?**: (`name`) => `string`
 
-Defined in: [types/mcp.ts:1233](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1233)
+Defined in: [types/mcp.ts:1252](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1252)
 
 Custom name transformer
 
@@ -68,7 +68,7 @@ Custom name transformer
 
 > `optional` **wrapWithContext?**: `boolean`
 
-Defined in: [types/mcp.ts:1238](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1238)
+Defined in: [types/mcp.ts:1257](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1257)
 
 Add execution context wrapper
 
@@ -78,7 +78,7 @@ Add execution context wrapper
 
 > `optional` **executionTimeout?**: `number`
 
-Defined in: [types/mcp.ts:1243](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1243)
+Defined in: [types/mcp.ts:1262](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1262)
 
 Timeout for agent/workflow execution (ms)
 
@@ -88,6 +88,6 @@ Timeout for agent/workflow execution (ms)
 
 > `optional` **enableLogging?**: `boolean`
 
-Defined in: [types/mcp.ts:1248](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1248)
+Defined in: [types/mcp.ts:1267](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1267)
 
 Enable execution logging
