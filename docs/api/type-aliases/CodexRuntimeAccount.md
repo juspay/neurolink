@@ -8,7 +8,7 @@
 
 > **CodexRuntimeAccount** = `object`
 
-Defined in: [types/codex.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L91)
+Defined in: [types/codex.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L109)
 
 A Codex account with its runtime cooldown/quota state hydrated from disk.
 
@@ -18,7 +18,7 @@ A Codex account with its runtime cooldown/quota state hydrated from disk.
 
 > **key**: `string`
 
-Defined in: [types/codex.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L92)
+Defined in: [types/codex.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L110)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:92](https://github.com/juspay/neurolink/blob/release
 
 > **label**: `string`
 
-Defined in: [types/codex.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L93)
+Defined in: [types/codex.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L111)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:93](https://github.com/juspay/neurolink/blob/release
 
 > **token**: `string`
 
-Defined in: [types/codex.ts:94](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L94)
+Defined in: [types/codex.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L112)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/codex.ts:94](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/codex.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L95)
+Defined in: [types/codex.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L113)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/codex.ts:95](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/codex.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L96)
+Defined in: [types/codex.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L114)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/codex.ts:96](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **accountId?**: `string`
 
-Defined in: [types/codex.ts:97](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L97)
+Defined in: [types/codex.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L115)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/codex.ts:97](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **quota?**: [`AccountQuota`](AccountQuota.md)
 
-Defined in: [types/codex.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L98)
+Defined in: [types/codex.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L116)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/codex.ts:98](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **coolingUntil?**: `number`
 
-Defined in: [types/codex.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L99)
+Defined in: [types/codex.ts:117](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L117)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/codex.ts:99](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **coolingReason?**: [`AccountCoolingReason`](AccountCoolingReason.md)
 
-Defined in: [types/codex.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L100)
+Defined in: [types/codex.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L118)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/codex.ts:100](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **expiredCooldownUntil?**: `number`
 
-Defined in: [types/codex.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L104)
+Defined in: [types/codex.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L122)
 
 A persisted cooldown whose window has already passed. Present only when the
 account is therefore eligible again, so the success path can delete the

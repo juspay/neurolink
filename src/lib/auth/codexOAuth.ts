@@ -36,7 +36,9 @@ export const CODEX_DEFAULT_SCOPES = [
 // Upstream backend (ChatGPT subscription path).
 export const CODEX_BACKEND_BASE_URL = "https://chatgpt.com/backend-api/codex";
 export const CODEX_RESPONSES_URL = `${CODEX_BACKEND_BASE_URL}/responses`;
-export const CODEX_USAGE_URL = `${CODEX_BACKEND_BASE_URL}/usage`;
+// Codex completions use the /codex namespace, but account quota is exposed by
+// the ChatGPT backend's WHAM account service.
+export const CODEX_USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 export const CODEX_MODELS_URL = `${CODEX_BACKEND_BASE_URL}/models`;
 
 // Client fingerprint. The real Codex CLI sends these; the proxy defaults them

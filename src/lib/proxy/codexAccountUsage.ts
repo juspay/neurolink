@@ -11,7 +11,6 @@ import { tokenStore } from "../auth/tokenStore.js";
 import type { CodexProxyStatusAccountIdentity } from "../types/index.js";
 import { normalizeAnthropicAccountKey } from "./accountSelection.js";
 import {
-  CODEX_ORIGINATOR,
   CODEX_USAGE_URL,
   CODEX_USER_AGENT,
   decodeCodexAccessToken,
@@ -100,6 +99,7 @@ function toFraction(percent: number | null | undefined): number {
   return Math.min(1, Math.max(0, percent / 100));
 }
 
+/** Convert absolute or relative Codex window resets into epoch seconds. */
 function windowResetEpochSeconds(
   window: CodexRateLimitWindow | null | undefined,
   nowSeconds: number,
@@ -117,10 +117,21 @@ function windowResetEpochSeconds(
       ? Math.floor(window.resets_at / 1000)
       : window.resets_at;
   }
+  if (
+    typeof window.reset_at === "number" &&
+    Number.isFinite(window.reset_at) &&
+    window.reset_at > 0
+  ) {
+    return window.reset_at > 4_102_444_800
+      ? Math.floor(window.reset_at / 1000)
+      : window.reset_at;
+  }
   const relative =
     typeof window.resets_in_seconds === "number"
       ? window.resets_in_seconds
-      : window.reset_after;
+      : typeof window.reset_after_seconds === "number"
+        ? window.reset_after_seconds
+        : window.reset_after;
   if (
     typeof relative === "number" &&
     Number.isFinite(relative) &&
@@ -244,7 +255,6 @@ export async function fetchCodexAccountUsage(
       headers: {
         Authorization: `Bearer ${account.token}`,
         ...(accountId ? { "chatgpt-account-id": accountId } : {}),
-        originator: CODEX_ORIGINATOR,
         "User-Agent": CODEX_USER_AGENT,
         Accept: "application/json",
       },
@@ -253,11 +263,20 @@ export async function fetchCodexAccountUsage(
     if (response.status === 401 || response.status === 403) {
       return { ok: false, reason: "auth" };
     }
+    if (response.status === 429) {
+      return { ok: false, reason: "rate_limited" };
+    }
     if (!response.ok) {
       return { ok: false, reason: "http" };
     }
     const usage = (await response.json()) as CodexUsageResponse;
-    return { ok: true, quota: codexRateLimitsToQuota(usage.rate_limits) };
+    const rateLimits = usage.rate_limit
+      ? {
+          primary: usage.rate_limit.primary_window,
+          secondary: usage.rate_limit.secondary_window,
+        }
+      : usage.rate_limits;
+    return { ok: true, quota: codexRateLimitsToQuota(rateLimits) };
   } catch (error) {
     logger.debug(
       `Codex usage fetch failed for ${account.label}: ${

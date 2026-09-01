@@ -8,7 +8,7 @@
 
 > **CodexResponsesRequest** = `object`
 
-Defined in: [types/codex.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L138)
+Defined in: [types/codex.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L156)
 
 Request shape used to bridge Anthropic Messages traffic to Codex Responses.
 
@@ -18,7 +18,7 @@ Request shape used to bridge Anthropic Messages traffic to Codex Responses.
 
 > **model**: `string`
 
-Defined in: [types/codex.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L139)
+Defined in: [types/codex.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L157)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:139](https://github.com/juspay/neurolink/blob/releas
 
 > **input**: [`CodexResponsesInputItem`](CodexResponsesInputItem.md)[]
 
-Defined in: [types/codex.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L140)
+Defined in: [types/codex.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L158)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:140](https://github.com/juspay/neurolink/blob/releas
 
 > **stream**: `true`
 
-Defined in: [types/codex.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L141)
+Defined in: [types/codex.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L159)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/codex.ts:141](https://github.com/juspay/neurolink/blob/releas
 
 > **store**: `false`
 
-Defined in: [types/codex.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L142)
+Defined in: [types/codex.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L160)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/codex.ts:142](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **instructions?**: `string`
 
-Defined in: [types/codex.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L143)
+Defined in: [types/codex.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L161)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/codex.ts:143](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tools?**: `object`[]
 
-Defined in: [types/codex.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L144)
+Defined in: [types/codex.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L162)
 
 #### type
 
@@ -82,4 +82,4 @@ Defined in: [types/codex.ts:144](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tool_choice?**: `"auto"` \| `"required"` \| `"none"` \| \{ `type`: `"function"`; `name`: `string`; \}
 
-Defined in: [types/codex.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L150)
+Defined in: [types/codex.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L168)
