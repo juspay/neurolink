@@ -68,8 +68,14 @@ export type ExternalMCPServerInstance = {
   /** Server configuration */
   config: ExternalMCPServerConfig;
 
-  /** Child process (for stdio transport) */
+  /**
+   * Child process handle. Always null for stdio servers: the SDK transport
+   * owns the process and does not expose the handle. Use `pid`.
+   */
   process: ChildProcess | null;
+
+  /** OS process id of the stdio server, once connected */
+  pid?: number;
 
   /** MCP client instance */
   client: Client | null;
@@ -400,8 +406,13 @@ export type ExternalMCPManagerConfig = {
  * active server management (process handles, clients, metrics, etc.)
  */
 export type RuntimeMCPServerInfo = MCPServerInfo & {
-  /** Child process handle (for stdio transport, null for HTTP transports) */
+  /**
+   * Child process handle. Always null for stdio servers: the SDK transport
+   * owns the process and does not expose the handle. Use `pid`.
+   */
   process: import("child_process").ChildProcess | null;
+  /** OS process id of the stdio server, once connected */
+  pid?: number;
   /** MCP client instance for communication */
   client: Client | null;
   /** Transport instance (renamed from 'transport' to avoid conflict with MCPServerInfo.transport) */

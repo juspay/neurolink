@@ -8,7 +8,7 @@
 
 > **ExternalMCPToolContext** = `object`
 
-Defined in: [types/externalMcp.ts:257](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L257)
+Defined in: [types/externalMcp.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L263)
 
 External MCP tool execution context
 
@@ -18,7 +18,7 @@ External MCP tool execution context
 
 > **sessionId**: `string`
 
-Defined in: [types/externalMcp.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L259)
+Defined in: [types/externalMcp.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L265)
 
 Execution session ID
 
@@ -28,7 +28,7 @@ Execution session ID
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/externalMcp.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L262)
+Defined in: [types/externalMcp.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L268)
 
 User ID if available
 
@@ -38,7 +38,7 @@ User ID if available
 
 > **serverId**: `string`
 
-Defined in: [types/externalMcp.ts:265](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L265)
+Defined in: [types/externalMcp.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L271)
 
 Server ID executing the tool
 
@@ -48,7 +48,7 @@ Server ID executing the tool
 
 > **toolName**: `string`
 
-Defined in: [types/externalMcp.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L268)
+Defined in: [types/externalMcp.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L274)
 
 Tool name being executed
 
@@ -58,7 +58,7 @@ Tool name being executed
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/externalMcp.ts:271](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L271)
+Defined in: [types/externalMcp.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L277)
 
 Execution timeout in milliseconds
 
@@ -68,6 +68,6 @@ Execution timeout in milliseconds
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/externalMcp.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L274)
+Defined in: [types/externalMcp.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L280)
 
 Additional context data

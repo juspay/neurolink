@@ -8,6 +8,6 @@
 
 > **ExternalMCPServerStatus** = `"initializing"` \| `"connecting"` \| `"connected"` \| `"disconnected"` \| `"failed"` \| `"restarting"` \| `"stopping"` \| `"stopped"`
 
-Defined in: [types/externalMcp.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L131)
+Defined in: [types/externalMcp.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L137)
 
 External MCP server status states

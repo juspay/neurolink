@@ -6,7 +6,7 @@
 
 # Class: MCPClientFactory
 
-Defined in: [mcp/mcpClientFactory.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L60)
+Defined in: [mcp/mcpClientFactory.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L106)
 
 MCPClientFactory
 Factory class for creating MCP clients with different transports
@@ -27,7 +27,7 @@ Factory class for creating MCP clients with different transports
 
 > `static` **createClient**(`config`, `timeout?`): `Promise`\<[`MCPClientResult`](../type-aliases/MCPClientResult.md)\>
 
-Defined in: [mcp/mcpClientFactory.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L77)
+Defined in: [mcp/mcpClientFactory.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L123)
 
 Create an MCP client for the given server configuration
 Enhanced with retry logic, rate limiting, and circuit breaker protection
@@ -48,11 +48,34 @@ Enhanced with retry logic, rate limiting, and circuit breaker protection
 
 ---
 
+### getStderrTail()
+
+> `static` **getStderrTail**(`transport`): `string`[]
+
+Defined in: [mcp/mcpClientFactory.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L366)
+
+The most recent stderr lines written by the stdio server behind
+`transport`. Empty for network transports and for servers that have
+written nothing. Lines are captured from before the process is even
+started, so an early boot failure is included.
+
+#### Parameters
+
+##### transport
+
+`Transport`
+
+#### Returns
+
+`string`[]
+
+---
+
 ### closeClient()
 
 > `static` **closeClient**(`client`, `transport`, `process?`): `Promise`\<`void`\>
 
-Defined in: [mcp/mcpClientFactory.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L794)
+Defined in: [mcp/mcpClientFactory.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L815)
 
 Close an MCP client and clean up resources
 
@@ -80,7 +103,7 @@ Close an MCP client and clean up resources
 
 > `static` **testConnection**(`config`, `timeout?`): `Promise`\<\{ `success`: `boolean`; `error?`: `string`; `capabilities?`: \{ \}; \}\>
 
-Defined in: [mcp/mcpClientFactory.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L865)
+Defined in: [mcp/mcpClientFactory.ts:886](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L886)
 
 Test connection to an MCP server
 
@@ -104,7 +127,7 @@ Test connection to an MCP server
 
 > `static` **validateClientConfig**(`config`): `object`
 
-Defined in: [mcp/mcpClientFactory.ts:927](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L927)
+Defined in: [mcp/mcpClientFactory.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L948)
 
 Validate MCP server configuration for client creation
 
@@ -132,7 +155,7 @@ Validate MCP server configuration for client creation
 
 > `static` **getSupportedTransports**(): [`MCPTransportType`](../type-aliases/MCPTransportType.md)[]
 
-Defined in: [mcp/mcpClientFactory.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L978)
+Defined in: [mcp/mcpClientFactory.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L999)
 
 Get supported transport types
 
@@ -146,7 +169,7 @@ Get supported transport types
 
 > `static` **getDefaultCapabilities**(): `object`
 
-Defined in: [mcp/mcpClientFactory.ts:985](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L985)
+Defined in: [mcp/mcpClientFactory.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/mcpClientFactory.ts#L1006)
 
 Get default client capabilities
 

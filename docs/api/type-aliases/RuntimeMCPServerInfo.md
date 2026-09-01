@@ -8,7 +8,7 @@
 
 > **RuntimeMCPServerInfo** = [`MCPServerInfo`](MCPServerInfo.md) & `object`
 
-Defined in: [types/externalMcp.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L402)
+Defined in: [types/externalMcp.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L408)
 
 Extended MCPServerInfo with runtime state for external servers
 Represents the transition towards zero-conversion architecture by combining
@@ -21,7 +21,14 @@ active server management (process handles, clients, metrics, etc.)
 
 > **process**: `ChildProcess` \| `null`
 
-Child process handle (for stdio transport, null for HTTP transports)
+Child process handle. Always null for stdio servers: the SDK transport
+owns the process and does not expose the handle. Use `pid`.
+
+### pid?
+
+> `optional` **pid?**: `number`
+
+OS process id of the stdio server, once connected
 
 ### client
 

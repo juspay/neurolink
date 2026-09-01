@@ -543,6 +543,7 @@ jobs:
           pnpm run test:bugfixes
           pnpm run test:mcp:infra
           pnpm run test:mcp:spans
+          pnpm run test:mcp:stdio-lifecycle
           pnpm run test:tool-routing
           pnpm run test:tool-routing-cli
           pnpm run test:tool-dedup

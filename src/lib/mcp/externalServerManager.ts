@@ -8,6 +8,9 @@
  */
 
 import { EventEmitter } from "events";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import { mcpLogger } from "../utils/logger.js";
 import { MCPClientFactory } from "./mcpClientFactory.js";
 import { ToolDiscoveryService } from "./toolDiscoveryService.js";
@@ -74,6 +77,29 @@ function substituteEnvVariables<T>(value: T): T {
 
   return value;
 }
+
+/**
+ * The two messages the MCP SDK produces when the transport underneath a
+ * request is gone: `Protocol._onclose` rejects every pending request with
+ * `MCP error -32000: Connection closed`, and `StdioClientTransport.send`
+ * throws a bare `Not connected` once the child has closed. Both are matched
+ * on the SDK's exact text so a tool's own error output that happens to
+ * mention a closed connection cannot be mistaken for the server dying.
+ */
+const CONNECTION_LOST_PATTERN =
+  /^Not connected$|MCP error -32000: Connection closed/;
+
+function isConnectionLostError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return CONNECTION_LOST_PATTERN.test(message);
+}
+
+/**
+ * Consecutive idle health checks a server may fail to answer before it is
+ * treated as hung and restarted. Two, not one: a single missed ping right
+ * after a long tool call is the server draining its queue, not a wedge.
+ */
+const UNRESPONSIVE_CHECKS_BEFORE_RESTART = 2;
 
 /**
  * Sensitive CLI flag patterns whose following value should be masked in logs.
@@ -250,6 +276,12 @@ export class ExternalServerManager extends EventEmitter {
   private servers: Map<string, RuntimeMCPServerInfo> = new Map();
   private config: Required<ExternalMCPManagerConfig>;
   private isShuttingDown = false;
+  /** Servers whose previous ping has not returned; the interval must not stack. */
+  private healthChecksInFlight = new Set<string>();
+  /** Tool calls currently executing per server; a busy server is not a hung one. */
+  private inFlightToolCalls = new Map<string, number>();
+  /** Consecutive pings missed while idle, per server. */
+  private unresponsiveChecks = new Map<string, number>();
   private toolDiscovery: ToolDiscoveryService;
   private enableMainRegistryIntegration: boolean;
   private hitlManager?: HITLManager; // Optional HITL manager for safety mechanisms
@@ -944,6 +976,7 @@ export class ExternalServerManager extends EventEmitter {
       const convertedInstance: ExternalMCPServerInstance = {
         config: finalInstance.config,
         process: finalInstance.process,
+        pid: finalInstance.pid,
         client: finalInstance.client,
         transport: finalInstance.transportInstance,
         status: finalInstance.status as ExternalMCPServerStatus,
@@ -1102,46 +1135,21 @@ export class ExternalServerManager extends EventEmitter {
       instance.client = clientResult.client;
       instance.transportInstance = clientResult.transport;
       instance.process = clientResult.process || null;
+      instance.pid =
+        clientResult.transport instanceof StdioClientTransport
+          ? (clientResult.transport.pid ?? undefined)
+          : undefined;
       instance.capabilities = safeMetadataConversion(clientResult.capabilities);
       instance.startTime = new Date();
       instance.lastHealthCheck = new Date();
       instance.metrics.totalConnections++;
+      this.unresponsiveChecks.delete(serverId);
 
-      // Handle process events if there's a process
-      if (instance.process) {
-        instance.process.on("error", (error) => {
-          mcpLogger.error(
-            `[ExternalServerManager] Process error for ${serverId}:`,
-            error,
-          );
-          this.handleServerError(serverId, error);
-        });
-
-        instance.process.on("exit", (code, signal) => {
-          mcpLogger.warn(
-            `[ExternalServerManager] Process exited for ${serverId}`,
-            {
-              code,
-              signal,
-            },
-          );
-          this.handleServerDisconnection(
-            serverId,
-            `Process exited with code ${code}`,
-          );
-        });
-
-        // Log stderr for debugging
-        instance.process.stderr?.on("data", (data) => {
-          const message = data.toString().trim();
-          if (message) {
-            mcpLogger.debug(
-              `[ExternalServerManager] ${serverId} stderr:`,
-              message,
-            );
-          }
-        });
-      }
+      this.attachClientLifecycle(
+        serverId,
+        clientResult.client,
+        clientResult.transport,
+      );
 
       this.updateServerStatus(serverId, "connected");
 
@@ -1232,13 +1240,16 @@ export class ExternalServerManager extends EventEmitter {
       // Clear server tools from discovery service
       this.toolDiscovery.clearServerTools(serverId);
 
-      // Close MCP client using factory cleanup
+      // Close MCP client using factory cleanup. This close is ours, not a
+      // crash: drop the lifecycle hooks first so the onclose it triggers
+      // cannot schedule a restart of a server we are deliberately stopping.
       if (instance.client && instance.transportInstance) {
+        instance.client.onclose = undefined;
+        instance.client.onerror = undefined;
         try {
           await MCPClientFactory.closeClient(
             instance.client,
             instance.transportInstance,
-            instance.process || undefined,
           );
         } catch (error) {
           mcpLogger.debug(
@@ -1250,6 +1261,7 @@ export class ExternalServerManager extends EventEmitter {
         instance.client = null;
         instance.transportInstance = null;
         instance.process = null;
+        instance.pid = undefined;
       }
       this.updateServerStatus(serverId, "stopped");
 
@@ -1314,6 +1326,82 @@ export class ExternalServerManager extends EventEmitter {
     mcpLogger.debug(
       `[ExternalServerManager] Status changed for ${serverId}: ${oldStatus} -> ${newStatus}`,
     );
+  }
+
+  /**
+   * Hook the SDK client's lifecycle so the manager learns about the server
+   * dying from the object that actually owns the process.
+   *
+   * `client.onclose` fires when the stdio child closes or a network
+   * transport drops. It also fires during our own `stopServer()`, which is
+   * why every path into `handleConnectionLost` checks that the client is
+   * still the instance's current one and the status is still "connected":
+   * a close that arrives while stopping or restarting is intentional.
+   */
+  private attachClientLifecycle(
+    serverId: string,
+    client: Client,
+    transport: Transport,
+  ): void {
+    client.onclose = () => {
+      const instance = this.servers.get(serverId);
+      const pidNote = instance?.pid ? ` (pid ${instance.pid})` : "";
+      const stderrTail = MCPClientFactory.getStderrTail(transport);
+      const reason =
+        stderrTail.length > 0
+          ? `Server process closed${pidNote}; last stderr: ${stderrTail.slice(-5).join(" | ")}`
+          : `Server process closed${pidNote}`;
+      this.handleConnectionLost(serverId, client, reason, stderrTail);
+    };
+
+    client.onerror = (error: Error) => {
+      // Transport-level noise: a stdin EPIPE after the child died, a line on
+      // stdout that is not JSON-RPC. Diagnostic only — a fatal error is
+      // followed by onclose, and that is where state changes.
+      mcpLogger.warn(
+        `[ExternalServerManager] Transport error for ${serverId}: ${error.message}`,
+      );
+    };
+  }
+
+  /**
+   * Transition a server whose connection is gone, exactly once.
+   *
+   * Reached from three places that can all observe the same death — the
+   * client's onclose, a failed health-check ping, and a tool call rejected
+   * with the SDK's connection-closed error — so it is idempotent on the
+   * (client, status) pair rather than trusting any one caller to be first.
+   */
+  private handleConnectionLost(
+    serverId: string,
+    client: Client,
+    reason: string,
+    stderrTail: string[] = [],
+  ): void {
+    const instance = this.servers.get(serverId);
+    if (
+      !instance ||
+      instance.client !== client ||
+      instance.status !== "connected"
+    ) {
+      return;
+    }
+
+    mcpLogger.warn(
+      `[ExternalServerManager] Connection lost for ${serverId}: ${reason}`,
+      stderrTail.length > 0 ? { stderrTail } : undefined,
+    );
+    instance.lastError = reason;
+    this.handleServerDisconnection(serverId, reason);
+  }
+
+  private trackToolCall(serverId: string, delta: 1 | -1): void {
+    const next = (this.inFlightToolCalls.get(serverId) ?? 0) + delta;
+    if (next <= 0) {
+      this.inFlightToolCalls.delete(serverId);
+    } else {
+      this.inFlightToolCalls.set(serverId, next);
+    }
   }
 
   /**
@@ -1478,24 +1566,69 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
-   * Perform health check on a server
+   * Perform a health check by pinging the server over its live transport.
+   *
+   * The previous check read `process.killed` — a flag Node sets only when we
+   * call `kill()` ourselves, on a process handle that was not even the
+   * server's — so it could never observe a server that died on its own.
+   *
+   * A ping that comes back with the SDK's connection-closed error is a
+   * definitive death and is handled immediately. A ping that merely times
+   * out is ambiguous: single-threaded servers (a Python MCP server running a
+   * synchronous tool) cannot answer while a tool call is executing, and
+   * restarting one mid-call would destroy the work in flight. So a timeout
+   * counts toward a restart only while the server has no tool call in
+   * flight, and only after UNRESPONSIVE_CHECKS_BEFORE_RESTART consecutive
+   * misses.
    */
   private async performHealthCheck(serverId: string): Promise<void> {
     const instance = this.servers.get(serverId);
-    if (!instance || instance.status !== "connected") {
+    if (!instance || instance.status !== "connected" || !instance.client) {
       return;
     }
+    if (this.healthChecksInFlight.has(serverId)) {
+      return;
+    }
+    this.healthChecksInFlight.add(serverId);
 
+    const client = instance.client;
+    const interval =
+      instance.config.healthCheckInterval ??
+      this.config.defaultHealthCheckInterval;
+    const pingTimeoutMs = Math.max(
+      1,
+      Math.min(instance.config.timeout || this.config.defaultTimeout, interval),
+    );
     const startTime = Date.now();
+    const issues: string[] = [];
+    let isHealthy = true;
+    let connectionLost = false;
+    let unresponsive = false;
 
     try {
-      // For now, simple process check
-      let isHealthy = true;
-      const issues: string[] = [];
-
-      if (instance.process && instance.process.killed) {
+      try {
+        await client.ping({ timeout: pingTimeoutMs });
+        this.unresponsiveChecks.delete(serverId);
+      } catch (error) {
         isHealthy = false;
-        issues.push("Process is killed");
+        if (isConnectionLostError(error)) {
+          connectionLost = true;
+          issues.push("connection closed");
+        } else {
+          const inFlight = this.inFlightToolCalls.get(serverId) ?? 0;
+          if (inFlight > 0) {
+            issues.push(
+              `ping timed out after ${pingTimeoutMs}ms while ${inFlight} tool call(s) in flight`,
+            );
+          } else {
+            const misses = (this.unresponsiveChecks.get(serverId) ?? 0) + 1;
+            this.unresponsiveChecks.set(serverId, misses);
+            issues.push(
+              `ping timed out after ${pingTimeoutMs}ms while idle (${misses}/${UNRESPONSIVE_CHECKS_BEFORE_RESTART})`,
+            );
+            unresponsive = misses >= UNRESPONSIVE_CHECKS_BEFORE_RESTART;
+          }
+        }
       }
 
       const responseTime = Date.now() - startTime;
@@ -1525,14 +1658,16 @@ export class ExternalServerManager extends EventEmitter {
         timestamp: new Date(),
       } satisfies ExternalMCPServerEvents["healthCheck"]);
 
-      if (!isHealthy) {
+      if (connectionLost || unresponsive) {
+        this.handleConnectionLost(
+          serverId,
+          client,
+          `Health check failed: ${issues.join(", ")}`,
+        );
+      } else if (!isHealthy) {
         mcpLogger.warn(
           `[ExternalServerManager] Health check failed for ${serverId}:`,
           issues,
-        );
-        this.handleServerError(
-          serverId,
-          new Error(`Health check failed: ${issues.join(", ")}`),
         );
       }
     } catch (error) {
@@ -1540,10 +1675,8 @@ export class ExternalServerManager extends EventEmitter {
         `[ExternalServerManager] Health check error for ${serverId}:`,
         error,
       );
-      this.handleServerError(
-        serverId,
-        error instanceof Error ? error : new Error(String(error)),
-      );
+    } finally {
+      this.healthChecksInFlight.delete(serverId);
     }
   }
 
@@ -1559,6 +1692,7 @@ export class ExternalServerManager extends EventEmitter {
     return {
       config: runtime.config,
       process: runtime.process,
+      pid: runtime.pid,
       client: runtime.client,
       transport: runtime.transportInstance,
       status: runtime.status as ExternalMCPServerStatus,
@@ -1585,6 +1719,7 @@ export class ExternalServerManager extends EventEmitter {
       converted.set(serverId, {
         config: runtime.config,
         process: runtime.process,
+        pid: runtime.pid,
         client: runtime.client,
         transport: runtime.transportInstance,
         status: runtime.status as ExternalMCPServerStatus,
@@ -1911,7 +2046,8 @@ export class ExternalServerManager extends EventEmitter {
       throw new Error(`Server '${serverId}' not found`);
     }
 
-    if (!instance.client) {
+    const client = instance.client;
+    if (!client) {
       throw new Error(`Server '${serverId}' is not connected`);
     }
 
@@ -2007,18 +2143,24 @@ export class ExternalServerManager extends EventEmitter {
       }
 
       // Execute tool through discovery service (with potentially modified parameters)
-      const result = await this.toolDiscovery.executeTool(
-        toolName,
-        serverId,
-        instance.client,
-        finalParameters,
-        {
-          timeout:
-            options?.timeout ||
-            instance.config.timeout ||
-            this.config.defaultTimeout,
-        },
-      );
+      this.trackToolCall(serverId, 1);
+      let result: Awaited<ReturnType<ToolDiscoveryService["executeTool"]>>;
+      try {
+        result = await this.toolDiscovery.executeTool(
+          toolName,
+          serverId,
+          client,
+          finalParameters,
+          {
+            timeout:
+              options?.timeout ||
+              instance.config.timeout ||
+              this.config.defaultTimeout,
+          },
+        );
+      } finally {
+        this.trackToolCall(serverId, -1);
+      }
 
       const duration = Date.now() - startTime;
 
@@ -2072,6 +2214,17 @@ export class ExternalServerManager extends EventEmitter {
         `[ExternalServerManager] Tool execution failed: ${toolName} on ${serverId}`,
         error,
       );
+
+      // The SDK rejects with its connection-closed error when the server is
+      // gone. Without this transition the instance stayed "connected" and
+      // every later call failed the same way with no restart ever scheduled.
+      if (isConnectionLostError(error)) {
+        this.handleConnectionLost(
+          serverId,
+          client,
+          `Connection lost during tool call '${toolName}': ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
       throw error;
     }
   }
