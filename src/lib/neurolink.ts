@@ -2035,13 +2035,12 @@ export class NeuroLink {
       inputSchema: retrieveContextDef.inputSchema,
       execute: async (params: unknown) => {
         // Lazy: conversationMemory is initialized on the first generate() call.
-        // When only an artifact store is present (no Redis), memoryManager is
-        // undefined — createMemoryRetrievalTools handles that via an explicit guard.
-        const memoryManager = this.conversationMemory as
-          | import("./core/redisConversationMemoryManager.js").RedisConversationMemoryManager
-          | undefined;
+        // It may be undefined (artifact-store-only), the Redis manager, or the
+        // in-memory manager (no Redis config, or Redis init fell back) —
+        // createMemoryRetrievalTools guards session retrieval on getSessionRaw
+        // capability and returns a descriptive error otherwise.
         const tools = createMemoryRetrievalTools(
-          memoryManager,
+          this.conversationMemory ?? undefined,
           this.mcpArtifactStore,
         );
         // Return the result directly so the LLM receives clean output instead

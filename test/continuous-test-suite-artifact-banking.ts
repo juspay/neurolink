@@ -393,6 +393,45 @@ await runSuite(async () => {
     assertEqual(page.content, undefined);
   });
 
+  await test("a session read with in-memory conversation memory names the Redis requirement", async () => {
+    // Regression: retrieve_context registers whenever something banks, and a
+    // truthy-but-in-memory conversation memory manager used to sail past the
+    // presence guard into the Redis-only getSessionRaw() — the model got a
+    // generic "Failed to retrieve context" born from a TypeError. The guard
+    // is now on capability, so the answer must name the actual requirement.
+    const savedStorageType = process.env.STORAGE_TYPE;
+    process.env.STORAGE_TYPE = "memory";
+    try {
+      const host = new NeuroLink({ conversationMemory: { enabled: true } });
+      await host.bankArtifact("seed", { kind: "other", label: "seed" });
+      assertEqual(
+        await host.ensureConversationMemoryInitialized(),
+        true,
+        "conversation memory must initialize with the in-memory backend",
+      );
+      const page = asPage(
+        await host.executeTool("retrieve_context", {
+          sessionId: "any-session",
+        }),
+      );
+      assert(
+        typeof page.error === "string",
+        "the session path must answer with an error object, not throw",
+      );
+      assertIncludes(
+        page.error ?? "",
+        "Redis",
+        "the answer must name the Redis requirement, not a generic message",
+      );
+    } finally {
+      if (savedStorageType === undefined) {
+        delete process.env.STORAGE_TYPE;
+      } else {
+        process.env.STORAGE_TYPE = savedStorageType;
+      }
+    }
+  });
+
   await test("a traversal id never becomes a path", async () => {
     // The index-miss fallback probes join(dir, id + ext), and ids reach it
     // straight from the model. Anything with a separator or a dot has to be

@@ -1,5 +1,6 @@
 import { SpanStatusCode } from "@opentelemetry/api";
 import { z } from "zod";
+import type { ConversationMemoryManager } from "../core/conversationMemoryManager.js";
 import type { RedisConversationMemoryManager } from "../core/redisConversationMemoryManager.js";
 import type { ArtifactStore, Tool } from "../types/index.js";
 import { logger } from "../utils/logger.js";
@@ -26,7 +27,9 @@ const MAX_SEARCH_MATCHES = 50;
 /**
  * Factory function that creates memory retrieval tools bound to a memory manager.
  *
- * @param memoryManager  Redis conversation memory manager instance.
+ * @param memoryManager  Conversation memory manager instance. Session history
+ *                       retrieval requires the Redis-backed manager; with the
+ *                       in-memory manager the tool returns a descriptive error.
  * @param artifactStore  Optional artifact store for externalized MCP outputs.
  *                       When provided, retrieve_context gains an `artifactId`
  *                       parameter that fetches the full payload written by
@@ -34,7 +37,10 @@ const MAX_SEARCH_MATCHES = 50;
  * @returns Record of tool name to Vercel AI SDK tool definition
  */
 export function createMemoryRetrievalTools(
-  memoryManager: RedisConversationMemoryManager | undefined,
+  memoryManager:
+    | ConversationMemoryManager
+    | RedisConversationMemoryManager
+    | undefined,
   artifactStore?: ArtifactStore,
 ): Record<string, Tool> {
   return {
@@ -137,7 +143,10 @@ async function executeRetrieveContext(
     limit?: number;
     search?: string;
   },
-  memoryManager: RedisConversationMemoryManager | undefined,
+  memoryManager:
+    | ConversationMemoryManager
+    | RedisConversationMemoryManager
+    | undefined,
   artifactStore: ArtifactStore | undefined,
   otelSpan: import("@opentelemetry/api").Span,
 ) {
@@ -208,10 +217,16 @@ async function executeRetrieveContext(
     };
   }
 
-  if (!memoryManager) {
+  // getSessionRaw exists only on the Redis-backed manager. A truthy manager
+  // can still be the in-memory one (tool registered for an artifact store, or
+  // Redis init fell back to in-memory), so guard on capability — not just
+  // presence — instead of throwing "getSessionRaw is not a function".
+  if (!memoryManager || !("getSessionRaw" in memoryManager)) {
     otelSpan.setStatus({
       code: SpanStatusCode.ERROR,
-      message: "Memory manager not configured",
+      message: memoryManager
+        ? "Conversation memory backend is not Redis"
+        : "Memory manager not configured",
     });
     return {
       error:
