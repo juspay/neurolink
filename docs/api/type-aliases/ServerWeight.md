@@ -8,7 +8,7 @@
 
 > **ServerWeight** = `object`
 
-Defined in: [types/mcp.ts:1763](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1763)
+Defined in: [types/mcp.ts:1782](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1782)
 
 Server weight for weighted load balancing
 
@@ -18,7 +18,7 @@ Server weight for weighted load balancing
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:1764](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1764)
+Defined in: [types/mcp.ts:1783](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1783)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1764](https://github.com/juspay/neurolink/blob/release
 
 > **weight**: `number`
 
-Defined in: [types/mcp.ts:1765](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1765)
+Defined in: [types/mcp.ts:1784](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1784)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:1765](https://github.com/juspay/neurolink/blob/release
 
 > **priority**: `number`
 
-Defined in: [types/mcp.ts:1766](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1766)
+Defined in: [types/mcp.ts:1785](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1785)

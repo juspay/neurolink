@@ -8,7 +8,7 @@
 
 > **ResourceContent** = `object`
 
-Defined in: [types/mcp.ts:1948](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1948)
+Defined in: [types/mcp.ts:1967](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1967)
 
 Resource content returned when reading a resource
 
@@ -18,7 +18,7 @@ Resource content returned when reading a resource
 
 > **uri**: `string`
 
-Defined in: [types/mcp.ts:1952](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1952)
+Defined in: [types/mcp.ts:1971](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1971)
 
 Resource URI
 
@@ -28,7 +28,7 @@ Resource URI
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/mcp.ts:1957](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1957)
+Defined in: [types/mcp.ts:1976](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1976)
 
 MIME type
 
@@ -38,7 +38,7 @@ MIME type
 
 > `optional` **text?**: `string`
 
-Defined in: [types/mcp.ts:1962](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1962)
+Defined in: [types/mcp.ts:1981](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1981)
 
 Text content (for text/\* MIME types)
 
@@ -48,6 +48,6 @@ Text content (for text/\* MIME types)
 
 > `optional` **blob?**: `string`
 
-Defined in: [types/mcp.ts:1967](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1967)
+Defined in: [types/mcp.ts:1986](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1986)
 
 Binary content as base64 (for non-text MIME types)

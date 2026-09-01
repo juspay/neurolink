@@ -8,7 +8,7 @@
 
 > **ElicitationRequestMessage** = `object`
 
-Defined in: [types/mcp.ts:1341](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1341)
+Defined in: [types/mcp.ts:1360](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1360)
 
 Elicitation request protocol message
 
@@ -18,7 +18,7 @@ Elicitation request protocol message
 
 > **jsonrpc**: `"2.0"`
 
-Defined in: [types/mcp.ts:1342](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1342)
+Defined in: [types/mcp.ts:1361](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1361)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1342](https://github.com/juspay/neurolink/blob/release
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1343](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1343)
+Defined in: [types/mcp.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1362)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1343](https://github.com/juspay/neurolink/blob/release
 
 > **method**: `"elicitation/request"`
 
-Defined in: [types/mcp.ts:1344](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1344)
+Defined in: [types/mcp.ts:1363](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1363)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1344](https://github.com/juspay/neurolink/blob/release
 
 > **params**: [`ElicitationRequestParams`](ElicitationRequestParams.md)
 
-Defined in: [types/mcp.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1345)
+Defined in: [types/mcp.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1364)

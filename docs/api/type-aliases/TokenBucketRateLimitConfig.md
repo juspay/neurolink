@@ -8,7 +8,7 @@
 
 > **TokenBucketRateLimitConfig** = `object`
 
-Defined in: [types/mcp.ts:929](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L929)
+Defined in: [types/mcp.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L948)
 
 Token bucket rate limit configuration options for HTTP transport
 
@@ -18,7 +18,7 @@ Token bucket rate limit configuration options for HTTP transport
 
 > **requestsPerWindow**: `number`
 
-Defined in: [types/mcp.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L931)
+Defined in: [types/mcp.ts:950](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L950)
 
 Maximum requests per window
 
@@ -28,7 +28,7 @@ Maximum requests per window
 
 > **windowMs**: `number`
 
-Defined in: [types/mcp.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L933)
+Defined in: [types/mcp.ts:952](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L952)
 
 Window size in milliseconds (default: 60000 = 1 minute)
 
@@ -38,7 +38,7 @@ Window size in milliseconds (default: 60000 = 1 minute)
 
 > **useTokenBucket**: `boolean`
 
-Defined in: [types/mcp.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L935)
+Defined in: [types/mcp.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L954)
 
 Use token bucket algorithm (default: true)
 
@@ -48,7 +48,7 @@ Use token bucket algorithm (default: true)
 
 > **refillRate**: `number`
 
-Defined in: [types/mcp.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L937)
+Defined in: [types/mcp.ts:956](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L956)
 
 Token refill rate (tokens per second, for token bucket)
 
@@ -58,6 +58,6 @@ Token refill rate (tokens per second, for token bucket)
 
 > **maxBurst**: `number`
 
-Defined in: [types/mcp.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L939)
+Defined in: [types/mcp.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L958)
 
 Maximum burst size (for token bucket)

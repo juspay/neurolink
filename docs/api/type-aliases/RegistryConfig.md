@@ -8,7 +8,7 @@
 
 > **RegistryConfig** = `object`
 
-Defined in: [types/mcp.ts:1622](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1622)
+Defined in: [types/mcp.ts:1641](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1641)
 
 Registry configuration
 
@@ -18,7 +18,7 @@ Registry configuration
 
 > **type**: [`RegistrySourceType`](RegistrySourceType.md)
 
-Defined in: [types/mcp.ts:1626](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1626)
+Defined in: [types/mcp.ts:1645](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1645)
 
 Registry type
 
@@ -28,7 +28,7 @@ Registry type
 
 > `optional` **url?**: `string`
 
-Defined in: [types/mcp.ts:1631](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1631)
+Defined in: [types/mcp.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1650)
 
 Registry URL or identifier
 
@@ -38,7 +38,7 @@ Registry URL or identifier
 
 > `optional` **authToken?**: `string`
 
-Defined in: [types/mcp.ts:1636](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1636)
+Defined in: [types/mcp.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1655)
 
 Authentication token
 
@@ -48,7 +48,7 @@ Authentication token
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/mcp.ts:1641](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1641)
+Defined in: [types/mcp.ts:1660](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1660)
 
 Request timeout in milliseconds
 
@@ -58,7 +58,7 @@ Request timeout in milliseconds
 
 > `optional` **enableCache?**: `boolean`
 
-Defined in: [types/mcp.ts:1646](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1646)
+Defined in: [types/mcp.ts:1665](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1665)
 
 Enable caching
 
@@ -68,6 +68,6 @@ Enable caching
 
 > `optional` **cacheTTL?**: `number`
 
-Defined in: [types/mcp.ts:1651](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1651)
+Defined in: [types/mcp.ts:1670](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1670)
 
 Cache TTL in milliseconds

@@ -1391,6 +1391,7 @@ console.log(result.content);
 - [AgenticLoopResult](type-aliases/AgenticLoopResult.md)
 - [MCPTransportType](type-aliases/MCPTransportType.md)
 - [MCPServerConnectionStatus](type-aliases/MCPServerConnectionStatus.md)
+- [MCPServerReadiness](type-aliases/MCPServerReadiness.md)
 - [MCPServerCategory](type-aliases/MCPServerCategory.md)
 - [MCPServerDomainCategory](type-aliases/MCPServerDomainCategory.md)
 - [MCPServerInfo](type-aliases/MCPServerInfo.md)

@@ -8,7 +8,7 @@
 
 > **ToolDiscoveryResult** = `object`
 
-Defined in: [types/mcp.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L555)
+Defined in: [types/mcp.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L574)
 
 Tool discovery result
 Moved from src/lib/mcp/toolDiscoveryService.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/toolDiscoveryService.ts
 
 > **success**: `boolean`
 
-Defined in: [types/mcp.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L557)
+Defined in: [types/mcp.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L576)
 
 Whether discovery was successful
 
@@ -29,7 +29,7 @@ Whether discovery was successful
 
 > **toolCount**: `number`
 
-Defined in: [types/mcp.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L560)
+Defined in: [types/mcp.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L579)
 
 Number of tools discovered
 
@@ -39,7 +39,7 @@ Number of tools discovered
 
 > **tools**: [`ExternalMCPToolInfo`](ExternalMCPToolInfo.md)[]
 
-Defined in: [types/mcp.ts:563](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L563)
+Defined in: [types/mcp.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L582)
 
 Discovered tools
 
@@ -49,7 +49,7 @@ Discovered tools
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L566)
+Defined in: [types/mcp.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L585)
 
 Error message if failed
 
@@ -59,7 +59,7 @@ Error message if failed
 
 > **duration**: `number`
 
-Defined in: [types/mcp.ts:569](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L569)
+Defined in: [types/mcp.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L588)
 
 Discovery duration in milliseconds
 
@@ -69,6 +69,6 @@ Discovery duration in milliseconds
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L572)
+Defined in: [types/mcp.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L591)
 
 Server ID

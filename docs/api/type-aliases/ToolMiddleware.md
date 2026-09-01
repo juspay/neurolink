@@ -8,7 +8,7 @@
 
 > **ToolMiddleware** = (`tool`, `params`, `context`, `next`) => `Promise`\<[`ToolResult`](ToolResult.md) \| `unknown`\>
 
-Defined in: [types/mcp.ts:2267](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2267)
+Defined in: [types/mcp.ts:2286](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2286)
 
 Tool execution middleware
 

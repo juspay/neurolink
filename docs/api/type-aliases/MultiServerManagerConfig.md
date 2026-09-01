@@ -8,7 +8,7 @@
 
 > **MultiServerManagerConfig** = `object`
 
-Defined in: [types/mcp.ts:1855](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1855)
+Defined in: [types/mcp.ts:1874](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1874)
 
 Multi-server manager configuration
 
@@ -18,7 +18,7 @@ Multi-server manager configuration
 
 > `optional` **defaultStrategy?**: [`LoadBalancingStrategy`](LoadBalancingStrategy.md)
 
-Defined in: [types/mcp.ts:1859](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1859)
+Defined in: [types/mcp.ts:1878](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1878)
 
 Default load balancing strategy
 
@@ -28,7 +28,7 @@ Default load balancing strategy
 
 > `optional` **healthAwareRouting?**: `boolean`
 
-Defined in: [types/mcp.ts:1864](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1864)
+Defined in: [types/mcp.ts:1883](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1883)
 
 Enable health-aware routing by default
 
@@ -38,7 +38,7 @@ Enable health-aware routing by default
 
 > `optional` **healthCheckInterval?**: `number`
 
-Defined in: [types/mcp.ts:1869](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1869)
+Defined in: [types/mcp.ts:1888](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1888)
 
 Health check interval in milliseconds
 
@@ -48,7 +48,7 @@ Health check interval in milliseconds
 
 > `optional` **maxFailoverRetries?**: `number`
 
-Defined in: [types/mcp.ts:1874](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1874)
+Defined in: [types/mcp.ts:1893](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1893)
 
 Maximum retries on failover
 
@@ -58,7 +58,7 @@ Maximum retries on failover
 
 > `optional` **namespaceSeparator?**: `string`
 
-Defined in: [types/mcp.ts:1879](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1879)
+Defined in: [types/mcp.ts:1898](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1898)
 
 Tool namespace separator
 
@@ -68,7 +68,7 @@ Tool namespace separator
 
 > `optional` **autoNamespace?**: `boolean`
 
-Defined in: [types/mcp.ts:1884](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1884)
+Defined in: [types/mcp.ts:1903](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1903)
 
 Enable automatic tool namespace prefixing
 
@@ -78,7 +78,7 @@ Enable automatic tool namespace prefixing
 
 > `optional` **conflictResolution?**: `"first-wins"` \| `"last-wins"` \| `"namespace"` \| `"explicit"`
 
-Defined in: [types/mcp.ts:1891](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1891)
+Defined in: [types/mcp.ts:1910](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1910)
 
 Conflict resolution strategy.
 Reserved for future conflict resolution strategy — currently stored but not

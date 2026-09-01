@@ -8,7 +8,7 @@
 
 > **NeuroLinkTool** = `object`
 
-Defined in: [types/mcp.ts:2110](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2110)
+Defined in: [types/mcp.ts:2129](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2129)
 
 NeuroLink internal tool format
 
@@ -18,7 +18,7 @@ NeuroLink internal tool format
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:2114](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2114)
+Defined in: [types/mcp.ts:2133](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2133)
 
 Tool name
 
@@ -28,7 +28,7 @@ Tool name
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:2119](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2119)
+Defined in: [types/mcp.ts:2138](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2138)
 
 Tool description
 
@@ -38,7 +38,7 @@ Tool description
 
 > `optional` **parameters?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:2124](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2124)
+Defined in: [types/mcp.ts:2143](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2143)
 
 Input parameters schema
 
@@ -48,7 +48,7 @@ Input parameters schema
 
 > **execute**: (`params`, `context?`) => `Promise`\<[`ToolResult`](ToolResult.md) \| `unknown`\>
 
-Defined in: [types/mcp.ts:2129](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2129)
+Defined in: [types/mcp.ts:2148](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2148)
 
 Tool execution function
 
@@ -72,7 +72,7 @@ Tool execution function
 
 > `optional` **category?**: `string`
 
-Defined in: [types/mcp.ts:2137](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2137)
+Defined in: [types/mcp.ts:2156](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2156)
 
 Category for organization
 
@@ -82,7 +82,7 @@ Category for organization
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/mcp.ts:2142](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2142)
+Defined in: [types/mcp.ts:2161](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2161)
 
 Tags for filtering
 
@@ -92,7 +92,7 @@ Tags for filtering
 
 > `optional` **isAsync?**: `boolean`
 
-Defined in: [types/mcp.ts:2147](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2147)
+Defined in: [types/mcp.ts:2166](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2166)
 
 Whether the tool is async
 
@@ -102,6 +102,6 @@ Whether the tool is async
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/mcp.ts:2152](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2152)
+Defined in: [types/mcp.ts:2171](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2171)
 
 Custom metadata
