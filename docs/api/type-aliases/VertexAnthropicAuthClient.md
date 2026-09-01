@@ -8,7 +8,7 @@
 
 > **VertexAnthropicAuthClient** = `object`
 
-Defined in: [types/providers.ts:1259](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1259)
+Defined in: [types/providers.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1284)
 
 The two members `@anthropic-ai/vertex-sdk` actually uses off an auth client.
 
@@ -23,7 +23,7 @@ instead of standing up Application Default Credentials.
 
 > **getRequestHeaders**: () => `Promise`\<`Record`\<`string`, `string`\>\>
 
-Defined in: [types/providers.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1260)
+Defined in: [types/providers.ts:1285](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1285)
 
 #### Returns
 
@@ -35,4 +35,4 @@ Defined in: [types/providers.ts:1260](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **projectId?**: `string` \| `null`
 
-Defined in: [types/providers.ts:1261](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1261)
+Defined in: [types/providers.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1286)

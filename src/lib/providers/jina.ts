@@ -4,6 +4,7 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { isNeuroLink } from "../neurolink.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
+  EmbedInput,
   JinaEmbeddingsResponse,
   JinaRerankResponse,
   NeurolinkCredentials,
@@ -140,7 +141,18 @@ export class JinaProvider extends BaseProvider {
     return new ProviderError(`Jina AI error: ${message}`, "jina");
   }
 
-  override async embed(text: string, modelName?: string): Promise<number[]> {
+  override async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const vectors = await this.callEmbeddings([text], modelName);
     if (!vectors[0]) {
       throw new Error("Jina AI returned no embedding for the provided text");

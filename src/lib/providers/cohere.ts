@@ -7,6 +7,7 @@ import {
   RateLimitError,
 } from "../types/index.js";
 import type {
+  EmbedInput,
   NeurolinkCredentials,
   ProviderErrorRule,
 } from "../types/index.js";
@@ -163,7 +164,18 @@ export class CohereProvider extends OpenAIChatCompletionsProvider {
    * lives on the native API (POST /v2/embed). Documented at
    * https://docs.cohere.com/reference/embed.
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const vectors = await this.embedMany([text], modelName);
     if (!vectors[0]) {
       throw new ProviderError(

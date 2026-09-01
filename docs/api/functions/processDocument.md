@@ -8,7 +8,7 @@
 
 > **processDocument**(`text`, `options?`): `Promise`\<[`Chunk`](../type-aliases/Chunk.md)[]\>
 
-Defined in: [rag/index.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/rag/index.ts#L177)
+Defined in: [rag/index.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/rag/index.ts#L179)
 
 Process a document through the full RAG pipeline
 

@@ -8,7 +8,7 @@
 
 > **ContextWindow** = `object`
 
-Defined in: [types/rag.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L68)
+Defined in: [types/rag.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L69)
 
 Context window representation
 
@@ -18,7 +18,7 @@ Context window representation
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L70)
+Defined in: [types/rag.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L71)
 
 Assembled context text
 
@@ -28,7 +28,7 @@ Assembled context text
 
 > **chunkCount**: `number`
 
-Defined in: [types/rag.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L72)
+Defined in: [types/rag.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L73)
 
 Number of chunks included
 
@@ -38,7 +38,7 @@ Number of chunks included
 
 > **charCount**: `number`
 
-Defined in: [types/rag.ts:74](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L74)
+Defined in: [types/rag.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L75)
 
 Total character count
 
@@ -48,7 +48,7 @@ Total character count
 
 > **tokenCount**: `number`
 
-Defined in: [types/rag.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L76)
+Defined in: [types/rag.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L77)
 
 Estimated token count
 
@@ -58,7 +58,7 @@ Estimated token count
 
 > **truncatedChunks**: `number`
 
-Defined in: [types/rag.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L78)
+Defined in: [types/rag.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L79)
 
 Chunks that were truncated/excluded
 
@@ -68,6 +68,6 @@ Chunks that were truncated/excluded
 
 > **citations**: `Map`\<`string`, `string`\>
 
-Defined in: [types/rag.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L80)
+Defined in: [types/rag.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L81)
 
 Citation map (id -> citation text)

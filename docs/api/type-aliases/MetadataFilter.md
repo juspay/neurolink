@@ -8,7 +8,7 @@
 
 > **MetadataFilter** = `object`
 
-Defined in: [types/rag.ts:1163](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1163)
+Defined in: [types/rag.ts:1182](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1182)
 
 Metadata filter using MongoDB/Sift query syntax
 
@@ -22,7 +22,7 @@ Metadata filter using MongoDB/Sift query syntax
 
 > `optional` **$eq?**: `unknown`
 
-Defined in: [types/rag.ts:1165](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1165)
+Defined in: [types/rag.ts:1184](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1184)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/rag.ts:1165](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$ne?**: `unknown`
 
-Defined in: [types/rag.ts:1166](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1166)
+Defined in: [types/rag.ts:1185](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1185)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/rag.ts:1166](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$gt?**: `number`
 
-Defined in: [types/rag.ts:1167](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1167)
+Defined in: [types/rag.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1186)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/rag.ts:1167](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$gte?**: `number`
 
-Defined in: [types/rag.ts:1168](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1168)
+Defined in: [types/rag.ts:1187](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1187)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/rag.ts:1168](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$lt?**: `number`
 
-Defined in: [types/rag.ts:1169](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1169)
+Defined in: [types/rag.ts:1188](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1188)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/rag.ts:1169](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$lte?**: `number`
 
-Defined in: [types/rag.ts:1170](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1170)
+Defined in: [types/rag.ts:1189](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1189)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/rag.ts:1170](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$in?**: `unknown`[]
 
-Defined in: [types/rag.ts:1171](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1171)
+Defined in: [types/rag.ts:1190](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1190)
 
 ---
 
@@ -78,7 +78,7 @@ Defined in: [types/rag.ts:1171](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$nin?**: `unknown`[]
 
-Defined in: [types/rag.ts:1172](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1172)
+Defined in: [types/rag.ts:1191](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1191)
 
 ---
 
@@ -86,7 +86,7 @@ Defined in: [types/rag.ts:1172](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$and?**: `MetadataFilter`[]
 
-Defined in: [types/rag.ts:1175](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1175)
+Defined in: [types/rag.ts:1194](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1194)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [types/rag.ts:1175](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$or?**: `MetadataFilter`[]
 
-Defined in: [types/rag.ts:1176](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1176)
+Defined in: [types/rag.ts:1195](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1195)
 
 ---
 
@@ -102,7 +102,7 @@ Defined in: [types/rag.ts:1176](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$not?**: `MetadataFilter`
 
-Defined in: [types/rag.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1177)
+Defined in: [types/rag.ts:1196](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1196)
 
 ---
 
@@ -110,7 +110,7 @@ Defined in: [types/rag.ts:1177](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$nor?**: `MetadataFilter`[]
 
-Defined in: [types/rag.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1178)
+Defined in: [types/rag.ts:1197](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1197)
 
 ---
 
@@ -118,7 +118,7 @@ Defined in: [types/rag.ts:1178](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$exists?**: `boolean`
 
-Defined in: [types/rag.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1181)
+Defined in: [types/rag.ts:1200](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1200)
 
 ---
 
@@ -126,7 +126,7 @@ Defined in: [types/rag.ts:1181](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$contains?**: `string`
 
-Defined in: [types/rag.ts:1182](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1182)
+Defined in: [types/rag.ts:1201](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1201)
 
 ---
 
@@ -134,7 +134,7 @@ Defined in: [types/rag.ts:1182](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$regex?**: `string`
 
-Defined in: [types/rag.ts:1183](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1183)
+Defined in: [types/rag.ts:1202](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1202)
 
 ---
 
@@ -142,4 +142,4 @@ Defined in: [types/rag.ts:1183](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **$size?**: `number`
 
-Defined in: [types/rag.ts:1184](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1184)
+Defined in: [types/rag.ts:1203](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1203)

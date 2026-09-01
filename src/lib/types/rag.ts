@@ -1,4 +1,5 @@
 import type { Tool } from "./tools.js";
+import type { EmbedInput } from "./providers.js";
 
 /**
  * RAG Type Definitions
@@ -277,6 +278,8 @@ export type RAGPipelineConfig = {
   enableReranking?: boolean;
   /** Reranking model configuration */
   rerankingModel?: EmbeddingModelConfig;
+  /** Multi-modal RAG configuration (image + text embeddings) */
+  multiModal?: MultiModalRAGConfig;
 };
 
 /**
@@ -493,6 +496,22 @@ export type VectorStore = {
     filter?: MetadataFilter;
     includeVectors?: boolean;
   }): Promise<VectorQueryResult[]>;
+};
+
+/**
+ * Structural extension of {@link VectorStore} for stores that can also write
+ * vectors via `upsert()` (e.g. {@link InMemoryVectorStore}). Custom stores
+ * that expose an `upsert` method satisfy this type without a cast.
+ */
+export type UpsertableVectorStore = VectorStore & {
+  upsert(
+    indexName: string,
+    items: Array<{
+      id: string;
+      vector: number[];
+      metadata?: Record<string, unknown>;
+    }>,
+  ): Promise<void>;
 };
 
 // ============================================================================
@@ -1604,3 +1623,163 @@ export type RAGErrorCode =
   | "RAG_OPERATION_TIMEOUT"
   | "RAG_RETRY_EXHAUSTED"
   | "RAG_INVALID_CONFIGURATION";
+
+// ============================================================================
+// Multi-Modal RAG Types
+// ============================================================================
+
+/**
+ * Modality of an embedding model
+ */
+export type EmbeddingModality = "text" | "image" | "multimodal";
+
+/**
+ * Multi-modal embedding model configuration
+ */
+export type MultiModalEmbeddingConfig = {
+  /** Provider name (e.g. "bedrock") */
+  provider: string;
+  /** Model name (e.g. "amazon.titan-embed-image-v1") */
+  modelName: string;
+  /** What modalities this model supports */
+  modality: EmbeddingModality;
+  /** Embedding dimension (e.g. 1024 for Titan Image) */
+  dimensions?: number;
+};
+
+/**
+ * Image metadata attached to multi-modal chunks
+ */
+export type ImageChunkMetadata = {
+  /** Image width in pixels */
+  width?: number;
+  /** Image height in pixels */
+  height?: number;
+  /** Image MIME type */
+  mimeType?: string;
+  /** Image format (jpeg, png, webp, etc.) */
+  format?: string;
+  /** Original file path or URL */
+  source?: string;
+  /** Whether this chunk contains image data */
+  hasImage: boolean;
+};
+
+/**
+ * Extended chunk type for multi-modal RAG.
+ * Contains optional image data alongside text for image+text search.
+ */
+export type MultiModalChunk = Chunk & {
+  /** Image data as Buffer or base64 string (present for image chunks) */
+  image?: Buffer | string;
+  /** Image MIME type */
+  imageMimeType?: string;
+  /** Image-specific metadata */
+  imageMeta?: ImageChunkMetadata;
+};
+
+/**
+ * Multi-modal query input — can be text, image, or both.
+ * Same shape as EmbedInput.
+ */
+export type MultiModalQuery = EmbedInput;
+
+/**
+ * Multi-modal RAG pipeline configuration extension.
+ * Passed alongside RAGPipelineConfig to enable multi-modal features.
+ */
+export type MultiModalRAGConfig = {
+  /** Whether multi-modal RAG is enabled */
+  enabled: boolean;
+  /** Embedding model for multi-modal content */
+  embeddingModel: MultiModalEmbeddingConfig;
+  /** How to generate text from images for indexing: "caption" uses LLM vision, "filename" uses filename, "none" skips text */
+  imageTextStrategy?: "caption" | "filename" | "none";
+  /** Maximum image file size in bytes (default: 10MB) */
+  maxImageSize?: number;
+  /** Supported image MIME types */
+  supportedFormats?: string[];
+  /** Provider for generating image captions (used with imageTextStrategy: "caption") */
+  captionProvider?: string;
+  /** Model for generating image captions */
+  captionModel?: string;
+};
+
+/**
+ * Match type indicating how the result was found
+ */
+export type MultiModalMatchType =
+  | "text-to-text"
+  | "text-to-image"
+  | "image-to-image"
+  | "image-to-text";
+
+/**
+ * Image search result from multi-modal retrieval
+ */
+export type MultiModalSearchResult = {
+  /** The chunk containing the match */
+  chunk: MultiModalChunk;
+  /** Similarity score (0-1) */
+  score: number;
+  /** How this match was found */
+  matchType: MultiModalMatchType;
+};
+
+/**
+ * Supported image MIME types for multi-modal RAG
+ */
+export const SUPPORTED_IMAGE_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+  "image/tiff",
+  "image/avif",
+] as const;
+
+// ============================================================================
+// Image Loader Types
+// ============================================================================
+
+/**
+ * Image document loaded for RAG ingestion
+ */
+export type ImageDocument = {
+  /** Unique identifier for this image document */
+  id: string;
+  /** Text representation (filename, alt text, or caption) */
+  text: string;
+  /** Raw image data */
+  image: Buffer;
+  /** Image MIME type */
+  mimeType: string;
+  /** Metadata about the image */
+  metadata: {
+    /** Original file path or URL */
+    source: string;
+    /** Image width in pixels (if detectable) */
+    width?: number;
+    /** Image height in pixels (if detectable) */
+    height?: number;
+    /** Image format (jpeg, png, webp, etc.) */
+    format?: string;
+    /** File size in bytes */
+    size: number;
+  };
+};
+
+/**
+ * Options for loading images
+ */
+export type ImageLoaderOptions = {
+  /** Custom metadata to attach to the image document */
+  metadata?: Record<string, unknown>;
+  /** Maximum image file size in bytes (default: 10MB) */
+  maxImageSize?: number;
+  /** Timeout for URL fetches in milliseconds (default: 30000) */
+  fetchTimeout?: number;
+  /** Custom headers for URL fetches */
+  headers?: Record<string, string>;
+};

@@ -24,6 +24,7 @@ import {
 } from "../../telemetry/index.js";
 import type {
   AnalyticsData,
+  EmbedInput,
   UnknownRecord,
   ZodUnknownSchema,
   EnhancedGenerateResult,
@@ -2139,11 +2140,22 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
   /**
    * Generate embeddings for text using Google AI Studio embedding models
-   * @param text - The text to embed
+   * @param input - The text to embed (string or EmbedInput)
    * @param modelName - The embedding model to use (default: gemini-embedding-001)
    * @returns Promise resolving to the embedding vector
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const embeddingModelName =
       modelName || this.getDefaultEmbeddingModel() || "gemini-embedding-001";
 

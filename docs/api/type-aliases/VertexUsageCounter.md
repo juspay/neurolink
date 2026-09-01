@@ -8,7 +8,7 @@
 
 > **VertexUsageCounter** = `"input"` \| `"output"` \| `"cacheRead"` \| `"reasoning"`
 
-Defined in: [types/providers.ts:2068](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2068)
+Defined in: [types/providers.ts:2093](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2093)
 
 Which turn-level counter a per-chunk Vertex usage delta belongs to.
 

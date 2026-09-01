@@ -8,7 +8,7 @@
 
 > **ProviderRegistration** = `object`
 
-Defined in: [types/providers.ts:2152](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2152)
+Defined in: [types/providers.ts:2177](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2177)
 
 Provider registration entry held by ProviderFactory.
 
@@ -18,7 +18,7 @@ Provider registration entry held by ProviderFactory.
 
 > **constructor**: [`ProviderConstructor`](ProviderConstructor.md)
 
-Defined in: [types/providers.ts:2153](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2153)
+Defined in: [types/providers.ts:2178](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2178)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2153](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **defaultModel?**: `string`
 
-Defined in: [types/providers.ts:2154](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2154)
+Defined in: [types/providers.ts:2179](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2179)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2154](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/providers.ts:2155](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2155)
+Defined in: [types/providers.ts:2180](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2180)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/providers.ts:2155](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **descriptor?**: [`ProviderDescriptor`](ProviderDescriptor.md)
 
-Defined in: [types/providers.ts:2156](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2156)
+Defined in: [types/providers.ts:2181](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2181)

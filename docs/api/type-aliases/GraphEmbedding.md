@@ -8,7 +8,7 @@
 
 > **GraphEmbedding** = `object`
 
-Defined in: [types/rag.ts:1383](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1383)
+Defined in: [types/rag.ts:1402](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1402)
 
 Embedding input for graph creation
 
@@ -18,6 +18,6 @@ Embedding input for graph creation
 
 > **vector**: `number`[]
 
-Defined in: [types/rag.ts:1385](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1385)
+Defined in: [types/rag.ts:1404](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1404)
 
 Embedding vector

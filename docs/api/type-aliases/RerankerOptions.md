@@ -8,7 +8,7 @@
 
 > **RerankerOptions** = `object`
 
-Defined in: [types/rag.ts:1447](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1447)
+Defined in: [types/rag.ts:1466](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1466)
 
 Reranker options
 
@@ -18,7 +18,7 @@ Reranker options
 
 > `optional` **queryEmbedding?**: `number`[]
 
-Defined in: [types/rag.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1449)
+Defined in: [types/rag.ts:1468](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1468)
 
 Pre-computed query embedding
 
@@ -28,7 +28,7 @@ Pre-computed query embedding
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:1451](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1451)
+Defined in: [types/rag.ts:1470](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1470)
 
 Number of results to return after reranking
 
@@ -38,7 +38,7 @@ Number of results to return after reranking
 
 > `optional` **weights?**: `object`
 
-Defined in: [types/rag.ts:1453](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1453)
+Defined in: [types/rag.ts:1472](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1472)
 
 Scoring weights (must sum to 1.0)
 

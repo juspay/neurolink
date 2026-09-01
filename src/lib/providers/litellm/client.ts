@@ -6,6 +6,7 @@ import {
 } from "../../constants/contextWindows.js";
 import { createProxyFetch } from "../../proxy/proxyFetch.js";
 import type {
+  EmbedInput,
   OpenAICompatBuildBodyArgs,
   OpenAICompatStreamLifecycleListeners,
   ProviderErrorRule,
@@ -598,7 +599,18 @@ export class LiteLLMProvider extends OpenAIChatCompletionsProvider {
   /**
    * Generate an embedding for a single text input via native /v1/embeddings.
    */
-  async embed(text: string, modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    modelName?: string,
+  ): Promise<number[]> {
+    if (typeof input !== "string" && input.image) {
+      throw new ProviderError(
+        `${this.providerName} does not support image embeddings; provide text input`,
+        this.providerName,
+      );
+    }
+
+    const text = typeof input === "string" ? input : (input.text ?? "");
     const embeddingModelName =
       modelName ||
       process.env.LITELLM_EMBEDDING_MODEL ||

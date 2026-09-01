@@ -31,6 +31,7 @@ import type {
   Chunk,
   VectorQueryResult,
   VectorStore,
+  UpsertableVectorStore,
   BM25Index,
   AIProvider,
   RAGPipelineConfig,
@@ -38,6 +39,12 @@ import type {
   QueryOptions,
   RAGResponse,
   PipelineStats,
+  MultiModalRAGConfig,
+  MultiModalChunk,
+  MultiModalQuery,
+  MultiModalSearchResult,
+  MultiModalMatchType,
+  EmbedInput,
 } from "../../types/index.js";
 import { MDocument } from "../document/MDocument.js";
 import { loadDocument } from "../document/loaders.js";
@@ -50,6 +57,9 @@ import {
 import { GraphRAG } from "../graphRag/graphRAG.js";
 import { rerank } from "../reranker/reranker.js";
 import { ProviderFactory } from "../../factories/providerFactory.js";
+import { ImageLoader } from "../document/imageLoader.js";
+import { ImageProcessor } from "../../utils/imageProcessor.js";
+import { redactUrlForError } from "../../utils/logSanitize.js";
 
 import {
   SpanSerializer,
@@ -59,6 +69,7 @@ import {
 } from "../../observability/index.js";
 import { logger } from "../../utils/logger.js";
 import { withTimeout } from "../../utils/async/withTimeout.js";
+import { ErrorFactory } from "../../utils/errorHandling.js";
 /**
  * RAG Pipeline Orchestrator
  *
@@ -67,6 +78,15 @@ import { withTimeout } from "../../utils/async/withTimeout.js";
 /** Default timeout for external provider calls (30 seconds) */
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+/**
+ * Runtime-validating guard for {@link UpsertableVectorStore}.
+ */
+function isUpsertableVectorStore(
+  store: VectorStore,
+): store is UpsertableVectorStore {
+  return "upsert" in store;
+}
+
 export class RAGPipeline {
   private id: string;
   private config: RAGPipelineConfig;
@@ -74,10 +94,21 @@ export class RAGPipeline {
   private bm25Index: BM25Index;
   private graphRAG: GraphRAG;
   private embeddingProvider?: AIProvider;
+  private multiModalEmbeddingProvider?: AIProvider;
   private generationProvider?: AIProvider;
+  /**
+   * Vision provider for image captioning, when `multiModal.captionProvider` /
+   * `captionModel` name one. Undefined means captioning uses
+   * {@link generationProvider} — captioning has always run on that provider,
+   * and these two fields were declared but read nowhere, so a caller who set
+   * them got the pipeline's generation model with no indication otherwise.
+   */
+  private captionProvider?: AIProvider;
   private hybridSearch?: ReturnType<typeof createHybridSearch>;
   private documents: Map<string, MDocument> = new Map();
   private allChunks: Chunk[] = [];
+  private multiModalConfig?: MultiModalRAGConfig;
+  private imageLoader: ImageLoader;
 
   constructor(config: RAGPipelineConfig) {
     this.id = config.id || `rag-pipeline-${randomUUID().slice(0, 8)}`;
@@ -94,8 +125,22 @@ export class RAGPipeline {
       ...config,
     };
 
+    this.multiModalConfig = config.multiModal;
+    this.imageLoader = new ImageLoader({
+      maxImageSize: config.multiModal?.maxImageSize,
+    });
+
     // Initialize stores
     this.vectorStore = config.vectorStore || new InMemoryVectorStore();
+    if (
+      config.multiModal?.enabled &&
+      !isUpsertableVectorStore(this.vectorStore)
+    ) {
+      throw ErrorFactory.invalidConfiguration(
+        "vectorStore",
+        "multi-modal RAG requires a vector store that supports upsert()",
+      );
+    }
     this.bm25Index = config.bm25Index || new InMemoryBM25Index();
     this.graphRAG = new GraphRAG({ threshold: this.config.graphThreshold });
 
@@ -103,6 +148,7 @@ export class RAGPipeline {
       id: this.id,
       indexName: this.config.indexName,
       embeddingModel: this.config.embeddingModel,
+      multiModalEnabled: config.multiModal?.enabled ?? false,
     });
   }
 
@@ -121,6 +167,19 @@ export class RAGPipeline {
       this.generationProvider = await ProviderFactory.createProvider(
         this.config.generationModel.provider,
         this.config.generationModel.modelName,
+      );
+    }
+
+    // A caption model only makes sense alongside the caption strategy, but it
+    // is built whenever named rather than gated on the strategy: the strategy
+    // is read per-ingest and can differ from the one set at construction.
+    const captionModelName = this.multiModalConfig?.captionModel;
+    if (captionModelName) {
+      this.captionProvider = await ProviderFactory.createProvider(
+        this.multiModalConfig?.captionProvider ??
+          this.config.generationModel?.provider ??
+          this.config.embeddingModel.provider,
+        captionModelName,
       );
     }
 
@@ -203,8 +262,8 @@ export class RAGPipeline {
         }); // Warm up
 
         // Upsert into vector store
-        if ("upsert" in this.vectorStore) {
-          await (this.vectorStore as InMemoryVectorStore).upsert(
+        if (isUpsertableVectorStore(this.vectorStore)) {
+          await this.vectorStore.upsert(
             this.config.indexName ?? "default",
             chunks.map((chunk, i) => ({
               id: chunk.id,
@@ -450,8 +509,429 @@ export class RAGPipeline {
   }
 
   // ============================================================================
+  // Multi-Modal Methods
+  // ============================================================================
+
+  /**
+   * Ingest images into the pipeline for multi-modal RAG.
+   * Loads images, generates embeddings via the configured multi-modal provider,
+   * and stores them alongside text chunks in the vector store.
+   *
+   * @param sources - Array of image file paths, URLs, or Buffer objects
+   * @param options - Ingestion options
+   */
+  async ingestImages(
+    sources: Array<string | Buffer>,
+    options?: IngestOptions,
+  ): Promise<{ imagesProcessed: number; chunksCreated: number }> {
+    if (!this.multiModalConfig?.enabled) {
+      throw ErrorFactory.invalidConfiguration(
+        "multiModal",
+        "multi-modal RAG is not enabled; pass a multiModal config with enabled: true",
+      );
+    }
+
+    await this.ensureInitialized();
+
+    let imagesProcessed = 0;
+    let chunksCreated = 0;
+
+    for (const source of sources) {
+      try {
+        // Load the image
+        let imageDoc;
+        if (Buffer.isBuffer(source)) {
+          const detectedMimeType = ImageProcessor.detectImageType(source);
+          if (detectedMimeType === "application/octet-stream") {
+            throw new Error(
+              "Could not detect image type from buffer contents; unsupported image data",
+            );
+          }
+          imageDoc = this.imageLoader.loadFromBuffer(
+            source,
+            detectedMimeType,
+            `inline-${imagesProcessed}`,
+          );
+        } else {
+          imageDoc = await this.imageLoader.load(source);
+        }
+
+        const { supportedFormats } = this.multiModalConfig;
+        if (supportedFormats && !supportedFormats.includes(imageDoc.mimeType)) {
+          throw ErrorFactory.invalidParameters(
+            "ingestImages",
+            new Error(`unsupported image MIME type: ${imageDoc.mimeType}`),
+            { mimeType: imageDoc.mimeType, supportedFormats },
+          );
+        }
+
+        // Generate text representation for the image
+        let imageText = imageDoc.text;
+        if (
+          this.multiModalConfig.imageTextStrategy === "caption" &&
+          (this.captionProvider || this.generationProvider)
+        ) {
+          imageText = await this.generateImageCaption(
+            imageDoc.image,
+            imageDoc.mimeType,
+          );
+        } else if (this.multiModalConfig.imageTextStrategy === "filename") {
+          imageText = redactUrlForError(imageDoc.metadata.source);
+        } else if (this.multiModalConfig.imageTextStrategy === "none") {
+          imageText = "";
+        }
+
+        // Generate embedding using the configured multi-modal provider
+        const embedding = await this.generateMultiModalEmbedding({
+          text: imageText,
+          image: imageDoc.image,
+          mimeType: imageDoc.mimeType,
+        });
+
+        // `IngestOptions.metadata` is a loose record, so a caller's `custom`
+        // arrives as `unknown`. Narrowed rather than asserted: a caller that
+        // puts a string there should not silently produce a metadata object
+        // with `hasImage` spread across its characters.
+        const callerCustom = options?.metadata?.custom;
+        const inheritedCustom =
+          typeof callerCustom === "object" && callerCustom !== null
+            ? callerCustom
+            : {};
+
+        // Create a chunk from the image document
+        const chunk: MultiModalChunk = {
+          id: `img-chunk-${randomUUID().slice(0, 8)}`,
+          text: imageText,
+          metadata: {
+            // Caller metadata first, pipeline-owned fields after. Spread last,
+            // a caller passing `custom` replaced the whole object and removed
+            // `hasImage` — the one key the retrieval path checks.
+            ...options?.metadata,
+            documentId: `img-${randomUUID().slice(0, 8)}`,
+            chunkIndex: 0,
+            startPosition: 0,
+            endPosition: imageDoc.image.byteLength,
+            source: imageDoc.metadata.source,
+            custom: { ...inheritedCustom, hasImage: true },
+          },
+          embedding,
+          image: imageDoc.image,
+          imageMimeType: imageDoc.mimeType,
+          imageMeta: {
+            width: imageDoc.metadata.width,
+            height: imageDoc.metadata.height,
+            format: imageDoc.metadata.format,
+            source: imageDoc.metadata.source,
+            hasImage: true,
+          },
+        };
+
+        // Store in vector store
+        if (isUpsertableVectorStore(this.vectorStore)) {
+          await this.vectorStore.upsert(this.config.indexName ?? "default", [
+            {
+              id: chunk.id,
+              vector: embedding,
+              // Derived from chunk.metadata, as the text path does, rather
+              // than hand-listed. Hand-listing is what caused the two paths to
+              // diverge: caller metadata never reached the image records, so a
+              // filtered query silently returned no images while the identical
+              // call worked for text.
+              metadata: {
+                ...chunk.metadata,
+                text: imageText,
+                source: imageDoc.metadata.source,
+                hasImage: true,
+                mimeType: imageDoc.mimeType,
+              },
+            },
+          ]);
+        }
+
+        // Add to BM25 index with text description. An empty text
+        // representation ("none" strategy) is not indexable and would skew
+        // the average document length used by BM25 scoring.
+        if (imageText.length > 0) {
+          await this.bm25Index.addDocuments([
+            {
+              id: chunk.id,
+              text: imageText,
+              metadata: chunk.metadata,
+            },
+          ]);
+        }
+
+        // Retained without the decoded image. `allChunks` is only emptied by
+        // clear(), so keeping the buffer means the heap grows by the full size
+        // of every image ever ingested, for the life of the process —
+        // `maxImageSize` bounds one image, nothing bounds the sum. Nothing
+        // reads it back: createGraph uses text/metadata/embedding, and
+        // getMultiModalStats filters on imageMeta.hasImage.
+        const { image: _retainedImage, ...chunkWithoutImage } = chunk;
+        this.allChunks.push(chunkWithoutImage);
+        imagesProcessed++;
+        chunksCreated++;
+
+        logger.debug("[RAGPipeline] Image ingested", {
+          source: redactUrlForError(imageDoc.metadata.source),
+          textLength: imageText.length,
+          embeddingDimension: embedding.length,
+        });
+      } catch (error) {
+        logger.error("[RAGPipeline] Failed to ingest image", {
+          source:
+            typeof source === "string" ? redactUrlForError(source) : "buffer",
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    logger.info("[RAGPipeline] Image ingestion complete", {
+      imagesProcessed,
+      chunksCreated,
+    });
+
+    return { imagesProcessed, chunksCreated };
+  }
+
+  /**
+   * Query the pipeline with multi-modal input (text, image, or both).
+   *
+   * @param query - Text, image, or combined query
+   * @param options - Query options
+   * @returns Array of multi-modal search results
+   */
+  async queryMultiModal(
+    query: MultiModalQuery,
+    options?: QueryOptions,
+  ): Promise<MultiModalSearchResult[]> {
+    if (!this.multiModalConfig?.enabled) {
+      throw ErrorFactory.invalidConfiguration(
+        "multiModal",
+        "multi-modal RAG is not enabled; pass a multiModal config with enabled: true",
+      );
+    }
+
+    await this.ensureInitialized();
+
+    const topK = options?.topK || this.config.defaultTopK || 5;
+
+    // Generate query embedding
+    const queryEmbedding = await this.generateMultiModalEmbedding(query);
+
+    const queryHasImage = query.image !== undefined;
+
+    // Search vector store
+    const results = await this.vectorStore.query({
+      indexName: this.config.indexName ?? "default",
+      queryVector: queryEmbedding,
+      topK: topK * 2, // get extra for diversity
+      filter: options?.filter,
+    });
+
+    // Map results to multi-modal search results
+    const searchResults: MultiModalSearchResult[] = results.map((r) => {
+      const resultHasImage = (r.metadata?.hasImage as boolean) ?? false;
+
+      // Derive match type from BOTH query and result modality so all four
+      // combinations are emitted (text-query→image-result is "text-to-image",
+      // image-query→text-result is "image-to-text", etc.).
+      const resultMatchType: MultiModalMatchType = resultHasImage
+        ? queryHasImage
+          ? "image-to-image"
+          : "text-to-image"
+        : queryHasImage
+          ? "image-to-text"
+          : "text-to-text";
+
+      return {
+        chunk: {
+          id: r.id,
+          text: r.text || (r.metadata?.text as string) || "",
+          metadata: {
+            documentId: r.id,
+            chunkIndex: 0,
+            startPosition: 0,
+            endPosition: 0,
+            source: (r.metadata?.source as string) || "",
+          },
+          image: undefined, // images not stored in vector store metadata
+          imageMimeType: (r.metadata?.mimeType as string) || undefined,
+          imageMeta: {
+            hasImage: resultHasImage,
+            source: (r.metadata?.source as string) || "",
+          },
+        },
+        score: r.score || 0,
+        matchType: resultMatchType,
+      };
+    });
+
+    // Apply diversity across match types
+    const diversified = this.diversifyMultiModalResults(searchResults, topK);
+
+    logger.info("[RAGPipeline] Multi-modal query completed", {
+      queryType: query.image ? (query.text ? "combined" : "image") : "text",
+      resultsCount: diversified.length,
+      topScore: diversified.at(0)?.score,
+    });
+
+    return diversified;
+  }
+
+  /**
+   * Get multi-modal pipeline statistics
+   */
+  getMultiModalStats(): {
+    totalImages: number;
+    totalTextChunks: number;
+    multiModalEnabled: boolean;
+  } {
+    const imageChunks = this.allChunks.filter(
+      (c) => "imageMeta" in c && (c as MultiModalChunk).imageMeta?.hasImage,
+    );
+    return {
+      totalImages: imageChunks.length,
+      totalTextChunks: this.allChunks.length - imageChunks.length,
+      multiModalEnabled: this.multiModalConfig?.enabled ?? false,
+    };
+  }
+
+  // ============================================================================
   // Private Methods
   // ============================================================================
+
+  /**
+   * Generate a multi-modal embedding for text, image, or both.
+   * Uses the configured multi-modal embedding provider (e.g. Bedrock Titan Image).
+   */
+  private async generateMultiModalEmbedding(
+    input: MultiModalQuery,
+  ): Promise<number[]> {
+    if (!this.multiModalConfig?.embeddingModel) {
+      throw ErrorFactory.missingConfiguration("multiModal.embeddingModel");
+    }
+
+    const { provider, modelName } = this.multiModalConfig.embeddingModel;
+
+    // Build the embed input
+    const embedInput: EmbedInput = {};
+    if (input.text) {
+      embedInput.text = input.text;
+    }
+    if (input.image) {
+      embedInput.image = input.image;
+    }
+    if (input.mimeType) {
+      embedInput.mimeType = input.mimeType;
+    }
+
+    if (embedInput.text === undefined && embedInput.image === undefined) {
+      throw ErrorFactory.invalidParameters(
+        "generateMultiModalEmbedding",
+        new Error("Multi-modal embedding input requires text, image, or both"),
+        {
+          hasText: input.text !== undefined,
+          hasImage: input.image !== undefined,
+        },
+      );
+    }
+
+    // Cache the provider so repeated ingest/query calls don't re-create it
+    if (!this.multiModalEmbeddingProvider) {
+      const providerInstance = await ProviderFactory.createProvider(
+        provider,
+        modelName,
+      );
+      if (typeof providerInstance.embed !== "function") {
+        throw ErrorFactory.invalidConfiguration(
+          "multiModal.embeddingModel.provider",
+          `${provider} does not support embeddings`,
+        );
+      }
+      this.multiModalEmbeddingProvider = providerInstance;
+    }
+
+    return await withTimeout(
+      this.multiModalEmbeddingProvider.embed(embedInput),
+      DEFAULT_TIMEOUT_MS,
+      "Multi-modal embedding generation timed out",
+    );
+  }
+
+  /**
+   * Generate a caption for an image using the generation provider's vision model.
+   */
+  private async generateImageCaption(
+    image: Buffer,
+    mimeType: string,
+  ): Promise<string> {
+    const provider = this.captionProvider ?? this.generationProvider;
+    if (!provider) {
+      return "Image";
+    }
+
+    try {
+      const base64 = image.toString("base64");
+      const dataUri = `data:${mimeType};base64,${base64}`;
+
+      const result = await withTimeout(
+        provider.generate({
+          prompt:
+            "Describe this image in one sentence for use as a search document. Be specific about the content.",
+          systemPrompt:
+            "You are an image captioning assistant. Provide concise, descriptive captions.",
+          input: { text: "", images: [dataUri] },
+          maxTokens: 100,
+        }),
+        DEFAULT_TIMEOUT_MS,
+        "Image captioning timed out",
+      );
+
+      return result?.content || "Image";
+    } catch (error) {
+      logger.warn("[RAGPipeline] Image captioning failed, using fallback", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return "Image";
+    }
+  }
+
+  /**
+   * Diversify multi-modal results to ensure a mix of text and image results.
+   */
+  private diversifyMultiModalResults(
+    results: MultiModalSearchResult[],
+    topK: number,
+  ): MultiModalSearchResult[] {
+    if (results.length <= topK) {
+      return results;
+    }
+
+    const imageResults = results.filter((r) => r.chunk.imageMeta?.hasImage);
+    const textResults = results.filter((r) => !r.chunk.imageMeta?.hasImage);
+
+    const diversified: MultiModalSearchResult[] = [];
+    let imgIdx = 0;
+    let txtIdx = 0;
+
+    // Interleave: alternate between image and text results
+    for (
+      let i = 0;
+      i < topK && (imgIdx < imageResults.length || txtIdx < textResults.length);
+      i++
+    ) {
+      if (i % 2 === 0 && imgIdx < imageResults.length) {
+        diversified.push(imageResults[imgIdx++]);
+      } else if (txtIdx < textResults.length) {
+        diversified.push(textResults[txtIdx++]);
+      } else if (imgIdx < imageResults.length) {
+        diversified.push(imageResults[imgIdx++]);
+      }
+    }
+
+    return diversified;
+  }
 
   /**
    * Ensure pipeline is initialized
@@ -546,6 +1026,7 @@ export function createRAGPipeline(options: {
   generationModel?: string;
   enableHybrid?: boolean;
   enableGraph?: boolean;
+  multiModal?: MultiModalRAGConfig;
 }): RAGPipeline {
   const provider = options.provider || "openai";
 
@@ -562,5 +1043,6 @@ export function createRAGPipeline(options: {
       : undefined,
     enableHybridSearch: options.enableHybrid,
     enableGraphRAG: options.enableGraph,
+    multiModal: options.multiModal,
   });
 }

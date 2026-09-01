@@ -98,6 +98,23 @@ export type SupportedModelName =
  */
 export type ProviderName = (typeof AIProviderName)[keyof typeof AIProviderName];
 
+// ============================================================================
+// MULTI-MODAL EMBEDDING INPUT
+// ============================================================================
+
+/**
+ * Multi-modal embedding input — accepts text, image, or both.
+ * Used by providers that support multi-modal embeddings (e.g. Bedrock Titan Image, Nova Multimodal).
+ */
+export type EmbedInput = {
+  /** Text content to embed */
+  text?: string;
+  /** Image data as Buffer or base64 string */
+  image?: Buffer | string;
+  /** MIME type of the image (e.g. "image/png", "image/jpeg") */
+  mimeType?: string;
+};
+
 /**
  * Provider status information
  */
@@ -848,8 +865,16 @@ export type AIProvider = {
     analysisSchema?: ValidationSchema,
   ): Promise<EnhancedGenerateResult | null>;
 
-  embed(text: string, modelName?: string): Promise<number[]>;
+  /**
+   * Generate an embedding vector for text or multi-modal input.
+   * Accepts either a plain string (text-only) or an EmbedInput object
+   * for multi-modal embeddings (text + image).
+   */
+  embed(input: string | EmbedInput, modelName?: string): Promise<number[]>;
 
+  /**
+   * Generate embedding vectors for multiple text inputs in batch.
+   */
   embedMany(texts: string[], modelName?: string): Promise<number[][]>;
 
   // Tool execution setup - consolidated from NeuroLink SDK

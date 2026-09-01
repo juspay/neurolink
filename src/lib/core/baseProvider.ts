@@ -29,6 +29,7 @@ import type {
   ToolExecutionRecord,
   ValidationSchema,
   ZodUnknownSchema,
+  EmbedInput,
 } from "../types/index.js";
 import {
   ERROR_CODES,
@@ -2036,7 +2037,7 @@ export abstract class BaseProvider implements AIProvider {
    * Providers that support embeddings (OpenAI, Google Vertex, Amazon Bedrock)
    * should override this method with their specific implementation.
    *
-   * @param text - The text to embed
+   * @param input - Text string or EmbedInput with text/image/mimeType
    * @param _modelName - Optional embedding model name (provider-specific)
    * @returns Promise resolving to the embedding vector (array of numbers)
    * @throws Error if the provider does not support embeddings
@@ -2046,13 +2047,21 @@ export abstract class BaseProvider implements AIProvider {
    * const provider = await ProviderFactory.createProvider('openai', 'text-embedding-3-small');
    * const embedding = await provider.embed('Hello world');
    * console.log(embedding); // [0.123, -0.456, ...]
+   *
+   * // Multi-modal embedding (Bedrock Titan Image / Nova)
+   * const multiEmbedding = await provider.embed({ text: "a photo", image: imageBuffer, mimeType: "image/png" });
    * ```
    */
-  async embed(text: string, _modelName?: string): Promise<number[]> {
+  async embed(
+    input: string | EmbedInput,
+    _modelName?: string,
+  ): Promise<number[]> {
+    const textLength =
+      typeof input === "string" ? input.length : (input.text?.length ?? 0);
     logger.warn(
       `embed() called on ${this.providerName} which does not have a native implementation`,
       {
-        textLength: text.length,
+        textLength,
       },
     );
     throw new Error(
