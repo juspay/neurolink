@@ -8,7 +8,7 @@
 
 > **MCPProtocolTool** = `object`
 
-Defined in: [types/mcp.ts:2178](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2178)
+Defined in: [types/mcp.ts:2197](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2197)
 
 MCP protocol tool format (from @modelcontextprotocol/sdk)
 
@@ -18,7 +18,7 @@ MCP protocol tool format (from @modelcontextprotocol/sdk)
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:2182](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2182)
+Defined in: [types/mcp.ts:2201](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2201)
 
 Tool name
 
@@ -28,7 +28,7 @@ Tool name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:2187](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2187)
+Defined in: [types/mcp.ts:2206](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2206)
 
 Tool description
 
@@ -38,7 +38,7 @@ Tool description
 
 > **inputSchema**: `object`
 
-Defined in: [types/mcp.ts:2192](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2192)
+Defined in: [types/mcp.ts:2211](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2211)
 
 JSON Schema for input
 
@@ -60,7 +60,7 @@ JSON Schema for input
 
 > `optional` **annotations?**: `object`
 
-Defined in: [types/mcp.ts:2201](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2201)
+Defined in: [types/mcp.ts:2220](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2220)
 
 Optional annotations (MCP 2024-11-05+)
 

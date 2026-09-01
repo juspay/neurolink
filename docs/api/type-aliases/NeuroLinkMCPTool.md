@@ -8,7 +8,7 @@
 
 > **NeuroLinkMCPTool** = `object`
 
-Defined in: [types/mcp.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L446)
+Defined in: [types/mcp.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L465)
 
 NeuroLink MCP Tool Type - Standardized tool definition for MCP integration
 Moved from src/lib/mcp/factory.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/factory.ts
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L448)
+Defined in: [types/mcp.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L467)
 
 Unique tool identifier for MCP registration and execution
 
@@ -29,7 +29,7 @@ Unique tool identifier for MCP registration and execution
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L451)
+Defined in: [types/mcp.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L470)
 
 Human-readable description of tool functionality
 
@@ -39,7 +39,7 @@ Human-readable description of tool functionality
 
 > `optional` **category?**: `string`
 
-Defined in: [types/mcp.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L454)
+Defined in: [types/mcp.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L473)
 
 Optional category for tool organization and discovery
 
@@ -49,7 +49,7 @@ Optional category for tool organization and discovery
 
 > `optional` **inputSchema?**: `unknown`
 
-Defined in: [types/mcp.ts:457](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L457)
+Defined in: [types/mcp.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L476)
 
 Optional input schema for parameter validation (Zod or JSON Schema)
 
@@ -59,7 +59,7 @@ Optional input schema for parameter validation (Zod or JSON Schema)
 
 > `optional` **outputSchema?**: `unknown`
 
-Defined in: [types/mcp.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L460)
+Defined in: [types/mcp.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L479)
 
 Optional output schema for result validation
 
@@ -69,7 +69,7 @@ Optional output schema for result validation
 
 > `optional` **isImplemented?**: `boolean`
 
-Defined in: [types/mcp.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L463)
+Defined in: [types/mcp.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L482)
 
 Implementation status flag for development tracking
 
@@ -79,7 +79,7 @@ Implementation status flag for development tracking
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/mcp.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L466)
+Defined in: [types/mcp.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L485)
 
 Required permissions for tool execution in secured environments
 
@@ -89,7 +89,7 @@ Required permissions for tool execution in secured environments
 
 > `optional` **version?**: `string`
 
-Defined in: [types/mcp.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L469)
+Defined in: [types/mcp.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L488)
 
 Tool version for compatibility and update management
 
@@ -99,7 +99,7 @@ Tool version for compatibility and update management
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/mcp.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L472)
+Defined in: [types/mcp.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L491)
 
 Additional metadata for tool information and capabilities
 
@@ -109,7 +109,7 @@ Additional metadata for tool information and capabilities
 
 > **execute**: (`params`, `context`) => `Promise`\<[`ToolResult`](ToolResult.md)\>
 
-Defined in: [types/mcp.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L477)
+Defined in: [types/mcp.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L496)
 
 Tool execution function with standardized signature
 

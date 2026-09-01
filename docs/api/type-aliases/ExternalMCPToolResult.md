@@ -8,7 +8,7 @@
 
 > **ExternalMCPToolResult** = `object`
 
-Defined in: [types/externalMcp.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L286)
+Defined in: [types/externalMcp.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L306)
 
 External MCP tool execution result
 
@@ -18,7 +18,7 @@ External MCP tool execution result
 
 > **success**: `boolean`
 
-Defined in: [types/externalMcp.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L288)
+Defined in: [types/externalMcp.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L308)
 
 Whether the execution was successful
 
@@ -28,7 +28,7 @@ Whether the execution was successful
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/externalMcp.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L291)
+Defined in: [types/externalMcp.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L311)
 
 Result data if successful
 
@@ -38,7 +38,7 @@ Result data if successful
 
 > `optional` **error?**: `string`
 
-Defined in: [types/externalMcp.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L294)
+Defined in: [types/externalMcp.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L314)
 
 Error message if failed
 
@@ -48,7 +48,7 @@ Error message if failed
 
 > **duration**: `number`
 
-Defined in: [types/externalMcp.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L297)
+Defined in: [types/externalMcp.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L317)
 
 Execution duration in milliseconds
 
@@ -58,7 +58,7 @@ Execution duration in milliseconds
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/externalMcp.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L300)
+Defined in: [types/externalMcp.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L320)
 
 Tool execution metadata
 

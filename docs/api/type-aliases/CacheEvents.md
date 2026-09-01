@@ -8,7 +8,7 @@
 
 > **CacheEvents** = `object`
 
-Defined in: [types/mcp.ts:2416](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2416)
+Defined in: [types/mcp.ts:2435](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2435)
 
 Cache events
 
@@ -18,7 +18,7 @@ Cache events
 
 > **hit**: `object`
 
-Defined in: [types/mcp.ts:2417](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2417)
+Defined in: [types/mcp.ts:2436](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2436)
 
 #### key
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2417](https://github.com/juspay/neurolink/blob/release
 
 > **miss**: `object`
 
-Defined in: [types/mcp.ts:2418](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2418)
+Defined in: [types/mcp.ts:2437](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2437)
 
 #### key
 
@@ -46,7 +46,7 @@ Defined in: [types/mcp.ts:2418](https://github.com/juspay/neurolink/blob/release
 
 > **set**: `object`
 
-Defined in: [types/mcp.ts:2419](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2419)
+Defined in: [types/mcp.ts:2438](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2438)
 
 #### key
 
@@ -66,7 +66,7 @@ Defined in: [types/mcp.ts:2419](https://github.com/juspay/neurolink/blob/release
 
 > **evict**: `object`
 
-Defined in: [types/mcp.ts:2420](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2420)
+Defined in: [types/mcp.ts:2439](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2439)
 
 #### key
 
@@ -82,7 +82,7 @@ Defined in: [types/mcp.ts:2420](https://github.com/juspay/neurolink/blob/release
 
 > **clear**: `object`
 
-Defined in: [types/mcp.ts:2421](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2421)
+Defined in: [types/mcp.ts:2440](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2440)
 
 #### entriesRemoved
 

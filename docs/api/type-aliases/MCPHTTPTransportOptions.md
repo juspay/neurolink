@@ -8,7 +8,7 @@
 
 > **MCPHTTPTransportOptions** = `object`
 
-Defined in: [types/mcp.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L186)
+Defined in: [types/mcp.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L205)
 
 HTTP Transport Options for fine-grained control
 
@@ -18,7 +18,7 @@ HTTP Transport Options for fine-grained control
 
 > `optional` **connectionTimeout?**: `number`
 
-Defined in: [types/mcp.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L188)
+Defined in: [types/mcp.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L207)
 
 Connection timeout in milliseconds (default: 30000)
 
@@ -28,7 +28,7 @@ Connection timeout in milliseconds (default: 30000)
 
 > `optional` **requestTimeout?**: `number`
 
-Defined in: [types/mcp.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L190)
+Defined in: [types/mcp.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L209)
 
 Request timeout in milliseconds (default: 60000)
 
@@ -38,7 +38,7 @@ Request timeout in milliseconds (default: 60000)
 
 > `optional` **idleTimeout?**: `number`
 
-Defined in: [types/mcp.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L192)
+Defined in: [types/mcp.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L211)
 
 Idle timeout for connection pool (default: 120000)
 
@@ -48,6 +48,6 @@ Idle timeout for connection pool (default: 120000)
 
 > `optional` **keepAliveTimeout?**: `number`
 
-Defined in: [types/mcp.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L194)
+Defined in: [types/mcp.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L213)
 
 Keep-alive timeout (default: 30000)

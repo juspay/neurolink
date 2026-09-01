@@ -8,7 +8,7 @@
 
 > **AnalyzeUsageParams** = `object`
 
-Defined in: [types/mcp.ts:2671](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2671)
+Defined in: [types/mcp.ts:2690](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2690)
 
 Parsed input for the analyze-ai-usage MCP tool.
 
@@ -18,7 +18,7 @@ Parsed input for the analyze-ai-usage MCP tool.
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/mcp.ts:2672](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2672)
+Defined in: [types/mcp.ts:2691](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2691)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2672](https://github.com/juspay/neurolink/blob/release
 
 > **timeRange**: `"1h"` \| `"24h"` \| `"7d"` \| `"30d"`
 
-Defined in: [types/mcp.ts:2673](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2673)
+Defined in: [types/mcp.ts:2692](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2692)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2673](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **provider?**: [`AiAnalysisProvider`](AiAnalysisProvider.md)
 
-Defined in: [types/mcp.ts:2674](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2674)
+Defined in: [types/mcp.ts:2693](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2693)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2674](https://github.com/juspay/neurolink/blob/release
 
 > **includeTokenBreakdown**: `boolean`
 
-Defined in: [types/mcp.ts:2675](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2675)
+Defined in: [types/mcp.ts:2694](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2694)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:2675](https://github.com/juspay/neurolink/blob/release
 
 > **includeCostEstimation**: `boolean`
 
-Defined in: [types/mcp.ts:2676](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2676)
+Defined in: [types/mcp.ts:2695](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2695)

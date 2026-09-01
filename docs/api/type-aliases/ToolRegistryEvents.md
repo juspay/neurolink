@@ -8,7 +8,7 @@
 
 > **ToolRegistryEvents** = `object`
 
-Defined in: [types/mcp.ts:639](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L639)
+Defined in: [types/mcp.ts:658](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L658)
 
 Tool registry events
 Moved from src/lib/mcp/toolDiscoveryService.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/toolDiscoveryService.ts
 
 > **toolRegistered**: `object`
 
-Defined in: [types/mcp.ts:640](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L640)
+Defined in: [types/mcp.ts:659](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L659)
 
 #### serverId
 
@@ -43,7 +43,7 @@ Defined in: [types/mcp.ts:640](https://github.com/juspay/neurolink/blob/release/
 
 > **toolUnregistered**: `object`
 
-Defined in: [types/mcp.ts:647](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L647)
+Defined in: [types/mcp.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L666)
 
 #### serverId
 
@@ -63,7 +63,7 @@ Defined in: [types/mcp.ts:647](https://github.com/juspay/neurolink/blob/release/
 
 > **toolExecuted**: `object`
 
-Defined in: [types/mcp.ts:653](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L653)
+Defined in: [types/mcp.ts:672](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L672)
 
 #### serverId
 
@@ -91,7 +91,7 @@ Defined in: [types/mcp.ts:653](https://github.com/juspay/neurolink/blob/release/
 
 > **discoveryStarted**: `object`
 
-Defined in: [types/mcp.ts:661](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L661)
+Defined in: [types/mcp.ts:680](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L680)
 
 #### serverId
 
@@ -107,7 +107,7 @@ Defined in: [types/mcp.ts:661](https://github.com/juspay/neurolink/blob/release/
 
 > **discoveryCompleted**: `object`
 
-Defined in: [types/mcp.ts:666](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L666)
+Defined in: [types/mcp.ts:685](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L685)
 
 #### serverId
 
@@ -131,7 +131,7 @@ Defined in: [types/mcp.ts:666](https://github.com/juspay/neurolink/blob/release/
 
 > **discoveryFailed**: `object`
 
-Defined in: [types/mcp.ts:673](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L673)
+Defined in: [types/mcp.ts:692](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L692)
 
 #### serverId
 

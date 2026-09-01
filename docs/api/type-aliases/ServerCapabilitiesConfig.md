@@ -8,7 +8,7 @@
 
 > **ServerCapabilitiesConfig** = `object`
 
-Defined in: [types/mcp.ts:2108](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2108)
+Defined in: [types/mcp.ts:2127](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2127)
 
 Server capabilities configuration
 
@@ -18,7 +18,7 @@ Server capabilities configuration
 
 > `optional` **resources?**: `boolean`
 
-Defined in: [types/mcp.ts:2112](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2112)
+Defined in: [types/mcp.ts:2131](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2131)
 
 Enable resource support
 
@@ -28,7 +28,7 @@ Enable resource support
 
 > `optional` **prompts?**: `boolean`
 
-Defined in: [types/mcp.ts:2117](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2117)
+Defined in: [types/mcp.ts:2136](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2136)
 
 Enable prompt support
 
@@ -38,6 +38,6 @@ Enable prompt support
 
 > `optional` **resourceSubscriptions?**: `boolean`
 
-Defined in: [types/mcp.ts:2122](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2122)
+Defined in: [types/mcp.ts:2141](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2141)
 
 Enable resource subscriptions

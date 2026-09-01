@@ -8,7 +8,7 @@
 
 > **CacheStats** = `object`
 
-Defined in: [types/mcp.ts:2403](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2403)
+Defined in: [types/mcp.ts:2422](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2422)
 
 Cache statistics
 
@@ -18,7 +18,7 @@ Cache statistics
 
 > **hits**: `number`
 
-Defined in: [types/mcp.ts:2404](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2404)
+Defined in: [types/mcp.ts:2423](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2423)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2404](https://github.com/juspay/neurolink/blob/release
 
 > **misses**: `number`
 
-Defined in: [types/mcp.ts:2405](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2405)
+Defined in: [types/mcp.ts:2424](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2424)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2405](https://github.com/juspay/neurolink/blob/release
 
 > **evictions**: `number`
 
-Defined in: [types/mcp.ts:2406](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2406)
+Defined in: [types/mcp.ts:2425](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2425)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2406](https://github.com/juspay/neurolink/blob/release
 
 > **size**: `number`
 
-Defined in: [types/mcp.ts:2407](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2407)
+Defined in: [types/mcp.ts:2426](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2426)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:2407](https://github.com/juspay/neurolink/blob/release
 
 > **maxSize**: `number`
 
-Defined in: [types/mcp.ts:2408](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2408)
+Defined in: [types/mcp.ts:2427](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2427)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/mcp.ts:2408](https://github.com/juspay/neurolink/blob/release
 
 > **hitRate**: `number`
 
-Defined in: [types/mcp.ts:2409](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2409)
+Defined in: [types/mcp.ts:2428](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2428)

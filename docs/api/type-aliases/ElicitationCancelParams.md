@@ -8,7 +8,7 @@
 
 > **ElicitationCancelParams** = `object`
 
-Defined in: [types/mcp.ts:1337](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1337)
+Defined in: [types/mcp.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1356)
 
 Cancel params type
 
@@ -18,7 +18,7 @@ Cancel params type
 
 > **requestId**: `string`
 
-Defined in: [types/mcp.ts:1338](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1338)
+Defined in: [types/mcp.ts:1357](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1357)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/mcp.ts:1338](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/mcp.ts:1339](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1339)
+Defined in: [types/mcp.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1358)

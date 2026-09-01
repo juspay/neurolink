@@ -8,7 +8,7 @@
 
 > **EnhancedExecutionContext** = [`NeuroLinkExecutionContext`](NeuroLinkExecutionContext.md) & `object`
 
-Defined in: [types/mcp.ts:2240](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2240)
+Defined in: [types/mcp.ts:2259](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2259)
 
 Tool execution context with elicitation support
 
