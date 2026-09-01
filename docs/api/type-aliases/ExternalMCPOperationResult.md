@@ -8,7 +8,7 @@
 
 > **ExternalMCPOperationResult**\<`T`\> = `object`
 
-Defined in: [types/externalMcp.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L230)
+Defined in: [types/externalMcp.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L236)
 
 External MCP server operation result
 
@@ -24,7 +24,7 @@ External MCP server operation result
 
 > **success**: `boolean`
 
-Defined in: [types/externalMcp.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L232)
+Defined in: [types/externalMcp.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L238)
 
 Whether the operation was successful
 
@@ -34,7 +34,7 @@ Whether the operation was successful
 
 > `optional` **data?**: `T`
 
-Defined in: [types/externalMcp.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L235)
+Defined in: [types/externalMcp.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L241)
 
 Result data if successful
 
@@ -44,7 +44,7 @@ Result data if successful
 
 > `optional` **error?**: `string`
 
-Defined in: [types/externalMcp.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L238)
+Defined in: [types/externalMcp.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L244)
 
 Error message if failed
 
@@ -54,7 +54,7 @@ Error message if failed
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/externalMcp.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L241)
+Defined in: [types/externalMcp.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L247)
 
 Server ID
 
@@ -64,7 +64,7 @@ Server ID
 
 > `optional` **duration?**: `number`
 
-Defined in: [types/externalMcp.ts:244](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L244)
+Defined in: [types/externalMcp.ts:250](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L250)
 
 Operation duration in milliseconds
 
@@ -74,7 +74,7 @@ Operation duration in milliseconds
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/externalMcp.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L247)
+Defined in: [types/externalMcp.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L253)
 
 Additional metadata
 

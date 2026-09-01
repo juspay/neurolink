@@ -8,7 +8,7 @@
 
 > **ExternalMCPToolInfo** = `object`
 
-Defined in: [types/externalMcp.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L144)
+Defined in: [types/externalMcp.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L150)
 
 Tool information from external MCP server
 
@@ -18,7 +18,7 @@ Tool information from external MCP server
 
 > **name**: `string`
 
-Defined in: [types/externalMcp.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L146)
+Defined in: [types/externalMcp.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L152)
 
 Tool name
 
@@ -28,7 +28,7 @@ Tool name
 
 > **description**: `string`
 
-Defined in: [types/externalMcp.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L149)
+Defined in: [types/externalMcp.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L155)
 
 Tool description
 
@@ -38,7 +38,7 @@ Tool description
 
 > **serverId**: `string`
 
-Defined in: [types/externalMcp.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L152)
+Defined in: [types/externalMcp.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L158)
 
 Server ID that provides this tool
 
@@ -48,7 +48,7 @@ Server ID that provides this tool
 
 > `optional` **inputSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/externalMcp.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L155)
+Defined in: [types/externalMcp.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L161)
 
 Input schema (JSON Schema)
 
@@ -58,7 +58,7 @@ Input schema (JSON Schema)
 
 > **isAvailable**: `boolean`
 
-Defined in: [types/externalMcp.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L158)
+Defined in: [types/externalMcp.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L164)
 
 Whether the tool is currently available
 
@@ -68,7 +68,7 @@ Whether the tool is currently available
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/externalMcp.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L161)
+Defined in: [types/externalMcp.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L167)
 
 Tool metadata
 
@@ -78,7 +78,7 @@ Tool metadata
 
 > `optional` **lastCalled?**: `Date`
 
-Defined in: [types/externalMcp.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L164)
+Defined in: [types/externalMcp.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L170)
 
 When the tool was last successfully called
 
@@ -88,7 +88,7 @@ When the tool was last successfully called
 
 > **stats**: `object`
 
-Defined in: [types/externalMcp.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L167)
+Defined in: [types/externalMcp.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L173)
 
 Tool execution statistics
 

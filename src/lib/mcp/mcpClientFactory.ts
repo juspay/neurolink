@@ -15,7 +15,7 @@ import type {
   ClientCapabilities,
   Implementation,
 } from "@modelcontextprotocol/sdk/types.js";
-import { spawn, type ChildProcess } from "child_process";
+import type { ChildProcess } from "child_process";
 import { mcpLogger } from "../utils/logger.js";
 import { globalCircuitBreakerManager } from "./mcpCircuitBreaker.js";
 import { CircuitBreakerOpenError } from "../types/index.js";
@@ -31,7 +31,6 @@ import type {
   MCPServerInfo,
   MCPClientResult,
   TransportResult,
-  TransportWithProcessResult,
   NetworkTransportResult,
 } from "../types/index.js";
 import {
@@ -52,6 +51,53 @@ const DEFAULT_CLIENT_TIMEOUT = Math.max(
   5000,
   Number(process.env.MCP_CLIENT_TIMEOUT) || 60000,
 );
+
+/**
+ * How many stderr lines to keep per stdio server. Enough for a Python
+ * traceback or an OOM message; small enough that a chatty server logging
+ * every request to stderr costs nothing.
+ */
+const STDERR_TAIL_LINES = 20;
+
+/**
+ * Bounded buffer of the most recent stderr lines a stdio server wrote.
+ *
+ * A crashing server explains itself on stderr and nowhere else. With the
+ * stream ignored — as it was — a `Connection closed` said nothing about
+ * why, and the ExternalServerManager could only report that a process it
+ * never saw had gone. Keeping a short tail per transport lets the
+ * disconnect log, the connect error and the `disconnected` event all carry
+ * the server's last words.
+ */
+class StderrTail {
+  private readonly lines: string[] = [];
+  private partial = "";
+
+  append(chunk: Buffer | string): void {
+    this.partial += chunk.toString();
+    const pieces = this.partial.split(/\r?\n/);
+    this.partial = pieces.pop() ?? "";
+    for (const piece of pieces) {
+      if (piece.trim().length === 0) {
+        continue;
+      }
+      this.lines.push(piece);
+      if (this.lines.length > STDERR_TAIL_LINES) {
+        this.lines.shift();
+      }
+    }
+  }
+
+  snapshot(): string[] {
+    const out = [...this.lines];
+    if (this.partial.trim().length > 0) {
+      out.push(this.partial);
+    }
+    return out.slice(-STDERR_TAIL_LINES);
+  }
+}
+
+const stderrTails = new WeakMap<Transport, StderrTail>();
 
 /**
  * MCPClientFactory
@@ -251,10 +297,8 @@ export class MCPClientFactory {
     // Create transport
     const transportResult = await this.createTransport(config);
 
-    // Extract transport and process with necessary type assertions
-    // Note: Type assertions required due to TransportResult using 'unknown' to avoid circular imports
+    // Note: Type assertion required due to TransportResult using 'unknown' to avoid circular imports
     const transport = transportResult.transport as Transport;
-    const process = transportResult.process as ChildProcess | undefined;
 
     try {
       // Create client
@@ -284,11 +328,11 @@ export class MCPClientFactory {
       return {
         client,
         transport,
-        process,
         capabilities: serverCapabilities,
       };
     } catch (error) {
-      // Clean up on failure
+      // Clean up on failure. For stdio, transport.close() ends stdin and
+      // escalates SIGTERM → SIGKILL on the child it spawned.
       try {
         await transport.close();
       } catch (closeError) {
@@ -298,12 +342,29 @@ export class MCPClientFactory {
         );
       }
 
-      if (process && !process.killed) {
-        process.kill("SIGTERM");
+      // A server that died during the handshake wrote its reason to stderr.
+      // Attach it, so "Connection closed" arrives with the traceback that
+      // explains it instead of leaving the operator to reproduce by hand.
+      const stderrTail = this.getStderrTail(transport);
+      if (error instanceof Error && stderrTail.length > 0) {
+        throw new Error(
+          `${error.message}\nServer stderr (last ${stderrTail.length} lines):\n${stderrTail.join("\n")}`,
+          { cause: error },
+        );
       }
 
       throw error;
     }
+  }
+
+  /**
+   * The most recent stderr lines written by the stdio server behind
+   * `transport`. Empty for network transports and for servers that have
+   * written nothing. Lines are captured from before the process is even
+   * started, so an early boot failure is included.
+   */
+  static getStderrTail(transport: Transport): string[] {
+    return stderrTails.get(transport)?.snapshot() ?? [];
   }
 
   /**
@@ -331,11 +392,26 @@ export class MCPClientFactory {
   }
 
   /**
-   * Create stdio transport with process spawning
+   * Create a stdio transport.
+   *
+   * The SDK's StdioClientTransport owns the server process: it spawns the
+   * child inside `client.connect()` and reports the child's death through
+   * `transport.onclose`, which the Client forwards as `client.onclose`. There
+   * is deliberately no `spawn()` here. An earlier "startup probe" launched
+   * the command a second time, and that duplicate — never spoken to, never
+   * closed — was the process every lifecycle hook ended up watching while
+   * the real server could die unnoticed. It also leaked as an orphan on
+   * every shutdown.
+   *
+   * stderr is piped rather than ignored so a crashing server's last lines
+   * survive to the disconnect log and the connect error. A pipe nobody reads
+   * would back-pressure the child once the buffer fills, so the tail
+   * listener is attached before `start()`; the SDK creates the stderr
+   * PassThrough in its constructor for exactly this reason.
    */
   private static async createStdioTransport(
     config: MCPServerInfo,
-  ): Promise<TransportWithProcessResult> {
+  ): Promise<TransportResult> {
     mcpLogger.debug(
       `[MCPClientFactory] Creating stdio transport for ${config.id}`,
       {
@@ -344,73 +420,6 @@ export class MCPClientFactory {
       },
     );
 
-    // Validate command is present
-    if (!config.command) {
-      throw new Error(`Command is required for stdio transport`);
-    }
-
-    // Spawn the process
-    const childProcess = spawn(config.command, config.args || [], {
-      stdio: ["pipe", "pipe", "pipe"],
-      env: Object.fromEntries(
-        Object.entries({
-          ...process.env,
-          ...config.env,
-        })
-          .filter(([, value]) => value !== undefined)
-          .map(([k, v]) => [k, String(v)]),
-      ) as Record<string, string>,
-      cwd: config.cwd,
-    });
-
-    // Handle process errors
-    const processErrorPromise = new Promise<never>((_, reject) => {
-      childProcess.on("error", (error: Error) => {
-        reject(new Error(`Process spawn error: ${error.message}`));
-      });
-
-      childProcess.on(
-        "exit",
-        (code: number | null, signal: NodeJS.Signals | null) => {
-          if (code !== 0) {
-            reject(
-              new Error(`Process exited with code ${code}, signal ${signal}`),
-            );
-          }
-        },
-      );
-    });
-
-    // Wait for process to be ready or fail using AbortController for better async patterns
-    const processStartupController = new AbortController();
-    const processStartupTimeout = setTimeout(() => {
-      processStartupController.abort();
-    }, 1000);
-
-    try {
-      await Promise.race([
-        new Promise<void>((resolve) => {
-          const checkReady = () => {
-            if (processStartupController.signal.aborted) {
-              resolve(); // Timeout reached, continue
-            } else {
-              setTimeout(checkReady, 100);
-            }
-          };
-          checkReady();
-        }),
-        processErrorPromise,
-      ]);
-    } finally {
-      clearTimeout(processStartupTimeout);
-    }
-
-    // Check if process is still running
-    if (childProcess.killed || childProcess.exitCode !== null) {
-      throw new Error("Process failed to start or exited immediately");
-    }
-
-    // Create transport
     if (!config.command) {
       throw new Error(`Command is required for stdio transport`);
     }
@@ -427,10 +436,22 @@ export class MCPClientFactory {
           .map(([key, value]) => [key, String(value)]),
       ),
       cwd: config.cwd,
-      stderr: "ignore", // Suppress MCP server startup messages
+      stderr: "pipe",
     });
 
-    return { transport, process: childProcess };
+    const tail = new StderrTail();
+    stderrTails.set(transport, tail);
+    transport.stderr?.on("data", (chunk: Buffer | string) => {
+      tail.append(chunk);
+      if (mcpLogger.shouldLog("debug")) {
+        const text = chunk.toString().trim();
+        if (text.length > 0) {
+          mcpLogger.debug(`[MCPClientFactory] ${config.id} stderr:`, text);
+        }
+      }
+    });
+
+    return { transport };
   }
 
   /**

@@ -28,9 +28,20 @@ Server configuration
 
 > **process**: `ChildProcess` \| `null`
 
-Defined in: [types/externalMcp.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L72)
+Defined in: [types/externalMcp.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L75)
 
-Child process (for stdio transport)
+Child process handle. Always null for stdio servers: the SDK transport
+owns the process and does not expose the handle. Use `pid`.
+
+---
+
+### pid?
+
+> `optional` **pid?**: `number`
+
+Defined in: [types/externalMcp.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L78)
+
+OS process id of the stdio server, once connected
 
 ---
 
@@ -38,7 +49,7 @@ Child process (for stdio transport)
 
 > **client**: `Client` \| `null`
 
-Defined in: [types/externalMcp.ts:75](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L75)
+Defined in: [types/externalMcp.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L81)
 
 MCP client instance
 
@@ -48,7 +59,7 @@ MCP client instance
 
 > **transport**: `Transport` \| `null`
 
-Defined in: [types/externalMcp.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L78)
+Defined in: [types/externalMcp.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L84)
 
 Transport instance
 
@@ -58,7 +69,7 @@ Transport instance
 
 > **status**: [`ExternalMCPServerStatus`](ExternalMCPServerStatus.md)
 
-Defined in: [types/externalMcp.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L81)
+Defined in: [types/externalMcp.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L87)
 
 Current server status
 
@@ -68,7 +79,7 @@ Current server status
 
 > `optional` **lastError?**: `string`
 
-Defined in: [types/externalMcp.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L84)
+Defined in: [types/externalMcp.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L90)
 
 Last error message if any
 
@@ -78,7 +89,7 @@ Last error message if any
 
 > `optional` **startTime?**: `Date`
 
-Defined in: [types/externalMcp.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L87)
+Defined in: [types/externalMcp.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L93)
 
 When the server was started
 
@@ -88,7 +99,7 @@ When the server was started
 
 > `optional` **lastHealthCheck?**: `Date`
 
-Defined in: [types/externalMcp.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L90)
+Defined in: [types/externalMcp.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L96)
 
 When the server was last seen healthy
 
@@ -98,7 +109,7 @@ When the server was last seen healthy
 
 > **reconnectAttempts**: `number`
 
-Defined in: [types/externalMcp.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L93)
+Defined in: [types/externalMcp.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L99)
 
 Number of reconnection attempts
 
@@ -108,7 +119,7 @@ Number of reconnection attempts
 
 > **maxReconnectAttempts**: `number`
 
-Defined in: [types/externalMcp.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L96)
+Defined in: [types/externalMcp.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L102)
 
 Maximum reconnection attempts before giving up
 
@@ -118,7 +129,7 @@ Maximum reconnection attempts before giving up
 
 > **tools**: `Map`\<`string`, [`ExternalMCPToolInfo`](ExternalMCPToolInfo.md)\>
 
-Defined in: [types/externalMcp.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L99)
+Defined in: [types/externalMcp.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L105)
 
 Available tools from this server
 
@@ -128,7 +139,7 @@ Available tools from this server
 
 > `optional` **toolsArray?**: `object`[]
 
-Defined in: [types/externalMcp.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L102)
+Defined in: [types/externalMcp.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L108)
 
 Cached tools array for ZERO conversion - MCP format
 
@@ -150,7 +161,7 @@ Cached tools array for ZERO conversion - MCP format
 
 > `optional` **capabilities?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/externalMcp.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L109)
+Defined in: [types/externalMcp.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L115)
 
 Server capabilities reported by MCP
 
@@ -160,7 +171,7 @@ Server capabilities reported by MCP
 
 > `optional` **healthTimer?**: `NodeJS.Timeout`
 
-Defined in: [types/externalMcp.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L112)
+Defined in: [types/externalMcp.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L118)
 
 Health monitoring timer
 
@@ -170,7 +181,7 @@ Health monitoring timer
 
 > `optional` **restartTimer?**: `NodeJS.Timeout`
 
-Defined in: [types/externalMcp.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L115)
+Defined in: [types/externalMcp.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L121)
 
 Restart backoff timer
 
@@ -180,7 +191,7 @@ Restart backoff timer
 
 > **metrics**: `object`
 
-Defined in: [types/externalMcp.ts:118](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L118)
+Defined in: [types/externalMcp.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L124)
 
 Performance metrics
 
