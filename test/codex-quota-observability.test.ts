@@ -19,6 +19,7 @@ import {
 } from "../src/lib/proxy/accountCooldown.js";
 import {
   resetProxyActivityForTests,
+  takeProxyResponseObservers,
   trackProxyResponse,
 } from "../src/lib/proxy/proxyActivity.js";
 import { resolveProxyStatusAccountIdentity } from "../src/lib/proxy/codexAccountUsage.js";
@@ -435,11 +436,19 @@ describe.sequential("Codex quota observability", () => {
         headers: { "content-type": "text/event-stream" },
       })) as typeof globalThis.fetch;
 
-    const response = await handleCodexResponsesRequest(
-      requestContext("codex-stream-success"),
-    );
+    const ctx = requestContext("codex-stream-success");
+    const response = await handleCodexResponsesRequest(ctx);
     expect(getStats().totalRequests).toBe(0);
-    expect(await response.text()).toContain("response.completed");
+    const observers = takeProxyResponseObservers(ctx.metadata);
+    expect(observers).toHaveLength(1);
+    const trackedResponse = trackProxyResponse(response, () => undefined, {
+      onTerminal: (details) => {
+        for (const observer of observers) {
+          observer.onTerminal?.(details);
+        }
+      },
+    });
+    expect(await trackedResponse.text()).toContain("response.completed");
     await settleTerminalObservers();
 
     expect(getStats().accounts[account.key]).toMatchObject({

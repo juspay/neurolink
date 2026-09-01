@@ -65,6 +65,7 @@ import type {
   ProxyRuntimeActivity,
   ProxyRuntimeConfigSnapshot,
   ProxyReadinessState,
+  ProxyResponseTrackingObserver,
   RuntimeRequestMetadata,
   StatusStats,
 } from "../../lib/types/index.js";
@@ -84,6 +85,7 @@ import { resolveProxyStatusAccountIdentity } from "../../lib/proxy/codexAccountU
 import {
   beginProxyRequest,
   getProxyActivitySnapshot,
+  takeProxyResponseObservers,
   trackProxyResponse,
 } from "../../lib/proxy/proxyActivity.js";
 import {
@@ -1462,6 +1464,33 @@ function registerProxyRequestTracking(
         responseStatus,
         elapsedMs: performance.now() - startedMonotonicMs,
       });
+      const routeResponseObservers = takeProxyResponseObservers(metadata);
+      const notifyRouteFirstChunk = (
+        details: Parameters<
+          NonNullable<ProxyResponseTrackingObserver["onFirstChunk"]>
+        >[0],
+      ): void => {
+        for (const observer of routeResponseObservers) {
+          try {
+            observer.onFirstChunk?.(details);
+          } catch {
+            // Route-level accounting must never interfere with the relay.
+          }
+        }
+      };
+      const notifyRouteTerminal = (
+        details: Parameters<
+          NonNullable<ProxyResponseTrackingObserver["onTerminal"]>
+        >[0],
+      ): void => {
+        for (const observer of routeResponseObservers) {
+          try {
+            observer.onTerminal?.(details);
+          } catch {
+            // Route-level accounting must never interfere with the relay.
+          }
+        }
+      };
       c.res = trackProxyResponse(c.res, finish, {
         onFirstChunk: ({ observedBodyBytes, responseChunks }) => {
           logProxyLifecycleEvent({
@@ -1478,6 +1507,10 @@ function registerProxyRequestTracking(
             observedBodyBytes,
             responseChunks,
             elapsedMs: performance.now() - startedMonotonicMs,
+          });
+          notifyRouteFirstChunk({
+            observedBodyBytes,
+            responseChunks,
           });
         },
         onTerminal: ({ outcome, observedBodyBytes, responseChunks }) => {
@@ -1498,6 +1531,11 @@ function registerProxyRequestTracking(
             terminalOutcome: outcome,
             errorType: metadata.terminalErrorType,
             errorCode: metadata.terminalErrorCode,
+          });
+          notifyRouteTerminal({
+            outcome,
+            observedBodyBytes,
+            responseChunks,
           });
         },
       });
@@ -1919,7 +1957,10 @@ export async function createProxyStartApp(params: {
         neurolink: params.neurolink as NeuroLink,
         toolRegistry: params.neurolink.getToolRegistry(),
         timestamp: Date.now(),
-        metadata: {},
+        // Keep route terminal observers on the runtime request metadata so the
+        // outer response tracker can notify them without adding a second body
+        // wrapper to streaming routes.
+        metadata: (metadata ?? {}) as Record<string, unknown>,
         // Route handlers publish limit/quota headers here. Only the streaming
         // paths build their own Response (and set headers directly); every
         // JSON and error path returns a plain object, so without this the
