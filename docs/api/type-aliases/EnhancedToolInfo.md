@@ -8,7 +8,7 @@
 
 > **EnhancedToolInfo** = [`ExternalMCPToolInfo`](ExternalMCPToolInfo.md) & `object`
 
-Defined in: [types/mcp.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1421)
+Defined in: [types/mcp.ts:1440](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1440)
 
 Enhanced tool info with annotations
 

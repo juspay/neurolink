@@ -8,7 +8,7 @@
 
 > **PKCEChallenge** = `object`
 
-Defined in: [types/mcp.ts:981](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L981)
+Defined in: [types/mcp.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1000)
 
 PKCE (Proof Key for Code Exchange) challenge data for OAuth 2.1 authentication
 Used internally by OAuth client providers to generate and store PKCE parameters
@@ -19,7 +19,7 @@ Used internally by OAuth client providers to generate and store PKCE parameters
 
 > **codeVerifier**: `string`
 
-Defined in: [types/mcp.ts:983](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L983)
+Defined in: [types/mcp.ts:1002](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1002)
 
 Random code verifier string (43-128 characters, URL-safe)
 
@@ -29,7 +29,7 @@ Random code verifier string (43-128 characters, URL-safe)
 
 > **codeChallenge**: `string`
 
-Defined in: [types/mcp.ts:985](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L985)
+Defined in: [types/mcp.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1004)
 
 SHA-256 hash of code verifier, base64url encoded
 
@@ -39,6 +39,6 @@ SHA-256 hash of code verifier, base64url encoded
 
 > **codeChallengeMethod**: `"S256"`
 
-Defined in: [types/mcp.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L987)
+Defined in: [types/mcp.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1006)
 
 Challenge method - always "S256" per OAuth 2.1 specification

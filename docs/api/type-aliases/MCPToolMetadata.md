@@ -8,7 +8,7 @@
 
 > **MCPToolMetadata** = `object` & `object`
 
-Defined in: [types/mcp.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L292)
+Defined in: [types/mcp.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L311)
 
 MCP Tool Metadata - Extensible
 

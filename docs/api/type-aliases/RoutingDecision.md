@@ -8,7 +8,7 @@
 
 > **RoutingDecision** = `object`
 
-Defined in: [types/mcp.ts:2516](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2516)
+Defined in: [types/mcp.ts:2535](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2535)
 
 Routing decision result
 
@@ -18,7 +18,7 @@ Routing decision result
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:2517](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2517)
+Defined in: [types/mcp.ts:2536](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2536)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2517](https://github.com/juspay/neurolink/blob/release
 
 > **strategy**: [`RoutingStrategy`](RoutingStrategy.md)
 
-Defined in: [types/mcp.ts:2518](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2518)
+Defined in: [types/mcp.ts:2537](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2537)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2518](https://github.com/juspay/neurolink/blob/release
 
 > **confidence**: `number`
 
-Defined in: [types/mcp.ts:2519](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2519)
+Defined in: [types/mcp.ts:2538](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2538)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2519](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **alternates?**: `string`[]
 
-Defined in: [types/mcp.ts:2520](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2520)
+Defined in: [types/mcp.ts:2539](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2539)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:2520](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/mcp.ts:2521](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2521)
+Defined in: [types/mcp.ts:2540](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2540)

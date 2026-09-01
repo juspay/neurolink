@@ -8,7 +8,7 @@
 
 > **AffinityRule** = `object`
 
-Defined in: [types/mcp.ts:2460](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2460)
+Defined in: [types/mcp.ts:2479](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2479)
 
 Affinity rule for session-based routing
 
@@ -18,7 +18,7 @@ Affinity rule for session-based routing
 
 > **key**: `string`
 
-Defined in: [types/mcp.ts:2461](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2461)
+Defined in: [types/mcp.ts:2480](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2480)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2461](https://github.com/juspay/neurolink/blob/release
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:2462](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2462)
+Defined in: [types/mcp.ts:2481](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2481)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:2462](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/mcp.ts:2463](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2463)
+Defined in: [types/mcp.ts:2482](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2482)

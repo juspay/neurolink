@@ -8,7 +8,7 @@
 
 > **MCPServerEvents** = `object`
 
-Defined in: [types/mcp.ts:1109](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1109)
+Defined in: [types/mcp.ts:1128](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1128)
 
 Server lifecycle events.
 
@@ -18,7 +18,7 @@ Server lifecycle events.
 
 > **toolRegistered**: `object`
 
-Defined in: [types/mcp.ts:1110](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1110)
+Defined in: [types/mcp.ts:1129](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1129)
 
 #### toolName
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1110](https://github.com/juspay/neurolink/blob/release
 
 > **toolExecuted**: `object`
 
-Defined in: [types/mcp.ts:1111](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1111)
+Defined in: [types/mcp.ts:1130](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1130)
 
 #### toolName
 
@@ -54,7 +54,7 @@ Defined in: [types/mcp.ts:1111](https://github.com/juspay/neurolink/blob/release
 
 > **toolError**: `object`
 
-Defined in: [types/mcp.ts:1112](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1112)
+Defined in: [types/mcp.ts:1131](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1131)
 
 #### toolName
 
@@ -70,7 +70,7 @@ Defined in: [types/mcp.ts:1112](https://github.com/juspay/neurolink/blob/release
 
 > **serverReady**: `object`
 
-Defined in: [types/mcp.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1113)
+Defined in: [types/mcp.ts:1132](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1132)
 
 #### tools
 
@@ -82,7 +82,7 @@ Defined in: [types/mcp.ts:1113](https://github.com/juspay/neurolink/blob/release
 
 > **serverStopped**: `object`
 
-Defined in: [types/mcp.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1114)
+Defined in: [types/mcp.ts:1133](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1133)
 
 #### reason?
 

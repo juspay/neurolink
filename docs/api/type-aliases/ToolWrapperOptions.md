@@ -8,7 +8,7 @@
 
 > **ToolWrapperOptions** = `object`
 
-Defined in: [types/mcp.ts:2260](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2260)
+Defined in: [types/mcp.ts:2279](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2279)
 
 Tool wrapper options
 
@@ -18,7 +18,7 @@ Tool wrapper options
 
 > `optional` **elicitationManager?**: [`ElicitationManager`](../classes/ElicitationManager.md)
 
-Defined in: [types/mcp.ts:2264](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2264)
+Defined in: [types/mcp.ts:2283](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2283)
 
 Elicitation manager to use
 
@@ -28,7 +28,7 @@ Elicitation manager to use
 
 > `optional` **autoConfirmDestructive?**: `boolean`
 
-Defined in: [types/mcp.ts:2269](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2269)
+Defined in: [types/mcp.ts:2288](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2288)
 
 Auto-confirm destructive operations
 
@@ -38,7 +38,7 @@ Auto-confirm destructive operations
 
 > `optional` **elicitationTimeout?**: `number`
 
-Defined in: [types/mcp.ts:2274](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2274)
+Defined in: [types/mcp.ts:2293](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2293)
 
 Default timeout for elicitations
 
@@ -48,6 +48,6 @@ Default timeout for elicitations
 
 > `optional` **enableLogging?**: `boolean`
 
-Defined in: [types/mcp.ts:2279](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2279)
+Defined in: [types/mcp.ts:2298](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2298)
 
 Enable logging

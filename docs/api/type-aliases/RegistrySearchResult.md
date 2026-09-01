@@ -8,7 +8,7 @@
 
 > **RegistrySearchResult** = `object`
 
-Defined in: [types/mcp.ts:1728](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1728)
+Defined in: [types/mcp.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1747)
 
 Search result
 
@@ -18,7 +18,7 @@ Search result
 
 > **entries**: [`McpRegistryEntry`](McpRegistryEntry.md)[]
 
-Defined in: [types/mcp.ts:1729](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1729)
+Defined in: [types/mcp.ts:1748](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1748)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1729](https://github.com/juspay/neurolink/blob/release
 
 > **totalCount**: `number`
 
-Defined in: [types/mcp.ts:1730](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1730)
+Defined in: [types/mcp.ts:1749](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1749)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1730](https://github.com/juspay/neurolink/blob/release
 
 > **page**: `number`
 
-Defined in: [types/mcp.ts:1731](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1731)
+Defined in: [types/mcp.ts:1750](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1750)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:1731](https://github.com/juspay/neurolink/blob/release
 
 > **pageSize**: `number`
 
-Defined in: [types/mcp.ts:1732](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1732)
+Defined in: [types/mcp.ts:1751](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1751)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/mcp.ts:1732](https://github.com/juspay/neurolink/blob/release
 
 > **hasMore**: `boolean`
 
-Defined in: [types/mcp.ts:1733](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1733)
+Defined in: [types/mcp.ts:1752](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1752)

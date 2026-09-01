@@ -8,7 +8,7 @@
 
 > **TokenExchangeRequest** = `object`
 
-Defined in: [types/mcp.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L939)
+Defined in: [types/mcp.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L958)
 
 Token exchange request for OAuth code exchange
 
@@ -18,7 +18,7 @@ Token exchange request for OAuth code exchange
 
 > **code**: `string`
 
-Defined in: [types/mcp.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L940)
+Defined in: [types/mcp.ts:959](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L959)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:940](https://github.com/juspay/neurolink/blob/release/
 
 > **state**: `string`
 
-Defined in: [types/mcp.ts:941](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L941)
+Defined in: [types/mcp.ts:960](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L960)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:941](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **codeVerifier?**: `string`
 
-Defined in: [types/mcp.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L942)
+Defined in: [types/mcp.ts:961](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L961)

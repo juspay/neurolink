@@ -8,7 +8,7 @@
 
 > **MCPPrompt** = `object`
 
-Defined in: [types/mcp.ts:2010](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2010)
+Defined in: [types/mcp.ts:2029](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2029)
 
 MCP Prompt definition
 
@@ -18,7 +18,7 @@ MCP Prompt definition
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:2014](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2014)
+Defined in: [types/mcp.ts:2033](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2033)
 
 Unique prompt name
 
@@ -28,7 +28,7 @@ Unique prompt name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:2019](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2019)
+Defined in: [types/mcp.ts:2038](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2038)
 
 Human-readable description
 
@@ -38,7 +38,7 @@ Human-readable description
 
 > `optional` **arguments?**: `object`[]
 
-Defined in: [types/mcp.ts:2024](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2024)
+Defined in: [types/mcp.ts:2043](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2043)
 
 Prompt arguments schema
 

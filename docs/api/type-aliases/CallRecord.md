@@ -8,7 +8,7 @@
 
 > **CallRecord** = `object`
 
-Defined in: [types/mcp.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L329)
+Defined in: [types/mcp.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L348)
 
 Call record for circuit breaker statistics tracking.
 Superset shape: MCP breaker uses {timestamp, success, duration};
@@ -21,7 +21,7 @@ metrics). Both import from here.
 
 > **timestamp**: `number`
 
-Defined in: [types/mcp.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L330)
+Defined in: [types/mcp.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L349)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/mcp.ts:330](https://github.com/juspay/neurolink/blob/release/
 
 > **success**: `boolean`
 
-Defined in: [types/mcp.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L331)
+Defined in: [types/mcp.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L350)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/mcp.ts:331](https://github.com/juspay/neurolink/blob/release/
 
 > **duration**: `number`
 
-Defined in: [types/mcp.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L332)
+Defined in: [types/mcp.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L351)
 
 ---
 
@@ -45,4 +45,4 @@ Defined in: [types/mcp.ts:332](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **operationType?**: `string`
 
-Defined in: [types/mcp.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L333)
+Defined in: [types/mcp.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L352)

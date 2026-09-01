@@ -8,7 +8,7 @@
 
 > **OptimizeParametersParams** = `object`
 
-Defined in: [types/mcp.ts:2689](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2689)
+Defined in: [types/mcp.ts:2708](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2708)
 
 Parsed input for the optimize-prompt-parameters MCP tool.
 
@@ -18,7 +18,7 @@ Parsed input for the optimize-prompt-parameters MCP tool.
 
 > **prompt**: `string`
 
-Defined in: [types/mcp.ts:2690](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2690)
+Defined in: [types/mcp.ts:2709](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2709)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2690](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **provider?**: [`AiAnalysisProvider`](AiAnalysisProvider.md)
 
-Defined in: [types/mcp.ts:2691](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2691)
+Defined in: [types/mcp.ts:2710](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2710)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2691](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **targetLength?**: `number`
 
-Defined in: [types/mcp.ts:2692](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2692)
+Defined in: [types/mcp.ts:2711](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2711)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2692](https://github.com/juspay/neurolink/blob/release
 
 > **style**: `"creative"` \| `"balanced"` \| `"precise"` \| `"factual"`
 
-Defined in: [types/mcp.ts:2693](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2693)
+Defined in: [types/mcp.ts:2712](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2712)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:2693](https://github.com/juspay/neurolink/blob/release
 
 > **optimizeFor**: `"speed"` \| `"quality"` \| `"cost"` \| `"tokens"`
 
-Defined in: [types/mcp.ts:2694](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2694)
+Defined in: [types/mcp.ts:2713](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2713)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/mcp.ts:2694](https://github.com/juspay/neurolink/blob/release
 
 > **iterations**: `number`
 
-Defined in: [types/mcp.ts:2695](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2695)
+Defined in: [types/mcp.ts:2714](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2714)
