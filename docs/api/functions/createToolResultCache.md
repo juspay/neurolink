@@ -8,7 +8,7 @@
 
 > **createToolResultCache**(`config?`): [`ToolResultCache`](../classes/ToolResultCache.md)
 
-Defined in: [mcp/caching/toolCache.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L537)
+Defined in: [mcp/caching/toolCache.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L586)
 
 Create a tool result cache instance
 
