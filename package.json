@@ -407,7 +407,7 @@
     "zod-to-json-schema": "^3.25.1"
   },
   "peerDependencies": {
-    "@juspay/hippocampus": ">=0.1.4",
+    "@juspay/hippocampus": ">=0.1.8",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-trace-node": "^2.6.0",
     "react": ">=18.0.0",
