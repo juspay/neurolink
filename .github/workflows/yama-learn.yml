@@ -134,6 +134,9 @@ jobs:
         # exactly that file, reads the staged set back, and commits + pushes
         # with [skip ci] — never a force push. A refused or failed write exits
         # non-zero, so a silent no-op cannot pass for a successful learn.
+        #
+        # Same floor as yama-review.yml: 6.1.1 pulls the NeuroLink that observes
+        # stdio MCP server death (juspay/neurolink #1610).
         env:
           YAMA_GITHUB_TOKEN: ${{ secrets.YAMA_GITHUB_TOKEN }}
           LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
@@ -141,7 +144,7 @@ jobs:
           PR_NUMBER: ${{ steps.target.outputs.pr }}
         working-directory: .yama
         run: |
-          npx --yes @juspay/yama@^6.1.0 learn "pr=$PR_NUMBER" 2>&1 | tee learn-run.log
+          npx --yes @juspay/yama@^6.1.1 learn "pr=$PR_NUMBER" 2>&1 | tee learn-run.log
           exit "${PIPESTATUS[0]}"
 
       - name: Archive the run log
