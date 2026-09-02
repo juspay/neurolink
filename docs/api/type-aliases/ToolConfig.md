@@ -121,3 +121,19 @@ Whether MCP tools should be enabled
 Defined in: [types/config.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L423)
 
 Whether the bash command execution tool should be enabled (opt-in, defaults to false)
+
+---
+
+### outputTruncationMaxBytes?
+
+> `optional` **outputTruncationMaxBytes?**: `number`
+
+Defined in: [types/config.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L433)
+
+Byte ceiling for the safety-net truncation `ToolsManager` applies to
+every direct/custom/external-MCP tool result before it reaches the AI
+SDK accumulator (BZ-666). Independent of `mcp.outputLimits`, which only
+governs external MCP results earlier in the pipeline via its own
+externalize-to-artifact-store strategy. Default: 51200 (50 KB) —
+unchanged from the previous hard-coded ceiling, so existing consumers
+see no behavior change unless they set this explicitly.

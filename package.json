@@ -147,6 +147,7 @@
     "test:autoresearch": "pnpm exec tsx test/continuous-test-suite-autoresearch.ts",
     "test:tool-routing-cli": "pnpm exec tsx test/continuous-test-suite-tool-routing-cli.ts",
     "test:tool-dedup": "pnpm exec tsx test/continuous-test-suite-tool-dedup.ts",
+    "test:tools-manager-truncation": "pnpm exec tsx test/continuous-test-suite-tools-manager-truncation.ts",
     "test:model-not-found-retryable": "pnpm exec tsx test/continuous-test-suite-model-not-found-retryable.ts",
     "test:ci": "pnpm run test && pnpm run test:client && pnpm run test:hitl",
     "// CI tier — fast, no live AI calls, safe for every commit (test:unit; also see the separate provider-safety-net CI job, which runs build + test:providers-mocked + test:provider-structure + test:error-classifier-contract on every PR)": "",

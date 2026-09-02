@@ -8,7 +8,7 @@
 
 > **SummarizationPromptOptions** = `object`
 
-Defined in: [types/context.ts:965](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L965)
+Defined in: [types/context.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L974)
 
 Options for summarization prompt building.
 
@@ -18,7 +18,7 @@ Options for summarization prompt building.
 
 > **isIncremental**: `boolean`
 
-Defined in: [types/context.ts:969](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L969)
+Defined in: [types/context.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L978)
 
 Whether this is an incremental update to an existing summary
 
@@ -28,7 +28,7 @@ Whether this is an incremental update to an existing summary
 
 > `optional` **previousSummary?**: `string`
 
-Defined in: [types/context.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L974)
+Defined in: [types/context.ts:983](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L983)
 
 The previous summary to merge with (required for incremental mode)
 
@@ -38,7 +38,7 @@ The previous summary to merge with (required for incremental mode)
 
 > `optional` **filesRead?**: `string`[]
 
-Defined in: [types/context.ts:979](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L979)
+Defined in: [types/context.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L988)
 
 List of files that have been read during the conversation
 
@@ -48,6 +48,6 @@ List of files that have been read during the conversation
 
 > `optional` **filesModified?**: `string`[]
 
-Defined in: [types/context.ts:984](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L984)
+Defined in: [types/context.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L993)
 
 List of files that have been modified during the conversation

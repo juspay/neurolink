@@ -8,7 +8,7 @@
 
 > **TruncationConfig** = `object`
 
-Defined in: [types/context.ts:1003](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1003)
+Defined in: [types/context.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1012)
 
 Configuration for sliding window truncation (Stage 4).
 
@@ -18,7 +18,7 @@ Configuration for sliding window truncation (Stage 4).
 
 > `optional` **fraction?**: `number`
 
-Defined in: [types/context.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1004)
+Defined in: [types/context.ts:1013](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1013)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:1004](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **currentTokens?**: `number`
 
-Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1006)
+Defined in: [types/context.ts:1015](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1015)
 
 Current estimated tokens (enables adaptive mode)
 
@@ -36,7 +36,7 @@ Current estimated tokens (enables adaptive mode)
 
 > `optional` **targetTokens?**: `number`
 
-Defined in: [types/context.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1008)
+Defined in: [types/context.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1017)
 
 Target token budget (enables adaptive mode)
 
@@ -46,7 +46,7 @@ Target token budget (enables adaptive mode)
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:1010](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1010)
+Defined in: [types/context.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1019)
 
 Provider for token estimation (enables adaptive mode)
 
@@ -56,7 +56,7 @@ Provider for token estimation (enables adaptive mode)
 
 > `optional` **adaptiveBuffer?**: `number`
 
-Defined in: [types/context.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1012)
+Defined in: [types/context.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1021)
 
 Buffer above required reduction (default: 0.15 = 15%)
 
@@ -66,6 +66,6 @@ Buffer above required reduction (default: 0.15 = 15%)
 
 > `optional` **maxIterations?**: `number`
 
-Defined in: [types/context.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1014)
+Defined in: [types/context.ts:1023](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1023)
 
 Maximum iterations for adaptive truncation (default: 3)

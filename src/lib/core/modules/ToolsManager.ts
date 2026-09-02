@@ -7,13 +7,18 @@ import type {
   ToolArgs,
   ToolEventPayload,
   JsonObject,
+  ToolOutputPreviewOptions,
 } from "../../types/index.js";
 import { tracers, ATTR, withSpan } from "../../telemetry/index.js";
 import { SpanStatusCode } from "@opentelemetry/api";
 import { logger } from "../../utils/logger.js";
 import { getKeyCount } from "../../utils/transformationUtils.js";
 import { convertJsonSchemaToZod } from "../../utils/schemaConversion.js";
-import { generateToolOutputPreview } from "../../context/toolOutputLimits.js";
+import {
+  generateToolOutputPreview,
+  DEFAULT_MAX_PREVIEW_BYTES,
+  RETRIEVE_CONTEXT_TOOL_NAME,
+} from "../../context/toolOutputLimits.js";
 import type { NeuroLink } from "../../neurolink.js";
 import type { Tool } from "../../types/index.js";
 import { tool as createAISDKTool, jsonSchema } from "../../utils/tool.js";
@@ -180,6 +185,51 @@ function raceWithAbortSignal<T>(
 /**
  * ToolsManager class - Handles all tool management operations
  */
+/** Upper bound on re-measure-and-tighten rounds in truncateMcpContentEnvelope. */
+const MAX_ENVELOPE_TIGHTENING_PASSES = 6;
+
+function serializedByteLength(value: unknown): number | undefined {
+  try {
+    return Buffer.byteLength(JSON.stringify(value), "utf-8");
+  } catch {
+    return undefined;
+  }
+}
+
+function isTextContentItem(
+  item: unknown,
+): item is Record<string, unknown> & { text: string } {
+  return (
+    item !== null &&
+    typeof item === "object" &&
+    (item as Record<string, unknown>).type === "text" &&
+    typeof (item as Record<string, unknown>).text === "string"
+  );
+}
+
+/**
+ * Split `total` bytes across items of the given sizes, water-filling:
+ * smallest first, each item takes the lesser of its own size and an equal
+ * share of what is left, so items that already fit keep everything and the
+ * remainder flows to the larger ones.
+ */
+function waterFillTextBudget(sizes: number[], total: number): number[] {
+  const allocations = new Array<number>(sizes.length).fill(0);
+  const order = sizes
+    .map((_, index) => index)
+    .sort((a, b) => sizes[a] - sizes[b]);
+  let remaining = Math.max(0, total);
+  let left = order.length;
+  for (const index of order) {
+    const share = Math.floor(remaining / left);
+    const give = Math.min(sizes[index], share);
+    allocations[index] = give;
+    remaining -= give;
+    left--;
+  }
+  return allocations;
+}
+
 export class ToolsManager {
   // Tool storage
   protected mcpTools?: Record<string, Tool>;
@@ -236,6 +286,166 @@ export class ToolsManager {
   }
 
   /**
+   * Byte budget for BZ-666 truncation. Reads the instance-level
+   * `tools.outputTruncationMaxBytes` config (see `ToolConfig` /
+   * `NeuroLink.getToolsConfig()`) so hosts can raise or lower the ceiling
+   * without a new env var or constructor param; falls back to the original
+   * hard-coded 51,200 bytes (== DEFAULT_MAX_PREVIEW_BYTES) so existing
+   * consumers see no behavior change.
+   */
+  private resolveTruncationMaxBytes(): number {
+    const configured =
+      this.neurolink?.getToolsConfig?.()?.outputTruncationMaxBytes;
+    return typeof configured === "number" &&
+      Number.isFinite(configured) &&
+      configured > 0
+      ? configured
+      : DEFAULT_MAX_PREVIEW_BYTES;
+  }
+
+  /**
+   * The default omission notice names `retrieve_context` as the on-demand
+   * read-back tool. That is only true when this NeuroLink instance actually
+   * registered it (Redis or an artifact store must exist — see
+   * `retrieveContextRegistered` in neurolink.ts). Otherwise hand
+   * `generateToolOutputPreview` a notice that doesn't mention it.
+   */
+  private resolveTruncationNotice(): ToolOutputPreviewOptions["notice"] {
+    const hasRetrieveContext = Boolean(
+      this.neurolink?.getCustomTools?.().has(RETRIEVE_CONTEXT_TOOL_NAME),
+    );
+    if (hasRetrieveContext) {
+      return undefined; // defer to generateToolOutputPreview's own default
+    }
+    return (omittedBytes: number) =>
+      `\n\n[... ${omittedBytes} bytes omitted ...]\n\n`;
+  }
+
+  /**
+   * Truncate an MCP `CallToolResult`-shaped envelope (`{content:[...],
+   * isError?}`) — at the top level, or nested under `data` the way
+   * NeuroLink's own `executeExternalMCPTool` / `{success, data}` wrapper
+   * shapes it — WITHOUT collapsing it to the generic `_truncated` sentinel,
+   * while still honouring `maxBytes` for the envelope AS A WHOLE.
+   *
+   * Only TEXT content items are rewritten (byte-accurate head/tail preview,
+   * same mechanism as a plain string result). `isError` and any non-text
+   * items (images, resources, embedded resources, …) pass through
+   * untouched, and every other top-level field on the result is preserved.
+   *
+   * The budget is enforced on the serialized envelope, not per item: the
+   * bytes the envelope occupies with every text item emptied (structure,
+   * non-text items, other fields) come off the top, and what remains is
+   * water-filled across the text items — items that already fit keep their
+   * text and donate the rest of their share to the larger ones. JSON
+   * escaping and the per-item notice add bytes the raw allocation cannot
+   * see, so the result is re-measured and the text budget tightened until
+   * the whole envelope fits.
+   *
+   * Returns `undefined` when `result` doesn't have this shape at all, AND
+   * when the shape cannot be kept within `maxBytes` — no text items, the
+   * non-text payload alone exceeds the budget, or tightening did not
+   * converge — so the caller's generic sentinel path bounds it instead.
+   * Preserving the shape never buys the right to exceed the ceiling.
+   */
+  private truncateMcpContentEnvelope(
+    toolName: string,
+    obj: Record<string, unknown>,
+    maxBytes: number,
+  ): Record<string, unknown> | undefined {
+    const atTopLevel = Array.isArray(obj.content);
+    const dataObj =
+      !atTopLevel && obj.data && typeof obj.data === "object"
+        ? (obj.data as Record<string, unknown>)
+        : undefined;
+    const nestedUnderData = !atTopLevel && Array.isArray(dataObj?.content);
+    if (!atTopLevel && !nestedUnderData) {
+      return undefined;
+    }
+
+    const envelope = atTopLevel ? obj : (dataObj as Record<string, unknown>);
+    const serializedSize = serializedByteLength(obj);
+    if (serializedSize === undefined) {
+      return obj; // unserializable — leave the envelope exactly as-is
+    }
+    if (serializedSize <= maxBytes) {
+      return obj;
+    }
+
+    const content = envelope.content as unknown[];
+    const textIndexes: number[] = [];
+    content.forEach((item, index) => {
+      if (isTextContentItem(item)) {
+        textIndexes.push(index);
+      }
+    });
+    if (textIndexes.length === 0) {
+      return undefined; // nothing trimmable — let the sentinel bound it
+    }
+
+    const rebuild = (
+      replacements: ReadonlyMap<number, string>,
+    ): Record<string, unknown> => {
+      const newContent = content.map((item, index) => {
+        const text = replacements.get(index);
+        return text === undefined
+          ? item
+          : { ...(item as Record<string, unknown>), text };
+      });
+      const newEnvelope = { ...envelope, content: newContent };
+      return atTopLevel ? newEnvelope : { ...obj, data: newEnvelope };
+    };
+
+    // Bytes the envelope costs with every text item emptied. If that alone
+    // is over budget, no amount of text trimming honours the ceiling while
+    // keeping the shape.
+    const fixedBytes = serializedByteLength(
+      rebuild(new Map(textIndexes.map((index) => [index, ""]))),
+    );
+    if (fixedBytes === undefined || fixedBytes >= maxBytes) {
+      return undefined;
+    }
+
+    const notice = this.resolveTruncationNotice();
+    const sizes = textIndexes.map((index) =>
+      Buffer.byteLength((content[index] as { text: string }).text, "utf-8"),
+    );
+    let textBudget = maxBytes - fixedBytes;
+    for (let pass = 0; pass < MAX_ENVELOPE_TIGHTENING_PASSES; pass++) {
+      const allocations = waterFillTextBudget(sizes, textBudget);
+      const replacements = new Map<number, string>();
+      textIndexes.forEach((index, k) => {
+        const item = content[index] as { text: string };
+        const { preview, truncated, originalSize } = generateToolOutputPreview(
+          item.text,
+          { maxBytes: allocations[k], notice },
+        );
+        if (truncated) {
+          logger.debug(
+            `[ToolsManager] Truncated '${toolName}' MCP content text item ${index}: ${originalSize} bytes → ${Buffer.byteLength(preview, "utf-8")} bytes (envelope budget ${maxBytes})`,
+          );
+          replacements.set(index, preview);
+        }
+      });
+      const candidate = rebuild(replacements);
+      const candidateSize = serializedByteLength(candidate);
+      if (candidateSize !== undefined && candidateSize <= maxBytes) {
+        return candidate;
+      }
+      if (candidateSize === undefined || replacements.size === 0) {
+        break;
+      }
+      // Over by the escaping/notice overhead the allocation could not see:
+      // take that overage (plus a margin) back out of the text budget.
+      textBudget -= candidateSize - maxBytes + Math.ceil(maxBytes * 0.02) + 1;
+      if (textBudget <= 0) {
+        break;
+      }
+    }
+    return undefined; // could not fit while preserving the shape — sentinel
+  }
+
+  /**
    * BZ-666: Apply generateToolOutputPreview to tool results to prevent
    * context overflow when large results flow into the AI SDK accumulator.
    */
@@ -244,10 +454,14 @@ export class ToolsManager {
       return result;
     }
 
+    const maxBytes = this.resolveTruncationMaxBytes();
+
     // Handle string results directly
     if (typeof result === "string") {
-      const { preview, truncated, originalSize } =
-        generateToolOutputPreview(result);
+      const { preview, truncated, originalSize } = generateToolOutputPreview(
+        result,
+        { maxBytes },
+      );
       if (truncated) {
         logger.debug(
           `[ToolsManager] Truncated '${toolName}' string output: ${originalSize} bytes → ${Buffer.byteLength(preview, "utf-8")} bytes`,
@@ -261,10 +475,12 @@ export class ToolsManager {
       const obj = result as Record<string, unknown>;
       let nextObj: Record<string, unknown> | null = null;
 
-      // Truncate "content" if present and oversized
+      // Truncate "content" if present and oversized (string form only —
+      // an ARRAY "content" is an MCP envelope, handled below)
       if (typeof obj.content === "string") {
         const { preview, truncated, originalSize } = generateToolOutputPreview(
           obj.content,
+          { maxBytes },
         );
         if (truncated) {
           logger.debug(
@@ -278,6 +494,7 @@ export class ToolsManager {
       if (typeof obj.data === "string") {
         const { preview, truncated, originalSize } = generateToolOutputPreview(
           obj.data,
+          { maxBytes },
         );
         if (truncated) {
           logger.debug(
@@ -291,13 +508,27 @@ export class ToolsManager {
         return nextObj;
       }
 
+      // MCP CallToolResult envelope — { content: [{type,text}, ...], isError? }
+      // — either at the top level or nested under `data` (NeuroLink's own
+      // executeExternalMCPTool / {success, data} wrapper shape). Preserve the
+      // envelope and truncate only the oversized text items instead of
+      // collapsing the whole thing to the generic sentinel below.
+      const envelopeResult = this.truncateMcpContentEnvelope(
+        toolName,
+        obj,
+        maxBytes,
+      );
+      if (envelopeResult !== undefined) {
+        return envelopeResult;
+      }
+
       // For other objects, check if their JSON serialization is too large.
-      // Use UTF-8 byte length, not string length, to match the 50KB budget.
+      // Use UTF-8 byte length, not string length, to match the byte budget.
       try {
         const jsonStr = JSON.stringify(result);
-        if (Buffer.byteLength(jsonStr, "utf-8") > 51_200) {
+        if (Buffer.byteLength(jsonStr, "utf-8") > maxBytes) {
           const { preview, truncated, originalSize } =
-            generateToolOutputPreview(jsonStr);
+            generateToolOutputPreview(jsonStr, { maxBytes });
           if (truncated) {
             logger.debug(
               `[ToolsManager] Truncated '${toolName}' JSON output: ${originalSize} bytes → ${Buffer.byteLength(preview, "utf-8")} bytes`,

@@ -8,7 +8,7 @@
 
 > **AnthropicGuardBlock** = `object`
 
-Defined in: [types/context.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L902)
+Defined in: [types/context.ts:911](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L911)
 
 Structural view of one Anthropic content block, loose enough to accept the
 official SDK's `ContentBlockParam` union and NeuroLink's own
@@ -20,7 +20,7 @@ official SDK's `ContentBlockParam` union and NeuroLink's own
 
 > **type**: `string`
 
-Defined in: [types/context.ts:903](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L903)
+Defined in: [types/context.ts:912](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L912)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/context.ts:903](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **content?**: `unknown`
 
-Defined in: [types/context.ts:905](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L905)
+Defined in: [types/context.ts:914](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L914)
 
 Payload of a `tool_result` block. Other block kinds carry other fields.
 
@@ -38,6 +38,6 @@ Payload of a `tool_result` block. Other block kinds carry other fields.
 
 > `optional` **text?**: `string`
 
-Defined in: [types/context.ts:907](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L907)
+Defined in: [types/context.ts:916](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L916)
 
 Text of a `text` block.
