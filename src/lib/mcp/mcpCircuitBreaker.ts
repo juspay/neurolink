@@ -66,9 +66,24 @@ export class MCPCircuitBreaker extends EventEmitter {
   }
 
   /**
-   * Execute an operation with circuit breaker protection
+   * Execute an operation with circuit breaker protection.
+   *
+   * `operation` is handed a `recordResolvedFailure` callback so it can flag a
+   * *resolved* result as a logical failure without throwing. This matters for
+   * MCP tool calls: the client does not throw on a protocol error, it
+   * resolves with `{ isError: true, ... }`. Before this callback existed,
+   * such a call always fell through to the success path below — the breaker
+   * could never open for a tool that only ever "fails" by resolving an error
+   * result, and callers still need that resolved value returned as-is (not
+   * replaced by a thrown transport error). Call `recordResolvedFailure()`
+   * from inside `operation` when that resolved value represents a failure;
+   * the call is still counted as a normal, non-throwing success from the
+   * `Promise.race` below, so this callback is what tells `execute()`
+   * otherwise. Callers that never call it see no behavior change.
    */
-  async execute<T>(operation: () => Promise<T>): Promise<T> {
+  async execute<T>(
+    operation: (recordResolvedFailure: (reason?: string) => void) => Promise<T>,
+  ): Promise<T> {
     const startTime = Date.now();
 
     try {
@@ -125,11 +140,34 @@ export class MCPCircuitBreaker extends EventEmitter {
         }
       }
 
+      // resolvedFailureReason is set (via recordResolvedFailure, passed into
+      // operation() below) when operation() resolves normally but represents
+      // a logical failure — e.g. an MCP tool call that resolved
+      // { isError: true } instead of throwing. It is call-scoped (a local,
+      // not instance state), so concurrent execute() calls on the same
+      // breaker (the same tool invoked in parallel) can't cross-contaminate
+      // each other's outcome.
+      let resolvedFailureReason: string | undefined;
+      const recordResolvedFailure = (reason?: string): void => {
+        resolvedFailureReason = reason || "Operation resolved a failure result";
+      };
+
       // Execute operation with timeout
       const result = await Promise.race([
-        operation(),
+        operation(recordResolvedFailure),
         this.timeoutPromise<T>(this.config.operationTimeout),
       ]);
+
+      if (resolvedFailureReason !== undefined) {
+        // Same bookkeeping as a thrown error below, but the resolved value
+        // is still returned to the caller unchanged — no transport error is
+        // synthesized for a result the protocol itself resolved successfully.
+        this.recordFailureOutcome(
+          resolvedFailureReason,
+          Date.now() - startTime,
+        );
+        return result;
+      }
 
       // Record successful call
       this.recordCall(true, Date.now() - startTime);
@@ -148,28 +186,36 @@ export class MCPCircuitBreaker extends EventEmitter {
     } catch (error) {
       // Record failed call
       const duration = Date.now() - startTime;
-      this.recordCall(false, duration);
-
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-
-      // Emit failure event
-      this.emit("callFailure", {
-        error: errorMessage,
-        duration,
-        timestamp: new Date(),
-      } satisfies CircuitBreakerEvents["callFailure"]);
-
-      // Handle state transitions on failure
-      if (this.state === "half-open") {
-        // Failure in half-open immediately opens circuit
-        this.changeState("open", `Half-open test failed: ${errorMessage}`);
-      } else if (this.state === "closed") {
-        // Check if we should open the circuit
-        this.checkFailureThreshold();
-      }
+      this.recordFailureOutcome(errorMessage, duration);
 
       throw error;
+    }
+  }
+
+  /**
+   * Shared bookkeeping for a failed outcome — a thrown error, or a resolved
+   * result the caller flagged via `recordResolvedFailure`. Records the call
+   * as a failure, emits `callFailure`, and runs the state transitions that
+   * used to live inline in the `catch` block: half-open failure immediately
+   * re-opens the circuit; closed checks the failure threshold.
+   */
+  private recordFailureOutcome(reason: string, duration: number): void {
+    this.recordCall(false, duration);
+
+    this.emit("callFailure", {
+      error: reason,
+      duration,
+      timestamp: new Date(),
+    } satisfies CircuitBreakerEvents["callFailure"]);
+
+    if (this.state === "half-open") {
+      // Failure in half-open immediately opens circuit
+      this.changeState("open", `Half-open test failed: ${reason}`);
+    } else if (this.state === "closed") {
+      // Check if we should open the circuit
+      this.checkFailureThreshold();
     }
   }
 

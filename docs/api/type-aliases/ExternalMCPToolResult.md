@@ -44,11 +44,24 @@ Error message if failed
 
 ---
 
+### isErrorResult?
+
+> `optional` **isErrorResult?**: `boolean`
+
+Defined in: [types/externalMcp.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L302)
+
+True when the call completed at the transport level but the MCP result
+itself is `{ isError: true }`. `success` stays true for such results so
+the resolved MCP error payload still reaches the caller unchanged; this
+flag is what lets stats and telemetry count the call as a failure.
+
+---
+
 ### duration
 
 > **duration**: `number`
 
-Defined in: [types/externalMcp.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L297)
+Defined in: [types/externalMcp.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L305)
 
 Execution duration in milliseconds
 
@@ -58,7 +71,7 @@ Execution duration in milliseconds
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/externalMcp.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L300)
+Defined in: [types/externalMcp.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L308)
 
 Tool execution metadata
 
