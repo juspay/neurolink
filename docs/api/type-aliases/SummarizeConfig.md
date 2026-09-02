@@ -8,7 +8,7 @@
 
 > **SummarizeConfig** = `object`
 
-Defined in: [types/context.ts:1002](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1002)
+Defined in: [types/context.ts:1011](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1011)
 
 Configuration for structured LLM summarization (Stage 3).
 
@@ -18,7 +18,7 @@ Configuration for structured LLM summarization (Stage 3).
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:1003](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1003)
+Defined in: [types/context.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1012)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:1003](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **model?**: `string`
 
-Defined in: [types/context.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1004)
+Defined in: [types/context.ts:1013](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1013)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:1004](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **keepRecentRatio?**: `number`
 
-Defined in: [types/context.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1005)
+Defined in: [types/context.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1014)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/context.ts:1005](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **memoryConfig?**: `Partial`\<[`ConversationMemoryConfig`](ConversationMemoryConfig.md)\>
 
-Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1006)
+Defined in: [types/context.ts:1015](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1015)
 
 ---
 
@@ -50,6 +50,6 @@ Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **targetTokens?**: `number`
 
-Defined in: [types/context.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1008)
+Defined in: [types/context.ts:1017](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1017)
 
 Target token budget — when set, split uses token counting instead of message count

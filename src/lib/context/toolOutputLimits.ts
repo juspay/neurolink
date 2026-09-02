@@ -47,6 +47,28 @@ export function exceedsToolOutputPreviewBudget(
 }
 
 /**
+ * First `limit` bytes of `value`, cut on a code-point boundary.
+ *
+ * `Buffer.subarray().toString()` mid-sequence emits U+FFFD, which is itself
+ * three bytes and can push the result back over the very budget the cut was
+ * made to satisfy — so back off to the start of the split character instead.
+ */
+function takeBytes(value: string, limit: number): string {
+  if (limit <= 0) {
+    return "";
+  }
+  const buf = Buffer.from(value, "utf-8");
+  if (buf.length <= limit) {
+    return value;
+  }
+  let end = limit;
+  while (end > 0 && (buf[end] & 0xc0) === 0x80) {
+    end--;
+  }
+  return buf.subarray(0, end).toString("utf-8");
+}
+
+/**
  * Generate a head/tail preview of a tool output string.
  * If the output is within limits, returns it unchanged with truncated: false.
  * If over limits, keeps the first 25% and last 75% with an omission notice.
@@ -108,15 +130,72 @@ export function generateToolOutputPreview(
     tail = tailBuf.subarray(tailBuf.length - tailMaxBytes).toString("utf-8");
   }
 
-  const omittedBytes = Math.max(
-    0,
-    originalSize -
-      Buffer.byteLength(head, "utf-8") -
-      Buffer.byteLength(tail, "utf-8"),
-  );
-  const notice =
-    `\n\n[... ${omittedBytes} bytes omitted. ` +
-    `Use ${RETRIEVE_CONTEXT_TOOL_NAME} tool to access full output ...]\n\n`;
+  // Default notice names retrieve_context; callers whose instance never
+  // registers that tool (see RETRIEVE_CONTEXT_TOOL_NAME usages in
+  // ToolsManager) pass their own `notice` so the model isn't pointed at a
+  // tool that doesn't exist.
+  const renderNotice = (omitted: number): string =>
+    options?.notice === undefined
+      ? `\n\n[... ${omitted} bytes omitted. ` +
+        `Use ${RETRIEVE_CONTEXT_TOOL_NAME} tool to access full output ...]\n\n`
+      : typeof options.notice === "function"
+        ? options.notice(omitted)
+        : options.notice;
+
+  const omittedFor = (h: string, t: string): number =>
+    Math.max(
+      0,
+      originalSize -
+        Buffer.byteLength(h, "utf-8") -
+        Buffer.byteLength(t, "utf-8"),
+    );
+
+  // `headMaxBytes + tailMaxBytes` is exactly `maxBytes`, leaving no room for
+  // the notice — so appending it unmeasured pushed every truncated preview
+  // over the caller's budget (82 bytes over, for the default notice). Give the
+  // notice its space back out of the tail, then the head. Two passes, because
+  // shrinking them raises `omittedBytes` and can lengthen the notice by a
+  // digit; the second pass settles that.
+  let notice = renderNotice(omittedFor(head, tail));
+  for (let pass = 0; pass < 2; pass++) {
+    const excess =
+      Buffer.byteLength(head, "utf-8") +
+      Buffer.byteLength(notice, "utf-8") +
+      Buffer.byteLength(tail, "utf-8") -
+      maxBytes;
+    if (excess <= 0) {
+      break;
+    }
+    const tailBuf = Buffer.from(tail, "utf-8");
+    const takeFromTail = Math.min(excess, tailBuf.length);
+    tail = tailBuf.subarray(takeFromTail).toString("utf-8");
+    const stillOver = excess - takeFromTail;
+    if (stillOver > 0) {
+      const headBuf = Buffer.from(head, "utf-8");
+      head = headBuf
+        .subarray(0, Math.max(0, headBuf.length - stillOver))
+        .toString("utf-8");
+    }
+    notice = renderNotice(omittedFor(head, tail));
+  }
+
+  // A notice at least as long as the whole budget cannot be paid for out of
+  // `head` and `tail`: the loop above empties both and the notice alone is
+  // still over `maxBytes`. `maxBytes` is a hard cap the caller sizes its
+  // context window against, so bound the notice itself rather than handing
+  // back more than was asked for.
+  if (
+    Buffer.byteLength(head, "utf-8") +
+      Buffer.byteLength(notice, "utf-8") +
+      Buffer.byteLength(tail, "utf-8") >
+    maxBytes
+  ) {
+    return {
+      preview: takeBytes(notice, maxBytes),
+      truncated: true,
+      originalSize,
+    };
+  }
 
   return {
     preview: head + notice + tail,
