@@ -8,7 +8,7 @@
 
 > **ProxyShareNote** = `object`
 
-Defined in: [types/proxy.ts:3765](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3765)
+Defined in: [types/proxy.ts:3774](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3774)
 
 A bearer credit one node issued, which any node holding it may redeem against
 the issuer.
@@ -22,7 +22,7 @@ eventually redeems it need not have existed when it was issued.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:3766](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3766)
+Defined in: [types/proxy.ts:3775](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3775)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:3766](https://github.com/juspay/neurolink/blob/relea
 
 > **noteId**: `string`
 
-Defined in: [types/proxy.ts:3767](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3767)
+Defined in: [types/proxy.ts:3776](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3776)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/proxy.ts:3767](https://github.com/juspay/neurolink/blob/relea
 
 > **issuer**: `string`
 
-Defined in: [types/proxy.ts:3768](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3768)
+Defined in: [types/proxy.ts:3777](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3777)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/proxy.ts:3768](https://github.com/juspay/neurolink/blob/relea
 
 > **coins**: `number`
 
-Defined in: [types/proxy.ts:3769](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3769)
+Defined in: [types/proxy.ts:3778](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3778)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/proxy.ts:3769](https://github.com/juspay/neurolink/blob/relea
 
 > **issuedAt**: `number`
 
-Defined in: [types/proxy.ts:3770](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3770)
+Defined in: [types/proxy.ts:3779](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3779)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/proxy.ts:3770](https://github.com/juspay/neurolink/blob/relea
 
 > **notAfter**: `number`
 
-Defined in: [types/proxy.ts:3771](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3771)
+Defined in: [types/proxy.ts:3780](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3780)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/proxy.ts:3771](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **memo?**: `string`
 
-Defined in: [types/proxy.ts:3772](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3772)
+Defined in: [types/proxy.ts:3781](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3781)
 
 ---
 
@@ -78,4 +78,4 @@ Defined in: [types/proxy.ts:3772](https://github.com/juspay/neurolink/blob/relea
 
 > **signature**: `string`
 
-Defined in: [types/proxy.ts:3773](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3773)
+Defined in: [types/proxy.ts:3782](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3782)

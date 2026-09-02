@@ -8,7 +8,7 @@
 
 > **ProxyRequestRoutingSnapshot** = `object`
 
-Defined in: [types/proxy.ts:2991](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2991)
+Defined in: [types/proxy.ts:3000](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3000)
 
 Routing values captured once when a proxy request begins.
 
@@ -18,7 +18,7 @@ Routing values captured once when a proxy request begins.
 
 > **generation**: `number`
 
-Defined in: [types/proxy.ts:2992](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2992)
+Defined in: [types/proxy.ts:3001](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3001)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2992](https://github.com/juspay/neurolink/blob/relea
 
 > **strategy**: [`ProxyStartStrategy`](ProxyStartStrategy.md)
 
-Defined in: [types/proxy.ts:2993](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2993)
+Defined in: [types/proxy.ts:3002](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3002)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2993](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **modelRouter?**: [`ModelRouterInterface`](ModelRouterInterface.md)
 
-Defined in: [types/proxy.ts:2994](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2994)
+Defined in: [types/proxy.ts:3003](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3003)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2994](https://github.com/juspay/neurolink/blob/relea
 
 > **passthrough**: `boolean`
 
-Defined in: [types/proxy.ts:2995](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2995)
+Defined in: [types/proxy.ts:3004](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3004)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2995](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **primaryAccountKey?**: `string`
 
-Defined in: [types/proxy.ts:2996](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2996)
+Defined in: [types/proxy.ts:3005](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3005)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2996](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **accountAllowlist?**: `ReadonlySet`\<`string`\>
 
-Defined in: [types/proxy.ts:2997](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2997)
+Defined in: [types/proxy.ts:3006](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3006)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:2997](https://github.com/juspay/neurolink/blob/relea
 
 > **quotaRoutingEnabled**: `boolean`
 
-Defined in: [types/proxy.ts:2998](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2998)
+Defined in: [types/proxy.ts:3007](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3007)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:2998](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionSoftLimit**: `number`
 
-Defined in: [types/proxy.ts:2999](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2999)
+Defined in: [types/proxy.ts:3008](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3008)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:2999](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionResetToleranceMs**: `number`
 
-Defined in: [types/proxy.ts:3000](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3000)
+Defined in: [types/proxy.ts:3009](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3009)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/proxy.ts:3000](https://github.com/juspay/neurolink/blob/relea
 
 > **useOverage**: [`ProxyOveragePolicy`](ProxyOveragePolicy.md)
 
-Defined in: [types/proxy.ts:3003](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3003)
+Defined in: [types/proxy.ts:3012](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3012)
 
 Operator policy on spending paid extra usage once a subscription window is
 spent. Only "never" can override the provider's own signal.

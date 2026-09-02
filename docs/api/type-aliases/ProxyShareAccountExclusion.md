@@ -8,7 +8,7 @@
 
 > **ProxyShareAccountExclusion** = `object`
 
-Defined in: [types/proxy.ts:3860](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3860)
+Defined in: [types/proxy.ts:3869](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3869)
 
 Why one account was withheld from a grant.
 
@@ -18,7 +18,7 @@ Why one account was withheld from a grant.
 
 > **accountKey**: `string`
 
-Defined in: [types/proxy.ts:3861](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3861)
+Defined in: [types/proxy.ts:3870](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3870)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3861](https://github.com/juspay/neurolink/blob/relea
 
 > **reason**: [`ProxyShareRefusalReason`](ProxyShareRefusalReason.md)
 
-Defined in: [types/proxy.ts:3862](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3862)
+Defined in: [types/proxy.ts:3871](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3871)

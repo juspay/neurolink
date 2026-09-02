@@ -8,6 +8,6 @@
 
 > **AccountUsageFetchResult** = \{ `ok`: `true`; `usage`: [`AnthropicUsageResponse`](AnthropicUsageResponse.md); \} \| \{ `ok`: `false`; `reason`: `"not_oauth"` \| `"auth"` \| `"http"` \| `"network"` \| `"parse"`; `error`: `string`; `status?`: `number`; \}
 
-Defined in: [types/proxy.ts:1386](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1386)
+Defined in: [types/proxy.ts:1395](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1395)
 
 Outcome of one account's usage-endpoint fetch. Return-not-throw.

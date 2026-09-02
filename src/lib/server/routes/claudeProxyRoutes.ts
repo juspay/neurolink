@@ -309,6 +309,15 @@ let lastKnownAccountCount = 0;
 const MAX_AUTH_RETRIES = 5;
 const MAX_TRANSIENT_SAME_ACCOUNT_RETRIES = 2;
 const TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS = [250, 1_000] as const;
+/**
+ * Retry budget for failures that happened before any request byte was sent
+ * (a SYN lost on a lossy uplink). Nothing was dispatched, so each retry is
+ * free of duplicate-work risk; on a link losing one connect in five, four
+ * retries take the per-request failure rate from about 20% to under 1%.
+ * Delays follow TRANSIENT_SAME_ACCOUNT_RETRY_DELAYS_MS, clamped to its last
+ * entry.
+ */
+const MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES = 4;
 const OVERLOAD_ACCOUNT_ROTATION_DELAYS_MS = [250, 500, 1_000, 2_000] as const;
 const MAX_FALLBACK_NETWORK_RETRIES = 1;
 const FALLBACK_STREAM_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
@@ -8436,6 +8445,9 @@ function createAnthropicAttemptLogger(args: {
         ? { cacheReadTokens: extra.cacheReadTokens }
         : {}),
       ...(extra?.retryable !== undefined ? { retryable: extra.retryable } : {}),
+      ...(extra?.connectPhase !== undefined
+        ? { connectPhase: extra.connectPhase }
+        : {}),
       ...(extra?.rateLimitKind ? { rateLimitKind: extra.rateLimitKind } : {}),
       ...(extra?.cooldownReason
         ? { cooldownReason: extra.cooldownReason }
@@ -8755,6 +8767,7 @@ async function fetchAnthropicAccountResponse(args: {
     });
   } catch (fetchErr) {
     const retryable = isRetryableNetworkError(fetchErr);
+    const connectPhase = isConnectPhaseNetworkError(fetchErr);
     const transportScope = classifyNetworkTransportScope(fetchErr);
     // Every dispatched upstream request is an attempt, including terminal
     // transport failures. Record it once before preserving the throw behavior.
@@ -8769,6 +8782,7 @@ async function fetchAnthropicAccountResponse(args: {
     );
     logAttempt(502, "network_error", errorMessage, {
       retryable,
+      connectPhase,
       errorCode,
       transportScope,
     });
@@ -8785,6 +8799,7 @@ async function fetchAnthropicAccountResponse(args: {
       retrySameAccount: true,
       transportScope,
       errorCode,
+      connectPhase,
       lastError,
       sawRateLimit,
       sawNetworkError,
@@ -9168,6 +9183,24 @@ async function handleAnthropicRoutedClaudeRequest(args: {
           transportPermit.errorCode ?? undefined;
         loopState.lastTransportScope = transportPermit.transportScope;
         loopState.lastError = `Anthropic transport recovery probe failed (${transportPermit.errorCode ?? "unknown"})`;
+        // The probe that failed was another request's attempt; this one has
+        // sent nothing. Give it the same bounded same-account budget a direct
+        // transport failure gets, instead of failing every queued request the
+        // moment one probe times out.
+        const probeRetryBudget = transportPermit.connectPhase
+          ? MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES
+          : MAX_TRANSIENT_SAME_ACCOUNT_RETRIES;
+        if (transientSameAccountRetries < probeRetryBudget) {
+          transientSameAccountRetries += 1;
+          const delayMs = getTransientSameAccountRetryDelayMs(
+            transientSameAccountRetries,
+          );
+          logger.always(
+            `[proxy] retrying same account=${account.label} after failed transport recovery probe (${transientSameAccountRetries}/${probeRetryBudget}) in ${delayMs}ms`,
+          );
+          await sleep(delayMs);
+          continue;
+        }
         break accountLoop;
       }
       loopState.attemptNumber += 1;
@@ -9278,6 +9311,7 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             fetchResult.errorCode,
             fetchResult.transportScope,
             transportPermit,
+            fetchResult.connectPhase === true,
           );
         } else {
           providerTransportCoordinator.reportSuccess(transportPermit);
@@ -9385,17 +9419,21 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             }
             continue accountLoop;
           }
-          // Transient error retry (network errors, 529 overloaded)
+          // Transient error retry (network errors, 529 overloaded). A failure
+          // from the connect phase sent nothing, so it earns the larger budget.
+          const sameAccountRetryBudget = fetchResult.connectPhase
+            ? MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES
+            : MAX_TRANSIENT_SAME_ACCOUNT_RETRIES;
           if (
             fetchResult.retrySameAccount &&
-            transientSameAccountRetries < MAX_TRANSIENT_SAME_ACCOUNT_RETRIES
+            transientSameAccountRetries < sameAccountRetryBudget
           ) {
             transientSameAccountRetries += 1;
             const delayMs = getTransientSameAccountRetryDelayMs(
               transientSameAccountRetries,
             );
             logger.always(
-              `[proxy] retrying same account=${account.label} after transient network error (${transientSameAccountRetries}/${MAX_TRANSIENT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+              `[proxy] retrying same account=${account.label} after transient network error (${transientSameAccountRetries}/${sameAccountRetryBudget}) in ${delayMs}ms`,
             );
             await sleep(delayMs);
             continue;
@@ -11032,11 +11070,53 @@ function describeTransportError(error: unknown): string {
 }
 
 /**
+ * Whether a transport failure provably happened while connecting, before any
+ * byte of the request left the process.
+ *
+ * Node tags its connect errors with `syscall: "connect"`; with happy-eyeballs
+ * enabled (the default) the error is an AggregateError whose every entry is
+ * one such attempt, and undici wraps either as `fetch failed` with the
+ * original as `cause`. The code alone cannot make this call: an `ETIMEDOUT`
+ * from the connect timer and an `ETIMEDOUT` from a socket that went quiet
+ * after dispatch look identical by code, and only the first is safe to
+ * retry. Both proxies behind one lossy Wi-Fi uplink returned 116 terminal
+ * 502s in a day on exactly that ambiguity.
+ */
+function isConnectPhaseNetworkError(error: unknown): boolean {
+  const seen = new Set<object>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    const candidate = current as {
+      syscall?: unknown;
+      errors?: unknown;
+      cause?: unknown;
+    };
+    if (candidate.syscall === "connect") {
+      return true;
+    }
+    if (Array.isArray(candidate.errors) && candidate.errors.length > 0) {
+      return candidate.errors.every(
+        (entry) =>
+          entry !== null &&
+          typeof entry === "object" &&
+          (entry as { syscall?: unknown }).syscall === "connect",
+      );
+    }
+    current = candidate.cause;
+  }
+  return false;
+}
+
+/**
  * Determine whether a POST can be retried without risking duplicate provider
  * work. Only failures that prove connection establishment did not complete are
  * safe; a reset, socket error, or response timeout can happen after dispatch.
  */
 function isRetryableNetworkError(error: unknown): boolean {
+  if (isConnectPhaseNetworkError(error)) {
+    return true;
+  }
   const code = getErrorCode(error);
 
   return (
@@ -11330,6 +11410,11 @@ export const __testHooks = {
     accountDirectoryOverride = override;
   },
   isRetryableNetworkError,
+  isConnectPhaseNetworkError,
+  MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES,
+  clearProviderTransportCoordinatorForTests: (): void => {
+    providerTransportCoordinator.clear();
+  },
   isPermanentRefreshFailure,
   getStreamFailureDetails,
   trackUpstreamReadableStream,

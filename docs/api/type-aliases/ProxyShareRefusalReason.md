@@ -8,6 +8,6 @@
 
 > **ProxyShareRefusalReason** = `"missing_token"` \| `"unknown_token"` \| `"malformed_token"` \| `"paused"` \| `"revoked"` \| `"expired"` \| `"out_of_window"` \| `"model_not_allowed"` \| `"exhausted"` \| `"rate_limited"` \| `"concurrency_limited"` \| `"reserve_floor"` \| `"spillover_inactive"` \| `"slice_exhausted"` \| `"no_capacity"`
 
-Defined in: [types/proxy.ts:3525](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3525)
+Defined in: [types/proxy.ts:3534](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3534)
 
 Why a borrowed request was refused. Surfaced verbatim in a response header.

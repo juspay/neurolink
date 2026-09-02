@@ -8,7 +8,7 @@
 
 > **LoadedProxyConfig** = `object`
 
-Defined in: [types/proxy.ts:2984](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2984)
+Defined in: [types/proxy.ts:2993](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2993)
 
 Partial proxy config consumed by the start command.
 
@@ -18,7 +18,7 @@ Partial proxy config consumed by the start command.
 
 > `optional` **routing?**: `Partial`\<[`ProxyModelRouterConfig`](ProxyModelRouterConfig.md)\> & `object`
 
-Defined in: [types/proxy.ts:2985](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2985)
+Defined in: [types/proxy.ts:2994](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2994)
 
 #### Type Declaration
 

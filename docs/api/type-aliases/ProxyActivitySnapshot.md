@@ -8,7 +8,7 @@
 
 > **ProxyActivitySnapshot** = `object`
 
-Defined in: [types/proxy.ts:1835](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1835)
+Defined in: [types/proxy.ts:1844](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1844)
 
 In-process proxy request activity used to protect streaming restarts.
 
@@ -18,7 +18,7 @@ In-process proxy request activity used to protect streaming restarts.
 
 > **activeRequests**: `number`
 
-Defined in: [types/proxy.ts:1836](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1836)
+Defined in: [types/proxy.ts:1845](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1845)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:1836](https://github.com/juspay/neurolink/blob/relea
 
 > **lastActivityAt**: `Date` \| `null`
 
-Defined in: [types/proxy.ts:1837](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1837)
+Defined in: [types/proxy.ts:1846](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1846)

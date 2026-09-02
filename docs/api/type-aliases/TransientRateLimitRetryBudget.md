@@ -8,7 +8,7 @@
 
 > **TransientRateLimitRetryBudget** = `object`
 
-Defined in: [types/proxy.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1044)
+Defined in: [types/proxy.ts:1050](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1050)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:1044](https://github.com/juspay/neurolink/blob/relea
 
 > **coolingUntil**: `number`
 
-Defined in: [types/proxy.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1045)
+Defined in: [types/proxy.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1051)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:1045](https://github.com/juspay/neurolink/blob/relea
 
 > **retriesClaimed**: `number`
 
-Defined in: [types/proxy.ts:1046](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1046)
+Defined in: [types/proxy.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1052)

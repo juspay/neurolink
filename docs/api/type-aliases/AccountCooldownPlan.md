@@ -8,7 +8,7 @@
 
 > **AccountCooldownPlan** = `object`
 
-Defined in: [types/proxy.ts:1025](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1025)
+Defined in: [types/proxy.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1031)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:1025](https://github.com/juspay/neurolink/blob/relea
 
 > **reason**: [`RateLimitCoolingReason`](RateLimitCoolingReason.md)
 
-Defined in: [types/proxy.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1026)
+Defined in: [types/proxy.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1032)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:1026](https://github.com/juspay/neurolink/blob/relea
 
 > **coolingUntil**: `number`
 
-Defined in: [types/proxy.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1028)
+Defined in: [types/proxy.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1034)
 
 Epoch-ms until which the account should not be used.
 
@@ -34,7 +34,7 @@ Epoch-ms until which the account should not be used.
 
 > **rotateImmediately**: `boolean`
 
-Defined in: [types/proxy.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1032)
+Defined in: [types/proxy.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1038)
 
 When true (unified/5h/7d rejected), rotate immediately — retrying the
 same account is futile until its window resets. When false (transient

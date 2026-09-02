@@ -8,7 +8,7 @@
 
 > **ProxyLogCleanupScheduler** = `object`
 
-Defined in: [types/proxy.ts:3101](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3101)
+Defined in: [types/proxy.ts:3110](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3110)
 
 Lifecycle handle for non-blocking proxy log retention.
 
@@ -18,7 +18,7 @@ Lifecycle handle for non-blocking proxy log retention.
 
 > **trigger**: () => `boolean`
 
-Defined in: [types/proxy.ts:3102](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3102)
+Defined in: [types/proxy.ts:3111](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3111)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:3102](https://github.com/juspay/neurolink/blob/relea
 
 > **stop**: () => `Promise`\<`void`\>
 
-Defined in: [types/proxy.ts:3103](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3103)
+Defined in: [types/proxy.ts:3112](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3112)
 
 #### Returns
 

@@ -415,6 +415,13 @@ export default [
             // and provider-qualified persistence all need exact outcomes that
             // a live request cannot safely or deterministically reproduce.
             "test/codex-quota-observability.test.ts",
+            // A TCP connect that never completes (a SYN lost on a lossy
+            // uplink) cannot be induced through a live request, and the
+            // outcomes under test are exact attempt counts and the shape of
+            // the terminal 502. Drives the shipped /v1/messages handler in
+            // process with fetch stubbed to the captured error shape; the
+            // isolation helper blocks every provider host.
+            "test/continuous-test-suite-proxy-connect-retry.ts",
             // Internal agentic-loop-engine primitives (streamChannel,
             // nativeToolFormat, loopEngine) have no exported surface at all
             // — none of src/lib/core/{streamChannel,nativeToolFormat,

@@ -8,7 +8,7 @@
 
 > **ProxyShareSchedule** = `object`
 
-Defined in: [types/proxy.ts:3427](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3427)
+Defined in: [types/proxy.ts:3436](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3436)
 
 Hour-of-day admission window, evaluated in the lender's local time.
 
@@ -18,7 +18,7 @@ Hour-of-day admission window, evaluated in the lender's local time.
 
 > **fromHour**: `number`
 
-Defined in: [types/proxy.ts:3428](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3428)
+Defined in: [types/proxy.ts:3437](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3437)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3428](https://github.com/juspay/neurolink/blob/relea
 
 > **toHour**: `number`
 
-Defined in: [types/proxy.ts:3429](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3429)
+Defined in: [types/proxy.ts:3438](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3438)

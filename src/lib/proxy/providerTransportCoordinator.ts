@@ -15,6 +15,9 @@ export class ProviderTransportCoordinator {
   private lastTransportScope:
     | "shared_provider_transport"
     | "connection_transport" = "shared_provider_transport";
+  /** Whether the failure that degraded the transport happened before any
+   *  request byte was sent. Waiters use it to pick their retry budget. */
+  private lastFailureConnectPhase = false;
   private probe:
     | {
         generation: number;
@@ -47,6 +50,7 @@ export class ProviderTransportCoordinator {
         allowed: false,
         errorCode: this.lastErrorCode,
         transportScope: this.lastTransportScope,
+        connectPhase: this.lastFailureConnectPhase,
       };
     }
 
@@ -75,6 +79,7 @@ export class ProviderTransportCoordinator {
     this.backoffUntil = 0;
     this.lastErrorCode = null;
     this.lastTransportScope = "shared_provider_transport";
+    this.lastFailureConnectPhase = false;
     if (permit.probe && this.probe?.generation === permit.generation) {
       this.probe.resolve("recovered");
       this.probe = undefined;
@@ -85,6 +90,7 @@ export class ProviderTransportCoordinator {
     errorCode: string | undefined,
     transportScope: "shared_provider_transport" | "connection_transport",
     permit: ProxyProviderTransportPermit,
+    connectPhase = false,
   ): void {
     if (!permit.allowed || permit.generation !== this.generation) {
       return;
@@ -96,6 +102,7 @@ export class ProviderTransportCoordinator {
     this.backoffUntil = Date.now() + SHARED_TRANSPORT_BACKOFF_MS;
     this.lastErrorCode = errorCode ?? null;
     this.lastTransportScope = transportScope;
+    this.lastFailureConnectPhase = connectPhase;
     if (permit.probe && this.probe?.generation === permit.generation) {
       this.probe.resolve("failed");
       this.probe = undefined;
@@ -125,6 +132,7 @@ export class ProviderTransportCoordinator {
     this.backoffUntil = 0;
     this.lastErrorCode = null;
     this.lastTransportScope = "shared_provider_transport";
+    this.lastFailureConnectPhase = false;
   }
 
   private async wait(ms: number, signal?: AbortSignal): Promise<void> {
