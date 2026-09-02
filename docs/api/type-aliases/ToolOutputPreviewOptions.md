@@ -51,3 +51,18 @@ Fraction of preview budget allocated to the head (default: 0.25)
 Defined in: [types/context.ts:842](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L842)
 
 Fraction of preview budget allocated to the tail (default: 0.75)
+
+---
+
+### notice?
+
+> `optional` **notice?**: `string` \| ((`omittedBytes`) => `string`)
+
+Defined in: [types/context.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L851)
+
+Override the omission notice spliced between head and tail. A string is
+used verbatim; a function receives the omitted byte count and returns
+the notice text. When omitted, the built-in default is used, which
+names the `retrieve_context` tool — pass this when that tool is not
+registered on the calling instance so the model isn't pointed at a tool
+that doesn't exist.

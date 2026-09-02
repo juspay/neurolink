@@ -8,7 +8,7 @@
 
 > **PruneResult** = `object`
 
-Defined in: [types/context.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L996)
+Defined in: [types/context.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1005)
 
 Result of tool output pruning (Stage 1).
 
@@ -18,7 +18,7 @@ Result of tool output pruning (Stage 1).
 
 > **pruned**: `boolean`
 
-Defined in: [types/context.ts:997](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L997)
+Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1006)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:997](https://github.com/juspay/neurolink/blob/rele
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L998)
+Defined in: [types/context.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1007)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:998](https://github.com/juspay/neurolink/blob/rele
 
 > **tokensSaved**: `number`
 
-Defined in: [types/context.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L999)
+Defined in: [types/context.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1008)

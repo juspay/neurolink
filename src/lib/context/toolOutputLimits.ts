@@ -114,9 +114,17 @@ export function generateToolOutputPreview(
       Buffer.byteLength(head, "utf-8") -
       Buffer.byteLength(tail, "utf-8"),
   );
+  // Default notice names retrieve_context; callers whose instance never
+  // registers that tool (see RETRIEVE_CONTEXT_TOOL_NAME usages in
+  // ToolsManager) pass their own `notice` so the model isn't pointed at a
+  // tool that doesn't exist.
   const notice =
-    `\n\n[... ${omittedBytes} bytes omitted. ` +
-    `Use ${RETRIEVE_CONTEXT_TOOL_NAME} tool to access full output ...]\n\n`;
+    options?.notice === undefined
+      ? `\n\n[... ${omittedBytes} bytes omitted. ` +
+        `Use ${RETRIEVE_CONTEXT_TOOL_NAME} tool to access full output ...]\n\n`
+      : typeof options.notice === "function"
+        ? options.notice(omittedBytes)
+        : options.notice;
 
   return {
     preview: head + notice + tail,

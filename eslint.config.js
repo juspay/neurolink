@@ -436,6 +436,22 @@ export default [
             // call can deterministically produce them. Its header states the
             // exception in full.
             "test/continuous-test-suite-loop-engine.ts",
+            // ToolsManager (src/lib/core/modules/ToolsManager.ts) is a
+            // `private readonly` field on BaseProvider with no getter, and
+            // generateToolOutputPreview / DEFAULT_MAX_PREVIEW_BYTES /
+            // RETRIEVE_CONTEXT_TOOL_NAME (src/lib/context/toolOutputLimits.ts)
+            // are not re-exported from any package entry point — no public
+            // surface at all. Which of two MCP envelope shapes (top-level vs.
+            // nested under `data`) is recognized and preserved rather than
+            // collapsed to the legacy `_truncated` sentinel, whether `isError`
+            // and non-text content items survive byte-for-byte, whether the
+            // omission notice names `retrieve_context` only when that tool is
+            // actually registered on the instance, and whether a configured
+            // `outputTruncationMaxBytes` moves the cut point, are all facts
+            // about this instance's own tool registry and truncation
+            // internals — not observable by inspecting a live model's output.
+            // Its header states the exception in full.
+            "test/continuous-test-suite-tools-manager-truncation.ts",
             // manifestRegistry has no consumer yet — this PR series adds the
             // manifest as an additive metadata source and migrates nothing
             // onto it, so no generate()/stream()/CLI path reaches the

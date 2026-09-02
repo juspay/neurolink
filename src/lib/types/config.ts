@@ -421,6 +421,16 @@ export type ToolConfig = {
   enableMCPTools?: boolean;
   /** Whether the bash command execution tool should be enabled (opt-in, defaults to false) */
   enableBashTool?: boolean;
+  /**
+   * Byte ceiling for the safety-net truncation `ToolsManager` applies to
+   * every direct/custom/external-MCP tool result before it reaches the AI
+   * SDK accumulator (BZ-666). Independent of `mcp.outputLimits`, which only
+   * governs external MCP results earlier in the pipeline via its own
+   * externalize-to-artifact-store strategy. Default: 51200 (50 KB) —
+   * unchanged from the previous hard-coded ceiling, so existing consumers
+   * see no behavior change unless they set this explicitly.
+   */
+  outputTruncationMaxBytes?: number;
 };
 
 /**

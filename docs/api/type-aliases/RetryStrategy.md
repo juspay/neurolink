@@ -8,6 +8,6 @@
 
 > **RetryStrategy** = keyof _typeof_ `BACKOFF_CONFIG`
 
-Defined in: [types/config.ts:540](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L540)
+Defined in: [types/config.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L550)
 
 Retry strategy keys from BACKOFF_CONFIG.

@@ -8,7 +8,7 @@
 
 > **CreateThinkingConfigOptions** = `object`
 
-Defined in: [types/config.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L589)
+Defined in: [types/config.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L599)
 
 Options for creating a thinkingConfig from CLI-style options.
 
@@ -18,7 +18,7 @@ Options for creating a thinkingConfig from CLI-style options.
 
 > `optional` **thinking?**: `boolean`
 
-Defined in: [types/config.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L591)
+Defined in: [types/config.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L601)
 
 Enable thinking mode
 
@@ -28,7 +28,7 @@ Enable thinking mode
 
 > `optional` **thinkingBudget?**: `number`
 
-Defined in: [types/config.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L593)
+Defined in: [types/config.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L603)
 
 Token budget for thinking (defaults to 10000)
 
@@ -38,6 +38,6 @@ Token budget for thinking (defaults to 10000)
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/config.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L595)
+Defined in: [types/config.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L605)
 
 Thinking level for Gemini 3 models

@@ -8,7 +8,7 @@
 
 > **LoopGuardPolicy** = `object`
 
-Defined in: [types/context.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L937)
+Defined in: [types/context.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L946)
 
 Tuning for planLoopGuardReclaim.
 
@@ -18,7 +18,7 @@ Tuning for planLoopGuardReclaim.
 
 > **availableInputTokens**: `number`
 
-Defined in: [types/context.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L938)
+Defined in: [types/context.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L947)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:938](https://github.com/juspay/neurolink/blob/rele
 
 > **fixedOverheadTokens**: `number`
 
-Defined in: [types/context.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L940)
+Defined in: [types/context.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L949)
 
 System prompt + tool definitions — rides outside the message array.
 
@@ -36,7 +36,7 @@ System prompt + tool definitions — rides outside the message array.
 
 > `optional` **thresholdRatio?**: `number`
 
-Defined in: [types/context.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L942)
+Defined in: [types/context.ts:951](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L951)
 
 Fraction of the window at which the guard fires.
 
@@ -46,7 +46,7 @@ Fraction of the window at which the guard fires.
 
 > `optional` **lowWaterRatio?**: `number`
 
-Defined in: [types/context.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L944)
+Defined in: [types/context.ts:953](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L953)
 
 Fraction of the window the guard reclaims down to once it fires.
 
@@ -56,7 +56,7 @@ Fraction of the window the guard reclaims down to once it fires.
 
 > `optional` **protectedTailCount?**: `number`
 
-Defined in: [types/context.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L946)
+Defined in: [types/context.ts:955](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L955)
 
 Newest entries the guard must never modify.
 
@@ -66,6 +66,6 @@ Newest entries the guard must never modify.
 
 > `optional` **calibration?**: `number`
 
-Defined in: [types/context.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L948)
+Defined in: [types/context.ts:957](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L957)
 
 Observed/estimated token ratio, used to tighten both marks.

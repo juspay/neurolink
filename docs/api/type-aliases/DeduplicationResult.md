@@ -8,7 +8,7 @@
 
 > **DeduplicationResult** = `object`
 
-Defined in: [types/context.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1042)
+Defined in: [types/context.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1051)
 
 Result of file read deduplication (Stage 2).
 
@@ -18,7 +18,7 @@ Result of file read deduplication (Stage 2).
 
 > **deduplicated**: `boolean`
 
-Defined in: [types/context.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1043)
+Defined in: [types/context.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1052)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:1043](https://github.com/juspay/neurolink/blob/rel
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1044)
+Defined in: [types/context.ts:1053](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1053)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:1044](https://github.com/juspay/neurolink/blob/rel
 
 > **filesDeduped**: `number`
 
-Defined in: [types/context.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1045)
+Defined in: [types/context.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1054)
