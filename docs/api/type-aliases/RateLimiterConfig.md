@@ -8,7 +8,7 @@
 
 > **RateLimiterConfig** = `object`
 
-Defined in: [types/config.ts:565](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L565)
+Defined in: [types/config.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L575)
 
 Configuration options for the token bucket rate limiter.
 
@@ -18,7 +18,7 @@ Configuration options for the token bucket rate limiter.
 
 > **maxTokens**: `number`
 
-Defined in: [types/config.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L567)
+Defined in: [types/config.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L577)
 
 Maximum tokens (downloads) allowed per interval
 
@@ -28,7 +28,7 @@ Maximum tokens (downloads) allowed per interval
 
 > **refillIntervalMs**: `number`
 
-Defined in: [types/config.ts:569](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L569)
+Defined in: [types/config.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L579)
 
 Refill interval in milliseconds
 
@@ -38,7 +38,7 @@ Refill interval in milliseconds
 
 > **tokensPerRefill**: `number`
 
-Defined in: [types/config.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L571)
+Defined in: [types/config.ts:581](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L581)
 
 Number of tokens to add per refill interval
 
@@ -48,7 +48,7 @@ Number of tokens to add per refill interval
 
 > **maxQueueSize**: `number`
 
-Defined in: [types/config.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L573)
+Defined in: [types/config.ts:583](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L583)
 
 Maximum queue size for pending requests
 
@@ -58,6 +58,6 @@ Maximum queue size for pending requests
 
 > **queueTimeoutMs**: `number`
 
-Defined in: [types/config.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L575)
+Defined in: [types/config.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L585)
 
 Timeout for queued requests in milliseconds

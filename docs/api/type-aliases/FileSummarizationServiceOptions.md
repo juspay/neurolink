@@ -8,7 +8,7 @@
 
 > **FileSummarizationServiceOptions** = `object`
 
-Defined in: [types/context.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1026)
+Defined in: [types/context.ts:1035](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1035)
 
 Options for FileSummarizationService.
 
@@ -18,7 +18,7 @@ Options for FileSummarizationService.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:1027](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1027)
+Defined in: [types/context.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1036)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/context.ts:1027](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **model?**: `string`
 
-Defined in: [types/context.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1028)
+Defined in: [types/context.ts:1037](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1037)
