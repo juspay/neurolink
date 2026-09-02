@@ -5305,7 +5305,7 @@ async function testLedgerDedupesRepeatedRequestId(): Promise<boolean> {
     LEDGER_DATE,
     async () => {
       resetAccountLedgerCache();
-      const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      const row = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
       if (!row) {
         log("ledger did not report the account at all", "red");
         return false;
@@ -5350,7 +5350,7 @@ async function testLedgerKeepsMaxTokensAcrossRecords(): Promise<boolean> {
     LEDGER_DATE,
     async () => {
       resetAccountLedgerCache();
-      const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      const row = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
       if (!row) {
         log("ledger dropped the account", "red");
         return false;
@@ -5368,7 +5368,11 @@ async function testLedgerKeepsMaxTokensAcrossRecords(): Promise<boolean> {
  * The request log is shared with the Codex engine, and an operator can use the
  * same email for both. Codex tokens must not land on the Anthropic row.
  */
-async function testLedgerExcludesCodexRows(): Promise<boolean> {
+async function testLedgerKeysCodexRowsByEngine(): Promise<boolean> {
+  // The request log is shared by both engines and an operator can use one
+  // email for both. Keying the ledger by bare label merged them; keying by
+  // the provider-qualified account key keeps each engine's tokens on its own
+  // row, and a row that has no key of its own derives one from its type.
   const { readAccountUsage, resetAccountLedgerCache } =
     await import("../src/lib/proxy/accountLedger.js");
   return await withLedgerHome(
@@ -5377,6 +5381,7 @@ async function testLedgerExcludesCodexRows(): Promise<boolean> {
       ledgerRow({
         requestId: "r2",
         account: "same@t",
+        accountKey: "codex:same@t",
         accountType: "codex-oauth",
         model: "gpt-5.6-sol",
         inputTokens: 999999,
@@ -5386,13 +5391,26 @@ async function testLedgerExcludesCodexRows(): Promise<boolean> {
     LEDGER_DATE,
     async () => {
       resetAccountLedgerCache();
-      const row = (await readAccountUsage(LEDGER_DATE)).get("same@t");
-      if (!row) {
+      const usage = await readAccountUsage(LEDGER_DATE);
+      const anthropic = usage.get("anthropic:same@t");
+      const codex = usage.get("codex:same@t");
+      if (!anthropic) {
         log("ledger dropped the Anthropic row entirely", "red");
         return false;
       }
-      if (row.requests !== 1 || row.inputTokens !== 1000) {
+      if (anthropic.requests !== 1 || anthropic.inputTokens !== 1000) {
         log("Codex usage was attributed to the Anthropic account", "red");
+        return false;
+      }
+      if (!codex || codex.requests !== 1 || codex.inputTokens !== 999999) {
+        log("Codex usage was dropped instead of landing on its own row", "red");
+        return false;
+      }
+      if (usage.has("same@t")) {
+        log(
+          "ledger still exposes a bare-label row that both engines collide on",
+          "red",
+        );
         return false;
       }
       return true;
@@ -5418,7 +5436,7 @@ async function testLedgerCostsAndFlagsUnpriced(): Promise<boolean> {
     LEDGER_DATE,
     async () => {
       resetAccountLedgerCache();
-      const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      const row = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
       if (!row) {
         log("ledger did not report the account", "red");
         return false;
@@ -5457,7 +5475,7 @@ async function testLedgerIgnoresPartialTrailingLine(): Promise<boolean> {
       );
       fs.appendFileSync(file, '{"requestId":"r2","account":"a@t","inputTo');
       resetAccountLedgerCache();
-      const first = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      const first = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
       if (!first || first.requests !== 1) {
         log("ledger consumed a partial trailing line", "red");
         return false;
@@ -5467,7 +5485,7 @@ async function testLedgerIgnoresPartialTrailingLine(): Promise<boolean> {
         file,
         'kens":1000,"outputTokens":100,"accountType":"oauth","model":"claude-sonnet-5"}\n',
       );
-      const second = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+      const second = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
       if (!second || second.requests !== 2) {
         log(
           "ledger did not pick up the completed line on the next read",
@@ -5499,7 +5517,7 @@ async function testLedgerSeparatesDistinctRequestsSharingAnId(): Promise<boolean
   );
   return await withLedgerHome(rows, LEDGER_DATE, async () => {
     resetAccountLedgerCache();
-    const totals = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+    const totals = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
     if (!totals) {
       log("ledger reported nothing for an account with traffic", "red");
       return false;
@@ -5535,7 +5553,7 @@ async function testLedgerSeparatesDistinctRequestsSharingAnId(): Promise<boolean
  * matter what the handler did.
  */
 async function testAccountsRowsAreClassifiedByKind(): Promise<boolean> {
-  const { createClaudeProxyRoutes } =
+  const { createClaudeProxyRoutes, __testHooks } =
     await import("../src/lib/server/routes/claudeProxyRoutes.js");
   const stats = await import("../src/lib/proxy/usageStats.js");
   await stats.resetUsageStatsForTests();
@@ -5547,11 +5565,20 @@ async function testAccountsRowsAreClassifiedByKind(): Promise<boolean> {
   stats.recordFinalSuccess("proxy/internal", "internal");
   stats.recordAttempt("gemini-translate", "translation");
   stats.recordFinalSuccess("gemini-translate", "translation");
+  // Alice is a real login that is in the token store but not routed (disabled
+  // or allowlist-excluded). A login absent from the store is removed, not
+  // unrouted, and gets no row — see testAccountsOmitsRemovedLoginsKeepsDisabledOnes.
+  __testHooks.setAccountDirectoryForTests({
+    knownKeys: new Set(["anthropic:alice@example.com"]),
+    anthropic: [],
+    codex: [],
+  });
 
   const route = createClaudeProxyRoutes().routes.find((r) =>
     r.path.endsWith("/accounts"),
   );
   if (!route) {
+    __testHooks.setAccountDirectoryForTests(null);
     log("GET /accounts is not registered", "red");
     return false;
   }
@@ -5564,6 +5591,7 @@ async function testAccountsRowsAreClassifiedByKind(): Promise<boolean> {
   } as never)) as {
     accounts?: { label?: string; kind?: string; type?: string }[];
   };
+  __testHooks.setAccountDirectoryForTests(null);
   const rows = body.accounts ?? [];
   if (rows.length < 3) {
     log("accounts did not report the seeded rows", "red");
@@ -5605,7 +5633,7 @@ async function testAccountsRowsAreClassifiedByKind(): Promise<boolean> {
  * anthropicAccountKeysEqual, which normalises a bare label to its full key.
  */
 async function testAccountsMarksThePrimaryAccount(): Promise<boolean> {
-  const { createClaudeProxyRoutes } =
+  const { createClaudeProxyRoutes, __testHooks } =
     await import("../src/lib/server/routes/claudeProxyRoutes.js");
   const stats = await import("../src/lib/proxy/usageStats.js");
   await stats.resetUsageStatsForTests();
@@ -5614,6 +5642,16 @@ async function testAccountsMarksThePrimaryAccount(): Promise<boolean> {
   stats.recordFinalSuccess("primary@example.com", "oauth");
   stats.recordAttempt("other@example.com", "oauth");
   stats.recordFinalSuccess("other@example.com", "oauth");
+  // Both are logins the token store knows but does not route; a stats entry
+  // with no login behind it is omitted as removed and would not be a row.
+  __testHooks.setAccountDirectoryForTests({
+    knownKeys: new Set([
+      "anthropic:primary@example.com",
+      "anthropic:other@example.com",
+    ]),
+    anthropic: [],
+    codex: [],
+  });
 
   const route = createClaudeProxyRoutes(
     undefined,
@@ -5652,6 +5690,7 @@ async function testAccountsMarksThePrimaryAccount(): Promise<boolean> {
     log("a non-primary account was marked as primary", "red");
     return false;
   }
+  __testHooks.setAccountDirectoryForTests(null);
   await stats.resetUsageStatsForTests();
   return true;
 }
@@ -5719,7 +5758,7 @@ async function testLedgerSplitsUsageByClient(): Promise<boolean> {
   ];
   return await withLedgerHome(rows, LEDGER_DATE, async () => {
     resetAccountLedgerCache();
-    const row = (await readAccountUsage(LEDGER_DATE)).get("a@t");
+    const row = (await readAccountUsage(LEDGER_DATE)).get("anthropic:a@t");
     if (!row) {
       log("ledger reported nothing for an account with traffic", "red");
       return false;
@@ -5767,6 +5806,254 @@ async function testLedgerSplitsUsageByClient(): Promise<boolean> {
 }
 
 /** The route must join quota, stats and usage, and label the cost basis. */
+/**
+ * A stats entry for a login that is no longer in the token store is a removed
+ * account, not an unrouted one. The route used to resurrect it forever — a
+ * deleted login served requests once, its counters persist, and "type oauth
+ * with no route" was read as "disabled", so it rendered as a phantom UNROUTED
+ * card in every dashboard. Disabled and allowlist-excluded logins are still
+ * in the store and must keep rendering; that is the case the rule exists for.
+ */
+async function testAccountsOmitsRemovedLoginsKeepsDisabledOnes(): Promise<boolean> {
+  const { createClaudeProxyRoutes, __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const stats = await import("../src/lib/proxy/usageStats.js");
+  await stats.resetUsageStatsForTests();
+  stats.recordAttempt("ghost@example.com", "oauth");
+  stats.recordFinalSuccess("ghost@example.com", "oauth");
+  stats.recordAttempt("disabled@example.com", "oauth");
+  stats.recordFinalSuccess("disabled@example.com", "oauth");
+  __testHooks.setAccountDirectoryForTests({
+    knownKeys: new Set(["anthropic:disabled@example.com"]),
+    anthropic: [],
+    codex: [],
+  });
+  try {
+    const route = createClaudeProxyRoutes().routes.find((r) =>
+      r.path.endsWith("/accounts"),
+    );
+    if (!route) {
+      log("GET /accounts is not registered", "red");
+      return false;
+    }
+    const body = (await route.handler({
+      query: {},
+      headers: {},
+      method: "GET",
+      path: "/accounts",
+      requestId: "suite",
+    } as never)) as {
+      accounts?: {
+        label?: string;
+        kind?: string;
+        status?: string | null;
+        provider?: string;
+      }[];
+    };
+    const rows = body.accounts ?? [];
+    const disabled = rows.find((r) => r.label === "disabled@example.com");
+    if (
+      !disabled ||
+      disabled.kind !== "account" ||
+      disabled.status !== "unrouted"
+    ) {
+      log(
+        "a login that is in the token store but not routed lost its unrouted row",
+        "red",
+      );
+      return false;
+    }
+    if (disabled.provider !== "anthropic") {
+      log("an unrouted row does not name its provider", "red");
+      return false;
+    }
+    if (rows.some((r) => r.label === "ghost@example.com")) {
+      log(
+        "a login that was removed from the token store was resurrected as an unrouted account",
+        "red",
+      );
+      return false;
+    }
+    return true;
+  } finally {
+    __testHooks.setAccountDirectoryForTests(null);
+    await stats.resetUsageStatsForTests();
+  }
+}
+
+/**
+ * One email, two engines. The Codex login shares its label with the Anthropic
+ * one; the route used to join stats and today's usage by bare label, so the
+ * Codex login was either swallowed by the Anthropic row or, with a unique
+ * label, tagged as internal plumbing because "codex-oauth" was not a real
+ * account type. Every join is by provider-qualified key now, and each row
+ * says which engine it belongs to.
+ */
+async function testAccountsKeepsCodexDistinctFromSameLabelAnthropic(): Promise<boolean> {
+  const { createClaudeProxyRoutes, __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const stats = await import("../src/lib/proxy/usageStats.js");
+  const { currentUsageDate, resetAccountLedgerCache } =
+    await import("../src/lib/proxy/accountLedger.js");
+  await stats.resetUsageStatsForTests();
+  stats.recordAttempt("same@example.com", "oauth");
+  stats.recordFinalSuccess("same@example.com", "oauth");
+  stats.recordAttempt("same@example.com", "oauth");
+  stats.recordFinalSuccess("same@example.com", "oauth");
+  stats.recordAttempt("same@example.com", "codex-oauth");
+  stats.recordFinalSuccess("same@example.com", "codex-oauth");
+  __testHooks.setAccountDirectoryForTests({
+    knownKeys: new Set([
+      "anthropic:same@example.com",
+      "codex:same@example.com",
+    ]),
+    anthropic: [],
+    codex: [],
+  });
+  const today = currentUsageDate();
+  try {
+    return await withLedgerHome(
+      [
+        ledgerRow({
+          requestId: "a1",
+          account: "same@example.com",
+          accountKey: "anthropic:same@example.com",
+          timestamp: `${today}T00:00:00.000Z`,
+        }),
+        ledgerRow({
+          requestId: "c1",
+          account: "same@example.com",
+          accountKey: "codex:same@example.com",
+          accountType: "codex-oauth",
+          model: "gpt-5.6-sol",
+          inputTokens: 777,
+          outputTokens: 7,
+          timestamp: `${today}T00:00:00.000Z`,
+        }),
+      ],
+      today,
+      async () => {
+        resetAccountLedgerCache();
+        const route = createClaudeProxyRoutes().routes.find((r) =>
+          r.path.endsWith("/accounts"),
+        );
+        if (!route) {
+          log("GET /accounts is not registered", "red");
+          return false;
+        }
+        const body = (await route.handler({
+          query: {},
+          headers: {},
+          method: "GET",
+          path: "/accounts",
+          requestId: "suite",
+        } as never)) as {
+          accounts?: {
+            label?: string;
+            key?: string | null;
+            kind?: string;
+            provider?: string;
+            requests?: number | null;
+            usage?: { inputTokens?: number } | null;
+          }[];
+        };
+        const rows = (body.accounts ?? []).filter(
+          (r) => r.label === "same@example.com",
+        );
+        const anthropic = rows.find((r) => r.provider === "anthropic");
+        const codex = rows.find((r) => r.provider === "codex");
+        if (!anthropic || !codex) {
+          log(
+            "the two engines' logins sharing one email did not both get an account row",
+            "red",
+          );
+          return false;
+        }
+        if (anthropic.kind !== "account" || codex.kind !== "account") {
+          log(
+            "a Codex login was tagged as plumbing instead of an account",
+            "red",
+          );
+          return false;
+        }
+        if (
+          anthropic.key !== "anthropic:same@example.com" ||
+          codex.key !== "codex:same@example.com"
+        ) {
+          log("rows do not carry their provider-qualified keys", "red");
+          return false;
+        }
+        if (anthropic.requests !== 2 || codex.requests !== 1) {
+          log(
+            "request counters were joined by label and crossed engines",
+            "red",
+          );
+          return false;
+        }
+        if (
+          anthropic.usage?.inputTokens !== 1000 ||
+          codex.usage?.inputTokens !== 777
+        ) {
+          log("today's usage was joined by label and crossed engines", "red");
+          return false;
+        }
+        return true;
+      },
+    );
+  } finally {
+    __testHooks.setAccountDirectoryForTests(null);
+    await stats.resetUsageStatsForTests();
+    resetAccountLedgerCache();
+  }
+}
+
+/**
+ * /limits is the quota source every dashboard row is built from. It only ever
+ * enumerated Anthropic logins, so a Codex login had no quota row anywhere and
+ * every surface downstream inherited the gap.
+ */
+async function testLimitsSnapshotEnumeratesBothEngines(): Promise<boolean> {
+  const { __testHooks } =
+    await import("../src/lib/server/routes/claudeProxyRoutes.js");
+  const account = (key: string, label: string) => ({
+    key,
+    label,
+    token: "t",
+    type: "oauth" as const,
+  });
+  __testHooks.setAccountDirectoryForTests({
+    knownKeys: new Set(["anthropic:a@example.com", "codex:a@example.com"]),
+    anthropic: [account("anthropic:a@example.com", "a@example.com")],
+    codex: [account("codex:a@example.com", "a@example.com")],
+  });
+  try {
+    const limits = await __testHooks.refreshAccountLimits({
+      snapshotOnly: true,
+    });
+    const byKey = new Map(limits.results.map((r) => [r.key, r]));
+    const anthropic = byKey.get("anthropic:a@example.com");
+    const codex = byKey.get("codex:a@example.com");
+    if (!anthropic || !codex) {
+      log("a snapshot /limits did not enumerate both engines' logins", "red");
+      return false;
+    }
+    if (anthropic.provider !== "anthropic" || codex.provider !== "codex") {
+      log(
+        "limits results do not say which engine each login belongs to",
+        "red",
+      );
+      return false;
+    }
+    if (anthropic.status !== "snapshot" || codex.status !== "snapshot") {
+      log("a snapshot request fetched instead of reading stored state", "red");
+      return false;
+    }
+    return true;
+  } finally {
+    __testHooks.setAccountDirectoryForTests(null);
+  }
+}
+
 async function testAccountsRouteShape(): Promise<boolean> {
   const { createClaudeProxyRoutes } =
     await import("../src/lib/server/routes/claudeProxyRoutes.js");
@@ -8195,8 +8482,8 @@ const tests: TestFunction[] = [
     category: "proxy-config",
   },
   {
-    name: "Ledger: Codex usage never lands on an Anthropic account",
-    fn: testLedgerExcludesCodexRows,
+    name: "Ledger: each engine's usage lands on its own key",
+    fn: testLedgerKeysCodexRowsByEngine,
     category: "proxy-config",
   },
   {
@@ -8232,6 +8519,21 @@ const tests: TestFunction[] = [
   {
     name: "Accounts: route joins quota, stats and usage with a labelled basis",
     fn: testAccountsRouteShape,
+    category: "proxy-config",
+  },
+  {
+    name: "Accounts: a removed login is omitted, a disabled one stays unrouted",
+    fn: testAccountsOmitsRemovedLoginsKeepsDisabledOnes,
+    category: "proxy-config",
+  },
+  {
+    name: "Accounts: a Codex login sharing an email keeps its own row",
+    fn: testAccountsKeepsCodexDistinctFromSameLabelAnthropic,
+    category: "proxy-config",
+  },
+  {
+    name: "Limits: a snapshot enumerates both engines' logins",
+    fn: testLimitsSnapshotEnumeratesBothEngines,
     category: "proxy-config",
   },
   {

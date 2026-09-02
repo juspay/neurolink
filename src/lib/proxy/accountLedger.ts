@@ -41,9 +41,33 @@ const REQUEST_FILE_PATTERN = /^proxy-\d{4}-\d{2}-\d{2}\.jsonl$/;
 /**
  * Account types written by the Anthropic pool. The request log is shared with
  * the Codex engine, and an operator can use the same email for both, so rows
- * must be filtered by engine before being attributed to an Anthropic account.
+ * are attributed by provider-qualified key, never by bare label.
  */
 const ANTHROPIC_ACCOUNT_TYPES = new Set(["oauth", "api_key"]);
+const CODEX_ACCOUNT_TYPE = "codex-oauth";
+
+/**
+ * The key a log row is attributed under. Current builds write `accountKey`;
+ * rows from before that field existed carry only the label and the engine's
+ * account type, which is enough to rebuild it — the two engines never share a
+ * type string.
+ */
+function ledgerAccountKey(
+  record: Record<string, unknown>,
+  account: string,
+): string {
+  if (typeof record.accountKey === "string" && record.accountKey.length > 0) {
+    return record.accountKey;
+  }
+  const type = typeof record.accountType === "string" ? record.accountType : "";
+  if (ANTHROPIC_ACCOUNT_TYPES.has(type)) {
+    return `anthropic:${account.trim().toLowerCase()}`;
+  }
+  if (type === CODEX_ACCOUNT_TYPE) {
+    return `codex:${account}`;
+  }
+  return account;
+}
 
 const cursors = new Map<string, ProxyLedgerFileCursor>();
 
@@ -152,11 +176,13 @@ async function advanceCursor(
     // on the triple means two distinct calls that collide on id but differ in
     // account or model are still counted separately; a true re-log of the same
     // request keeps the same triple and merges.
-    const entryKey = `${requestId}\u0000${account}\u0000${
+    const accountKey = ledgerAccountKey(record, account);
+    const entryKey = `${requestId}\u0000${accountKey}\u0000${
       typeof record.model === "string" ? record.model : ""
     }`;
     const next: ProxyLedgerEntry = {
       account,
+      accountKey,
       accountType:
         typeof record.accountType === "string" ? record.accountType : "",
       model: typeof record.model === "string" ? record.model : "",
@@ -298,10 +324,13 @@ function emptyTotals(): CliAccountUsageTotals {
 }
 
 /**
- * Token and cost totals for one UTC day, keyed by bare account label.
+ * Token and cost totals for one UTC day, keyed by provider-qualified account
+ * key ("anthropic:<label>" / "codex:<label>").
  *
- * Only Anthropic-pool rows are attributed, so a Codex account sharing a label
- * with an Anthropic one cannot contribute its tokens to the wrong row.
+ * Both engines' rows are attributed, each under its own key, so a Codex login
+ * sharing an email with an Anthropic one contributes to its own row and never
+ * to the other's. Keying by bare label used to force a choice between merging
+ * them and dropping Codex outright; it dropped Codex.
  */
 export async function readAccountUsage(
   date = currentUsageDate(),
@@ -331,10 +360,14 @@ export async function readAccountUsage(
   const unpriced = new Map<string, Set<string>>();
 
   for (const entry of cursor.entries.values()) {
-    if (!ANTHROPIC_ACCOUNT_TYPES.has(entry.accountType)) {
+    if (
+      !ANTHROPIC_ACCOUNT_TYPES.has(entry.accountType) &&
+      entry.accountType !== CODEX_ACCOUNT_TYPE
+    ) {
+      // Translation and internal rows are proxy plumbing, not a login's spend.
       continue;
     }
-    const row = totals.get(entry.account) ?? emptyTotals();
+    const row = totals.get(entry.accountKey) ?? emptyTotals();
     row.requests += 1;
     row.inputTokens += entry.inputTokens;
     row.outputTokens += entry.outputTokens;
@@ -369,12 +402,12 @@ export async function readAccountUsage(
         client.costUsd += cost;
       } else {
         row.unpricedRequests += 1;
-        const seen = unpriced.get(entry.account) ?? new Set<string>();
+        const seen = unpriced.get(entry.accountKey) ?? new Set<string>();
         seen.add(entry.model);
-        unpriced.set(entry.account, seen);
+        unpriced.set(entry.accountKey, seen);
       }
     }
-    totals.set(entry.account, row);
+    totals.set(entry.accountKey, row);
   }
 
   for (const [account, row] of totals) {

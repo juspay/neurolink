@@ -2093,6 +2093,8 @@ console.log(result.content);
 - [ProxyQuotaRefreshMetrics](type-aliases/ProxyQuotaRefreshMetrics.md)
 - [ProxyQuotaRefreshRunResult](type-aliases/ProxyQuotaRefreshRunResult.md)
 - [ProxyLimitsAccountResult](type-aliases/ProxyLimitsAccountResult.md)
+- [ProxyAccountProvider](type-aliases/ProxyAccountProvider.md)
+- [ProxyAccountDirectoryOverride](type-aliases/ProxyAccountDirectoryOverride.md)
 - [ProxyLimitsRefreshResponse](type-aliases/ProxyLimitsRefreshResponse.md)
 - [ProxyQuotaSource](type-aliases/ProxyQuotaSource.md)
 - [ProxyPoolHeadroom](type-aliases/ProxyPoolHeadroom.md)
