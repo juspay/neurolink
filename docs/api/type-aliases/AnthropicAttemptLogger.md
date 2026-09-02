@@ -8,7 +8,7 @@
 
 > **AnthropicAttemptLogger** = (`status`, `errorType?`, `errorMessage?`, `extra?`) => `void`
 
-Defined in: [types/proxy.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L864)
+Defined in: [types/proxy.ts:868](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L868)
 
 ## Parameters
 
@@ -45,6 +45,12 @@ Defined in: [types/proxy.ts:864](https://github.com/juspay/neurolink/blob/releas
 #### retryable?
 
 `boolean`
+
+#### connectPhase?
+
+`boolean`
+
+The transport failure happened before any request byte was sent.
 
 #### errorCode?
 

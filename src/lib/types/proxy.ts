@@ -554,6 +554,8 @@ export type ProxyProviderTransportPermit =
       allowed: false;
       errorCode: string | null;
       transportScope: ProxyNetworkTransportScope;
+      /** The degrading failure happened before any request byte was sent. */
+      connectPhase: boolean;
     };
 
 export type ProxyAccountRoutingCandidate = {
@@ -745,6 +747,8 @@ export type RequestAttemptLogEntry = {
   transportScope?: ProxyTransportScope;
   /** Whether this failed attempt may be retried without changing the request. */
   retryable?: boolean;
+  /** The transport failure happened before any request byte was sent. */
+  connectPhase?: boolean;
   /** Distinguishes short-lived admission throttles from exhausted quota windows. */
   rateLimitKind?: "transient" | "quota";
   /** Reset-aware cooldown reason selected for a rate-limited attempt. */
@@ -871,6 +875,8 @@ export type AnthropicAttemptLogger = (
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
     retryable?: boolean;
+    /** The transport failure happened before any request byte was sent. */
+    connectPhase?: boolean;
     /** Low-level transport code such as ETIMEDOUT or EADDRNOTAVAIL. */
     errorCode?: string;
     transportScope?: ProxyTransportScope;
@@ -1051,6 +1057,9 @@ export type AnthropicUpstreamFetchResult = {
   retrySameAccount?: boolean;
   transportScope?: ProxyNetworkTransportScope;
   errorCode?: string;
+  /** The transport failure happened while connecting, before any request
+   *  byte was sent, so retrying it cannot duplicate provider work. */
+  connectPhase?: boolean;
   /** When set, the caller should wait this many ms before retrying (from upstream retry-after). */
   retryAfterMs?: number;
   /** Set on a genuine 429: how long / why to cool this account before rotating. */

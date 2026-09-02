@@ -8,7 +8,7 @@
 
 > **RollingWorkerFailureDetails** = `object`
 
-Defined in: [types/proxy.ts:2749](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2749)
+Defined in: [types/proxy.ts:2758](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2758)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2749](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **workerPid?**: `number`
 
-Defined in: [types/proxy.ts:2750](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2750)
+Defined in: [types/proxy.ts:2759](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2759)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:2750](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **workerExitCode?**: `number` \| `null`
 
-Defined in: [types/proxy.ts:2751](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2751)
+Defined in: [types/proxy.ts:2760](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2760)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:2751](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **workerExitSignal?**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2752](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2752)
+Defined in: [types/proxy.ts:2761](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2761)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/proxy.ts:2752](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **supervisorAction?**: `"none"` \| `"sigkill_after_transfer_failure"`
 
-Defined in: [types/proxy.ts:2753](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2753)
+Defined in: [types/proxy.ts:2762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2762)

@@ -8,7 +8,7 @@
 
 > **ClaudeProxyRouteRuntimeOptions** = `object`
 
-Defined in: [types/proxy.ts:3064](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3064)
+Defined in: [types/proxy.ts:3073](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3073)
 
 Optional runtime configuration wiring for Claude proxy route factories.
 
@@ -18,7 +18,7 @@ Optional runtime configuration wiring for Claude proxy route factories.
 
 > `optional` **accountAllowlist?**: [`AccountAllowlist`](AccountAllowlist.md)
 
-Defined in: [types/proxy.ts:3065](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3065)
+Defined in: [types/proxy.ts:3074](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3074)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3065](https://github.com/juspay/neurolink/blob/relea
 
 > **runtimeConfigProvider**: [`ProxyRuntimeConfigProvider`](ProxyRuntimeConfigProvider.md)
 
-Defined in: [types/proxy.ts:3066](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3066)
+Defined in: [types/proxy.ts:3075](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3075)

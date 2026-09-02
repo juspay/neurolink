@@ -8,6 +8,6 @@
 
 > **GlobalInstallerKind** = `"npm"` \| `"pnpm"`
 
-Defined in: [types/proxy.ts:2585](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2585)
+Defined in: [types/proxy.ts:2594](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2594)
 
 Supported global package managers for proxy self-updates.

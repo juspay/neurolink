@@ -8,7 +8,7 @@
 
 > **ProxyShareProvisioningBundle** = `object`
 
-Defined in: [types/proxy.ts:4250](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4250)
+Defined in: [types/proxy.ts:4259](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4259)
 
 The handover artifact a lender gives a complete-share borrower.
 
@@ -18,7 +18,7 @@ The handover artifact a lender gives a complete-share borrower.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4251](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4251)
+Defined in: [types/proxy.ts:4260](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4260)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4251](https://github.com/juspay/neurolink/blob/relea
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4252](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4252)
+Defined in: [types/proxy.ts:4261](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4261)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4252](https://github.com/juspay/neurolink/blob/relea
 
 > **lenderName**: `string`
 
-Defined in: [types/proxy.ts:4253](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4253)
+Defined in: [types/proxy.ts:4262](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4262)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:4253](https://github.com/juspay/neurolink/blob/relea
 
 > **lenderUrl**: `string`
 
-Defined in: [types/proxy.ts:4254](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4254)
+Defined in: [types/proxy.ts:4263](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4263)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:4254](https://github.com/juspay/neurolink/blob/relea
 
 > **accountLabel**: `string`
 
-Defined in: [types/proxy.ts:4255](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4255)
+Defined in: [types/proxy.ts:4264](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4264)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:4255](https://github.com/juspay/neurolink/blob/relea
 
 > **leaseSecret**: `string`
 
-Defined in: [types/proxy.ts:4256](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4256)
+Defined in: [types/proxy.ts:4265](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4265)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:4256](https://github.com/juspay/neurolink/blob/relea
 
 > **lease**: [`ProxyShareLease`](ProxyShareLease.md)
 
-Defined in: [types/proxy.ts:4257](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4257)
+Defined in: [types/proxy.ts:4266](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4266)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:4257](https://github.com/juspay/neurolink/blob/relea
 
 > **tokens**: `object`
 
-Defined in: [types/proxy.ts:4258](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4258)
+Defined in: [types/proxy.ts:4267](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4267)
 
 #### accessToken
 

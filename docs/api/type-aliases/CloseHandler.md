@@ -8,7 +8,7 @@
 
 > **CloseHandler** = () => `void`
 
-Defined in: [types/proxy.ts:1611](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1611)
+Defined in: [types/proxy.ts:1620](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1620)
 
 Close handler for data stream writers.
 

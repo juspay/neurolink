@@ -8,7 +8,7 @@
 
 > **ProxyPeerArgs** = `object`
 
-Defined in: [types/proxy.ts:4057](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4057)
+Defined in: [types/proxy.ts:4066](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4066)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4057](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **action?**: `"add"` \| `"request"` \| `"list"` \| `"status"` \| `"sync"` \| `"receipts"` \| `"net"` \| `"redeem"` \| `"test"` \| `"remove"` \| `"pause"` \| `"resume"` \| `"set"`
 
-Defined in: [types/proxy.ts:4058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4058)
+Defined in: [types/proxy.ts:4067](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4067)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:4058](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **claim?**: `boolean`
 
-Defined in: [types/proxy.ts:4073](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4073)
+Defined in: [types/proxy.ts:4082](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4082)
 
 `peer request --claim`: collect a code the lender has authorized.
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4073](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **receiptSecret?**: `string`
 
-Defined in: [types/proxy.ts:4075](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4075)
+Defined in: [types/proxy.ts:4084](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4084)
 
 Shared secret for verifying this lender's receipts, when added by hand.
 
@@ -44,7 +44,7 @@ Shared secret for verifying this lender's receipts, when added by hand.
 
 > `optional` **reciprocal?**: `string`
 
-Defined in: [types/proxy.ts:4077](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4077)
+Defined in: [types/proxy.ts:4086](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4086)
 
 `peer net`: label of the grant this node issued to the same person.
 
@@ -54,7 +54,7 @@ Defined in: [types/proxy.ts:4077](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **noteValue?**: `string`
 
-Defined in: [types/proxy.ts:4079](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4079)
+Defined in: [types/proxy.ts:4088](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4088)
 
 `peer redeem`: the coin note to present.
 
@@ -64,7 +64,7 @@ Defined in: [types/proxy.ts:4079](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/proxy.ts:4081](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4081)
+Defined in: [types/proxy.ts:4090](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4090)
 
 `peer redeem --check`: ask the issuer about a note without spending it.
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:4081](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **label?**: `string`
 
-Defined in: [types/proxy.ts:4083](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4083)
+Defined in: [types/proxy.ts:4092](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4092)
 
 Local account label for a provisioned credential.
 
@@ -84,7 +84,7 @@ Local account label for a provisioned credential.
 
 > `optional` **name?**: `string`
 
-Defined in: [types/proxy.ts:4084](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4084)
+Defined in: [types/proxy.ts:4093](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4093)
 
 ---
 
@@ -92,7 +92,7 @@ Defined in: [types/proxy.ts:4084](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **url?**: `string`
 
-Defined in: [types/proxy.ts:4085](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4085)
+Defined in: [types/proxy.ts:4094](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4094)
 
 ---
 
@@ -100,7 +100,7 @@ Defined in: [types/proxy.ts:4085](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **token?**: `string`
 
-Defined in: [types/proxy.ts:4086](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4086)
+Defined in: [types/proxy.ts:4095](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4095)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/proxy.ts:4086](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **link?**: `string`
 
-Defined in: [types/proxy.ts:4087](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4087)
+Defined in: [types/proxy.ts:4096](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4096)
 
 ---
 
@@ -116,7 +116,7 @@ Defined in: [types/proxy.ts:4087](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **priority?**: `number`
 
-Defined in: [types/proxy.ts:4088](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4088)
+Defined in: [types/proxy.ts:4097](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4097)
 
 ---
 
@@ -124,7 +124,7 @@ Defined in: [types/proxy.ts:4088](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **note?**: `string`
 
-Defined in: [types/proxy.ts:4089](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4089)
+Defined in: [types/proxy.ts:4098](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4098)
 
 ---
 
@@ -132,7 +132,7 @@ Defined in: [types/proxy.ts:4089](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/proxy.ts:4090](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4090)
+Defined in: [types/proxy.ts:4099](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4099)
 
 ---
 
@@ -140,4 +140,4 @@ Defined in: [types/proxy.ts:4090](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **dev?**: `boolean`
 
-Defined in: [types/proxy.ts:4091](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4091)
+Defined in: [types/proxy.ts:4100](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4100)

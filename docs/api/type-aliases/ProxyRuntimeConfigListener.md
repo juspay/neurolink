@@ -8,7 +8,7 @@
 
 > **ProxyRuntimeConfigListener** = (`snapshot`) => `void`
 
-Defined in: [types/proxy.ts:3070](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3070)
+Defined in: [types/proxy.ts:3079](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3079)
 
 Listener invoked after a new configuration generation is published.
 

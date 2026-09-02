@@ -138,6 +138,7 @@
     "test:local-usage": "pnpm exec tsx test/continuous-test-suite-local-usage.ts",
     "test:dynamic": "pnpm exec tsx test/continuous-test-suite-dynamic.ts",
     "test:proxy": "pnpm exec tsx test/continuous-test-suite-proxy.ts",
+    "test:proxy-connect-retry": "pnpm exec tsx test/continuous-test-suite-proxy-connect-retry.ts",
     "test:codex": "pnpm exec tsx test/continuous-test-suite-codex.ts",
     "test:bugfixes": "pnpm exec tsx test/continuous-test-suite-bugfixes.ts",
     "test:json-e2e": "pnpm exec tsx test/continuous-test-suite-json-e2e.ts",

@@ -8,7 +8,7 @@
 
 > **ProxyShareGrantFile** = `object`
 
-Defined in: [types/proxy.ts:3514](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3514)
+Defined in: [types/proxy.ts:3523](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3523)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3514](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:3515](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3515)
+Defined in: [types/proxy.ts:3524](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3524)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:3515](https://github.com/juspay/neurolink/blob/relea
 
 > **grants**: `Record`\<`string`, [`ProxyShareGrant`](ProxyShareGrant.md)\>
 
-Defined in: [types/proxy.ts:3516](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3516)
+Defined in: [types/proxy.ts:3525](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3525)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:3516](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **publicUrl?**: `string`
 
-Defined in: [types/proxy.ts:3519](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3519)
+Defined in: [types/proxy.ts:3528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3528)
 
 This node's stable public address, when it has one. Recorded once so
 every share link is minted against it without retyping.
@@ -43,6 +43,6 @@ every share link is minted against it without retyping.
 
 > `optional` **noteSecret?**: `string`
 
-Defined in: [types/proxy.ts:3521](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3521)
+Defined in: [types/proxy.ts:3530](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3530)
 
 Node-level secret coin notes are signed with. Minted on first issue.

@@ -8,7 +8,7 @@
 
 > **SocketWorkerRuntime** = `object`
 
-Defined in: [types/proxy.ts:2855](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2855)
+Defined in: [types/proxy.ts:2864](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2864)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2855](https://github.com/juspay/neurolink/blob/relea
 
 > **acceptSocket**: (`socket`) => `void`
 
-Defined in: [types/proxy.ts:2856](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2856)
+Defined in: [types/proxy.ts:2865](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2865)
 
 #### Parameters
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2856](https://github.com/juspay/neurolink/blob/relea
 
 > **drain**: () => `void`
 
-Defined in: [types/proxy.ts:2857](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2857)
+Defined in: [types/proxy.ts:2866](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2866)
 
 #### Returns
 
@@ -46,7 +46,7 @@ Defined in: [types/proxy.ts:2857](https://github.com/juspay/neurolink/blob/relea
 
 > **close**: () => `void`
 
-Defined in: [types/proxy.ts:2858](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2858)
+Defined in: [types/proxy.ts:2867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2867)
 
 #### Returns
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2858](https://github.com/juspay/neurolink/blob/relea
 
 > **snapshot**: () => `object`
 
-Defined in: [types/proxy.ts:2859](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2859)
+Defined in: [types/proxy.ts:2868](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2868)
 
 #### Returns
 
