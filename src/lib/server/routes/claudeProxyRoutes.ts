@@ -48,6 +48,12 @@ import {
   listAnthropicAccountsForUsage,
   usageToQuota,
 } from "../../proxy/accountUsage.js";
+import { tokenStore } from "../../auth/tokenStore.js";
+import {
+  fetchCodexAccountUsage,
+  listCodexAccountsForUsage,
+  resolveProxyStatusAccountIdentity,
+} from "../../proxy/codexAccountUsage.js";
 import { AccountQuotaRefreshCoordinator } from "../../proxy/accountQuotaRefreshCoordinator.js";
 import { ProviderTransportCoordinator } from "../../proxy/providerTransportCoordinator.js";
 import { MAX_COOLDOWN_MS_BY_REASON } from "../../proxy/routingEvidence.js";
@@ -162,6 +168,8 @@ import { normalizeMaxInflightPerAccount } from "../../proxy/modelRouter.js";
 import type {
   PersistedAccountCooldown,
   ProxyTranslationPlan,
+  ProxyAccountDirectoryOverride,
+  ProxyAccountProvider,
 } from "../../types/index.js";
 import { writeJsonSnapshotAtomically } from "../../proxy/snapshotPersistence.js";
 import {
@@ -1198,6 +1206,50 @@ async function refreshAccountQuotaInBackground(
 }
 
 /**
+ * The logins the account-exposing routes enumerate, per engine, plus every
+ * key the token store holds at all (disabled ones included). Overridable by
+ * the suite because the token store is a singleton bound to the real home at
+ * import — a case cannot point it elsewhere, and reading the operator's own
+ * logins inside a fixture test is exactly how a phantom would hide.
+ */
+let accountDirectoryOverride: ProxyAccountDirectoryOverride | null = null;
+
+async function listRoutableAccountsByEngine(
+  allowlist?: AccountAllowlist,
+): Promise<Record<ProxyAccountProvider, ProxyPassthroughAccount[]>> {
+  if (accountDirectoryOverride) {
+    return {
+      anthropic: accountDirectoryOverride.anthropic,
+      codex: accountDirectoryOverride.codex,
+    };
+  }
+  // The allowlist is an Anthropic routing concept, keyed by anthropic:
+  // prefixes; applying it to Codex keys would exclude every Codex login.
+  const [anthropic, codex] = await Promise.all([
+    listAnthropicAccountsForUsage(allowlist),
+    listCodexAccountsForUsage(),
+  ]);
+  return { anthropic, codex };
+}
+
+/**
+ * Every login the token store knows, routable or not. This is what separates
+ * a DISABLED login (still here, shown as unrouted) from a REMOVED one (gone,
+ * and not shown): usage counters and quota snapshots outlive a logout, and
+ * without this check a deleted login renders as an unrouted account forever.
+ */
+async function listKnownAccountKeys(): Promise<Set<string>> {
+  if (accountDirectoryOverride) {
+    return accountDirectoryOverride.knownKeys;
+  }
+  const [anthropic, codex] = await Promise.all([
+    tokenStore.listByPrefix("anthropic:"),
+    tokenStore.listByPrefix("codex:"),
+  ]);
+  return new Set([...anthropic.map(normalizeAnthropicAccountKey), ...codex]);
+}
+
+/**
  * Fetch fresh limits from Anthropic's usage endpoint for every eligible OAuth
  * account and write them through the exact same chain the passive header
  * capture uses (runtime state → cooldown reconciliation → debounced disk
@@ -1212,12 +1264,25 @@ async function refreshAccountLimits(
   } = {},
 ): Promise<ProxyLimitsRefreshResponse> {
   const fetchedAt = Date.now();
-  const allAccounts = await listAnthropicAccountsForUsage(
+  const directory = await listRoutableAccountsByEngine(
     options.accountAllowlist,
   );
+  const allAccounts: Array<{
+    account: ProxyPassthroughAccount;
+    provider: ProxyAccountProvider;
+  }> = [
+    ...directory.anthropic.map((account) => ({
+      account,
+      provider: "anthropic" as const,
+    })),
+    ...directory.codex.map((account) => ({
+      account,
+      provider: "codex" as const,
+    })),
+  ];
   const accounts = options.accountFilter
     ? allAccounts.filter(
-        (account) =>
+        ({ account }) =>
           account.label === options.accountFilter ||
           account.key === options.accountFilter,
       )
@@ -1228,22 +1293,27 @@ async function refreshAccountLimits(
 
   const buildResult = (
     account: ProxyPassthroughAccount,
+    provider: ProxyAccountProvider,
     status: ProxyLimitsAccountResult["status"],
     quota: AccountQuota | null,
     error?: string,
   ): ProxyLimitsAccountResult => {
     const state = accountRuntimeState.get(account.key);
+    // The quota store keys Anthropic snapshots by bare label for historical
+    // reasons (see CLAUDE.md) and Codex snapshots by full key. A Codex login
+    // must never fall back to the bare label: with one email on both engines
+    // that label holds the ANTHROPIC account's windows.
+    const persistedQuota =
+      provider === "anthropic"
+        ? (persisted[account.key] ?? persisted[account.label] ?? null)
+        : (persisted[account.key] ?? null);
     const result: ProxyLimitsAccountResult = {
       account: account.label,
       key: account.key,
+      provider,
       type: account.type,
       status,
-      quota:
-        quota ??
-        state?.quota ??
-        persisted[account.key] ??
-        persisted[account.label] ??
-        null,
+      quota: quota ?? state?.quota ?? persistedQuota,
     };
     if (error !== undefined) {
       result.error = error;
@@ -1261,8 +1331,8 @@ async function refreshAccountLimits(
     return {
       fetchedAt,
       snapshot: true,
-      results: accounts.map((account) =>
-        buildResult(account, "snapshot", null),
+      results: accounts.map(({ account, provider }) =>
+        buildResult(account, provider, "snapshot", null),
       ),
       refreshMetrics: accountQuotaRefreshCoordinator.getMetrics(),
     };
@@ -1276,17 +1346,56 @@ async function refreshAccountLimits(
       if (index >= accounts.length) {
         return;
       }
-      const account = accounts[index];
+      const { account, provider } = accounts[index];
       if (account.type !== "oauth") {
-        results[index] = buildResult(account, "skipped_api_key", null);
+        results[index] = buildResult(
+          account,
+          provider,
+          "skipped_api_key",
+          null,
+        );
         continue;
       }
       const lastFetch = lastUsageFetchAt.get(account.key) ?? 0;
       if (Date.now() - lastFetch < MIN_USAGE_REFETCH_INTERVAL_MS) {
-        results[index] = buildResult(account, "throttled", null);
+        results[index] = buildResult(account, provider, "throttled", null);
         continue;
       }
       lastUsageFetchAt.set(account.key, Date.now());
+      if (provider === "codex") {
+        // Codex has its own usage endpoint and no overage/cooldown
+        // reconciliation to run; the snapshot is written under the full key,
+        // which is the only key the Codex engine ever reads it back by.
+        try {
+          const fetched = await fetchCodexAccountUsage(account);
+          if (fetched.ok === false) {
+            results[index] = buildResult(
+              account,
+              provider,
+              "error",
+              null,
+              `codex usage fetch failed: ${fetched.reason}`,
+            );
+            continue;
+          }
+          await saveAccountQuota(account.key, fetched.quota);
+          results[index] = buildResult(
+            account,
+            provider,
+            "refreshed",
+            fetched.quota,
+          );
+        } catch (err) {
+          results[index] = buildResult(
+            account,
+            provider,
+            "error",
+            null,
+            err instanceof Error ? err.message : String(err),
+          );
+        }
+        continue;
+      }
       // Isolate failures per account: an unexpected rejection must not abort
       // the Promise.all sweep and turn the whole /limits response into a 502.
       try {
@@ -1297,7 +1406,7 @@ async function refreshAccountLimits(
           { force: true },
         );
         if (refresh.kind !== "completed") {
-          results[index] = buildResult(account, "throttled", null);
+          results[index] = buildResult(account, provider, "throttled", null);
           continue;
         }
         const fetchResult = refresh.result;
@@ -1307,6 +1416,7 @@ async function refreshAccountLimits(
         if (fetchResult.ok === false) {
           results[index] = buildResult(
             account,
+            provider,
             "error",
             null,
             fetchResult.error,
@@ -1322,16 +1432,18 @@ async function refreshAccountLimits(
         if (!quota) {
           results[index] = buildResult(
             account,
+            provider,
             "error",
             null,
             "usage payload had no recognizable limit windows",
           );
           continue;
         }
-        results[index] = buildResult(account, "refreshed", quota);
+        results[index] = buildResult(account, provider, "refreshed", quota);
       } catch (err) {
         results[index] = buildResult(
           account,
+          provider,
           "error",
           null,
           err instanceof Error ? err.message : String(err),
@@ -9661,12 +9773,6 @@ function buildEarlyClaudeRequestError(args: {
  * millisecond fields tens of thousands of years into the future, so only the
  * seconds fields are converted, and 0 becomes null rather than epoch zero.
  */
-/**
- * Account types that represent a real credential rather than proxy plumbing.
- * Mirrors the Anthropic pool's own account types.
- */
-const REAL_ACCOUNT_TYPES = new Set(["oauth", "api_key"]);
-
 function toMillis(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? Math.round(value * 1000)
@@ -10530,12 +10636,38 @@ export function createClaudeProxyRoutes(
             usageError = error instanceof Error ? error.message : String(error);
           }
 
-          const statsByLabel = new Map<
+          // Joined by provider-qualified KEY, never by label. One email can
+          // be logged in to both engines; joined by label, the Codex login was
+          // swallowed by the Anthropic row (and its counters could land on
+          // that row, last write winning). Legacy stats entries that predate
+          // the key carry only a label and a type, which is enough to derive
+          // it; a keyed entry for the same login wins over a legacy one.
+          const statsByKey = new Map<
             string,
-            (typeof statsAccounts)[string]
+            (typeof statsAccounts)[string] & { identityKey: string }
           >();
-          for (const entry of Object.values(statsAccounts)) {
-            statsByLabel.set(entry.label, entry);
+          for (const [mapKey, entry] of Object.entries(statsAccounts)) {
+            const identity = resolveProxyStatusAccountIdentity(
+              entry.label,
+              entry.type,
+              entry.key ?? mapKey,
+            );
+            const identityKey = identity.key ?? mapKey;
+            const existing = statsByKey.get(identityKey);
+            if (!existing || (entry.key && !existing.key)) {
+              statsByKey.set(identityKey, { ...entry, identityKey });
+            }
+          }
+
+          // Which logins exist at all, disabled ones included. A stats entry
+          // with no login behind it is a REMOVED account, not an unrouted one.
+          // If the store cannot be read, err towards showing rows: hiding a
+          // real login is the worse mistake, and the old behaviour.
+          let knownKeys: Set<string> | null;
+          try {
+            knownKeys = await listKnownAccountKeys();
+          } catch {
+            knownKeys = null;
           }
 
           const rows: CliAccountsRow[] = [];
@@ -10546,13 +10678,14 @@ export function createClaudeProxyRoutes(
           // today, which is exactly when an operator most wants to see it.
           for (const result of limits.results) {
             const label = result.account;
-            claimed.add(label);
-            const stat = statsByLabel.get(label);
+            claimed.add(result.key);
+            const stat = statsByKey.get(result.key);
             const quota = normalizeQuotaForAccounts(result.quota);
             const cooling = isCooling(result.key ?? null);
             rows.push({
               label,
               key: result.key ?? null,
+              provider: result.provider,
               kind: "account",
               type: result.type ?? stat?.type ?? "oauth",
               // result.status describes how the quota was obtained
@@ -10586,40 +10719,60 @@ export function createClaudeProxyRoutes(
                     weeklyHealth: quotaHealth(quota.weeklyStatus),
                   } as JsonObject)
                 : null,
-              usage: usageByAccount.get(label) ?? null,
+              usage: usageByAccount.get(result.key) ?? null,
             });
           }
 
           // Plumbing rows are still reported, but tagged, so a consumer can
           // show or hide them rather than rendering them as credentials.
           //
-          // A real login can land here too: listAnthropicAccountsForUsage
-          // skips accounts the token store has disabled or the allowlist
-          // excludes, so an account with real usage history but no current
-          // route is absent from limits.results. Tagging that as plumbing hid
-          // the one account an operator is looking for when they ask why
-          // traffic stopped — the docs tell consumers to filter internal rows
-          // out. It stays kind "account", with a status saying why it has no
-          // quota block.
-          for (const entry of Object.values(statsAccounts)) {
-            if (claimed.has(entry.label)) {
+          // A real login can land here too: the listers skip accounts the
+          // token store has disabled or the allowlist excludes, so a login
+          // with real usage history but no current route is absent from
+          // limits.results. Tagging that as plumbing hid the one account an
+          // operator is looking for when they ask why traffic stopped. It
+          // stays kind "account", with a status saying why it has no quota
+          // block — but only while the login still EXISTS. A stats entry whose
+          // login has been removed from the store is history, not a
+          // credential, and rendering it as "unrouted" put a phantom account
+          // on every dashboard for as long as the counters file lived.
+          for (const entry of statsByKey.values()) {
+            const identity = resolveProxyStatusAccountIdentity(
+              entry.label,
+              entry.type,
+              entry.identityKey,
+            );
+            if (identity.key !== null && claimed.has(identity.key)) {
               continue;
             }
-            const isRealAccount = REAL_ACCOUNT_TYPES.has(entry.type);
+            const isLogin = identity.provider !== "other";
+            if (
+              isLogin &&
+              identity.key !== null &&
+              knownKeys !== null &&
+              !knownKeys.has(identity.key)
+            ) {
+              continue;
+            }
             rows.push({
               label: entry.label,
-              key: null,
-              kind: isRealAccount
+              key: isLogin ? identity.key : null,
+              ...(isLogin ? { provider: identity.provider } : {}),
+              kind: isLogin
                 ? "account"
                 : entry.type === "translation"
                   ? "translation"
                   : "internal",
-              type: entry.type,
-              status: isRealAccount ? "unrouted" : null,
+              // The row's type is the credential kind; the engine is
+              // `provider`. Stats record Codex logins as "codex-oauth", which
+              // consumers that only know the credential kinds read as
+              // plumbing, so it is reported as the OAuth login it is.
+              type: identity.provider === "codex" ? "oauth" : entry.type,
+              status: isLogin ? "unrouted" : null,
               cooling: false,
               allowed: null,
               expired: null,
-              isPrimary: isPrimaryAccount(entry.label),
+              isPrimary: isLogin ? isPrimaryAccount(identity.key) : false,
               requests: entry.successCount + entry.errorCount,
               errors: entry.errorCount,
               rateLimits: entry.rateLimitCount,
@@ -10631,7 +10784,10 @@ export function createClaudeProxyRoutes(
               // and cost in the ledger — hardcoding null here discarded
               // exactly the usage an operator is looking for when they ask
               // why traffic stopped.
-              usage: usageByAccount.get(entry.label) ?? null,
+              usage:
+                identity.key !== null
+                  ? (usageByAccount.get(identity.key) ?? null)
+                  : null,
             });
           }
 
@@ -11167,6 +11323,11 @@ export const __testHooks = {
     lastUsageFetchAt.clear();
     limitsRefreshInFlight = null;
     accountQuotaRefreshCoordinator.clear();
+  },
+  setAccountDirectoryForTests: (
+    override: ProxyAccountDirectoryOverride | null,
+  ): void => {
+    accountDirectoryOverride = override;
   },
   isRetryableNetworkError,
   isPermanentRefreshFailure,

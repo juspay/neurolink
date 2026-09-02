@@ -147,10 +147,21 @@ export type CliClientUsageTotals = {
 
 /** One row of GET /accounts. */
 export type CliAccountsRow = {
-  /** Bare label, e.g. "someone@example.com". The join key across all sources. */
+  /**
+   * Bare label, e.g. "someone@example.com". Display only: two rows can share
+   * it when one email is logged in to both engines. `key` is the identity.
+   */
   label: string;
-  /** Full pool key, e.g. "anthropic:someone@example.com". */
+  /**
+   * Full pool key, e.g. "anthropic:someone@example.com" or
+   * "codex:someone@example.com". Null only for plumbing rows.
+   */
   key: string | null;
+  /**
+   * Which pool engine owns this login. Absent on plumbing rows. Consumers
+   * that key a list by row must key by `key`, not `label` — see above.
+   */
+  provider?: "anthropic" | "codex";
   /**
    * What this row actually is. Only "account" rows are real logins; the proxy
    * also tracks internal and translation pseudo-accounts, which have no quota
@@ -191,6 +202,13 @@ export type CliAccountsResponse = {
 /** One request as recorded in the proxy request log, reduced to what costing needs. */
 export type ProxyLedgerEntry = {
   account: string;
+  /**
+   * Provider-qualified identity, "anthropic:<label>" or "codex:<label>".
+   * Read from the log row when present; derived from `accountType` for rows
+   * written before the pool logged it. This, not `account`, is the join key:
+   * one email can be logged in to both engines.
+   */
+  accountKey: string;
   /** Derived calling CLI; see CliAccountUsageTotals.byClient. */
   clientApp: string;
   accountType: string;

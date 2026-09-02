@@ -1426,8 +1426,14 @@ export type ProxyQuotaRefreshRunResult =
 export type ProxyLimitsAccountResult = {
   /** Account label (quota-store key). */
   account: string;
-  /** Token-store key ("anthropic:<label>"). */
+  /** Token-store key ("anthropic:<label>" or "codex:<label>"). */
   key: string;
+  /**
+   * Which pool engine owns this login. Two logins can share a label — an
+   * operator may use one email for both — so the key, not the label, is the
+   * identity, and this names the engine without parsing the key's prefix.
+   */
+  provider: ProxyAccountProvider;
   type: ProxyAccountType;
   status: "refreshed" | "throttled" | "skipped_api_key" | "snapshot" | "error";
   /** Fresh quota on "refreshed"; last known snapshot otherwise (may be null). */
@@ -1435,6 +1441,22 @@ export type ProxyLimitsAccountResult = {
   error?: string;
   coolingUntil?: number;
   coolingReason?: AccountCoolingReason;
+};
+
+/** The pool engine a login belongs to, as named on limits and accounts rows. */
+export type ProxyAccountProvider = "anthropic" | "codex";
+
+/**
+ * Test-only replacement for the token store behind the account-exposing
+ * routes. The token store is a module singleton bound to the real home at
+ * import, so a suite cannot redirect it; this lets a case state which logins
+ * exist (`knownKeys`, including disabled ones) and which are routable per
+ * engine, exactly as the real listers would answer.
+ */
+export type ProxyAccountDirectoryOverride = {
+  knownKeys: Set<string>;
+  anthropic: ProxyPassthroughAccount[];
+  codex: ProxyPassthroughAccount[];
 };
 
 /** Response body of the proxy's GET /limits endpoint. */
