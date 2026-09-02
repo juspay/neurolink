@@ -8,7 +8,7 @@
 
 > **ExternalMCPServerEvents** = `object`
 
-Defined in: [types/externalMcp.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L311)
+Defined in: [types/externalMcp.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L319)
 
 External MCP server events
 
@@ -18,7 +18,7 @@ External MCP server events
 
 > **statusChanged**: `object`
 
-Defined in: [types/externalMcp.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L313)
+Defined in: [types/externalMcp.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L321)
 
 Server status changed
 
@@ -48,7 +48,7 @@ Server status changed
 
 > **connected**: `object`
 
-Defined in: [types/externalMcp.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L322)
+Defined in: [types/externalMcp.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L330)
 
 Server connected successfully
 
@@ -74,7 +74,7 @@ Server connected successfully
 
 > **disconnected**: `object`
 
-Defined in: [types/externalMcp.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L330)
+Defined in: [types/externalMcp.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L338)
 
 Server disconnected
 
@@ -100,7 +100,7 @@ Server disconnected
 
 > **failed**: `object`
 
-Defined in: [types/externalMcp.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L338)
+Defined in: [types/externalMcp.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L346)
 
 Server failed
 
@@ -126,7 +126,7 @@ Server failed
 
 > **toolDiscovered**: `object`
 
-Defined in: [types/externalMcp.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L346)
+Defined in: [types/externalMcp.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L354)
 
 Tool discovered
 
@@ -156,7 +156,7 @@ Tool discovered
 
 > **toolRemoved**: `object`
 
-Defined in: [types/externalMcp.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L355)
+Defined in: [types/externalMcp.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L363)
 
 Tool removed
 
@@ -182,7 +182,7 @@ Tool removed
 
 > **healthCheck**: `object`
 
-Defined in: [types/externalMcp.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L363)
+Defined in: [types/externalMcp.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L371)
 
 Health check completed
 

@@ -382,6 +382,16 @@ export default [
             // never exported from any package entry point — no public
             // surface at all (same reasoning as autoresearch above).
             "test/continuous-test-suite-handler-registry.ts",
+            // TelemetryService (src/lib/telemetry/telemetryService.ts) is not
+            // re-exported from any package entry point, and whether a resolved
+            // `{ isError: true }` tool result is recorded as success=true or
+            // success=false in mcp_tool_calls_total is only observable on that
+            // singleton — the caller-facing return value is identical either
+            // way, so no generate()/stream()/CLI path can distinguish the two.
+            // Only the one deep dist import needs this; every tool call in the
+            // suite still goes through the shipped ExternalServerManager from
+            // ../dist/index.js. Its header states the exception.
+            "test/continuous-test-suite-mcp-breaker-resolved-errors.ts",
             // MEDIA_HANDLER_CATALOG / providerChoicesFor / defaultProviderFor
             // (src/lib/factories/mediaHandlerCatalog.ts) are never re-exported
             // from src/lib/index.ts — no package entry point resolves them,
