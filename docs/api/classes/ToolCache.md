@@ -69,7 +69,7 @@ Defined in: [mcp/caching/toolCache.ts:47](https://github.com/juspay/neurolink/bl
 
 > **get** **size**(): `number`
 
-Defined in: [mcp/caching/toolCache.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L252)
+Defined in: [mcp/caching/toolCache.ts:269](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L269)
 
 Get the number of entries in the cache
 
@@ -83,9 +83,13 @@ Get the number of entries in the cache
 
 > **get**(`key`): `T` \| `undefined`
 
-Defined in: [mcp/caching/toolCache.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L76)
+Defined in: [mcp/caching/toolCache.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L80)
 
 Get a value from the cache
+
+Returns an isolated copy of the stored value (see `cloneCachedValue`), so
+a caller mutating what it gets back cannot corrupt the entry for later
+hits or for other concurrent callers of the same key.
 
 #### Parameters
 
@@ -103,9 +107,13 @@ Get a value from the cache
 
 > **set**(`key`, `value`, `ttl?`): `void`
 
-Defined in: [mcp/caching/toolCache.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L110)
+Defined in: [mcp/caching/toolCache.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L127)
 
 Set a value in the cache
+
+Stores an isolated copy of `value` (see `cloneCachedValue`), so mutating
+the caller's original object after this call cannot reach into the
+cache entry.
 
 #### Parameters
 
@@ -131,7 +139,7 @@ Set a value in the cache
 
 > **has**(`key`): `boolean`
 
-Defined in: [mcp/caching/toolCache.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L138)
+Defined in: [mcp/caching/toolCache.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L155)
 
 Check if a key exists and is not expired
 
@@ -151,7 +159,7 @@ Check if a key exists and is not expired
 
 > **delete**(`key`): `boolean`
 
-Defined in: [mcp/caching/toolCache.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L156)
+Defined in: [mcp/caching/toolCache.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L173)
 
 Delete a specific key from the cache
 
@@ -171,7 +179,7 @@ Delete a specific key from the cache
 
 > **invalidate**(`pattern`): `number`
 
-Defined in: [mcp/caching/toolCache.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L172)
+Defined in: [mcp/caching/toolCache.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L189)
 
 Invalidate entries matching a pattern
 Supports glob-style patterns with \* wildcard
@@ -192,7 +200,7 @@ Supports glob-style patterns with \* wildcard
 
 > **clear**(): `void`
 
-Defined in: [mcp/caching/toolCache.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L192)
+Defined in: [mcp/caching/toolCache.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L209)
 
 Clear all entries from the cache
 
@@ -206,7 +214,7 @@ Clear all entries from the cache
 
 > **getOrSet**(`key`, `factory`, `ttl?`): `Promise`\<`T`\>
 
-Defined in: [mcp/caching/toolCache.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L202)
+Defined in: [mcp/caching/toolCache.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L219)
 
 Get or set a value (cache-aside pattern)
 
@@ -234,7 +242,7 @@ Get or set a value (cache-aside pattern)
 
 > **getStats**(): [`CacheStats`](../type-aliases/CacheStats.md)
 
-Defined in: [mcp/caching/toolCache.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L228)
+Defined in: [mcp/caching/toolCache.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L245)
 
 Get cache statistics
 
@@ -248,7 +256,7 @@ Get cache statistics
 
 > **resetStats**(): `void`
 
-Defined in: [mcp/caching/toolCache.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L235)
+Defined in: [mcp/caching/toolCache.ts:252](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L252)
 
 Reset statistics
 
@@ -262,7 +270,7 @@ Reset statistics
 
 > **keys**(): `string`[]
 
-Defined in: [mcp/caching/toolCache.ts:245](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L245)
+Defined in: [mcp/caching/toolCache.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L262)
 
 Get all keys in the cache
 
@@ -276,7 +284,7 @@ Get all keys in the cache
 
 > `static` **generateKey**(`toolName`, `args`): `string`
 
-Defined in: [mcp/caching/toolCache.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L259)
+Defined in: [mcp/caching/toolCache.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L276)
 
 Generate a cache key from tool name and arguments
 
@@ -300,7 +308,7 @@ Generate a cache key from tool name and arguments
 
 > **destroy**(): `void`
 
-Defined in: [mcp/caching/toolCache.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L303)
+Defined in: [mcp/caching/toolCache.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/mcp/caching/toolCache.ts#L320)
 
 Stop the auto-cleanup timer
 

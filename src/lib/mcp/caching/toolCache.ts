@@ -72,6 +72,10 @@ export class ToolCache<T = unknown> extends EventEmitter {
 
   /**
    * Get a value from the cache
+   *
+   * Returns an isolated copy of the stored value (see `cloneCachedValue`), so
+   * a caller mutating what it gets back cannot corrupt the entry for later
+   * hits or for other concurrent callers of the same key.
    */
   get(key: string): T | undefined {
     const fullKey = this.getFullKey(key);
@@ -99,13 +103,26 @@ export class ToolCache<T = unknown> extends EventEmitter {
 
     this.stats.hits++;
     this.updateHitRate();
-    this.emit("hit", { key: fullKey, value: entry.value });
+    const returnedValue = this.cloneCachedValue(entry.value);
+    if (this.listenerCount("hit") > 0) {
+      // Listeners get their own copy. `emit` is synchronous, so a listener
+      // that mutates `event.value` would otherwise be mutating the very object
+      // the caller is about to receive.
+      this.emit("hit", {
+        key: fullKey,
+        value: this.cloneCachedValue(entry.value),
+      });
+    }
 
-    return entry.value;
+    return returnedValue;
   }
 
   /**
    * Set a value in the cache
+   *
+   * Stores an isolated copy of `value` (see `cloneCachedValue`), so mutating
+   * the caller's original object after this call cannot reach into the
+   * cache entry.
    */
   set(key: string, value: T, ttl?: number): void {
     const fullKey = this.getFullKey(key);
@@ -118,7 +135,7 @@ export class ToolCache<T = unknown> extends EventEmitter {
     }
 
     const entry: McpCacheEntry<T> = {
-      value,
+      value: this.cloneCachedValue(value),
       expires: now + effectiveTtl,
       createdAt: now,
       accessedAt: now,
@@ -309,6 +326,38 @@ export class ToolCache<T = unknown> extends EventEmitter {
   }
 
   // ==================== Private Methods ====================
+
+  /**
+   * Isolate a value crossing the cache boundary (on write into the entry,
+   * and on read back out of it) so no two callers — nor a caller and the
+   * stored entry itself — ever share object identity.
+   *
+   * Without this, `set()` stored the caller's object by reference and
+   * `get()` returned `entry.value` by the same reference on every hit: one
+   * caller mutating a result it got back (e.g. an in-place truncation or
+   * normalization pass) silently corrupted the entry for every later
+   * caller of the same key for the rest of the TTL.
+   *
+   * `structuredClone` is the primary path — it is a deep copy, has no
+   * caller-visible side effects, and (unlike a JSON round-trip) tolerates
+   * circular references, which a sufficiently deep or recursive tool
+   * result could contain. It throws on values it cannot clone (functions,
+   * some non-plain class instances); the JSON round-trip fallback covers
+   * that case for the plain-data shapes MCP tool results actually have
+   * (text/JSON content arrays), at the cost of silently dropping
+   * `undefined`, functions and symbol keys — acceptable for a cache that
+   * only ever holds serializable tool results.
+   */
+  private cloneCachedValue(value: T): T {
+    if (value === null || typeof value !== "object") {
+      return value;
+    }
+    try {
+      return structuredClone(value);
+    } catch {
+      return JSON.parse(JSON.stringify(value)) as T;
+    }
+  }
 
   private getFullKey(key: string): string {
     return this.config.namespace ? `${this.config.namespace}:${key}` : key;

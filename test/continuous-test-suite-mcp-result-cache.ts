@@ -13,6 +13,11 @@
  * via tsx, not a Vitest runner. That file was referenced by no script, so none
  * of this had been executed since it was written.
  *
+ * Also covers cache result isolation (fix/mcp-cache-isolation): ToolCache
+ * used to store/return the same object reference on every set()/get(), so a
+ * caller mutating a result it got back corrupted every later cache hit for
+ * that key. ToolCache now clones on write and on read.
+ *
  * Run with: npx tsx test/continuous-test-suite-mcp-result-cache.ts
  */
 
@@ -22,9 +27,13 @@ import { observe, stub, withStubs } from "./helpers/stubs.js";
 
 const { test, runSuite } = defineSuite("MCP Result Cache Error Skipping");
 
+type HitListener = (event: { key: string; value: unknown }) => void;
+
 type CacheLike = {
   cacheResult: (tool: string, args: unknown, result: unknown) => void;
   getCachedResult: (tool: string, args: unknown) => unknown;
+  /** The wrapped ToolCache — the EventEmitter that fires "hit". */
+  cache: { on: (event: "hit", listener: HitListener) => unknown };
 };
 
 type NeuroLinkInternals = {
@@ -36,6 +45,7 @@ type Harness = {
   call: (tool: string, args: Record<string, unknown>) => Promise<unknown>;
   cacheWrites: () => number;
   upstreamCalls: () => number;
+  innerCache: () => CacheLike["cache"];
 };
 
 /**
@@ -87,6 +97,7 @@ async function withCacheHarness(
           ).executeExternalMCPTool("srv", tool, args),
         cacheWrites: () => cacheWrite.callCount,
         upstreamCalls: () => upstream.callCount,
+        innerCache: () => cache.cache,
       }),
     );
   } finally {
@@ -176,6 +187,103 @@ await test("re-executes (does not replay) after an error, so recovery is possibl
         second?.content?.[0]?.text,
         "recovered",
         "the second call should return the recovered result",
+      );
+    },
+  ));
+
+await test("a caller mutating a cached result cannot corrupt a later cache hit", () =>
+  withCacheHarness(
+    [
+      {
+        content: [{ type: "text", text: "original" }],
+        nested: { count: 1 },
+      },
+    ],
+    async (h) => {
+      const first = (await h.call("bb_get", { path: "c.ts" })) as {
+        content: Array<{ text: string }>;
+        nested: { count: number };
+      };
+
+      // Mutate the object the caller got back, in place — this is exactly
+      // what an in-place truncation/normalization pass on the result would
+      // do before returning it further up the call stack.
+      first.content[0].text = "MUTATED";
+      first.nested.count = 999;
+
+      const second = (await h.call("bb_get", { path: "c.ts" })) as {
+        content: Array<{ text: string }>;
+        nested: { count: number };
+      };
+
+      // Still one upstream call: the second call was served from cache, so
+      // this is exercising the cache's isolation, not a fresh execution.
+      assertEqual(
+        h.upstreamCalls(),
+        1,
+        "the 2nd call should still be served from cache",
+      );
+      assertEqual(
+        second.content[0].text,
+        "original",
+        "mutating the 1st cache hit must not corrupt the 2nd",
+      );
+      assertEqual(
+        second.nested.count,
+        1,
+        "a nested mutation on the 1st hit must not corrupt the 2nd either",
+      );
+
+      // `first` came from the upstream call, so the assertions above only
+      // prove that set() stored a copy. `second` is a genuine cache hit —
+      // mutating it and reading a third time is what proves get() hands out
+      // a copy too, rather than entry.value by reference.
+      second.content[0].text = "MUTATED-AGAIN";
+      second.nested.count = -1;
+
+      const third = (await h.call("bb_get", { path: "c.ts" })) as {
+        content: Array<{ text: string }>;
+        nested: { count: number };
+      };
+      assertEqual(
+        h.upstreamCalls(),
+        1,
+        "the 3rd call should still be served from cache",
+      );
+      assertEqual(
+        third.content[0].text,
+        "original",
+        "mutating a cache HIT must not corrupt the next hit",
+      );
+      assertEqual(
+        third.nested.count,
+        1,
+        "a nested mutation on a cache hit must not corrupt the next hit",
+      );
+    },
+  ));
+
+await test("a 'hit' listener mutating the event payload cannot alias the caller's result", () =>
+  withCacheHarness(
+    [{ content: [{ type: "text", text: "original" }] }],
+    async (h) => {
+      // Warm the cache, then attach a listener that mutates whatever it is
+      // handed. emit() is synchronous, so if get() passed the same object to
+      // the event and to the caller, the caller would see "LISTENER-MUTATED".
+      await h.call("bb_get", { path: "d.ts" });
+      h.innerCache().on("hit", (event) => {
+        const payload = event.value as { content: Array<{ text: string }> };
+        payload.content[0].text = "LISTENER-MUTATED";
+      });
+
+      const hit = (await h.call("bb_get", { path: "d.ts" })) as {
+        content: Array<{ text: string }>;
+      };
+      assertEqual(h.upstreamCalls(), 1, "the 2nd call should be a cache hit");
+      assertEqual(
+        hit.content[0].text,
+        "original",
+        "a mutating 'hit' listener must not reach the value returned to the caller",
       );
     },
   ));
