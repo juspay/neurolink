@@ -47,7 +47,7 @@
         "contextWindow": 24000,
         "vision": false,
         "status": "production",
-        "description": "Llama 3.2 11B Vision Instruct — gated: Cloudflare returns 403 until the model's Community License is accepted once on the account, so it is unusable here and its vision flag is false despite being a vision model"
+        "description": "Llama 3.2 11B Vision Instruct — Meta Community License accepted on the account 2026-09-02, but Cloudflare's OpenAI-compatible endpoint accepts no image input for it: an image content part is rejected (400) and a top-level image is ignored ('There is no image'). The model reads images only through the native /ai/run prompt+image shape, which this OpenAI-compatible provider does not speak, so vision stays false here"
       },
       "@cf/mistral/mistral-7b-instruct-v0.2": {
         "enumMember": "MISTRAL_7B_INSTRUCT_V0_2",
@@ -114,8 +114,8 @@
       "method": "real chat call per id against the live account"
     },
     "liveMatrix": {
-      "date": "2026-08-30",
-      "result": "Live tool round-trip verified on @cf/meta/llama-3.1-8b-instruct-fast, both non-streaming and streaming, once messageContentFormat normalization was applied; before it the follow-up turn was rejected with HTTP 400 (content sent as array/null). Of the three ids that failed, only two are actually gone: mistral-7b-instruct-v0.2 ('No such model') and qwen1.5-14b-chat-awq ('deprecated on 2025-10-01'). llama-3.2-11b-vision-instruct is alive but gated behind a one-time Community License acceptance on the account, so it answers 403 and is left production with vision false rather than retired."
+      "date": "2026-09-02",
+      "result": "Live tool round-trip verified on @cf/meta/llama-3.1-8b-instruct-fast, both non-streaming and streaming, once messageContentFormat normalization was applied; before it the follow-up turn was rejected with HTTP 400 (content sent as array/null). Of the three ids that failed, only two are actually gone: mistral-7b-instruct-v0.2 ('No such model') and qwen1.5-14b-chat-awq ('deprecated on 2025-10-01'). llama-3.2-11b-vision-instruct is alive but gated behind a one-time Community License acceptance on the account, so it answers 403 and is left production with vision false rather than retired. Update 2026-09-02: the Community License was accepted on the account; plain chat on llama-3.2-11b-vision-instruct now returns 200 on both endpoints, and the native /ai/run prompt+image call describes a 64x64 test image correctly. The OpenAI-compatible endpoint still cannot carry an image (content-part array → 400, top-level image ignored), so the vision flag remains false for this provider."
     },
     "addedInPR": "https://github.com/juspay/neurolink/pull/1587"
   },
