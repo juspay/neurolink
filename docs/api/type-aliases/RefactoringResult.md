@@ -8,7 +8,7 @@
 
 > **RefactoringResult** = `object`
 
-Defined in: [types/mcp.ts:2603](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2603)
+Defined in: [types/mcp.ts:2622](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2622)
 
 Result of the code-refactoring AI workflow.
 
@@ -18,7 +18,7 @@ Result of the code-refactoring AI workflow.
 
 > **refactoredCode**: `string`
 
-Defined in: [types/mcp.ts:2604](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2604)
+Defined in: [types/mcp.ts:2623](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2623)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2604](https://github.com/juspay/neurolink/blob/release
 
 > **changes**: `string`[]
 
-Defined in: [types/mcp.ts:2605](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2605)
+Defined in: [types/mcp.ts:2624](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2624)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2605](https://github.com/juspay/neurolink/blob/release
 
 > **improvements**: `string`[]
 
-Defined in: [types/mcp.ts:2606](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2606)
+Defined in: [types/mcp.ts:2625](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2625)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2606](https://github.com/juspay/neurolink/blob/release
 
 > **metrics**: `object`
 
-Defined in: [types/mcp.ts:2607](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2607)
+Defined in: [types/mcp.ts:2626](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2626)
 
 #### linesReduced
 

@@ -8,7 +8,7 @@
 
 > **ElicitationResponseParams** = `object`
 
-Defined in: [types/mcp.ts:1305](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1305)
+Defined in: [types/mcp.ts:1324](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1324)
 
 Response params type
 
@@ -18,7 +18,7 @@ Response params type
 
 > **requestId**: `string`
 
-Defined in: [types/mcp.ts:1306](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1306)
+Defined in: [types/mcp.ts:1325](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1325)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1306](https://github.com/juspay/neurolink/blob/release
 
 > **responded**: `boolean`
 
-Defined in: [types/mcp.ts:1307](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1307)
+Defined in: [types/mcp.ts:1326](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1326)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1307](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **value?**: [`JsonValue`](JsonValue.md)
 
-Defined in: [types/mcp.ts:1308](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1308)
+Defined in: [types/mcp.ts:1327](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1327)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:1308](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **cancelled?**: `boolean`
 
-Defined in: [types/mcp.ts:1309](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1309)
+Defined in: [types/mcp.ts:1328](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1328)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:1309](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **timedOut?**: `boolean`
 
-Defined in: [types/mcp.ts:1310](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1310)
+Defined in: [types/mcp.ts:1329](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1329)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/mcp.ts:1310](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:1311](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1311)
+Defined in: [types/mcp.ts:1330](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1330)

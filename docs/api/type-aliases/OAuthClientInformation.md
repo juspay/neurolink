@@ -8,7 +8,7 @@
 
 > **OAuthClientInformation** = `object`
 
-Defined in: [types/mcp.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L902)
+Defined in: [types/mcp.ts:921](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L921)
 
 OAuth client information returned to MCP SDK
 
@@ -18,7 +18,7 @@ OAuth client information returned to MCP SDK
 
 > **clientId**: `string`
 
-Defined in: [types/mcp.ts:903](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L903)
+Defined in: [types/mcp.ts:922](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L922)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:903](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **clientSecret?**: `string`
 
-Defined in: [types/mcp.ts:904](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L904)
+Defined in: [types/mcp.ts:923](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L923)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:904](https://github.com/juspay/neurolink/blob/release/
 
 > **redirectUri**: `string`
 
-Defined in: [types/mcp.ts:905](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L905)
+Defined in: [types/mcp.ts:924](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L924)

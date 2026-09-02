@@ -8,7 +8,7 @@
 
 > **DebugResult** = `object`
 
-Defined in: [types/mcp.ts:2623](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2623)
+Defined in: [types/mcp.ts:2642](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2642)
 
 Result of the AI debugging workflow.
 
@@ -18,7 +18,7 @@ Result of the AI debugging workflow.
 
 > **issues**: `object`[]
 
-Defined in: [types/mcp.ts:2624](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2624)
+Defined in: [types/mcp.ts:2643](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2643)
 
 #### type
 
@@ -42,7 +42,7 @@ Defined in: [types/mcp.ts:2624](https://github.com/juspay/neurolink/blob/release
 
 > **suggestions**: `string`[]
 
-Defined in: [types/mcp.ts:2630](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2630)
+Defined in: [types/mcp.ts:2649](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2649)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/mcp.ts:2630](https://github.com/juspay/neurolink/blob/release
 
 > **possibleCauses**: `string`[]
 
-Defined in: [types/mcp.ts:2631](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2631)
+Defined in: [types/mcp.ts:2650](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2650)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/mcp.ts:2631](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **fixedOutput?**: `string`
 
-Defined in: [types/mcp.ts:2632](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2632)
+Defined in: [types/mcp.ts:2651](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2651)

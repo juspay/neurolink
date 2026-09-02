@@ -8,7 +8,7 @@
 
 > **ExternalMCPServerHealth** = `object`
 
-Defined in: [types/externalMcp.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L185)
+Defined in: [types/externalMcp.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L189)
 
 External MCP server health status
 
@@ -18,7 +18,7 @@ External MCP server health status
 
 > **serverId**: `string`
 
-Defined in: [types/externalMcp.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L187)
+Defined in: [types/externalMcp.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L191)
 
 Server ID
 
@@ -28,7 +28,7 @@ Server ID
 
 > **isHealthy**: `boolean`
 
-Defined in: [types/externalMcp.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L190)
+Defined in: [types/externalMcp.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L194)
 
 Whether the server is healthy
 
@@ -38,7 +38,7 @@ Whether the server is healthy
 
 > **status**: [`ExternalMCPServerStatus`](ExternalMCPServerStatus.md)
 
-Defined in: [types/externalMcp.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L193)
+Defined in: [types/externalMcp.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L197)
 
 Current status
 
@@ -48,7 +48,7 @@ Current status
 
 > **checkedAt**: `Date`
 
-Defined in: [types/externalMcp.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L196)
+Defined in: [types/externalMcp.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L200)
 
 When the health check was performed
 
@@ -58,7 +58,7 @@ When the health check was performed
 
 > `optional` **responseTime?**: `number`
 
-Defined in: [types/externalMcp.ts:199](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L199)
+Defined in: [types/externalMcp.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L203)
 
 Response time for health check
 
@@ -68,7 +68,7 @@ Response time for health check
 
 > **toolCount**: `number`
 
-Defined in: [types/externalMcp.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L202)
+Defined in: [types/externalMcp.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L206)
 
 Number of available tools
 
@@ -78,7 +78,7 @@ Number of available tools
 
 > **issues**: `string`[]
 
-Defined in: [types/externalMcp.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L205)
+Defined in: [types/externalMcp.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L209)
 
 Any health issues detected
 
@@ -88,7 +88,7 @@ Any health issues detected
 
 > **performance**: `object`
 
-Defined in: [types/externalMcp.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L208)
+Defined in: [types/externalMcp.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L212)
 
 Performance metrics
 

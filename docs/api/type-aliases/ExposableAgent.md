@@ -8,7 +8,7 @@
 
 > **ExposableAgent** = `object`
 
-Defined in: [types/mcp.ts:1102](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1102)
+Defined in: [types/mcp.ts:1121](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1121)
 
 Agent definition for MCP exposure
 
@@ -18,7 +18,7 @@ Agent definition for MCP exposure
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1106](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1106)
+Defined in: [types/mcp.ts:1125](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1125)
 
 Unique agent identifier
 
@@ -28,7 +28,7 @@ Unique agent identifier
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1111](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1111)
+Defined in: [types/mcp.ts:1130](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1130)
 
 Human-readable agent name
 
@@ -38,7 +38,7 @@ Human-readable agent name
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1116)
+Defined in: [types/mcp.ts:1135](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1135)
 
 Agent description for AI models
 
@@ -48,7 +48,7 @@ Agent description for AI models
 
 > `optional` **inputSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:1121](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1121)
+Defined in: [types/mcp.ts:1140](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1140)
 
 Input schema for the agent
 
@@ -58,7 +58,7 @@ Input schema for the agent
 
 > `optional` **outputSchema?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/mcp.ts:1126](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1126)
+Defined in: [types/mcp.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1145)
 
 Output schema for the agent
 
@@ -68,7 +68,7 @@ Output schema for the agent
 
 > **execute**: (`input`, `context?`) => `Promise`\<`unknown`\>
 
-Defined in: [types/mcp.ts:1131](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1131)
+Defined in: [types/mcp.ts:1150](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1150)
 
 Agent execution function
 
@@ -92,7 +92,7 @@ Agent execution function
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/mcp.ts:1139](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1139)
+Defined in: [types/mcp.ts:1158](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1158)
 
 Additional agent metadata
 

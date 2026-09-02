@@ -8,7 +8,7 @@
 
 > **CategoryMapping** = `object`
 
-Defined in: [types/mcp.ts:2431](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2431)
+Defined in: [types/mcp.ts:2450](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2450)
 
 Category to server mapping
 
@@ -18,7 +18,7 @@ Category to server mapping
 
 > **category**: `string`
 
-Defined in: [types/mcp.ts:2432](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2432)
+Defined in: [types/mcp.ts:2451](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2451)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2432](https://github.com/juspay/neurolink/blob/release
 
 > **serverIds**: `string`[]
 
-Defined in: [types/mcp.ts:2433](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2433)
+Defined in: [types/mcp.ts:2452](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2452)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:2433](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **priority?**: `number`
 
-Defined in: [types/mcp.ts:2434](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2434)
+Defined in: [types/mcp.ts:2453](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2453)

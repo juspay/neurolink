@@ -8,7 +8,7 @@
 
 > **MCPServerStatus** = `object`
 
-Defined in: [types/mcp.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L200)
+Defined in: [types/mcp.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L219)
 
 MCP Server Status for CLI Operations - High Reusability
 
@@ -18,7 +18,7 @@ MCP Server Status for CLI Operations - High Reusability
 
 > **mcpInitialized**: `boolean`
 
-Defined in: [types/mcp.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L202)
+Defined in: [types/mcp.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L221)
 
 Whether MCP is initialized
 
@@ -28,7 +28,7 @@ Whether MCP is initialized
 
 > **totalServers**: `number`
 
-Defined in: [types/mcp.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L204)
+Defined in: [types/mcp.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L223)
 
 Total number of servers
 
@@ -38,7 +38,7 @@ Total number of servers
 
 > **availableServers**: `number`
 
-Defined in: [types/mcp.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L206)
+Defined in: [types/mcp.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L225)
 
 Number of available servers
 
@@ -48,7 +48,7 @@ Number of available servers
 
 > **autoDiscoveredCount**: `number`
 
-Defined in: [types/mcp.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L208)
+Defined in: [types/mcp.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L227)
 
 Number of auto-discovered servers
 
@@ -58,7 +58,7 @@ Number of auto-discovered servers
 
 > **totalTools**: `number`
 
-Defined in: [types/mcp.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L210)
+Defined in: [types/mcp.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L229)
 
 Total number of tools
 
@@ -68,7 +68,7 @@ Total number of tools
 
 > **customToolsCount**: `number`
 
-Defined in: [types/mcp.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L212)
+Defined in: [types/mcp.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L231)
 
 Number of custom tools
 
@@ -78,7 +78,7 @@ Number of custom tools
 
 > **inMemoryServersCount**: `number`
 
-Defined in: [types/mcp.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L214)
+Defined in: [types/mcp.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L233)
 
 Number of in-memory servers
 
@@ -88,7 +88,7 @@ Number of in-memory servers
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L216)
+Defined in: [types/mcp.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L235)
 
 Error message
 
@@ -98,7 +98,7 @@ Error message
 
 > `optional` **autoDiscoveredServers?**: [`MCPDiscoveredServer`](MCPDiscoveredServer.md)[]
 
-Defined in: [types/mcp.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L218)
+Defined in: [types/mcp.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L237)
 
 Auto-discovered servers from various sources
 
@@ -108,7 +108,7 @@ Auto-discovered servers from various sources
 
 > **connectedServers**: [`MCPConnectedServer`](MCPConnectedServer.md)[]
 
-Defined in: [types/mcp.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L220)
+Defined in: [types/mcp.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L239)
 
 Currently connected servers
 
@@ -118,7 +118,7 @@ Currently connected servers
 
 > **availableTools**: [`MCPToolInfo`](MCPToolInfo.md)[]
 
-Defined in: [types/mcp.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L222)
+Defined in: [types/mcp.ts:241](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L241)
 
 Available tools across all servers
 
@@ -128,6 +128,6 @@ Available tools across all servers
 
 > `optional` **serverRegistry?**: `Record`\<`string`, [`MCPServerInfo`](MCPServerInfo.md)\>
 
-Defined in: [types/mcp.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L224)
+Defined in: [types/mcp.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L243)
 
 Server registry entries

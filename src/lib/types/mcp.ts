@@ -48,6 +48,14 @@ export type MCPServerConnectionStatus =
   | "stopped"; // Server has been stopped
 
 /**
+ * Readiness of an external MCP server registration, distinct from raw
+ * connection status: a server can be "connected" at the transport level yet
+ * still be gated as not ready when it discovers fewer tools than its
+ * configured `minTools` floor.
+ */
+export type MCPServerReadiness = "ready" | "insufficient_tools" | "failed";
+
+/**
  * MCP Server Category Types - Deployment and server type classification
  */
 export type MCPServerCategory =
@@ -114,6 +122,17 @@ export type MCPServerInfo = {
   cwd?: string; // Working directory for the process
   autoRestart?: boolean; // Whether to automatically restart on failure
   healthCheckInterval?: number; // Health check interval in milliseconds
+
+  /**
+   * Minimum number of tools that must be discovered for this server's
+   * registration to be considered ready (default: 0 — no minimum, so a
+   * resource/prompt-only server that legitimately exposes zero tools still
+   * registers successfully). When discovery finds fewer tools than this
+   * floor, `ExternalServerManager.addServer` returns `success: false` with
+   * `metadata.readiness: "insufficient_tools"` instead of marking the
+   * server connected/healthy, and tears the connection back down.
+   */
+  minTools?: number;
 
   /** Retry configuration for HTTP transport */
   retryConfig?: {

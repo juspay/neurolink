@@ -8,7 +8,7 @@
 
 > **BatchResult**\<`T`\> = `object`
 
-Defined in: [types/mcp.ts:2310](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2310)
+Defined in: [types/mcp.ts:2329](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2329)
 
 Batch execution result
 
@@ -24,7 +24,7 @@ Batch execution result
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:2311](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2311)
+Defined in: [types/mcp.ts:2330](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2330)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/mcp.ts:2311](https://github.com/juspay/neurolink/blob/release
 
 > **success**: `boolean`
 
-Defined in: [types/mcp.ts:2312](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2312)
+Defined in: [types/mcp.ts:2331](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2331)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/mcp.ts:2312](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **result?**: `T`
 
-Defined in: [types/mcp.ts:2313](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2313)
+Defined in: [types/mcp.ts:2332](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2332)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/mcp.ts:2313](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **error?**: `Error`
 
-Defined in: [types/mcp.ts:2314](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2314)
+Defined in: [types/mcp.ts:2333](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2333)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/mcp.ts:2314](https://github.com/juspay/neurolink/blob/release
 
 > **executionTime**: `number`
 
-Defined in: [types/mcp.ts:2315](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2315)
+Defined in: [types/mcp.ts:2334](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2334)
