@@ -6,7 +6,7 @@
 
 # Type Alias: DeferredToolResolver
 
-> **DeferredToolResolver** = (`name`) => `Tool` \| `undefined`
+> **DeferredToolResolver** = (`name`) => [`Tool`](Tool.md) \| `undefined`
 
 Defined in: [types/toolResolution.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolResolution.ts#L88)
 
@@ -25,4 +25,4 @@ cataloged tool directly (without `search_tools` first) still succeeds.
 
 ## Returns
 
-`Tool` \| `undefined`
+[`Tool`](Tool.md) \| `undefined`

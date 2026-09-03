@@ -13,8 +13,8 @@ import type {
 // `LanguageModelMiddleware` is both re-exported (for consumers) and used as a
 // constraint in `NeuroLinkMiddleware` below — aliasing the local binding keeps
 // the two roles textually distinct.
-import type { LanguageModelMiddleware as BaseLanguageModelMiddleware } from "ai";
-export type { LanguageModelMiddleware } from "ai";
+import type { LanguageModelMiddleware as BaseLanguageModelMiddleware } from "./aiCompat.js";
+export type { LanguageModelMiddleware } from "./aiCompat.js";
 export type {
   LanguageModelV3,
   LanguageModelV3CallOptions,
@@ -25,16 +25,10 @@ export type {
   LanguageModelV3ToolChoice,
   LanguageModelV3Source,
   LanguageModelV3Middleware,
+  LanguageModelV3GenerateResult,
+  LanguageModelV3StreamResult,
   JSONSchema7,
-} from "@ai-sdk/provider";
-
-import type { LanguageModelV3 } from "@ai-sdk/provider";
-export type LanguageModelV3GenerateResult = Awaited<
-  ReturnType<LanguageModelV3["doGenerate"]>
->;
-export type LanguageModelV3StreamResult = Awaited<
-  ReturnType<LanguageModelV3["doStream"]>
->;
+} from "./aiCompat.js";
 
 /**
  * Metadata type for NeuroLink middleware

@@ -6,7 +6,7 @@
 
 # Type Alias: ValidationSchema
 
-> **ValidationSchema** = [`ZodUnknownSchema`](ZodUnknownSchema.md) \| `Schema`\<`unknown`\>
+> **ValidationSchema** = [`ZodUnknownSchema`](ZodUnknownSchema.md) \| [`Schema`](Schema.md)\<`unknown`\>
 
 Defined in: [types/aliases.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/aliases.ts#L48)
 

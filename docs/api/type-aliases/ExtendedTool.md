@@ -6,7 +6,7 @@
 
 # Type Alias: ExtendedTool
 
-> **ExtendedTool** = `Tool` & `Partial`\<[`ExternalMCPToolInfo`](ExternalMCPToolInfo.md)\>
+> **ExtendedTool** = [`Tool`](Tool.md) & `Partial`\<[`ExternalMCPToolInfo`](ExternalMCPToolInfo.md)\>
 
 Defined in: [types/providers.ts:963](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L963)
 

@@ -8,7 +8,7 @@
 
 > **MiddlewareFactoryConfig** = `object`
 
-Defined in: [types/middleware.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L233)
+Defined in: [types/middleware.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L227)
 
 Middleware factory configuration options
 
@@ -18,7 +18,7 @@ Middleware factory configuration options
 
 > **enabled**: `boolean`
 
-Defined in: [types/middleware.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L234)
+Defined in: [types/middleware.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L228)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:234](https://github.com/juspay/neurolink/blob/r
 
 > **type**: `string`
 
-Defined in: [types/middleware.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L235)
+Defined in: [types/middleware.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L229)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:235](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **priority?**: `number`
 
-Defined in: [types/middleware.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L236)
+Defined in: [types/middleware.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L230)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/middleware.ts:236](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **config?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middleware.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L237)
+Defined in: [types/middleware.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L231)

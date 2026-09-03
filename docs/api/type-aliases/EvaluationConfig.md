@@ -76,7 +76,7 @@ A custom evaluator function to override the default behavior.
 
 ##### options
 
-`LanguageModelV3CallOptions`
+[`LanguageModelV3CallOptions`](LanguageModelV3CallOptions.md)
 
 ##### result
 

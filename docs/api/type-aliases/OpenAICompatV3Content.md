@@ -6,6 +6,6 @@
 
 # Type Alias: OpenAICompatV3Content
 
-> **OpenAICompatV3Content** = `Awaited`\<`ReturnType`\<`LanguageModelV3`\[`"doGenerate"`\]\>\>\[`"content"`\]\[`number`\]
+> **OpenAICompatV3Content** = `Awaited`\<`ReturnType`\<[`LanguageModelV3`](LanguageModelV3.md)\[`"doGenerate"`\]\>\>\[`"content"`\]\[`number`\]
 
 Defined in: [types/openaiCompatible.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L213)

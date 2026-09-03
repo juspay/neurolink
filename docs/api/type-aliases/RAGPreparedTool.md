@@ -16,7 +16,7 @@ Prepared RAG tool ready for injection into generate/stream.
 
 ### tool
 
-> **tool**: `Tool`
+> **tool**: [`Tool`](Tool.md)
 
 Defined in: [types/rag.ts:663](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L663)
 

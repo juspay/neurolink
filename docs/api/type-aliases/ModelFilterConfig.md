@@ -22,6 +22,6 @@ Defined in: [types/guardrails.ts:106](https://github.com/juspay/neurolink/blob/r
 
 ### filterModel?
 
-> `optional` **filterModel?**: `LanguageModel`
+> `optional` **filterModel?**: [`LanguageModel`](LanguageModel.md)
 
 Defined in: [types/guardrails.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/guardrails.ts#L107)

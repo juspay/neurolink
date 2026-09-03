@@ -34,7 +34,7 @@ import "dotenv/config";
 
 import { createServer, type Server } from "node:http";
 import { z } from "zod";
-import { jsonSchema } from "ai";
+import { jsonSchema } from "../dist/index.js";
 import {
   InMemorySpanExporter,
   SimpleSpanProcessor,

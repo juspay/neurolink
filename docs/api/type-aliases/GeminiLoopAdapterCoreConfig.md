@@ -84,7 +84,7 @@ Issue the request. Kept injectable so each provider keeps its own client.
 
 ### liveTools
 
-> **liveTools**: `Record`\<`string`, `Tool`\>
+> **liveTools**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Defined in: [types/loopEngine.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L448)
 

@@ -38,7 +38,7 @@ import "dotenv/config";
  */
 
 import { createServer, type Server } from "node:http";
-import { jsonSchema } from "ai";
+import { jsonSchema } from "../dist/index.js";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 

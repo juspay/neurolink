@@ -1750,3 +1750,59 @@ export type GenerationCallConfig = {
   /** Set on the single toolChoice:"none" re-ask so it can never recurse. */
   isToolReask?: boolean;
 };
+
+/**
+ * Inputs to the shared native generate loop (`core/nativeGenerateLoop.ts`).
+ * One loop serves every provider whose delegating model exposes a v3-shaped
+ * `doGenerate`; the provider supplies the wire details.
+ */
+export type NativeGenerateLoopArgs = {
+  doGenerate: (
+    options: Record<string, unknown>,
+  ) => Promise<Record<string, unknown>>;
+  /** Conversation in the message-builder shape each doGenerate converts itself. */
+  conversation: Array<Record<string, unknown>>;
+  /** Tool declarations in the v3 shape doGenerate already knows how to convert. */
+  tools?: Array<Record<string, unknown>>;
+  /** Registered tools, used to execute a call the model asks for. */
+  toolsRecord: Record<string, unknown>;
+  toolChoice?: unknown;
+  responseFormat?: Record<string, unknown>;
+  providerOptions?: Record<string, Record<string, unknown>>;
+  maxSteps: number;
+  maxOutputTokens?: number;
+  temperature?: number;
+  abortSignal?: AbortSignal;
+  /** Per-tool-execution cap, forwarded into `guardToolExecutor`. */
+  toolTimeoutMs?: number;
+  /** Wraps one step: retry ladder plus provider error classification. */
+  runStep: (
+    call: () => Promise<Record<string, unknown>>,
+  ) => Promise<Record<string, unknown>>;
+};
+
+export type NativeGenerateLoopResult = {
+  text: string;
+  finishReason: string;
+  rawFinishReason?: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  toolsUsed: string[];
+  steps: number;
+};
+
+export type SingleShotRequest = {
+  system?: string;
+  prompt: string;
+  maxOutputTokens?: number;
+  temperature?: number;
+  abortSignal?: AbortSignal;
+};
+
+export type SingleShotResult = {
+  text: string;
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number };
+  finishReason?: string;
+};

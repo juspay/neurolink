@@ -282,7 +282,15 @@ const factory = new MiddlewareFactory({
 **Advanced Configuration with Model-Based Filtering:**
 
 ```typescript
-import { openai } from "@ai-sdk/openai";
+import { AIProviderFactory } from "@juspay/neurolink";
+
+// `filterModel` takes a model handle. NeuroLink no longer depends on the Vercel
+// AI SDK, so build the handle from NeuroLink's own factory rather than from
+// `@ai-sdk/openai`.
+const filterProvider = await AIProviderFactory.createProvider(
+  "openai",
+  "gpt-4o-mini",
+);
 
 const factory = new MiddlewareFactory({
   middlewareConfig: {
@@ -295,7 +303,7 @@ const factory = new MiddlewareFactory({
         // AI model-based filtering
         modelFilter: {
           enabled: true,
-          filterModel: openai("gpt-3.5-turbo"), // Use a fast model for filtering
+          filterModel: await filterProvider.getModel(), // A fast model for filtering
         },
       },
     },
@@ -390,12 +398,17 @@ Text: "[content to evaluate]"
 **Configuration:**
 
 ```typescript
-import { openai } from "@ai-sdk/openai";
+import { AIProviderFactory } from "@juspay/neurolink";
+
+const filterProvider = await AIProviderFactory.createProvider(
+  "openai",
+  "gpt-4o-mini",
+);
 
 config: {
   modelFilter: {
     enabled: true,
-    filterModel: openai("gpt-3.5-turbo") // Fast, cost-effective model
+    filterModel: await filterProvider.getModel() // Fast, cost-effective model
   }
 }
 ```
@@ -878,7 +891,6 @@ Priority 90:  Auto-Evaluation (quality checks)
 
 ```typescript
 import { MiddlewareFactory } from "@juspay/neurolink";
-import { openai } from "@ai-sdk/openai";
 
 const factory = new MiddlewareFactory({
   preset: "all", // Enables analytics + guardrails

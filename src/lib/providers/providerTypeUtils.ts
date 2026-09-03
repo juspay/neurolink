@@ -1,6 +1,5 @@
 import type { StreamTextResult, LanguageModelObject } from "../types/index.js";
 import type { LanguageModel } from "../types/index.js";
-import type { streamText } from "../utils/generation.js";
 
 /**
  * Type guard: checks whether a LanguageModel value is an object with `modelId`
@@ -41,7 +40,10 @@ export function getModelId(model: LanguageModel, fallback = "unknown"): string {
  * This function performs the structural down-cast without `as any`.
  */
 export function toAnalyticsStreamResult(
-  result: ReturnType<typeof streamText>,
+  // Was `ReturnType<typeof streamText>`. Nothing calls streamText any more —
+  // every streaming path is native — so the parameter is the structural
+  // superset this narrows FROM, stated directly.
+  result: StreamTextResult | Record<string, unknown>,
 ): StreamTextResult {
   // The AI SDK v6 result is a structural superset of our StreamTextResult.
   // Both use PromiseLike for async fields and compatible usage shapes

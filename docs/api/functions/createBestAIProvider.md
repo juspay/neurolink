@@ -8,7 +8,7 @@
 
 > **createBestAIProvider**(`requestedProvider?`, `modelName?`): `Promise`\<[`AIProvider`](../type-aliases/AIProvider.md)\>
 
-Defined in: [index.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L551)
+Defined in: [index.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L556)
 
 Create the best available provider based on environment configuration.
 

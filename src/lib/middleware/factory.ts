@@ -14,7 +14,7 @@ import { createGuardrailsMiddleware } from "./builtin/guardrails.js";
 import { createAutoEvaluationMiddleware } from "./builtin/autoEvaluation.js";
 import { createLifecycleMiddleware } from "./builtin/lifecycle.js";
 import { logger } from "../utils/logger.js";
-import { wrapLanguageModel } from "../utils/generation.js";
+import { wrapLanguageModel } from "./wrapLanguageModel.js";
 import type { LanguageModel } from "../types/index.js";
 import type { LanguageModelV3 } from "../types/index.js";
 

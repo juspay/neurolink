@@ -10,6 +10,7 @@ import type { NeuroLink } from "../neurolink.js";
 import { resolveRequestKind } from "./resolveRequestKind.js";
 import { ATTR, tracers } from "../telemetry/index.js";
 import type {
+  GenerateTextResult,
   JsonValue,
   UnknownRecord,
   LifecycleMiddlewareConfig,
@@ -116,7 +117,7 @@ import type {
   ToolDedupConfig,
   ToolSet,
 } from "../types/index.js";
-import { generateText } from "../utils/generation.js";
+import { generateOnceNative } from "../utils/nativeSingleShot.js";
 import { extractTokenUsage } from "../utils/tokenUtils.js";
 
 /**
@@ -1609,7 +1610,7 @@ export abstract class BaseProvider implements AIProvider {
     messages: ModelMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
-  ): Promise<Awaited<ReturnType<typeof generateText>>> {
+  ): Promise<GenerateTextResult<Record<string, Tool>, unknown>> {
     return this.generationHandler.executeGeneration(
       model,
       messages,
@@ -1622,7 +1623,7 @@ export abstract class BaseProvider implements AIProvider {
    * Log generation completion information - delegated to GenerationHandler
    */
   private logGenerationComplete(
-    generateResult: Awaited<ReturnType<typeof generateText>>,
+    generateResult: GenerateTextResult<Record<string, Tool>, unknown>,
   ): void {
     this.generationHandler.logGenerationComplete(generateResult);
   }
@@ -1630,7 +1631,7 @@ export abstract class BaseProvider implements AIProvider {
   /**
    * Record performance metrics - delegated to TelemetryHandler
    */
-  private async recordPerformanceMetrics(
+  protected async recordPerformanceMetrics(
     usage: RawUsageObject | undefined,
     responseTime: number,
   ): Promise<void> {
@@ -1641,7 +1642,7 @@ export abstract class BaseProvider implements AIProvider {
    * Extract tool information from generation result - delegated to GenerationHandler
    */
   private extractToolInformation(
-    generateResult: Awaited<ReturnType<typeof generateText>>,
+    generateResult: GenerateTextResult<Record<string, Tool>, unknown>,
   ): {
     toolsUsed: string[];
     toolExecutions: Array<{
@@ -1657,7 +1658,7 @@ export abstract class BaseProvider implements AIProvider {
    * Format the enhanced result - delegated to GenerationHandler
    */
   private formatEnhancedResult(
-    generateResult: Awaited<ReturnType<typeof generateText>>,
+    generateResult: GenerateTextResult<Record<string, Tool>, unknown>,
     tools: Record<string, Tool>,
     toolsUsed: string[],
     toolExecutions: ToolExecutionRecord[],
@@ -1785,7 +1786,13 @@ export abstract class BaseProvider implements AIProvider {
    * lifecycle callback has fired and before a chunk has reached the consumer,
    * so there is no observable output to replay.
    */
-  private async runGenerateWithModelFallback(
+  /**
+   * Protected rather than private so a provider with a native generate path can
+   * reuse it. Overriding `generate()` otherwise skips this wrapper silently,
+   * and a retired default model stops degrading to the next live one in the
+   * catalog — which is exactly what the provider contract gate checks.
+   */
+  protected async runGenerateWithModelFallback(
     attempt: () => Promise<EnhancedGenerateResult | null>,
     callerOwnsFallback: boolean,
   ): Promise<EnhancedGenerateResult | null> {
@@ -2031,22 +2038,15 @@ export abstract class BaseProvider implements AIProvider {
           analysisLength: videoAnalysisResult.length,
         });
 
-        const formattedResult = await generateText({
-          model,
-          system: options.systemPrompt,
-          messages: [{ role: "user" as const, content: formattingPrompt }],
+        const formattedResult = await generateOnceNative(model, {
+          ...(options.systemPrompt ? { system: options.systemPrompt } : {}),
+          prompt: formattingPrompt,
           maxOutputTokens: options.maxTokens || 8192,
           temperature: 0.3,
-          abortSignal: options.abortSignal,
-          experimental_telemetry: this.telemetryHandler?.getTelemetryConfig(
-            options,
-            "generate",
-          ),
+          ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
         });
         formattedContent = formattedResult.text;
-        usage = extractTokenUsage(
-          formattedResult.totalUsage ?? formattedResult.usage,
-        );
+        usage = extractTokenUsage(formattedResult.usage);
 
         logger.debug("[VideoAnalysis] Claude formatting complete", {
           formattedLength: formattedContent.length,
@@ -2105,56 +2105,12 @@ export abstract class BaseProvider implements AIProvider {
     // Before this, `timeout` alone bounded the ENTIRE multi-step loop, so a
     // caller asking for a 40-minute turn of 5-minute calls was killed at 5
     // minutes flat — mid-loop, dressed as "Request was aborted.".
-    const hasValidTurnTimeout =
-      typeof options.turnTimeoutMs === "number" &&
-      Number.isFinite(options.turnTimeoutMs) &&
-      options.turnTimeoutMs > 0;
-    const effectiveTimeout = hasValidTurnTimeout
-      ? options.turnTimeoutMs
-      : (options.timeout ?? Math.max(descriptorGenerateMs ?? 0, 180_000));
-    const timeoutController = createTimeoutController(
-      effectiveTimeout,
-      this.providerName,
-      "generate",
+    const generateResult = await this.withTurnTimeout(
+      options,
+      descriptorGenerateMs,
+      (timedOptions) =>
+        this.executeGeneration(model, messages, tools, timedOptions),
     );
-    const composedSignal = composeAbortSignals(
-      options.abortSignal,
-      timeoutController?.controller.signal,
-    );
-    const composedOptions = composedSignal
-      ? { ...options, abortSignal: composedSignal }
-      : options;
-
-    let generateResult: Awaited<ReturnType<typeof generateText>>;
-    try {
-      generateResult = await this.executeGeneration(
-        model,
-        messages,
-        tools,
-        composedOptions,
-      );
-    } catch (error) {
-      // When OUR timer fired, provider SDKs typically normalize the abort
-      // into their own generic cancel shape (e.g. Anthropic's
-      // APIUserAbortError, "Request was aborted.") and discard the signal's
-      // reason. The TimeoutError on the signal is the honest identity —
-      // rethrow it so logs and abort classification see a timeout, not a
-      // caller cancel. A genuine caller abort (their signal fired) keeps its
-      // original shape even if our timer also expired in the race window.
-      const reason = timeoutController?.controller.signal.aborted
-        ? timeoutController.controller.signal.reason
-        : undefined;
-      if (
-        reason instanceof TimeoutError &&
-        isAbortError(error) &&
-        options.abortSignal?.aborted !== true
-      ) {
-        throw reason;
-      }
-      throw error;
-    } finally {
-      timeoutController?.cleanup();
-    }
 
     this.analyzeAIResponse(generateResult);
     this.logGenerationComplete(generateResult);
@@ -2195,6 +2151,82 @@ export abstract class BaseProvider implements AIProvider {
       startTime,
     );
     return finalResult;
+  }
+
+  /**
+   * Close out a turn produced by a provider's own native generate loop.
+   *
+   * The native loops bypass `executeGeneration`, and with it every post-call
+   * step the standard path runs. Each one that was missed had to be found
+   * separately — `onFinish` stopped firing, TTS synthesis silently produced no
+   * audio, and OTEL saw no usage for any native provider. Routing all of them
+   * through one method is what stops the next native path from rediscovering
+   * the same list.
+   *
+   * Order matters and mirrors the standard path: metrics are recorded before
+   * synthesis so telemetry sees the model's own usage, and `enhanceResult`
+   * runs last so analytics and evaluation observe the final content.
+   */
+  protected async finalizeNativeGenerate(
+    result: EnhancedGenerateResult,
+    options: TextGenerationOptions,
+    startTime: number,
+  ): Promise<EnhancedGenerateResult> {
+    // onFinish is NOT fired here. `applyGenerateLifecycleMiddleware` folds it
+    // into `options.middleware.middlewareConfig.lifecycle`, and the native
+    // paths now wrap their model, so the lifecycle middleware fires it.
+    // Firing it here too would deliver every callback twice.
+    await this.recordPerformanceMetrics(result.usage, Date.now() - startTime);
+    const synthesized = await this.synthesizeAIResponseIfNeeded(
+      result,
+      options,
+    );
+    return this.enhanceResult(synthesized, options, startTime);
+  }
+
+  /**
+   * Invoke a caller's `onFinish` for a native turn.
+   *
+   * On the standard path `onFinish` is converted into lifecycle middleware and
+   * applied by wrapping the model — a step the native loops skip, so they have
+   * to call it themselves. Failures are logged and swallowed: a caller's
+   * callback must not be able to fail their generation.
+   */
+  protected fireGenerateOnFinish(
+    options: TextGenerationOptions,
+    result: EnhancedGenerateResult | null,
+    startTime: number,
+  ): void {
+    const onFinish = (options as { onFinish?: (payload: unknown) => unknown })
+      .onFinish;
+    if (typeof onFinish !== "function") {
+      return;
+    }
+    try {
+      const usage = result?.usage as
+        | { input?: number; output?: number }
+        | undefined;
+      const cb = onFinish({
+        text: result?.content || "",
+        usage: usage
+          ? {
+              promptTokens: usage.input ?? 0,
+              completionTokens: usage.output ?? 0,
+            }
+          : undefined,
+        duration: Date.now() - startTime,
+        finishReason: result?.finishReason ?? "stop",
+      });
+      Promise.resolve(cb).catch((err) =>
+        logger.warn(
+          `[${this.providerName}] onFinish callback rejected: ${err instanceof Error ? err.message : String(err)}`,
+        ),
+      );
+    } catch (err) {
+      logger.warn(
+        `[${this.providerName}] onFinish callback threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   protected async synthesizeAIResponseIfNeeded(
@@ -2588,7 +2620,102 @@ export abstract class BaseProvider implements AIProvider {
    * REQUIRED: Every provider MUST implement this method
    * Returns the Vercel AI SDK model instance for this provider
    */
+  /**
+   * Run one whole turn under the caller's timeout contract.
+   *
+   * Every generate path must go through this, including the native loops that
+   * bypass `executeGeneration`. When the Anthropic native path was first added
+   * it built its own call and never composed a timer, so `timeout: 1000`
+   * against a three-second upstream simply returned the late response — the
+   * turn budget silently stopped existing for that provider.
+   *
+   * An explicit, valid `turnTimeoutMs` is the caller's whole-turn contract and
+   * owns this hard abort; `timeout` then keeps its per-model-call meaning (it
+   * reaches the model layer via `providerOptions.neurolink`). Before that
+   * split, `timeout` alone bounded the ENTIRE multi-step loop, so a caller
+   * asking for a 40-minute turn of 5-minute calls was killed at 5 minutes
+   * flat — mid-loop, dressed as "Request was aborted.".
+   *
+   * `descriptorGenerateMs` only ever RAISES the 3-minute floor, never lowers
+   * it: several descriptors carry aspirational sub-180s numbers (openai 30s,
+   * bedrock 45s) that were never enforced, and enforcing them now would break
+   * long-running generations that have always been allowed.
+   */
+  protected async withTurnTimeout<T>(
+    options: TextGenerationOptions,
+    descriptorGenerateMs: number | undefined,
+    run: (timedOptions: TextGenerationOptions) => Promise<T>,
+  ): Promise<T> {
+    const hasValidTurnTimeout =
+      typeof options.turnTimeoutMs === "number" &&
+      Number.isFinite(options.turnTimeoutMs) &&
+      options.turnTimeoutMs > 0;
+    const effectiveTimeout = hasValidTurnTimeout
+      ? options.turnTimeoutMs
+      : (options.timeout ?? Math.max(descriptorGenerateMs ?? 0, 180_000));
+    const timeoutController = createTimeoutController(
+      effectiveTimeout,
+      this.providerName,
+      "generate",
+    );
+    const composedSignal = composeAbortSignals(
+      options.abortSignal,
+      timeoutController?.controller.signal,
+    );
+    const timedOptions = composedSignal
+      ? { ...options, abortSignal: composedSignal }
+      : options;
+
+    try {
+      return await run(timedOptions);
+    } catch (error) {
+      // When OUR timer fired, provider SDKs typically normalize the abort
+      // into their own generic cancel shape (e.g. Anthropic's
+      // APIUserAbortError, "Request was aborted.") and discard the signal's
+      // reason. The TimeoutError on the signal is the honest identity —
+      // rethrow it so logs and abort classification see a timeout, not a
+      // caller cancel. A genuine caller abort (their signal fired) keeps its
+      // original shape even if our timer also expired in the race window.
+      const reason = timeoutController?.controller.signal.aborted
+        ? timeoutController.controller.signal.reason
+        : undefined;
+      if (
+        reason instanceof TimeoutError &&
+        isAbortError(error) &&
+        options.abortSignal?.aborted !== true
+      ) {
+        throw reason;
+      }
+      throw error;
+    } finally {
+      timeoutController?.cleanup();
+    }
+  }
+
+  /**
+   * The per-provider generate budget from the descriptor, for native paths
+   * that call `withTurnTimeout` directly.
+   */
+  protected getDescriptorGenerateMs(): number | undefined {
+    return PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)?.timeouts
+      ?.generateMs;
+  }
+
   protected abstract getAISDKModel(): LanguageModel | Promise<LanguageModel>;
+
+  /**
+   * Public handle on this provider's model object.
+   *
+   * `getAISDKModel()` is protected because only the generation pipeline should
+   * drive it. The browser bundle needs the same handle to back its public
+   * provider factories without reaching into provider internals, so this is the
+   * one sanctioned way out. The union return lets providers that resolve their
+   * model synchronously (Anthropic) and asynchronously (the OpenAI-compatible
+   * family) both satisfy it.
+   */
+  public getModel(): LanguageModel | Promise<LanguageModel> {
+    return this.getAISDKModel();
+  }
 
   /**
    * Get AI SDK model with middleware applied

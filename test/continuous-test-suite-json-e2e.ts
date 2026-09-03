@@ -31,7 +31,7 @@
 process.env.NEUROLINK_DISABLE_BUILTIN_TOOLS = "true";
 import "dotenv/config";
 import { z } from "zod";
-import { tool } from "ai";
+import { tool } from "../dist/index.js";
 import { NeuroLink } from "../dist/index.js";
 import { defineSuite, assert, Skip } from "./helpers/harness.js";
 

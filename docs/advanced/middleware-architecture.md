@@ -483,39 +483,52 @@ const metadata: NeuroLinkMiddlewareMetadata = {
 
 ### NeuroLinkMiddleware
 
-The core middleware interface that combines AI SDK middleware with metadata:
+The core middleware interface, which combines the model-middleware contract with NeuroLink metadata:
 
 ```typescript
-import type { LanguageModelV1Middleware } from "ai";
+import type { LanguageModelMiddleware } from "@juspay/neurolink";
 
-type NeuroLinkMiddleware = LanguageModelV1Middleware & {
+type NeuroLinkMiddleware = LanguageModelMiddleware & {
   // Metadata about this middleware
   metadata: NeuroLinkMiddlewareMetadata;
 };
 ```
 
-### LanguageModelV1Middleware (from AI SDK)
+### LanguageModelMiddleware
 
-The underlying middleware interface from Vercel AI SDK:
+NeuroLink declares this contract itself — it no longer comes from the Vercel AI
+SDK, which is not a dependency. The shape follows the v3 model protocol:
 
 ```typescript
-type LanguageModelV1Middleware = {
-  // Transform request parameters before provider call
+type LanguageModelMiddleware = {
+  readonly specificationVersion: "v3";
+
+  // Override how the model identifies itself
+  overrideProvider?: (options: { model: LanguageModelV3 }) => string;
+  overrideModelId?: (options: { model: LanguageModelV3 }) => string;
+
+  // Transform request parameters before the provider call
   transformParams?: (options: {
-    params: LanguageModelV1CallOptions;
-  }) => PromiseLike<LanguageModelV1CallOptions>;
+    type: "generate" | "stream";
+    params: LanguageModelV3CallOptions;
+    model: LanguageModelV3;
+  }) => PromiseLike<LanguageModelV3CallOptions>;
 
   // Wrap generate() calls
   wrapGenerate?: (options: {
-    doGenerate: () => PromiseLike<LanguageModelV1CallResult>;
-    params: LanguageModelV1CallOptions;
-  }) => PromiseLike<LanguageModelV1CallResult>;
+    doGenerate: () => PromiseLike<LanguageModelV3GenerateResult>;
+    doStream: () => PromiseLike<LanguageModelV3StreamResult>;
+    params: LanguageModelV3CallOptions;
+    model: LanguageModelV3;
+  }) => PromiseLike<LanguageModelV3GenerateResult>;
 
   // Wrap stream() calls
   wrapStream?: (options: {
-    doStream: () => PromiseLike<LanguageModelV1StreamResult>;
-    params: LanguageModelV1CallOptions;
-  }) => PromiseLike<LanguageModelV1StreamResult>;
+    doGenerate: () => PromiseLike<LanguageModelV3GenerateResult>;
+    doStream: () => PromiseLike<LanguageModelV3StreamResult>;
+    params: LanguageModelV3CallOptions;
+    model: LanguageModelV3;
+  }) => PromiseLike<LanguageModelV3StreamResult>;
 };
 ```
 

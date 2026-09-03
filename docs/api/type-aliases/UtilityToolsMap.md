@@ -16,7 +16,7 @@ Subset of directAgentTools exposing the "utility" category.
 
 ### getCurrentTime
 
-> **getCurrentTime**: `Tool`
+> **getCurrentTime**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L513)
 
@@ -24,7 +24,7 @@ Defined in: [types/tools.ts:513](https://github.com/juspay/neurolink/blob/releas
 
 ### calculateMath
 
-> **calculateMath**: `Tool`
+> **calculateMath**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L514)
 
@@ -32,6 +32,6 @@ Defined in: [types/tools.ts:514](https://github.com/juspay/neurolink/blob/releas
 
 ### listDirectory
 
-> **listDirectory**: `Tool`
+> **listDirectory**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L515)

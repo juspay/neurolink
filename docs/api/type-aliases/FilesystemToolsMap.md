@@ -16,7 +16,7 @@ Subset of directAgentTools exposing only the "filesystem" category.
 
 ### readFile
 
-> **readFile**: `Tool`
+> **readFile**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L506)
 
@@ -24,7 +24,7 @@ Defined in: [types/tools.ts:506](https://github.com/juspay/neurolink/blob/releas
 
 ### listDirectory
 
-> **listDirectory**: `Tool`
+> **listDirectory**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L507)
 
@@ -32,6 +32,6 @@ Defined in: [types/tools.ts:507](https://github.com/juspay/neurolink/blob/releas
 
 ### writeFile
 
-> **writeFile**: `Tool`
+> **writeFile**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L508)

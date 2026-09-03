@@ -16,7 +16,7 @@ Full directAgentTools map, with the opt-in bashTool appended.
 
 ### getCurrentTime
 
-> **getCurrentTime**: `Tool`
+> **getCurrentTime**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L520)
 
@@ -24,7 +24,7 @@ Defined in: [types/tools.ts:520](https://github.com/juspay/neurolink/blob/releas
 
 ### calculateMath
 
-> **calculateMath**: `Tool`
+> **calculateMath**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L521)
 
@@ -32,7 +32,7 @@ Defined in: [types/tools.ts:521](https://github.com/juspay/neurolink/blob/releas
 
 ### readFile
 
-> **readFile**: `Tool`
+> **readFile**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L522)
 
@@ -40,7 +40,7 @@ Defined in: [types/tools.ts:522](https://github.com/juspay/neurolink/blob/releas
 
 ### listDirectory
 
-> **listDirectory**: `Tool`
+> **listDirectory**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L523)
 
@@ -48,7 +48,7 @@ Defined in: [types/tools.ts:523](https://github.com/juspay/neurolink/blob/releas
 
 ### writeFile
 
-> **writeFile**: `Tool`
+> **writeFile**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L524)
 
@@ -56,6 +56,6 @@ Defined in: [types/tools.ts:524](https://github.com/juspay/neurolink/blob/releas
 
 ### executeBashCommand?
 
-> `optional` **executeBashCommand?**: `Tool`
+> `optional` **executeBashCommand?**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L525)

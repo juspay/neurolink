@@ -8,7 +8,7 @@
 
 > **DeprecationConfig** = `object`
 
-Defined in: [types/middleware.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L426)
+Defined in: [types/middleware.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L420)
 
 Configuration for the route-deprecation middleware.
 
@@ -18,7 +18,7 @@ Configuration for the route-deprecation middleware.
 
 > **routes**: [`RouteDefinition`](RouteDefinition.md)[]
 
-Defined in: [types/middleware.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L427)
+Defined in: [types/middleware.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L421)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:427](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **noticeHeader?**: `string`
 
-Defined in: [types/middleware.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L428)
+Defined in: [types/middleware.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L422)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/middleware.ts:428](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **includeLink?**: `boolean`
 
-Defined in: [types/middleware.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L429)
+Defined in: [types/middleware.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L423)

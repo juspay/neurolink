@@ -8,7 +8,7 @@
 
 > **OnChunkCallback** = (`payload`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L355)
+Defined in: [types/middleware.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L349)
 
 Callback invoked for each chunk during streaming.
 

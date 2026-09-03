@@ -97,7 +97,7 @@ Register a custom middleware
 
 ### applyMiddleware()
 
-> **applyMiddleware**(`model`, `context`, `options?`): `LanguageModel`
+> **applyMiddleware**(`model`, `context`, `options?`): [`LanguageModel`](../type-aliases/LanguageModel.md)
 
 Defined in: [middleware/factory.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/middleware/factory.ts#L116)
 
@@ -107,7 +107,7 @@ Apply middleware to a language model
 
 ##### model
 
-`LanguageModel`
+[`LanguageModel`](../type-aliases/LanguageModel.md)
 
 ##### context
 
@@ -119,7 +119,7 @@ Apply middleware to a language model
 
 #### Returns
 
-`LanguageModel`
+[`LanguageModel`](../type-aliases/LanguageModel.md)
 
 ---
 
@@ -233,7 +233,7 @@ Get middleware chain statistics
 
 ### createModelFactory()
 
-> **createModelFactory**(`baseModelFactory`, `defaultOptions?`): (`context`, `options`) => `Promise`\<`LanguageModel`\>
+> **createModelFactory**(`baseModelFactory`, `defaultOptions?`): (`context`, `options`) => `Promise`\<[`LanguageModel`](../type-aliases/LanguageModel.md)\>
 
 Defined in: [middleware/factory.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/middleware/factory.ts#L421)
 
@@ -243,7 +243,7 @@ Create a middleware-enabled model factory function
 
 ##### baseModelFactory
 
-() => `Promise`\<`LanguageModel`\>
+() => `Promise`\<[`LanguageModel`](../type-aliases/LanguageModel.md)\>
 
 ##### defaultOptions?
 
@@ -251,4 +251,4 @@ Create a middleware-enabled model factory function
 
 #### Returns
 
-(`context`, `options`) => `Promise`\<`LanguageModel`\>
+(`context`, `options`) => `Promise`\<[`LanguageModel`](../type-aliases/LanguageModel.md)\>

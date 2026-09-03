@@ -6,6 +6,30 @@
 
 # Type Alias: LanguageModelV3StreamResult
 
-> **LanguageModelV3StreamResult** = `Awaited`\<`ReturnType`\<`LanguageModelV3`\[`"doStream"`\]\>\>
+> **LanguageModelV3StreamResult** = `object`
 
-Defined in: [types/middleware.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L35)
+Defined in: [types/aiCompat.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L481)
+
+## Properties
+
+### stream
+
+> **stream**: `ReadableStream`\<[`LanguageModelV3StreamPart`](LanguageModelV3StreamPart.md)\>
+
+Defined in: [types/aiCompat.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L482)
+
+---
+
+### request?
+
+> `optional` **request?**: `unknown`
+
+Defined in: [types/aiCompat.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L483)
+
+---
+
+### response?
+
+> `optional` **response?**: `unknown`
+
+Defined in: [types/aiCompat.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L484)

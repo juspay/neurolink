@@ -28,7 +28,7 @@ import "dotenv/config";
  */
 
 import { z } from "zod";
-import { tool } from "ai";
+import { tool } from "../dist/index.js";
 import { MCPToolRegistry, NeuroLink } from "../dist/index.js";
 import type { Tool, ToolInfo } from "../src/lib/types/index.js";
 import { defineSuite, logSection } from "./helpers/harness.js";

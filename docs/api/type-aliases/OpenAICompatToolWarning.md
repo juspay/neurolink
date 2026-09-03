@@ -6,6 +6,6 @@
 
 # Type Alias: OpenAICompatToolWarning
 
-> **OpenAICompatToolWarning** = `NonNullable`\<`Awaited`\<`ReturnType`\<`LanguageModelV3`\[`"doGenerate"`\]\>\>\[`"warnings"`\]\>\[`number`\]
+> **OpenAICompatToolWarning** = `NonNullable`\<`Awaited`\<`ReturnType`\<[`LanguageModelV3`](LanguageModelV3.md)\[`"doGenerate"`\]\>\>\[`"warnings"`\]\>\[`number`\]
 
 Defined in: [types/openaiCompatible.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L209)

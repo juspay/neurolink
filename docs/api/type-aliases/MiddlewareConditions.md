@@ -8,7 +8,7 @@
 
 > **MiddlewareConditions** = `object`
 
-Defined in: [types/middleware.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L82)
+Defined in: [types/middleware.ts:76](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L76)
 
 Conditions for applying middleware
 
@@ -18,7 +18,7 @@ Conditions for applying middleware
 
 > `optional` **providers?**: `string`[]
 
-Defined in: [types/middleware.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L84)
+Defined in: [types/middleware.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L78)
 
 Apply only to specific providers
 
@@ -28,7 +28,7 @@ Apply only to specific providers
 
 > `optional` **models?**: `string`[]
 
-Defined in: [types/middleware.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L86)
+Defined in: [types/middleware.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L80)
 
 Apply only to specific models
 
@@ -38,7 +38,7 @@ Apply only to specific models
 
 > `optional` **options?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/middleware.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L88)
+Defined in: [types/middleware.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L82)
 
 Apply only when certain options are present
 
@@ -48,7 +48,7 @@ Apply only when certain options are present
 
 > `optional` **custom?**: (`context`) => `boolean`
 
-Defined in: [types/middleware.ts:90](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L90)
+Defined in: [types/middleware.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L84)
 
 Custom condition function
 

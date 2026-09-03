@@ -6,7 +6,7 @@
 
 # Function: createSkillTools()
 
-> **createSkillTools**(`resolveManager`, `options?`): `Record`\<`string`, `Tool`\>
+> **createSkillTools**(`resolveManager`, `options?`): `Record`\<`string`, [`Tool`](../type-aliases/Tool.md)\>
 
 Defined in: [skills/skillTools.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/skills/skillTools.ts#L275)
 
@@ -26,4 +26,4 @@ plus the gated mutation tools. Returns Vercel AI SDK tool() objects
 
 ## Returns
 
-`Record`\<`string`, `Tool`\>
+`Record`\<`string`, [`Tool`](../type-aliases/Tool.md)\>

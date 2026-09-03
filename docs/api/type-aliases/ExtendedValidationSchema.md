@@ -8,7 +8,7 @@
 
 > **ExtendedValidationSchema** = `object`
 
-Defined in: [types/middleware.ts:526](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L526)
+Defined in: [types/middleware.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L520)
 
 Extended validation schema for common schemas.
 
@@ -18,7 +18,7 @@ Extended validation schema for common schemas.
 
 > `optional` **type?**: `string`
 
-Defined in: [types/middleware.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L527)
+Defined in: [types/middleware.ts:521](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L521)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:527](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **format?**: `string`
 
-Defined in: [types/middleware.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L528)
+Defined in: [types/middleware.ts:522](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L522)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/middleware.ts:528](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **required?**: `string`[]
 
-Defined in: [types/middleware.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L529)
+Defined in: [types/middleware.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L523)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/middleware.ts:529](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **properties?**: `Record`\<`string`, [`ExtendedPropertySchema`](ExtendedPropertySchema.md)\>
 
-Defined in: [types/middleware.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L530)
+Defined in: [types/middleware.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L524)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/middleware.ts:530](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **additionalProperties?**: `boolean`
 
-Defined in: [types/middleware.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L531)
+Defined in: [types/middleware.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L525)

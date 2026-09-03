@@ -10,7 +10,7 @@ import {
   handlePrecallGuardrails,
 } from "../utils/guardrailsUtils.js";
 import { logger } from "../../utils/logger.js";
-import { generateText } from "../../utils/generation.js";
+import { generateOnceNative } from "../../utils/nativeSingleShot.js";
 import type { LanguageModelMiddleware } from "../../types/index.js";
 
 /**
@@ -18,6 +18,38 @@ import type { LanguageModelMiddleware } from "../../types/index.js";
  * @param config Configuration for the guardrails middleware
  * @returns NeuroLink middleware instance
  */
+/**
+ * Turn whatever a caller put in `filterModel` into a model handle.
+ *
+ * A handle is used as-is. A string is resolved through NeuroLink's own
+ * provider factory, accepting either "provider:model" or a bare model id.
+ * Imported lazily so the middleware module does not pull the provider factory
+ * into every bundle that merely registers guardrails.
+ */
+async function resolveFilterModel(filterModel: unknown): Promise<unknown> {
+  if (typeof filterModel !== "string") {
+    return filterModel;
+  }
+  const [maybeProvider, ...rest] = filterModel.split(":");
+  const hasProvider = rest.length > 0;
+  const { ProviderFactory } =
+    await import("../../factories/providerFactory.js");
+  const provider = await ProviderFactory.createProvider(
+    hasProvider ? maybeProvider : undefined,
+    hasProvider ? rest.join(":") : filterModel,
+  );
+  // `getModel()` is BaseProvider's sanctioned public handle but is not on the
+  // narrower `AIProvider` type, so narrow at the boundary rather than assert
+  // through it (Critical Rule 14).
+  const handle = provider as { getModel?: () => unknown };
+  if (typeof handle.getModel !== "function") {
+    throw new Error(
+      `guardrails: provider for "${filterModel}" exposes no model handle`,
+    );
+  }
+  return handle.getModel();
+}
+
 export function createGuardrailsMiddleware(
   config: GuardrailsMiddlewareConfig = {},
 ): NeuroLinkMiddleware {
@@ -70,10 +102,18 @@ export function createGuardrailsMiddleware(
         logger.debug(`[GuardrailsMiddleware] Invoking model-based filter.`);
         try {
           const filterPrompt = `Is the following text safe? Respond with only "safe" or "unsafe".\n\nText: "${result.text}"`;
-          const { text: filterResponse } = await generateText({
-            model: config.modelFilter.filterModel,
-            prompt: filterPrompt,
-          });
+          // `ModelFilterConfig.filterModel` is typed `LanguageModel`, which
+          // admits a bare model id, and the documented examples used one.
+          // `generateOnceNative` needs a handle exposing doGenerate, so a
+          // string threw, the catch below logged it, and the turn returned
+          // unfiltered — a security control that silently did nothing.
+          const filterModel = await resolveFilterModel(
+            config.modelFilter.filterModel,
+          );
+          const { text: filterResponse } = await generateOnceNative(
+            filterModel,
+            { prompt: filterPrompt },
+          );
 
           if (filterResponse.toLowerCase().trim() === "unsafe") {
             logger.warn(

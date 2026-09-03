@@ -543,7 +543,7 @@ https://ai.google.dev/gemini-api/docs/function-calling
 
 ### tools?
 
-> `optional` **tools?**: `Record`\<`string`, `Tool`\>
+> `optional` **tools?**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Defined in: [types/generate.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L359)
 
@@ -789,7 +789,7 @@ Maximum number of tool execution steps (default: 200)
 
 ### toolChoice?
 
-> `optional` **toolChoice?**: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>
+> `optional` **toolChoice?**: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>
 
 Defined in: [types/generate.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L513)
 
@@ -809,7 +809,7 @@ will cause infinite tool calls until `maxSteps` is exhausted.
 
 ### prepareStep?
 
-> `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: `LanguageModel`; `toolChoice?`: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
+> `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
 Defined in: [types/generate.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L538)
 
@@ -827,7 +827,7 @@ Maps to Vercel AI SDK's `experimental_prepareStep`.
 
 ###### steps
 
-`StepResult`\<`Record`\<`string`, `Tool`\>\>[]
+[`StepResult`](StepResult.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>[]
 
 ###### stepNumber
 
@@ -839,11 +839,11 @@ Maps to Vercel AI SDK's `experimental_prepareStep`.
 
 ###### model
 
-`LanguageModel`
+[`LanguageModel`](LanguageModel.md)
 
 #### Returns
 
-`PromiseLike`\<\{ `model?`: `LanguageModel`; `toolChoice?`: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
+`PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
 #### Example
 

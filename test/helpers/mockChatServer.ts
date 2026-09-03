@@ -148,6 +148,115 @@ export function startMockChatServer(): Promise<MockChatServer> {
 }
 
 /**
+ * A `MockChatServer` that answers a SCRIPTED SEQUENCE of chat-completion
+ * bodies, one per request, repeating the last once the script runs out.
+ *
+ * Exists to reproduce vendor misbehaviour that only shows up across two
+ * requests, which no single fixed reply can express and no live endpoint will
+ * produce on demand:
+ *
+ *  - io.net's Llama endpoint ends a tool loop on `finish_reason: "tool_calls"`
+ *    with `content: null` and no `tool_calls` array. The recovery re-asks once
+ *    with `tool_choice: "none"`, so proving it needs a first reply that is the
+ *    broken shape and a second that is the answer.
+ *  - GMI Cloud's MiniMax endpoint ignores a strict `json_schema` request and
+ *    answers in markdown. The recovery re-asks with the schema spelled into
+ *    the system prompt, so again the first and second replies must differ.
+ *
+ * Bodies are returned verbatim, so a test can send a shape the SDK's own
+ * serialiser would never produce.
+ */
+export type ScriptedChatServer = MockChatServer & {
+  /** How many requests have been answered so far. */
+  requestCount(): number;
+};
+
+export type ScriptedReply =
+  | Record<string, unknown>
+  | { status: number; body: Record<string, unknown> };
+
+const replyStatus = (reply: ScriptedReply): number =>
+  typeof (reply as { status?: unknown }).status === "number"
+    ? (reply as { status: number }).status
+    : 200;
+
+const replyBody = (reply: ScriptedReply): Record<string, unknown> =>
+  typeof (reply as { status?: unknown }).status === "number"
+    ? (reply as { body: Record<string, unknown> }).body
+    : (reply as Record<string, unknown>);
+
+export function startScriptedChatServer(
+  script: ReadonlyArray<ScriptedReply>,
+): Promise<ScriptedChatServer> {
+  if (script.length === 0) {
+    throw new Error("startScriptedChatServer: script must not be empty");
+  }
+  const bodies: string[] = [];
+
+  const server: Server = createServer((req, res) => {
+    readBody(req)
+      .then((bodyStr) => {
+        bodies.push(bodyStr);
+        const reply = script[Math.min(bodies.length - 1, script.length - 1)];
+        res.writeHead(replyStatus(reply), {
+          "Content-Type": "application/json",
+        });
+        res.end(JSON.stringify(replyBody(reply)));
+      })
+      .catch(() => {
+        res.writeHead(500);
+        res.end();
+      });
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        baseURL: `http://127.0.0.1:${port}/v1`,
+        getLastRequestBody: () =>
+          bodies.length > 0 ? bodies[bodies.length - 1] : null,
+        getAllRequestBodies: () => [...bodies],
+        wasCalled: () => bodies.length > 0,
+        requestCount: () => bodies.length,
+        close: () => new Promise((r) => server.close(() => r())),
+      });
+    });
+  });
+}
+
+/**
+ * One chat-completion body. `content: null` with `finish_reason: "tool_calls"`
+ * and no `tool_calls` is the io.net shape; it is expressible here and nowhere
+ * else in the test helpers.
+ */
+export function chatCompletion(options: {
+  content?: string | null;
+  finishReason?: string;
+  toolCalls?: Array<Record<string, unknown>>;
+}): Record<string, unknown> {
+  return {
+    id: "scripted-completion",
+    object: "chat.completion",
+    created: 1,
+    model: "scripted-model",
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: options.content ?? null,
+          ...(options.toolCalls ? { tool_calls: options.toolCalls } : {}),
+        },
+        finish_reason: options.finishReason ?? "stop",
+      },
+    ],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  };
+}
+
+/**
  * Fake-but-syntactically-present OpenAI credentials pointed at a
  * `MockChatServer`. Provider construction only checks that an API key
  * string exists; it never validates it, so any non-empty value clears

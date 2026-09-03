@@ -8,7 +8,7 @@
 
 > **LifecycleMiddlewareConfig** = `object`
 
-Defined in: [types/middleware.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L363)
+Defined in: [types/middleware.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L357)
 
 Configuration for the lifecycle middleware.
 Pass callbacks to observe generation/streaming lifecycle events.
@@ -19,7 +19,7 @@ Pass callbacks to observe generation/streaming lifecycle events.
 
 > `optional` **onFinish?**: [`OnFinishCallback`](OnFinishCallback.md)
 
-Defined in: [types/middleware.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L364)
+Defined in: [types/middleware.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L358)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/middleware.ts:364](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **onError?**: [`OnErrorCallback`](OnErrorCallback.md)
 
-Defined in: [types/middleware.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L365)
+Defined in: [types/middleware.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L359)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/middleware.ts:365](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **onChunk?**: [`OnChunkCallback`](OnChunkCallback.md)
 
-Defined in: [types/middleware.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L366)
+Defined in: [types/middleware.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L360)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/middleware.ts:366](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/middleware.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L377)
+Defined in: [types/middleware.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L371)
 
 Per-callback deadline in milliseconds applied to every
 `onChunk` / `onFinish` / `onError` invocation. When a callback

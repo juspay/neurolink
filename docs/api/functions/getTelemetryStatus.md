@@ -8,7 +8,7 @@
 
 > **getTelemetryStatus**(): `Promise`\<\{ `enabled`: `boolean`; `initialized`: `boolean`; `endpoint?`: `string`; `service?`: `string`; `version?`: `string`; \}\>
 
-Defined in: [index.ts:755](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L755)
+Defined in: [index.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L760)
 
 ## Returns
 

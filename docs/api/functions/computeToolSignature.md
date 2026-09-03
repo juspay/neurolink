@@ -28,7 +28,7 @@ Stable regardless of property declaration order in the schema.
 
 ### tool
 
-`Tool`
+[`Tool`](../type-aliases/Tool.md)
 
 ## Returns
 

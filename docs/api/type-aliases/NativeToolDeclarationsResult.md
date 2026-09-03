@@ -29,7 +29,7 @@ Defined in: [types/providers.ts:2052](https://github.com/juspay/neurolink/blob/r
 
 ### executeMap
 
-> **executeMap**: `Map`\<`string`, `Tool`\[`"execute"`\]\>
+> **executeMap**: `Map`\<`string`, [`Tool`](Tool.md)\[`"execute"`\]\>
 
 Defined in: [types/providers.ts:2053](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2053)
 

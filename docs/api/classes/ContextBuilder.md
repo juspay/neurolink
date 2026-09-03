@@ -36,7 +36,7 @@ Builds the full evaluation context for a single evaluation attempt.
 
 ##### options
 
-`LanguageModelV3CallOptions`
+[`LanguageModelV3CallOptions`](../type-aliases/LanguageModelV3CallOptions.md)
 
 The original `TextGenerationOptions` used for the request.
 
