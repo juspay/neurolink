@@ -14,6 +14,12 @@ import {
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
 import { tool } from "../utils/tool.js";
+import {
+  MAX_ARTIFACT_SEARCH_MATCHES,
+  readArtifactWindow,
+  searchArtifactContent,
+  validateSearchPattern,
+} from "../artifacts/artifactReader.js";
 
 /** Maximum characters returned per retrieval request */
 const DEFAULT_RETRIEVAL_LIMIT = 50_000;
@@ -23,6 +29,9 @@ const MAX_RETRIEVAL_LIMIT = 200_000;
 
 /** Maximum number of search matches returned */
 const MAX_SEARCH_MATCHES = 50;
+
+/** Bound on one artifact backend round trip, so a stalled store never hangs the tool. */
+const ARTIFACT_READ_TIMEOUT_MS = 10_000;
 
 /**
  * Factory function that creates memory retrieval tools bound to a memory manager.
@@ -46,13 +55,16 @@ export function createMemoryRetrievalTools(
   return {
     retrieve_context: tool({
       description:
-        "Retrieve messages from conversation memory, or fetch the full payload of " +
-        "an externalized MCP tool output by artifact ID. Use this to:\n" +
+        "Retrieve messages from conversation memory, or read an externalized " +
+        "tool output / banked payload by artifact ID. Use this to:\n" +
         "• Access full tool outputs when a result was truncated or externalized\n" +
         "• Review previous assistant responses\n" +
-        "• Search through conversation history\n" +
-        "Supports filtering by role, pagination for large content, and regex search.\n" +
-        "To fetch an externalized artifact, provide `artifactId` (omit sessionId).",
+        "• Search a session's history, or an artifact, for literal text\n" +
+        "Supports filtering by role, offset/limit pagination for large content, " +
+        "and case-insensitive literal search (not regex).\n" +
+        "To read an artifact, provide `artifactId` (omit sessionId): pass " +
+        "`offset`/`limit` to page, or `search` to get match offsets and jump " +
+        "straight to them instead of paging.",
       inputSchema: z.object({
         sessionId: z
           .string()
@@ -66,8 +78,9 @@ export function createMemoryRetrievalTools(
           .optional()
           .describe(
             "Artifact ID from an externalized MCP tool output " +
-              "(visible in the tool output as neurolinkArtifactId=<id>). " +
-              "When provided, returns the full stored payload directly.",
+              "(visible in the tool output as neurolinkArtifactId=<id>) or a " +
+              "banked payload. When provided, reads the stored payload: a " +
+              "window at `offset`/`limit`, or with `search`, the matches.",
           ),
         messageId: z
           .string()
@@ -101,8 +114,13 @@ export function createMemoryRetrievalTools(
           .string()
           .optional()
           .describe(
-            "Regex pattern to search within message content. " +
-              "Returns matching lines with line numbers.",
+            "Case-insensitive literal text to find (regex metacharacters are " +
+              "matched literally). Session history: returns matching lines " +
+              "with line numbers. Artifact: returns up to " +
+              `${MAX_ARTIFACT_SEARCH_MATCHES} matches, each with the character ` +
+              "`offset` of the hit and a short snippet — pass that offset back " +
+              "as `offset` to read around it. With `offset`, the artifact " +
+              "search starts there; use `nextSearchOffset` to continue.",
           ),
       }),
       execute: async (args) =>
@@ -166,44 +184,17 @@ async function executeRetrieveContext(
       });
       return {
         error:
-          "Artifact store not configured — " +
-          "mcp.outputLimits.strategy must be set to 'externalize' to use artifactId retrieval",
+          "Artifact store not configured — this instance has never banked " +
+          "or externalized anything, so there is no artifact to read",
         artifactId: args.artifactId,
       };
     }
-    const content = await withTimeout(
-      artifactStore.retrieve(args.artifactId),
-      10_000,
-      new Error(
-        `ArtifactStore.retrieve() timed out for artifact "${args.artifactId}"`,
-      ),
+    return executeArtifactRetrieval(
+      args.artifactId,
+      args,
+      artifactStore,
+      otelSpan,
     );
-    if (content === null) {
-      otelSpan.setStatus({
-        code: SpanStatusCode.ERROR,
-        message: "Artifact not found or has expired",
-      });
-      return {
-        error: "Artifact not found or has expired",
-        artifactId: args.artifactId,
-      };
-    }
-    const charLimit = Math.min(
-      args.limit ?? DEFAULT_RETRIEVAL_LIMIT,
-      MAX_RETRIEVAL_LIMIT,
-    );
-    const start = args.offset ?? 0;
-    const slice = content.slice(start, start + charLimit);
-    otelSpan.setAttribute("memory.artifact_size", content.length);
-    otelSpan.setAttribute("memory.returned_bytes", slice.length);
-    return {
-      artifactId: args.artifactId,
-      content: slice,
-      totalSize: content.length,
-      hasMore: start + charLimit < content.length,
-      offset: start,
-      limit: charLimit,
-    };
   }
   // ── End artifact resolution ─────────────────────────────────────────
 
@@ -370,5 +361,108 @@ async function executeRetrieveContext(
       error instanceof Error ? error : new Error(String(error)),
     );
     return { error: "Failed to retrieve context" };
+  }
+}
+
+/**
+ * The artifact branch of `retrieve_context`.
+ *
+ * Two modes, chosen by `search`:
+ *  - Paged read: one window through `readArtifactWindow`, which lets a backend
+ *    with range reads move only the window. `hasMore` comes from the window's
+ *    `totalLength`, so it never needs the payload either.
+ *  - Search: the whole payload is read once and scanned for the literal
+ *    pattern; the model gets match offsets and bounded snippets and can jump
+ *    straight to the hit with `offset` instead of paging to it. Before this
+ *    branch existed `search` was accepted and silently ignored here, and a
+ *    model could not tell — an unfiltered window looks like "no matches".
+ *
+ * Backend failures (a Redis outage, a timeout) are reported as errors, never
+ * as "not found": those are different facts and the model acts differently on
+ * each.
+ */
+async function executeArtifactRetrieval(
+  artifactId: string,
+  args: { offset?: number; limit?: number; search?: string },
+  artifactStore: ArtifactStore,
+  otelSpan: import("@opentelemetry/api").Span,
+) {
+  const notFound = () => {
+    otelSpan.setStatus({
+      code: SpanStatusCode.ERROR,
+      message: "Artifact not found or has expired",
+    });
+    return { error: "Artifact not found or has expired", artifactId };
+  };
+
+  try {
+    if (args.search !== undefined) {
+      const invalid = validateSearchPattern(args.search);
+      if (invalid) {
+        otelSpan.setStatus({ code: SpanStatusCode.ERROR, message: invalid });
+        return { error: invalid, artifactId };
+      }
+      // A search has to see the whole payload; the window contract is for reads.
+      const content = await withTimeout(
+        artifactStore.retrieve(artifactId),
+        ARTIFACT_READ_TIMEOUT_MS,
+        new Error(
+          `ArtifactStore.retrieve() timed out for artifact "${artifactId}"`,
+        ),
+      );
+      if (content === null) {
+        return notFound();
+      }
+      const result = searchArtifactContent(content, args.search, {
+        from: args.offset,
+      });
+      otelSpan.setAttribute("memory.artifact_size", content.length);
+      otelSpan.setAttribute("memory.search_matches", result.totalMatches);
+      return {
+        artifactId,
+        search: args.search,
+        totalSize: content.length,
+        ...result,
+      };
+    }
+
+    const charLimit = Math.min(
+      args.limit ?? DEFAULT_RETRIEVAL_LIMIT,
+      MAX_RETRIEVAL_LIMIT,
+    );
+    const start = Math.max(0, args.offset ?? 0);
+    const window = await withTimeout(
+      readArtifactWindow(artifactStore, artifactId, {
+        offset: start,
+        limit: charLimit,
+      }),
+      ARTIFACT_READ_TIMEOUT_MS,
+      new Error(`Artifact read timed out for artifact "${artifactId}"`),
+    );
+    if (window === null) {
+      return notFound();
+    }
+    otelSpan.setAttribute("memory.artifact_size", window.totalLength);
+    otelSpan.setAttribute("memory.returned_bytes", window.content.length);
+    otelSpan.setAttribute(
+      "memory.artifact_range_read",
+      typeof artifactStore.retrieveRange === "function",
+    );
+    return {
+      artifactId,
+      content: window.content,
+      totalSize: window.totalLength,
+      hasMore: window.offset + window.content.length < window.totalLength,
+      offset: window.offset,
+      limit: charLimit,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    logger.error("[MemoryRetrievalTools] Artifact read failed", {
+      artifactId,
+      error: message,
+    });
+    otelSpan.setStatus({ code: SpanStatusCode.ERROR, message });
+    return { error: `Artifact read failed: ${message}`, artifactId };
   }
 }

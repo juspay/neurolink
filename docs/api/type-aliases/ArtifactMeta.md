@@ -8,7 +8,7 @@
 
 > **ArtifactMeta** = `object`
 
-Defined in: [types/artifact.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L16)
+Defined in: [types/artifact.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L18)
 
 Metadata recorded alongside a stored artifact.
 
@@ -18,7 +18,7 @@ Metadata recorded alongside a stored artifact.
 
 > **toolName**: `string`
 
-Defined in: [types/artifact.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L18)
+Defined in: [types/artifact.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L20)
 
 Tool name that produced the output.
 
@@ -28,7 +28,7 @@ Tool name that produced the output.
 
 > **serverId**: `string`
 
-Defined in: [types/artifact.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L20)
+Defined in: [types/artifact.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L22)
 
 MCP server ID.
 
@@ -38,7 +38,7 @@ MCP server ID.
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/artifact.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L22)
+Defined in: [types/artifact.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L24)
 
 Session that triggered the tool call (optional).
 
@@ -48,7 +48,7 @@ Session that triggered the tool call (optional).
 
 > **sizeBytes**: `number`
 
-Defined in: [types/artifact.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L24)
+Defined in: [types/artifact.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L26)
 
 Serialized byte size of the full payload.
 
@@ -58,7 +58,7 @@ Serialized byte size of the full payload.
 
 > **contentType**: `"json"` \| `"text"`
 
-Defined in: [types/artifact.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L26)
+Defined in: [types/artifact.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L28)
 
 Whether the payload is valid JSON or plain text.
 
@@ -68,7 +68,7 @@ Whether the payload is valid JSON or plain text.
 
 > **createdAt**: `number`
 
-Defined in: [types/artifact.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L28)
+Defined in: [types/artifact.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L30)
 
 Unix epoch ms when the artifact was created.
 
@@ -78,7 +78,7 @@ Unix epoch ms when the artifact was created.
 
 > `optional` **label?**: `string`
 
-Defined in: [types/artifact.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L33)
+Defined in: [types/artifact.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L35)
 
 Human label for a host-banked artifact (e.g. "delegate:auth-review").
 Absent on artifacts written by the MCP output normalizer.
@@ -89,6 +89,6 @@ Absent on artifacts written by the MCP output normalizer.
 
 > `optional` **kind?**: [`BankedArtifactKind`](BankedArtifactKind.md)
 
-Defined in: [types/artifact.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L35)
+Defined in: [types/artifact.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/artifact.ts#L37)
 
 What kind of output was banked. Absent for MCP surrogates.

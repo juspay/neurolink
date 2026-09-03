@@ -20,7 +20,7 @@ Storage configuration
 
 #### type
 
-`"memory"` \| `"redis"`
+`"redis"` \| `"memory"`
 
 #### redis?
 

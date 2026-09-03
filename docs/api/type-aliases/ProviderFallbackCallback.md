@@ -8,7 +8,7 @@
 
 > **ProviderFallbackCallback** = (`error`) => `Promise`\<\{ `provider?`: `string`; `model?`: `string`; \} \| `null`\>
 
-Defined in: [types/config.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L60)
+Defined in: [types/config.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L61)
 
 Curator P2-3: callback signature for centralized fallback policy. When an
 explicit callback is configured (per-call or instance), it is invoked for

@@ -8,7 +8,7 @@
 
 > **NeurolinkConstructorConfig** = `object`
 
-Defined in: [types/config.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L68)
+Defined in: [types/config.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L69)
 
 Configuration object for NeuroLink constructor.
 
@@ -18,7 +18,7 @@ Configuration object for NeuroLink constructor.
 
 > `optional` **conversationMemory?**: `Partial`\<[`ConversationMemoryConfig`](ConversationMemoryConfig.md)\>
 
-Defined in: [types/config.ts:69](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L69)
+Defined in: [types/config.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L70)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:69](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **enableOrchestration?**: `boolean`
 
-Defined in: [types/config.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L70)
+Defined in: [types/config.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L71)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:70](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **hitl?**: [`HITLConfig`](HITLConfig.md)
 
-Defined in: [types/config.ts:71](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L71)
+Defined in: [types/config.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L72)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/config.ts:71](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tools?**: [`ToolConfig`](ToolConfig.md)
 
-Defined in: [types/config.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L77)
+Defined in: [types/config.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L78)
 
 Instance-level tool policy: master switch, include/exclude lists
 (with `*` glob support), and on-demand MCP tool discovery.
@@ -54,7 +54,7 @@ See [ToolConfig](ToolConfig.md).
 
 > `optional` **toolRegistry?**: [`MCPToolRegistry`](../classes/MCPToolRegistry.md)
 
-Defined in: [types/config.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L78)
+Defined in: [types/config.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L79)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/config.ts:78](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **observability?**: [`ObservabilityConfig`](ObservabilityConfig.md)
 
-Defined in: [types/config.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L79)
+Defined in: [types/config.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L80)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/config.ts:79](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **modelAliasConfig?**: [`ModelAliasConfig`](ModelAliasConfig.md)
 
-Defined in: [types/config.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L80)
+Defined in: [types/config.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L81)
 
 ---
 
@@ -78,9 +78,21 @@ Defined in: [types/config.ts:80](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **mcp?**: [`MCPEnhancementsConfig`](MCPEnhancementsConfig.md)
 
-Defined in: [types/config.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L82)
+Defined in: [types/config.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L83)
 
 MCP enhancement modules configuration (cache, router, batcher, annotations, middleware)
+
+---
+
+### artifacts?
+
+> `optional` **artifacts?**: [`ArtifactStorageConfig`](ArtifactStorageConfig.md)
+
+Defined in: [types/config.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L89)
+
+Artifact storage: where externalized MCP tool outputs and banked payloads
+live. The backend follows `STORAGE_TYPE` exactly like conversation memory
+unless chosen here. See [ArtifactStorageConfig](ArtifactStorageConfig.md).
 
 ---
 
@@ -88,7 +100,7 @@ MCP enhancement modules configuration (cache, router, batcher, annotations, midd
 
 > `optional` **auth?**: [`NeuroLinkAuthConfig`](NeuroLinkAuthConfig.md)
 
-Defined in: [types/config.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L84)
+Defined in: [types/config.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L91)
 
 Authentication provider configuration
 
@@ -98,7 +110,7 @@ Authentication provider configuration
 
 > `optional` **tasks?**: [`TaskManagerConfig`](TaskManagerConfig.md)
 
-Defined in: [types/config.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L86)
+Defined in: [types/config.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L93)
 
 TaskManager configuration (scheduled and self-running tasks)
 
@@ -108,7 +120,7 @@ TaskManager configuration (scheduled and self-running tasks)
 
 > `optional` **credentials?**: [`NeurolinkCredentials`](NeurolinkCredentials.md)
 
-Defined in: [types/config.ts:92](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L92)
+Defined in: [types/config.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L99)
 
 Per-provider credential overrides.
 When set here, applies as the default for all generate()/stream() calls
@@ -120,7 +132,7 @@ from this NeuroLink instance. Per-call credentials override these.
 
 > `optional` **providerFallback?**: [`ProviderFallbackCallback`](ProviderFallbackCallback.md)
 
-Defined in: [types/config.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L103)
+Defined in: [types/config.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L110)
 
 Curator P2-3: callback invoked when a generate/stream call fails with
 any error except a genuine caller cancel — i.e. the caller-supplied
@@ -137,7 +149,7 @@ error unmodified and returns the next `{ provider, model }` to try, or
 
 > `optional` **modelChain?**: `string`[]
 
-Defined in: [types/config.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L112)
+Defined in: [types/config.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L119)
 
 Curator P2-3: ordered list of model names to try in sequence. Sugar
 over `providerFallback`, but with a narrower trigger: without an
@@ -152,7 +164,7 @@ name changes.
 
 > `optional` **toolRouting?**: [`ToolRoutingConfig`](ToolRoutingConfig.md)
 
-Defined in: [types/config.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L119)
+Defined in: [types/config.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L126)
 
 Pre-call tool routing: a cheap router LLM picks the tool servers
 relevant to each stream() turn and the unpicked servers' tools are
@@ -165,7 +177,7 @@ any router failure. See [ToolRoutingConfig](ToolRoutingConfig.md).
 
 > `optional` **toolDedup?**: [`ToolDedupConfig`](ToolDedupConfig.md)
 
-Defined in: [types/config.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L132)
+Defined in: [types/config.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L139)
 
 Opt-in tool-signature deduplication. When enabled, tools whose
 canonical signatures are sufficiently similar (Jaccard ≥ threshold) are
@@ -184,7 +196,7 @@ See [ToolDedupConfig](ToolDedupConfig.md).
 
 > `optional` **modelPool?**: [`ModelPoolConfig`](ModelPoolConfig.md)
 
-Defined in: [types/config.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L140)
+Defined in: [types/config.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L147)
 
 Multi-provider pool for error-class-aware failover with per-member
 cooldown. When set, generate() and stream() source their candidate
@@ -198,7 +210,7 @@ existing behavior unchanged.
 
 > `optional` **requestRouter?**: [`RequestRouter`](RequestRouter.md)
 
-Defined in: [types/config.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L148)
+Defined in: [types/config.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L155)
 
 Pluggable pre-call router: inspects lightweight request characteristics
 (token estimate, tools, vision, thinkingLevel) and returns an optional
@@ -212,7 +224,7 @@ error proceeds unrouted.
 
 > `optional` **classifierRouter?**: [`ClassifierRouterConfig`](ClassifierRouterConfig.md)
 
-Defined in: [types/config.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L157)
+Defined in: [types/config.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L164)
 
 Pre-call classifier router: classifies each request by difficulty and
 selects a provider/model from a configured "available base" pool — routing
@@ -227,7 +239,7 @@ caller pinned both `provider` and `model`. See [ClassifierRouterConfig](Classifi
 
 > `optional` **skills?**: [`SkillsConfig`](SkillsConfig.md)
 
-Defined in: [types/config.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L166)
+Defined in: [types/config.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L173)
 
 Native skills: versioned, discoverable instruction packs (SOPs,
 playbooks) with progressive disclosure. When enabled, each
@@ -242,7 +254,7 @@ Opt-in and fails open on read paths. See [SkillsConfig](SkillsConfig.md).
 
 > `optional` **knowledgeGrounding?**: [`KnowledgeGroundingConfig`](KnowledgeGroundingConfig.md)
 
-Defined in: [types/config.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L177)
+Defined in: [types/config.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L184)
 
 Knowledge grounding: lexical-first host-supplied knowledge retrieval. When
 enabled with at least one source, a deterministic in-memory retrieval runs

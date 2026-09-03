@@ -15,6 +15,54 @@ import { logger } from "./logger.js";
 
 const SESSION_ONLY_PREFIX = "session-only:";
 
+/** Characters that end the authority (`user:pass@host:port`) of a URL in text. */
+const AUTHORITY_TERMINATORS = new Set(["/", "?", "#", " ", "\t", "\n", "\r"]);
+
+/**
+ * Redact the userinfo of every `scheme://user:pass@host` in `text`.
+ *
+ * Deliberately not a regex. `/:\/\/[^@]+@/` and its relatives backtrack
+ * quadratically on input with many `://` and no `@` (CodeQL
+ * js/polynomial-redos), and the URL here can come straight from a caller —
+ * `RedisStorageConfig.url` reaches this through `RedisArtifactStore` and the
+ * conversation memory manager. One forward pass, every character visited a
+ * bounded number of times.
+ *
+ * Redacts everything before the LAST `@` of the authority, so a password
+ * containing `@` is still hidden. A URL with only a user name is redacted
+ * too; the old regexes let that through.
+ */
+export function redactUrlCredentials(text: string): string {
+  let out = "";
+  let cursor = 0;
+  for (;;) {
+    const schemeEnd = text.indexOf("://", cursor);
+    if (schemeEnd === -1) {
+      return out + text.slice(cursor);
+    }
+    const authorityStart = schemeEnd + 3;
+    let authorityEnd = authorityStart;
+    let lastAt = -1;
+    while (authorityEnd < text.length) {
+      const ch = text[authorityEnd];
+      if (AUTHORITY_TERMINATORS.has(ch)) {
+        break;
+      }
+      if (ch === "@") {
+        lastAt = authorityEnd;
+      }
+      authorityEnd += 1;
+    }
+    if (lastAt === -1) {
+      out += text.slice(cursor, authorityEnd);
+      cursor = authorityEnd;
+    } else {
+      out += `${text.slice(cursor, authorityStart)}[redacted]@`;
+      cursor = lastAt + 1;
+    }
+  }
+}
+
 // Connection pool - keyed by host:port:db
 const connectionPool = new Map<
   string,
@@ -23,15 +71,27 @@ const connectionPool = new Map<
 const pendingConnections = new Map<string, Promise<RedisClient>>();
 
 /**
+ * One pool key per distinct connection. Shared by acquire AND release: they
+ * used to compute it separately, and the release side never knew about the
+ * `url:` form, so a URL-configured client was acquired under one key and
+ * "released" under another that did not exist — its reference count never
+ * dropped and the connection outlived every owner. Credentials never appear
+ * in the key; it is logged.
+ */
+function poolKeyFor(config: Required<RedisStorageConfig>): string {
+  return config.url
+    ? `url:${redactUrlCredentials(config.url)}`
+    : `${config.host}:${config.port}:${config.db}:${config.password ? "auth" : "noauth"}`;
+}
+
+/**
  * Get a pooled Redis connection. Multiple callers with the same host:port:db
  * share a single connection, reducing connection count.
  */
 export async function getPooledRedisClient(
   config: Required<RedisStorageConfig>,
 ): Promise<RedisClient> {
-  const key = config.url
-    ? `url:${config.url.replace(/:\/\/[^:]+:[^@]+@/, "://[redacted]@")}`
-    : `${config.host}:${config.port}:${config.db}:${config.password ? "auth" : "noauth"}`;
+  const key = poolKeyFor(config);
   const existing = connectionPool.get(key);
 
   if (existing && existing.client.isOpen) {
@@ -97,7 +157,7 @@ export async function getPooledRedisClient(
 export async function releasePooledRedisClient(
   config: Required<RedisStorageConfig>,
 ): Promise<void> {
-  const key = `${config.host}:${config.port}:${config.db}:${config.password ? "auth" : "noauth"}`;
+  const key = poolKeyFor(config);
   const entry = connectionPool.get(key);
 
   if (!entry) {
@@ -178,10 +238,7 @@ export async function createRedisClient(
   const client = createClient(clientOptions);
 
   client.on("error", (err: Error) => {
-    const sanitizedMessage = err.message.replace(
-      /redis:\/\/.*?@/g,
-      "redis://[redacted]@",
-    );
+    const sanitizedMessage = redactUrlCredentials(err.message);
     logger.error("Redis client error", { error: sanitizedMessage });
   });
 
@@ -530,7 +587,7 @@ export function getNormalizedConfig(
         ? parseInt(parsedUrl.pathname.replace("/", "")) || 0
         : 0;
     } catch (e) {
-      const sanitizedUrl = url.replace(/:\/\/[^@]+@/, "://[redacted]@");
+      const sanitizedUrl = redactUrlCredentials(url);
       logger.warn(
         "[redisUtils] Failed to parse Redis URL, falling back to component-based connection",
         {
