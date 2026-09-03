@@ -92,3 +92,15 @@ Per-tool timeout in milliseconds, set at registration time
 > `optional` **maxRetries?**: `number`
 
 Defined in: [types/tools.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L130)
+
+---
+
+### totalTimeoutMs?
+
+> `optional` **totalTimeoutMs?**: `number`
+
+Defined in: [types/tools.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L136)
+
+Ceiling on the WHOLE execution — every attempt plus the delays between
+them. Declared explicitly rather than left to the index signature below,
+which would type it `unknown` and silently defeat the default.

@@ -12884,6 +12884,7 @@ Current user's request: ${currentInput}`;
         convertedTool,
         options?.timeout,
         options?.maxRetries,
+        options?.totalTimeoutMs,
       );
 
       // Register with toolRegistry using MCPServerInfo directly
@@ -13323,8 +13324,15 @@ Current user's request: ${currentInput}`;
     toolName: string,
     params: unknown = {},
     options?: {
+      /** Bound on ONE attempt. */
       timeout?: number;
       maxRetries?: number;
+      /**
+       * Bound on the WHOLE execution — every attempt plus the delays between
+       * them. Defaults to `timeout * (maxRetries + 1)`, which is what the
+       * retry loop already spent, so omitting it changes nothing.
+       */
+      totalTimeoutMs?: number;
       retryDelayMs?: number;
       /** Disable tool result caching for this call */
       disableToolCache?: boolean;
@@ -13494,6 +13502,8 @@ Current user's request: ${currentInput}`;
       | {
           timeout?: number;
           maxRetries?: number;
+          /** Ceiling on the whole execution across every attempt. */
+          totalTimeoutMs?: number;
           retryDelayMs?: number;
           disableToolCache?: boolean;
           bypassBatcher?: boolean;
@@ -13510,6 +13520,7 @@ Current user's request: ${currentInput}`;
     finalOptions: {
       timeout: number;
       maxRetries: number;
+      totalTimeout: number;
       retryDelayMs: number;
       authContext:
         | {
@@ -13582,16 +13593,35 @@ Current user's request: ${currentInput}`;
     );
 
     const toolInfo = this.toolRegistry.getToolInfo(toolName);
+    const attemptTimeout =
+      options?.timeout ??
+      toolInfo?.tool?.timeoutMs ??
+      TOOL_TIMEOUTS.EXECUTION_BATCH_MS;
+    const maxRetries =
+      options?.maxRetries ??
+      toolInfo?.tool?.maxRetries ??
+      RETRY_ATTEMPTS.DEFAULT;
+    const retryDelayMs = options?.retryDelayMs || RETRY_DELAYS.BASE_MS;
     const finalOptions = {
-      timeout:
-        options?.timeout ??
-        toolInfo?.tool?.timeoutMs ??
-        TOOL_TIMEOUTS.EXECUTION_BATCH_MS,
-      maxRetries:
-        options?.maxRetries ??
-        toolInfo?.tool?.maxRetries ??
-        RETRY_ATTEMPTS.DEFAULT,
-      retryDelayMs: options?.retryDelayMs || RETRY_DELAYS.BASE_MS,
+      timeout: attemptTimeout,
+      maxRetries,
+      // Ceiling on the whole execution, not one attempt. The default is what
+      // the retry loop already spent, and that is BOTH terms: every attempt at
+      // full length PLUS the fixed wait between them. Omitting the delays
+      // makes the default ceiling shorter than the envelope it is meant to
+      // reproduce, so `attemptTimeout = min(timeout, remaining)` clamps a
+      // later attempt below its configured timeout — the opposite of the
+      // "unchanged unless you ask for less" contract this default exists to
+      // keep. Before any of this the total was unbounded and merely implied:
+      // a tool that reliably hung burned every attempt at full length, and
+      // the surfaced error reported the per-attempt bound beside the
+      // whole-execution elapsed time, which reads as a timeout that was never
+      // enforced.
+      totalTimeout:
+        options?.totalTimeoutMs ??
+        toolInfo?.tool?.totalTimeoutMs ??
+        attemptTimeout * (maxRetries + 1) + retryDelayMs * maxRetries,
+      retryDelayMs,
       authContext: options?.authContext,
       disableToolCache: options?.disableToolCache,
     };
@@ -13654,23 +13684,63 @@ Current user's request: ${currentInput}`;
           circuitBreakerState: prepared.circuitBreaker.getState(),
         },
       );
+      const maxAttempts = prepared.finalOptions.maxRetries + 1;
+      const totalTimeout = prepared.finalOptions.totalTimeout;
+      const budgetStart = Date.now();
+      const deadline = budgetStart + totalTimeout;
+      let attemptNumber = 0;
       const result: T = await prepared.circuitBreaker.execute(async () => {
         return withRetry(
-          async () =>
-            withTimeout(
+          async () => {
+            attemptNumber++;
+            const remaining = deadline - Date.now();
+            if (remaining <= 0) {
+              throw ErrorFactory.toolTimeout(
+                toolName,
+                totalTimeout,
+                undefined,
+                {
+                  attempt: attemptNumber,
+                  maxAttempts,
+                  attemptTimeoutMs: prepared.finalOptions.timeout,
+                  totalTimeoutMs: totalTimeout,
+                  elapsedMs: Date.now() - budgetStart,
+                  exhausted: true,
+                },
+              );
+            }
+            // Clamping to what is left is what makes the ceiling hard. Gating
+            // retries alone would not: the last attempt could start just under
+            // the deadline and still run a full attempt timeout past it.
+            const attemptTimeout = Math.min(
+              prepared.finalOptions.timeout,
+              remaining,
+            );
+            return withTimeout(
               this.executeToolInternal<T>(
                 toolName,
                 params,
                 prepared.finalOptions,
                 executionContext.hitlState,
               ),
-              prepared.finalOptions.timeout,
-              ErrorFactory.toolTimeout(toolName, prepared.finalOptions.timeout),
-            ),
+              attemptTimeout,
+              ErrorFactory.toolTimeout(toolName, attemptTimeout, undefined, {
+                attempt: attemptNumber,
+                maxAttempts,
+                attemptTimeoutMs: prepared.finalOptions.timeout,
+                totalTimeoutMs: totalTimeout,
+                elapsedMs: Date.now() - budgetStart,
+              }),
+            );
+          },
           {
-            maxAttempts: prepared.finalOptions.maxRetries + 1,
+            maxAttempts,
             delayMs: prepared.finalOptions.retryDelayMs,
-            isRetriable: isRetriableError,
+            // Stop when there is not enough budget left for the retry delay
+            // plus any real work after it.
+            isRetriable: (error: Error) =>
+              Date.now() + prepared.finalOptions.retryDelayMs < deadline &&
+              isRetriableError(error),
             onRetry: (attempt, error) => {
               toolRetryCount = attempt;
               mcpLogger.warn(

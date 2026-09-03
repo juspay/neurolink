@@ -8,7 +8,7 @@
 
 > **ToolResultMetadata** = `object`
 
-Defined in: [types/tools.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L298)
+Defined in: [types/tools.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L321)
 
 Tool execution result metadata
 
@@ -22,7 +22,7 @@ Tool execution result metadata
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/tools.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L299)
+Defined in: [types/tools.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L322)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/tools.ts:299](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **executionTime?**: `number`
 
-Defined in: [types/tools.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L300)
+Defined in: [types/tools.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L323)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/tools.ts:300](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **timestamp?**: `number`
 
-Defined in: [types/tools.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L301)
+Defined in: [types/tools.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L324)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/tools.ts:301](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **source?**: `string`
 
-Defined in: [types/tools.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L302)
+Defined in: [types/tools.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L325)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/tools.ts:302](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **version?**: `string`
 
-Defined in: [types/tools.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L303)
+Defined in: [types/tools.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L326)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/tools.ts:303](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/tools.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L304)
+Defined in: [types/tools.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L327)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/tools.ts:304](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/tools.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L305)
+Defined in: [types/tools.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L328)
 
 ---
 
@@ -78,4 +78,4 @@ Defined in: [types/tools.ts:305](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **blocked?**: `boolean`
 
-Defined in: [types/tools.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L306)
+Defined in: [types/tools.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L329)

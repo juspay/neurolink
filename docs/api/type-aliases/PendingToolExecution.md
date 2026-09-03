@@ -8,7 +8,7 @@
 
 > **PendingToolExecution** = `object`
 
-Defined in: [types/tools.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L532)
+Defined in: [types/tools.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L555)
 
 Pending tool execution type for Redis memory manager
 Temporary storage for tool execution data to avoid race conditions
@@ -19,7 +19,7 @@ Temporary storage for tool execution data to avoid race conditions
 
 > **toolCalls**: `object`[]
 
-Defined in: [types/tools.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L533)
+Defined in: [types/tools.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L556)
 
 #### Index Signature
 
@@ -55,7 +55,7 @@ Defined in: [types/tools.ts:533](https://github.com/juspay/neurolink/blob/releas
 
 > **toolResults**: `object`[]
 
-Defined in: [types/tools.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L542)
+Defined in: [types/tools.ts:565](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L565)
 
 #### Index Signature
 
@@ -95,4 +95,4 @@ Defined in: [types/tools.ts:542](https://github.com/juspay/neurolink/blob/releas
 
 > **timestamp**: `number`
 
-Defined in: [types/tools.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L552)
+Defined in: [types/tools.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L575)

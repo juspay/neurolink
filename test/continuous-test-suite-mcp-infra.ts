@@ -96,6 +96,123 @@ async function disposeQuietly(
   }
 }
 
+/**
+ * The retry loop must not be able to overshoot the caller's ceiling.
+ *
+ * `timeout` bounds ONE attempt; the loop then runs `maxRetries + 1` of them,
+ * so a tool that reliably hangs used to burn the product with nothing
+ * bounding the total. The surfaced error reported the per-attempt bound
+ * beside the whole-execution elapsed time, which reads as a timeout that was
+ * never enforced. Both halves are asserted here: the ceiling holds, and the
+ * error says which bound it is talking about.
+ */
+async function testToolTotalTimeoutBudget(): Promise<void> {
+  logSection("Tool total-timeout budget");
+  let sdk: InstanceType<typeof NeuroLink> | null = null;
+  try {
+    sdk = new NeuroLink();
+    sdk.registerTool("hangs_forever", {
+      name: "hangs_forever",
+      description: "Never settles, so every attempt hits its timeout",
+      inputSchema: { type: "object", properties: {} },
+      execute: () => new Promise(() => {}),
+    });
+
+    // 4 attempts x 200ms would be 800ms; the budget says stop at 450ms.
+    const start = Date.now();
+    let thrown: unknown;
+    try {
+      await sdk.executeTool(
+        "hangs_forever",
+        {},
+        {
+          timeout: 200,
+          maxRetries: 3,
+          retryDelayMs: 10,
+          totalTimeoutMs: 450,
+          bypassBatcher: true,
+        },
+      );
+    } catch (error) {
+      thrown = error;
+    }
+    const elapsed = Date.now() - start;
+
+    recordTest("total budget rejects the call", thrown !== undefined);
+    // Generous upper bound: the point is that it is nowhere near the 800ms
+    // the unbounded loop would have spent, not that the timer is precise.
+    recordTest(
+      "total budget caps elapsed time below the attempt product",
+      elapsed < 700,
+    );
+
+    const context = (
+      thrown as { context?: Record<string, unknown> } | undefined
+    )?.context;
+    recordTest(
+      "timeout error reports the attempt bound",
+      context?.attemptTimeoutMs === 200,
+    );
+    recordTest(
+      "timeout error reports the total bound",
+      context?.totalTimeoutMs === 450,
+    );
+    recordTest(
+      "timeout error reports which attempt it was",
+      typeof context?.attempt === "number" &&
+        typeof context?.maxAttempts === "number",
+    );
+    // maxRetries: 3 means four attempts. Assert the reported metadata rather
+    // than inferring the retry count from the clock, which cannot distinguish
+    // "stopped at the ceiling" from "failed early for another reason".
+    recordTest(
+      "reported attempt count matches the configured retry budget",
+      context?.maxAttempts === 4 &&
+        typeof context?.attempt === "number" &&
+        context.attempt >= 1 &&
+        context.attempt <= 4,
+    );
+
+    // Default path: omitting totalTimeoutMs must not change anything, so the
+    // ceiling falls back to timeout x attempts and all three attempts run.
+    const defaultStart = Date.now();
+    let defaultThrown: unknown;
+    try {
+      await sdk.executeTool(
+        "hangs_forever",
+        {},
+        { timeout: 100, maxRetries: 2, retryDelayMs: 10, bypassBatcher: true },
+      );
+    } catch (error) {
+      defaultThrown = error;
+    }
+    const defaultElapsed = Date.now() - defaultStart;
+    recordTest(
+      "default budget still rejects the call",
+      defaultThrown !== undefined,
+    );
+    // timeout 100 x 3 attempts + retryDelayMs 10 x 2 waits = 320ms. The
+    // default ceiling must reproduce BOTH terms. Computing it as
+    // timeout x attempts alone lands at 300 and clamps the third attempt
+    // below its configured 100ms — the defect this asserts against.
+    recordTest(
+      "default budget reproduces the full envelope including retry delays",
+      defaultElapsed >= 300,
+    );
+    const defaultContext = (
+      defaultThrown as { context?: Record<string, unknown> } | undefined
+    )?.context;
+    recordTest(
+      "default ceiling is derived from attempts AND delays",
+      defaultContext?.totalTimeoutMs === 320,
+    );
+  } catch (error) {
+    recordTest("Tool total-timeout budget", false);
+  } finally {
+    await disposeQuietly(sdk);
+  }
+}
+
 // ============================================================
 // Part 1 — Core MCP infrastructure
 // ============================================================
@@ -1361,4 +1478,7 @@ await runSuite(async () => {
   await testWiredMiddleware();
   await testWiredPublicAPIs();
   await testWiredDispose();
+
+  // Tool execution budget
+  await testToolTotalTimeoutBudget();
 });

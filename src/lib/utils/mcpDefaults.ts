@@ -138,6 +138,7 @@ export function createCustomToolServerInfo(
   tool: MCPExecutableTool,
   timeoutMs?: number,
   maxRetries?: number,
+  totalTimeoutMs?: number,
 ): MCPServerInfo {
   const serverInfo = createMCPServerInfo({
     id: `custom-tool-${toolName}`,
@@ -157,6 +158,9 @@ export function createCustomToolServerInfo(
     }
     if (maxRetries !== undefined) {
       serverInfo.metadata.toolMaxRetries = maxRetries;
+    }
+    if (totalTimeoutMs !== undefined) {
+      serverInfo.metadata.toolTotalTimeoutMs = totalTimeoutMs;
     }
   }
 
