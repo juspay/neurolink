@@ -58,6 +58,9 @@ import type {
   OpenAICompatV3CallTools,
   Schema,
   StreamLoopArgs,
+  EnhancedGenerateResult,
+  TextGenerationOptions,
+  ValidationSchema,
   StreamOptions,
   StreamResult,
   Tool,
@@ -77,9 +80,21 @@ import {
   mergeAbortSignals,
 } from "../utils/timeout.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
+import { resolveRequestKind } from "../core/resolveRequestKind.js";
+import {
+  appendJsonSchemaInstruction,
+  hasNativeDoGenerate,
+  runNativeGenerateLoop,
+} from "../core/nativeGenerateLoop.js";
+import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
+import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
 import { withProviderRetry } from "../utils/providerRetry.js";
+import {
+  isSchemaComplexityError,
+  isToolsSchemaConflictError,
+} from "../core/modules/structuredOutputPolicy.js";
 import { resolveDeferredTool } from "../tools/toolDiscovery.js";
 import {
   buildAPIError,
@@ -111,6 +126,7 @@ const WINDOW_FIT_MARGIN_TOKENS = 512;
 /**
  * Abstract HTTP+SSE provider for OpenAI chat-completions-shaped endpoints.
  */
+
 export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   protected config: { baseURL: string; apiKey: string };
   protected resolvedModel?: string;
@@ -960,6 +976,231 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
    * streamText, no AI SDK orchestrator. Tool calls, multi-step loops,
    * telemetry, abort handling all inline.
    */
+  /**
+   * Native non-streaming generate.
+   *
+   * Drives the SAME `doGenerate` the ai loop drove — `buildDelegatingModel`'s,
+   * reached through `getAISDKModel()` — and supplies only the multi-step tool
+   * iteration around it. That matters: `doGenerate` is where the JSON-versus-SSE
+   * wire choice lives (`useStreamingWireForGenerate()`, false by default), along
+   * with the 400 retry, the context-overflow refit and the invalid-model
+   * fallback. An earlier attempt ran generate through the STREAMING loop
+   * instead and silently began sending `stream: true` on a path that had always
+   * sent plain JSON; ten providers returned empty content against a
+   * non-streaming body and a stream-rejecting backend failed outright. Loop
+   * around doGenerate, never around streamOneStep.
+   *
+   * Tool turns are appended in the message-builder shape, which
+   * `messageBuilderToOpenAI` already round-trips: an assistant message carrying
+   * `tool-call` parts, then one `tool` message of `tool-result` parts.
+   */
+  override async generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+    analysisSchema?: ValidationSchema,
+  ): Promise<EnhancedGenerateResult | null> {
+    await this.ensureModelLimits();
+    const options = this.normalizeTextOptions(optionsOrPrompt);
+    if (resolveRequestKind(options, this.modelName) !== "text") {
+      return super.generate(options, analysisSchema);
+    }
+    this.validateOptions(options);
+    const mergedTools = await this.getToolsForStream(options);
+    // Reuse BaseProvider's invalid-model fallback. Overriding generate() skips
+    // it otherwise, and a retired default stops degrading to the next live
+    // model in the catalog entry.
+    const callerOwnsFallback =
+      "disableInternalFallback" in options &&
+      options.disableInternalFallback === true;
+    // The native loop bypasses BaseProvider.executeGeneration, so the turn
+    // budget has to be composed here or it stops existing for this provider.
+    return this.runGenerateWithModelFallback(
+      () =>
+        this.withTurnTimeout(
+          { ...options, tools: mergedTools },
+          this.getDescriptorGenerateMs(),
+          (timedOptions) => this.executeNativeGenerate(timedOptions),
+        ),
+      callerOwnsFallback,
+    );
+  }
+
+  private async executeNativeGenerate(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const startTime = Date.now();
+    const modelId = await this.resolveModelName();
+    // Middleware must wrap the model here. The native loop bypasses
+    // BaseProvider.executeGeneration, and with it the only place middleware was
+    // ever applied — a probe showed a caller's wrapGenerate running zero times
+    // on every native provider while their onFinish still fired, because
+    // onFinish had been special-cased and nothing else had.
+    const model = await this.getAISDKModelWithMiddleware(options);
+    // Runtime guard rather than an assertion: `LanguageModel` is a union that
+    // includes a bare string id, and a double assertion through unknown is
+    // banned by Critical Rule 14.
+    if (!hasNativeDoGenerate(model)) {
+      throw this.handleProviderError(
+        new Error(`${this.providerName}: model handle exposes no doGenerate()`),
+      );
+    }
+    const doGenerate = model.doGenerate.bind(model);
+
+    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const toolsRecord = shouldUseTools
+      ? (options.tools as Record<string, Tool>) || (await this.getAllTools())
+      : {};
+
+    // v3 tool shape — the same one doGenerate already converts internally.
+    const v3Tools = shouldUseTools
+      ? Object.entries(toolsRecord).map(([name, t]) => {
+          const tool = t as { description?: string; inputSchema?: unknown };
+          return {
+            type: "function" as const,
+            name,
+            description: tool.description ?? "",
+            inputSchema: (tool.inputSchema
+              ? convertZodToJsonSchema(tool.inputSchema as never)
+              : { type: "object", properties: {} }) as Record<string, unknown>,
+          };
+        })
+      : undefined;
+    const hasTools = !!v3Tools && v3Tools.length > 0;
+
+    // Structured output rides response_format, which is what Output.object did
+    // on the ai path. Suppressed where the provider says the combination with
+    // tools is rejected.
+    const responseFormat =
+      options.schema && !(hasTools && this.suppressResponseFormatWithTools())
+        ? {
+            type: "json" as const,
+            schema: convertZodToJsonSchema(
+              options.schema as ZodUnknownSchema,
+            ) as Record<string, unknown>,
+          }
+        : undefined;
+
+    const conversation = (await this.buildMessagesForStream(
+      options as StreamOptions,
+    )) as Array<Record<string, unknown>>;
+
+    const toolExecutionSummaries: ToolExecutionSummaryInternal[] = [];
+    const runLoop = (
+      conv: Array<Record<string, unknown>>,
+      format: typeof responseFormat,
+    ) =>
+      runNativeGenerateLoop(
+        {
+          doGenerate,
+          conversation: conv,
+          ...(v3Tools ? { tools: v3Tools } : {}),
+          toolsRecord,
+          ...(hasTools && options.toolChoice
+            ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
+            : {}),
+          // The per-call `timeout` keeps its per-MODEL-CALL meaning once
+          // `turnTimeoutMs` owns the whole-turn deadline, and it reaches the
+          // model layer only through this channel. Without it each step fell
+          // back to the provider default, so a caller asking for a short
+          // per-call timeout got the default on every request.
+          ...(typeof options.timeout === "number"
+            ? {
+                providerOptions: {
+                  neurolink: { timeoutMs: options.timeout },
+                },
+              }
+            : {}),
+          ...(format ? { responseFormat: format } : {}),
+          maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+          ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
+          ...(options.temperature !== undefined
+            ? { temperature: options.temperature }
+            : {}),
+          ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
+          ...(options.toolTimeoutMs !== undefined
+            ? { toolTimeoutMs: options.toolTimeoutMs }
+            : {}),
+          // withProviderRetry + handleProviderError are what the ai loop
+          // supplied around each call: without them a 429 surfaces as a raw
+          // upstream string instead of a RateLimitError, and a throttle is
+          // never retried.
+          runStep: (call) =>
+            withProviderRetry<Record<string, unknown>>(
+              call,
+              trace.getActiveSpan() ?? undefined,
+              `${this.providerName} generate`,
+            ).catch((err) => {
+              throw this.handleProviderError(err);
+            }),
+        },
+        toolExecutionSummaries,
+      );
+
+    // Structured output rides `response_format` first. When a vendor rejects
+    // that outright — a tools/JSON-mode conflict, or a schema its constrained
+    // decoder will not accept — the recovery is to ask for the same object in
+    // words instead: drop `response_format` and spell the JSON Schema into the
+    // system prompt, letting coerceJsonToSchema recover the object from text.
+    //
+    // Ported from GenerationHandler's `promptJsonInstruction` fallback, which
+    // runs this on the ai-package path. That path is unreachable for every
+    // provider driven by this loop — GMI Cloud's MiniMax endpoint, the one it
+    // was written for, is a Tier-2 catalog provider on this very base class —
+    // so without this the recovery would simply not happen for it.
+    let loop: Awaited<ReturnType<typeof runNativeGenerateLoop>>;
+    try {
+      loop = await runLoop(conversation, responseFormat);
+    } catch (error) {
+      const recoverable =
+        responseFormat !== undefined &&
+        (isToolsSchemaConflictError(error) || isSchemaComplexityError(error));
+      if (!recoverable) {
+        throw error;
+      }
+      logger.warn(
+        `[${this.providerName}] provider rejected response_format — retrying with the schema in the system prompt`,
+        { provider: this.providerName, model: modelId },
+      );
+      loop = await runLoop(
+        appendJsonSchemaInstruction(conversation, responseFormat.schema),
+        undefined,
+      );
+    }
+    const { text, finishReason, toolsUsed } = loop;
+    const inputTokens = loop.inputTokens;
+    const outputTokens = loop.outputTokens;
+
+    const enhanced: EnhancedGenerateResult = {
+      content: text,
+      provider: this.providerName,
+      model: modelId,
+      finishReason,
+      usage: {
+        input: inputTokens,
+        output: outputTokens,
+        total: inputTokens + outputTokens,
+        // doGenerate reads prompt_tokens_details.cached_tokens, and the loop
+        // carries the counters out; discarding them here billed cached input
+        // at the full rate in calculateCost and made cache effectiveness
+        // invisible. Anthropic's native path already forwards both.
+        ...(loop.cacheReadTokens
+          ? { cacheReadTokens: loop.cacheReadTokens }
+          : {}),
+        ...(loop.cacheWriteTokens
+          ? { cacheCreationTokens: loop.cacheWriteTokens }
+          : {}),
+      },
+      responseTime: Date.now() - startTime,
+      toolsUsed,
+      toolExecutions: resolveToolExecutionRecords(
+        options,
+        transformToolExecutions(toolExecutionSummaries),
+      ),
+      enhancedWithTools: toolsUsed.length > 0,
+    };
+
+    return this.finalizeNativeGenerate(enhanced, options, startTime);
+  }
+
   protected async executeStream(
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,

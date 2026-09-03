@@ -155,20 +155,25 @@ if (typeof globalThis.global === "undefined") {
 export * from "../lib/index.js";
 
 // === Provider creators (for direct browser use) ===
-// Public browser-bundle API surface. Phase 5+ of memory-bank/native-runtime/
-// replaces these with native equivalents under the same public names
-// (success criterion #5).
-export { createAnthropic, anthropic } from "@ai-sdk/anthropic";
-export { createOpenAI, openai } from "@ai-sdk/openai";
-export { createMistral, mistral } from "@ai-sdk/mistral";
+// Public browser-bundle API surface, unchanged in name and call shape. These
+// now resolve through NeuroLink's own native provider stack instead of
+// @ai-sdk/anthropic, @ai-sdk/openai and @ai-sdk/mistral, which were installed
+// for these six exports alone and have been dropped from package.json.
+export {
+  createAnthropic,
+  anthropic,
+  createOpenAI,
+  openai,
+  createMistral,
+  mistral,
+} from "./nativeProviders.js";
 
 // === Core generation functions ===
-// Routed through the internal seam (utils/generation.ts) so the browser bundle
-// picks up any future Phase 5+ replacement automatically without a separate
-// edit here. Function identity is unchanged today.
-export {
-  generateText,
-  streamText,
-  generateObject,
-  streamObject,
-} from "../lib/utils/generation.js";
+// These re-exported the ai package's generateText/streamText/generateObject/
+// streamObject. That package is gone: generation is native, driven through the
+// NeuroLink class this bundle already exports. No consumer of these four was
+// found anywhere in the repo, and the browser bundle had no test at all until
+// this migration added one.
+//
+// `generateText` remains available as NeuroLink's own convenience wrapper via
+// the `export * from "../lib/index.js"` above, which is the supported path.

@@ -65,6 +65,18 @@ const BANNED_PACKAGES = [
   "@ai-sdk/google",
   "@ai-sdk/google-vertex",
   "@ai-sdk/google-vertex/anthropic",
+  // Removed with the browser bundle's native provider factories
+  // (src/browser/nativeProviders.ts). They were installed for six re-exports
+  // and nothing else.
+  "@ai-sdk/anthropic",
+  "@ai-sdk/mistral",
+  // AudioProcessor now posts multipart audio to the transcription endpoint
+  // itself; the browser bundle's factories are native.
+  "@ai-sdk/openai",
+  // Generation is native end to end and the public types are declared in
+  // src/lib/types/aiCompat.ts.
+  "ai",
+  "@ai-sdk/provider",
   // Listed but never imported anywhere in source — guard against accidental
   // reintroduction. ollama.ts speaks the native HTTP API directly.
   "ollama-ai-provider",

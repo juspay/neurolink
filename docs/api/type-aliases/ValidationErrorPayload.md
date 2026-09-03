@@ -8,7 +8,7 @@
 
 > **ValidationErrorPayload** = `object`
 
-Defined in: [types/middleware.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L468)
+Defined in: [types/middleware.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L462)
 
 Per-field entry inside a ServerValidationError's `errors` array.
 
@@ -18,7 +18,7 @@ Per-field entry inside a ServerValidationError's `errors` array.
 
 > **field**: `string`
 
-Defined in: [types/middleware.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L469)
+Defined in: [types/middleware.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L463)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/middleware.ts:469](https://github.com/juspay/neurolink/blob/r
 
 > **message**: `string`
 
-Defined in: [types/middleware.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L470)
+Defined in: [types/middleware.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L464)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/middleware.ts:470](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **value?**: `unknown`
 
-Defined in: [types/middleware.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L471)
+Defined in: [types/middleware.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L465)

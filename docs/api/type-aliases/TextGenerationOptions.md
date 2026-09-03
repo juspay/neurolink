@@ -146,7 +146,7 @@ Defined in: [types/generate.ts:1251](https://github.com/juspay/neurolink/blob/re
 
 ### schema?
 
-> `optional` **schema?**: [`ZodUnknownSchema`](ZodUnknownSchema.md) \| `Schema`\<`unknown`\>
+> `optional` **schema?**: [`ZodUnknownSchema`](ZodUnknownSchema.md) \| [`Schema`](Schema.md)\<`unknown`\>
 
 Defined in: [types/generate.ts:1252](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1252)
 
@@ -219,7 +219,7 @@ output: {
 
 ### tools?
 
-> `optional` **tools?**: `Record`\<`string`, `Tool`\>
+> `optional` **tools?**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Defined in: [types/generate.ts:1296](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1296)
 
@@ -373,7 +373,7 @@ Disable tool result caching for this request (overrides global mcp.cache.enabled
 
 ### toolChoice?
 
-> `optional` **toolChoice?**: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>
+> `optional` **toolChoice?**: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>
 
 Defined in: [types/generate.ts:1359](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1359)
 
@@ -393,7 +393,7 @@ will cause infinite tool calls until `maxSteps` is exhausted.
 
 ### prepareStep?
 
-> `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: `LanguageModel`; `toolChoice?`: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
+> `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
 Defined in: [types/generate.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1384)
 
@@ -411,7 +411,7 @@ Maps to Vercel AI SDK's `experimental_prepareStep`.
 
 ###### steps
 
-`StepResult`\<`Record`\<`string`, `Tool`\>\>[]
+[`StepResult`](StepResult.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>[]
 
 ###### stepNumber
 
@@ -423,11 +423,11 @@ Maps to Vercel AI SDK's `experimental_prepareStep`.
 
 ###### model
 
-`LanguageModel`
+[`LanguageModel`](LanguageModel.md)
 
 #### Returns
 
-`PromiseLike`\<\{ `model?`: `LanguageModel`; `toolChoice?`: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
+`PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
 #### Example
 

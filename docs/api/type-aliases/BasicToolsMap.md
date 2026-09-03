@@ -16,7 +16,7 @@ Subset of directAgentTools exposing only the "basic" category.
 
 ### getCurrentTime
 
-> **getCurrentTime**: `Tool`
+> **getCurrentTime**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L477)
 
@@ -24,6 +24,6 @@ Defined in: [types/tools.ts:477](https://github.com/juspay/neurolink/blob/releas
 
 ### calculateMath
 
-> **calculateMath**: `Tool`
+> **calculateMath**: [`Tool`](Tool.md)
 
 Defined in: [types/tools.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L478)

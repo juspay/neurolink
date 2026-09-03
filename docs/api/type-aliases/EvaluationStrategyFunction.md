@@ -16,7 +16,7 @@ Function that performs evaluation and returns results.
 
 ### options
 
-`LanguageModelV3CallOptions`
+[`LanguageModelV3CallOptions`](LanguageModelV3CallOptions.md)
 
 ### result
 

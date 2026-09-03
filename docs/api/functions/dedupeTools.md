@@ -25,7 +25,7 @@ Any exception thrown internally returns the ORIGINAL tool set (fail-open).
 
 ### T
 
-`T` _extends_ `Tool`
+`T` _extends_ [`Tool`](../type-aliases/Tool.md)
 
 ## Parameters
 

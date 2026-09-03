@@ -8,7 +8,7 @@
 
 > **RateLimitEntry** = `object`
 
-Defined in: [types/middleware.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L444)
+Defined in: [types/middleware.ts:438](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L438)
 
 Rate-limit counter entry tracked per key.
 
@@ -18,7 +18,7 @@ Rate-limit counter entry tracked per key.
 
 > **count**: `number`
 
-Defined in: [types/middleware.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L445)
+Defined in: [types/middleware.ts:439](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L439)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/middleware.ts:445](https://github.com/juspay/neurolink/blob/r
 
 > **resetAt**: `number`
 
-Defined in: [types/middleware.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L446)
+Defined in: [types/middleware.ts:440](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L440)

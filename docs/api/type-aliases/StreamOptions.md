@@ -426,7 +426,7 @@ Defined in: [types/stream.ts:427](https://github.com/juspay/neurolink/blob/relea
 
 ### tools?
 
-> `optional` **tools?**: `Record`\<`string`, `Tool`\>
+> `optional` **tools?**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Defined in: [types/stream.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L428)
 
@@ -528,7 +528,7 @@ Defined in: [types/stream.ts:445](https://github.com/juspay/neurolink/blob/relea
 
 ### toolChoice?
 
-> `optional` **toolChoice?**: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>
+> `optional` **toolChoice?**: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>
 
 Defined in: [types/stream.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L451)
 
@@ -539,7 +539,7 @@ Mirrors generate() so translated/fallback requests can preserve forced tool use.
 
 ### prepareStep?
 
-> `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `toolChoice?`: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>; `activeTools?`: `Record`\<`string`, `Tool`\>; \} \| `undefined`\>
+> `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `activeTools?`: `Record`\<`string`, [`Tool`](Tool.md)\>; \} \| `undefined`\>
 
 Defined in: [types/stream.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L456)
 
@@ -551,7 +551,7 @@ Optional callback that runs before each stream step in a multi-step generation.
 
 ###### steps
 
-`StepResult`\<`Record`\<`string`, `Tool`\>\>[]
+[`StepResult`](StepResult.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>[]
 
 ###### stepNumber
 
@@ -563,11 +563,11 @@ Optional callback that runs before each stream step in a multi-step generation.
 
 ###### model
 
-`LanguageModel`
+[`LanguageModel`](LanguageModel.md)
 
 #### Returns
 
-`PromiseLike`\<\{ `toolChoice?`: `ToolChoice`\<`Record`\<`string`, `Tool`\>\>; `activeTools?`: `Record`\<`string`, `Tool`\>; \} \| `undefined`\>
+`PromiseLike`\<\{ `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `activeTools?`: `Record`\<`string`, [`Tool`](Tool.md)\>; \} \| `undefined`\>
 
 ---
 

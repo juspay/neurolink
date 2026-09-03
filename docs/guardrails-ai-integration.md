@@ -31,8 +31,8 @@ graph TD
 The easiest way to enable guardrails is to use the `security` preset when creating your `MiddlewareFactory`. This preset is specifically designed to enable the `guardrails` middleware with a default configuration.
 
 ```typescript
-import { MiddlewareFactory } from "@neurolink/middleware";
-import type { LanguageModelV1 } from "ai";
+import { MiddlewareFactory } from "@juspay/neurolink";
+import type { LanguageModel } from "@juspay/neurolink";
 
 // 1. Create a factory with the 'security' preset
 const factory = new MiddlewareFactory({ preset: "security" });

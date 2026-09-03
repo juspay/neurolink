@@ -3,12 +3,28 @@ import { BaseProvider } from "../core/baseProvider.js";
 import { createStreamChannel } from "../core/streamChannel.js";
 import type { NeuroLink } from "../neurolink.js";
 import type {
+  EnhancedGenerateResult,
+  TextGenerationOptions,
+  Tool,
+  ToolExecutionSummaryInternal,
+  ValidationSchema,
+  ZodUnknownSchema,
   SageMakerConfig,
   SageMakerModelConfig,
   StreamOptions,
   SageMakerAsLanguageModel,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
+import { resolveRequestKind } from "../core/resolveRequestKind.js";
+import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
+import { transformToolExecutions } from "../utils/transformationUtils.js";
+import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
+import { withProviderRetry } from "../utils/providerRetry.js";
+import { DEFAULT_MAX_STEPS } from "../core/constants.js";
+import {
+  hasNativeDoGenerate,
+  runNativeGenerateLoop,
+} from "../core/nativeGenerateLoop.js";
 import { withSpan } from "../telemetry/withSpan.js";
 import { tracers } from "../telemetry/tracers.js";
 // SageMaker-specific imports
@@ -132,6 +148,147 @@ export class AmazonSageMakerProvider extends BaseProvider {
     // single-assertable to the AI SDK LanguageModel handle.
     const smModel: SageMakerAsLanguageModel = this.sagemakerModel;
     return smModel as LanguageModel;
+  }
+
+  /**
+   * Native non-streaming generate.
+   *
+   * SageMaker's doGenerate makes one invokeEndpoint call and already returns
+   * toolCalls; no streaming is involved, so the wire hazard that reverted the
+   * first migration does not apply here. This supplies only the multi-step
+   * iteration the ai package used to.
+   *
+   * NOT EXERCISED LIVE. This machine has no SageMaker endpoint or credentials.
+   * The single-step shape is identical by construction — with no tool calls the
+   * loop breaks after exactly one doGenerate carrying the same options the ai
+   * loop passed. The multi-step branch is the new code and wants a real
+   * endpoint before it is trusted.
+   */
+  override async generate(
+    optionsOrPrompt: TextGenerationOptions | string,
+    analysisSchema?: ValidationSchema,
+  ): Promise<EnhancedGenerateResult | null> {
+    await this.ensureModelLimits();
+    const options = this.normalizeTextOptions(optionsOrPrompt);
+    if (resolveRequestKind(options, this.modelName) !== "text") {
+      return super.generate(options, analysisSchema);
+    }
+    this.validateOptions(options);
+    const mergedTools = await this.getToolsForStream(options);
+    const callerOwnsFallback =
+      "disableInternalFallback" in options &&
+      options.disableInternalFallback === true;
+    // The native loop bypasses BaseProvider.executeGeneration, so the turn
+    // budget has to be composed here or it stops existing for this provider.
+    return this.runGenerateWithModelFallback(
+      () =>
+        this.withTurnTimeout(
+          { ...options, tools: mergedTools },
+          this.getDescriptorGenerateMs(),
+          (timedOptions) => this.executeNativeGenerate(timedOptions),
+        ),
+      callerOwnsFallback,
+    );
+  }
+
+  private async executeNativeGenerate(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const startTime = Date.now();
+    // Middleware must wrap the model here. The native loop bypasses
+    // BaseProvider.executeGeneration, and with it the only place middleware was
+    // ever applied — a probe showed a caller's wrapGenerate running zero times
+    // on every native provider while their onFinish still fired, because
+    // onFinish had been special-cased and nothing else had.
+    const model = await this.getAISDKModelWithMiddleware(options);
+    if (!hasNativeDoGenerate(model)) {
+      throw this.handleProviderError(
+        new Error("sagemaker: model handle exposes no doGenerate()"),
+      );
+    }
+    const doGenerate = model.doGenerate.bind(model);
+
+    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const toolsRecord = shouldUseTools
+      ? (options.tools as Record<string, Tool>) || {}
+      : {};
+    const v3Tools = Object.entries(toolsRecord).map(([name, t]) => {
+      const tool = t as { description?: string; inputSchema?: unknown };
+      return {
+        type: "function" as const,
+        name,
+        description: tool.description ?? "",
+        inputSchema: (tool.inputSchema
+          ? convertZodToJsonSchema(tool.inputSchema as ZodUnknownSchema)
+          : { type: "object", properties: {} }) as Record<string, unknown>,
+      };
+    });
+
+    // Structured output was dropped entirely on this path: the schema never
+    // reached the request, and nothing downstream re-imposed it, so a caller
+    // asking for an object got whatever JSON coerceJsonToSchema could scrape
+    // out of prose.
+    const responseFormat = options.schema
+      ? {
+          type: "json" as const,
+          schema: convertZodToJsonSchema(
+            options.schema as ZodUnknownSchema,
+          ) as Record<string, unknown>,
+        }
+      : undefined;
+
+    const conversation = (await this.buildMessagesForStream(
+      options as StreamOptions,
+    )) as Array<Record<string, unknown>>;
+
+    const toolExecutionSummaries: ToolExecutionSummaryInternal[] = [];
+    const loop = await runNativeGenerateLoop(
+      {
+        doGenerate,
+        conversation,
+        ...(responseFormat ? { responseFormat } : {}),
+        ...(v3Tools.length > 0 ? { tools: v3Tools } : {}),
+        toolsRecord,
+        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+        ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
+        ...(options.temperature !== undefined
+          ? { temperature: options.temperature }
+          : {}),
+        ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
+        ...(options.toolTimeoutMs !== undefined
+          ? { toolTimeoutMs: options.toolTimeoutMs }
+          : {}),
+        runStep: (call) =>
+          withProviderRetry<Record<string, unknown>>(
+            call,
+            undefined,
+            "sagemaker generate",
+          ).catch((err: unknown) => {
+            throw this.handleProviderError(err);
+          }),
+      },
+      toolExecutionSummaries,
+    );
+
+    const enhanced: EnhancedGenerateResult = {
+      content: loop.text,
+      provider: this.providerName,
+      model: this.modelName,
+      finishReason: loop.finishReason,
+      usage: {
+        input: loop.inputTokens,
+        output: loop.outputTokens,
+        total: loop.inputTokens + loop.outputTokens,
+      },
+      responseTime: Date.now() - startTime,
+      toolsUsed: loop.toolsUsed,
+      toolExecutions: resolveToolExecutionRecords(
+        options,
+        transformToolExecutions(toolExecutionSummaries),
+      ),
+      enhancedWithTools: loop.toolsUsed.length > 0,
+    };
+    return this.finalizeNativeGenerate(enhanced, options, startTime);
   }
 
   /**

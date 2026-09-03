@@ -421,34 +421,82 @@ export class AudioProcessor extends BaseFileProcessor<ProcessedAudio> {
     }
 
     try {
-      // Dynamic imports to avoid loading these modules when transcription is not needed
-      const [{ createOpenAI }, { experimental_transcribe }] = await Promise.all(
-        [import("@ai-sdk/openai"), import("../../utils/generation.js")],
-      );
+      // Native multipart POST to OpenAI's transcription endpoint. This used to
+      // go through @ai-sdk/openai's createOpenAI().transcription() plus the ai
+      // package's experimental_transcribe; both were dropped, and this is the
+      // only wire behaviour of theirs the processor ever depended on. The same
+      // request is already made natively by voice/providers/OpenAISTT.ts.
+      // Only `text` is read off the response, as before.
+      const baseUrl = (
+        process.env.OPENAI_BASE_URL ?? "https://api.openai.com/v1"
+      ).replace(/\/+$/, "");
 
-      const openai = createOpenAI({ apiKey });
-      const model = openai.transcription("whisper-1");
+      const form = new FormData();
+      form.append(
+        "file",
+        new Blob([new Uint8Array(buffer)], {
+          type: mimetype || "audio/mpeg",
+        }),
+        filename,
+      );
+      form.append("model", "whisper-1");
+      form.append("response_format", "verbose_json");
 
       // Wrap in withTimeout — large audio files can take a while, but a
       // stalled request shouldn't block the processor forever. A TimeoutError
       // lands in the same handler as other failures below, which reports it as
       // the reason rather than discarding it.
-      const result = await withTimeout(
-        experimental_transcribe({
-          model,
-          audio: buffer,
-        }),
+      // `withTimeout` only races the promise against a timer — it cannot
+      // cancel the operation. This code owns the raw fetch now, so without an
+      // abort the socket and its in-flight upload (up to 25MB) stay alive
+      // after the timeout has already resolved the caller.
+      const transcriptionAbort = new AbortController();
+      const transcriptionTimer = setTimeout(
+        () => transcriptionAbort.abort(),
         AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
-        "openai-whisper",
-        "generate",
       );
+      let response: Response;
+      try {
+        response = await withTimeout(
+          fetch(`${baseUrl}/audio/transcriptions`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${apiKey}` },
+            body: form,
+            signal: transcriptionAbort.signal,
+          }),
+          AUDIO_CONFIG.TRANSCRIPTION_TIMEOUT_MS,
+          "openai-whisper",
+          "generate",
+        );
+      } finally {
+        clearTimeout(transcriptionTimer);
+      }
 
-      if (result.text && result.text.trim().length > 0) {
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        // Mirrors the old behaviour: a non-2xx used to surface as a thrown
+        // APICallError caught by the handler below and reported as the reason.
+        return skipped(
+          `transcription request failed — HTTP ${response.status}${
+            detail ? `: ${detail.slice(0, 200)}` : ""
+          }`,
+        );
+      }
+
+      const payload: unknown = await response.json();
+      const rawText =
+        typeof payload === "object" &&
+        payload !== null &&
+        typeof (payload as { text?: unknown }).text === "string"
+          ? (payload as { text: string }).text
+          : "";
+
+      if (rawText.trim().length > 0) {
         logger.debug(
-          `[AudioProcessor] Transcribed ${filename} via openai-whisper (${result.text.trim().length} chars)`,
+          `[AudioProcessor] Transcribed ${filename} via openai-whisper (${rawText.trim().length} chars)`,
         );
         return {
-          transcript: result.text.trim(),
+          transcript: rawText.trim(),
           hasTranscript: true,
           transcriptionProvider: "openai-whisper",
           transcriptionSkippedReason: undefined,

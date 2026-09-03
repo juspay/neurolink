@@ -41,6 +41,7 @@ import {
   wrapFetchWithLimitCapture,
 } from "./rateLimitCapture.js";
 import type {
+  ToolExecutionSummaryInternal,
   AnthropicProviderConfig,
   StreamOptions,
   StreamResult,
@@ -88,6 +89,14 @@ import { stringifyAnthropicToolOutput } from "./toolOutput.js";
 import { createAnthropicLoopAdapter } from "./loopAdapter.js";
 import type { AgenticLoopReclaimResult } from "../../types/index.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
+import {
+  hasNativeDoGenerate,
+  runNativeGenerateLoop,
+} from "../../core/nativeGenerateLoop.js";
+import { withProviderRetry } from "../../utils/providerRetry.js";
+import { resolveRequestKind } from "../../core/resolveRequestKind.js";
+import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
+import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import {
   createAnthropicConfig,
   getProviderModel,
@@ -1693,7 +1702,7 @@ export class AnthropicProvider extends BaseProvider {
     // generate() calls can be in flight on one provider instance, and an
     // instance field would attribute one call's limits to another.
     const { result, snapshot } = await withLimitCapture(() =>
-      super.generate(optionsOrPrompt, analysisSchema),
+      this.dispatchGenerate(optionsOrPrompt, analysisSchema),
     );
     if (result && snapshot) {
       this.recordLimitSnapshot(snapshot);
@@ -1703,6 +1712,193 @@ export class AnthropicProvider extends BaseProvider {
       }
     }
     return result;
+  }
+
+  /**
+   * Text turns run natively; every other request kind still goes to
+   * BaseProvider.generate().
+   *
+   * The loop runs over this provider's own delegating-model `doGenerate`,
+   * which issues a NON-streaming `messages.create`. That matters: the streaming
+   * loop adapter hardcodes `stream: true`, and an earlier attempt that routed
+   * generate through it silently changed the wire.
+   */
+  private async dispatchGenerate(
+    optionsOrPrompt: TextGenerationOptions | string,
+    analysisSchema?: ValidationSchema,
+  ): Promise<EnhancedGenerateResult | null> {
+    await this.ensureModelLimits();
+    const options = this.normalizeTextOptions(optionsOrPrompt);
+    if (resolveRequestKind(options, this.modelName) !== "text") {
+      return super.generate(options, analysisSchema);
+    }
+    this.validateOptions(options);
+    const mergedTools = await this.getToolsForStream(options);
+    const callerOwnsFallback =
+      "disableInternalFallback" in options &&
+      options.disableInternalFallback === true;
+    // The native loop bypasses BaseProvider.executeGeneration, so the turn
+    // budget has to be composed here or it stops existing for this provider.
+    return this.runGenerateWithModelFallback(
+      () =>
+        this.withTurnTimeout(
+          { ...options, tools: mergedTools },
+          this.getDescriptorGenerateMs(),
+          (timedOptions) => this.executeNativeGenerate(timedOptions),
+        ),
+      callerOwnsFallback,
+    );
+  }
+
+  private async executeNativeGenerate(
+    options: TextGenerationOptions,
+  ): Promise<EnhancedGenerateResult> {
+    const startTime = Date.now();
+    const modelId = this.modelName || getDefaultAnthropicModel();
+    // Middleware must wrap the model here. The native loop bypasses
+    // BaseProvider.executeGeneration, and with it the only place middleware was
+    // ever applied — a probe showed a caller's wrapGenerate running zero times
+    // on every native provider while their onFinish still fired, because
+    // onFinish had been special-cased and nothing else had.
+    const model = await this.getAISDKModelWithMiddleware(options);
+    if (!hasNativeDoGenerate(model)) {
+      throw this.handleProviderError(
+        new Error("anthropic: model handle exposes no doGenerate()"),
+      );
+    }
+    const doGenerate = model.doGenerate.bind(model);
+
+    const shouldUseTools = !options.disableTools && this.supportsTools();
+    const toolsRecord = shouldUseTools
+      ? (options.tools as Record<string, Tool>) || {}
+      : {};
+    const v3Tools = Object.entries(toolsRecord).map(([name, t]) => {
+      const tool = t as { description?: string; inputSchema?: unknown };
+      return {
+        type: "function" as const,
+        name,
+        description: tool.description ?? "",
+        inputSchema: (tool.inputSchema
+          ? convertZodToJsonSchema(tool.inputSchema as ZodUnknownSchema)
+          : { type: "object", properties: {} }) as Record<string, unknown>,
+      };
+    });
+    const hasTools = v3Tools.length > 0;
+
+    // Two structured-output routes, and doGenerate implements both. With no
+    // tools it replaces the tool list with one forced json tool; with tools it
+    // APPENDS final_result so the real tools stay callable. Picking the wrong
+    // one is what dropped structuredData to null on the first attempt.
+    const schemaJson = options.schema
+      ? (convertZodToJsonSchema(options.schema as ZodUnknownSchema) as Record<
+          string,
+          unknown
+        >)
+      : undefined;
+    const responseFormat =
+      schemaJson && !hasTools
+        ? { type: "json" as const, schema: schemaJson }
+        : undefined;
+
+    const anthropicNamespace: Record<string, unknown> = {};
+    if (schemaJson && hasTools) {
+      anthropicNamespace.finalResultSchema = schemaJson;
+    }
+    if (
+      options.thinkingConfig?.enabled &&
+      options.thinkingConfig.budgetTokens
+    ) {
+      anthropicNamespace.thinking = {
+        type: "enabled" as const,
+        budget_tokens: options.thinkingConfig.budgetTokens,
+      };
+    }
+    // The per-call `timeout` keeps its per-MODEL-CALL meaning once
+    // `turnTimeoutMs` owns the whole-turn deadline, and it reaches the model
+    // layer only through providerOptions.neurolink. Without it each step fell
+    // back to the provider default.
+    const mergedProviderOptions: Record<string, Record<string, unknown>> = {};
+    if (Object.keys(anthropicNamespace).length > 0) {
+      mergedProviderOptions.anthropic = anthropicNamespace;
+    }
+    if (typeof options.timeout === "number") {
+      mergedProviderOptions.neurolink = { timeoutMs: options.timeout };
+    }
+    const providerOptions =
+      Object.keys(mergedProviderOptions).length > 0
+        ? mergedProviderOptions
+        : undefined;
+
+    const conversation = (await this.buildMessagesForStream(
+      options as StreamOptions,
+    )) as Array<Record<string, unknown>>;
+
+    const toolExecutionSummaries: ToolExecutionSummaryInternal[] = [];
+    const loop = await runNativeGenerateLoop(
+      {
+        doGenerate,
+        conversation,
+        ...(hasTools ? { tools: v3Tools } : {}),
+        toolsRecord,
+        // A caller's toolChoice was dropped here while the streaming path and
+        // the OpenAI-compatible native path both forwarded it, so
+        // `toolChoice: "required"` and named-tool choices silently degraded to
+        // Anthropic's default `auto` on generate().
+        ...(hasTools && options.toolChoice
+          ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
+          : {}),
+        ...(responseFormat ? { responseFormat } : {}),
+        ...(providerOptions ? { providerOptions } : {}),
+        maxSteps: options.maxSteps || DEFAULT_MAX_STEPS,
+        ...(options.maxTokens ? { maxOutputTokens: options.maxTokens } : {}),
+        ...(options.temperature !== undefined
+          ? { temperature: options.temperature }
+          : {}),
+        ...(options.abortSignal ? { abortSignal: options.abortSignal } : {}),
+        ...(options.toolTimeoutMs !== undefined
+          ? { toolTimeoutMs: options.toolTimeoutMs }
+          : {}),
+        runStep: (call) =>
+          withProviderRetry<Record<string, unknown>>(
+            call,
+            trace.getActiveSpan() ?? undefined,
+            "anthropic generate",
+          ).catch((err: unknown) => {
+            throw this.handleProviderError(err);
+          }),
+      },
+      toolExecutionSummaries,
+    );
+
+    const enhanced: EnhancedGenerateResult = {
+      content: loop.text,
+      provider: this.providerName,
+      model: modelId,
+      finishReason: loop.finishReason,
+      ...(loop.rawFinishReason
+        ? { rawFinishReason: loop.rawFinishReason }
+        : {}),
+      usage: {
+        input: loop.inputTokens,
+        output: loop.outputTokens,
+        total: loop.inputTokens + loop.outputTokens,
+        ...(loop.cacheReadTokens
+          ? { cacheReadTokens: loop.cacheReadTokens }
+          : {}),
+        ...(loop.cacheWriteTokens
+          ? { cacheCreationTokens: loop.cacheWriteTokens }
+          : {}),
+      },
+      responseTime: Date.now() - startTime,
+      toolsUsed: loop.toolsUsed,
+      toolExecutions: resolveToolExecutionRecords(
+        options,
+        transformToolExecutions(toolExecutionSummaries),
+      ),
+      enhancedWithTools: loop.toolsUsed.length > 0,
+    };
+
+    return this.finalizeNativeGenerate(enhanced, options, startTime);
   }
 
   /**

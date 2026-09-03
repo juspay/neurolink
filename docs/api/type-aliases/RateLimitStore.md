@@ -8,7 +8,7 @@
 
 > **RateLimitStore** = `object`
 
-Defined in: [types/middleware.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L450)
+Defined in: [types/middleware.ts:444](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L444)
 
 Rate-limit store contract (memory or Redis).
 
@@ -18,7 +18,7 @@ Rate-limit store contract (memory or Redis).
 
 > **get**(`key`): `Promise`\<[`RateLimitEntry`](RateLimitEntry.md) \| `undefined`\>
 
-Defined in: [types/middleware.ts:451](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L451)
+Defined in: [types/middleware.ts:445](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L445)
 
 #### Parameters
 
@@ -36,7 +36,7 @@ Defined in: [types/middleware.ts:451](https://github.com/juspay/neurolink/blob/r
 
 > **set**(`key`, `entry`): `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L452)
+Defined in: [types/middleware.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L446)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ Defined in: [types/middleware.ts:452](https://github.com/juspay/neurolink/blob/r
 
 > **increment**(`key`, `windowMs`): `Promise`\<[`RateLimitEntry`](RateLimitEntry.md)\>
 
-Defined in: [types/middleware.ts:453](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L453)
+Defined in: [types/middleware.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L447)
 
 #### Parameters
 
@@ -80,7 +80,7 @@ Defined in: [types/middleware.ts:453](https://github.com/juspay/neurolink/blob/r
 
 > **reset**(`key`): `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L454)
+Defined in: [types/middleware.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L448)
 
 #### Parameters
 

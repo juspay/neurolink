@@ -6942,51 +6942,6 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Invoke `options.onFinish` with the lifecycle payload shape consumers
-   * (and `test:middleware`) expect. Pulled out so generate / image-gen /
-   * Anthropic / Gemini code paths share one implementation. Errors thrown
-   * by the user's callback are swallowed so they cannot poison the
-   * primary generate path — same contract as the AI SDK middleware
-   * wrapGenerate uses.
-   */
-  private fireGenerateOnFinish(
-    options: TextGenerationOptions,
-    result: EnhancedGenerateResult | null,
-    startTime: number,
-  ): void {
-    const onFinish = (options as { onFinish?: (payload: unknown) => unknown })
-      .onFinish;
-    if (typeof onFinish !== "function") {
-      return;
-    }
-    try {
-      const usage = result?.usage as
-        | { input?: number; output?: number; total?: number }
-        | undefined;
-      const callbackResult = onFinish({
-        text: result?.content || "",
-        usage: usage
-          ? {
-              promptTokens: usage.input ?? 0,
-              completionTokens: usage.output ?? 0,
-            }
-          : undefined,
-        duration: Date.now() - startTime,
-        finishReason: result?.finishReason ?? "stop",
-      });
-      Promise.resolve(callbackResult).catch((err) =>
-        logger.warn(
-          `[GoogleVertex] onFinish callback rejected: ${err instanceof Error ? err.message : String(err)}`,
-        ),
-      );
-    } catch (err) {
-      logger.warn(
-        `[GoogleVertex] onFinish callback threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  /**
    * Invoke `options.onError` with the lifecycle payload shape consumers
    * (and `test:middleware`) expect. Mirrors {@link fireGenerateOnFinish}.
    */

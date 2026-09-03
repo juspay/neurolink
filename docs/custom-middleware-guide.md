@@ -1127,8 +1127,7 @@ describe("LoggingMiddleware", () => {
 Test middleware with actual models:
 
 ```typescript
-import { MiddlewareFactory } from "@juspay/neurolink";
-import { openai } from "@ai-sdk/openai";
+import { AIProviderFactory, MiddlewareFactory } from "@juspay/neurolink";
 import { createCachingMiddleware } from "./caching-middleware";
 
 describe("CachingMiddleware Integration", () => {
@@ -1142,8 +1141,14 @@ describe("CachingMiddleware Integration", () => {
       middleware: [cachingMiddleware],
     });
 
-    const baseModel = openai("gpt-3.5-turbo");
-    const context = factory.createContext("openai", "gpt-3.5-turbo");
+    // NeuroLink no longer depends on the Vercel AI SDK; get the model handle
+    // from its own provider factory.
+    const provider = await AIProviderFactory.createProvider(
+      "openai",
+      "gpt-4o-mini",
+    );
+    const baseModel = await provider.getModel();
+    const context = factory.createContext("openai", "gpt-4o-mini");
     const wrappedModel = factory.applyMiddleware(baseModel, context, {
       enabledMiddleware: ["response-cache"],
     });

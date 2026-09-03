@@ -377,6 +377,11 @@ export {
 } from "./middleware/builtin/analytics.js";
 export { createLifecycleMiddleware } from "./middleware/builtin/lifecycle.js";
 export { MiddlewareFactory } from "./middleware/factory.js";
+
+// Tool + schema helpers. Previously a consumer reached for `tool()` and
+// `jsonSchema()` from the ai package to build tools for generate({tools}).
+// That package is no longer a dependency, so the equivalents ship here.
+export { tool, jsonSchema, stepCountIs } from "./utils/tool.js";
 export { ExporterRegistry } from "./observability/exporterRegistry.js";
 export { NoOpExporter } from "./observability/exporters/baseExporter.js";
 // Observability modules and types

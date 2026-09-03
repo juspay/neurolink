@@ -199,8 +199,7 @@ console.log("Finish reason:", result.finishReason);
 Tools work transparently during streaming. The model calls tools mid-stream, receives results, and continues generating. You consume the stream exactly the same way -- tool execution happens behind the scenes.
 
 ```typescript
-import { NeuroLink } from "@juspay/neurolink";
-import { tool } from "ai";
+import { NeuroLink, tool } from "@juspay/neurolink";
 import { z } from "zod";
 
 const neurolink = new NeuroLink();

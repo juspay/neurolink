@@ -283,7 +283,7 @@ The OpenAI provider fully supports tool use (`supportsTools()` returns `true`). 
 
 ```typescript
 import { z } from "zod";
-import { tool } from "ai";
+import { tool } from "@juspay/neurolink";
 
 const weatherTool = tool({
   description: "Get current weather for a location",

@@ -57,7 +57,7 @@ export type {
   LanguageModelUsage,
   LanguageModelRequestMetadata,
   LanguageModelResponseMetadata,
-} from "ai";
+} from "./aiCompat.js";
 
 // Re-export subscription types for convenience
 export type {

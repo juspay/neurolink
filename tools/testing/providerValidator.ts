@@ -298,13 +298,18 @@ class ProviderValidator {
    */
   async checkModuleAvailability(provider: string) {
     const moduleMap: Record<string, string> = {
-      openai: "@ai-sdk/openai",
-      anthropic: "@ai-sdk/anthropic",
-      google: "@ai-sdk/google",
+      // Native SDKs — the @ai-sdk/* wrappers these used to name are gone.
+      anthropic: "@anthropic-ai/sdk",
+      google: "@google/genai",
       "aws-bedrock": "@aws-sdk/client-bedrock",
-      azure: "@ai-sdk/openai",
       ollama: "ollama",
     };
+
+    // openai and azure speak the chat-completions wire through the in-repo
+    // OpenAIChatCompletionsProvider, exactly like the catalog providers below.
+    // They named @ai-sdk/openai until that package was removed, at which point
+    // resolving it reported both as unavailable.
+    const NATIVE_WIRE_PROVIDERS = new Set(["openai", "azure"]);
 
     try {
       // All 9 JSON-catalog providers (mistral and groq included — they no
@@ -313,6 +318,9 @@ class ProviderValidator {
       // ConfiguredOpenAICompatProvider wire client, so there is no external
       // SDK module to resolve.
       if (CATALOG_PROVIDER_ID_SET.has(provider)) {
+        return true;
+      }
+      if (NATIVE_WIRE_PROVIDERS.has(provider)) {
         return true;
       }
       const moduleName = moduleMap[provider];

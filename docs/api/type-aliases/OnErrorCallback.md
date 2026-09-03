@@ -8,7 +8,7 @@
 
 > **OnErrorCallback** = (`payload`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/middleware.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L350)
+Defined in: [types/middleware.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/middleware.ts#L344)
 
 Callback invoked when generation or streaming encounters an error.
 

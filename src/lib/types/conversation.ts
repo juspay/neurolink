@@ -54,7 +54,7 @@ export type {
   UserContent,
   ToolContent,
   DataContent,
-} from "ai";
+} from "./aiCompat.js";
 
 /**
  * Legacy public alias for the Hippocampus storage configuration.

@@ -45,7 +45,7 @@ strategy based on the configuration and executes it.
 
 ##### options
 
-`LanguageModelV3CallOptions`
+[`LanguageModelV3CallOptions`](../type-aliases/LanguageModelV3CallOptions.md)
 
 The original `TextGenerationOptions` from the user request.
 

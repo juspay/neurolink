@@ -21,14 +21,14 @@ import type { MCPToolAnnotations } from "./mcp.js";
 import type { Logger } from "./utilities.js";
 import type { HITLExecutionState } from "./hitl.js";
 
-// Tool + schema primitives. Today these resolve through the upstream generation
-// library; consumers should import via the package barrel.
-import type { Tool } from "ai";
+// Tool + schema primitives. Declared locally in ./aiCompat.js; this file stays
+// the public path for them so the barrel keeps exporting exactly one binding
+// per name (two `export *` sources for the same name silently drop it).
+import type { Tool } from "./aiCompat.js";
 export type {
   Tool,
   ToolSet,
   ToolChoice,
-  ToolCallOptions,
   ToolExecuteFunction,
   ToolApprovalRequest,
   ToolApprovalResponse,
@@ -37,7 +37,7 @@ export type {
   Schema,
   FlexibleSchema,
   InferSchema,
-} from "ai";
+} from "./aiCompat.js";
 
 /**
  * Commonly used Zod schema type aliases for cleaner type declarations

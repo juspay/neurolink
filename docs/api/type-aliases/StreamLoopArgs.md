@@ -86,7 +86,7 @@ Defined in: [types/openaiCompatible.ts:307](https://github.com/juspay/neurolink/
 
 ### toolsRecord
 
-> **toolsRecord**: `Record`\<`string`, `Tool`\>
+> **toolsRecord**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Defined in: [types/openaiCompatible.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L308)
 

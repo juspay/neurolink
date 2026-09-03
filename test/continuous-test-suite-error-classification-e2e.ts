@@ -4,7 +4,7 @@ import http from "node:http";
 import http2 from "node:http2";
 import type { AddressInfo } from "node:net";
 import { z } from "zod";
-import { tool } from "ai";
+import { tool } from "../dist/index.js";
 
 /**
  * Continuous Test Suite — end-to-end provider error classification.

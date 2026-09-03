@@ -88,7 +88,7 @@ the adapter is about to overwrite.
 
 ### toolsRecord
 
-> **toolsRecord**: `Record`\<`string`, `Tool`\>
+> **toolsRecord**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
 Defined in: [types/loopEngine.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/loopEngine.ts#L308)
 
