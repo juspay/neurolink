@@ -86,7 +86,14 @@ function probeInstaller(
     }
 
     base.installable = true;
-    base.matchesCurrentInstall = isPathInside(entryScript, base.globalRoot);
+    // Global npm packages install their entrypoints under <prefix>/bin while
+    // their package contents live in <prefix>/lib/node_modules. A running
+    // process can retain its argv path after that shim has disappeared, so
+    // retain the lexical bin-directory check as well as the resolved package
+    // root check.
+    base.matchesCurrentInstall =
+      isPathInside(entryScript, base.globalRoot) ||
+      isPathInside(entryScript, base.globalBinDir);
     return base;
   } catch (error) {
     base.reason = error instanceof Error ? error.message : String(error);
