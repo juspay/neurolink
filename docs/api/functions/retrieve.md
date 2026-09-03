@@ -6,7 +6,7 @@
 
 # Function: retrieve()
 
-> **retrieve**(`snapshot`, `request`, `config`, `blockedDomains?`): `KnowledgeSelection`
+> **retrieve**(`snapshot`, `request`, `config`, `blockedDomains?`): [`KnowledgeSelection`](../type-aliases/KnowledgeSelection.md)
 
 Defined in: [knowledge/retrieval.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/retrieval.ts#L160)
 
@@ -26,7 +26,7 @@ a confidence class. Context assembly is a separate, later step.
 
 ### config
 
-`KnowledgeResolvedRetrieval`
+[`KnowledgeResolvedRetrieval`](../type-aliases/KnowledgeResolvedRetrieval.md)
 
 ### blockedDomains?
 
@@ -34,4 +34,4 @@ a confidence class. Context assembly is a separate, later step.
 
 ## Returns
 
-`KnowledgeSelection`
+[`KnowledgeSelection`](../type-aliases/KnowledgeSelection.md)

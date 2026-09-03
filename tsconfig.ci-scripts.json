@@ -29,6 +29,7 @@
   "include": [
     "scripts/build-validations.ts",
     "scripts/check-banned-deps.ts",
+    "scripts/check-shipped-types.ts",
     "scripts/env-validation.ts",
     "scripts/security-check.ts",
     "tools/verify-provider-onboarding.ts",

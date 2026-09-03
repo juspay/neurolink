@@ -8,7 +8,7 @@
 
 > **KnowledgeGroundingInput** = `object`
 
-Defined in: [types/knowledge.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L474)
+Defined in: [types/knowledge.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L481)
 
 Per-turn input to `KnowledgeGroundingEngine.ground()`.
 
@@ -18,7 +18,7 @@ Per-turn input to `KnowledgeGroundingEngine.ground()`.
 
 > **query**: `string`
 
-Defined in: [types/knowledge.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L475)
+Defined in: [types/knowledge.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L482)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/knowledge.ts:475](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **recentTurns?**: [`KnowledgeConversationTurn`](KnowledgeConversationTurn.md)[]
 
-Defined in: [types/knowledge.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L476)
+Defined in: [types/knowledge.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L483)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/knowledge.ts:476](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **scope?**: [`KnowledgeRequestScope`](KnowledgeRequestScope.md)
 
-Defined in: [types/knowledge.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L477)
+Defined in: [types/knowledge.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L484)

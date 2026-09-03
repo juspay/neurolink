@@ -410,8 +410,15 @@ export type KnowledgeValidationResult = {
 };
 
 // ---------------------------------------------------------------------------
-// Engine-internal working types (kept here per the repo rule that every type
-// alias lives in src/lib/types/, including @internal ones).
+// Engine working types (kept here per the repo rule that every type alias lives
+// in src/lib/types/, including @internal ones).
+//
+// Only types that never reach an emitted signature carry @internal. The rest
+// are public by construction: they appear in the .d.ts of public runtime
+// exports (assembleKnowledgeContext, retrieve, resolveEntry, manifestToSources,
+// normalizeAndValidate), and `stripInternal` does not rewrite the imports that
+// reference them — tagging those produced .d.ts files that failed to compile
+// for any consumer using skipLibCheck: false.
 // ---------------------------------------------------------------------------
 
 /** A source after loading: raw entries plus the version to apply. @internal */
@@ -421,18 +428,18 @@ export type KnowledgeLoadedSource = {
   entries: KnowledgeEntryInput[];
 };
 
-/** Options for normalizing + validating a set of sources before indexing. @internal */
+/** Options for normalizing + validating a set of sources before indexing. */
 export type KnowledgeNormalizeOptions = {
   manifestVersion: string;
 };
 
-/** Normalized entries paired with the validation outcome. @internal */
+/** Normalized entries paired with the validation outcome. */
 export type KnowledgeNormalizeResult = {
   entries: NormalizedKnowledgeEntry[];
   validation: KnowledgeValidationResult;
 };
 
-/** Retrieval tuning after config + SDK defaults are merged. @internal */
+/** Retrieval tuning after config + SDK defaults are merged. */
 export type KnowledgeResolvedRetrieval = {
   candidateLimit: number;
   resultLimit: number;
@@ -442,7 +449,7 @@ export type KnowledgeResolvedRetrieval = {
   aliasBoost: number;
 };
 
-/** One scored retrieval candidate with its signal breakdown, for traces. @internal */
+/** One scored retrieval candidate with its signal breakdown, for traces. */
 export type KnowledgeScoredCandidate = {
   id: string;
   score: number;
@@ -453,7 +460,7 @@ export type KnowledgeScoredCandidate = {
   matchedPhrases: string[];
 };
 
-/** The selected primary + relationship-expanded entries for one turn. @internal */
+/** The selected primary + relationship-expanded entries for one turn. */
 export type KnowledgeSelection = {
   primary: NormalizedKnowledgeEntry[];
   expanded: NormalizedKnowledgeEntry[];
@@ -462,7 +469,7 @@ export type KnowledgeSelection = {
   candidateCount: number;
 };
 
-/** The assembled ephemeral-context string plus its diagnostics. @internal */
+/** The assembled ephemeral-context string plus its diagnostics. */
 export type KnowledgeAssembledContext = {
   assembledContext: string;
   citations: KnowledgeCitation[];

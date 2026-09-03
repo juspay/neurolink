@@ -6,7 +6,7 @@
 
 # Function: assembleKnowledgeContext()
 
-> **assembleKnowledgeContext**(`selection`, `config`): `KnowledgeAssembledContext`
+> **assembleKnowledgeContext**(`selection`, `config`): [`KnowledgeAssembledContext`](../type-aliases/KnowledgeAssembledContext.md)
 
 Defined in: [knowledge/context.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/context.ts#L77)
 
@@ -19,7 +19,7 @@ entry was degraded or dropped for budget.
 
 ### selection
 
-`KnowledgeSelection`
+[`KnowledgeSelection`](../type-aliases/KnowledgeSelection.md)
 
 ### config
 
@@ -27,4 +27,4 @@ entry was degraded or dropped for budget.
 
 ## Returns
 
-`KnowledgeAssembledContext`
+[`KnowledgeAssembledContext`](../type-aliases/KnowledgeAssembledContext.md)
