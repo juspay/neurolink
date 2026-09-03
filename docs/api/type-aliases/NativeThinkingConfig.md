@@ -8,7 +8,7 @@
 
 > **NativeThinkingConfig** = `object`
 
-Defined in: [types/config.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L599)
+Defined in: [types/config.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L606)
 
 Native SDK thinkingConfig structure for Gemini native SDK.
 
@@ -18,7 +18,7 @@ Native SDK thinkingConfig structure for Gemini native SDK.
 
 > **includeThoughts**: `boolean`
 
-Defined in: [types/config.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L600)
+Defined in: [types/config.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L607)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/config.ts:600](https://github.com/juspay/neurolink/blob/relea
 
 > **thinkingLevel**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/config.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L601)
+Defined in: [types/config.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L608)

@@ -8,6 +8,8 @@
  * @module types/artifactTypes
  */
 
+import type { RedisStorageConfig } from "./conversation.js";
+
 // ---------------------------------------------------------------------------
 // Artifact metadata & reference
 // ---------------------------------------------------------------------------
@@ -101,15 +103,71 @@ export type ArtifactPageRequest = {
   limit?: number;
 };
 
+/**
+ * One window of an artifact, as returned by `ArtifactStore.retrieveRange` or
+ * by the shared reader when the store only supports whole-payload reads.
+ *
+ * Offsets and lengths are CHARACTERS (UTF-16 code units, the unit
+ * `String.prototype.slice` and `retrieve_context`'s `offset` / `limit` use),
+ * never bytes — so a model advancing `offset` by the characters it received
+ * lands exactly where the previous window ended.
+ */
+export type ArtifactWindow = {
+  /** The characters in `[offset, offset + content.length)`. */
+  content: string;
+  /** Character offset this window starts at. */
+  offset: number;
+  /** Total character length of the whole payload. */
+  totalLength: number;
+};
+
+/** One hit from a literal search over an artifact. */
+export type ArtifactSearchMatch = {
+  /** Character offset of the match — pass it back as `offset` to read there. */
+  offset: number;
+  /** 1-based line number the match sits on. */
+  line: number;
+  /** Character offset the snippet starts at (≤ `offset`). */
+  snippetOffset: number;
+  /**
+   * Bounded context around the match. Bounded on purpose: an MCP artifact is
+   * usually one compact JSON line, so "the matching line" would be the whole
+   * payload.
+   */
+  snippet: string;
+};
+
+/** Result of a literal search over an artifact. */
+export type ArtifactSearchResult = {
+  /** Matches returned, in payload order. */
+  matches: ArtifactSearchMatch[];
+  /** `matches.length`. */
+  matchCount: number;
+  /** Every match in the payload, including the ones not returned. */
+  totalMatches: number;
+  /** True when `totalMatches > matchCount`. */
+  truncated: boolean;
+  /** Character offset to pass as `offset` to search for the next matches. */
+  nextSearchOffset?: number;
+};
+
 // ---------------------------------------------------------------------------
 // ArtifactStore interface
 // ---------------------------------------------------------------------------
 
 /**
- * Pluggable storage contract for externalized MCP tool outputs.
+ * Pluggable storage contract for externalized MCP tool outputs and banked
+ * payloads.
  *
- * Default backend: LocalTempArtifactStore (filesystem, single-process).
- * Future backends can implement this interface for S3, Redis blobs, etc.
+ * Shipped backends: `LocalTempArtifactStore` (filesystem, per-process index
+ * with a cross-process sidecar) and `RedisArtifactStore` (TTL-expired, shared
+ * across replicas, range reads). Pick one with `artifacts.storage` or the
+ * `STORAGE_TYPE` environment variable, or inject any implementation via
+ * `artifacts.store` / `setArtifactStore()`.
+ *
+ * Only `store`, `retrieve`, `delete`, `cleanup` and `generatePreview` are
+ * required. `retrieveRange` and `close` are optional capabilities: NeuroLink
+ * uses them when present and falls back cleanly when absent.
  */
 export type ArtifactStore = {
   /**
@@ -128,6 +186,26 @@ export type ArtifactStore = {
    */
   retrieve(id: string): Promise<string | null>;
 
+  /**
+   * Retrieve one character window without materialising the whole payload.
+   *
+   * Optional. When present, `retrieve_context` and `readArtifact` call it for
+   * every paged read instead of `retrieve()` + slice, so a backend with native
+   * range reads (Redis `GETRANGE`, S3 `Range`) moves only the window. The
+   * result carries `totalLength` so `hasMore` never needs the payload.
+   *
+   * `offset` and `limit` are characters. A backend that can only address
+   * bytes must either know the payload is single-byte (ASCII) or fall back to
+   * a full read and slice — it must never return a window that starts at the
+   * wrong character. `limit` omitted means "to the end".
+   *
+   * Returns `null` if the artifact is not found or has expired.
+   */
+  retrieveRange?(
+    id: string,
+    range: ArtifactPageRequest,
+  ): Promise<ArtifactWindow | null>;
+
   /** Delete a single artifact. No-op if the ID does not exist. */
   delete(id: string): Promise<void>;
 
@@ -139,6 +217,14 @@ export type ArtifactStore = {
 
   /** Generate a short preview string from a serialized payload. */
   generatePreview(payload: string): string;
+
+  /**
+   * Release whatever the store holds open (a pooled connection, a file
+   * handle). Optional. NeuroLink calls it — from `shutdown()`, and when
+   * `setArtifactStore()` replaces the store — only for stores it built
+   * itself; a store you inject is yours to close.
+   */
+  close?(): Promise<void>;
 };
 
 /**
@@ -152,4 +238,55 @@ export type IndexEntry = ArtifactMeta & {
    * work: readable, but never expired by this process's `cleanup()`.
    */
   rehydrated?: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Backend selection
+// ---------------------------------------------------------------------------
+
+/**
+ * Where artifacts live. Mirrors conversation memory's `STORAGE_TYPE`:
+ *  - "local"  OS temp directory, per-process index with a cross-process
+ *             sidecar. Fine for one machine; artifacts do not survive a pod.
+ *  - "redis"  Shared across replicas, expired by TTL, range reads via
+ *             `GETRANGE`. Uses the same connection pool as Redis conversation
+ *             memory.
+ */
+export type ArtifactStorageType = "local" | "redis";
+
+/**
+ * Artifact storage configuration (`new NeuroLink({ artifacts })`).
+ *
+ * Resolution order for the backend: `store` → `storage` → `STORAGE_TYPE`
+ * environment variable → `"local"`. Resolution order for the Redis connection:
+ * `redisConfig` → `conversationMemory.redisConfig` → `REDIS_URL` / `REDIS_HOST`
+ * environment variables — so a deployment already running conversation memory
+ * on Redis keeps its artifacts on the same Redis without new settings.
+ */
+export type ArtifactStorageConfig = {
+  /** Backend to use. Default: `STORAGE_TYPE` env var, else `"local"`. */
+  storage?: ArtifactStorageType;
+  /**
+   * Redis connection for `storage: "redis"`. `keyPrefix` defaults to
+   * `neurolink:artifact:` (NOT the conversation prefix). `ttl` is seconds,
+   * must be positive, and defaults to 86400; zero or negative is replaced by
+   * the default with a warning — artifacts in Redis always expire.
+   * `userSessionsKeyPrefix` is ignored.
+   */
+  redisConfig?: RedisStorageConfig;
+  /**
+   * A ready-made backend. Wins over `storage`. Use this for S3, a database,
+   * or a wrapped store; `setArtifactStore()` does the same after construction.
+   */
+  store?: ArtifactStore;
+};
+
+/**
+ * What `RedisArtifactStore` keeps beside each payload. `charLength` is what
+ * makes range reads honest: when it equals `sizeBytes` the payload is pure
+ * ASCII and a byte range IS a character range.
+ */
+export type RedisArtifactRecord = ArtifactMeta & {
+  /** `payload.length` at store time — characters, not bytes. */
+  charLength: number;
 };

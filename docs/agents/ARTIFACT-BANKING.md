@@ -57,6 +57,7 @@ you do not have to configure `mcp.outputLimits` to get it.
 | `bankArtifact(payload, options)` | `BankedArtifactRef` | Stores the payload whole; returns id + bounded preview       |
 | `readArtifact(id, page?)`        | `string \| null`    | Full payload when `page` is omitted; `null` if unknown       |
 | `getArtifactStore()`             | `ArtifactStore`     | Creates the store on demand and registers `retrieve_context` |
+| `setArtifactStore(store)`        | `void`              | Swaps the backend for every path, MCP normalizer included    |
 
 `BankArtifactOptions`:
 
@@ -73,9 +74,10 @@ you do not have to configure `mcp.outputLimits` to get it.
 
 ## What it is built on
 
-One store, not two. Banking writes into the same `LocalTempArtifactStore` the
-MCP output normalizer externalizes into, so an oversized MCP tool output and a
-banked worker report read back through exactly the same call.
+One store, not two. Banking writes into the same artifact store the MCP output
+normalizer externalizes into — local temp by default, Redis when you say so,
+see [Storage backends](#storage-backends) — so an oversized MCP tool output and
+a banked worker report read back through exactly the same call.
 
 The only thing banking adds to the store's lifecycle: previously it existed only
 when `mcp.outputLimits.strategy === "externalize"`, which meant a caller who
@@ -98,6 +100,130 @@ is touched. Real ids are UUIDs.
 
 `cleanup(olderThanMs)` stays index-scoped on purpose — it expires what this
 process banked, and never walks the directory deleting another process's work.
+
+## Storage backends
+
+Where artifacts live is chosen the way conversation memory's storage is chosen,
+and by the same switch:
+
+| Backend   | Select with                                    | Survives a redeploy | Visible to other replicas | Expiry                                   |
+| --------- | ---------------------------------------------- | ------------------- | ------------------------- | ---------------------------------------- |
+| `"local"` | default                                        | no                  | only on the same machine  | never, unless the host calls `cleanup()` |
+| `"redis"` | `STORAGE_TYPE=redis` or `artifacts.storage`    | yes                 | yes                       | TTL, 24 h by default                     |
+| custom    | `artifacts.store` or `setArtifactStore(store)` | up to you           | up to you                 | up to you                                |
+
+**1. Nothing to do.** `STORAGE_TYPE=redis` already moves sessions to Redis,
+and now moves artifacts with them, on the same pooled connection.
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink();
+```
+
+**2. Explicit, with its own connection.**
+
+```typescript
+import { NeuroLink } from "@juspay/neurolink";
+
+const neurolink = new NeuroLink({
+  artifacts: {
+    storage: "redis",
+    redisConfig: { url: process.env.ARTIFACT_REDIS_URL, ttl: 3600 },
+  },
+});
+```
+
+**3. Anything else.** Implement the `ArtifactStore` type (`store` /
+`retrieve` / `delete` / `cleanup` / `generatePreview`, plus the optional
+`retrieveRange` / `close`) and hand it in. NeuroLink ships only `"local"` and
+`"redis"`.
+
+```typescript
+import { NeuroLink, type ArtifactStore } from "@juspay/neurolink";
+
+class MyS3ArtifactStore implements ArtifactStore {
+  // ...your implementation
+}
+
+const store = new MyS3ArtifactStore();
+const neurolink = new NeuroLink({ artifacts: { store } });
+neurolink.setArtifactStore(store); // the same thing after construction
+```
+
+Resolution order for the backend: `artifacts.store` → `artifacts.storage` →
+`STORAGE_TYPE` → `"local"`. For the Redis connection: `artifacts.redisConfig` →
+`conversationMemory.redisConfig` → `REDIS_URL` / `REDIS_HOST` and friends. The
+key prefix is never inherited: artifacts get `neurolink:artifact:` even when
+the connection came from the conversation config, so the two keyspaces cannot
+collide. `RedisArtifactStore`, `LocalTempArtifactStore` and
+`createArtifactStore` are exported if you want to build or wrap one yourself.
+
+Two things to know before flipping the switch on a running system:
+
+- **`setArtifactStore()` replaces, it does not migrate.** Artifacts already in
+  the previous store stop resolving through the instance. Call it before the
+  first bank or externalized tool output, or use `artifacts.store` and avoid
+  the ordering question. The MCP output normalizer is rebuilt as part of the
+  swap — assigning the private field, which some early adopters did, misses it
+  and leaves externalized tool outputs in the old backend while read-backs look
+  in the new one.
+- **A Redis outage is an error, not a fallback.** `bankArtifact` rejects, and
+  the MCP normalizer already passes the raw tool result through inline (its
+  existing behaviour for any store failure). There is deliberately no silent
+  fallback to local temp: on multiple replicas that fallback recreates the
+  cross-pod bug Redis was chosen to fix.
+
+**Ownership.** NeuroLink closes only the stores it built itself — the local or
+Redis store it created from config or `STORAGE_TYPE` — calling their optional
+`close()` on `shutdown()` and when `setArtifactStore()` replaces one. A store
+you inject, through `artifacts.store` or `setArtifactStore()`, is yours to
+close; the instance never does.
+
+**TTL.** `redisConfig.ttl` is seconds and must be positive; it defaults to
+24 hours. Zero or a negative value is replaced by the default with a warning.
+There is no "keep forever" in Redis — expiry is the whole point of the backend.
+
+## Range reads
+
+`retrieve_context({ artifactId, offset, limit })` and `readArtifact(id, page)`
+ask the backend for **one window** when it can produce one. `ArtifactStore` has
+an optional `retrieveRange(id, { offset, limit })` returning
+`{ content, offset, totalLength }`; when a backend implements it, only the
+window crosses the wire and `hasMore` / `totalSize` come from `totalLength`,
+never from the payload. A backend without it is read whole and sliced, exactly
+as before.
+
+Units are **characters** (UTF-16 code units), the same unit `offset` and
+`limit` always used. `RedisArtifactStore` records the payload's character
+length beside its byte length and uses `GETRANGE` only when the two are equal
+— pure ASCII, which is what JSON tool output and logs almost always are.
+Anything else falls back to a whole read, which is slower and still correct.
+A window never starts on the wrong character.
+
+## Searching an artifact
+
+`retrieve_context({ artifactId, search })` finds literal, case-insensitive text
+in an artifact and returns **where it is**, so the model can jump instead of
+paging to it:
+
+```jsonc
+// retrieve_context
+{ "artifactId": "9f1c…", "search": "connection refused" }
+// → { matchCount, totalMatches, truncated, nextSearchOffset?, matches: [
+//      { offset, line, snippetOffset, snippet }, … ] }
+
+// then read exactly there
+{ "artifactId": "9f1c…", "offset": 184220, "limit": 4000 }
+```
+
+Snippets are bounded (about 120 characters each side of the hit) rather than
+whole lines, because an MCP artifact is usually one compact JSON line and "the
+matching line" would be the entire payload. Up to 50 matches come back per
+call; `totalMatches` counts the rest and `nextSearchOffset` is the `offset` to
+pass to see them. Regex metacharacters are matched literally — the model's
+input is never compiled as a pattern — and an empty or over-long pattern is an
+explicit error, never a silently unfiltered read.
 
 ## Rules of thumb
 

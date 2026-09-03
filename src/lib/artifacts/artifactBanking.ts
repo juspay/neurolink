@@ -13,8 +13,9 @@
  * Read-back is the tool that already exists: `retrieve_context({ artifactId,
  * offset, limit })` paginates any artifact and reports `totalSize` / `hasMore`.
  * There is no second read tool and no second storage layer — this module is a
- * thin, typed front door onto `LocalTempArtifactStore`, the same store the MCP
- * output normalizer externalizes into.
+ * thin, typed front door onto the instance's artifact store (local temp,
+ * Redis, or injected), the same store the MCP output normalizer externalizes
+ * into.
  *
  * The one thing it adds is that the store no longer has to pre-exist: it is
  * created on first use, whether or not `mcp.outputLimits` was ever configured,
@@ -30,6 +31,7 @@ import type {
   BankArtifactOptions,
   BankedArtifactRef,
 } from "../types/index.js";
+import { readArtifactWindow } from "./artifactReader.js";
 
 /** Preview length when the caller does not ask for one. */
 const DEFAULT_BANK_PREVIEW_CHARS = 1000;
@@ -132,6 +134,9 @@ export async function bankArtifact(
  * because a host that asks for the artifact is asking for the artifact.
  * Returns null when the id is unknown or the file is gone.
  *
+ * With a `page`, a backend that supports range reads moves only the window
+ * (see `readArtifactWindow`) — the same path `retrieve_context` takes.
+ *
  * @param page Character window. `offset` defaults to 0, `limit` to the rest.
  */
 export async function readArtifact(
@@ -140,16 +145,6 @@ export async function readArtifact(
   page?: ArtifactPageRequest,
 ): Promise<string | null> {
   const store = ensureArtifactStore(host);
-  const content = await store.retrieve(id);
-  if (content === null) {
-    return null;
-  }
-  if (!page) {
-    return content;
-  }
-  const offset = Math.max(0, page.offset ?? 0);
-  if (page.limit === undefined) {
-    return content.slice(offset);
-  }
-  return content.slice(offset, offset + Math.max(0, page.limit));
+  const window = await readArtifactWindow(store, id, page);
+  return window === null ? null : window.content;
 }

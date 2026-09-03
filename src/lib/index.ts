@@ -71,6 +71,18 @@ export {
   NeuroLinkApiError,
 } from "./client/httpClient.js";
 
+// ============================================================================
+// ARTIFACT STORAGE — backends for externalized tool outputs and banked payloads.
+// Pick one with `artifacts.storage` / STORAGE_TYPE, or implement ArtifactStore.
+// ============================================================================
+
+export { LocalTempArtifactStore } from "./artifacts/artifactStore.js";
+export { RedisArtifactStore } from "./artifacts/redisArtifactStore.js";
+export {
+  createArtifactStore,
+  resolveArtifactStorageType,
+} from "./artifacts/artifactStoreFactory.js";
+
 export {
   // AI SDK Adapter
   NeuroLinkLanguageModel,

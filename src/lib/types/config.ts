@@ -7,6 +7,7 @@ import type { MCPToolRegistry } from "../mcp/toolRegistry.js";
 import type { TaskManagerConfig } from "./task.js";
 import type { HITLConfig } from "../types/hitl.js";
 import type { ConversationMemoryConfig } from "./conversation.js";
+import type { ArtifactStorageConfig } from "./artifact.js";
 import type { ObservabilityConfig } from "./observability.js";
 import type {
   AuthProvider,
@@ -80,6 +81,12 @@ export type NeurolinkConstructorConfig = {
   modelAliasConfig?: ModelAliasConfig;
   /** MCP enhancement modules configuration (cache, router, batcher, annotations, middleware) */
   mcp?: MCPEnhancementsConfig;
+  /**
+   * Artifact storage: where externalized MCP tool outputs and banked payloads
+   * live. The backend follows `STORAGE_TYPE` exactly like conversation memory
+   * unless chosen here. See {@link ArtifactStorageConfig}.
+   */
+  artifacts?: ArtifactStorageConfig;
   /** Authentication provider configuration */
   auth?: NeuroLinkAuthConfig;
   /** TaskManager configuration (scheduled and self-running tasks) */

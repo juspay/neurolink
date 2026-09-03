@@ -12,8 +12,9 @@
  *   ArtifactStore (interface) — canonical types in src/lib/types/artifactTypes.ts
  *   LocalTempArtifactStore   — single-process, filesystem-backed implementation
  *
- * Distributed backends (S3, Redis blobs) can be added later by implementing
- * ArtifactStore from types/artifactTypes.ts.
+ * `RedisArtifactStore` is the shared-across-replicas backend; anything else
+ * (S3, a database) implements ArtifactStore and is injected via
+ * `artifacts.store` or `setArtifactStore()`.
  *
  * @module artifacts/artifactStore
  */
@@ -29,32 +30,17 @@ import type {
   ArtifactStore,
   IndexEntry,
 } from "../types/index.js";
-
-// Re-export so callers can import everything from one place
+import { generateArtifactPreview, isSafeArtifactId } from "./artifactReader.js";
 
 // ---------------------------------------------------------------------------
 // LocalTempArtifactStore
 // ---------------------------------------------------------------------------
-
-/** Characters used for the quick preview embedded in surrogate results. */
-const DEFAULT_PREVIEW_CHARS = 500;
 
 /**
  * Sidecar written beside every payload so a process that never called
  * `store()` can still resolve the id (see the index-miss path in `retrieve`).
  */
 const META_SUFFIX = ".meta.json";
-
-/**
- * Ids that may be turned into a path.
- *
- * Before the index-miss fallback existed, an unknown id simply missed the
- * in-memory map and no filesystem lookup happened. Now that a miss probes
- * `join(dir, id + ext)`, the id reaches the path layer — and ids arrive from
- * the model through `retrieve_context`. No dots and no separators means
- * `../../etc/passwd` can never become a probe. Real ids are UUIDs.
- */
-const SAFE_ARTIFACT_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 
 /** Extensions `store()` can produce, in the order the fallback probes them. */
 const PAYLOAD_EXTENSIONS = [".json", ".txt"] as const;
@@ -151,10 +137,7 @@ export class LocalTempArtifactStore implements ArtifactStore {
   }
 
   generatePreview(payload: string): string {
-    if (payload.length <= DEFAULT_PREVIEW_CHARS) {
-      return payload;
-    }
-    return `${payload.slice(0, DEFAULT_PREVIEW_CHARS)}…`;
+    return generateArtifactPreview(payload);
   }
 
   async store(
@@ -281,10 +264,13 @@ export class LocalTempArtifactStore implements ArtifactStore {
    * falls back to probing the payload file itself, so an artifact whose
    * sidecar was lost is still readable with metadata recovered from `stat`.
    *
-   * Returns undefined for an unsafe id without touching the filesystem.
+   * Returns undefined for an unsafe id without touching the filesystem: before
+   * this fallback existed an unknown id simply missed the in-memory map, and
+   * now that a miss probes `join(dir, id + ext)` the id — which arrives from
+   * the model — reaches the path layer. See `isSafeArtifactId`.
    */
   private async rehydrate(id: string): Promise<IndexEntry | undefined> {
-    if (!SAFE_ARTIFACT_ID.test(id)) {
+    if (!isSafeArtifactId(id)) {
       logger.debug(`[ArtifactStore] Rejected unsafe artifact id "${id}"`);
       return undefined;
     }

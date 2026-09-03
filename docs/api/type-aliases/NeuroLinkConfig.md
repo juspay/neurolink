@@ -8,7 +8,7 @@
 
 > **NeuroLinkConfig** = `object`
 
-Defined in: [types/config.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L37)
+Defined in: [types/config.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L38)
 
 Main NeuroLink configuration type
 
@@ -22,7 +22,7 @@ Main NeuroLink configuration type
 
 > `optional` **providers?**: `Record`\<`string`, [`ProviderRuntimeConfig`](ProviderRuntimeConfig.md)\>
 
-Defined in: [types/config.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L38)
+Defined in: [types/config.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L39)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/config.ts:38](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **performance?**: [`PerformanceConfig`](PerformanceConfig.md)
 
-Defined in: [types/config.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L39)
+Defined in: [types/config.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L40)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/config.ts:39](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **analytics?**: [`AnalyticsConfig`](AnalyticsConfig.md)
 
-Defined in: [types/config.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L40)
+Defined in: [types/config.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L41)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/config.ts:40](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tools?**: [`ToolConfig`](ToolConfig.md)
 
-Defined in: [types/config.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L41)
+Defined in: [types/config.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L42)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/config.ts:41](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **lastUpdated?**: `number`
 
-Defined in: [types/config.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L42)
+Defined in: [types/config.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L43)
 
 ---
 
@@ -62,4 +62,4 @@ Defined in: [types/config.ts:42](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **configVersion?**: `string`
 
-Defined in: [types/config.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L43)
+Defined in: [types/config.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L44)

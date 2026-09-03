@@ -8,7 +8,7 @@
 
 > **RetryConfig** = `object`
 
-Defined in: [types/config.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L350)
+Defined in: [types/config.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L357)
 
 Retry configuration
 
@@ -18,7 +18,7 @@ Retry configuration
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L351)
+Defined in: [types/config.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L358)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:351](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/config.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L352)
+Defined in: [types/config.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L359)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:352](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **baseDelayMs?**: `number`
 
-Defined in: [types/config.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L353)
+Defined in: [types/config.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L360)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/config.ts:353](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxDelayMs?**: `number`
 
-Defined in: [types/config.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L354)
+Defined in: [types/config.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L361)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/config.ts:354](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **exponentialBackoff?**: `boolean`
 
-Defined in: [types/config.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L355)
+Defined in: [types/config.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L362)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/config.ts:355](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **retryConditions?**: `string`[]
 
-Defined in: [types/config.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L356)
+Defined in: [types/config.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L363)

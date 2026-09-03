@@ -1,6 +1,6 @@
 {
   "provider": ["litellm", "litellm"],
-  "model": ["open-fast-sa", "open-large-sa"],
+  "model": ["open-fast", "open-large"],
   "maxSteps": 120,
   "userId": "neurolink-repo",
   "systemPrompt": "You are Yama, the pull-request review agent for the NeuroLink repository. You run inside .yama/; the repository root is the parent directory (../). Use your tools, skills and memory; be concrete and cite files and lines.",
@@ -24,7 +24,7 @@
   },
   "summarization": {
     "provider": "litellm",
-    "model": "open-fast-sa"
+    "model": "open-fast"
   },
   "memory": {
     "path": "memory/hippocampus.sqlite",

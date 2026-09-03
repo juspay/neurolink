@@ -8,7 +8,7 @@
 
 > **getPoolStats**(): `object`[]
 
-Defined in: [utils/redis.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/utils/redis.ts#L132)
+Defined in: [utils/redis.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/utils/redis.ts#L192)
 
 Get stats about the connection pool
 

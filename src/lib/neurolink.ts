@@ -60,6 +60,8 @@ import type {
   CompactionConfig,
   CompactionResult,
   ArtifactStore,
+  ArtifactStorageConfig,
+  McpOutputNormalizerConfig,
   SpanData,
   ConfirmationResponseEvent,
   HITLConfig,
@@ -190,7 +192,10 @@ import {
   DEFAULT_MAX_MCP_OUTPUT_BYTES,
   DEFAULT_WARN_MCP_OUTPUT_BYTES,
 } from "./mcp/mcpOutputNormalizer.js";
-import { LocalTempArtifactStore } from "./artifacts/artifactStore.js";
+import {
+  createArtifactStore,
+  resolveArtifactStorageType,
+} from "./artifacts/artifactStoreFactory.js";
 import {
   bankArtifact as bankArtifactPayload,
   readArtifact as readBankedArtifact,
@@ -708,8 +713,19 @@ export class NeuroLink {
   private mcpToolBatcher?: ToolCallBatcher;
   private mcpEnhancedDiscovery?: EnhancedToolDiscovery;
   private mcpToolMiddlewares: ToolMiddleware[] = [];
-  /** Artifact store for externalized MCP tool outputs (set when strategy=externalize). */
+  /** Artifact store for externalized MCP tool outputs and banked payloads. */
   private mcpArtifactStore?: ArtifactStore;
+  /** `artifacts` constructor config — consulted whenever a store is created. */
+  private artifactsConfig?: ArtifactStorageConfig;
+  /**
+   * True when this instance built `mcpArtifactStore` itself (local or Redis
+   * from config / STORAGE_TYPE). NeuroLink closes only stores it built — on
+   * replacement and on shutdown; a store handed in through `artifacts.store`
+   * or `setArtifactStore()` is the caller's to close.
+   */
+  private ownsArtifactStore = false;
+  /** Normalizer settings, kept so `setArtifactStore()` can rebuild it. */
+  private mcpOutputNormalizerConfig?: McpOutputNormalizerConfig;
   private _disableToolCacheForCurrentRequest = false;
   /**
    * (toolName + args) keys already served during the CURRENT request.
@@ -1789,6 +1805,11 @@ export class NeuroLink {
 
     // ToolRouter — lazy-initialized when 2+ external servers exist (see addExternalMCPServer)
 
+    // Artifact storage — where externalized MCP outputs and banked payloads
+    // live. Kept so both creation sites (externalize here, and
+    // getArtifactStore() on demand) resolve the same backend.
+    this.artifactsConfig = config?.artifacts;
+
     // McpOutputNormalizer — active when mcp.outputLimits is configured
     if (mcpConfig?.outputLimits) {
       const strategy = mcpConfig.outputLimits.strategy ?? "externalize";
@@ -1796,24 +1817,15 @@ export class NeuroLink {
         mcpConfig.outputLimits.maxBytes ?? DEFAULT_MAX_MCP_OUTPUT_BYTES;
       const warnBytes =
         mcpConfig.outputLimits.warnBytes ?? DEFAULT_WARN_MCP_OUTPUT_BYTES;
+      this.mcpOutputNormalizerConfig = { strategy, maxBytes, warnBytes };
 
       let artifactStore: ArtifactStore | undefined;
       if (strategy === "externalize") {
-        artifactStore = new LocalTempArtifactStore();
+        artifactStore = this.createConfiguredArtifactStore();
         this.mcpArtifactStore = artifactStore;
-        logger.debug("[NeuroLink] MCP artifact store initialized (local-temp)");
       }
 
-      const normalizer = new McpOutputNormalizer(
-        { strategy, maxBytes, warnBytes },
-        artifactStore,
-      );
-      this.externalServerManager.setOutputNormalizer(normalizer);
-      logger.debug("[NeuroLink] MCP output normalizer initialized", {
-        strategy,
-        maxBytes,
-        warnBytes,
-      });
+      this.installOutputNormalizer(artifactStore);
     }
   }
 
@@ -3850,6 +3862,17 @@ Current user's request: ${currentInput}`;
           logger.warn("[NeuroLink] TaskManager shutdown error:", error);
         } finally {
           this._taskManager = undefined;
+        }
+      }
+
+      // Release the artifact store this instance built (a pooled Redis
+      // connection, for one). An injected store is the caller's to close.
+      if (this.ownsArtifactStore && this.mcpArtifactStore?.close) {
+        try {
+          await this.mcpArtifactStore.close();
+          logger.debug("[NeuroLink] Artifact store closed");
+        } catch (error) {
+          logger.warn("[NeuroLink] Artifact store close failed:", error);
         }
       }
 
@@ -17761,14 +17784,97 @@ Current user's request: ${currentInput}`;
    */
   getArtifactStore(): ArtifactStore {
     if (!this.mcpArtifactStore) {
-      this.mcpArtifactStore = new LocalTempArtifactStore();
-      logger.debug(
-        "[NeuroLink] Artifact store created on demand (local-temp) for banking",
-      );
+      this.mcpArtifactStore = this.createConfiguredArtifactStore();
     }
     // A no-op when the constructor already registered it.
     this.registerMemoryRetrievalTools();
     return this.mcpArtifactStore;
+  }
+
+  /**
+   * Replace this instance's artifact store.
+   *
+   * Everything that writes or reads artifacts follows the swap: banking,
+   * `retrieve_context`, host-side `readArtifact`, and the MCP output
+   * normalizer — which is rebuilt here because it captured the previous store
+   * at construction. Assigning the field alone would miss it, and
+   * externalized tool outputs would keep landing in the old backend while
+   * read-backs looked in the new one.
+   *
+   * Call it before the first bank or externalized tool output: artifacts
+   * already in the previous store are not migrated, and their ids stop
+   * resolving through this instance. `artifacts.store` in the constructor
+   * config is the same thing without the ordering concern.
+   *
+   * Ownership: a store you hand in — here or via `artifacts.store` — stays
+   * yours to close. NeuroLink closes only the stores it built itself, when
+   * they are replaced here and on `shutdown()`.
+   *
+   * @param store - Any {@link ArtifactStore}
+   */
+  setArtifactStore(store: ArtifactStore): void {
+    const previous = this.mcpArtifactStore;
+    if (previous === store) {
+      return;
+    }
+    if (previous) {
+      logger.warn(
+        "[NeuroLink] Artifact store replaced — artifacts already written to " +
+          "the previous store will not resolve through this instance",
+      );
+      if (this.ownsArtifactStore && previous.close) {
+        void previous.close().catch((error: unknown) => {
+          logger.warn("[NeuroLink] Previous artifact store close failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
+    }
+    this.mcpArtifactStore = store;
+    this.ownsArtifactStore = false;
+    this.installOutputNormalizer(store);
+    this.registerMemoryRetrievalTools();
+  }
+
+  /**
+   * Build the store the `artifacts` config (or `STORAGE_TYPE`) asks for. The
+   * Redis connection falls back to conversation memory's, so one
+   * `STORAGE_TYPE=redis` moves sessions and artifacts together.
+   */
+  private createConfiguredArtifactStore(): ArtifactStore {
+    const injected = this.artifactsConfig?.store !== undefined;
+    const store = createArtifactStore(
+      this.artifactsConfig,
+      this.conversationMemoryConfig?.conversationMemory?.redisConfig,
+    );
+    // An injected store is returned as-is by the factory and stays the
+    // caller's; anything else was built here and is this instance's to close.
+    this.ownsArtifactStore = !injected;
+    logger.debug("[NeuroLink] Artifact store initialized", {
+      backend: injected
+        ? "custom"
+        : resolveArtifactStorageType(this.artifactsConfig),
+    });
+    return store;
+  }
+
+  /**
+   * (Re)build the MCP output normalizer over `artifactStore`. A no-op unless
+   * `mcp.outputLimits` was configured — without it nothing is externalized.
+   */
+  private installOutputNormalizer(
+    artifactStore: ArtifactStore | undefined,
+  ): void {
+    if (!this.mcpOutputNormalizerConfig) {
+      return;
+    }
+    this.externalServerManager.setOutputNormalizer(
+      new McpOutputNormalizer(this.mcpOutputNormalizerConfig, artifactStore),
+    );
+    logger.debug("[NeuroLink] MCP output normalizer initialized", {
+      ...this.mcpOutputNormalizerConfig,
+      hasArtifactStore: artifactStore !== undefined,
+    });
   }
 
   /**
@@ -18179,7 +18285,25 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      // 3. Clear all event listeners to prevent memory leaks
+      // 3. Release the artifact store this instance built (a pooled Redis
+      // connection, for one). Same ownership rule as shutdown(): an injected
+      // store is the caller's to close. Without this step every
+      // construct / use / dispose cycle left the pooled reference acquired.
+      if (this.ownsArtifactStore && this.mcpArtifactStore?.close) {
+        try {
+          await this.mcpArtifactStore.close();
+          logger.debug("[NeuroLink] Artifact store closed");
+        } catch (error) {
+          const err =
+            error instanceof Error
+              ? error
+              : new Error(`Artifact store close error: ${String(error)}`);
+          cleanupErrors.push(err);
+          logger.warn("[NeuroLink] Error closing artifact store:", error);
+        }
+      }
+
+      // 4. Clear all event listeners to prevent memory leaks
       if (this.emitter) {
         try {
           logger.debug("[NeuroLink] Removing all event listeners...");
@@ -18198,7 +18322,7 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      // 4. Clear all circuit breakers
+      // 5. Clear all circuit breakers
       if (this.toolCircuitBreakers && this.toolCircuitBreakers.size > 0) {
         try {
           logger.debug(
@@ -18216,7 +18340,7 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      // 5. Clear all Maps and caches
+      // 6. Clear all Maps and caches
       try {
         logger.debug("[NeuroLink] Clearing maps and caches...");
 
@@ -18278,7 +18402,7 @@ Current user's request: ${currentInput}`;
         }
       }
 
-      // 6. Reset initialization flags
+      // 7. Reset initialization flags
       try {
         logger.debug("[NeuroLink] Resetting initialization state...");
         this.mcpInitialized = false;
@@ -18295,7 +18419,7 @@ Current user's request: ${currentInput}`;
         logger.warn("[NeuroLink] Error resetting state:", error);
       }
 
-      // 6. Log completion
+      // 7. Log completion
       if (cleanupErrors.length === 0) {
         logger.debug("[NeuroLink] ✅ Resource disposal completed successfully");
       } else {
