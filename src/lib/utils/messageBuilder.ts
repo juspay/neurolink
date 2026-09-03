@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, statSync } from "fs";
 import { readFile as readFileAsync, stat as statAsync } from "fs/promises";
+import pLimit from "p-limit";
 import { request } from "undici";
 import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
 import {
@@ -767,6 +768,22 @@ const PREPROCESSED_FILES = new WeakMap<object, Set<unknown>>();
 const FILE_READ_TIMEOUT_MS = 30_000;
 
 /**
+ * How many files may be detected and processed at once.
+ *
+ * A cap rather than unbounded `Promise.all`, and the cap is the point: this
+ * path admits files up to 100 MB, so N files in flight means N decoded buffers
+ * resident at once plus whatever each processor allocates on top. Turning a
+ * sequential loop into an unbounded fan-out trades a latency problem for a
+ * memory one, and on a large batch that is the worse of the two.
+ *
+ * Four is chosen to keep the worst case bounded rather than to saturate a
+ * disk: the win here is overlapping I/O wait, which most of it is, and the
+ * marginal gain past a handful of concurrent reads is small next to the
+ * marginal cost in resident bytes.
+ */
+const FILE_PROCESSING_CONCURRENCY = 4;
+
+/**
  * Read a file input's bytes, or null when they cannot be had.
  *
  * Asynchronous because this path admits files up to 100 MB: a synchronous read
@@ -1057,6 +1074,63 @@ function markFileProcessed(input: object, entry: unknown): void {
   PREPROCESSED_FILES.set(input, processed);
 }
 
+/**
+ * Detect and process one entry of the unified `files` array.
+ *
+ * Extracted so the same call can be made from the concurrent pass and from the
+ * sequential fall-through, rather than duplicated between them.
+ */
+async function detectFileForUnifiedArray(
+  file: FileInput | FileWithMetadata,
+  options: GenerateOptions,
+  provider: string,
+  genericFileMaxSize: number,
+) {
+  const rawFileInput = isFileWithMetadata(file) ? file.buffer : file;
+  // Forward the caller's mimetype hint (Slack/Curator-style
+  // extension-less buffers) so the eager path classifies correctly
+  // for tiny files — the lazy registry path has its own hint wiring.
+  const fileMimetypeHint = isFileWithMetadata(file) ? file.mimetype : undefined;
+  // The name has to travel the same way, and for the same reason: the
+  // line above unwraps the object to its buffer, so by the time
+  // detection resolves an extension there is no name left to read one
+  // from. Without this a `.tar` supplied as bytes-plus-name is
+  // unidentifiable — its "ustar" marker sits at byte 257, not at
+  // offset 0 — and reports "Could not extract content" for an archive
+  // that extracts perfectly when handed its filename.
+  const fileFilenameHint = isFileWithMetadata(file) ? file.filename : undefined;
+  return FileDetector.detectAndProcess(rawFileInput, {
+    maxSize: genericFileMaxSize,
+    allowedTypes: [
+      "csv",
+      "image",
+      "pdf",
+      "svg",
+      "video",
+      "audio",
+      "archive",
+      "xlsx",
+      "docx",
+      "pptx",
+      "text",
+      "unknown",
+    ],
+    csvOptions: options.csvOptions,
+    // #478: videos arrive through this unified `files` path, so this is
+    // where the CLI's frame/quality/format request has to be handed on.
+    videoOptions: options.videoOptions
+      ? {
+          frames: options.videoOptions.frames,
+          quality: options.videoOptions.quality,
+          format: options.videoOptions.format,
+        }
+      : undefined,
+    provider: provider,
+    mimetypeHint: fileMimetypeHint,
+    filenameHint: fileFilenameHint,
+  });
+}
+
 export async function processUnifiedFilesArray(
   options: GenerateOptions,
   maxSize: number,
@@ -1126,17 +1200,61 @@ export async function processUnifiedFilesArray(
         | FileReferenceRegistry
         | undefined;
 
+      // Only detection runs concurrently, and only for files that will not
+      // take the lazy-registration branch.
+      //
+      // Everything else in this loop is order-dependent in a way that is not
+      // obvious from its shape. `appendDetectedFileResult` appends to
+      // `inp2.text`, `inp2.images` and `inp2.pdfFiles`, so running it out of
+      // order would reorder the prompt and the attachments against the files
+      // the caller supplied. `tryRegisterFileReference` mutates the shared
+      // registry and assigns reference ids from it. Both therefore stay in the
+      // sequential pass below; what moves off the critical path is
+      // `FileDetector.detectAndProcess`, which is where the read and the parse
+      // actually happen and which touches nothing shared.
+      //
+      // Lazy candidates are decided here — the predicate is synchronous — but
+      // are not detected up front, because registration usually means the
+      // bytes are never processed at all. Pre-detecting them would do exactly
+      // the work the lazy path exists to avoid. The rare fall-through, where
+      // registration is attempted and declines, detects inline below.
+      const isLazyCandidate = files.map(
+        (file) =>
+          Boolean(fileRegistry) &&
+          getFileSize(file) > SIZE_TIER_THRESHOLDS.TINY_MAX &&
+          !isEagerMultimodalFile(file),
+      );
+
+      const genericFileMaxSize = Math.max(maxSize, 100 * 1024 * 1024);
+      const detectLimit = pLimit(FILE_PROCESSING_CONCURRENCY);
+      // allSettled, not all: with `all` the rejection that surfaces is the one
+      // that happened FIRST IN TIME, so which file is blamed for a batch
+      // failure would depend on disk scheduling. The sequential loop reported
+      // the first failure BY INDEX, and the ordered walk below preserves that.
+      // It also means a second failure cannot become an unhandled rejection
+      // after the first has already thrown.
+      const detected = await Promise.allSettled(
+        files.map((file, fileIdx) =>
+          isLazyCandidate[fileIdx]
+            ? Promise.resolve(undefined)
+            : detectLimit(() =>
+                detectFileForUnifiedArray(
+                  file,
+                  options,
+                  provider,
+                  genericFileMaxSize,
+                ),
+              ),
+        ),
+      );
+
       for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
         const file = files[fileIdx];
         const filename = extractFilename(file, fileIdx);
         try {
           // ─── Lazy file registration path ──────────────────────────────
           const fileSize = fileRegistry ? getFileSize(file) : 0;
-          if (
-            fileRegistry &&
-            fileSize > SIZE_TIER_THRESHOLDS.TINY_MAX &&
-            !isEagerMultimodalFile(file)
-          ) {
+          if (fileRegistry && isLazyCandidate[fileIdx]) {
             const registered = await tryRegisterFileReference(
               file,
               fileSize,
@@ -1154,54 +1272,22 @@ export async function processUnifiedFilesArray(
           }
 
           // ─── Full processing path (current behavior) ──────────────────
-          const genericFileMaxSize = Math.max(maxSize, 100 * 1024 * 1024);
-          const rawFileInput = isFileWithMetadata(file) ? file.buffer : file;
-          // Forward the caller's mimetype hint (Slack/Curator-style
-          // extension-less buffers) so the eager path classifies correctly
-          // for tiny files — the lazy registry path has its own hint wiring.
-          const fileMimetypeHint = isFileWithMetadata(file)
-            ? file.mimetype
-            : undefined;
-          // The name has to travel the same way, and for the same reason: the
-          // line above unwraps the object to its buffer, so by the time
-          // detection resolves an extension there is no name left to read one
-          // from. Without this a `.tar` supplied as bytes-plus-name is
-          // unidentifiable — its "ustar" marker sits at byte 257, not at
-          // offset 0 — and reports "Could not extract content" for an archive
-          // that extracts perfectly when handed its filename.
-          const fileFilenameHint = isFileWithMetadata(file)
-            ? file.filename
-            : undefined;
-          const result = await FileDetector.detectAndProcess(rawFileInput, {
-            maxSize: genericFileMaxSize,
-            allowedTypes: [
-              "csv",
-              "image",
-              "pdf",
-              "svg",
-              "video",
-              "audio",
-              "archive",
-              "xlsx",
-              "docx",
-              "pptx",
-              "text",
-              "unknown",
-            ],
-            csvOptions: options.csvOptions,
-            // #478: videos arrive through this unified `files` path, so this is
-            // where the CLI's frame/quality/format request has to be handed on.
-            videoOptions: options.videoOptions
-              ? {
-                  frames: options.videoOptions.frames,
-                  quality: options.videoOptions.quality,
-                  format: options.videoOptions.format,
-                }
-              : undefined,
-            provider: provider,
-            mimetypeHint: fileMimetypeHint,
-            filenameHint: fileFilenameHint,
-          });
+          // Normally already resolved by the concurrent pass above. The inline
+          // call is the fall-through: this file was a lazy candidate, so it was
+          // deliberately not detected up front, and registration then declined
+          // it. Detection has to happen somewhere, and here it is sequential.
+          const outcome = detected[fileIdx];
+          if (outcome.status === "rejected") {
+            throw outcome.reason;
+          }
+          const result =
+            outcome.value ??
+            (await detectFileForUnifiedArray(
+              file,
+              options,
+              provider,
+              genericFileMaxSize,
+            ));
 
           await appendDetectedFileResult(result, file, options);
           includedCount++;
@@ -1305,34 +1391,31 @@ async function processExplicitCsvFiles(
 
   options.input.text = options.input.text || "";
 
-  for (let i = 0; i < options.input.csvFiles.length; i++) {
-    const csvFile = options.input.csvFiles[i];
+  const csvFiles = options.input.csvFiles;
 
-    try {
-      const result = await FileDetector.detectAndProcess(csvFile, {
-        allowedTypes: ["csv"],
-        csvOptions: options.csvOptions,
-      });
+  // Detection is the expensive half — a read plus a parse per file, and
+  // previously each one waited for the last. It is also the only half that is
+  // independent per file, so it is the only half that runs concurrently: the
+  // sections below are appended to a single `text` string, so they stay in a
+  // sequential index-ordered pass and the prompt reads identically.
+  const limit = pLimit(FILE_PROCESSING_CONCURRENCY);
+  const settled = await Promise.allSettled(
+    csvFiles.map((csvFile) =>
+      limit(() =>
+        FileDetector.detectAndProcess(csvFile, {
+          allowedTypes: ["csv"],
+          csvOptions: options.csvOptions,
+        }),
+      ),
+    ),
+  );
 
-      const filename = extractFilename(csvFile, i);
-      const filePath = typeof csvFile === "string" ? csvFile : filename;
-      let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+  for (let i = 0; i < csvFiles.length; i++) {
+    const csvFile = csvFiles[i];
+    const outcome = settled[i];
 
-      if (result.metadata) {
-        const metadataText = formatCSVMetadata(result.metadata);
-        if (metadataText) {
-          csvSection += metadataText + `\n\n`;
-        }
-      }
-
-      // Put the actual CSV content BEFORE the tool instructions —
-      // buildCSVToolInstructions references "the CSV data shown above"
-      // and the trailing position keeps that reference accurate.
-      csvSection += result.content;
-      csvSection += buildCSVToolInstructions(filePath);
-      options.input.text += csvSection;
-      logger.info(`[CSV] ✅ Processed: ${filename}`);
-    } catch (error) {
+    if (outcome.status === "rejected") {
+      const error: unknown = outcome.reason;
       const filename = extractFilename(csvFile, i);
       const errMsg = error instanceof Error ? error.message : String(error);
       // #273: fail loud instead of embedding the error into the prompt text
@@ -1343,6 +1426,26 @@ async function processExplicitCsvFiles(
         error instanceof Error ? error : new Error(errMsg),
       );
     }
+
+    const result = outcome.value;
+    const filename = extractFilename(csvFile, i);
+    const filePath = typeof csvFile === "string" ? csvFile : filename;
+    let csvSection = `\n\n## CSV Data from "${filename}":\n`;
+
+    if (result.metadata) {
+      const metadataText = formatCSVMetadata(result.metadata);
+      if (metadataText) {
+        csvSection += metadataText + `\n\n`;
+      }
+    }
+
+    // Put the actual CSV content BEFORE the tool instructions —
+    // buildCSVToolInstructions references "the CSV data shown above"
+    // and the trailing position keeps that reference accurate.
+    csvSection += result.content;
+    csvSection += buildCSVToolInstructions(filePath);
+    options.input.text += csvSection;
+    logger.info(`[CSV] ✅ Processed: ${filename}`);
   }
 }
 

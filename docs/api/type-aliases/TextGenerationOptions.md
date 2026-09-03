@@ -54,6 +54,17 @@ For video generation, the first image is used as the source frame.
 
 > `optional` **pdfFiles?**: (`Buffer` \| `string`)[]
 
+#### csvFiles?
+
+> `optional` **csvFiles?**: (`Buffer` \| `string`)[]
+
+CSV files to inline as tabular text, with tool instructions appended.
+
+Declared here because `processExplicitCsvFiles` has always read it and
+the internal `GenerateOptions` has always carried it — it was missing
+only from the public type, so callers reaching the shipped behaviour had
+to widen the type themselves to do it.
+
 #### files?
 
 > `optional` **files?**: (`Buffer` \| `string` \| [`FileWithMetadata`](FileWithMetadata.md))[]
