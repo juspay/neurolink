@@ -8,7 +8,7 @@
 
 > **KnowledgeEngineStatus** = `object`
 
-Defined in: [types/knowledge.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L492)
+Defined in: [types/knowledge.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L499)
 
 Snapshot of engine health for telemetry and host introspection.
 
@@ -18,7 +18,7 @@ Snapshot of engine health for telemetry and host introspection.
 
 > **enabled**: `boolean`
 
-Defined in: [types/knowledge.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L493)
+Defined in: [types/knowledge.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L500)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/knowledge.ts:493](https://github.com/juspay/neurolink/blob/re
 
 > **ready**: `boolean`
 
-Defined in: [types/knowledge.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L494)
+Defined in: [types/knowledge.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L501)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/knowledge.ts:494](https://github.com/juspay/neurolink/blob/re
 
 > **entryCount**: `number`
 
-Defined in: [types/knowledge.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L495)
+Defined in: [types/knowledge.ts:502](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L502)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/knowledge.ts:495](https://github.com/juspay/neurolink/blob/re
 
 > **lastError**: `string` \| `null`
 
-Defined in: [types/knowledge.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L496)
+Defined in: [types/knowledge.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L503)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/knowledge.ts:496](https://github.com/juspay/neurolink/blob/re
 
 > **validationIssues**: [`KnowledgeValidationIssue`](KnowledgeValidationIssue.md)[]
 
-Defined in: [types/knowledge.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L497)
+Defined in: [types/knowledge.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/knowledge.ts#L504)

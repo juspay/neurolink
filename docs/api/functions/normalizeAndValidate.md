@@ -6,7 +6,7 @@
 
 # Function: normalizeAndValidate()
 
-> **normalizeAndValidate**(`sources`, `options`): `Promise`\<`KnowledgeNormalizeResult`\>
+> **normalizeAndValidate**(`sources`, `options`): `Promise`\<[`KnowledgeNormalizeResult`](../type-aliases/KnowledgeNormalizeResult.md)\>
 
 Defined in: [knowledge/resolve.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/knowledge/resolve.ts#L105)
 
@@ -23,8 +23,8 @@ contract is stable if a future source kind needs asynchronous loading.
 
 ### options
 
-`KnowledgeNormalizeOptions`
+[`KnowledgeNormalizeOptions`](../type-aliases/KnowledgeNormalizeOptions.md)
 
 ## Returns
 
-`Promise`\<`KnowledgeNormalizeResult`\>
+`Promise`\<[`KnowledgeNormalizeResult`](../type-aliases/KnowledgeNormalizeResult.md)\>

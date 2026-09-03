@@ -34,6 +34,7 @@
     "build:action": "ncc build src/action/index.ts -o action-dist --source-map",
     "build:cli:link": "pnpm run build:cli && pnpm link --global",
     "check:deps": "tsx scripts/check-banned-deps.ts",
+    "check:dts": "tsx scripts/check-shipped-types.ts",
     "codegen:catalog": "tsx tools/codegen-catalog.ts",
     "cli": "node dist/cli/index.js",
     "preview": "vite preview",
