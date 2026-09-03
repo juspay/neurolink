@@ -8,7 +8,7 @@
 
 > **UtilityToolsMap** = `object`
 
-Defined in: [types/tools.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L489)
+Defined in: [types/tools.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L512)
 
 Subset of directAgentTools exposing the "utility" category.
 
@@ -18,7 +18,7 @@ Subset of directAgentTools exposing the "utility" category.
 
 > **getCurrentTime**: `Tool`
 
-Defined in: [types/tools.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L490)
+Defined in: [types/tools.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L513)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tools.ts:490](https://github.com/juspay/neurolink/blob/releas
 
 > **calculateMath**: `Tool`
 
-Defined in: [types/tools.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L491)
+Defined in: [types/tools.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L514)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/tools.ts:491](https://github.com/juspay/neurolink/blob/releas
 
 > **listDirectory**: `Tool`
 
-Defined in: [types/tools.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L492)
+Defined in: [types/tools.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L515)

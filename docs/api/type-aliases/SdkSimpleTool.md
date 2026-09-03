@@ -8,7 +8,7 @@
 
 > **SdkSimpleTool**\<`TArgs`, `TResult`\> = `Omit`\<[`SimpleTool`](SimpleTool.md)\<`TArgs`, `TResult`\>, `"execute"`\> & `object`
 
-Defined in: [types/tools.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L454)
+Defined in: [types/tools.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L477)
 
 Simple tool type accepted by the SDK registerTool() helper. Uses
 SDKToolContext (richer tool context with request metadata).

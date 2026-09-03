@@ -8,7 +8,7 @@
 
 > **isAbortError**(`error`): `boolean`
 
-Defined in: [utils/errorHandling.ts:1392](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L1392)
+Defined in: [utils/errorHandling.ts:1417](https://github.com/juspay/neurolink/blob/release/src/lib/utils/errorHandling.ts#L1417)
 
 Detect AbortError from any source (DOMException, plain Error, or message-based).
 Used to short-circuit retry/fallback loops when an abort signal fires.

@@ -8,7 +8,7 @@
 
 > **BasicToolsMap** = `object`
 
-Defined in: [types/tools.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L476)
+Defined in: [types/tools.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L499)
 
 Subset of directAgentTools exposing only the "basic" category.
 
@@ -18,7 +18,7 @@ Subset of directAgentTools exposing only the "basic" category.
 
 > **getCurrentTime**: `Tool`
 
-Defined in: [types/tools.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L477)
+Defined in: [types/tools.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L500)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/tools.ts:477](https://github.com/juspay/neurolink/blob/releas
 
 > **calculateMath**: `Tool`
 
-Defined in: [types/tools.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L478)
+Defined in: [types/tools.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L501)

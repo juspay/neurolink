@@ -8,7 +8,7 @@
 
 > **ToolMetadata** = `object`
 
-Defined in: [types/tools.ts:337](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L337)
+Defined in: [types/tools.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L360)
 
 Tool metadata for registration
 
@@ -22,7 +22,7 @@ Tool metadata for registration
 
 > `optional` **category?**: `string`
 
-Defined in: [types/tools.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L338)
+Defined in: [types/tools.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L361)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/tools.ts:338](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **version?**: `string`
 
-Defined in: [types/tools.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L339)
+Defined in: [types/tools.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L362)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/tools.ts:339](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **author?**: `string`
 
-Defined in: [types/tools.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L340)
+Defined in: [types/tools.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L363)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/tools.ts:340](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tags?**: `string`[]
 
-Defined in: [types/tools.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L341)
+Defined in: [types/tools.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L364)
 
 ---
 
@@ -54,4 +54,4 @@ Defined in: [types/tools.ts:341](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **documentation?**: `string`
 
-Defined in: [types/tools.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L342)
+Defined in: [types/tools.ts:365](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L365)

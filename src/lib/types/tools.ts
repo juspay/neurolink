@@ -128,6 +128,12 @@ export type ToolInfo = {
   /** Per-tool timeout in milliseconds, set at registration time */
   timeoutMs?: number;
   maxRetries?: number;
+  /**
+   * Ceiling on the WHOLE execution — every attempt plus the delays between
+   * them. Declared explicitly rather than left to the index signature below,
+   * which would type it `unknown` and silently defeat the default.
+   */
+  totalTimeoutMs?: number;
   [key: string]: unknown; // Generic extensibility
 };
 
@@ -148,6 +154,13 @@ export type ToolImplementation = {
   /** Per-tool timeout in milliseconds, set at registration time */
   timeoutMs?: number;
   maxRetries?: number;
+  /**
+   * Ceiling on the WHOLE execution — every attempt plus the delays between
+   * them — in milliseconds. `timeoutMs` bounds one attempt; without this, a
+   * tool that reliably hangs burns `timeoutMs * (maxRetries + 1)`.
+   * Defaults to exactly that product, so behaviour is unchanged unless set.
+   */
+  totalTimeoutMs?: number;
 };
 
 /**
@@ -176,6 +189,13 @@ export type ToolExecutionOptions = {
    */
   timeoutMs?: number;
   maxRetries?: number;
+  /**
+   * Ceiling on the WHOLE execution — every attempt plus the delays between
+   * them. `timeout` bounds one attempt. Defaults to
+   * `timeout * (maxRetries + 1)`, which is what the retry loop already spent,
+   * so supplying nothing changes nothing.
+   */
+  totalTimeoutMs?: number;
 };
 
 /**
@@ -200,6 +220,9 @@ export type ToolRegistrationOptions = {
    *  When omitted, the SDK's global default (2 retries) is used.
    *  Set to 0 to disable retries for this tool. */
   maxRetries?: number;
+  /** Ceiling on the whole execution across every attempt and the delays
+   *  between them. When omitted, `timeout * (maxRetries + 1)` is used. */
+  totalTimeoutMs?: number;
   /**
    * Whether this tool's result may be served from the tool-result cache
    * (default true).

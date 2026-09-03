@@ -8,7 +8,7 @@
 
 > **ToolImplementation** = `object`
 
-Defined in: [types/tools.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L138)
+Defined in: [types/tools.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L144)
 
 Tool Implementation type for MCP tool registry
 Extracted from toolRegistry.ts for centralized type management
@@ -19,7 +19,7 @@ Extracted from toolRegistry.ts for centralized type management
 
 > **execute**: (`params`, `context?`) => `Promise`\<`unknown`\> \| `unknown`
 
-Defined in: [types/tools.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L139)
+Defined in: [types/tools.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L145)
 
 #### Parameters
 
@@ -41,7 +41,7 @@ Defined in: [types/tools.ts:139](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **description?**: `string`
 
-Defined in: [types/tools.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L143)
+Defined in: [types/tools.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L149)
 
 ---
 
@@ -49,7 +49,7 @@ Defined in: [types/tools.ts:143](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **inputSchema?**: `unknown`
 
-Defined in: [types/tools.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L144)
+Defined in: [types/tools.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L150)
 
 ---
 
@@ -57,7 +57,7 @@ Defined in: [types/tools.ts:144](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **outputSchema?**: `unknown`
 
-Defined in: [types/tools.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L145)
+Defined in: [types/tools.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L151)
 
 ---
 
@@ -65,7 +65,7 @@ Defined in: [types/tools.ts:145](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **category?**: `string`
 
-Defined in: [types/tools.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L146)
+Defined in: [types/tools.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L152)
 
 ---
 
@@ -73,7 +73,7 @@ Defined in: [types/tools.ts:146](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **permissions?**: `string`[]
 
-Defined in: [types/tools.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L147)
+Defined in: [types/tools.ts:153](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L153)
 
 ---
 
@@ -81,7 +81,7 @@ Defined in: [types/tools.ts:147](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/tools.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L149)
+Defined in: [types/tools.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L155)
 
 Per-tool timeout in milliseconds, set at registration time
 
@@ -91,4 +91,17 @@ Per-tool timeout in milliseconds, set at registration time
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/tools.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L150)
+Defined in: [types/tools.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L156)
+
+---
+
+### totalTimeoutMs?
+
+> `optional` **totalTimeoutMs?**: `number`
+
+Defined in: [types/tools.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L163)
+
+Ceiling on the WHOLE execution — every attempt plus the delays between
+them — in milliseconds. `timeoutMs` bounds one attempt; without this, a
+tool that reliably hangs burns `timeoutMs * (maxRetries + 1)`.
+Defaults to exactly that product, so behaviour is unchanged unless set.

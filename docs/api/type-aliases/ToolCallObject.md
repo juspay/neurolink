@@ -8,7 +8,7 @@
 
 > **ToolCallObject** = [`UnknownRecord`](UnknownRecord.md) & `object`
 
-Defined in: [types/tools.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L349)
+Defined in: [types/tools.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L372)
 
 Tool call object type for type-safe access to tool call properties
 

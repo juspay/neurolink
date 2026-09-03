@@ -8,7 +8,7 @@
 
 > **SDKToolContext** = [`ToolContext`](ToolContext.md) & `object`
 
-Defined in: [types/tools.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L268)
+Defined in: [types/tools.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/tools.ts#L291)
 
 SDK-specific tool context with additional fields for SDK usage
 Extends the base ToolContext with session management, provider info, and logging

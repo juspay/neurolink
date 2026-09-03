@@ -204,20 +204,45 @@ export class ErrorFactory {
   }
 
   /**
-   * Create a tool timeout error
+   * Create a tool timeout error.
+   *
+   * `timeoutMs` is the bound that was actually exceeded. Pass `budget` when
+   * the timeout happened inside a retry loop, so the error can say which
+   * number it is reporting: a reader who sees `timeoutMs: 120000` next to an
+   * `executionTime` of 483005 will otherwise conclude the timeout was never
+   * enforced, when in fact four attempts of 120s each were.
+   *
+   * `budget.exhausted` marks the case where the whole-execution ceiling ran
+   * out rather than a single attempt overrunning; that error is NOT retriable,
+   * because there is no budget left to retry into.
    */
   static toolTimeout(
     toolName: string,
     timeoutMs: number,
     serverId?: string,
+    budget?: {
+      attempt?: number;
+      maxAttempts?: number;
+      attemptTimeoutMs?: number;
+      totalTimeoutMs?: number;
+      elapsedMs?: number;
+      exhausted?: boolean;
+    },
   ): NeuroLinkError {
+    const scope = budget?.exhausted
+      ? `exhausted its ${budget.totalTimeoutMs}ms total budget`
+      : budget?.maxAttempts && budget.maxAttempts > 1
+        ? `timed out after ${timeoutMs}ms on attempt ${budget.attempt ?? 1} of ${budget.maxAttempts}`
+        : `timed out after ${timeoutMs}ms`;
     return new NeuroLinkError({
       code: ERROR_CODES.TOOL_TIMEOUT,
-      message: `Tool '${toolName}' timed out after ${timeoutMs}ms`,
+      message: `Tool '${toolName}' ${scope}`,
       category: ErrorCategory.TIMEOUT,
       severity: ErrorSeverity.HIGH,
-      retriable: true,
-      context: { timeoutMs },
+      // A single attempt timing out is worth another try; an exhausted total
+      // budget is not — retrying it can only overshoot the caller's ceiling.
+      retriable: budget?.exhausted !== true,
+      context: { timeoutMs, ...(budget ?? {}) },
       toolName,
       serverId,
     });
