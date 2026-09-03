@@ -1,0 +1,165 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "upstage",
+  "displayName": "Upstage",
+  "aliases": ["solar"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.upstage.ai/v1"
+  },
+  "models": {
+    "default": "solar-pro4",
+    "fallbacks": ["solar-pro3", "solar-mini"],
+    "defaultContextWindow": 524288,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "solar-pro4": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Solar Pro 4; 512K context, up to 128K output tokens; agentic flagship for tool calling, terminal tasks and long-document reasoning"
+      },
+      "solar-pro4-260806": {
+        "contextWindow": 524288,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.3,
+          "output": 1.2,
+          "cachedInput": 0.06
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Pinned dated snapshot of Solar Pro 4 (2026-08-06 build) — the id the solar-pro4 alias currently resolves to"
+      },
+      "solar-pro3": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.015
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Solar Pro 3; drop-in replacement for Solar Pro 2 with the same API interface, throughput and latency"
+      },
+      "solar-pro3-260323": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.015
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Pinned dated snapshot of Solar Pro 3 (2026-03-23 build)"
+      },
+      "solar-pro2": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.015
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Solar Pro 2; 31B-parameter model with an optional Reasoning Mode"
+      },
+      "solar-pro2-251215": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.6,
+          "cachedInput": 0.015
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Pinned dated snapshot of Solar Pro 2 (2025-12-15 build)"
+      },
+      "solar-mini": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Solar Mini; small, fast model for lightweight reasoning and cost-efficient tasks"
+      },
+      "solar-mini-250422": {
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.15
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Pinned dated snapshot of Solar Mini (2025-04-22 build)"
+      },
+      "syn-pro": {
+        "vision": false,
+        "status": "production",
+        "description": "Syn Pro; Upstage's Japan-focused LLM"
+      },
+      "syn-pro-251021": {
+        "vision": false,
+        "status": "production",
+        "description": "Pinned dated snapshot of Syn Pro (2025-10-21 build)"
+      }
+    },
+    "topModels": [
+      "solar-pro4",
+      "solar-pro3",
+      "solar-pro2",
+      "solar-mini",
+      "syn-pro"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "invalid_api_key|API key is invalid",
+      "class": "authentication",
+      "message": "Invalid Upstage API key. Check {apiKeyEnvVar}. Get one at https://console.upstage.ai/api-keys"
+    },
+    {
+      "pattern": "requested model is invalid or no longer supported",
+      "class": "invalid-model",
+      "message": "Upstage model '{model}' is invalid or no longer supported. Pick a current model from https://console.upstage.ai/docs/models."
+    }
+  ],
+  "setup": {
+    "url": "https://console.upstage.ai/api-keys",
+    "apiKeyFormat": "^up_[A-Za-z0-9]+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://console.upstage.ai (Google OAuth works)",
+      "2. New accounts get a $10 sign-up credit — no payment method required",
+      "3. Create an API key under API Keys",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-03",
+      "method": "authenticated GET /v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-03",
+      "status": 401,
+      "code": "invalid_api_key"
+    },
+    "liveMatrix": null,
+    "addedInPR": "pending"
+  }
+}

@@ -8,4 +8,4 @@
 
 > **OpenAICompatV3Content** = `Awaited`\<`ReturnType`\<`LanguageModelV3`\[`"doGenerate"`\]\>\>\[`"content"`\]\[`number`\]
 
-Defined in: [types/openaiCompatible.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L210)
+Defined in: [types/openaiCompatible.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L213)

@@ -8,4 +8,4 @@
 
 > **OpenAICompatV3Usage** = `Awaited`\<`ReturnType`\<`LanguageModelV3`\[`"doGenerate"`\]\>\>\[`"usage"`\]
 
-Defined in: [types/openaiCompatible.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L218)
+Defined in: [types/openaiCompatible.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L221)

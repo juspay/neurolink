@@ -8,6 +8,6 @@
 
 > **ExtendedTool** = `Tool` & `Partial`\<[`ExternalMCPToolInfo`](ExternalMCPToolInfo.md)\>
 
-Defined in: [types/providers.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L958)
+Defined in: [types/providers.ts:963](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L963)
 
 Extended tool type that combines AI SDK tools with external MCP tool info

@@ -47,6 +47,10 @@ overrides:
   protobufjs@<7.6.5: '>=7.6.5'
   brace-expansion@>=5.0.0 <5.0.9: '>=5.0.9'
   '@opentelemetry/core@>=2.0.0 <2.8.0': '>=2.8.0'
+  qs: 6.16.0
+  fastify: 5.12.1
+  fast-uri: 3.1.6
+  '@xmldom/xmldom': 0.9.12
 
 pnpmfileChecksum: sha256-IOuJacdJrM1DaVu4E0VUU8po5yGx2L7t74wmXJARo8U=
 
@@ -461,7 +465,7 @@ importers:
         specifier: ^8.2.1
         version: 8.3.1(express@5.2.1)
       fastify:
-        specifier: ^5.12.1
+        specifier: 5.12.1
         version: 5.12.1
       ffmpeg-static:
         specifier: ^5.3.0
@@ -4063,11 +4067,8 @@ packages:
   fast-string-width@3.0.2:
     resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
 
-  fast-uri@3.1.7:
-    resolution: {integrity: sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg==}
-
-  fast-uri@4.1.4:
-    resolution: {integrity: sha512-dODXrIxlS9JSdgAnhIUKOosKV1oMtU2VtVw87QRaHzyl5jxO290Ii5tEZfCfzfWNHi3jKWwBSdQj0qIyshdZdQ==}
+  fast-uri@3.1.6:
+    resolution: {integrity: sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q==}
 
   fast-wrap-ansi@0.2.0:
     resolution: {integrity: sha512-rLV8JHxTyhVmFYhBJuMujcrHqOT2cnO5Zxj37qROj23CP39GXubJRBUFF0z8KFK77Uc0SukZUf7JZhsVEQ6n8w==}
@@ -5914,11 +5915,6 @@ packages:
 
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
-    engines: {node: '>=10'}
-    hasBin: true
-
-  semver@7.8.4:
-    resolution: {integrity: sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -7845,7 +7841,7 @@ snapshots:
     dependencies:
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
-      fast-uri: 3.1.7
+      fast-uri: 3.1.6
     optional: true
 
   '@fastify/cors@11.2.0':
@@ -10368,14 +10364,14 @@ snapshots:
   ajv@8.18.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.7
+      fast-uri: 3.1.6
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.7
+      fast-uri: 3.1.6
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
     optional: true
@@ -11315,7 +11311,7 @@ snapshots:
       '@fastify/merge-json-schemas': 0.2.1
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
-      fast-uri: 3.1.7
+      fast-uri: 3.1.6
       json-schema-ref-resolver: 3.0.0
       rfdc: 1.4.1
     optional: true
@@ -11325,7 +11321,7 @@ snapshots:
       '@fastify/merge-json-schemas': 0.2.1
       ajv: 8.20.0
       ajv-formats: 3.0.1(ajv@8.20.0)
-      fast-uri: 4.1.4
+      fast-uri: 3.1.6
       json-schema-ref-resolver: 3.0.0
       rfdc: 1.4.1
     optional: true
@@ -11351,10 +11347,7 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.7: {}
-
-  fast-uri@4.1.4:
-    optional: true
+  fast-uri@3.1.6: {}
 
   fast-wrap-ansi@0.2.0:
     dependencies:
@@ -11390,7 +11383,7 @@ snapshots:
       process-warning: 5.1.0
       rfdc: 1.4.1
       secure-json-parse: 4.1.0
-      semver: 7.8.4
+      semver: 7.8.5
       toad-cache: 3.7.1
     optional: true
 
@@ -13403,9 +13396,6 @@ snapshots:
   semver-regex@4.0.5: {}
 
   semver@7.7.4: {}
-
-  semver@7.8.4:
-    optional: true
 
   semver@7.8.5: {}
 

@@ -8,4 +8,4 @@
 
 > **OpenAICompatV3CallTools** = `NonNullable`\<`LanguageModelV3CallOptions`\[`"tools"`\]\>
 
-Defined in: [types/openaiCompatible.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L229)
+Defined in: [types/openaiCompatible.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L232)

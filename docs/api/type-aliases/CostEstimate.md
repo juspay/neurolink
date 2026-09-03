@@ -8,7 +8,7 @@
 
 > **CostEstimate** = `object`
 
-Defined in: [types/providers.ts:1812](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1812)
+Defined in: [types/providers.ts:1817](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1817)
 
 Cost estimation data
 
@@ -18,7 +18,7 @@ Cost estimation data
 
 > **estimatedCost**: `number`
 
-Defined in: [types/providers.ts:1814](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1814)
+Defined in: [types/providers.ts:1819](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1819)
 
 Estimated cost in USD
 
@@ -28,7 +28,7 @@ Estimated cost in USD
 
 > **currency**: `string`
 
-Defined in: [types/providers.ts:1816](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1816)
+Defined in: [types/providers.ts:1821](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1821)
 
 Currency code
 
@@ -38,7 +38,7 @@ Currency code
 
 > **breakdown**: `object`
 
-Defined in: [types/providers.ts:1818](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1818)
+Defined in: [types/providers.ts:1823](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1823)
 
 Cost breakdown
 
@@ -66,7 +66,7 @@ Total processing hours
 
 > `optional` **period?**: `object`
 
-Defined in: [types/providers.ts:1827](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1827)
+Defined in: [types/providers.ts:1832](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1832)
 
 Time period for estimate
 

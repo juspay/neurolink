@@ -1,0 +1,263 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "baseten",
+  "displayName": "Baseten",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://inference.baseten.co/v1"
+  },
+  "models": {
+    "default": "zai-org/GLM-5.3-Flash",
+    "fallbacks": [
+      "zai-org/GLM-5.3-Flash",
+      "zai-org/GLM-5.3",
+      "zai-org/GLM-5.2"
+    ],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "openai/gpt-oss-120b": {
+        "contextWindow": 128072,
+        "maxOutputTokens": 128072,
+        "pricingPerMTok": {
+          "input": 0.1,
+          "output": 0.5,
+          "cachedInput": 0.1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI GPT-OSS 120B; general-purpose model with controllable reasoning"
+      },
+      "zai-org/GLM-4.7": {
+        "contextWindow": 200000,
+        "maxOutputTokens": 200000,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.2,
+          "cachedInput": 0.12
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 4.7; fast general-purpose model with 200K context and enhanced tool use"
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.16
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K2.6; agentic and coding model for multi-step reasoning and tool use"
+      },
+      "deepseek-ai/DeepSeek-V4-Pro": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.74,
+          "output": 3.48,
+          "cachedInput": 0.145
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro; 1M-context mixture-of-experts model for agentic workflows and coding"
+      },
+      "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B": {
+        "contextWindow": 202800,
+        "maxOutputTokens": 202800,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.4,
+          "cachedInput": 0.12
+        },
+        "vision": false,
+        "status": "production",
+        "description": "NVIDIA Nemotron 3 Ultra; flagship reasoning and non-reasoning model for code and agentic execution"
+      },
+      "zai-org/GLM-5.2": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.14
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.2; 1M-context reasoning model"
+      },
+      "moonshotai/Kimi-K2.7-Code": {
+        "contextWindow": 262000,
+        "maxOutputTokens": 262000,
+        "pricingPerMTok": {
+          "input": 0.95,
+          "output": 4,
+          "cachedInput": 0.16
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K2.7 Code; model for complex coding, code reasoning and long-horizon development"
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 384000,
+        "pricingPerMTok": {
+          "input": 0.13,
+          "output": 0.26,
+          "cachedInput": 0.028
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash 0731; fast, low-cost 1M-context mixture-of-experts model"
+      },
+      "thinkingmachines/inkling": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 4.05,
+          "cachedInput": 0.17
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Thinking Machines Inkling; 1M-context reasoning model"
+      },
+      "zai-org/GLM-5.2-Fast": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 2.1,
+          "output": 6.6,
+          "cachedInput": 0.21
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.2 Fast; 1M-context model"
+      },
+      "moonshotai/Kimi-K3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 3,
+          "output": 15,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Kimi K3; 1M-context model"
+      },
+      "thinkingmachines/inkling-small": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.5,
+          "output": 1.2,
+          "cachedInput": 0.1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Thinking Machines Inkling Small; 1M-context reasoning model"
+      },
+      "deepseek-ai/DeepSeek-V4-Pro-0813": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.32,
+          "output": 3.96,
+          "cachedInput": 0.132
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Pro 0813; dated 1M-context mixture-of-experts model for agentic workflows and coding"
+      },
+      "zai-org/GLM-5.3-Flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.15,
+          "output": 0.5,
+          "cachedInput": 0.03
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Recommended - GLM 5.3 Flash; 1M-context reasoning model with live-verified image input"
+      },
+      "zai-org/GLM-5.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.14
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM 5.3; 1M-context reasoning model"
+      },
+      "zai-org/GLM-5.3-Fast": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 262144,
+        "pricingPerMTok": {
+          "input": 2.1,
+          "output": 6.6,
+          "cachedInput": 0.21
+        },
+        "vision": true,
+        "status": "production",
+        "description": "GLM 5.3 Fast; 1M-context reasoning model with image input"
+      }
+    },
+    "visionModel": "zai-org/GLM-5.3-Flash",
+    "topModels": [
+      "zai-org/GLM-5.3-Flash",
+      "zai-org/GLM-5.3",
+      "zai-org/GLM-5.2",
+      "openai/gpt-oss-120b",
+      "deepseek-ai/DeepSeek-V4-Flash-0731"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "pattern": "please check the api-key you provided",
+      "class": "authentication",
+      "message": "Invalid Baseten API key. Check {apiKeyEnvVar}. Get one at https://app.baseten.co/"
+    }
+  ],
+  "setup": {
+    "url": "https://app.baseten.co/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://app.baseten.co/ and sign in or create a workspace",
+      "2. Review the current Baseten billing and credit terms in the console before making requests",
+      "3. Create a personal API key in the Baseten console",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-03",
+      "method": "authenticated GET /v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-03",
+      "status": 403
+    },
+    "liveMatrix": null,
+    "addedInPR": "pending"
+  }
+}

@@ -8,7 +8,7 @@
 
 > **IndividualProviderConfig** = `object`
 
-Defined in: [types/providers.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L509)
+Defined in: [types/providers.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L514)
 
 Provider configuration for individual providers
 
@@ -22,7 +22,7 @@ Provider configuration for individual providers
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/providers.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L510)
+Defined in: [types/providers.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L515)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:510](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **baseURL?**: `string`
 
-Defined in: [types/providers.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L511)
+Defined in: [types/providers.ts:516](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L516)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:511](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L512)
+Defined in: [types/providers.ts:517](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L517)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:512](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **retries?**: `number`
 
-Defined in: [types/providers.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L513)
+Defined in: [types/providers.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L518)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:513](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **model?**: `string`
 
-Defined in: [types/providers.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L514)
+Defined in: [types/providers.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L519)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/providers.ts:514](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **subscriptionTier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/providers.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L519)
+Defined in: [types/providers.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L524)
 
 The subscription tier for the provider (e.g., Claude Pro, Max, Team, Enterprise)
 Used to determine rate limits, available features, and pricing
@@ -73,7 +73,7 @@ Used to determine rate limits, available features, and pricing
 
 > `optional` **authMethod?**: [`AnthropicAuthMethod`](AnthropicAuthMethod.md)
 
-Defined in: [types/providers.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L524)
+Defined in: [types/providers.ts:529](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L529)
 
 The authentication method to use for the provider
 Supports API key, OAuth, session token, or environment variable
@@ -84,7 +84,7 @@ Supports API key, OAuth, session token, or environment variable
 
 > `optional` **authConfig?**: [`AnthropicAuthConfig`](AnthropicAuthConfig.md)
 
-Defined in: [types/providers.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L528)
+Defined in: [types/providers.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L533)
 
 Detailed authentication configuration including credentials and options
 
@@ -94,7 +94,7 @@ Detailed authentication configuration including credentials and options
 
 > `optional` **enableBetaFeatures?**: `boolean`
 
-Defined in: [types/providers.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L533)
+Defined in: [types/providers.ts:538](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L538)
 
 Whether to enable beta features for the provider
 Beta features may be unstable or subject to change

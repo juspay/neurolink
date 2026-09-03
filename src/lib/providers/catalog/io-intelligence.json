@@ -1,0 +1,463 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "io-intelligence",
+  "displayName": "io.net Intelligence",
+  "aliases": ["io-net"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.intelligence.io.solutions/api/v1"
+  },
+  "models": {
+    "default": "meta-llama/Llama-3.3-70B-Instruct",
+    "fallbacks": [
+      "meta-llama/Llama-3.3-70B-Instruct",
+      "openai/gpt-oss-20b",
+      "zai-org/GLM-4.5-Air"
+    ],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 8192,
+    "catalog": {
+      "zai-org/GLM-5.3-Flash": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.147997,
+          "output": 0.49399,
+          "cachedInput": 0.073999
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Z.ai: GLM 5.3 Flash"
+      },
+      "zai-org/GLM-5.3": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.39,
+          "output": 4.4,
+          "cachedInput": 0.695
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 5.3"
+      },
+      "Qwen/Qwen3.8-27B": {
+        "contextWindow": 65536,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.39,
+          "output": 2.99,
+          "cachedInput": 0.195
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen: Qwen3.8 27B"
+      },
+      "deepseek-ai/DeepSeek-V4-Flash-0731": {
+        "contextWindow": 262100,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.196,
+          "output": 0.534,
+          "cachedInput": 0.098
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek: DeepSeek V4 Flash 0731"
+      },
+      "moonshotai/Kimi-K3": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 3.18,
+          "output": 15.9,
+          "cachedInput": 1.59
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MoonshotAI: Kimi K3"
+      },
+      "XiaomiMiMo/MiMo-V2.5": {
+        "contextWindow": 1048576,
+        "pricingPerMTok": {
+          "input": 0.1934,
+          "output": 0.6268,
+          "cachedInput": 0.0967
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Xiaomi: MiMo-V2.5"
+      },
+      "zai-org/GLM-5.2": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.552,
+          "output": 4.884,
+          "cachedInput": 0.776
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 5.2"
+      },
+      "moonshotai/Kimi-K2.7-Code": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 1.026,
+          "output": 4.53,
+          "cachedInput": 0.513
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MoonshotAI: Kimi K2.7 Code"
+      },
+      "Qwen/Qwen3.6-35B-A3B": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.1872,
+          "output": 1.24675,
+          "cachedInput": 0.0936
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen: Qwen3.6 35B A3B"
+      },
+      "Qwen/Qwen3.6-27B": {
+        "contextWindow": 32768,
+        "pricingPerMTok": {
+          "input": 0.399,
+          "output": 3.19,
+          "cachedInput": 0.1995
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Qwen: Qwen3.6 27B"
+      },
+      "MiniMaxAI/MiniMax-M2.7": {
+        "contextWindow": 262100,
+        "maxOutputTokens": 65536,
+        "pricingPerMTok": {
+          "input": 0.426,
+          "output": 1.62,
+          "cachedInput": 0.213
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMaxAI: MiniMax M2.7"
+      },
+      "deepseek-ai/DeepSeek-V4-Flash": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 0.199,
+          "output": 0.512,
+          "cachedInput": 0.0995
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek: DeepSeek V4 Flash"
+      },
+      "deepseek-ai/DeepSeek-V4-Pro": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 600000,
+        "pricingPerMTok": {
+          "input": 1.618,
+          "output": 3.288,
+          "cachedInput": 0.809
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek: DeepSeek V4 Pro"
+      },
+      "moonshotai/Kimi-K2.6": {
+        "contextWindow": 262142,
+        "pricingPerMTok": {
+          "input": 0.76744,
+          "output": 3.43436,
+          "cachedInput": 0.38372
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MoonshotAI: Kimi K2.6"
+      },
+      "zai-org/GLM-5.1": {
+        "contextWindow": 202750,
+        "maxOutputTokens": 32768,
+        "pricingPerMTok": {
+          "input": 1.29,
+          "output": 4.22,
+          "cachedInput": 0.645
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 5.1"
+      },
+      "MiniMaxAI/MiniMax-M2.5": {
+        "contextWindow": 196600,
+        "pricingPerMTok": {
+          "input": 0.294,
+          "output": 1.176,
+          "cachedInput": 0.147
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MiniMaxAI/MiniMax-M2.5"
+      },
+      "moonshotai/Kimi-K2.5": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.5284,
+          "output": 2.785,
+          "cachedInput": 0.2642
+        },
+        "vision": true,
+        "status": "production",
+        "description": "MoonshotAI: Kimi K2.5"
+      },
+      "zai-org/GLM-5": {
+        "contextWindow": 202752,
+        "pricingPerMTok": {
+          "input": 0.85,
+          "output": 2.774,
+          "cachedInput": 0.425
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 5"
+      },
+      "deepseek-ai/DeepSeek-V3.2": {
+        "contextWindow": 163840,
+        "pricingPerMTok": {
+          "input": 1.4301,
+          "output": 2.4063,
+          "cachedInput": 0.71505
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek: DeepSeek V3.2"
+      },
+      "moonshotai/Kimi-K2-Thinking": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.6,
+          "output": 2.5,
+          "cachedInput": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MoonshotAI: Kimi K2 Thinking"
+      },
+      "zai-org/GLM-4.5-Air": {
+        "contextWindow": 131070,
+        "pricingPerMTok": {
+          "input": 0.165,
+          "output": 0.975,
+          "cachedInput": 0.0825
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM-4.5-Air"
+      },
+      "google/gemma-4-26b-a4b-it": {
+        "contextWindow": 262142,
+        "pricingPerMTok": {
+          "input": 0.116,
+          "output": 0.38,
+          "cachedInput": 0.058
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Google: Gemma 4 26B A4B"
+      },
+      "zai-org/GLM-4.7-Flash": {
+        "contextWindow": 200000,
+        "pricingPerMTok": {
+          "input": 0.062625,
+          "output": 0.4,
+          "cachedInput": 0.031313
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 4.7 Flash"
+      },
+      "zai-org/GLM-4.7": {
+        "contextWindow": 202752,
+        "pricingPerMTok": {
+          "input": 0.88,
+          "output": 2.37,
+          "cachedInput": 0.44
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 4.7"
+      },
+      "moonshotai/Kimi-K2-Instruct-0905": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.57,
+          "output": 2.3,
+          "cachedInput": 0.285
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MoonshotAI: Kimi K2 Instruct 0905"
+      },
+      "openai/gpt-oss-120b": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.188,
+          "output": 0.7,
+          "cachedInput": 0.094
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI: gpt-oss-120b"
+      },
+      "deepseek-ai/DeepSeek-R1-0528": {
+        "contextWindow": 128000,
+        "pricingPerMTok": {
+          "input": 0.56775,
+          "output": 2.279,
+          "cachedInput": 0.283875
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek: R1 0528"
+      },
+      "zai-org/GLM-4.6": {
+        "contextWindow": 131072,
+        "pricingPerMTok": {
+          "input": 0.536,
+          "output": 2.07,
+          "cachedInput": 0.268
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Z.ai: GLM 4.6"
+      },
+      "Qwen/Qwen3-Next-80B-A3B-Instruct": {
+        "contextWindow": 262144,
+        "pricingPerMTok": {
+          "input": 0.1175,
+          "output": 1.136,
+          "cachedInput": 0.05875
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Qwen: Qwen3 Next 80B A3B Instruct"
+      },
+      "Intel/Qwen3-Coder-480B-A35B-Instruct-int4-mixed-ar": {
+        "contextWindow": 106000,
+        "pricingPerMTok": {
+          "input": 0.445,
+          "output": 2.145,
+          "cachedInput": 0.2225
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Intel: Qwen3 Coder 480B A35B Instruct INT4 Mixed AR"
+      },
+      "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": {
+        "contextWindow": 430000,
+        "pricingPerMTok": {
+          "input": 0.274,
+          "output": 0.8992,
+          "cachedInput": 0.137
+        },
+        "vision": true,
+        "status": "production",
+        "description": "Meta-Llama: Llama 4 Maverick 17B 128E Instruct FP8"
+      },
+      "mistralai/Mistral-Nemo-Instruct-2407": {
+        "contextWindow": 128000,
+        "pricingPerMTok": {
+          "input": 0.0635,
+          "output": 0.09875,
+          "cachedInput": 0.03175
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Mistral: Mistral Nemo Instruct 2407"
+      },
+      "openai/gpt-oss-20b": {
+        "contextWindow": 64000,
+        "pricingPerMTok": {
+          "input": 0.067,
+          "output": 0.24,
+          "cachedInput": 0.0335
+        },
+        "vision": false,
+        "status": "production",
+        "description": "OpenAI: gpt-oss-20b"
+      },
+      "meta-llama/Llama-3.3-70B-Instruct": {
+        "contextWindow": 128000,
+        "pricingPerMTok": {
+          "input": 0.6066,
+          "output": 1.0386,
+          "cachedInput": 0.3033
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Meta: Llama 3.3 70B Instruct"
+      }
+    },
+    "topModels": [
+      "meta-llama/Llama-3.3-70B-Instruct",
+      "openai/gpt-oss-20b",
+      "zai-org/GLM-4.5-Air",
+      "google/gemma-4-26b-a4b-it",
+      "zai-org/GLM-5.3-Flash",
+      "Qwen/Qwen3.8-27B",
+      "deepseek-ai/DeepSeek-V4-Pro"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "pattern": "requested model is not available for Chat Completions API",
+      "class": "invalid-model",
+      "message": "io.net Intelligence model '{model}' is not available for the Chat Completions API. Choose a current model from https://ai.io.net/."
+    }
+  ],
+  "setup": {
+    "url": "https://ai.io.net/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://ai.io.net/",
+      "2. Sign in or create an io.net account",
+      "3. Create an API key for your project in the console",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-03",
+      "method": "authenticated GET /v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-03",
+      "status": 401
+    },
+    "liveMatrix": {
+      "date": "2026-09-03",
+      "result": "SDK end-to-end via dist: generate, stream, tool call (nonce round-trip) and json_schema structured output all pass. Tools + schema: after a tool result the vendor answers finish_reason=tool_calls with no tool_calls and null content when JSON is requested (4/4 raw replays); the SDK now re-asks that step once with tool_choice none and recovers the JSON — passed 1/1 in the final live proof through dist/index.js, tool nonce present in structuredData. structuredOutputWithTools is declared true on that basis."
+    },
+    "addedInPR": "pending",
+    "billingProbe": {
+      "date": "2026-09-03",
+      "status": 200,
+      "method": "official io.net Intelligence web app plan configuration: Standard default with daily_limit fallback of 2; Professional and Developer are paid upgrade plans"
+    }
+  }
+}

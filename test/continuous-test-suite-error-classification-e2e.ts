@@ -807,6 +807,32 @@ async function main(): Promise<void> {
       expectClass: InvalidModelError,
     });
 
+    setHandler(() => ({
+      status: 400,
+      body: JSON.stringify({
+        error: {
+          message: [{ msg: "Model not found in Pydantic validation." }],
+        },
+      }),
+    }));
+    await expectGenerateError({
+      name: "openai-compatible: Pydantic error.message array preserves invalid-model text",
+      run: () => gen({ provider: "openai-compatible", model: "gpt-4o-mini" }),
+      expectClass: InvalidModelError,
+      messageIncludes: ["gpt-4o-mini"],
+    });
+
+    setHandler(() => ({
+      status: 400,
+      body: JSON.stringify({ detail: "Model not found in top-level detail." }),
+    }));
+    await expectGenerateError({
+      name: "openai-compatible: top-level detail preserves invalid-model text",
+      run: () => gen({ provider: "openai-compatible", model: "gpt-4o-mini" }),
+      expectClass: InvalidModelError,
+      messageIncludes: ["gpt-4o-mini"],
+    });
+
     // -- openai: bad-request precision + missing-model echo -------------------
     setEnv("OPENAI_API_KEY", "test-fake-openai-credential");
     setEnv("OPENAI_BASE_URL", mockOrigin);
@@ -1511,6 +1537,405 @@ async function main(): Promise<void> {
           false,
           `stream() threw unexpectedly: ${err instanceof Error ? err.message : String(err)}`,
         );
+      }
+    }
+    // =========================================================================
+    // SECTION: structured-output recovery over the wire (openai-compatible)
+    // -------------------------------------------------------------------------
+    // Two vendor behaviours met live while onboarding the catalog providers,
+    // reproduced against the mock server and asserted on the CAPTURED
+    // OUTBOUND BODIES, not just the final result:
+    //   1. A vendor that ignores `response_format` (GMI Cloud's MiniMax
+    //      endpoint) answers a strict json_schema request in prose. The
+    //      structured-output fallback must re-ask with the schema spelled out
+    //      in the prompt, and the coercion path must recover the object.
+    //   2. A vendor whose tool-call parser swallows a JSON-shaped answer
+    //      (io.net's Llama endpoint) ends the step after a tool result with
+    //      `finish_reason: tool_calls`, no tool_calls and null content. The
+    //      loop must re-ask exactly once with `tool_choice: "none"`, carrying
+    //      the tool result, and keep the executed tool in the result.
+    // Handlers key on request CONTENT, never on hit count, so provider-side
+    // retries can replay any request and get the same answer.
+    // =========================================================================
+    {
+      setEnv(
+        "OPENAI_COMPATIBLE_API_KEY",
+        "test-fake-openai-compatible-credential",
+      );
+      setEnv("OPENAI_COMPATIBLE_BASE_URL", mockOrigin);
+      type ChatRequestBody = {
+        messages?: Array<{ role: string; content?: unknown }>;
+        response_format?: unknown;
+        tool_choice?: unknown;
+      };
+      const completion = (
+        message: Record<string, unknown>,
+        finishReason: string,
+      ): MockResponseSpec => ({
+        status: 200,
+        body: JSON.stringify({
+          id: "chatcmpl-mock",
+          object: "chat.completion",
+          created: 0,
+          model: "gpt-4o-mini",
+          choices: [{ index: 0, message, finish_reason: finishReason }],
+          usage: { prompt_tokens: 5, completion_tokens: 5, total_tokens: 10 },
+        }),
+      });
+      const parseBody = (raw: string): ChatRequestBody => {
+        try {
+          return JSON.parse(raw) as ChatRequestBody;
+        } catch {
+          return {};
+        }
+      };
+      const carriesJsonInstruction = (body: ChatRequestBody): boolean =>
+        JSON.stringify(body.messages ?? []).includes("JSON Schema");
+
+      // --- 1. response_format ignored -> prompt-side JSON instruction -------
+      {
+        const seen: ChatRequestBody[] = [];
+        setHandler(() => {
+          const body = parseBody(lastRequestBody);
+          seen.push(body);
+          return completion(
+            {
+              role: "assistant",
+              content: carriesJsonInstruction(body)
+                ? '{"city":"Tokyo","country":"Japan","population_millions":14}'
+                : "Tokyo is the capital of Japan, home to roughly 14 million people in the city proper.",
+            },
+            "stop",
+          );
+        });
+        const citySchema = z.object({
+          city: z.string(),
+          country: z.string(),
+          population_millions: z.number(),
+        });
+        const name =
+          "openai-compatible: vendor ignores response_format -> fallback re-asks with the schema in the prompt and recovers structuredData";
+        try {
+          const r = await nl().generate({
+            provider: "openai-compatible",
+            model: "gpt-4o-mini",
+            input: {
+              text: "Return the city Tokyo, its country, and its approximate population in millions.",
+            },
+            systemPrompt: "You are a terse geography assistant.",
+            schema: citySchema,
+            disableTools: true,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]);
+          const parsed = citySchema.safeParse(r.structuredData);
+          const first = seen[0];
+          const last = seen[seen.length - 1];
+          const lastSystem = (last?.messages ?? []).filter(
+            (m) => m.role === "system",
+          );
+          const singleMergedSystem =
+            lastSystem.length === 1 &&
+            typeof lastSystem[0]?.content === "string" &&
+            lastSystem[0].content.includes("terse geography assistant") &&
+            lastSystem[0].content.includes("JSON Schema");
+          const firstNative =
+            first !== undefined &&
+            first.response_format !== undefined &&
+            !carriesJsonInstruction(first);
+          const lastPromptSide =
+            last !== undefined &&
+            last.response_format === undefined &&
+            carriesJsonInstruction(last);
+          const problems: string[] = [];
+          if (!parsed.success) {
+            problems.push("structuredData did not satisfy the schema");
+          }
+          if (seen.length < 2) {
+            problems.push(
+              `expected a fallback request, saw ${seen.length} request(s)`,
+            );
+          }
+          if (!firstNative) {
+            problems.push(
+              "first request did not carry response_format without a prompt instruction",
+            );
+          }
+          if (!lastPromptSide) {
+            problems.push(
+              "fallback request did not carry the JSON instruction with response_format removed",
+            );
+          }
+          if (!singleMergedSystem) {
+            problems.push(
+              "fallback request did not merge the instruction into the caller's single system message",
+            );
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw unexpectedly: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+
+      // --- 2. empty tool_calls finish -> one tool_choice:none re-ask --------
+      {
+        const seen: ChatRequestBody[] = [];
+        setHandler(() => {
+          const body = parseBody(lastRequestBody);
+          seen.push(body);
+          const hasToolResult = (body.messages ?? []).some(
+            (m) => m.role === "tool",
+          );
+          if (body.tool_choice === "none") {
+            return completion(
+              {
+                role: "assistant",
+                content: '{"code":"ZQ-TEST","source":"tool"}',
+              },
+              "stop",
+            );
+          }
+          if (hasToolResult) {
+            return completion(
+              { role: "assistant", content: null, refusal: null },
+              "tool_calls",
+            );
+          }
+          return completion(
+            {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: { name: "getSecretCode", arguments: "{}" },
+                },
+              ],
+            },
+            "tool_calls",
+          );
+        });
+        const codeTool = {
+          getSecretCode: tool({
+            description: "Returns the secret code. Takes no arguments.",
+            inputSchema: z.object({}),
+            execute: async () => ({ code: "ZQ-TEST" }),
+          }),
+        };
+        const codeSchema = z.object({ code: z.string(), source: z.string() });
+        const name =
+          "openai-compatible: empty tool_calls finish after a tool result -> one tool_choice:none re-ask recovers the answer";
+        try {
+          const r = (await nl().generate({
+            provider: "openai-compatible",
+            model: "gpt-4o-mini",
+            input: {
+              text: "Call getSecretCode, then answer as JSON with the code and source.",
+            },
+            tools: codeTool,
+            schema: codeSchema,
+            maxSteps: 4,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            structuredData?: unknown;
+            toolsUsed?: string[];
+            toolExecutions?: unknown[];
+          };
+          const parsed = codeSchema.safeParse(r.structuredData);
+          const reasks = seen.filter((b) => b.tool_choice === "none");
+          const reaskCarriesToolResult =
+            reasks.length === 1 &&
+            (reasks[0]?.messages ?? []).some((m) => m.role === "tool");
+          const toolKept =
+            (Array.isArray(r.toolsUsed) &&
+              r.toolsUsed.includes("getSecretCode")) ||
+            (Array.isArray(r.toolExecutions) && r.toolExecutions.length > 0);
+          const problems: string[] = [];
+          if (!parsed.success || parsed.data.code !== "ZQ-TEST") {
+            problems.push("structuredData did not carry the tool's code");
+          }
+          if (reasks.length !== 1) {
+            problems.push(
+              `expected exactly one tool_choice none request, saw ${reasks.length}`,
+            );
+          }
+          if (!reaskCarriesToolResult) {
+            problems.push("re-ask did not carry the tool result message");
+          }
+          if (!toolKept) {
+            problems.push(
+              "executed tool missing from toolsUsed/toolExecutions",
+            );
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw unexpectedly: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+
+      // --- 3. re-ask fails -> original result is kept, never thrown -------
+      {
+        setHandler(() => {
+          const body = parseBody(lastRequestBody);
+          const hasToolResult = (body.messages ?? []).some(
+            (m) => m.role === "tool",
+          );
+          if (body.tool_choice === "none") {
+            return {
+              status: 500,
+              headers: { "retry-after": "0" },
+              body: JSON.stringify({ error: { message: "upstream hiccup" } }),
+            };
+          }
+          if (hasToolResult) {
+            return completion(
+              { role: "assistant", content: null, refusal: null },
+              "tool_calls",
+            );
+          }
+          return completion(
+            {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: { name: "getSecretCode", arguments: "{}" },
+                },
+              ],
+            },
+            "tool_calls",
+          );
+        });
+        const codeTool = {
+          getSecretCode: tool({
+            description: "Returns the secret code. Takes no arguments.",
+            inputSchema: z.object({}),
+            execute: async () => ({ code: "ZQ-TEST" }),
+          }),
+        };
+        const name =
+          "openai-compatible: a failing tool_choice:none re-ask degrades to the original result instead of throwing";
+        try {
+          const r = (await nl().generate({
+            provider: "openai-compatible",
+            model: "gpt-4o-mini",
+            input: { text: "Call getSecretCode, then answer." },
+            tools: codeTool,
+            maxSteps: 4,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            content?: string;
+            toolsUsed?: string[];
+            toolExecutions?: unknown[];
+          };
+          const toolKept =
+            (Array.isArray(r.toolsUsed) &&
+              r.toolsUsed.includes("getSecretCode")) ||
+            (Array.isArray(r.toolExecutions) && r.toolExecutions.length > 0);
+          const problems: string[] = [];
+          if (!toolKept) {
+            problems.push("executed tool missing from the degraded result");
+          }
+          if ((r.content ?? "").trim().length !== 0) {
+            problems.push("degraded result unexpectedly carried text");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw instead of degrading: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+          );
+        }
+      }
+
+      // --- 4. no step budget left -> no re-ask, honest step-cap ------------
+      {
+        const seen: ChatRequestBody[] = [];
+        setHandler(() => {
+          const body = parseBody(lastRequestBody);
+          seen.push(body);
+          const hasToolResult = (body.messages ?? []).some(
+            (m) => m.role === "tool",
+          );
+          if (body.tool_choice === "none") {
+            return completion(
+              {
+                role: "assistant",
+                content: '{"code":"ZQ-TEST","source":"tool"}',
+              },
+              "stop",
+            );
+          }
+          if (hasToolResult) {
+            return completion(
+              { role: "assistant", content: null, refusal: null },
+              "tool_calls",
+            );
+          }
+          return completion(
+            {
+              role: "assistant",
+              content: null,
+              tool_calls: [
+                {
+                  id: "call_1",
+                  type: "function",
+                  function: { name: "getSecretCode", arguments: "{}" },
+                },
+              ],
+            },
+            "tool_calls",
+          );
+        });
+        const codeTool = {
+          getSecretCode: tool({
+            description: "Returns the secret code. Takes no arguments.",
+            inputSchema: z.object({}),
+            execute: async () => ({ code: "ZQ-TEST" }),
+          }),
+        };
+        const name =
+          "openai-compatible: empty tool_calls finish on the last budgeted step -> no re-ask, stopReason step-cap, stepsUsed within maxSteps";
+        try {
+          const r = (await nl().generate({
+            provider: "openai-compatible",
+            model: "gpt-4o-mini",
+            input: { text: "Call getSecretCode, then answer." },
+            tools: codeTool,
+            maxSteps: 2,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            stopReason?: string;
+            stepsUsed?: number;
+          };
+          const reasks = seen.filter((b) => b.tool_choice === "none").length;
+          const problems: string[] = [];
+          if (reasks !== 0) {
+            problems.push(
+              `expected no re-ask with the budget spent, saw ${reasks}`,
+            );
+          }
+          if (r.stopReason !== "step-cap") {
+            problems.push("stopReason was not step-cap");
+          }
+          if (typeof r.stepsUsed !== "number" || r.stepsUsed > 2) {
+            problems.push("stepsUsed exceeded maxSteps");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw unexpectedly: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+          );
+        }
       }
     }
   } finally {

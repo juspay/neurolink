@@ -299,7 +299,9 @@ await runSuite(async () => {
     }
   });
 
-  logSection("apiKeyFormatPattern coverage (8 descriptors set it)");
+  logSection(
+    "apiKeyFormatPattern coverage (8 hand-typed descriptors + catalog entries that declare setup.apiKeyFormat)",
+  );
 
   await test("apiKeyFormatPattern: every field present on a descriptor is a real RegExp instance", async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
@@ -332,8 +334,25 @@ await runSuite(async () => {
       "mistral",
       "sagemaker",
     ]);
+    // Catalog entries (excluding mistral — never catalog-derived for
+    // descriptors) that set a non-null setup.apiKeyFormat contribute a real
+    // apiKeyFormatPattern via buildCatalogDescriptor(). Derived from the
+    // JSON rather than hand-listed so a new catalog entry that declares a
+    // key format joins this set without editing the suite.
+    const catalogWithPattern = new Set(
+      CATALOG_JSON_ENTRIES.filter(
+        (e) => e.id !== "mistral" && e.setup.apiKeyFormat !== null,
+      ).map((e) => e.id),
+    );
     let checkedAbsent = 0;
     for (const d of PROVIDER_DESCRIPTORS) {
+      if (catalogWithPattern.has(d.name)) {
+        assert(
+          d.apiKeyFormatPattern instanceof RegExp,
+          `${d.name} declares setup.apiKeyFormat but its descriptor lacks a RegExp apiKeyFormatPattern`,
+        );
+        continue;
+      }
       if (!withPattern.has(d.name)) {
         assert(
           d.apiKeyFormatPattern === undefined,
@@ -346,12 +365,7 @@ await runSuite(async () => {
     // NON_CATALOG_PROVIDER_COUNT.
     const NON_CATALOG_PROVIDER_COUNT = 23;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
-    // Catalog entries (excluding mistral — never catalog-derived for
-    // descriptors) that set a non-null setup.apiKeyFormat also contribute a
-    // real apiKeyFormatPattern via buildCatalogDescriptor(); today none do.
-    const catalogWithPatternCount = CATALOG_JSON_ENTRIES.filter(
-      (e) => e.id !== "mistral" && e.setup.apiKeyFormat !== null,
-    ).length;
+    const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
       totalCount - withPattern.size - catalogWithPatternCount;
     assertEqual(

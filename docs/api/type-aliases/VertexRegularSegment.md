@@ -8,7 +8,7 @@
 
 > **VertexRegularSegment** = `object`
 
-Defined in: [types/providers.ts:2419](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2419)
+Defined in: [types/providers.ts:2424](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2424)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:2419](https://github.com/juspay/neurolink/blob/r
 
 > **type**: `"regular"`
 
-Defined in: [types/providers.ts:2420](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2420)
+Defined in: [types/providers.ts:2425](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2425)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providers.ts:2420](https://github.com/juspay/neurolink/blob/r
 
 > **role**: `string`
 
-Defined in: [types/providers.ts:2421](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2421)
+Defined in: [types/providers.ts:2426](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2426)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/providers.ts:2421](https://github.com/juspay/neurolink/blob/r
 
 > **parts**: `unknown`[]
 
-Defined in: [types/providers.ts:2422](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2422)
+Defined in: [types/providers.ts:2427](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2427)

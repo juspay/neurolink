@@ -8,7 +8,7 @@
 
 > **VertexNativeLoopPart** = [`VertexNativePart`](VertexNativePart.md) \| \{ `functionCall`: \{ `name`: `string`; `args`: `Record`\<`string`, `unknown`\>; \}; \} \| \{ `functionResponse`: \{ `name`: `string`; `response`: `Record`\<`string`, `unknown`\>; \}; \}
 
-Defined in: [types/providers.ts:2385](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2385)
+Defined in: [types/providers.ts:2390](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2390)
 
 Part variants that ride the native Gemini agentic tool loop in addition to
 the plain `VertexNativePart` content shapes: model-issued function calls

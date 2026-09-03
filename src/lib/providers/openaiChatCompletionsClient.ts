@@ -760,6 +760,26 @@ export const parseSSEStream = async (
   return result;
 };
 
+function extractOpenAICompatErrorMessage(
+  parsed: OpenAICompatErrorBody | undefined,
+): string | undefined {
+  const message = parsed?.error?.message;
+  if (typeof message === "string" && message.trim().length > 0) {
+    return message;
+  }
+  if (Array.isArray(message)) {
+    const pydanticMessages = message
+      .map((item) => item.msg?.trim())
+      .filter((item): item is string => item !== undefined && item.length > 0);
+    if (pydanticMessages.length > 0) {
+      return pydanticMessages.join("; ");
+    }
+  }
+  return typeof parsed?.detail === "string" && parsed.detail.trim().length > 0
+    ? parsed.detail
+    : undefined;
+}
+
 export const buildAPIError = async (
   url: string,
   body: OpenAICompatChatRequest,
@@ -776,7 +796,7 @@ export const buildAPIError = async (
     parsed = undefined;
   }
   const msg =
-    parsed?.error?.message ??
+    extractOpenAICompatErrorMessage(parsed) ??
     `OpenAI-compatible request failed with status ${res.status}`;
   const err = new Error(msg) as Error & {
     statusCode?: number;
