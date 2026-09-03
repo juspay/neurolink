@@ -112,6 +112,23 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
     return this.entry.fallbackModels;
   }
 
+  /**
+   * The catalog's `capabilities.tools` is the vendor's own answer, probed on
+   * the wire when the entry was written; the model registry (the base
+   * default) knows nothing about Tier-2 models and answers "supported" for
+   * every unknown id. A vendor that declares tools: false must never receive
+   * a `tools` array — Mancer's free model rejects one with 400 — so the
+   * declaration wins here and the registry is only consulted otherwise.
+   * Like the other entry-reading overrides above, this runs only after
+   * construction: BaseProvider merely closes over it for GenerationHandler.
+   */
+  supportsTools(): boolean {
+    if (this.entry.supportsTools === false) {
+      return false;
+    }
+    return super.supportsTools();
+  }
+
   protected adjustRequestBody(
     body: OpenAICompatChatRequest,
     modelId: string,

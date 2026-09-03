@@ -218,6 +218,7 @@ export type NeurolinkCredentials = {
   groq?: { apiKey?: string; baseURL?: string };
   inceptionLabs?: { apiKey?: string; baseURL?: string };
   ioIntelligence?: { apiKey?: string; baseURL?: string };
+  mancer?: { apiKey?: string; baseURL?: string };
   mistral?: { apiKey?: string; baseURL?: string };
   perplexity?: { apiKey?: string; baseURL?: string };
   sambanova?: { apiKey?: string; baseURL?: string };
@@ -772,6 +773,15 @@ export type OpenAICompatCatalogEntry = {
   modelEnvVar: string;
   /** Default model when modelEnvVar is unset. */
   defaultModel: string;
+  /**
+   * Whether the vendor accepts native tool definitions, from the catalog's
+   * `capabilities.tools`. `false` makes the provider's `supportsTools()`
+   * answer false, so no `tools` array ever reaches a wire that rejects one
+   * (Mancer's free model answers 400 BAD_PARAMETERS to any tool list).
+   * Omitted means "not declared": fall through to the model registry, the
+   * same default every hand-written provider uses.
+   */
+  supportsTools?: boolean;
   /**
    * The literal passed as ProviderFactory.registerProvider()'s defaultModel
    * argument (resolved before the provider is constructed). Preserves each

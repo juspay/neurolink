@@ -780,8 +780,10 @@ await runSuite(async () => {
 
   logSection("toolSupport replaces PROMPT_ONLY_TOOL_PROVIDERS");
 
-  await test("descriptor.toolSupport !== 'native' reproduces the original 9-member prompt-only set", async () => {
+  await test("descriptor.toolSupport !== 'native' reproduces the original 9-member prompt-only set plus catalog entries that declare tools: false", async () => {
     const { ProviderFactory } = await import("../dist/index.js");
+    const { CATALOG_JSON_ENTRIES } =
+      await import("../dist/providers/catalog/index.generated.js");
     const originalPromptOnly = new Set([
       "ollama",
       "huggingface",
@@ -793,6 +795,15 @@ await runSuite(async () => {
       "jina",
       "voyage",
     ]);
+    // A catalog entry with capabilities.tools: false derives toolSupport
+    // "none" (buildCatalogDescriptor), which the runtime treats exactly like
+    // the original prompt-only set. Derived from the JSON so the next such
+    // vendor joins without editing the suite (mancer is the first).
+    for (const entry of CATALOG_JSON_ENTRIES) {
+      if (entry.id !== "mistral" && !entry.capabilities.tools) {
+        originalPromptOnly.add(entry.id);
+      }
+    }
     for (const d of ProviderFactory.getAllDescriptors()) {
       const derived = d.toolSupport !== "native";
       assertEqual(

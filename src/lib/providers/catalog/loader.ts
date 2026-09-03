@@ -130,6 +130,7 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
         entry.models.fallbacks[0],
       fallbackModels: [...entry.models.fallbacks],
       errorRules: buildErrorRules(entry),
+      supportsTools: entry.capabilities.tools,
     };
     const { baseURLTemplate } = entry.wire;
     if (baseURLTemplate) {
