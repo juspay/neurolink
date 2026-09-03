@@ -37,7 +37,10 @@ import {
   buildProxyTranslationPlan,
   parseRetryAfterMs,
 } from "../src/lib/proxy/routingPolicy.js";
-import { isTransientInstallFailure } from "../src/lib/proxy/globalInstaller.js";
+import {
+  isTransientInstallFailure,
+  resolveGlobalInstaller,
+} from "../src/lib/proxy/globalInstaller.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
 import {
@@ -62,7 +65,10 @@ import { ErrorCategory } from "../src/lib/constants/enums.js";
 // which is a different class from `client/errors.js`. This one stays on the
 // internal import.
 import { NeuroLinkError } from "../src/lib/utils/errorHandling.js";
-import type { CSVLoaderOptions } from "../src/lib/types/index.js";
+import type {
+  CSVLoaderOptions,
+  GlobalInstallerExecFile,
+} from "../src/lib/types/index.js";
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
 import { PDFProcessor } from "../src/lib/utils/pdfProcessor.js";
@@ -3411,6 +3417,54 @@ const tests: TestFunction[] = [
         src.includes("getGlobalInstallArgs") &&
         installer.includes("matchesCurrentInstall")
       );
+    },
+  },
+  {
+    name: "updater: recognizes an npm global bin entrypoint after its shim is removed",
+    category: "launchd-regression",
+    fn: async () => {
+      const prefix = mkdtempSync(pathJoin(tmpdir(), "neurolink-npm-prefix-"));
+      const globalRoot = pathJoin(prefix, "lib", "node_modules");
+      const globalBinDir = pathJoin(prefix, "bin");
+      const npm = pathJoin(globalBinDir, "npm");
+      const missingEntrypoint = pathJoin(globalBinDir, "neurolink");
+      try {
+        fs.mkdirSync(globalRoot, { recursive: true });
+        fs.mkdirSync(globalBinDir, { recursive: true });
+        writeFileSync(npm, "#!/bin/sh\n", "utf-8");
+        chmodSync(npm, 0o755);
+
+        const resolution = resolveGlobalInstaller({
+          entryScript: missingEntrypoint,
+          env: {
+            NEUROLINK_PACKAGE_MANAGER: "npm",
+            NEUROLINK_PACKAGE_MANAGER_PATH: npm,
+          },
+          homeDir: prefix,
+          execFileSync: ((bin: string, args: string[]) => {
+            if (bin !== npm) {
+              throw new Error(`unexpected executable: ${bin}`);
+            }
+            if (args.length === 1 && args[0] === "--version") {
+              return "11.19.0";
+            }
+            if (args.length === 2 && args[0] === "root" && args[1] === "-g") {
+              return globalRoot;
+            }
+            if (args.length === 2 && args[0] === "prefix" && args[1] === "-g") {
+              return prefix;
+            }
+            throw new Error(`unexpected arguments: ${args.join(" ")}`);
+          }) as GlobalInstallerExecFile,
+        });
+
+        return (
+          resolution.installer?.bin === npm &&
+          resolution.tried[0]?.matchesCurrentInstall === true
+        );
+      } finally {
+        rmSync(prefix, { recursive: true, force: true });
+      }
     },
   },
   {
