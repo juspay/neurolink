@@ -8,7 +8,7 @@
 
 > **StreamLoopArgs** = `object`
 
-Defined in: [types/openaiCompatible.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L295)
+Defined in: [types/openaiCompatible.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L298)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/openaiCompatible.ts:295](https://github.com/juspay/neurolink/
 
 > **maxSteps**: `number`
 
-Defined in: [types/openaiCompatible.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L296)
+Defined in: [types/openaiCompatible.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L299)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/openaiCompatible.ts:296](https://github.com/juspay/neurolink/
 
 > **modelId**: `string`
 
-Defined in: [types/openaiCompatible.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L297)
+Defined in: [types/openaiCompatible.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L300)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/openaiCompatible.ts:297](https://github.com/juspay/neurolink/
 
 > **url**: `string`
 
-Defined in: [types/openaiCompatible.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L298)
+Defined in: [types/openaiCompatible.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L301)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/openaiCompatible.ts:298](https://github.com/juspay/neurolink/
 
 > **fetchImpl**: _typeof_ `fetch`
 
-Defined in: [types/openaiCompatible.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L299)
+Defined in: [types/openaiCompatible.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L302)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/openaiCompatible.ts:299](https://github.com/juspay/neurolink/
 
 > **abortSignal**: `AbortSignal` \| `undefined`
 
-Defined in: [types/openaiCompatible.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L300)
+Defined in: [types/openaiCompatible.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L303)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/openaiCompatible.ts:300](https://github.com/juspay/neurolink/
 
 > **options**: [`StreamOptions`](StreamOptions.md)
 
-Defined in: [types/openaiCompatible.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L301)
+Defined in: [types/openaiCompatible.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L304)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/openaiCompatible.ts:301](https://github.com/juspay/neurolink/
 
 > **conversation**: [`OpenAICompatChatMessage`](OpenAICompatChatMessage.md)[]
 
-Defined in: [types/openaiCompatible.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L302)
+Defined in: [types/openaiCompatible.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L305)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/openaiCompatible.ts:302](https://github.com/juspay/neurolink/
 
 > **openAITools**: [`OpenAICompatChatTool`](OpenAICompatChatTool.md)[] \| `undefined`
 
-Defined in: [types/openaiCompatible.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L303)
+Defined in: [types/openaiCompatible.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L306)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [types/openaiCompatible.ts:303](https://github.com/juspay/neurolink/
 
 > **openAIToolChoice**: [`OpenAICompatToolChoiceWire`](OpenAICompatToolChoiceWire.md) \| `undefined`
 
-Defined in: [types/openaiCompatible.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L304)
+Defined in: [types/openaiCompatible.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L307)
 
 ---
 
@@ -88,7 +88,7 @@ Defined in: [types/openaiCompatible.ts:304](https://github.com/juspay/neurolink/
 
 > **toolsRecord**: `Record`\<`string`, `Tool`\>
 
-Defined in: [types/openaiCompatible.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L305)
+Defined in: [types/openaiCompatible.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L308)
 
 ---
 
@@ -96,7 +96,7 @@ Defined in: [types/openaiCompatible.ts:305](https://github.com/juspay/neurolink/
 
 > `optional` **toolNameFromWire?**: `Map`\<`string`, `string`\>
 
-Defined in: [types/openaiCompatible.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L307)
+Defined in: [types/openaiCompatible.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L310)
 
 Wire → registered tool-name map when sanitization was needed (see buildWireToolNameMaps).
 
@@ -106,7 +106,7 @@ Wire → registered tool-name map when sanitization was needed (see buildWireToo
 
 > **emitter**: `TypedEventEmitter`\<[`NeuroLinkEvents`](NeuroLinkEvents.md)\> \| `undefined`
 
-Defined in: [types/openaiCompatible.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L308)
+Defined in: [types/openaiCompatible.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L311)
 
 ---
 
@@ -114,7 +114,7 @@ Defined in: [types/openaiCompatible.ts:308](https://github.com/juspay/neurolink/
 
 > **toolsUsed**: `string`[]
 
-Defined in: [types/openaiCompatible.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L309)
+Defined in: [types/openaiCompatible.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L312)
 
 ---
 
@@ -122,7 +122,7 @@ Defined in: [types/openaiCompatible.ts:309](https://github.com/juspay/neurolink/
 
 > **toolExecutionSummaries**: [`ToolExecutionSummaryInternal`](ToolExecutionSummaryInternal.md)[]
 
-Defined in: [types/openaiCompatible.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L310)
+Defined in: [types/openaiCompatible.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L313)
 
 ---
 
@@ -130,7 +130,7 @@ Defined in: [types/openaiCompatible.ts:310](https://github.com/juspay/neurolink/
 
 > **pushChunk**: (`chunk`) => `void`
 
-Defined in: [types/openaiCompatible.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L311)
+Defined in: [types/openaiCompatible.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L314)
 
 #### Parameters
 
@@ -148,7 +148,7 @@ Defined in: [types/openaiCompatible.ts:311](https://github.com/juspay/neurolink/
 
 > **closeChannel**: () => `void`
 
-Defined in: [types/openaiCompatible.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L313)
+Defined in: [types/openaiCompatible.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L316)
 
 Signals the channel that no further chunks will arrive (success or error path alike).
 
@@ -162,7 +162,7 @@ Signals the channel that no further chunks will arrive (success or error path al
 
 > **resolveUsage**: (`u`) => `void`
 
-Defined in: [types/openaiCompatible.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L314)
+Defined in: [types/openaiCompatible.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L317)
 
 #### Parameters
 
@@ -190,7 +190,7 @@ Defined in: [types/openaiCompatible.ts:314](https://github.com/juspay/neurolink/
 
 > **resolveFinish**: (`reason`) => `void`
 
-Defined in: [types/openaiCompatible.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L319)
+Defined in: [types/openaiCompatible.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L322)
 
 #### Parameters
 

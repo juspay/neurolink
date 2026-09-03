@@ -1,0 +1,75 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "inception-labs",
+  "displayName": "Inception Labs",
+  "aliases": ["inception", "mercury"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.inceptionlabs.ai/v1"
+  },
+  "models": {
+    "default": "mercury-2",
+    "fallbacks": ["mercury-2"],
+    "defaultContextWindow": 128000,
+    "defaultMaxOutputTokens": 50000,
+    "catalog": {
+      "mercury-2": {
+        "contextWindow": 128000,
+        "maxOutputTokens": 50000,
+        "pricingPerMTok": {
+          "input": 0.25,
+          "output": 0.75,
+          "cachedInput": 0.025
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Mercury 2, Inception's enterprise diffusion LLM (dLLM); reasoning, tool use, structured output; 128K context, 1000+ tok/s"
+      }
+    }
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "pattern": "Model must be one of the following",
+      "class": "invalid-model",
+      "message": "Inception Labs model '{model}' is not valid. Pick a current model \u2014 see https://docs.inceptionlabs.ai/get-started/models."
+    }
+  ],
+  "setup": {
+    "url": "https://platform.inceptionlabs.ai/dashboard/api-keys",
+    "apiKeyFormat": "^sk_[A-Za-z0-9_-]+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://platform.inceptionlabs.ai and sign in (Google OAuth works)",
+      "2. New accounts get 100M free tokens with no card required",
+      "3. Create an API key under Dashboard -> API Keys",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-03",
+      "method": "authenticated GET /v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-03",
+      "status": 401,
+      "code": "invalid_api_key"
+    },
+    "liveMatrix": {
+      "date": "2026-09-03",
+      "result": "Full capability sweep on mercury-2: chat, stream, system_role, content_text_parts, sampling_params, tools, tools_stream, tools_roundtrip_null, tool_choice_without_tools, json_object, json_schema and tools_plus_schema all 200. The smoke-test json_schema probe (max_tokens:60) came back truncated (finish_reason=length, null content) because this diffusion model spends part of the budget on reasoning tokens before content; re-probed live with max_tokens:300 and got a clean schema-conformant reply ({\"name\":\"Lila Whitaker\",\"age\":34}, finish_reason=stop), confirming structuredOutput:true is correct. vision is 400 (text-only; rejects image_url on mercury-2, matching the vendor docs' 'Supported Formats: Text'). bad_key is 401 'Incorrect API key provided'. bad_model is 400 with an array-shaped pydantic error.message; the shared OpenAI-compat wire-error builder coerces a non-string Error message via toString, so that array becomes the literal string \"[object Object]\" and no regex pattern can match the real text \u2014 errorRules is intentionally left empty rather than shipping a rule that can never fire (see notes)."
+    },
+    "addedInPR": "pending"
+  }
+}

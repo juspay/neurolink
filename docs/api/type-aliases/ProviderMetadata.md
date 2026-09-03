@@ -8,7 +8,7 @@
 
 > **ProviderMetadata** = `object`
 
-Defined in: [types/providers.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L937)
+Defined in: [types/providers.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L942)
 
 Provider metadata type
 
@@ -18,7 +18,7 @@ Provider metadata type
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L938)
+Defined in: [types/providers.ts:943](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L943)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:938](https://github.com/juspay/neurolink/blob/re
 
 > **version**: `string`
 
-Defined in: [types/providers.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L939)
+Defined in: [types/providers.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L944)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:939](https://github.com/juspay/neurolink/blob/re
 
 > **capabilities**: [`ProviderCapability`](ProviderCapability.md)[]
 
-Defined in: [types/providers.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L940)
+Defined in: [types/providers.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L945)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:940](https://github.com/juspay/neurolink/blob/re
 
 > **models**: `string`[]
 
-Defined in: [types/providers.ts:941](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L941)
+Defined in: [types/providers.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L946)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/providers.ts:941](https://github.com/juspay/neurolink/blob/re
 
 > **healthStatus**: [`ProviderHealthStatus`](ProviderHealthStatus.md)
 
-Defined in: [types/providers.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L942)
+Defined in: [types/providers.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L947)

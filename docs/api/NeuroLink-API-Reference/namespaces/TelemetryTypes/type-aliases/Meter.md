@@ -8,7 +8,7 @@
 
 > **Meter** = `object`
 
-Defined in: [types/providers.ts:1956](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1956)
+Defined in: [types/providers.ts:1961](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1961)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1956](https://github.com/juspay/neurolink/blob/r
 
 > **createCounter**(`name`, `options?`): [`Counter`](Counter.md)
 
-Defined in: [types/providers.ts:1957](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1957)
+Defined in: [types/providers.ts:1962](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1962)
 
 #### Parameters
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:1957](https://github.com/juspay/neurolink/blob/r
 
 > **createHistogram**(`name`, `options?`): [`Histogram`](Histogram.md)
 
-Defined in: [types/providers.ts:1958](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1958)
+Defined in: [types/providers.ts:1963](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1963)
 
 #### Parameters
 

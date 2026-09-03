@@ -8,7 +8,7 @@
 
 > **GenAIGenerateContentResponse** = `object`
 
-Defined in: [types/providers.ts:1159](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1159)
+Defined in: [types/providers.ts:1164](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1164)
 
 Google AI generate content response
 
@@ -18,7 +18,7 @@ Google AI generate content response
 
 > `optional` **candidates?**: `object`[]
 
-Defined in: [types/providers.ts:1160](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1160)
+Defined in: [types/providers.ts:1165](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1165)
 
 #### content?
 

@@ -8,7 +8,7 @@
 
 > **SageMakerStreamingToolResult** = `object`
 
-Defined in: [types/providers.ts:1618](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1618)
+Defined in: [types/providers.ts:1623](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1623)
 
 Streaming tool result information (Phase 2.3)
 
@@ -18,7 +18,7 @@ Streaming tool result information (Phase 2.3)
 
 > **toolCallId**: `string`
 
-Defined in: [types/providers.ts:1620](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1620)
+Defined in: [types/providers.ts:1625](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1625)
 
 Tool call identifier
 
@@ -28,7 +28,7 @@ Tool call identifier
 
 > **toolName**: `string`
 
-Defined in: [types/providers.ts:1622](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1622)
+Defined in: [types/providers.ts:1627](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1627)
 
 Tool name
 
@@ -38,7 +38,7 @@ Tool name
 
 > `optional` **result?**: `unknown`
 
-Defined in: [types/providers.ts:1624](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1624)
+Defined in: [types/providers.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1629)
 
 Partial or complete result data
 
@@ -48,7 +48,7 @@ Partial or complete result data
 
 > `optional` **resultDelta?**: `string`
 
-Defined in: [types/providers.ts:1626](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1626)
+Defined in: [types/providers.ts:1631](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1631)
 
 Result delta for incremental responses
 
@@ -58,7 +58,7 @@ Result delta for incremental responses
 
 > **status**: `"pending"` \| `"running"` \| `"success"` \| `"error"`
 
-Defined in: [types/providers.ts:1628](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1628)
+Defined in: [types/providers.ts:1633](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1633)
 
 Execution status
 
@@ -68,7 +68,7 @@ Execution status
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:1630](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1630)
+Defined in: [types/providers.ts:1635](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1635)
 
 Error message if status is error
 
@@ -78,6 +78,6 @@ Error message if status is error
 
 > `optional` **complete?**: `boolean`
 
-Defined in: [types/providers.ts:1632](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1632)
+Defined in: [types/providers.ts:1637](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1637)
 
 Indicates if this result is complete

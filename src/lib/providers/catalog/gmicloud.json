@@ -1,0 +1,64 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "gmicloud",
+  "displayName": "GMI Cloud",
+  "aliases": ["gmi-cloud"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.gmi-serving.com/v1"
+  },
+  "models": {
+    "default": "MiniMaxAI/MiniMax-M3",
+    "fallbacks": ["MiniMaxAI/MiniMax-M3"],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 524288,
+    "catalog": {
+      "MiniMaxAI/MiniMax-M3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 524288,
+        "vision": false,
+        "status": "production",
+        "description": "MiniMaxAI/MiniMax-M3 — live GMI Cloud-probed model"
+      }
+    },
+    "topModels": ["MiniMaxAI/MiniMax-M3"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": true,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [],
+  "setup": {
+    "url": "https://console.gmicloud.ai",
+    "apiKeyFormat": "^eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://console.gmicloud.ai",
+      "2. Sign in and select the Inference service",
+      "3. Create an API key; check Console → Inference → Model Hub for current model pricing",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-03",
+      "method": "authenticated GET /v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-03",
+      "status": 401
+    },
+    "liveMatrix": {
+      "date": "2026-09-03",
+      "result": "MiniMax-M3 accepted max_completion_tokens=524288 and rejected 1048576 with an explicit 524288 limit. Structured output: the endpoint ignores response_format (json_schema and json_object both return prose with no prompt hint; raw fetch, 2026-09-03), so the SDK's structured-output fallback re-asks with the schema spelled out in the system prompt and coerces the reply — generate({ schema }) returned a schema-valid structuredData 3/3 in the prompt-fallback experiment and again in the final live proof through dist/index.js. structuredOutput and structuredOutputWithTools are declared true on that basis."
+    },
+    "addedInPR": "pending"
+  }
+}

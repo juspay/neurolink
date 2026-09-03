@@ -23,14 +23,19 @@ export enum AIProviderName {
   LM_STUDIO = "lm-studio",
   LLAMACPP = "llamacpp",
   // ── BEGIN GENERATED(provider-members): provider catalog (pnpm run codegen:catalog) ──
+  BASETEN = "baseten",
   CEREBRAS = "cerebras",
   CLOUDFLARE = "cloudflare",
   FIREWORKS = "fireworks",
+  GMICLOUD = "gmicloud",
   GROQ = "groq",
+  INCEPTION_LABS = "inception-labs",
+  IO_INTELLIGENCE = "io-intelligence",
   MISTRAL = "mistral",
   PERPLEXITY = "perplexity",
   SAMBANOVA = "sambanova",
   TOGETHER_AI = "together-ai",
+  UPSTAGE = "upstage",
   XAI = "xai",
   // ── END GENERATED(provider-members) ──
   COHERE = "cohere",
@@ -1216,6 +1221,25 @@ export enum ReplicateModels {
 export const TOKEN_EXPIRY_BUFFER_MS = 5 * 60 * 1000; // 5 minutes
 
 // ── BEGIN GENERATED(models-enums): provider catalog (pnpm run codegen:catalog) ──
+export enum BasetenModels {
+  OPENAI_GPT_OSS_120B = "openai/gpt-oss-120b",
+  ZAI_ORG_GLM_4_7 = "zai-org/GLM-4.7",
+  MOONSHOTAI_KIMI_K2_6 = "moonshotai/Kimi-K2.6",
+  DEEPSEEK_AI_DEEPSEEK_V4_PRO = "deepseek-ai/DeepSeek-V4-Pro",
+  NVIDIA_NVIDIA_NEMOTRON_3_ULTRA_550B_A55B = "nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  ZAI_ORG_GLM_5_2 = "zai-org/GLM-5.2",
+  MOONSHOTAI_KIMI_K2_7_CODE = "moonshotai/Kimi-K2.7-Code",
+  DEEPSEEK_AI_DEEPSEEK_V4_FLASH_0731 = "deepseek-ai/DeepSeek-V4-Flash-0731",
+  THINKINGMACHINES_INKLING = "thinkingmachines/inkling",
+  ZAI_ORG_GLM_5_2_FAST = "zai-org/GLM-5.2-Fast",
+  MOONSHOTAI_KIMI_K3 = "moonshotai/Kimi-K3",
+  THINKINGMACHINES_INKLING_SMALL = "thinkingmachines/inkling-small",
+  DEEPSEEK_AI_DEEPSEEK_V4_PRO_0813 = "deepseek-ai/DeepSeek-V4-Pro-0813",
+  ZAI_ORG_GLM_5_3_FLASH = "zai-org/GLM-5.3-Flash",
+  ZAI_ORG_GLM_5_3 = "zai-org/GLM-5.3",
+  ZAI_ORG_GLM_5_3_FAST = "zai-org/GLM-5.3-Fast",
+}
+
 export enum CerebrasModels {
   GPT_OSS_120B = "gpt-oss-120b",
   GEMMA_4_31B = "gemma-4-31b",
@@ -1248,6 +1272,10 @@ export enum FireworksModels {
   PHI_3_VISION_128K_INSTRUCT = "accounts/fireworks/models/phi-3-vision-128k-instruct",
 }
 
+export enum GmicloudModels {
+  MINIMAXAI_MINIMAX_M3 = "MiniMaxAI/MiniMax-M3",
+}
+
 export enum GroqModels {
   GPT_OSS_120B = "openai/gpt-oss-120b",
   GPT_OSS_20B = "openai/gpt-oss-20b",
@@ -1263,6 +1291,47 @@ export enum GroqModels {
   LLAMA_GUARD_3_8B = "llama-guard-3-8b",
   LLAMA_3_2_90B_VISION_PREVIEW = "llama-3.2-90b-vision-preview",
   LLAMA_3_2_11B_VISION_PREVIEW = "llama-3.2-11b-vision-preview",
+}
+
+export enum InceptionLabsModels {
+  MERCURY_2 = "mercury-2",
+}
+
+export enum IoIntelligenceModels {
+  ZAI_ORG_GLM_5_3_FLASH = "zai-org/GLM-5.3-Flash",
+  ZAI_ORG_GLM_5_3 = "zai-org/GLM-5.3",
+  QWEN_QWEN3_8_27B = "Qwen/Qwen3.8-27B",
+  DEEPSEEK_AI_DEEPSEEK_V4_FLASH_0731 = "deepseek-ai/DeepSeek-V4-Flash-0731",
+  MOONSHOTAI_KIMI_K3 = "moonshotai/Kimi-K3",
+  XIAOMIMIMO_MIMO_V2_5 = "XiaomiMiMo/MiMo-V2.5",
+  ZAI_ORG_GLM_5_2 = "zai-org/GLM-5.2",
+  MOONSHOTAI_KIMI_K2_7_CODE = "moonshotai/Kimi-K2.7-Code",
+  QWEN_QWEN3_6_35B_A3B = "Qwen/Qwen3.6-35B-A3B",
+  QWEN_QWEN3_6_27B = "Qwen/Qwen3.6-27B",
+  MINIMAXAI_MINIMAX_M2_7 = "MiniMaxAI/MiniMax-M2.7",
+  DEEPSEEK_AI_DEEPSEEK_V4_FLASH = "deepseek-ai/DeepSeek-V4-Flash",
+  DEEPSEEK_AI_DEEPSEEK_V4_PRO = "deepseek-ai/DeepSeek-V4-Pro",
+  MOONSHOTAI_KIMI_K2_6 = "moonshotai/Kimi-K2.6",
+  ZAI_ORG_GLM_5_1 = "zai-org/GLM-5.1",
+  MINIMAXAI_MINIMAX_M2_5 = "MiniMaxAI/MiniMax-M2.5",
+  MOONSHOTAI_KIMI_K2_5 = "moonshotai/Kimi-K2.5",
+  ZAI_ORG_GLM_5 = "zai-org/GLM-5",
+  DEEPSEEK_AI_DEEPSEEK_V3_2 = "deepseek-ai/DeepSeek-V3.2",
+  MOONSHOTAI_KIMI_K2_THINKING = "moonshotai/Kimi-K2-Thinking",
+  ZAI_ORG_GLM_4_5_AIR = "zai-org/GLM-4.5-Air",
+  GOOGLE_GEMMA_4_26B_A4B_IT = "google/gemma-4-26b-a4b-it",
+  ZAI_ORG_GLM_4_7_FLASH = "zai-org/GLM-4.7-Flash",
+  ZAI_ORG_GLM_4_7 = "zai-org/GLM-4.7",
+  MOONSHOTAI_KIMI_K2_INSTRUCT_0905 = "moonshotai/Kimi-K2-Instruct-0905",
+  OPENAI_GPT_OSS_120B = "openai/gpt-oss-120b",
+  DEEPSEEK_AI_DEEPSEEK_R1_0528 = "deepseek-ai/DeepSeek-R1-0528",
+  ZAI_ORG_GLM_4_6 = "zai-org/GLM-4.6",
+  QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT = "Qwen/Qwen3-Next-80B-A3B-Instruct",
+  INTEL_QWEN3_CODER_480B_A35B_INSTRUCT_INT4_MIXED_AR = "Intel/Qwen3-Coder-480B-A35B-Instruct-int4-mixed-ar",
+  META_LLAMA_LLAMA_4_MAVERICK_17B_128E_INSTRUCT_FP8 = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+  MISTRALAI_MISTRAL_NEMO_INSTRUCT_2407 = "mistralai/Mistral-Nemo-Instruct-2407",
+  OPENAI_GPT_OSS_20B = "openai/gpt-oss-20b",
+  META_LLAMA_LLAMA_3_3_70B_INSTRUCT = "meta-llama/Llama-3.3-70B-Instruct",
 }
 
 export enum MistralModels {
@@ -1331,6 +1400,19 @@ export enum TogetherAIModels {
   DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
   GEMMA_2_27B_IT = "google/gemma-2-27b-it",
   WIZARDLM_2_8X22B = "microsoft/WizardLM-2-8x22B",
+}
+
+export enum UpstageModels {
+  SOLAR_PRO4 = "solar-pro4",
+  SOLAR_PRO4_260806 = "solar-pro4-260806",
+  SOLAR_PRO3 = "solar-pro3",
+  SOLAR_PRO3_260323 = "solar-pro3-260323",
+  SOLAR_PRO2 = "solar-pro2",
+  SOLAR_PRO2_251215 = "solar-pro2-251215",
+  SOLAR_MINI = "solar-mini",
+  SOLAR_MINI_250422 = "solar-mini-250422",
+  SYN_PRO = "syn-pro",
+  SYN_PRO_251021 = "syn-pro-251021",
 }
 
 export enum XaiModels {

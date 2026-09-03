@@ -64,9 +64,12 @@ import {
 } from "../../utils/json/coerce.js";
 import { convertZodToJsonSchema } from "../../utils/schemaConversion.js";
 import type {
+  GenerationCallConfig,
   LanguageModel,
+  LanguageModelUsage,
   ModelMessage,
   PrepareStepFunction,
+  SystemModelMessage,
   Tool,
   ZodUnknownSchema,
 } from "../../types/index.js";
@@ -230,6 +233,63 @@ function buildWrapupStepResult(
 /**
  * GenerationHandler class - Handles text generation operations for AI providers
  */
+
+/**
+ * Append a schema-derived JSON instruction to the hoisted system prompt for
+ * the structured-output fallback retry. Phrased for tool loops too: the model
+ * may still call tools first; only the final answer must be the object.
+ */
+function appendJsonInstruction(
+  system: SystemModelMessage[] | undefined,
+  schema: ZodUnknownSchema,
+): SystemModelMessage[] {
+  const jsonSchema = JSON.stringify(convertZodToJsonSchema(schema));
+  const instruction =
+    "When you give your final answer, respond with only a single JSON object that conforms to the following JSON Schema. " +
+    "No prose before or after it, and no markdown code fence. " +
+    `JSON Schema: ${jsonSchema}`;
+  const existing = system ?? [];
+  const last = existing[existing.length - 1];
+  // Merge into the caller's own system message when there is one, the way
+  // messageBuilder folds STRUCTURED_OUTPUT_INSTRUCTIONS into a single system
+  // turn — several self-hosted OpenAI-compatible stacks only honour one
+  // leading system message.
+  if (last !== undefined && typeof last.content === "string") {
+    return [
+      ...existing.slice(0, -1),
+      { ...last, content: `${last.content}\n\n${instruction}` },
+    ];
+  }
+  return [...existing, { role: "system", content: instruction }];
+}
+
+/** Sum two AI-SDK usage records leaf by leaf (the v6 shape nests token
+ *  details); undefined counts are treated as absent, not zero. */
+function addUsage(
+  a: LanguageModelUsage,
+  b: LanguageModelUsage,
+): LanguageModelUsage {
+  const sum = (x: unknown, y: unknown): unknown => {
+    if (typeof x === "number" || typeof y === "number") {
+      return (typeof x === "number" ? x : 0) + (typeof y === "number" ? y : 0);
+    }
+    if (x && y && typeof x === "object" && typeof y === "object") {
+      const left = x as Record<string, unknown>;
+      const right = y as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const key of new Set([
+        ...Object.keys(left),
+        ...Object.keys(right),
+      ])) {
+        out[key] = sum(left[key], right[key]);
+      }
+      return out;
+    }
+    return x ?? y;
+  };
+  return sum(a, b) as LanguageModelUsage;
+}
+
 export class GenerationHandler {
   constructor(
     private readonly providerName: AIProviderName,
@@ -280,16 +340,14 @@ export class GenerationHandler {
     messages: ModelMessage[],
     tools: Record<string, Tool>,
     options: TextGenerationOptions,
-    callConfig: {
-      shouldUseTools: boolean;
-      includeStructuredOutput: boolean;
-      /** Anchor for the turn deadline — the ORIGINAL executeGeneration start,
-       *  shared across fallback/provider retries so they can't refresh the
-       *  wall-clock budget. */
-      turnStartMs: number;
-    },
+    callConfig: GenerationCallConfig,
   ): Promise<Awaited<ReturnType<typeof generateText>>> {
-    const { shouldUseTools, includeStructuredOutput, turnStartMs } = callConfig;
+    const {
+      shouldUseTools,
+      includeStructuredOutput,
+      turnStartMs,
+      promptJsonInstruction,
+    } = callConfig;
     // Check if this is a Google provider (for provider-specific options)
     const isGoogleProvider =
       this.providerName === "google-ai" || this.providerName === "vertex";
@@ -388,8 +446,22 @@ export class GenerationHandler {
     // Hoist system-role messages into generateText's top-level `system` option
     // rather than passing them inside `messages` (deprecated by the AI SDK,
     // rejected in v7). See extractSystemMessages for the rationale. (#1024)
-    const { system, messages: nonSystemMessages } =
+    const { system: hoistedSystem, messages: nonSystemMessages } =
       extractSystemMessages(messages);
+    // Structured-output fallback: spell the schema out in the prompt. The
+    // native `response_format` attempt already failed to yield an object, and
+    // a vendor that ignores `response_format` outright (GMI Cloud's MiniMax
+    // endpoint answers a strict json_schema request in markdown) would answer
+    // a silent retry the same way. With the schema in the system prompt the
+    // same text-coercion path in formatEnhancedResult recovers a schema-valid
+    // object — verified live on that endpoint, 3/3.
+    const system =
+      promptJsonInstruction && options.schema
+        ? appendJsonInstruction(
+            hoistedSystem,
+            options.schema as ZodUnknownSchema,
+          )
+        : hoistedSystem;
 
     // Per-step context budget guard: the tool loop appends assistant turns and
     // tool results on every step — growth the pre-call budget check never
@@ -724,16 +796,29 @@ export class GenerationHandler {
           }
 
           // Set token usage and completion attributes on span
-          this.setUsageSpanAttributes(span, result);
-          if (result.finishReason) {
+          // Span attributes come from the RECOVERED result: a successful
+          // toolChoice:"none" re-ask changes the finish reason and adds usage.
+          const recovered = await this.recoverEmptyToolCallsFinish(
+            model,
+            messages,
+            tools,
+            options,
+            {
+              shouldUseTools,
+              includeStructuredOutput: true,
+              turnStartMs: genStartTime,
+            },
+            { result, span },
+          );
+          this.setUsageSpanAttributes(span, recovered);
+          if (recovered.finishReason) {
             span.setAttribute(
               "gen_ai.response.finish_reason",
-              result.finishReason,
+              recovered.finishReason,
             );
           }
-
           span.setStatus({ code: SpanStatusCode.OK });
-          return result;
+          return recovered;
         } catch (error) {
           // Fall back to text-mode (no experimental_output) when structured
           // output + tools failed, in three cases:
@@ -799,6 +884,7 @@ export class GenerationHandler {
                   // includeStructuredOutput intentionally omitted
                   includeStructuredOutput: false,
                   turnStartMs: genStartTime,
+                  promptJsonInstruction: true,
                 }),
               span,
               "generateText(fallback)",
@@ -808,6 +894,7 @@ export class GenerationHandler {
             span.addEvent("retry.recovered", {
               "retry.attempts": 2,
               "retry.strategy": "structured_output_disabled",
+              "retry.prompt_json_instruction": true,
             });
             span.setAttribute("retry.count", 1);
 
@@ -823,16 +910,30 @@ export class GenerationHandler {
               },
             );
 
-            this.setUsageSpanAttributes(span, result);
-            if (result.finishReason) {
+            // Span attributes come from the RECOVERED result: a successful
+            // toolChoice:"none" re-ask changes the finish reason and adds usage.
+            const recovered = await this.recoverEmptyToolCallsFinish(
+              model,
+              messages,
+              tools,
+              options,
+              {
+                shouldUseTools,
+                includeStructuredOutput: false,
+                turnStartMs: genStartTime,
+                promptJsonInstruction: true,
+              },
+              { result, span },
+            );
+            this.setUsageSpanAttributes(span, recovered);
+            if (recovered.finishReason) {
               span.setAttribute(
                 "gen_ai.response.finish_reason",
-                result.finishReason,
+                recovered.finishReason,
               );
             }
-
             span.setStatus({ code: SpanStatusCode.OK });
-            return result;
+            return recovered;
           }
 
           // Retry once without `temperature` when the model deprecated it. The
@@ -882,15 +983,29 @@ export class GenerationHandler {
               "retry.strategy": "temperature_omitted",
             });
             span.setAttribute("retry.count", 1);
-            this.setUsageSpanAttributes(span, result);
-            if (result.finishReason) {
+            // Span attributes come from the RECOVERED result: a successful
+            // toolChoice:"none" re-ask changes the finish reason and adds usage.
+            const recovered = await this.recoverEmptyToolCallsFinish(
+              model,
+              messages,
+              tools,
+              { ...options, temperature: undefined },
+              {
+                shouldUseTools,
+                includeStructuredOutput: true,
+                turnStartMs: genStartTime,
+              },
+              { result, span },
+            );
+            this.setUsageSpanAttributes(span, recovered);
+            if (recovered.finishReason) {
               span.setAttribute(
                 "gen_ai.response.finish_reason",
-                result.finishReason,
+                recovered.finishReason,
               );
             }
             span.setStatus({ code: SpanStatusCode.OK });
-            return result;
+            return recovered;
           }
 
           span.setStatus({
@@ -1102,6 +1217,112 @@ export class GenerationHandler {
   /**
    * Format the enhanced result
    */
+  /**
+   * One re-ask with `toolChoice: "none"` when a tool loop ends on a
+   * `tool-calls` finish that carries neither a tool call nor any text.
+   *
+   * io.net's Llama endpoint does exactly this on the step after a tool result
+   * when the caller asked for JSON: the model's JSON-shaped answer trips the
+   * vendor's tool-call parser, which drops it and reports
+   * `finish_reason: tool_calls` with `content: null` and no `tool_calls`.
+   * The AI-SDK loop has nothing to execute and stops, so the caller gets an
+   * empty turn although the tool ran. Replaying that request with
+   * `tool_choice: "none"` (or no tool list) returns the answer — verified on
+   * the wire, 4/4 — so the recovery is one bounded extra step that keeps the
+   * executed tool steps and usage in the returned result.
+   */
+  private async recoverEmptyToolCallsFinish(
+    model: LanguageModel,
+    messages: ModelMessage[],
+    tools: Record<string, Tool>,
+    options: TextGenerationOptions,
+    callConfig: GenerationCallConfig,
+    attempt: { result: Awaited<ReturnType<typeof generateText>>; span: Span },
+  ): Promise<Awaited<ReturnType<typeof generateText>>> {
+    const { result, span } = attempt;
+    // The re-ask is one more loop step, so it must fit the caller's step
+    // budget: when the loop already spent every step, the honest answer is
+    // the step-cap stop the caller configured, not an extra request.
+    const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
+    const emptyToolCallsFinish =
+      callConfig.shouldUseTools &&
+      !callConfig.isToolReask &&
+      Object.keys(tools).length > 0 &&
+      result.finishReason === "tool-calls" &&
+      result.toolCalls.length === 0 &&
+      (result.text ?? "").trim().length === 0 &&
+      result.steps.length < maxSteps;
+    if (!emptyToolCallsFinish) {
+      return result;
+    }
+    logger.warn(
+      "[GenerationHandler] tool loop ended on a tool-calls finish with no tool call and no text — re-asking once with toolChoice: none",
+      {
+        provider: this.providerName,
+        model: this.modelName,
+        stepsSoFar: result.steps.length,
+      },
+    );
+    span.setAttribute("neurolink.has_fallback", true);
+    span.addEvent("retry.initial_failure", {
+      "retry.attempt": 1,
+      "retry.reason": "empty_tool_calls_finish",
+    });
+    let reask: Awaited<ReturnType<typeof generateText>>;
+    try {
+      reask = await withProviderRetry(
+        () =>
+          this.callGenerateText(
+            model,
+            [...messages, ...result.response.messages],
+            tools,
+            { ...options, toolChoice: "none", maxSteps: 1 },
+            { ...callConfig, isToolReask: true },
+          ),
+        span,
+        "generateText(tool-choice-none)",
+      );
+    } catch (reaskError) {
+      // The re-ask is a bonus request on top of a call that already
+      // succeeded. If it fails for any reason, hand back the original result
+      // — the executed tool steps are still in it — rather than turning a
+      // degraded turn into a thrown one.
+      logger.warn(
+        "[GenerationHandler] toolChoice: none re-ask failed; returning the original result",
+        {
+          provider: this.providerName,
+          model: this.modelName,
+          error:
+            reaskError instanceof Error
+              ? reaskError.message
+              : String(reaskError),
+        },
+      );
+      span.addEvent("retry.failed", {
+        "retry.attempts": 2,
+        "retry.strategy": "tool_choice_none_reask",
+      });
+      return result;
+    }
+    span.addEvent("retry.recovered", {
+      "retry.attempts": 2,
+      "retry.strategy": "tool_choice_none_reask",
+    });
+    span.setAttribute("retry.count", 1);
+    // Keep the executed tool steps in front of the re-ask so
+    // extractToolInformation still reports them and usage stays a true
+    // cross-step total. `steps` and `totalUsage` are constructor-assigned
+    // fields on the AI-SDK result; every other accessor derives from the
+    // final step, which is now the re-ask's answer.
+    const merged = reask as {
+      steps: typeof reask.steps;
+      totalUsage: typeof reask.totalUsage;
+    };
+    merged.steps = [...result.steps, ...reask.steps];
+    merged.totalUsage = addUsage(result.totalUsage, reask.totalUsage);
+    return reask;
+  }
+
   formatEnhancedResult(
     generateResult: Awaited<ReturnType<typeof generateText>>,
     tools: Record<string, Tool>,

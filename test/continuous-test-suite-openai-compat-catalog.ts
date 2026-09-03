@@ -119,6 +119,21 @@ const CATALOG_ENV_VARS = [
   "CLOUDFLARE_API_KEY",
   "CLOUDFLARE_ACCOUNT_ID",
   "CLOUDFLARE_MODEL",
+  "BASETEN_API_KEY",
+  "BASETEN_BASE_URL",
+  "BASETEN_MODEL",
+  "GMICLOUD_API_KEY",
+  "GMICLOUD_BASE_URL",
+  "GMICLOUD_MODEL",
+  "INCEPTION_LABS_API_KEY",
+  "INCEPTION_LABS_BASE_URL",
+  "INCEPTION_LABS_MODEL",
+  "IO_INTELLIGENCE_API_KEY",
+  "IO_INTELLIGENCE_BASE_URL",
+  "IO_INTELLIGENCE_MODEL",
+  "UPSTAGE_API_KEY",
+  "UPSTAGE_BASE_URL",
+  "UPSTAGE_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1014,6 +1029,66 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     extraEnv: { CLOUDFLARE_ACCOUNT_ID: "acct-cf-cfai" },
     urlMatch: cfURL("acct-cf-cfai"),
     model: CF_MODEL,
+  },
+  {
+    alias: "baseten",
+    envVar: "BASETEN_API_KEY",
+    urlMatch: "inference.baseten.co/v1/chat/completions",
+    model: "zai-org/GLM-5.3-Flash",
+  },
+  {
+    alias: "gmicloud",
+    envVar: "GMICLOUD_API_KEY",
+    urlMatch: "api.gmi-serving.com/v1/chat/completions",
+    model: "MiniMaxAI/MiniMax-M3",
+  },
+  {
+    alias: "gmi-cloud",
+    envVar: "GMICLOUD_API_KEY",
+    urlMatch: "api.gmi-serving.com/v1/chat/completions",
+    model: "MiniMaxAI/MiniMax-M3",
+  },
+  {
+    alias: "inception-labs",
+    envVar: "INCEPTION_LABS_API_KEY",
+    urlMatch: "api.inceptionlabs.ai/v1/chat/completions",
+    model: "mercury-2",
+  },
+  {
+    alias: "inception",
+    envVar: "INCEPTION_LABS_API_KEY",
+    urlMatch: "api.inceptionlabs.ai/v1/chat/completions",
+    model: "mercury-2",
+  },
+  {
+    alias: "mercury",
+    envVar: "INCEPTION_LABS_API_KEY",
+    urlMatch: "api.inceptionlabs.ai/v1/chat/completions",
+    model: "mercury-2",
+  },
+  {
+    alias: "io-intelligence",
+    envVar: "IO_INTELLIGENCE_API_KEY",
+    urlMatch: "api.intelligence.io.solutions/api/v1/chat/completions",
+    model: "meta-llama/Llama-3.3-70B-Instruct",
+  },
+  {
+    alias: "io-net",
+    envVar: "IO_INTELLIGENCE_API_KEY",
+    urlMatch: "api.intelligence.io.solutions/api/v1/chat/completions",
+    model: "meta-llama/Llama-3.3-70B-Instruct",
+  },
+  {
+    alias: "upstage",
+    envVar: "UPSTAGE_API_KEY",
+    urlMatch: "api.upstage.ai/v1/chat/completions",
+    model: "solar-pro4",
+  },
+  {
+    alias: "solar",
+    envVar: "UPSTAGE_API_KEY",
+    urlMatch: "api.upstage.ai/v1/chat/completions",
+    model: "solar-pro4",
   },
 ];
 

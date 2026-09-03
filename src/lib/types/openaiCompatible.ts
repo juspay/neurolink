@@ -185,13 +185,16 @@ export type OpenAICompatChatStreamChunk = {
   usage?: OpenAICompatUsage;
 };
 
+export type OpenAICompatErrorMessage = string | ReadonlyArray<{ msg?: string }>;
+
 export type OpenAICompatErrorBody = {
   error?: {
-    message?: string;
+    message?: OpenAICompatErrorMessage;
     type?: string;
     code?: string | number;
     param?: string | null;
   };
+  detail?: string;
 };
 
 export type OpenAICompatConfig = {

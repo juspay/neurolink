@@ -8,7 +8,7 @@
 
 > **BedrockToolUse** = `object`
 
-Defined in: [types/providers.ts:986](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L986)
+Defined in: [types/providers.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L991)
 
 Bedrock tool usage structure
 
@@ -18,7 +18,7 @@ Bedrock tool usage structure
 
 > **toolUseId**: `string`
 
-Defined in: [types/providers.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L987)
+Defined in: [types/providers.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L992)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:987](https://github.com/juspay/neurolink/blob/re
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L988)
+Defined in: [types/providers.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L993)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:988](https://github.com/juspay/neurolink/blob/re
 
 > **input**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L989)
+Defined in: [types/providers.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L994)

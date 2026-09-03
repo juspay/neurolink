@@ -1,21 +1,31 @@
 // GENERATED FILE — do not edit. Regenerate with `pnpm run codegen:catalog`.
 export type CatalogProviderName =
+  | "baseten"
   | "cerebras"
   | "cloudflare"
   | "fireworks"
+  | "gmicloud"
   | "groq"
+  | "inception-labs"
+  | "io-intelligence"
   | "mistral"
   | "perplexity"
   | "sambanova"
   | "together-ai"
+  | "upstage"
   | "xai";
 export type CatalogCredentialKey =
+  | "baseten"
   | "cerebras"
   | "cloudflare"
   | "fireworks"
+  | "gmicloud"
   | "groq"
+  | "inceptionLabs"
+  | "ioIntelligence"
   | "mistral"
   | "perplexity"
   | "sambanova"
   | "together"
+  | "upstage"
   | "xai";

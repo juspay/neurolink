@@ -8,4 +8,4 @@
 
 > **OpenAICompatToolWarning** = `NonNullable`\<`Awaited`\<`ReturnType`\<`LanguageModelV3`\[`"doGenerate"`\]\>\>\[`"warnings"`\]\>\[`number`\]
 
-Defined in: [types/openaiCompatible.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L206)
+Defined in: [types/openaiCompatible.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L209)

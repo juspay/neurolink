@@ -210,14 +210,19 @@ export type NeurolinkCredentials = {
   lmStudio?: { apiKey?: string; baseURL?: string };
   llamacpp?: { apiKey?: string; baseURL?: string };
   // ── BEGIN GENERATED(credentials): provider catalog (pnpm run codegen:catalog) ──
+  baseten?: { apiKey?: string; baseURL?: string };
   cerebras?: { apiKey?: string; baseURL?: string };
   cloudflare?: { apiKey?: string; baseURL?: string; accountId?: string };
   fireworks?: { apiKey?: string; baseURL?: string };
+  gmicloud?: { apiKey?: string; baseURL?: string };
   groq?: { apiKey?: string; baseURL?: string };
+  inceptionLabs?: { apiKey?: string; baseURL?: string };
+  ioIntelligence?: { apiKey?: string; baseURL?: string };
   mistral?: { apiKey?: string; baseURL?: string };
   perplexity?: { apiKey?: string; baseURL?: string };
   sambanova?: { apiKey?: string; baseURL?: string };
   together?: { apiKey?: string; baseURL?: string };
+  upstage?: { apiKey?: string; baseURL?: string };
   xai?: { apiKey?: string; baseURL?: string };
   // ── END GENERATED(credentials) ──
   cohere?: { apiKey?: string; baseURL?: string };
