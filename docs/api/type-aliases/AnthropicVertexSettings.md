@@ -8,7 +8,7 @@
 
 > **AnthropicVertexSettings** = `object`
 
-Defined in: [types/providers.ts:1272](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1272)
+Defined in: [types/providers.ts:1282](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1282)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1272](https://github.com/juspay/neurolink/blob/r
 
 > **projectId**: `string`
 
-Defined in: [types/providers.ts:1274](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1274)
+Defined in: [types/providers.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1284)
 
 Google Cloud project ID
 
@@ -26,7 +26,7 @@ Google Cloud project ID
 
 > **region**: `string`
 
-Defined in: [types/providers.ts:1276](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1276)
+Defined in: [types/providers.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1286)
 
 Google Cloud region for Anthropic models (e.g., 'us-east5')
 
@@ -36,7 +36,7 @@ Google Cloud region for Anthropic models (e.g., 'us-east5')
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/providers.ts:1278](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1278)
+Defined in: [types/providers.ts:1288](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1288)
 
 SDK request timeout in milliseconds
 
@@ -46,7 +46,7 @@ SDK request timeout in milliseconds
 
 > `optional` **maxRetries?**: `number`
 
-Defined in: [types/providers.ts:1280](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1280)
+Defined in: [types/providers.ts:1290](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1290)
 
 SDK-internal retry budget (transport retries are the orchestrator's job)
 
@@ -56,7 +56,7 @@ SDK-internal retry budget (transport retries are the orchestrator's job)
 
 > `optional` **baseURL?**: `string`
 
-Defined in: [types/providers.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1286)
+Defined in: [types/providers.ts:1296](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1296)
 
 Endpoint override. The SDK derives
 `https://${region}-aiplatform.googleapis.com/v1` by default; a gateway or
@@ -68,7 +68,7 @@ a compatible endpoint is reached by setting this instead.
 
 > `optional` **authClient?**: [`VertexAnthropicAuthClient`](VertexAnthropicAuthClient.md)
 
-Defined in: [types/providers.ts:1296](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1296)
+Defined in: [types/providers.ts:1306](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1306)
 
 Supply the request credentials directly, bypassing Application Default
 Credentials.

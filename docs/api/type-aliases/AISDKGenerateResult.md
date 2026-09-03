@@ -8,7 +8,7 @@
 
 > **AISDKGenerateResult** = [`GenerateResult`](GenerateResult.md) & `object`
 
-Defined in: [types/providers.ts:968](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L968)
+Defined in: [types/providers.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L978)
 
 AI SDK generate result with steps support (extends GenerateResult)
 

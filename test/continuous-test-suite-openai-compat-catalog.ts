@@ -134,6 +134,9 @@ const CATALOG_ENV_VARS = [
   "UPSTAGE_API_KEY",
   "UPSTAGE_BASE_URL",
   "UPSTAGE_MODEL",
+  "MANCER_API_KEY",
+  "MANCER_BASE_URL",
+  "MANCER_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1089,6 +1092,18 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     envVar: "UPSTAGE_API_KEY",
     urlMatch: "api.upstage.ai/v1/chat/completions",
     model: "solar-pro4",
+  },
+  {
+    alias: "mancer",
+    envVar: "MANCER_API_KEY",
+    urlMatch: "neuro.mancer.tech/oai/v1/chat/completions",
+    model: "deepseek-v4-flash",
+  },
+  {
+    alias: "mancer-tech",
+    envVar: "MANCER_API_KEY",
+    urlMatch: "neuro.mancer.tech/oai/v1/chat/completions",
+    model: "deepseek-v4-flash",
   },
 ];
 

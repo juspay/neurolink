@@ -1,0 +1,192 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "mancer",
+  "displayName": "Mancer",
+  "aliases": ["mancer-tech"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://neuro.mancer.tech/oai/v1"
+  },
+  "models": {
+    "default": "deepseek-v4-flash",
+    "fallbacks": ["deepseek-v4-flash", "gpt-oss-120b"],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 1048576,
+    "catalog": {
+      "mythomax": {
+        "contextWindow": 8192,
+        "maxOutputTokens": 8192,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.24
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MythoMax (LLaMA 2, Simplified Alpaca format) — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "deepseek-v4-flash": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.07,
+          "output": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash — Mancer's flagship general model; paid credits required — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "deepseek-v4-flash-0731": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 1048576,
+        "pricingPerMTok": {
+          "input": 0.07,
+          "output": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V4 Flash, 2026-07-31 snapshot; paid credits required — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "mytholite": {
+        "contextWindow": 2560,
+        "maxOutputTokens": 150,
+        "pricingPerMTok": {
+          "input": 0,
+          "output": 0
+        },
+        "vision": false,
+        "status": "production",
+        "description": "MythoLite — Mancer's free demo model (2,560-token context, 150-token completions, Simplified Alpaca format); the only model usable with a zero balance — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "remm-slerp": {
+        "contextWindow": 6144,
+        "maxOutputTokens": 6144,
+        "pricingPerMTok": {
+          "input": 0.14,
+          "output": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "ReMM-SLERP (Simplified Alpaca format) — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "magnum-72b-v4": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 4096,
+        "pricingPerMTok": {
+          "input": 1,
+          "output": 2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Magnum 72B v4 (ChatML format) — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "glm-4.7": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.28,
+          "output": 1
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GLM-4.7 — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "gpt-oss-120b": {
+        "contextWindow": 131072,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.022,
+          "output": 0.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "GPT-OSS 120B — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "weaver-alpha": {
+        "contextWindow": 8000,
+        "maxOutputTokens": 6000,
+        "pricingPerMTok": {
+          "input": 0.16,
+          "output": 0.3
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Weaver Alpha (Simplified Alpaca format) — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      },
+      "dans-pe-1.3-24b": {
+        "contextWindow": 32768,
+        "maxOutputTokens": 8192,
+        "pricingPerMTok": {
+          "input": 0.2,
+          "output": 0.8
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Dan's PersonalityEngine 1.3 24B — pricing and limits from the authenticated /oai/v1/models roster, 2026-09-03"
+      }
+    },
+    "topModels": ["deepseek-v4-flash", "gpt-oss-120b", "glm-4.7", "mytholite"],
+    "testModel": "mytholite"
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Bad API key",
+      "class": "authentication",
+      "message": "Invalid Mancer API key. Check {apiKeyEnvVar}. Get one at https://mancer.tech/dashboard"
+    },
+    {
+      "pattern": "Unknown Model",
+      "class": "invalid-model",
+      "message": "Mancer model '{model}' is unknown. Pick a current model from the /oai/v1/models roster or https://mancer.tech/pricing."
+    },
+    {
+      "status": 402,
+      "pattern": "requires paid credits",
+      "class": "provider",
+      "message": "Mancer model '{model}' requires paid credits; with a zero balance only the free model 'mytholite' works. Add credits at https://mancer.tech/dashboard or see https://mancer.tech/pricing."
+    }
+  ],
+  "setup": {
+    "url": "https://mancer.tech/dashboard",
+    "apiKeyFormat": "^mcr_[A-Za-z0-9]+$",
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://mancer.tech/dashboard and sign in",
+      "2. Create an API key (prefix mcr_)",
+      "3. Without credits only the free model 'mytholite' answers; every other model returns 402 until you add credits at https://mancer.tech/pricing",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://neuro.mancer.tech/oai/v1. One free demo model; paid credits unlock the rest of the roster."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-03",
+      "method": "authenticated GET /oai/v1/models; full response retained as evidence/mancer-roster-authenticated.json in the campaign scratchpad and every catalog price/limit machine-checked against it (Mancer re-prices — gpt-oss-120b input moved 0.024 → 0.022 within the day)",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-03",
+      "status": 401
+    },
+    "billingProbe": {
+      "date": "2026-09-03",
+      "status": 402,
+      "method": "POST /oai/v1/chat/completions on deepseek-v4-flash with a zero balance: {\"error\":{\"type\":\"CANT_AFFORD\",\"message\":\"This model requires paid credits to use!\"}}"
+    },
+    "liveMatrix": {
+      "date": "2026-09-03",
+      "result": "18-probe harness on the free model mytholite: roster, chat, max_completion_tokens, system role, content parts, sampling params, SSE stream (usage chunk + [DONE]), json_schema (valid JSON matching schema) and json_object all 200; tools and tools+schema 400 BAD_PARAMETERS ('\"auto\" tool choice requires --enable-auto-tool-choice and --tool-call-parser') so tools are declared false; vision 200 but text-only (image ignored); bad key 401 'Bad API key'; unknown model 400 'Unknown Model'. Paid models could not be capability-probed without credits — tools may work there and can be re-declared once probed. Nightly matrix pins testModel mytholite."
+    },
+    "addedInPR": "pending"
+  }
+}

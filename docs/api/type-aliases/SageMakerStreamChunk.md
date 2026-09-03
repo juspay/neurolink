@@ -8,7 +8,7 @@
 
 > **SageMakerStreamChunk** = `object`
 
-Defined in: [types/providers.ts:1548](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1548)
+Defined in: [types/providers.ts:1558](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1558)
 
 Streaming response chunk from SageMaker
 
@@ -18,7 +18,7 @@ Streaming response chunk from SageMaker
 
 > `optional` **content?**: `string`
 
-Defined in: [types/providers.ts:1550](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1550)
+Defined in: [types/providers.ts:1560](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1560)
 
 Text content in the chunk
 
@@ -28,7 +28,7 @@ Text content in the chunk
 
 > `optional` **done?**: `boolean`
 
-Defined in: [types/providers.ts:1552](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1552)
+Defined in: [types/providers.ts:1562](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1562)
 
 Indicates if this is the final chunk
 
@@ -38,7 +38,7 @@ Indicates if this is the final chunk
 
 > `optional` **usage?**: [`SageMakerUsage`](SageMakerUsage.md)
 
-Defined in: [types/providers.ts:1554](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1554)
+Defined in: [types/providers.ts:1564](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1564)
 
 Usage information (only in final chunk)
 
@@ -48,7 +48,7 @@ Usage information (only in final chunk)
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:1556](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1556)
+Defined in: [types/providers.ts:1566](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1566)
 
 Error information if chunk contains error
 
@@ -58,7 +58,7 @@ Error information if chunk contains error
 
 > `optional` **finishReason?**: `"stop"` \| `"length"` \| `"tool-calls"` \| `"content-filter"` \| `"unknown"`
 
-Defined in: [types/providers.ts:1558](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1558)
+Defined in: [types/providers.ts:1568](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1568)
 
 Finish reason for generation
 
@@ -68,7 +68,7 @@ Finish reason for generation
 
 > `optional` **toolCall?**: [`SageMakerStreamingToolCall`](SageMakerStreamingToolCall.md)
 
-Defined in: [types/providers.ts:1565](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1565)
+Defined in: [types/providers.ts:1575](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1575)
 
 Tool call in progress (Phase 2.3)
 
@@ -78,7 +78,7 @@ Tool call in progress (Phase 2.3)
 
 > `optional` **toolResult?**: [`SageMakerStreamingToolResult`](SageMakerStreamingToolResult.md)
 
-Defined in: [types/providers.ts:1567](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1567)
+Defined in: [types/providers.ts:1577](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1577)
 
 Tool result chunk (Phase 2.3)
 
@@ -88,6 +88,6 @@ Tool result chunk (Phase 2.3)
 
 > `optional` **structuredOutput?**: [`SageMakerStructuredOutput`](SageMakerStructuredOutput.md)
 
-Defined in: [types/providers.ts:1569](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1569)
+Defined in: [types/providers.ts:1579](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1579)
 
 Structured output streaming (Phase 2.3)

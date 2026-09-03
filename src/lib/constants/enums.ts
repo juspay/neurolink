@@ -31,6 +31,7 @@ export enum AIProviderName {
   GROQ = "groq",
   INCEPTION_LABS = "inception-labs",
   IO_INTELLIGENCE = "io-intelligence",
+  MANCER = "mancer",
   MISTRAL = "mistral",
   PERPLEXITY = "perplexity",
   SAMBANOVA = "sambanova",
@@ -1332,6 +1333,19 @@ export enum IoIntelligenceModels {
   MISTRALAI_MISTRAL_NEMO_INSTRUCT_2407 = "mistralai/Mistral-Nemo-Instruct-2407",
   OPENAI_GPT_OSS_20B = "openai/gpt-oss-20b",
   META_LLAMA_LLAMA_3_3_70B_INSTRUCT = "meta-llama/Llama-3.3-70B-Instruct",
+}
+
+export enum MancerModels {
+  MYTHOMAX = "mythomax",
+  DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
+  DEEPSEEK_V4_FLASH_0731 = "deepseek-v4-flash-0731",
+  MYTHOLITE = "mytholite",
+  REMM_SLERP = "remm-slerp",
+  MAGNUM_72B_V4 = "magnum-72b-v4",
+  GLM_4_7 = "glm-4.7",
+  GPT_OSS_120B = "gpt-oss-120b",
+  WEAVER_ALPHA = "weaver-alpha",
+  DANS_PE_1_3_24B = "dans-pe-1.3-24b",
 }
 
 export enum MistralModels {

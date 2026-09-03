@@ -1937,6 +1937,69 @@ async function main(): Promise<void> {
           );
         }
       }
+
+      // --- 5. catalog tools:false keeps native tools off the wire ----------
+      // Mancer declares capabilities.tools: false (its free model answers 400
+      // BAD_PARAMETERS to any tool list). buildCatalogEntries() surfaces that
+      // as OpenAICompatCatalogEntry.supportsTools, and the provider's
+      // supportsTools() override honours it, so a caller who registers a tool
+      // still gets an answer and the outbound body carries no `tools` key.
+      {
+        setEnv("MANCER_API_KEY", "mcr_testfakecredential00");
+        setEnv("MANCER_BASE_URL", mockOrigin);
+        const seen: ChatRequestBody[] = [];
+        setHandler(() => {
+          seen.push(parseBody(lastRequestBody));
+          return completion(
+            { role: "assistant", content: "Yes, I am ready." },
+            "stop",
+          );
+        });
+        const codeTool = {
+          getSecretCode: tool({
+            description: "Returns the secret code. Takes no arguments.",
+            inputSchema: z.object({}),
+            execute: async () => ({ code: "ZQ-TEST" }),
+          }),
+        };
+        const name =
+          "mancer (catalog tools:false): a registered tool never reaches the wire and generate() still answers";
+        try {
+          const r = (await nl().generate({
+            provider: "mancer",
+            model: "mytholite",
+            input: { text: "Use the tool if you can, then say ready." },
+            tools: codeTool,
+            maxSteps: 3,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            content?: string;
+          };
+          const bodiesWithTools = seen.filter(
+            (b) =>
+              (b as { tools?: unknown }).tools !== undefined ||
+              b.tool_choice !== undefined,
+          );
+          const problems: string[] = [];
+          if (seen.length === 0) {
+            problems.push("no request reached the mock");
+          }
+          if (bodiesWithTools.length !== 0) {
+            problems.push(
+              `${bodiesWithTools.length} request(s) carried tools or tool_choice`,
+            );
+          }
+          if (!/ready/i.test(r.content ?? "")) {
+            problems.push("answer did not come back");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+          );
+        }
+      }
     }
   } finally {
     restoreEnv();

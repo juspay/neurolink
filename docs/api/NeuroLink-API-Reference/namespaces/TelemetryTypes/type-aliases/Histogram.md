@@ -8,7 +8,7 @@
 
 > **Histogram** = `object`
 
-Defined in: [types/providers.ts:1974](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1974)
+Defined in: [types/providers.ts:1984](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1984)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1974](https://github.com/juspay/neurolink/blob/r
 
 > **record**(`value`, `attributes?`): `void`
 
-Defined in: [types/providers.ts:1975](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1975)
+Defined in: [types/providers.ts:1985](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1985)
 
 #### Parameters
 
