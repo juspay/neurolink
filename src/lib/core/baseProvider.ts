@@ -2723,9 +2723,22 @@ export abstract class BaseProvider implements AIProvider {
   protected async getAISDKModelWithMiddleware(
     options: TextGenerationOptions | StreamOptions = {},
   ): Promise<LanguageModel> {
-    // Get the base model
-    const baseModel = await this.getAISDKModel();
+    return this.applyMiddlewareToModel(await this.getAISDKModel(), options);
+  }
 
+  /**
+   * Apply the configured middleware chain to a caller-supplied base model.
+   *
+   * `getAISDKModelWithMiddleware()` always wraps `getAISDKModel()`, which is
+   * the model the non-streaming path drives. Streaming paths build a
+   * different base — one whose `doStream` starts the provider's own stream
+   * loop — and need the same chain applied to it, so the wrapping is split
+   * out here rather than duplicated per provider.
+   */
+  protected async applyMiddlewareToModel(
+    baseModel: LanguageModel,
+    options: TextGenerationOptions | StreamOptions = {},
+  ): Promise<LanguageModel> {
     logger.debug(`Retrieved base model for ${this.providerName}`, {
       provider: this.providerName,
       model: this.modelName,

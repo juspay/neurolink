@@ -101,6 +101,7 @@
     "test:bedrock-inference-profile": "pnpm exec tsx test/continuous-test-suite-bedrock-inference-profile.ts",
     "test:loop-engine": "pnpm exec tsx test/continuous-test-suite-loop-engine.ts",
     "test:middleware": "pnpm exec tsx test/continuous-test-suite-middleware.ts",
+    "test:stream-middleware": "pnpm exec tsx test/continuous-test-suite-stream-middleware.ts",
     "test:observability": "pnpm exec tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "pnpm exec tsx test/continuous-test-suite-ppt.ts",
     "test:vertex-loop-characterization": "tsx test/continuous-test-suite-vertex-loop-characterization.ts",

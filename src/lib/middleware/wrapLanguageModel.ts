@@ -6,10 +6,9 @@
  * `wrapGenerate` / `wrapStream` hooks. Reproduced here so the middleware
  * factory no longer needs the ai package.
  *
- * Worth recording: `wrapStream` does not currently run in this codebase. Every
- * streaming path is native and bypasses the wrapped model entirely, so only
- * `wrapGenerate` is reachable. That is a pre-existing gap, not one this
- * introduced.
+ * The OpenAI-compatible streaming path also uses this wrapper. Other native
+ * streaming implementations must opt in explicitly; exposing a middleware
+ * option or a model-shaped handle alone does not apply the chain.
  */
 
 import type {

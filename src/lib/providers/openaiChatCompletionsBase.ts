@@ -40,6 +40,9 @@ import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   DeferredUsage,
   LanguageModel,
+  LanguageModelV3StreamPart,
+  LanguageModelV3,
+  LanguageModelV3CallOptions,
   ModelsResponse,
   OpenAICompatBuildBodyArgs,
   OpenAICompatChatChoice,
@@ -145,6 +148,76 @@ const yieldsSchemaValidObject = (
   const coerced = coerceJsonToSchema(text, schema);
   return coerced !== null && schemaAccepts(schema, coerced.structuredData);
 };
+
+// Pull one native chunk at a time and forward cancellation to its iterator.
+const chunksToV3Stream = (
+  source: AsyncIterable<OpenAICompatStreamChunk>,
+  completion: Promise<LanguageModelV3StreamPart>,
+  cancel: () => void,
+): ReadableStream<LanguageModelV3StreamPart> => {
+  const iterator = source[Symbol.asyncIterator]();
+  return new ReadableStream<LanguageModelV3StreamPart>({
+    async pull(controller) {
+      try {
+        const next = await iterator.next();
+        if (next.done) {
+          controller.enqueue(await completion);
+          controller.close();
+        } else if (next.value.reasoning) {
+          controller.enqueue({
+            type: "reasoning-delta",
+            delta: next.value.reasoning,
+          });
+        } else {
+          controller.enqueue({ type: "text-delta", delta: next.value.content });
+        }
+      } catch (error) {
+        controller.error(error);
+      }
+    },
+    async cancel() {
+      cancel();
+      await iterator.return?.();
+    },
+  });
+};
+
+async function* v3StreamToChunks(
+  stream: ReadableStream<LanguageModelV3StreamPart>,
+  onFinish: (
+    part: Extract<LanguageModelV3StreamPart, { type: "finish" }>,
+  ) => void,
+): AsyncIterable<OpenAICompatStreamChunk> {
+  const reader = stream.getReader();
+  let done = false;
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) {
+        done = true;
+        return;
+      }
+      const part = next.value;
+      if (part.type === "text-delta") {
+        yield { content: part.delta };
+      } else if (part.type === "reasoning-delta") {
+        yield { content: "", reasoning: part.delta };
+      } else if (part.type === "finish") {
+        onFinish(part);
+      } else if (part.type === "error") {
+        throw part.error;
+      }
+    }
+  } finally {
+    try {
+      if (!done) {
+        await reader.cancel();
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+}
 
 export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   protected config: { baseURL: string; apiKey: string };
@@ -1287,7 +1360,10 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     let wireNameMaps: ReturnType<typeof buildWireToolNameMaps>;
     let openAITools: OpenAICompatChatTool[] | undefined;
     let openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
-    let conversation: OpenAICompatChatMessage[];
+    // The prompt is kept in its pre-wire shape. Model middleware transforms
+    // `params.prompt`, and the conversion to the chat-completions wire format
+    // has to happen AFTER that or the transform would be discarded.
+    let promptMessages: OpenAICompatMessage[];
     try {
       modelId = await this.resolveModelName();
       const shouldUseTools = !options.disableTools && this.supportsTools();
@@ -1307,11 +1383,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         wireNameMaps?.toWire,
       );
 
-      const initialMessages = await this.buildMessagesForStream(options);
-      conversation = messageBuilderToOpenAI(
-        initialMessages as OpenAICompatMessage[],
-        wireNameMaps?.toWire,
-      );
+      promptMessages = (await this.buildMessagesForStream(
+        options,
+      )) as OpenAICompatMessage[];
     } catch (setupErr) {
       timeoutController?.cleanup();
       throw setupErr;
@@ -1333,26 +1407,152 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // Per-provider lifecycle hook (e.g. OTel span wrap for LiteLLM).
     const lifecycle = this.onStreamStart(modelId);
 
-    const loopPromise = this.runStreamLoop({
-      maxSteps,
+    // Model middleware on the streaming path.
+    //
+    // The base model below is not `buildDelegatingModel()`'s — that one's
+    // `doGenerate` is a single wire call and its `doStream` is a stub. This
+    // one's `doStream` starts the real multi-step stream loop, which is what
+    // "produce the stream for this request" means here. Wrapping it gives the
+    // streaming path the contract the generate path has always had:
+    // `transformParams` can rewrite the prompt before a byte is sent, and
+    // `wrapStream` can observe, filter, or replace the stream outright.
+    //
+    // Honoured on the way back in: `prompt`, `maxOutputTokens`, `temperature`
+    // and `topP`. `tools` is offered read-only — a middleware that rewrites it
+    // gets a WARN rather than a silent drop, because re-deriving the wire tool
+    // list here would diverge from `buildToolsForOpenAI`.
+    const v3Tools = openAITools?.map((t) => ({
+      type: "function" as const,
+      name: t.function.name,
+      description: t.function.description,
+      inputSchema: t.function.parameters,
+    }));
+    const v3Params: LanguageModelV3CallOptions = {
+      prompt: promptMessages as LanguageModelV3CallOptions["prompt"],
+      ...(v3Tools ? { tools: v3Tools } : {}),
+      ...(options.maxTokens !== undefined
+        ? { maxOutputTokens: options.maxTokens }
+        : {}),
+      ...(options.temperature !== undefined
+        ? { temperature: options.temperature }
+        : {}),
+      ...(options.topP !== undefined ? { topP: options.topP } : {}),
+    };
+
+    let loopPromise: Promise<unknown> | undefined;
+    const providerNameForLoop = this.providerName;
+    const streamBaseModel: LanguageModelV3 = {
+      specificationVersion: "v3" as const,
+      provider: providerNameForLoop,
       modelId,
-      url,
-      fetchImpl,
-      abortSignal,
-      options,
-      conversation,
-      openAITools,
-      openAIToolChoice,
-      toolsRecord,
-      toolNameFromWire: wireNameMaps?.fromWire,
-      emitter,
-      toolsUsed,
-      toolExecutionSummaries,
-      pushChunk: channel.push,
-      closeChannel: channel.close,
-      resolveUsage,
-      resolveFinish,
-    });
+      supportedUrls: {},
+      doGenerate: async (params) => {
+        const model = await this.getAISDKModel();
+        if (typeof model === "string") {
+          throw new Error("Native model handle required");
+        }
+        return model.doGenerate(params);
+      },
+      doStream: async (params) => {
+        if (params?.tools !== undefined && params.tools !== v3Tools) {
+          logger.warn(
+            `${providerNameForLoop}: middleware rewrote 'tools' on the streaming path; tool rewrites are not applied to the wire request yet — the original tool list was sent.`,
+          );
+        }
+        const transformedPrompt = Array.isArray(params?.prompt)
+          ? (params.prompt as OpenAICompatMessage[])
+          : promptMessages;
+        const conversation = messageBuilderToOpenAI(
+          transformedPrompt,
+          wireNameMaps?.toWire,
+        );
+        const sampled: StreamOptions = {
+          ...options,
+          ...(typeof params?.maxOutputTokens === "number"
+            ? { maxTokens: params.maxOutputTokens }
+            : {}),
+          ...(typeof params?.temperature === "number"
+            ? { temperature: params.temperature }
+            : {}),
+          ...(typeof params?.topP === "number" ? { topP: params.topP } : {}),
+        };
+        loopPromise = this.runStreamLoop({
+          maxSteps,
+          modelId,
+          url,
+          fetchImpl,
+          abortSignal,
+          options: sampled,
+          conversation,
+          openAITools,
+          openAIToolChoice,
+          toolsRecord,
+          toolNameFromWire: wireNameMaps?.fromWire,
+          emitter,
+          toolsUsed,
+          toolExecutionSummaries,
+          pushChunk: channel.push,
+          closeChannel: channel.close,
+          resolveUsage,
+          resolveFinish,
+        });
+        const completion: Promise<LanguageModelV3StreamPart> = loopPromise.then(
+          () =>
+            Promise.all([usagePromise, finishPromise]).then(
+              ([usage, reason]) => ({
+                type: "finish" as const,
+                finishReason: { unified: reason },
+                usage: {
+                  inputTokens: {
+                    total: usage.promptTokens,
+                    cacheRead: usage.cacheReadTokens,
+                  },
+                  outputTokens: { total: usage.completionTokens },
+                },
+              }),
+            ),
+        );
+        // The producer can reject before the consumer pulls its terminal event.
+        void completion.catch(() => undefined);
+        return {
+          stream: chunksToV3Stream(channel.iterable, completion, () =>
+            consumerAbortController.abort(),
+          ),
+        };
+      },
+    };
+
+    // A middleware chain that blocks (guardrails' precall path) returns its own
+    // stream without calling `doStream`, so the loop may never start. Every
+    // later reader of `loopPromise` has to tolerate that.
+    let chunkSource: AsyncIterable<OpenAICompatStreamChunk>;
+    try {
+      const wrappedStreamModel = await this.applyMiddlewareToModel(
+        streamBaseModel,
+        options,
+      );
+      if (typeof wrappedStreamModel === "string") {
+        throw new Error("Native stream model handle required");
+      }
+      const { stream } = await wrappedStreamModel.doStream(v3Params);
+      chunkSource = v3StreamToChunks(stream, (part) => {
+        if (!loopPromise) {
+          const input = part.usage.inputTokens.total ?? 0;
+          const output = part.usage.outputTokens.total ?? 0;
+          resolveUsage({
+            promptTokens: input,
+            completionTokens: output,
+            totalTokens: input + output,
+          });
+          resolveFinish(part.finishReason.unified);
+        }
+      });
+    } catch (error) {
+      consumerAbortController.abort();
+      channel.close();
+      timeoutController?.cleanup();
+      throw error;
+    }
 
     // Closure-scoped capture: the runStreamLoop's catch block stashes the
     // underlying provider error here so we can pass it through to
@@ -1382,7 +1582,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const transformedStream = async function* () {
       let contentYielded = 0;
       try {
-        for await (const chunk of channel.iterable) {
+        for await (const chunk of chunkSource) {
           if (
             "content" in chunk &&
             typeof chunk.content === "string" &&
@@ -1393,6 +1593,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           yield chunk;
         }
         // Surface any error that the loop threw after we drained the channel.
+        // `loopPromise` is undefined when a middleware blocked the request
+        // before `doStream` ran, in which case there is no loop to surface.
         await loopPromise;
         // No-output path: stream completed normally but yielded zero text.
         // Build an enriched sentinel + stamp the active OTel span so
@@ -1433,6 +1635,15 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         yield sentinel as { content: string };
         throw streamError;
       } finally {
+        if (!loopPromise) {
+          resolveUsage({
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+          });
+          resolveFinish("stop");
+        }
+        timeoutController?.cleanup();
         if (!consumerAbortController.signal.aborted) {
           consumerAbortController.abort();
         }
@@ -1484,7 +1695,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     });
 
     loopPromise
-      .finally(() => timeoutController?.cleanup())
+      ?.finally(() => timeoutController?.cleanup())
       .catch((error) => {
         captureProviderError(error);
       });
