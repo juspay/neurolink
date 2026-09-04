@@ -38,26 +38,46 @@
  *  1  At least one unresolved reference, or `dist/` has not been built.
  */
 
-import { readdirSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import ts from "typescript";
 
 const ROOT = process.cwd();
 const DIST = join(ROOT, "dist");
 
-/** Errors that mean "this declaration names something that isn't there". */
+/**
+ * Errors that mean "this declaration names something that isn't there".
+ *
+ * All five shapes a stripped or missing declaration can take. The first three
+ * cover a module-level import; 2304 and 2694 cover the same hole reached
+ * through a bare name or a namespace, which an earlier version of this list
+ * omitted — a shipped declaration with either would have been reported clean
+ * by a checker whose entire purpose is to not do that.
+ */
 const UNRESOLVED_REFERENCE_CODES = new Set([
+  2304, // Cannot find name 'X'.
   2305, // Module '"X"' has no exported member 'Y'.
   2307, // Cannot find module 'X' or its corresponding type declarations.
+  2694, // Namespace 'X' has no exported member 'Y'.
   2724, // 'X' has no exported member named 'Y'. Did you mean 'Z'?
 ]);
 
 /**
- * A build must exist and be substantial before the result means anything.
- * An empty or missing `dist/` would otherwise report a clean pass.
+ * A build must exist and be COMPLETE before the result means anything.
+ *
+ * A floor alone is not enough: a partial build that happens to clear it gets
+ * validated as though it were the whole package, and the subset passes while
+ * the missing declarations are never examined. So the floor is only the first
+ * gate — `assertBuildIsComplete` then requires that every entry point the
+ * package actually publishes is present, which is the property that matters.
  */
 const MINIMUM_DECLARATION_FILES = 100;
 
+/**
+ * Every declaration file named by `package.json`'s `exports` map, plus the
+ * root `types` entry. If the package promises a subpath, its .d.ts has to be
+ * on disk before any verdict about "the shipped declarations" is meaningful.
+ */
 const collectDeclarationFiles = (dir: string, found: string[] = []): string[] => {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
@@ -69,6 +89,59 @@ const collectDeclarationFiles = (dir: string, found: string[] = []): string[] =>
   }
   return found;
 };
+
+/**
+ * Does a published type entry exist on disk?
+ *
+ * `exports` subpaths may be wildcard patterns (`./dist/adapters/*.d.ts`), which
+ * name a family rather than a file. For those the question is whether the
+ * family is present at all, so one match is enough; treating the pattern as a
+ * literal path reports every wildcard subpath as missing on a perfectly good
+ * build.
+ */
+const publishedEntryExists = (entry: string): boolean => {
+  if (!entry.includes("*")) {
+    return existsSync(join(ROOT, entry));
+  }
+  const dir = join(ROOT, entry.slice(0, entry.lastIndexOf("/")));
+  if (!existsSync(dir)) {
+    return false;
+  }
+  try {
+    return collectDeclarationFiles(dir).length > 0;
+  } catch {
+    return false;
+  }
+};
+
+const collectPublishedTypeEntries = (): string[] => {
+  const manifest = JSON.parse(
+    readFileSync(join(ROOT, "package.json"), "utf8"),
+  ) as {
+    types?: string;
+    exports?: Record<string, unknown>;
+  };
+  const found = new Set<string>();
+  const visit = (node: unknown): void => {
+    if (typeof node === "string") {
+      if (node.endsWith(".d.ts")) {
+        found.add(node.replace(/^\.\//, ""));
+      }
+      return;
+    }
+    if (typeof node === "object" && node !== null) {
+      for (const value of Object.values(node)) {
+        visit(value);
+      }
+    }
+  };
+  visit(manifest.exports);
+  if (manifest.types) {
+    found.add(manifest.types.replace(/^\.\//, ""));
+  }
+  return [...found].sort();
+};
+
 
 const main = (): number => {
   let files: string[];
@@ -85,6 +158,21 @@ const main = (): number => {
         `least ${MINIMUM_DECLARATION_FILES}. The build is missing or partial, ` +
         `so a pass here would prove nothing.`,
     );
+    return 1;
+  }
+
+  const missingEntries = collectPublishedTypeEntries().filter(
+    (entry) => !publishedEntryExists(entry),
+  );
+  if (missingEntries.length > 0) {
+    console.error(
+      `✗ ${missingEntries.length} published type entry point(s) are absent ` +
+        `from the build, so the declarations under dist/ are only a subset ` +
+        `of what this package ships:`,
+    );
+    for (const entry of missingEntries) {
+      console.error(`  ${entry}`);
+    }
     return 1;
   }
 
