@@ -155,6 +155,24 @@ jobs:
 
       - name: 🔒 Security & Environment Validation
         if: matrix.group == 'validate'
+        env:
+          # `pnpm audit` posts the whole dependency tree to npm's audit API and
+          # waits on it. security-check.ts kills any scanner at 120s and treats
+          # the kill as a failed scan — correct, because a scan that did not
+          # finish cannot be trusted. But the bound was measured against a
+          # ~1.4s local run, and when that endpoint degrades the real audit
+          # takes longer than the bound: on 2026-09-04 it ran 129s locally and
+          # every branch in the repo went red on this step, `release` included.
+          #
+          # 300s is still a bound, so the hang this exists to prevent is still
+          # prevented; it is just wide enough that a slow-but-working registry
+          # produces a verdict instead of a kill. Set here rather than in the
+          # script so local runs keep the tighter default, where a developer is
+          # present to notice a stall.
+          NEUROLINK_SCANNER_TIMEOUT_MS: "300000"
+        # A slow scanner must not hold a runner indefinitely even with the
+        # wider bound.
+        timeout-minutes: 12
         run: |
           echo "🔍 Running build rule enforcement validations..."
           pnpm run validate:all
