@@ -2022,6 +2022,100 @@ async function main(): Promise<void> {
           );
         }
       }
+
+      // --- 6. catalog model fallback is generate()'s default --------------
+      // A model the vendor rejects as invalid is retried on the catalog's
+      // fallback list (BaseProvider.runGenerateWithModelFallback). Case 7
+      // turns that off, so the default is pinned first: the retry carries
+      // the catalog's first fallback id and the call resolves.
+      {
+        type ModelBody = ChatRequestBody & { model?: string };
+        const bodies: ModelBody[] = [];
+        setHandler(() => {
+          const body = parseBody(lastRequestBody) as ModelBody;
+          bodies.push(body);
+          if (body.model === "mancer-ghost") {
+            return {
+              status: 400,
+              body: JSON.stringify({ error: { message: "Unknown Model" } }),
+            };
+          }
+          return completion({ role: "assistant", content: "ready" }, "stop");
+        });
+        const name =
+          "mancer: an invalid model is retried on the catalog fallback by default";
+        try {
+          const r = (await nl().generate({
+            provider: "mancer",
+            model: "mancer-ghost",
+            input: { text: "Say ready." },
+            disableTools: true,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            content?: string;
+          };
+          const problems: string[] = [];
+          if (bodies.length < 2) {
+            problems.push(
+              `expected a fallback request, saw ${bodies.length} request(s)`,
+            );
+          }
+          if (bodies[0]?.model !== "mancer-ghost") {
+            problems.push("first request did not carry the requested model");
+          }
+          if (bodies.length >= 2 && bodies[1]?.model !== "deepseek-v4-flash") {
+            problems.push(
+              "fallback request did not carry the catalog's first fallback model",
+            );
+          }
+          if (!/ready/i.test(r.content ?? "")) {
+            problems.push("answer did not come back");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+          );
+        }
+      }
+
+      // --- 7. disableInternalFallback reaches the provider on generate() --
+      // GenerateOptions declares the flag and buildGenerateTextOptions maps
+      // it through. Before that, the explicit field list dropped it and
+      // generate() fell back regardless of what the caller asked (stream()
+      // spreads its options, so it always honoured the flag). With the flag
+      // the vendor's rejection surfaces as the classified InvalidModelError
+      // after exactly one request.
+      {
+        type ModelBody = ChatRequestBody & { model?: string };
+        const bodies: ModelBody[] = [];
+        setHandler(() => {
+          bodies.push(parseBody(lastRequestBody) as ModelBody);
+          return {
+            status: 400,
+            body: JSON.stringify({ error: { message: "Unknown Model" } }),
+          };
+        });
+        await expectGenerateError({
+          name: "mancer: disableInternalFallback on generate() surfaces the invalid model instead of falling back",
+          run: () =>
+            nl().generate({
+              provider: "mancer",
+              model: "mancer-ghost",
+              input: { text: "Say ready." },
+              disableTools: true,
+              disableInternalFallback: true,
+            } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0]),
+          expectClass: InvalidModelError,
+          messageIncludes: ["mancer-ghost"],
+        });
+        record(
+          "mancer: disableInternalFallback on generate() sends exactly one request",
+          bodies.length === 1,
+          bodies.length === 1 ? undefined : `saw ${bodies.length} request(s)`,
+        );
+      }
     }
   } finally {
     restoreEnv();

@@ -135,6 +135,16 @@ model-router value. Two per-call knobs control the retry:
   `metadata.stopReason === "step-cap"` after the stream is drained. Default
   (unset) preserves the retry.
 
+`generate()` has no no-output retry, but the same flag governs its two
+internal fallbacks: the static provider-priority walk that runs when no
+provider was requested, and the catalog model-fallback walk a provider performs
+when the vendor rejects its model as invalid. With
+`disableInternalFallback: true`, `generate()` tries exactly one provider from
+that static list and surfaces an invalid model as the classified
+`InvalidModelError` after a single request. A configured `ModelPool`,
+`providerFallback` and `modelChain` are your own fallback and are unaffected on
+either path: a pool still walks its own candidates.
+
 ---
 
 ## Observability

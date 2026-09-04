@@ -219,22 +219,59 @@ async function runMatrix(): Promise<void> {
             greeting: zod.z.string(),
             count: zod.z.number(),
           });
-          let lastContent: string | undefined;
+          let last:
+            | {
+                content?: string;
+                structuredData?: unknown;
+                jsonTruncated?: boolean;
+              }
+            | undefined;
           for (let attempt = 1; attempt <= 2; attempt++) {
             const r = await sdk.generate({
               ...baseOpts,
               input: { text: 'Reply with greeting="hi" and count=42 in JSON.' },
               maxTokens: 200,
               disableTools: true,
-              structuredOutput: { schema },
-            } as never);
-            lastContent = r.content;
-            if (lastContent && lastContent.length > 0) {
+              // `schema` is the option generate() honours. The previous
+              // `structuredOutput: { schema }` was never a GenerateOptions
+              // field (the `as never` cast hid that) and was silently
+              // ignored, so this cell passed on plain text. The real
+              // parameter type replaces the `as never` cast here so a
+              // wrong option name is a compile error, not a silent no-op.
+              schema,
+            } as Parameters<NeuroLink["generate"]>[0]);
+            last = r;
+            if (
+              r.content &&
+              r.content.length > 0 &&
+              r.structuredData !== undefined
+            ) {
               break;
             }
           }
-          if (!lastContent || lastContent.length === 0) {
+          if (!last?.content || last.content.length === 0) {
             throw new Error("empty response");
+          }
+          // generate({ schema }) yields a parsed `structuredData` whenever the
+          // model produced anything JSON-shaped; a response cut off at the
+          // token cap yields a partial object and sets `jsonTruncated`, so
+          // only an untruncated result is held to the schema. Pure prose
+          // with no JSON at all leaves `structuredData` undefined (the SDK
+          // logs a WARN and returns the raw text). After two attempts that is
+          // the row's `structuredOutput: true` claim being false for this
+          // model, which must stay visible rather than downgrade to a skip.
+          if (last.structuredData === undefined) {
+            throw new Error(
+              "no JSON was recoverable from a schema request after two attempts",
+            );
+          }
+          if (
+            !last.jsonTruncated &&
+            !schema.safeParse(last.structuredData).success
+          ) {
+            throw new Error(
+              "structuredData did not satisfy the request schema",
+            );
           }
         } catch (err) {
           skipIfProviderError(err);

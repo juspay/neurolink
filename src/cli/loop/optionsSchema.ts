@@ -176,6 +176,11 @@ export const textGenerationOptionsSchema: Record<
     description:
       "Disable tool result caching for this request (overrides global mcp.cache.enabled).",
   },
+  disableInternalFallback: {
+    type: "boolean",
+    description:
+      "Own fallback order yourself: skip NeuroLink's provider-priority walk and the catalog model fallback, so an invalid model or unavailable provider surfaces as its own error.",
+  },
   disableToolCallRepair: {
     type: "boolean",
     description:
