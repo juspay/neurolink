@@ -2,6 +2,8 @@ import { AIProviderFactory } from "../../core/factory.js";
 import { logger } from "../../utils/logger.js";
 import type {
   BadWordsConfig,
+  LanguageModelV3GenerateResult,
+  LanguageModelV3StreamPart,
   ContentFilteringResult,
   EvaluationActionResult,
   PrecallEvaluationConfig,
@@ -338,28 +340,34 @@ export function escapeRegExp(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function createBlockedResponse() {
+export function createBlockedResponse(): LanguageModelV3GenerateResult {
   return {
-    text: "Request contains inappropriate content and has been blocked.",
-    usage: { promptTokens: 0, completionTokens: 0 },
-    finishReason: "stop" as const,
+    content: [
+      {
+        type: "text",
+        text: "Request contains inappropriate content and has been blocked.",
+      },
+    ],
+    usage: { inputTokens: { total: 0 }, outputTokens: { total: 0 } },
+    finishReason: { unified: "stop" },
     warnings: [],
-    rawCall: { rawPrompt: null, rawSettings: {} },
   };
 }
 
-export function createBlockedStream() {
-  return new ReadableStream({
+export function createBlockedStream(): ReadableStream<LanguageModelV3StreamPart> {
+  return new ReadableStream<LanguageModelV3StreamPart>({
     start(controller) {
+      controller.enqueue({ type: "text-start", id: "blocked" });
       controller.enqueue({
         type: "text-delta",
-        textDelta:
-          "Request contains inappropriate content and has been blocked.",
+        id: "blocked",
+        delta: "Request contains inappropriate content and has been blocked.",
       });
+      controller.enqueue({ type: "text-end", id: "blocked" });
       controller.enqueue({
         type: "finish",
-        finishReason: "stop",
-        usage: { promptTokens: 0, completionTokens: 0 },
+        finishReason: { unified: "stop" },
+        usage: { inputTokens: { total: 0 }, outputTokens: { total: 0 } },
       });
       controller.close();
     },

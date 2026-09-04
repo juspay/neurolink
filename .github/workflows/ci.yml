@@ -1125,6 +1125,7 @@ jobs:
             test:tool-resolution@3
             test:autoresearch@2
             test:loop-engine@2
+            test:stream-middleware@5
             test:handler-registry@1
           "
           # Normalise every entry to name@weight (missing or non-numeric

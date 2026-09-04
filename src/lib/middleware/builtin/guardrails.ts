@@ -2,6 +2,7 @@ import type {
   NeuroLinkMiddleware,
   NeuroLinkMiddlewareMetadata,
   GuardrailsMiddlewareConfig,
+  LanguageModelV3StreamPart,
 } from "../../types/index.js";
 import {
   createBlockedResponse,
@@ -67,8 +68,7 @@ export function createGuardrailsMiddleware(
 
   const middleware: LanguageModelMiddleware = {
     specificationVersion: "v3" as const,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    transformParams: async ({ params }: any) => {
+    transformParams: async ({ params }) => {
       if (config.precallEvaluation?.enabled) {
         const { shouldBlock, transformedParams } =
           await handlePrecallGuardrails(params, config.precallEvaluation);
@@ -79,8 +79,7 @@ export function createGuardrailsMiddleware(
       return params;
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    wrapGenerate: async ({ doGenerate, params }: any) => {
+    wrapGenerate: async ({ doGenerate, params }) => {
       logger.debug(`[GuardrailsMiddleware] Applying to generate call.`);
       // Check if this request should be blocked (set by transformParams)
       if (config.precallEvaluation?.enabled && blockingState.get(params)) {
@@ -89,19 +88,30 @@ export function createGuardrailsMiddleware(
 
       let result = await doGenerate();
 
-      const filterResult = applyContentFiltering(
-        result.text || "",
-        config.badWords,
-        "generate",
-      );
-      if (filterResult.hasChanges) {
-        result = { ...result, text: filterResult.filteredText };
-      }
+      result = {
+        ...result,
+        content: result.content.map((part) =>
+          part.type === "text"
+            ? {
+                ...part,
+                text: applyContentFiltering(
+                  part.text,
+                  config.badWords,
+                  "generate",
+                ).filteredText,
+              }
+            : part,
+        ),
+      };
 
       if (config.modelFilter?.enabled && config.modelFilter.filterModel) {
         logger.debug(`[GuardrailsMiddleware] Invoking model-based filter.`);
         try {
-          const filterPrompt = `Is the following text safe? Respond with only "safe" or "unsafe".\n\nText: "${result.text}"`;
+          const text = result.content
+            .filter((part) => part.type === "text")
+            .map((part) => part.text)
+            .join("");
+          const filterPrompt = `Is the following text safe? Respond with only "safe" or "unsafe".\n\nText: "${text}"`;
           // `ModelFilterConfig.filterModel` is typed `LanguageModel`, which
           // admits a bare model id, and the documented examples used one.
           // `generateOnceNative` needs a handle exposing doGenerate, so a
@@ -119,7 +129,14 @@ export function createGuardrailsMiddleware(
             logger.warn(
               `[GuardrailsMiddleware] Model-based filter flagged content as unsafe.`,
             );
-            result = { ...result, text: "<REDACTED BY AI GUARDRAIL>" };
+            result = {
+              ...result,
+              content: result.content.map((part) =>
+                part.type === "text"
+                  ? { ...part, text: "<REDACTED BY AI GUARDRAIL>" }
+                  : part,
+              ),
+            };
           }
         } catch (error) {
           logger.error(`[GuardrailsMiddleware] Model-based filter failed.`, {
@@ -131,8 +148,7 @@ export function createGuardrailsMiddleware(
       return result;
     },
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    wrapStream: async ({ doStream, params }: any) => {
+    wrapStream: async ({ doStream, params }) => {
       logger.debug(`[GuardrailsMiddleware] Applying to stream call.`);
 
       // Check if this request should be blocked (set by transformParams)
@@ -147,23 +163,23 @@ export function createGuardrailsMiddleware(
       const { stream, ...rest } = await doStream();
       let hasYieldedChunks = false;
 
-      const transformStream = new TransformStream({
+      const transformStream = new TransformStream<
+        LanguageModelV3StreamPart,
+        LanguageModelV3StreamPart
+      >({
         transform(chunk, controller) {
           hasYieldedChunks = true;
           let filteredChunk = chunk;
-          if (
-            typeof filteredChunk === "object" &&
-            "textDelta" in filteredChunk
-          ) {
+          if (filteredChunk.type === "text-delta") {
             const filterResult = applyContentFiltering(
-              filteredChunk.textDelta,
+              filteredChunk.delta,
               config.badWords,
               "stream",
             );
             if (filterResult.hasChanges) {
               filteredChunk = {
                 ...filteredChunk,
-                textDelta: filterResult.filteredText,
+                delta: filterResult.filteredText,
               };
             }
           }
