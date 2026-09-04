@@ -824,6 +824,19 @@ npx @juspay/neurolink generate "test" --provider sagemaker --debug
 - **Security**: VPC, encryption, and IAM controls
 - **Performance**: Predictable latency and throughput
 
+## Known limitation: the multi-step tool loop is not exercised live
+
+SageMaker's `generate()` runs on the shared native tool loop
+(`src/lib/core/nativeGenerateLoop.ts`). A single-step call is the same
+`invokeEndpoint` request it always was. The **multi-step** branch — the model
+returning tool calls, the tools executing, and the loop re-asking — has not
+been driven against a real SageMaker endpoint: none was available when the
+loop was written, and `src/lib/providers/amazonSagemaker.ts` carries the same
+note. Offline contract and streaming-characterization tests cover portions of the
+integration; they are not live proof of a multi-step generate turn. If you run tools against
+a SageMaker endpoint, treat the first multi-step turn as unverified and report
+what you see.
+
 ---
 
 **Ready to deploy your custom models?** Follow the [Quick Start](#quick-start) guide above to begin using your own AI models through NeuroLink's SageMaker integration today!
