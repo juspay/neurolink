@@ -14,6 +14,7 @@
  * the same across Anthropic, the OpenAI-compatible family and SageMaker.
  */
 
+import { logger } from "../utils/logger.js";
 import type {
   NativeGenerateLoopArgs,
   NativeGenerateLoopResult,
@@ -144,37 +145,79 @@ export async function runNativeGenerateLoop(
   let steps = 0;
   // One bounded recovery re-ask per turn; see the empty-tool-calls branch.
   let reasked = false;
+  // True only while the NEXT step is the recovery re-ask. `reasked` stays set
+  // for the rest of the turn, so it cannot distinguish "this step is the
+  // re-ask" from "the re-ask already happened" — and degrading a later,
+  // unrelated failure would swallow a real error.
+  let reaskPending = false;
+  // The turn as it stood before the re-ask. The re-ask is a bonus request on
+  // top of a call that already produced a result, so if it fails the honest
+  // answer is that result — not a thrown turn.
+  let preReask:
+    | { text: string; finishReason: string; rawFinishReason?: string }
+    | undefined;
   const hasTools = Boolean(args.tools && args.tools.length > 0);
 
   for (let step = 0; step < args.maxSteps; step++) {
     steps = step + 1;
-    const res = await args.runStep(() =>
-      args.doGenerate({
-        prompt: args.conversation,
-        ...(args.tools && args.tools.length > 0 ? { tools: args.tools } : {}),
-        // The v3 call option is an OBJECT — `{ type: "none" }`. Passing the
-        // bare string "none" type-checks against `unknown` and is then
-        // dropped by every converter that switches on `choice.type`, so the
-        // re-ask silently went out unchanged. Caught by the stand-in asserting
-        // the wire body, not by any live provider.
-        ...(reasked
-          ? { toolChoice: { type: "none" } }
-          : args.toolChoice !== undefined
-            ? { toolChoice: args.toolChoice }
+    const runThisStep = () =>
+      args.runStep(() =>
+        args.doGenerate({
+          prompt: args.conversation,
+          ...(args.tools && args.tools.length > 0 ? { tools: args.tools } : {}),
+          // The v3 call option is an OBJECT — `{ type: "none" }`. Passing the
+          // bare string "none" type-checks against `unknown` and is then
+          // dropped by every converter that switches on `choice.type`, so the
+          // re-ask silently went out unchanged. Caught by the stand-in asserting
+          // the wire body, not by any live provider.
+          ...(reasked
+            ? { toolChoice: { type: "none" } }
+            : args.toolChoice !== undefined
+              ? { toolChoice: args.toolChoice }
+              : {}),
+          ...(args.responseFormat
+            ? { responseFormat: args.responseFormat }
             : {}),
-        ...(args.responseFormat ? { responseFormat: args.responseFormat } : {}),
-        ...(args.providerOptions
-          ? { providerOptions: args.providerOptions }
-          : {}),
-        ...(args.maxOutputTokens
-          ? { maxOutputTokens: args.maxOutputTokens }
-          : {}),
-        ...(args.temperature !== undefined
-          ? { temperature: args.temperature }
-          : {}),
-        ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
-      }),
-    );
+          ...(args.providerOptions
+            ? { providerOptions: args.providerOptions }
+            : {}),
+          ...(args.maxOutputTokens
+            ? { maxOutputTokens: args.maxOutputTokens }
+            : {}),
+          ...(args.temperature !== undefined
+            ? { temperature: args.temperature }
+            : {}),
+          ...(args.abortSignal ? { abortSignal: args.abortSignal } : {}),
+        }),
+      );
+
+    let res: Awaited<ReturnType<typeof args.doGenerate>>;
+    try {
+      res = await runThisStep();
+    } catch (stepError) {
+      // Ported from GenerationHandler.recoverEmptyToolCallsFinish's catch: a
+      // failed re-ask hands back the turn that already succeeded rather than
+      // turning a degraded turn into a thrown one. The native port made the
+      // re-ask a `continue`, so the failure surfaced from the NEXT step's
+      // doGenerate and propagated instead.
+      if (reaskPending && preReask) {
+        logger.warn(
+          "toolChoice: none re-ask failed; returning the original result",
+          {
+            error:
+              stepError instanceof Error
+                ? stepError.message
+                : String(stepError),
+          },
+        );
+        text = preReask.text;
+        finishReason = preReask.finishReason;
+        rawFinishReason = preReask.rawFinishReason;
+        break;
+      }
+      throw stepError;
+    }
+    reaskPending = false;
 
     const parts = asParts(res.content);
     // Each step REPLACES the text rather than appending: the final step's
@@ -228,6 +271,8 @@ export async function runNativeGenerateLoop(
         step + 1 < args.maxSteps;
       if (emptyToolCallsFinish) {
         reasked = true;
+        reaskPending = true;
+        preReask = { text, finishReason, rawFinishReason };
         args.conversation.push({ role: "assistant", content: parts });
         continue;
       }
