@@ -8,6 +8,6 @@
 
 > **ProxyShareLeaseVerdict** = \{ `usable`: `true`; `nextHeartbeatDueAt`: `number`; \} \| \{ `usable`: `false`; `reason`: `"unsigned"` \| `"expired"` \| `"grace_elapsed"` \| `"stopped"`; `detail`: `string`; \}
 
-Defined in: [types/proxy.ts:4136](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4136)
+Defined in: [types/proxy.ts:4142](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4142)
 
 Why a lease is not currently usable.

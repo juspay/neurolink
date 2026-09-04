@@ -8,4 +8,4 @@
 
 > **ProxyShareGrantState** = `"active"` \| `"paused"` \| `"revoked"` \| `"expired"`
 
-Defined in: [types/proxy.ts:3410](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3410)
+Defined in: [types/proxy.ts:3416](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3416)
