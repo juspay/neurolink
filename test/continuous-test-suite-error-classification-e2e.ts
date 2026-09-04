@@ -1170,6 +1170,28 @@ async function main(): Promise<void> {
     // providers-mocked.ts already uses for this exact reason).
     // =========================================================================
     {
+      // Constructing the provider validates that SOME credential is present.
+      // Without these the constructor throws where none exists, aborting the
+      // whole suite before a single case runs — which is what happened the
+      // first time this suite was wired into CI.
+      //
+      // It is invisible locally, and NOT for the reason it first appears.
+      // `src/lib/neurolink.ts` calls `dotenvConfig({ quiet: true })` with no
+      // path, so importing the SDK loads `./.env` from the working directory
+      // — and a developer's .env has GOOGLE_APPLICATION_CREDENTIALS in it.
+      // `DOTENV_CONFIG_PATH=/dev/null` does not prevent this: that variable
+      // is read by `dotenv/config`, not by a direct `config()` call. So the
+      // "run it with the environment stripped" check documented on the
+      // extended-suites job does not actually isolate a suite that
+      // constructs a provider; only running from a directory with no .env
+      // does. Verified both ways: passes in-repo with the environment
+      // stripped, reproduces the CI abort from a cwd without .env.
+      //
+      // These cases only call formatProviderError(), which performs no
+      // network I/O, so placeholders are enough.
+      setEnv("GOOGLE_SERVICE_ACCOUNT_KEY", "e2e-placeholder-not-a-real-key");
+      setEnv("GOOGLE_VERTEX_PROJECT", "e2e-placeholder-project");
+      setEnv("GOOGLE_VERTEX_LOCATION", "us-central1");
       const vertex = new GoogleVertexProvider() as unknown as {
         formatProviderError(error: unknown): Error;
       };

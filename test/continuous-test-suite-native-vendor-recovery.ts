@@ -12,9 +12,16 @@ import "dotenv/config";
  *      carrying `content: null` and no `tool_calls` array. There is nothing to
  *      execute, so the loop stops and the caller gets an empty turn even though
  *      the tool ran. The recovery re-asks once with `tool_choice: "none"`.
- *   2. GMI Cloud's MiniMax endpoint ignores a strict `json_schema` request and
- *      answers in prose. The recovery drops `response_format` and spells the
- *      schema into the system prompt.
+ *   2. GMI Cloud's MiniMax endpoint does not honour a strict `json_schema`
+ *      request. The recovery drops `response_format` and spells the schema
+ *      into the system prompt. It has TWO triggers, and they are separate
+ *      cases below because conflating them is exactly how this went wrong:
+ *      the vendor can REJECT the request outright (a 400 the loop catches),
+ *      or accept it and silently answer in prose (nothing throws at all).
+ *      The original port handled only the first. This header used to describe
+ *      the second while the suite exercised the first, so a green run
+ *      certified a recovery that did not exist — three cases in
+ *      `test:error-classification-e2e` failed on release for that reason.
  *
  * Both recoveries used to live in `GenerationHandler`, on the ai-package path.
  * Every provider they were written for is a Tier-2 catalog provider on the
@@ -133,6 +140,67 @@ await test("a rejected response_format falls back to the schema in the system pr
     if (requests < 2) {
       throw new Error(
         `precondition failed: fallback never issued, saw ${requests} requests`,
+      );
+    }
+
+    const bodies = server.getAllRequestBodies();
+    const first = JSON.parse(bodies[0]) as { response_format?: unknown };
+    const second = JSON.parse(bodies[1]) as {
+      response_format?: unknown;
+      messages?: Array<{ role: string; content?: unknown }>;
+    };
+    if (first.response_format === undefined) {
+      throw new Error("first attempt did not request constrained decoding");
+    }
+    if (second.response_format !== undefined) {
+      throw new Error("fallback still sent response_format");
+    }
+    const systemText = (second.messages ?? [])
+      .filter((m) => m.role === "system")
+      .map((m) => (typeof m.content === "string" ? m.content : ""))
+      .join("\n");
+    if (!systemText.includes("JSON Schema")) {
+      throw new Error("fallback did not spell the schema into the prompt");
+    }
+    const data = result.structuredData as { city?: string } | undefined;
+    if (data?.city !== "Tokyo") {
+      throw new Error("recovered object did not reach the caller");
+    }
+  } finally {
+    await server.close();
+  }
+});
+
+await test("a silently ignored response_format falls back to the schema in the system prompt", async () => {
+  // The other half of recovery 2, and the one the original port missed. The
+  // vendor accepts `response_format` with a 200 and answers in prose anyway,
+  // so nothing throws and the error-triggered fallback never fires. Reply 2
+  // answers the re-ask.
+  const server = await startScriptedChatServer([
+    chatCompletion({
+      content: "Sure! Tokyo is currently about 22 degrees.",
+      finishReason: "stop",
+    }),
+    chatCompletion({
+      content: '{"city":"Tokyo","temp":22}',
+      finishReason: "stop",
+    }),
+  ]);
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.generate({
+      input: { text: "weather in Tokyo" },
+      provider: "openai",
+      model: "scripted-model",
+      credentials: credentialsFor(server.baseURL),
+      maxTokens: 64,
+      schema: z.object({ city: z.string(), temp: z.number() }),
+    });
+
+    const requests = server.requestCount();
+    if (requests < 2) {
+      throw new Error(
+        `precondition failed: no fallback for the silent case, saw ${requests} requests`,
       );
     }
 

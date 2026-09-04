@@ -59,6 +59,7 @@ import type {
   Schema,
   StreamLoopArgs,
   EnhancedGenerateResult,
+  GenerateStopReason,
   TextGenerationOptions,
   ValidationSchema,
   StreamOptions,
@@ -88,6 +89,7 @@ import {
 } from "../core/nativeGenerateLoop.js";
 import { resolveToolExecutionRecords } from "../core/toolExecutionRecorder.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
+import { coerceJsonToSchema, schemaAccepts } from "../utils/json/coerce.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
 import { withProviderRetry } from "../utils/providerRetry.js";
@@ -126,6 +128,23 @@ const WINDOW_FIT_MARGIN_TOKENS = 512;
 /**
  * Abstract HTTP+SSE provider for OpenAI chat-completions-shaped endpoints.
  */
+
+/**
+ * Did the model's text yield an object the caller's schema accepts?
+ *
+ * This is the trigger for the prompt-side structured-output fallback. It asks
+ * the question the ai-package's structured-output parser used to ask by
+ * throwing: did the native `response_format` attempt actually produce the
+ * object. A schema we cannot validate with accepts everything, so an unknown
+ * schema never forces a pointless second request.
+ */
+const yieldsSchemaValidObject = (
+  text: string,
+  schema: ValidationSchema,
+): boolean => {
+  const coerced = coerceJsonToSchema(text, schema);
+  return coerced !== null && schemaAccepts(schema, coerced.structuredData);
+};
 
 export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
   protected config: { baseURL: string; apiKey: string };
@@ -1165,15 +1184,54 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         undefined,
       );
     }
+
+    // The vendor can also IGNORE `response_format` and answer in prose without
+    // erroring at all — GMI Cloud's MiniMax endpoint does exactly that, and it
+    // is the case the fallback was written for. On the ai-package path the
+    // structured-output parser threw on the unparseable answer, so the catch
+    // above was reached; the native loop has no such parser, so the silent
+    // case sailed through and handed the caller prose. Same recovery, keyed on
+    // the result rather than on an exception.
+    if (
+      responseFormat !== undefined &&
+      options.schema !== undefined &&
+      !yieldsSchemaValidObject(loop.text, options.schema as ValidationSchema)
+    ) {
+      logger.warn(
+        `[${this.providerName}] response_format did not yield a schema-valid object — retrying with the schema in the system prompt`,
+        { provider: this.providerName, model: modelId },
+      );
+      loop = await runLoop(
+        appendJsonSchemaInstruction(conversation, responseFormat.schema),
+        undefined,
+      );
+    }
     const { text, finishReason, toolsUsed } = loop;
     const inputTokens = loop.inputTokens;
     const outputTokens = loop.outputTokens;
+
+    // stopReason / stepsUsed parity with the other native loops (Vertex
+    // Gemini / Claude / Bedrock) and with the ai-package path this replaced.
+    // Without them a consumer cannot tell a completed turn from one the step
+    // cap truncated: the turn that ends on a `tool-calls` finish with the
+    // budget spent is exactly the case the caller configured `maxSteps` to
+    // bound, and reporting it as a plain completion hides that.
+    const stepsUsed = loop.steps;
+    const stopReason: GenerateStopReason =
+      stepsUsed >= (options.maxSteps || DEFAULT_MAX_STEPS) &&
+      finishReason === "tool-calls"
+        ? "step-cap"
+        : finishReason === "error"
+          ? "provider-error"
+          : "completed";
 
     const enhanced: EnhancedGenerateResult = {
       content: text,
       provider: this.providerName,
       model: modelId,
       finishReason,
+      stopReason,
+      stepsUsed,
       usage: {
         input: inputTokens,
         output: outputTokens,
