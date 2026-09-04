@@ -8,7 +8,7 @@
 
 > **SemVer** = `object`
 
-Defined in: [types/proxy.ts:2509](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2509)
+Defined in: [types/proxy.ts:2515](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2515)
 
 Parsed major.minor.patch components of a semver string.
 
@@ -18,7 +18,7 @@ Parsed major.minor.patch components of a semver string.
 
 > **major**: `number`
 
-Defined in: [types/proxy.ts:2510](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2510)
+Defined in: [types/proxy.ts:2516](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2516)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2510](https://github.com/juspay/neurolink/blob/relea
 
 > **minor**: `number`
 
-Defined in: [types/proxy.ts:2511](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2511)
+Defined in: [types/proxy.ts:2517](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2517)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2511](https://github.com/juspay/neurolink/blob/relea
 
 > **patch**: `number`
 
-Defined in: [types/proxy.ts:2512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2512)
+Defined in: [types/proxy.ts:2518](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2518)

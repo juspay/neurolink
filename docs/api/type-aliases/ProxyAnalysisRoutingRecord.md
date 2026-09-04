@@ -8,7 +8,7 @@
 
 > **ProxyAnalysisRoutingRecord** = `object`
 
-Defined in: [types/proxy.ts:2182](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2182)
+Defined in: [types/proxy.ts:2188](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2188)
 
 Validated account-routing evidence joined to a final request log.
 
@@ -18,7 +18,7 @@ Validated account-routing evidence joined to a final request log.
 
 > **requestId**: `string`
 
-Defined in: [types/proxy.ts:2183](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2183)
+Defined in: [types/proxy.ts:2189](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2189)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2183](https://github.com/juspay/neurolink/blob/relea
 
 > **timestamp**: `string`
 
-Defined in: [types/proxy.ts:2184](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2184)
+Defined in: [types/proxy.ts:2190](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2190)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2184](https://github.com/juspay/neurolink/blob/relea
 
 > **responseStatus**: `number`
 
-Defined in: [types/proxy.ts:2185](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2185)
+Defined in: [types/proxy.ts:2191](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2191)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2185](https://github.com/juspay/neurolink/blob/relea
 
 > **finalAccount**: `string`
 
-Defined in: [types/proxy.ts:2186](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2186)
+Defined in: [types/proxy.ts:2192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2192)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2186](https://github.com/juspay/neurolink/blob/relea
 
 > **finalAccountType**: `string`
 
-Defined in: [types/proxy.ts:2187](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2187)
+Defined in: [types/proxy.ts:2193](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2193)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/proxy.ts:2187](https://github.com/juspay/neurolink/blob/relea
 
 > **decision**: [`ProxyAccountRoutingDecision`](ProxyAccountRoutingDecision.md)
 
-Defined in: [types/proxy.ts:2188](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2188)
+Defined in: [types/proxy.ts:2194](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2194)

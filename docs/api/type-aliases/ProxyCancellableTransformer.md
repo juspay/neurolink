@@ -8,7 +8,7 @@
 
 > **ProxyCancellableTransformer**\<`I`, `O`\> = `Transformer`\<`I`, `O`\> & `object`
 
-Defined in: [types/proxy.ts:2158](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2158)
+Defined in: [types/proxy.ts:2164](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2164)
 
 A stream transformer that also handles cancellation.
 

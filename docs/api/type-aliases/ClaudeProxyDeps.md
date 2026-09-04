@@ -8,7 +8,7 @@
 
 > **ClaudeProxyDeps** = `object`
 
-Defined in: [types/proxy.ts:1580](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1580)
+Defined in: [types/proxy.ts:1586](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1586)
 
 Dependencies for creating Claude proxy routes.
 
@@ -18,4 +18,4 @@ Dependencies for creating Claude proxy routes.
 
 > `optional` **modelRouter?**: [`ModelRouterInterface`](ModelRouterInterface.md)
 
-Defined in: [types/proxy.ts:1581](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1581)
+Defined in: [types/proxy.ts:1587](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1587)

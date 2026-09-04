@@ -8,7 +8,7 @@
 
 > **RollingProxyServerOptions** = `object`
 
-Defined in: [types/proxy.ts:2817](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2817)
+Defined in: [types/proxy.ts:2823](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2823)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2817](https://github.com/juspay/neurolink/blob/relea
 
 > **host**: `string`
 
-Defined in: [types/proxy.ts:2818](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2818)
+Defined in: [types/proxy.ts:2824](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2824)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:2818](https://github.com/juspay/neurolink/blob/relea
 
 > **port**: `number`
 
-Defined in: [types/proxy.ts:2819](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2819)
+Defined in: [types/proxy.ts:2825](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2825)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:2819](https://github.com/juspay/neurolink/blob/relea
 
 > **initialVersion**: `string`
 
-Defined in: [types/proxy.ts:2820](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2820)
+Defined in: [types/proxy.ts:2826](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2826)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:2820](https://github.com/juspay/neurolink/blob/relea
 
 > **spawnWorker**: (`generation`, `expectedVersion`) => [`RollingWorkerHandle`](RollingWorkerHandle.md)
 
-Defined in: [types/proxy.ts:2821](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2821)
+Defined in: [types/proxy.ts:2827](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2827)
 
 #### Parameters
 
@@ -62,7 +62,7 @@ Defined in: [types/proxy.ts:2821](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **readyTimeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:2825](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2825)
+Defined in: [types/proxy.ts:2831](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2831)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/proxy.ts:2825](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **socketQueueLimit?**: `number`
 
-Defined in: [types/proxy.ts:2826](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2826)
+Defined in: [types/proxy.ts:2832](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2832)
 
 ---
 
@@ -78,7 +78,7 @@ Defined in: [types/proxy.ts:2826](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **socketQueueTimeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:2827](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2827)
+Defined in: [types/proxy.ts:2833](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2833)
 
 ---
 
@@ -86,7 +86,7 @@ Defined in: [types/proxy.ts:2827](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **shutdownTimeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:2828](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2828)
+Defined in: [types/proxy.ts:2834](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2834)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [types/proxy.ts:2828](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **recoveryDelayMs?**: `number`
 
-Defined in: [types/proxy.ts:2829](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2829)
+Defined in: [types/proxy.ts:2835](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2835)
 
 ---
 
@@ -102,7 +102,7 @@ Defined in: [types/proxy.ts:2829](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxRecoveryDelayMs?**: `number`
 
-Defined in: [types/proxy.ts:2830](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2830)
+Defined in: [types/proxy.ts:2836](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2836)
 
 ---
 
@@ -110,7 +110,7 @@ Defined in: [types/proxy.ts:2830](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **onStateChange?**: (`snapshot`) => `void`
 
-Defined in: [types/proxy.ts:2831](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2831)
+Defined in: [types/proxy.ts:2837](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2837)
 
 #### Parameters
 
@@ -128,7 +128,7 @@ Defined in: [types/proxy.ts:2831](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **log?**: (`message`) => `void`
 
-Defined in: [types/proxy.ts:2832](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2832)
+Defined in: [types/proxy.ts:2838](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2838)
 
 #### Parameters
 

@@ -917,6 +917,70 @@ function clampCooldownUntil(
   return Math.min(Math.max(untilMs, now + MIN_COOLDOWN_MS), now + ceiling);
 }
 
+function isAllowedQuotaStatus(status: string | undefined): boolean {
+  return status?.trim().toLowerCase() === "allowed";
+}
+
+function isScopedWindowExhausted(
+  window: AccountQuotaWindow | null,
+  now: number,
+): window is AccountQuotaWindow {
+  if (!window || resetEpochToMs(window.resetsAt, now) === undefined) {
+    return false;
+  }
+  return (
+    window.status?.trim().toLowerCase() === "rejected" ||
+    (window.used ?? 0) >= 1
+  );
+}
+
+/**
+ * Anthropic represents some model-specific limits through a rejected top-level
+ * unified status. The scope window is the authoritative discriminator: only
+ * treat that response as model-scoped when both account-wide windows remain
+ * explicitly allowed and the requested model's window is exhausted.
+ */
+function getScopedOnlyExhaustion(
+  quota: AccountQuota | null,
+  requestedModel: string | undefined,
+  now: number,
+  policy: ProxyOveragePolicy = overagePolicy,
+): AccountQuotaWindow | null {
+  if (
+    !quota ||
+    !requestedModel ||
+    !isAllowedQuotaStatus(quota.sessionStatus) ||
+    !isAllowedQuotaStatus(quota.weeklyStatus) ||
+    isOverageUsable(quota, policy)
+  ) {
+    return null;
+  }
+  const scopedWindow = matchScopedQuotaWindow(quota, requestedModel, now);
+  return isScopedWindowExhausted(scopedWindow, now) ? scopedWindow : null;
+}
+
+function hasScopedOnlyExhaustion(
+  quota: AccountQuota,
+  now: number,
+  policy: ProxyOveragePolicy = overagePolicy,
+): boolean {
+  if (
+    !isAllowedQuotaStatus(quota.sessionStatus) ||
+    !isAllowedQuotaStatus(quota.weeklyStatus) ||
+    isOverageUsable(quota, policy)
+  ) {
+    return false;
+  }
+  return (quota.windows ?? []).some(
+    (window) =>
+      window.kind === "weekly_scoped" &&
+      typeof window.scopeModel === "string" &&
+      now - scopedWindowObservedAt(quota, window) <=
+        QUOTA_SNAPSHOT_FRESHNESS_MS &&
+      isScopedWindowExhausted(window, now),
+  );
+}
+
 /**
  * Decide how to cool an account after a genuine (non-anti-abuse) 429.
  *
@@ -937,6 +1001,7 @@ function planCooldownFor429(
   now: number,
   unifiedStatus: string | undefined = quota?.unifiedStatus,
   policy: ProxyOveragePolicy = overagePolicy,
+  requestedModel?: string,
 ): AccountCooldownPlan {
   // Weekly exhaustion takes precedence — it's the longest, hardest ceiling.
   if (quota && quota.weeklyStatus === "rejected") {
@@ -945,6 +1010,7 @@ function planCooldownFor429(
       (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
     return {
       reason: "weekly",
+      scope: "account",
       coolingUntil: clampCooldownUntil(reset, now, "weekly"),
       rotateImmediately: true,
     };
@@ -956,7 +1022,28 @@ function planCooldownFor429(
       (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_COOLING_PERIOD_MS);
     return {
       reason: "session",
+      scope: "account",
       coolingUntil: clampCooldownUntil(reset, now, "session"),
+      rotateImmediately: true,
+    };
+  }
+  const scopedOnlyExhaustion = getScopedOnlyExhaustion(
+    quota,
+    requestedModel,
+    now,
+    policy,
+  );
+  if (scopedOnlyExhaustion) {
+    const reset =
+      resetEpochToMs(scopedOnlyExhaustion.resetsAt, now) ??
+      (retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_HARD_COOLDOWN_MS);
+    return {
+      // Keep the provider's top-level classification for logs, but do not
+      // persist it as an account cooldown. The scoped quota window gates only
+      // this model on subsequent requests.
+      reason: "unified",
+      scope: "model",
+      coolingUntil: reset,
       rotateImmediately: true,
     };
   }
@@ -968,6 +1055,7 @@ function planCooldownFor429(
       retryAfterMs > 0 ? now + retryAfterMs : now + DEFAULT_HARD_COOLDOWN_MS;
     return {
       reason: "unified",
+      scope: "account",
       coolingUntil: clampCooldownUntil(reset, now, "unified"),
       rotateImmediately: true,
     };
@@ -978,6 +1066,7 @@ function planCooldownFor429(
   const base = retryAfterMs > 0 ? retryAfterMs : DEFAULT_COOLING_PERIOD_MS;
   return {
     reason: "transient",
+    scope: "account",
     coolingUntil:
       now +
       Math.max(MIN_COOLDOWN_MS, Math.min(base, TRANSIENT_MAX_COOLDOWN_MS)),
@@ -1003,6 +1092,7 @@ function reconcileCooldownFromQuota(
   policy: ProxyOveragePolicy = overagePolicy,
 ): ProxyQuotaCooldownUpdate {
   const overageAvailable = isOverageUsable(quota, policy);
+  const scopedOnlyExhaustion = hasScopedOnlyExhaustion(quota, now, policy);
   let until: number | undefined;
   let reason: RuntimeAccountState["coolingReason"];
   if (quota.weeklyStatus === "rejected") {
@@ -1033,7 +1123,8 @@ function reconcileCooldownFromQuota(
   } else if (
     until === undefined &&
     quota.unifiedStatus === "rejected" &&
-    !overageAvailable
+    !overageAvailable &&
+    !scopedOnlyExhaustion
   ) {
     until = now + DEFAULT_HARD_COOLDOWN_MS;
     reason = "unified";
@@ -1045,7 +1136,7 @@ function reconcileCooldownFromQuota(
         (state.coolingReason === "session" &&
           quota.sessionStatus === "allowed") ||
         (state.coolingReason === "unified" &&
-          quota.unifiedStatus === "allowed"));
+          (quota.unifiedStatus === "allowed" || scopedOnlyExhaustion)));
     if (recoveredQuotaCooldown && state.coolingUntil) {
       const previousCoolingUntil = state.coolingUntil;
       const previousCoolingReason = state.coolingReason;
@@ -6216,6 +6307,8 @@ async function handleAnthropicStreamingSuccessResponse(args: {
         parseRetryAfterMs(responseHeaders["retry-after"] ?? null),
         now,
         getUnifiedRateLimitStatus(responseHeaders),
+        overagePolicy,
+        typeof body.model === "string" ? body.model : undefined,
       );
       accountState.quota = quota
         ? mergeQuotaSnapshot(accountState.quota, quota)
@@ -6223,8 +6316,9 @@ async function handleAnthropicStreamingSuccessResponse(args: {
       const rateLimitKind =
         cooldownPlan.reason === "transient" ? "transient" : "quota";
       if (
-        !accountState.coolingUntil ||
-        cooldownPlan.coolingUntil > accountState.coolingUntil
+        cooldownPlan.scope === "account" &&
+        (!accountState.coolingUntil ||
+          cooldownPlan.coolingUntil > accountState.coolingUntil)
       ) {
         accountState.coolingUntil = cooldownPlan.coolingUntil;
         accountState.coolingReason = cooldownPlan.reason;
@@ -7378,6 +7472,8 @@ async function handleAnthropicAuthRetry(args: {
           parseRetryAfterMs(retryRespHeaders["retry-after"] ?? null),
           nowRetry,
           getUnifiedRateLimitStatus(retryRespHeaders),
+          overagePolicy,
+          typeof body.model === "string" ? body.model : undefined,
         );
         const rateLimitKind =
           retryPlan.reason === "transient" ? "transient" : "quota";
@@ -7393,8 +7489,9 @@ async function handleAnthropicAuthRetry(args: {
           cooldownReason: retryPlan.reason,
         });
         if (
-          !accountState.coolingUntil ||
-          retryPlan.coolingUntil > accountState.coolingUntil
+          retryPlan.scope === "account" &&
+          (!accountState.coolingUntil ||
+            retryPlan.coolingUntil > accountState.coolingUntil)
         ) {
           accountState.coolingUntil = retryPlan.coolingUntil;
           accountState.coolingReason = retryPlan.reason;
@@ -7404,13 +7501,15 @@ async function handleAnthropicAuthRetry(args: {
             // Non-fatal: routing already has the in-memory snapshot.
           });
         }
-        await saveAccountCooldown(
-          account.key,
-          accountState.coolingUntil ?? retryPlan.coolingUntil,
-          accountState.coolingReason ?? retryPlan.reason,
-        ).catch(() => {
-          // Non-fatal: routing already has the in-memory cooldown.
-        });
+        if (retryPlan.scope === "account") {
+          await saveAccountCooldown(
+            account.key,
+            accountState.coolingUntil ?? retryPlan.coolingUntil,
+            accountState.coolingReason ?? retryPlan.reason,
+          ).catch(() => {
+            // Non-fatal: routing already has the in-memory cooldown.
+          });
+        }
         advancePrimaryIfCurrent(
           account.key,
           enabledAccounts.length,
@@ -8875,12 +8974,14 @@ async function fetchAnthropicAccountResponse(args: {
       retryAfterMs,
       now,
       unifiedStatus,
+      overagePolicy,
+      requestedModel,
     );
     const rateLimitKind =
       cooldownPlan.reason === "transient" ? "transient" : "quota";
     recordAttemptError(account.label, account.type, 429, rateLimitKind);
     logger.always(
-      `[proxy] ← 429 account=${account.label} reason=${cooldownPlan.reason} ` +
+      `[proxy] ← 429 account=${account.label} reason=${cooldownPlan.reason} scope=${cooldownPlan.scope} ` +
         `retry-after=${retryAfterMs}ms 5h-status=${errRespHeaders["anthropic-ratelimit-unified-5h-status"] ?? "unknown"} ` +
         `7d-status=${errRespHeaders["anthropic-ratelimit-unified-7d-status"] ?? "unknown"} ` +
         `unified-status=${unifiedStatus ?? "unknown"} ` +
@@ -9352,17 +9453,18 @@ async function handleAnthropicRoutedClaudeRequest(args: {
             // this one skip the throttled account instead of joining the burst.
             let cooldownExtended = false;
             if (
-              !accountState.coolingUntil ||
-              plan.coolingUntil > accountState.coolingUntil
+              plan.scope === "account" &&
+              (!accountState.coolingUntil ||
+                plan.coolingUntil > accountState.coolingUntil)
             ) {
               accountState.coolingUntil = plan.coolingUntil;
               accountState.coolingReason = plan.reason;
               cooldownExtended = true;
             }
-            if (cooldownExtended) {
+            if (cooldownExtended && plan.scope === "account") {
               await saveAccountCooldown(
                 account.key,
-                accountState.coolingUntil,
+                accountState.coolingUntil ?? plan.coolingUntil,
                 accountState.coolingReason ?? plan.reason,
               ).catch(() => {
                 // Non-fatal: routing already has the in-memory cooldown.

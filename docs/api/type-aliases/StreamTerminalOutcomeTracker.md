@@ -8,7 +8,7 @@
 
 > **StreamTerminalOutcomeTracker** = `object`
 
-Defined in: [types/proxy.ts:2447](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2447)
+Defined in: [types/proxy.ts:2453](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2453)
 
 First-writer-wins tracker for an upstream streaming response.
 
@@ -18,7 +18,7 @@ First-writer-wins tracker for an upstream streaming response.
 
 > **outcome**: `Promise`\<[`StreamTerminalOutcome`](StreamTerminalOutcome.md)\>
 
-Defined in: [types/proxy.ts:2448](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2448)
+Defined in: [types/proxy.ts:2454](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2454)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2448](https://github.com/juspay/neurolink/blob/relea
 
 > **complete**: () => `void`
 
-Defined in: [types/proxy.ts:2449](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2449)
+Defined in: [types/proxy.ts:2455](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2455)
 
 #### Returns
 
@@ -38,7 +38,7 @@ Defined in: [types/proxy.ts:2449](https://github.com/juspay/neurolink/blob/relea
 
 > **fail**: (`message`) => `void`
 
-Defined in: [types/proxy.ts:2450](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2450)
+Defined in: [types/proxy.ts:2456](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2456)
 
 #### Parameters
 
@@ -56,7 +56,7 @@ Defined in: [types/proxy.ts:2450](https://github.com/juspay/neurolink/blob/relea
 
 > **cancel**: () => `void`
 
-Defined in: [types/proxy.ts:2451](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2451)
+Defined in: [types/proxy.ts:2457](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2457)
 
 #### Returns
 

@@ -8,7 +8,7 @@
 
 > **RollingCandidateWorker** = [`RollingManagedWorker`](RollingManagedWorker.md) & `object`
 
-Defined in: [types/proxy.ts:2853](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2853)
+Defined in: [types/proxy.ts:2859](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2859)
 
 ## Type Declaration
 

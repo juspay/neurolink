@@ -8,7 +8,7 @@
 
 > **ProxyShareProvisionFile** = `object`
 
-Defined in: [types/proxy.ts:3686](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3686)
+Defined in: [types/proxy.ts:3692](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3692)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3686](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:3687](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3687)
+Defined in: [types/proxy.ts:3693](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3693)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:3687](https://github.com/juspay/neurolink/blob/relea
 
 > **requests**: `Record`\<`string`, [`ProxyShareProvisionRequest`](ProxyShareProvisionRequest.md)\>
 
-Defined in: [types/proxy.ts:3688](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3688)
+Defined in: [types/proxy.ts:3694](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3694)

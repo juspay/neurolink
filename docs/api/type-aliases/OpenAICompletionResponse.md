@@ -8,7 +8,7 @@
 
 > **OpenAICompletionResponse** = `object`
 
-Defined in: [types/proxy.ts:3286](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3286)
+Defined in: [types/proxy.ts:3292](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3292)
 
 OpenAI non-streaming response.
 
@@ -18,7 +18,7 @@ OpenAI non-streaming response.
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:3287](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3287)
+Defined in: [types/proxy.ts:3293](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3293)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3287](https://github.com/juspay/neurolink/blob/relea
 
 > **object**: `"chat.completion"`
 
-Defined in: [types/proxy.ts:3288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3288)
+Defined in: [types/proxy.ts:3294](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3294)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3288](https://github.com/juspay/neurolink/blob/relea
 
 > **created**: `number`
 
-Defined in: [types/proxy.ts:3289](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3289)
+Defined in: [types/proxy.ts:3295](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3295)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:3289](https://github.com/juspay/neurolink/blob/relea
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:3290](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3290)
+Defined in: [types/proxy.ts:3296](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3296)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:3290](https://github.com/juspay/neurolink/blob/relea
 
 > **choices**: `object`[]
 
-Defined in: [types/proxy.ts:3291](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3291)
+Defined in: [types/proxy.ts:3297](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3297)
 
 #### index
 
@@ -82,4 +82,4 @@ Defined in: [types/proxy.ts:3291](https://github.com/juspay/neurolink/blob/relea
 
 > **usage**: [`OpenAIUsage`](OpenAIUsage.md)
 
-Defined in: [types/proxy.ts:3300](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3300)
+Defined in: [types/proxy.ts:3306](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3306)

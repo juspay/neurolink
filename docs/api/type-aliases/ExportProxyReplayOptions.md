@@ -8,7 +8,7 @@
 
 > **ExportProxyReplayOptions** = `object`
 
-Defined in: [types/proxy.ts:2362](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2362)
+Defined in: [types/proxy.ts:2368](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2368)
 
 Inputs for deterministic proxy replay bundle export.
 
@@ -18,7 +18,7 @@ Inputs for deterministic proxy replay bundle export.
 
 > **requestId**: `string`
 
-Defined in: [types/proxy.ts:2363](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2363)
+Defined in: [types/proxy.ts:2369](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2369)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2363](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **logsDir?**: `string`
 
-Defined in: [types/proxy.ts:2364](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2364)
+Defined in: [types/proxy.ts:2370](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2370)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2364](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **attempt?**: `number`
 
-Defined in: [types/proxy.ts:2365](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2365)
+Defined in: [types/proxy.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2371)

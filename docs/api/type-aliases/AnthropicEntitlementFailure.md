@@ -8,7 +8,7 @@
 
 > **AnthropicEntitlementFailure** = `object`
 
-Defined in: [types/proxy.ts:2953](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2953)
+Defined in: [types/proxy.ts:2959](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2959)
 
 Accounts rejected by an organization/plan entitlement policy during a single
 request. Anthropic answers such an account with a `permission_error` that no
@@ -22,7 +22,7 @@ client only once every account has been tried.
 
 > **status**: `number`
 
-Defined in: [types/proxy.ts:2954](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2954)
+Defined in: [types/proxy.ts:2960](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2960)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:2954](https://github.com/juspay/neurolink/blob/relea
 
 > **accounts**: `string`[]
 
-Defined in: [types/proxy.ts:2956](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2956)
+Defined in: [types/proxy.ts:2962](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2962)
 
 Labels of every account that rejected this request on entitlement.
 
@@ -40,7 +40,7 @@ Labels of every account that rejected this request on entitlement.
 
 > **message**: `string`
 
-Defined in: [types/proxy.ts:2958](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2958)
+Defined in: [types/proxy.ts:2964](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2964)
 
 Upstream message from the first such rejection.
 
@@ -50,4 +50,4 @@ Upstream message from the first such rejection.
 
 > `optional` **errorCode?**: `string`
 
-Defined in: [types/proxy.ts:2959](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2959)
+Defined in: [types/proxy.ts:2965](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2965)

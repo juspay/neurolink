@@ -6369,7 +6369,70 @@ async function testPlanCooldownFor429(): Promise<boolean | null> {
     return false;
   }
 
-  log("planCooldownFor429: 4 cases passed", "green");
+  // 5. A Fable-scoped 429 can carry top-level `unified: rejected` even while
+  // the account-wide session and weekly windows are allowed. It must rotate
+  // this request, preserve the scoped quota window, and never park the account
+  // for unrelated models.
+  const scopedResetSec = nowSec + 3 * 24 * 3600;
+  const fableScopedQuota = makeQuota({
+    unifiedStatus: "rejected",
+    overageStatus: "rejected",
+    lastUpdated: now,
+    sessionResetAt: nowSec + 2 * 3600,
+    weeklyResetAt: nowSec + 5 * 24 * 3600,
+    windows: [
+      {
+        kind: "weekly_scoped",
+        group: "weekly",
+        used: 1,
+        status: "rejected",
+        resetsAt: scopedResetSec,
+        scopeModel: "claude-fable-5",
+      },
+    ],
+  });
+  const scopedPlan = __testHooks.planCooldownFor429(
+    fableScopedQuota,
+    0,
+    now,
+    undefined,
+    undefined,
+    "claude-fable-5-20260115",
+  );
+  if (
+    scopedPlan.scope !== "model" ||
+    scopedPlan.reason !== "unified" ||
+    scopedPlan.rotateImmediately !== true ||
+    scopedPlan.coolingUntil !== scopedResetSec * 1000
+  ) {
+    log(
+      `planCooldownFor429: scoped case must rotate without account cooldown, got ${JSON.stringify(scopedPlan)}`,
+      "red",
+    );
+    return false;
+  }
+  const previouslyParked = {
+    coolingUntil: now + 12 * 3600 * 1000,
+    coolingReason: "unified" as const,
+  };
+  const scopedReconciliation = __testHooks.reconcileCooldownFromQuota(
+    previouslyParked as never,
+    fableScopedQuota,
+    now,
+  );
+  if (
+    scopedReconciliation?.kind !== "cleared" ||
+    previouslyParked.coolingUntil !== undefined ||
+    previouslyParked.coolingReason !== undefined
+  ) {
+    log(
+      "planCooldownFor429: scoped evidence must clear a historical account-wide unified cooldown",
+      "red",
+    );
+    return false;
+  }
+
+  log("planCooldownFor429: 5 cases passed", "green");
   return true;
 }
 

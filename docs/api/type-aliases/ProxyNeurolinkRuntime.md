@@ -8,7 +8,7 @@
 
 > **ProxyNeurolinkRuntime** = `object`
 
-Defined in: [types/proxy.ts:3095](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3095)
+Defined in: [types/proxy.ts:3101](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3101)
 
 Handle for a NeuroLink runtime created by the proxy start command.
 The `neurolink` field is typed structurally (only the method used by the
@@ -21,7 +21,7 @@ NeuroLink class.
 
 > **neurolink**: `object`
 
-Defined in: [types/proxy.ts:3096](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3096)
+Defined in: [types/proxy.ts:3102](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3102)
 
 #### getToolRegistry()
 
@@ -37,4 +37,4 @@ Defined in: [types/proxy.ts:3096](https://github.com/juspay/neurolink/blob/relea
 
 > **logsDir**: `string`
 
-Defined in: [types/proxy.ts:3099](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3099)
+Defined in: [types/proxy.ts:3105](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3105)

@@ -8,7 +8,7 @@
 
 > **OpenAIUserMessage** = `object`
 
-Defined in: [types/proxy.ts:3214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3214)
+Defined in: [types/proxy.ts:3220](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3220)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3214](https://github.com/juspay/neurolink/blob/relea
 
 > **role**: `"user"`
 
-Defined in: [types/proxy.ts:3215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3215)
+Defined in: [types/proxy.ts:3221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3221)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:3215](https://github.com/juspay/neurolink/blob/relea
 
 > **content**: `string` \| [`OpenAIContentPart`](OpenAIContentPart.md)[]
 
-Defined in: [types/proxy.ts:3216](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3216)
+Defined in: [types/proxy.ts:3222](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3222)

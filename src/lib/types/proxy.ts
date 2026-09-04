@@ -1030,7 +1030,13 @@ export type RateLimitCoolingReason = Exclude<AccountCoolingReason, "auth">;
 
 export type AccountCooldownPlan = {
   reason: RateLimitCoolingReason;
-  /** Epoch-ms until which the account should not be used. */
+  /**
+   * Whether this limit applies to every request on the account or only to the
+   * requested model. Model scope must never be persisted as an account
+   * cooldown; the quota window itself remains the routing evidence.
+   */
+  scope: "account" | "model";
+  /** Epoch-ms until which the limiting window is expected to recover. */
   coolingUntil: number;
   /** When true (unified/5h/7d rejected), rotate immediately — retrying the
    *  same account is futile until its window resets. When false (transient
