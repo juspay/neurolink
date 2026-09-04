@@ -5577,6 +5577,11 @@ Current user's request: ${currentInput}`;
       disableTools: options.disableTools,
       toolFilter: options.toolFilter,
       excludeTools: options.excludeTools,
+      // This explicit field list is the only road into the provider, so a
+      // flag left out here never reaches BaseProvider — which is exactly how
+      // disableInternalFallback was dropped on generate() while stream()
+      // (which spreads its options) honoured it.
+      disableInternalFallback: options.disableInternalFallback,
       maxSteps: options.maxSteps,
       toolChoice: options.toolChoice,
       prepareStep: options.prepareStep,
@@ -8149,12 +8154,25 @@ Current user's request: ${currentInput}`;
       : requestedProvider
         ? [requestedProvider]
         : providerPriority;
+    // The caller owns fallback order (a providerFallback / modelChain caller,
+    // or a router that retries on its own): bound the walk to its first
+    // candidate so an unavailable provider surfaces as its own error instead
+    // of a silent switch. An explicit provider is already a one-element
+    // list; this only changes the "auto" and orchestrated-preference walks.
+    const providersToTry =
+      options.disableInternalFallback === true
+        ? tryProviders.slice(0, 1)
+        : tryProviders;
+    // Caller-owned fallback never enters tryProviders: providerFallback and
+    // modelChain are walked by runWithFallbackOrchestration around the public
+    // generate() call, and a configured ModelPool is consumed by the block
+    // above. Slicing here therefore never clips a caller's own list.
 
     logger.debug(`[${functionTag}] Starting direct generation`, {
       requestedProvider: requestedProvider || "auto",
       preferredOrchestrated: preferredOrchestrated || "none",
-      tryProviders,
-      allowFallback: !requestedProvider || !!preferredOrchestrated,
+      tryProviders: providersToTry,
+      allowFallback: providersToTry.length > 1,
     });
 
     // ─── ModelPool path ──────────────────────────────────────────────────────
@@ -8343,7 +8361,7 @@ Current user's request: ${currentInput}`;
     let lastError: Error | null = null;
 
     // Try each provider in order
-    for (const providerName of tryProviders) {
+    for (const providerName of providersToTry) {
       if (options.abortSignal?.aborted) {
         throw new DOMException("The operation was aborted", "AbortError");
       }
@@ -8795,7 +8813,7 @@ Current user's request: ${currentInput}`;
     // All providers failed
     const responseTime = Date.now() - startTime;
     logger.error(`[${functionTag}] All providers failed`, {
-      triedProviders: tryProviders,
+      triedProviders: providersToTry,
       lastError: lastError?.message,
       responseTime,
     });

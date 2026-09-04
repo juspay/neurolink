@@ -494,6 +494,20 @@ export type GenerateOptions = {
   /** Disable tool result caching for this request (overrides global mcp.cache.enabled) */
   disableToolCache?: boolean;
 
+  /**
+   * Disable NeuroLink's internal fallback for this request: the static
+   * provider-priority walk that runs when no provider was requested, and the
+   * catalog model-fallback walk a provider performs when its model is
+   * rejected as invalid. Callers that own fallback order (a caller-supplied
+   * `providerFallback` / `modelChain`, or a router that retries on its own,
+   * as the Claude proxy does for its streams) set this so an invalid model
+   * or an unavailable provider surfaces as exactly that.
+   * A configured `ModelPool`, `providerFallback` and `modelChain` are the
+   * caller's own fallback and are unaffected. Mirrors the same flag on
+   * `StreamOptions`.
+   */
+  disableInternalFallback?: boolean;
+
   /** Maximum number of tool execution steps (default: 200) */
   maxSteps?: number;
 
@@ -1342,6 +1356,15 @@ export type TextGenerationOptions = {
 
   /** Disable tool result caching for this request (overrides global mcp.cache.enabled) */
   disableToolCache?: boolean;
+
+  /**
+   * Caller owns fallback order. Read in two places: `directProviderGeneration`
+   * bounds its static provider-priority walk to one candidate, and
+   * `BaseProvider.generate()` skips the catalog model-fallback walk so an
+   * invalid-model error surfaces as itself. Mapped from
+   * `GenerateOptions.disableInternalFallback`.
+   */
+  disableInternalFallback?: boolean;
 
   /**
    * Tool choice configuration for the generation.

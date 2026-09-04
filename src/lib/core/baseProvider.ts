@@ -1758,12 +1758,10 @@ export abstract class BaseProvider implements AIProvider {
       );
     };
 
-    // TextGenerationOptions does not declare the flag (it lives on
-    // StreamOptions), but callers that own fallback order pass it on both
-    // paths, so honour it here as well.
-    const callerOwnsFallback =
-      "disableInternalFallback" in options &&
-      options.disableInternalFallback === true;
+    // Callers that own fallback order (providerFallback / modelChain callers,
+    // or a router that retries on its own) pass the flag on both paths;
+    // TextGenerationOptions declares it, so a plain read is enough here.
+    const callerOwnsFallback = options.disableInternalFallback === true;
     return await this.runGenerateWithModelFallback(attempt, callerOwnsFallback);
   }
 

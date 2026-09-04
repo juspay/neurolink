@@ -956,9 +956,9 @@ await test("the generate path declares and executes a caller's tools", async () 
       maxTokens: 32,
       maxSteps: 3,
       disableTools: false,
-      // disableInternalFallback is a StreamOptions-only field (src/lib/types/stream.ts);
-      // GenerateOptions never reads it (grep confirms neurolink.ts uses it only
-      // inside stream()), so it was a no-op copied from the streaming cases below.
+      // GenerateOptions declares disableInternalFallback and generate() maps it
+      // through to the provider, so it is as load-bearing here as on the
+      // streaming cases below: no cross-provider or catalog-model retry.
       tools: customTool(counter),
       credentials: credentialsFor(server.port),
     });
