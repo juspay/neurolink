@@ -143,6 +143,9 @@ const CATALOG_ENV_VARS = [
   "API_ROUTE_API_KEY",
   "API_ROUTE_BASE_URL",
   "API_ROUTE_MODEL",
+  "NOVITA_API_KEY",
+  "NOVITA_BASE_URL",
+  "NOVITA_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1122,6 +1125,12 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     envVar: "API_ROUTE_API_KEY",
     urlMatch: "global.api-route.com/v1/chat/completions",
     model: "claude-sonnet-4-6",
+  },
+  {
+    alias: "novita",
+    envVar: "NOVITA_API_KEY",
+    urlMatch: "api.novita.ai/openai/v1/chat/completions",
+    model: "meta-llama/llama-3.3-70b-instruct",
   },
 ];
 

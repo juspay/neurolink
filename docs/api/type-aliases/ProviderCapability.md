@@ -8,6 +8,6 @@
 
 > **ProviderCapability** = `"text-generation"` \| `"streaming"` \| `"tool-calling"` \| `"image-generation"` \| `"embeddings"`
 
-Defined in: [types/providers.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L988)
+Defined in: [types/providers.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L989)
 
 Provider capability type
