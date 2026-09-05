@@ -56,6 +56,9 @@ export function buildProxyTranslationPlan(
     attempts.push({
       provider: fallback.provider,
       model: fallback.model,
+      ...(fallback.reasoningEffort !== undefined
+        ? { reasoningEffort: fallback.reasoningEffort }
+        : {}),
       label: `${fallback.provider}/${fallback.model}`,
     });
   }

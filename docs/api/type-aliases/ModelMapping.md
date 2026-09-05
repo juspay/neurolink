@@ -8,7 +8,7 @@
 
 > **ModelMapping** = `object`
 
-Defined in: [types/subscription.ts:1184](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1184)
+Defined in: [types/subscription.ts:1185](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1185)
 
 A single model mapping entry
 
@@ -18,7 +18,7 @@ A single model mapping entry
 
 > **from**: `string`
 
-Defined in: [types/subscription.ts:1185](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1185)
+Defined in: [types/subscription.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1186)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1185](https://github.com/juspay/neurolink/blo
 
 > **to**: `string`
 
-Defined in: [types/subscription.ts:1186](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1186)
+Defined in: [types/subscription.ts:1187](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1187)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/subscription.ts:1186](https://github.com/juspay/neurolink/blo
 
 > **provider**: `string`
 
-Defined in: [types/subscription.ts:1187](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1187)
+Defined in: [types/subscription.ts:1188](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1188)

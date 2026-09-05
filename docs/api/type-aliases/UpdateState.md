@@ -8,7 +8,7 @@
 
 > **UpdateState** = `object`
 
-Defined in: [types/proxy.ts:2528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2528)
+Defined in: [types/proxy.ts:2529](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2529)
 
 Persisted state for the proxy auto-update feature.
 
@@ -18,7 +18,7 @@ Persisted state for the proxy auto-update feature.
 
 > **lastCheckAt**: `string`
 
-Defined in: [types/proxy.ts:2529](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2529)
+Defined in: [types/proxy.ts:2530](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2530)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2529](https://github.com/juspay/neurolink/blob/relea
 
 > **lastCheckVersion**: `string`
 
-Defined in: [types/proxy.ts:2530](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2530)
+Defined in: [types/proxy.ts:2531](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2531)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2530](https://github.com/juspay/neurolink/blob/relea
 
 > **suppressedVersions**: `Record`\<`string`, [`SuppressedVersion`](SuppressedVersion.md)\>
 
-Defined in: [types/proxy.ts:2531](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2531)
+Defined in: [types/proxy.ts:2532](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2532)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2531](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **installedVersion?**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2540](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2540)
+Defined in: [types/proxy.ts:2541](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2541)
 
 Last package version whose stable trampoline was successfully validated.
 
@@ -57,7 +57,7 @@ state files written before this field existed legitimately omit it.
 
 > **lastUpdateAt**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2541](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2541)
+Defined in: [types/proxy.ts:2542](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2542)
 
 ---
 
@@ -65,7 +65,7 @@ Defined in: [types/proxy.ts:2541](https://github.com/juspay/neurolink/blob/relea
 
 > **lastUpdateVersion**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2542](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2542)
+Defined in: [types/proxy.ts:2543](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2543)
 
 ---
 
@@ -73,7 +73,7 @@ Defined in: [types/proxy.ts:2542](https://github.com/juspay/neurolink/blob/relea
 
 > **pendingRestartVersion**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2544](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2544)
+Defined in: [types/proxy.ts:2545](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2545)
 
 Installed by the updater but not yet confirmed as the running version.
 
@@ -83,7 +83,7 @@ Installed by the updater but not yet confirmed as the running version.
 
 > **deferredUpdate**: \{ `version`: `string`; `since`: `string`; `updatedAt`: `string`; `reason`: `"waiting_for_quiet"` \| `"draining"` \| `"drain_timeout"` \| `"drain_unavailable"` \| `"activity_unavailable"`; `activeRequests`: `number` \| `null`; \} \| `null`
 
-Defined in: [types/proxy.ts:2546](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2546)
+Defined in: [types/proxy.ts:2547](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2547)
 
 Why an available update has not yet reached a safe install/restart boundary.
 
@@ -93,6 +93,6 @@ Why an available update has not yet reached a safe install/restart boundary.
 
 > **lastFailure**: \{ `at`: `string`; `version`: `string`; `stage`: `"check"` \| `"install"` \| `"validation"` \| `"restart"` \| `"health"`; `message`: `string`; \} \| `null`
 
-Defined in: [types/proxy.ts:2559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2559)
+Defined in: [types/proxy.ts:2560](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2560)
 
 Last updater failure, retained until a successful update or replacement.

@@ -8,7 +8,7 @@
 
 > **SubscriptionInfoSummary** = `object`
 
-Defined in: [types/subscription.ts:923](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L923)
+Defined in: [types/subscription.ts:924](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L924)
 
 Subscription information summary for display purposes
 
@@ -24,7 +24,7 @@ For basic subscription state, see SubscriptionInfo.
 
 > **tier**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:925](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L925)
+Defined in: [types/subscription.ts:926](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L926)
 
 Current subscription tier
 
@@ -34,7 +34,7 @@ Current subscription tier
 
 > **tierName**: `string`
 
-Defined in: [types/subscription.ts:927](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L927)
+Defined in: [types/subscription.ts:928](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L928)
 
 Human-readable tier name
 
@@ -44,7 +44,7 @@ Human-readable tier name
 
 > **description**: `string`
 
-Defined in: [types/subscription.ts:929](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L929)
+Defined in: [types/subscription.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L930)
 
 Human-readable tier description
 
@@ -54,7 +54,7 @@ Human-readable tier description
 
 > **messagesPerDay**: `number` \| `"unlimited"`
 
-Defined in: [types/subscription.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L931)
+Defined in: [types/subscription.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L932)
 
 Messages allowed per day (-1 for unlimited)
 
@@ -64,7 +64,7 @@ Messages allowed per day (-1 for unlimited)
 
 > **contextWindow**: `number`
 
-Defined in: [types/subscription.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L933)
+Defined in: [types/subscription.ts:934](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L934)
 
 Maximum context window size in tokens
 
@@ -74,7 +74,7 @@ Maximum context window size in tokens
 
 > **priorityAccess**: `boolean`
 
-Defined in: [types/subscription.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L935)
+Defined in: [types/subscription.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L936)
 
 Whether the user has priority access
 
@@ -84,7 +84,7 @@ Whether the user has priority access
 
 > **isActive**: `boolean`
 
-Defined in: [types/subscription.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L937)
+Defined in: [types/subscription.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L938)
 
 Whether the subscription is active
 
@@ -94,7 +94,7 @@ Whether the subscription is active
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/subscription.ts:939](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L939)
+Defined in: [types/subscription.ts:940](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L940)
 
 Subscription expiration date (if applicable)
 
@@ -104,7 +104,7 @@ Subscription expiration date (if applicable)
 
 > `optional` **usage?**: [`ClaudeUsageInfo`](ClaudeUsageInfo.md)
 
-Defined in: [types/subscription.ts:941](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L941)
+Defined in: [types/subscription.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L942)
 
 Current usage information
 
@@ -114,6 +114,6 @@ Current usage information
 
 > `optional` **features?**: [`SubscriptionFeatures`](SubscriptionFeatures.md)
 
-Defined in: [types/subscription.ts:943](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L943)
+Defined in: [types/subscription.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L944)
 
 Available features for this tier

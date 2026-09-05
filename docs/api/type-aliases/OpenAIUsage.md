@@ -8,7 +8,7 @@
 
 > **OpenAIUsage** = `object`
 
-Defined in: [types/proxy.ts:3285](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3285)
+Defined in: [types/proxy.ts:3286](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3286)
 
 OpenAI usage counters.
 
@@ -18,7 +18,7 @@ OpenAI usage counters.
 
 > **prompt_tokens**: `number`
 
-Defined in: [types/proxy.ts:3286](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3286)
+Defined in: [types/proxy.ts:3287](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3287)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3286](https://github.com/juspay/neurolink/blob/relea
 
 > **completion_tokens**: `number`
 
-Defined in: [types/proxy.ts:3287](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3287)
+Defined in: [types/proxy.ts:3288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3288)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:3287](https://github.com/juspay/neurolink/blob/relea
 
 > **total_tokens**: `number`
 
-Defined in: [types/proxy.ts:3288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3288)
+Defined in: [types/proxy.ts:3289](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3289)

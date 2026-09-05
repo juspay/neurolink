@@ -8,7 +8,7 @@
 
 > **AnthropicResponseMetadata** = `object`
 
-Defined in: [types/subscription.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L219)
+Defined in: [types/subscription.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L220)
 
 Response metadata including rate limit information
 
@@ -22,7 +22,7 @@ Contains metadata from Anthropic API responses
 
 > `optional` **rateLimit?**: [`AnthropicRateLimitInfo`](AnthropicRateLimitInfo.md)
 
-Defined in: [types/subscription.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L223)
+Defined in: [types/subscription.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L224)
 
 Rate limit information from response headers
 
@@ -32,7 +32,7 @@ Rate limit information from response headers
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/subscription.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L228)
+Defined in: [types/subscription.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L229)
 
 Request ID for debugging
 
@@ -42,6 +42,6 @@ Request ID for debugging
 
 > `optional` **serverTiming?**: `string`
 
-Defined in: [types/subscription.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L233)
+Defined in: [types/subscription.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L234)
 
 Server timing information

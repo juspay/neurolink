@@ -8,7 +8,7 @@
 
 > **AnthropicRateLimitInfo** = `object`
 
-Defined in: [types/subscription.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L95)
+Defined in: [types/subscription.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L96)
 
 Rate limit information parsed from Anthropic API response headers
 
@@ -22,7 +22,7 @@ https://docs.anthropic.com/en/api/rate-limits
 
 > `optional` **requestsLimit?**: `number`
 
-Defined in: [types/subscription.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L99)
+Defined in: [types/subscription.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L100)
 
 Maximum number of requests allowed in the current window
 
@@ -32,7 +32,7 @@ Maximum number of requests allowed in the current window
 
 > `optional` **requestsRemaining?**: `number`
 
-Defined in: [types/subscription.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L104)
+Defined in: [types/subscription.ts:105](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L105)
 
 Number of requests remaining in the current window
 
@@ -42,7 +42,7 @@ Number of requests remaining in the current window
 
 > `optional` **requestsReset?**: `string`
 
-Defined in: [types/subscription.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L109)
+Defined in: [types/subscription.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L110)
 
 Time when the request limit resets (ISO 8601 timestamp)
 
@@ -52,7 +52,7 @@ Time when the request limit resets (ISO 8601 timestamp)
 
 > `optional` **tokensLimit?**: `number`
 
-Defined in: [types/subscription.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L114)
+Defined in: [types/subscription.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L115)
 
 Maximum number of tokens allowed in the current window
 
@@ -62,7 +62,7 @@ Maximum number of tokens allowed in the current window
 
 > `optional` **tokensRemaining?**: `number`
 
-Defined in: [types/subscription.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L119)
+Defined in: [types/subscription.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L120)
 
 Number of tokens remaining in the current window
 
@@ -72,7 +72,7 @@ Number of tokens remaining in the current window
 
 > `optional` **tokensReset?**: `string`
 
-Defined in: [types/subscription.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L124)
+Defined in: [types/subscription.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L125)
 
 Time when the token limit resets (ISO 8601 timestamp)
 
@@ -82,7 +82,7 @@ Time when the token limit resets (ISO 8601 timestamp)
 
 > `optional` **retryAfter?**: `number`
 
-Defined in: [types/subscription.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L129)
+Defined in: [types/subscription.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L130)
 
 Retry-After header value in seconds (present on 429 responses)
 
@@ -92,7 +92,7 @@ Retry-After header value in seconds (present on 429 responses)
 
 > `optional` **sessionUtilization?**: `number`
 
-Defined in: [types/subscription.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L139)
+Defined in: [types/subscription.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L140)
 
 Subscription (OAuth) window utilization, 0.0-1.0 of capacity USED, from
 `anthropic-ratelimit-unified-5h-utilization`.
@@ -107,7 +107,7 @@ absolute remaining count — there is no message or token figure to report.
 
 > `optional` **sessionStatus?**: `string`
 
-Defined in: [types/subscription.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L141)
+Defined in: [types/subscription.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L142)
 
 "allowed" | "throttled" | "rejected" for the 5h window.
 
@@ -117,7 +117,7 @@ Defined in: [types/subscription.ts:141](https://github.com/juspay/neurolink/blob
 
 > `optional` **sessionResetAt?**: `number`
 
-Defined in: [types/subscription.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L143)
+Defined in: [types/subscription.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L144)
 
 Unix epoch seconds at which the 5h window resets.
 
@@ -127,7 +127,7 @@ Unix epoch seconds at which the 5h window resets.
 
 > `optional` **sessionLeftPct?**: `number`
 
-Defined in: [types/subscription.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L145)
+Defined in: [types/subscription.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L146)
 
 Whole-percent capacity remaining in the 5h window (100 - utilization).
 
@@ -137,7 +137,7 @@ Whole-percent capacity remaining in the 5h window (100 - utilization).
 
 > `optional` **weeklyUtilization?**: `number`
 
-Defined in: [types/subscription.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L148)
+Defined in: [types/subscription.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L149)
 
 7d window utilization, 0.0-1.0 of capacity USED.
 
@@ -147,7 +147,7 @@ Defined in: [types/subscription.ts:148](https://github.com/juspay/neurolink/blob
 
 > `optional` **weeklyStatus?**: `string`
 
-Defined in: [types/subscription.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L149)
+Defined in: [types/subscription.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L150)
 
 ---
 
@@ -155,7 +155,7 @@ Defined in: [types/subscription.ts:149](https://github.com/juspay/neurolink/blob
 
 > `optional` **weeklyResetAt?**: `number`
 
-Defined in: [types/subscription.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L150)
+Defined in: [types/subscription.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L151)
 
 ---
 
@@ -163,7 +163,7 @@ Defined in: [types/subscription.ts:150](https://github.com/juspay/neurolink/blob
 
 > `optional` **weeklyLeftPct?**: `number`
 
-Defined in: [types/subscription.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L151)
+Defined in: [types/subscription.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L152)
 
 ---
 
@@ -171,7 +171,7 @@ Defined in: [types/subscription.ts:151](https://github.com/juspay/neurolink/blob
 
 > `optional` **unifiedStatus?**: `string`
 
-Defined in: [types/subscription.ts:155](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L155)
+Defined in: [types/subscription.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L156)
 
 Authoritative top-level unified status; can be "rejected" even while both
 sub-windows still report "allowed".
@@ -182,6 +182,6 @@ sub-windows still report "allowed".
 
 > `optional` **overageStatus?**: `string`
 
-Defined in: [types/subscription.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L157)
+Defined in: [types/subscription.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L158)
 
 Whether overage is permitted once a window is exhausted.

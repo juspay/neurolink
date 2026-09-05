@@ -8,7 +8,7 @@
 
 > **OAuthTokenResponse** = `object`
 
-Defined in: [types/subscription.ts:953](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L953)
+Defined in: [types/subscription.ts:954](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L954)
 
 OAuth 2.0 token response from Anthropic (raw API response shape)
 
@@ -18,7 +18,7 @@ OAuth 2.0 token response from Anthropic (raw API response shape)
 
 > **access_token**: `string`
 
-Defined in: [types/subscription.ts:955](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L955)
+Defined in: [types/subscription.ts:956](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L956)
 
 The access token for API authentication
 
@@ -28,7 +28,7 @@ The access token for API authentication
 
 > **token_type**: `string`
 
-Defined in: [types/subscription.ts:957](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L957)
+Defined in: [types/subscription.ts:958](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L958)
 
 Token type (typically "Bearer")
 
@@ -38,7 +38,7 @@ Token type (typically "Bearer")
 
 > **expires_in**: `number`
 
-Defined in: [types/subscription.ts:959](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L959)
+Defined in: [types/subscription.ts:960](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L960)
 
 Token expiration time in seconds
 
@@ -48,7 +48,7 @@ Token expiration time in seconds
 
 > `optional` **refresh_token?**: `string`
 
-Defined in: [types/subscription.ts:961](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L961)
+Defined in: [types/subscription.ts:962](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L962)
 
 Refresh token for obtaining new access tokens
 
@@ -58,6 +58,6 @@ Refresh token for obtaining new access tokens
 
 > `optional` **scope?**: `string`
 
-Defined in: [types/subscription.ts:963](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L963)
+Defined in: [types/subscription.ts:964](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L964)
 
 Granted scopes (space-separated)

@@ -8,7 +8,7 @@
 
 > **SubscriptionInfo** = `object`
 
-Defined in: [types/subscription.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L301)
+Defined in: [types/subscription.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L302)
 
 Subscription information for Claude API access
 
@@ -23,7 +23,7 @@ for providers that support subscription-based access
 
 > **tier**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L305)
+Defined in: [types/subscription.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L306)
 
 The subscription tier
 
@@ -33,7 +33,7 @@ The subscription tier
 
 > **isActive**: `boolean`
 
-Defined in: [types/subscription.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L310)
+Defined in: [types/subscription.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L311)
 
 Whether the subscription is active
 
@@ -43,7 +43,7 @@ Whether the subscription is active
 
 > `optional` **startDate?**: `string`
 
-Defined in: [types/subscription.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L315)
+Defined in: [types/subscription.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L316)
 
 Subscription start date (ISO 8601 timestamp)
 
@@ -53,7 +53,7 @@ Subscription start date (ISO 8601 timestamp)
 
 > `optional` **renewalDate?**: `string`
 
-Defined in: [types/subscription.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L320)
+Defined in: [types/subscription.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L321)
 
 Subscription renewal date (ISO 8601 timestamp)
 
@@ -63,7 +63,7 @@ Subscription renewal date (ISO 8601 timestamp)
 
 > `optional` **rateLimit?**: [`AnthropicRateLimitInfo`](AnthropicRateLimitInfo.md)
 
-Defined in: [types/subscription.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L325)
+Defined in: [types/subscription.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L326)
 
 Current rate limit information
 
@@ -73,6 +73,6 @@ Current rate limit information
 
 > `optional` **features?**: [`SubscriptionFeatures`](SubscriptionFeatures.md)
 
-Defined in: [types/subscription.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L330)
+Defined in: [types/subscription.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L331)
 
 Features available with this subscription

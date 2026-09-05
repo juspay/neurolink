@@ -152,12 +152,23 @@ export type CodexResponsesInputItem =
       output: string;
     };
 
+/** Codex reasoning settings; supported levels depend on the selected model. */
+export type CodexReasoningEffort =
+  | "none"
+  | "minimal"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
+
 /** Request shape used to bridge Anthropic Messages traffic to Codex Responses. */
 export type CodexResponsesRequest = {
   model: string;
   input: CodexResponsesInputItem[];
   stream: true;
   store: false;
+  reasoning?: { effort: CodexReasoningEffort };
   instructions?: string;
   tools?: Array<{
     type: "function";

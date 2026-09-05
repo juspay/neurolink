@@ -210,6 +210,7 @@ import type {
   ClaudeSnapshot,
   ClaudeSnapshotBody,
   CodexFallbackResult,
+  CodexReasoningEffort,
   InternalResult,
   LoadedClaudeAccountContext,
   ModelRouterInterface,
@@ -5103,6 +5104,7 @@ async function executeClaudeCodexFallback(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
   model: string;
+  reasoningEffort?: CodexReasoningEffort;
   tracer?: ProxyTracer;
   requestStartTime: number;
   logProxyBody: ProxyBodyCaptureLogger;
@@ -5124,6 +5126,7 @@ async function executeClaudeCodexFallback(args: {
     ctx,
     body,
     model,
+    reasoningEffort,
     tracer,
     requestStartTime,
     logProxyBody,
@@ -5140,7 +5143,7 @@ async function executeClaudeCodexFallback(args: {
     },
     query: {},
     params: {},
-    body: convertClaudeRequestToCodex(body, model),
+    body: convertClaudeRequestToCodex(body, model, reasoningEffort),
     metadata: { ...ctx.metadata, "neurolink.codexFallback": true },
     // Keep the child attribution isolated until its stream has passed
     // validation. A failed Codex attempt must not look like a served request.
@@ -5408,7 +5411,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
     const fallbackStart = Date.now();
     try {
       logger.always(
-        `[proxy] fallback → ${fallback.provider}/${fallback.model}`,
+        `[proxy] fallback → ${fallback.provider}/${fallback.model}${fallback.reasoningEffort ? ` reasoning=${fallback.reasoningEffort}` : ""}`,
       );
       let response: unknown;
       if (fallback.provider === "codex") {
@@ -5418,6 +5421,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
           ctx,
           body,
           model: fallback.model,
+          reasoningEffort: fallback.reasoningEffort,
           tracer,
           requestStartTime,
           logProxyBody,

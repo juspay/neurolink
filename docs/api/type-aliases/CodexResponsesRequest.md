@@ -8,7 +8,7 @@
 
 > **CodexResponsesRequest** = `object`
 
-Defined in: [types/codex.ts:156](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L156)
+Defined in: [types/codex.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L166)
 
 Request shape used to bridge Anthropic Messages traffic to Codex Responses.
 
@@ -18,7 +18,7 @@ Request shape used to bridge Anthropic Messages traffic to Codex Responses.
 
 > **model**: `string`
 
-Defined in: [types/codex.ts:157](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L157)
+Defined in: [types/codex.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L167)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:157](https://github.com/juspay/neurolink/blob/releas
 
 > **input**: [`CodexResponsesInputItem`](CodexResponsesInputItem.md)[]
 
-Defined in: [types/codex.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L158)
+Defined in: [types/codex.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L168)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:158](https://github.com/juspay/neurolink/blob/releas
 
 > **stream**: `true`
 
-Defined in: [types/codex.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L159)
+Defined in: [types/codex.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L169)
 
 ---
 
@@ -42,7 +42,19 @@ Defined in: [types/codex.ts:159](https://github.com/juspay/neurolink/blob/releas
 
 > **store**: `false`
 
-Defined in: [types/codex.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L160)
+Defined in: [types/codex.ts:170](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L170)
+
+---
+
+### reasoning?
+
+> `optional` **reasoning?**: `object`
+
+Defined in: [types/codex.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L171)
+
+#### effort
+
+> **effort**: [`CodexReasoningEffort`](CodexReasoningEffort.md)
 
 ---
 
@@ -50,7 +62,7 @@ Defined in: [types/codex.ts:160](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **instructions?**: `string`
 
-Defined in: [types/codex.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L161)
+Defined in: [types/codex.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L172)
 
 ---
 
@@ -58,7 +70,7 @@ Defined in: [types/codex.ts:161](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tools?**: `object`[]
 
-Defined in: [types/codex.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L162)
+Defined in: [types/codex.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L173)
 
 #### type
 
@@ -82,4 +94,4 @@ Defined in: [types/codex.ts:162](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tool_choice?**: `"auto"` \| `"required"` \| `"none"` \| \{ `type`: `"function"`; `name`: `string`; \}
 
-Defined in: [types/codex.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L168)
+Defined in: [types/codex.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L179)

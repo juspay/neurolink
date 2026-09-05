@@ -8,7 +8,7 @@
 
 > **SubscriptionFeatures** = `object`
 
-Defined in: [types/subscription.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L496)
+Defined in: [types/subscription.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L497)
 
 Subscription features defining capabilities per tier
 
@@ -24,7 +24,7 @@ functionality and feature gating.
 
 > **tier**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:500](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L500)
+Defined in: [types/subscription.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L501)
 
 Subscription tier this feature set belongs to
 
@@ -34,7 +34,7 @@ Subscription tier this feature set belongs to
 
 > **hasChat**: `boolean`
 
-Defined in: [types/subscription.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L506)
+Defined in: [types/subscription.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L507)
 
 Whether chat/conversation access is enabled
 
@@ -48,7 +48,7 @@ Basic chat functionality with Claude
 
 > **hasApiAccess**: `boolean`
 
-Defined in: [types/subscription.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L512)
+Defined in: [types/subscription.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L513)
 
 Whether API access is enabled
 
@@ -62,7 +62,7 @@ Programmatic access to Claude via API
 
 > **hasExtendedThinking**: `boolean`
 
-Defined in: [types/subscription.ts:518](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L518)
+Defined in: [types/subscription.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L519)
 
 Whether extended thinking/reasoning is enabled
 
@@ -76,7 +76,7 @@ Access to extended thinking capabilities for complex reasoning
 
 > **hasPriorityAccess**: `boolean`
 
-Defined in: [types/subscription.ts:524](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L524)
+Defined in: [types/subscription.ts:525](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L525)
 
 Whether priority queue access is enabled
 
@@ -90,7 +90,7 @@ Faster response times during high traffic periods
 
 > **hasVision**: `boolean`
 
-Defined in: [types/subscription.ts:530](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L530)
+Defined in: [types/subscription.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L531)
 
 Whether vision/image analysis is enabled
 
@@ -104,7 +104,7 @@ Ability to analyze images and visual content
 
 > **hasFileAnalysis**: `boolean`
 
-Defined in: [types/subscription.ts:536](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L536)
+Defined in: [types/subscription.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L537)
 
 Whether file/document analysis is enabled
 
@@ -118,7 +118,7 @@ Ability to process PDFs, documents, and other files
 
 > **hasCodeExecution**: `boolean`
 
-Defined in: [types/subscription.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L542)
+Defined in: [types/subscription.ts:543](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L543)
 
 Whether code execution is enabled
 
@@ -132,7 +132,7 @@ Access to code execution/analysis features
 
 > **hasMcpTools**: `boolean`
 
-Defined in: [types/subscription.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L548)
+Defined in: [types/subscription.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L549)
 
 Whether MCP (Model Context Protocol) tools are enabled
 
@@ -146,7 +146,7 @@ Access to external tool integrations via MCP
 
 > **hasComputerUse**: `boolean`
 
-Defined in: [types/subscription.ts:554](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L554)
+Defined in: [types/subscription.ts:555](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L555)
 
 Whether computer use capability is enabled
 
@@ -160,7 +160,7 @@ Access to computer use/automation features
 
 > **hasWebSearch**: `boolean`
 
-Defined in: [types/subscription.ts:560](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L560)
+Defined in: [types/subscription.ts:561](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L561)
 
 Whether web search is enabled
 
@@ -174,7 +174,7 @@ Access to web search capabilities
 
 > **maxContextWindow**: `number`
 
-Defined in: [types/subscription.ts:566](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L566)
+Defined in: [types/subscription.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L567)
 
 Maximum context window size in tokens
 
@@ -188,7 +188,7 @@ Limit on context/conversation length
 
 > **maxOutputTokens**: `number`
 
-Defined in: [types/subscription.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L572)
+Defined in: [types/subscription.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L573)
 
 Maximum output tokens per request
 
@@ -202,7 +202,7 @@ Limit on response length per request
 
 > **availableModels**: `string`[]
 
-Defined in: [types/subscription.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L578)
+Defined in: [types/subscription.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L579)
 
 List of accessible model identifiers
 
@@ -216,7 +216,7 @@ Which Claude models are available for this tier
 
 > **dailyMessageLimit**: `number`
 
-Defined in: [types/subscription.ts:584](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L584)
+Defined in: [types/subscription.ts:585](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L585)
 
 Daily message limit
 
@@ -230,7 +230,7 @@ Maximum messages per day, -1 for unlimited
 
 > **monthlyTokenLimit**: `number`
 
-Defined in: [types/subscription.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L590)
+Defined in: [types/subscription.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L591)
 
 Monthly token limit
 
@@ -244,7 +244,7 @@ Maximum tokens per month, -1 for unlimited
 
 > **hasUsageAnalytics**: `boolean`
 
-Defined in: [types/subscription.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L596)
+Defined in: [types/subscription.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L597)
 
 Whether usage analytics are available
 
@@ -258,7 +258,7 @@ Access to detailed usage statistics and analytics
 
 > **hasTeamFeatures**: `boolean`
 
-Defined in: [types/subscription.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L602)
+Defined in: [types/subscription.ts:603](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L603)
 
 Whether team/organization features are enabled
 
@@ -272,7 +272,7 @@ Access to team management and collaboration features
 
 > `optional` **customFeatures?**: `Record`\<`string`, `boolean`\>
 
-Defined in: [types/subscription.ts:608](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L608)
+Defined in: [types/subscription.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L609)
 
 Custom feature flags for extensibility
 

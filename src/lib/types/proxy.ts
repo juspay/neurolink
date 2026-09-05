@@ -1646,6 +1646,7 @@ export type ClaudeProxyModelTier = "opus" | "sonnet" | "haiku" | "other";
 export type ProxyTranslationAttempt = {
   provider?: string;
   model?: string;
+  reasoningEffort?: FallbackEntry["reasoningEffort"];
   label: string;
 };
 

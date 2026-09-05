@@ -931,6 +931,7 @@ console.log(result.content);
 - [CodexProxyStatusAccountIdentity](type-aliases/CodexProxyStatusAccountIdentity.md)
 - [CodexContentPart](type-aliases/CodexContentPart.md)
 - [CodexResponsesInputItem](type-aliases/CodexResponsesInputItem.md)
+- [CodexReasoningEffort](type-aliases/CodexReasoningEffort.md)
 - [CodexResponsesRequest](type-aliases/CodexResponsesRequest.md)
 - [CodexFallbackResult](type-aliases/CodexFallbackResult.md)
 - [Unknown](type-aliases/Unknown.md)

@@ -8,6 +8,6 @@
 
 > **GlobalInstallerExecFile** = `execFileSync`
 
-Defined in: [types/proxy.ts:2622](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2622)
+Defined in: [types/proxy.ts:2623](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2623)
 
 Injectable command runner used by global-installer tests.

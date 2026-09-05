@@ -8,7 +8,7 @@
 
 > **AnthropicModelMetadata** = `object`
 
-Defined in: [types/subscription.ts:1133](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1133)
+Defined in: [types/subscription.ts:1134](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1134)
 
 Model metadata definition for Anthropic models
 
@@ -18,7 +18,7 @@ Model metadata definition for Anthropic models
 
 > **displayName**: `string`
 
-Defined in: [types/subscription.ts:1135](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1135)
+Defined in: [types/subscription.ts:1136](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1136)
 
 Human-readable display name
 
@@ -28,7 +28,7 @@ Human-readable display name
 
 > **contextWindow**: `number`
 
-Defined in: [types/subscription.ts:1137](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1137)
+Defined in: [types/subscription.ts:1138](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1138)
 
 Maximum context window size in tokens
 
@@ -38,7 +38,7 @@ Maximum context window size in tokens
 
 > **maxOutputTokens**: `number`
 
-Defined in: [types/subscription.ts:1139](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1139)
+Defined in: [types/subscription.ts:1140](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1140)
 
 Maximum output tokens
 
@@ -48,7 +48,7 @@ Maximum output tokens
 
 > **supportsVision**: `boolean`
 
-Defined in: [types/subscription.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1141)
+Defined in: [types/subscription.ts:1142](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1142)
 
 Whether the model supports vision/image input
 
@@ -58,7 +58,7 @@ Whether the model supports vision/image input
 
 > **supportsExtendedThinking**: `boolean`
 
-Defined in: [types/subscription.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1143)
+Defined in: [types/subscription.ts:1144](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1144)
 
 Whether the model supports extended thinking mode
 
@@ -68,7 +68,7 @@ Whether the model supports extended thinking mode
 
 > **supportsToolUse**: `boolean`
 
-Defined in: [types/subscription.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1145)
+Defined in: [types/subscription.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1146)
 
 Whether the model supports tool/function calling
 
@@ -78,7 +78,7 @@ Whether the model supports tool/function calling
 
 > **supportsStreaming**: `boolean`
 
-Defined in: [types/subscription.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1147)
+Defined in: [types/subscription.ts:1148](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1148)
 
 Whether the model supports streaming
 
@@ -88,7 +88,7 @@ Whether the model supports streaming
 
 > **deprecated**: `boolean`
 
-Defined in: [types/subscription.ts:1149](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1149)
+Defined in: [types/subscription.ts:1150](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1150)
 
 Whether the model is deprecated
 
@@ -98,7 +98,7 @@ Whether the model is deprecated
 
 > **family**: `"haiku"` \| `"sonnet"` \| `"opus"`
 
-Defined in: [types/subscription.ts:1151](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1151)
+Defined in: [types/subscription.ts:1152](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1152)
 
 Model family (haiku, sonnet, opus)
 
@@ -108,6 +108,6 @@ Model family (haiku, sonnet, opus)
 
 > **description**: `string`
 
-Defined in: [types/subscription.ts:1153](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1153)
+Defined in: [types/subscription.ts:1154](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1154)
 
 Short description of the model
