@@ -78,6 +78,7 @@ jobs:
           IO_INTELLIGENCE_API_KEY: ${{ secrets.IO_INTELLIGENCE_API_KEY }}
           UPSTAGE_API_KEY: ${{ secrets.UPSTAGE_API_KEY }}
           MANCER_API_KEY: ${{ secrets.MANCER_API_KEY }}
+          MORPH_API_KEY: ${{ secrets.MORPH_API_KEY }}
           VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
           JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
           STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}

@@ -219,6 +219,7 @@ export type NeurolinkCredentials = {
   ioIntelligence?: { apiKey?: string; baseURL?: string };
   mancer?: { apiKey?: string; baseURL?: string };
   mistral?: { apiKey?: string; baseURL?: string };
+  morph?: { apiKey?: string; baseURL?: string };
   perplexity?: { apiKey?: string; baseURL?: string };
   sambanova?: { apiKey?: string; baseURL?: string };
   together?: { apiKey?: string; baseURL?: string };
