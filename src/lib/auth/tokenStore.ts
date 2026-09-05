@@ -84,6 +84,7 @@ export class TokenStore {
     Promise<StoredOAuthTokens>
   >();
   private readonly _mutex = new AsyncMutex();
+  private snapshotRead: Promise<TokenStorageData["providers"]> | undefined;
 
   /**
    * Creates a new TokenStore instance
@@ -276,6 +277,36 @@ export class TokenStore {
         throw error;
       }
     });
+  }
+
+  /**
+   * Read one coherent account inventory without updating access timestamps.
+   * Concurrent readers share only the in-flight read, never a TTL cache, so
+   * the next request observes account edits made by another process. Each
+   * caller receives its own copy, including disabled state and credentials.
+   */
+  async getProviderSnapshot(): Promise<TokenStorageData["providers"]> {
+    this.snapshotRead ??= this._mutex
+      .runExclusive(async () => {
+        try {
+          return (await this.loadStorageData()).providers;
+        } catch (error) {
+          if (error instanceof TokenStoreError && error.code === "NOT_FOUND") {
+            return {};
+          }
+          throw error;
+        }
+      })
+      .finally(() => {
+        this.snapshotRead = undefined;
+      });
+    const providers = await this.snapshotRead;
+    return Object.fromEntries(
+      Object.entries(providers).map(([key, value]) => [
+        key,
+        { ...value, tokens: { ...value.tokens } },
+      ]),
+    );
   }
 
   /**

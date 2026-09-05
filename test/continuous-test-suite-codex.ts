@@ -28,7 +28,9 @@
  * construction, quota parsing, refresh-failure classification, and the built
  * CLI's Codex auth surface.
  *
- * No API keys and no network.
+ * No API keys or external network. Local HTTP/IPC fixtures exercise socket
+ * backpressure, handoff recovery, and the real CLI status renderer. Recorded SSE
+ * drives early output, cancellation, terminal errors, usage, and tool limits.
  * Fallback cases also drive the shipped Messages handler with a recorded Codex
  * response: deterministic config reloads and captured outgoing JSON prove the
  * requested effort survives the complete bridge without spending live quota.
@@ -43,7 +45,7 @@
  */
 
 import "./helpers/proxyTestIsolation.js";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeFileSync } from "node:fs";
@@ -62,13 +64,14 @@ import {
 import {
   CodexFallbackResponseError,
   consumeCodexFallbackResponse,
+  createCodexFallbackStream,
   convertClaudeRequestToCodex,
   parseCodexFallbackSSE,
 } from "../src/lib/proxy/codexFallback.js";
 import { runWithShareContext } from "../src/lib/proxy/shareContext.js";
 import { loadProxyConfig } from "../src/lib/proxy/proxyConfig.js";
 import { ProxyRuntimeConfigStore } from "../src/lib/proxy/runtimeConfig.js";
-import { tokenStore } from "../src/lib/auth/tokenStore.js";
+import { TokenStore, tokenStore } from "../src/lib/auth/tokenStore.js";
 import {
   __testHooks as claudeProxyTestHooks,
   createClaudeProxyRoutes,
@@ -1990,7 +1993,7 @@ await test("Claude invalid requests retain structured upstream error details", a
   );
 });
 
-await test("Anthropic cooldown wins over a Codex fallback request error", async () => {
+await test("mixed Anthropic pool failures retain cooldown precedence", async () => {
   const invalidRequestFailure =
     claudeProxyTestHooks.getCodexFallbackInvalidRequestFailure(
       new CodexFallbackResponseError(
@@ -2033,6 +2036,1180 @@ await test("Anthropic cooldown wins over a Codex fallback request error", async 
     "overloaded_error",
     "response did not retain rate-limit semantics",
   );
+});
+
+await test("account snapshots coalesce concurrent readers without rewriting credentials", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "proxy-account-snapshot-"));
+  const path = join(dir, "tokens.json");
+  const store = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: path,
+  });
+  const otherProcess = new TokenStore({
+    encryptionEnabled: false,
+    customStoragePath: path,
+  });
+  try {
+    await store.saveTokens("codex:shared", {
+      accessToken: "first",
+      expiresAt: Date.now() + 3_600_000,
+      tokenType: "Bearer",
+    });
+    const before = readFileSync(path, "utf8");
+    const mtime = statSync(path).mtimeMs;
+    const snapshots = await Promise.all(
+      Array.from({ length: 64 }, () => store.getProviderSnapshot()),
+    );
+    assertEqual(
+      readFileSync(path, "utf8"),
+      before,
+      "reading the inventory rewrote credential metadata",
+    );
+    assertEqual(
+      statSync(path).mtimeMs,
+      mtime,
+      "reading the inventory touched the credential file",
+    );
+    snapshots[0]["codex:shared"].tokens.accessToken = "caller-mutation";
+    assertEqual(
+      snapshots[1]["codex:shared"].tokens.accessToken,
+      "first",
+      "snapshots share mutable tokens",
+    );
+    await otherProcess.markDisabled("codex:shared", "operator");
+    const disabled = await store.getProviderSnapshot();
+    assertEqual(
+      disabled["codex:shared"].disabled,
+      true,
+      "an external disable was hidden by cached inventory",
+    );
+    await otherProcess.clearTokens("codex:shared");
+    assertEqual(
+      Object.keys(await store.getProviderSnapshot()).length,
+      0,
+      "a removed account remained in the pool",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function codexEvent(
+  type: string,
+  fields: Record<string, unknown> = {},
+): string {
+  return `event: ${type}\r\ndata: ${JSON.stringify({ type, ...fields })}\r\n\r\n`;
+}
+function codexDone(output: unknown[] = [], text = ""): string {
+  return codexEvent("response.completed", {
+    response: {
+      status: "completed",
+      output: text
+        ? [{ type: "message", content: [{ type: "output_text", text }] }]
+        : output,
+      usage: {
+        input_tokens: 123,
+        output_tokens: 8,
+        input_tokens_details: { cached_tokens: 100 },
+      },
+    },
+  });
+}
+async function within<T>(promise: Promise<T>): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("stream progress deadline exceeded")),
+          2000,
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+await test("Codex bridge emits text before upstream completion and preserves split UTF8 and tool calls", async () => {
+  const encoder = new TextEncoder();
+  let controller!: ReadableStreamDefaultController<Uint8Array>;
+  const upstream = new ReadableStream<Uint8Array>({
+    start(c) {
+      controller = c;
+    },
+  });
+  const bridge = await createCodexFallbackStream(
+    new Response(upstream, {
+      headers: { "content-type": "text/event-stream" },
+    }),
+    "claude-test",
+  );
+  try {
+    const first = await within(bridge.frames.next());
+    assert(
+      String(first.value).includes("message_start"),
+      "response headers waited for upstream output",
+    );
+    await bridge.frames.next(); // initial ping
+    const bytes = encoder.encode(
+      codexEvent("response.output_text.delta", {
+        output_index: 0,
+        delta: "hello 🌍",
+      }),
+    );
+    for (const byte of bytes) {
+      controller.enqueue(new Uint8Array([byte]));
+    }
+    let early = "";
+    while (!early.includes("hello 🌍")) {
+      early += (await within(bridge.frames.next())).value;
+    }
+    assert(
+      !early.includes("message_stop"),
+      "stream completed before upstream did",
+    );
+    const call = {
+      type: "function_call",
+      call_id: "call-1",
+      name: "lookup",
+      arguments: '{"q":"world"}',
+    };
+    controller.enqueue(
+      encoder.encode(
+        codexEvent("response.output_item.done", {
+          output_index: 1,
+          item: call,
+        }) +
+          codexDone([
+            {
+              type: "message",
+              content: [{ type: "output_text", text: "hello 🌍" }],
+            },
+            call,
+          ]),
+      ),
+    );
+    controller.close();
+    let rest = "";
+    let result;
+    while (true) {
+      const next = await within(bridge.frames.next());
+      if (next.done) {
+        result = next.value;
+        break;
+      }
+      rest += next.value;
+    }
+    assertEqual(
+      result?.text,
+      "hello 🌍",
+      "completed items duplicated text deltas",
+    );
+    assertEqual(
+      (rest.match(/"name":"lookup"/g) ?? []).length,
+      1,
+      "a mirrored tool call was emitted twice",
+    );
+    assert(
+      rest.includes('"input_tokens":123') &&
+        rest.includes('"cache_read_input_tokens":100'),
+      "final input/cache usage was lost",
+    );
+    assert(
+      rest.includes('"stop_reason":"tool_use"') &&
+        rest.includes("message_stop"),
+      "tool stream did not finish correctly",
+    );
+  } finally {
+    await bridge.cancel();
+  }
+});
+
+await test("Codex bridge cancellation releases a pending upstream read", async () => {
+  let cancelled = false;
+  const bridge = await createCodexFallbackStream(
+    new Response(
+      new ReadableStream({
+        cancel() {
+          cancelled = true;
+        },
+      }),
+      { headers: { "content-type": "text/event-stream" } },
+    ),
+    "claude-test",
+  );
+  await bridge.frames.next();
+  await bridge.frames.next();
+  const blocked = bridge.frames.next().catch(() => undefined);
+  await bridge.cancel();
+  await within(blocked);
+  assert(cancelled, "the abandoned upstream reader remained open");
+});
+
+for (const [name, payload] of [
+  ["truncated", codexEvent("response.output_text.delta", { delta: "partial" })],
+  ["failed", codexEvent("response.failed", { response: { status: "failed" } })],
+  ["malformed", "event: response.completed\ndata: {bad}\n\n"],
+  ["duplicate terminal", codexDone([], "one") + codexDone([], "two")],
+] as const) {
+  await test(`Codex streaming bridge rejects ${name} completion without a false stop`, async () => {
+    const bridge = await createCodexFallbackStream(
+      new Response(payload, {
+        headers: { "content-type": "text/event-stream" },
+      }),
+      "claude-test",
+    );
+    let output = "",
+      rejected = false;
+    try {
+      for await (const frame of bridge.frames) {
+        output += frame;
+      }
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, "an invalid recorded stream was accepted");
+    assert(
+      !output.includes("message_stop"),
+      "an invalid stream claimed completion",
+    );
+  });
+}
+
+async function withFallbackRoute(
+  run: (
+    route: NonNullable<
+      ReturnType<typeof createClaudeProxyRoutes>["routes"]
+    >[number],
+    context: ServerContext,
+  ) => Promise<void>,
+  coolingAnthropic = false,
+): Promise<void> {
+  const dir = mkdtempSync(join(tmpdir(), "fallback-reliability-"));
+  const configPath = join(dir, "config.json");
+  const key = "codex:reliability@example.test";
+  const savedFetch = globalThis.fetch;
+  const anthropicKey = "anthropic:cooling-reliability@example.test";
+  const { saveAccountCooldown, clearAccountCooldown } =
+    await import("../src/lib/proxy/accountCooldown.js");
+  try {
+    if (coolingAnthropic) {
+      await tokenStore.saveTokens(anthropicKey, {
+        accessToken: "isolated-anthropic",
+        tokenType: "Bearer",
+        expiresAt: Date.now() + 7_200_000,
+      });
+      await saveAccountCooldown(
+        anthropicKey,
+        Date.now() + 3_600_000,
+        "session",
+      );
+    }
+    await tokenStore.saveTokens(key, {
+      accessToken: "isolated-access",
+      expiresAt: Date.now() + 7_200_000,
+      tokenType: "Bearer",
+    });
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: {
+          fallbackChain: [
+            {
+              provider: "codex",
+              model: "gpt-6-astra",
+              reasoningEffort: "xhigh",
+            },
+          ],
+        },
+      }),
+    );
+    const runtime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    const route = createClaudeProxyRoutes(
+      runtime.getSnapshot().modelRouter,
+      "",
+      "fill-first",
+      false,
+      undefined,
+      coolingAnthropic ? new Set([anthropicKey]) : new Set<string>(),
+    ).routes.find((x) => x.path === "/v1/messages" && x.method === "POST");
+    assert(route !== undefined, "Messages route is missing");
+    const context = {
+      requestId: `reliability-${Date.now()}`,
+      method: "POST",
+      path: "/v1/messages",
+      headers: {},
+      query: {},
+      params: {},
+      metadata: {},
+      responseHeaders: {},
+      timestamp: Date.now(),
+      neurolink: {},
+      toolRegistry: {},
+      body: {
+        model: "claude-sonnet-test",
+        stream: true,
+        max_tokens: 128,
+        messages: [{ role: "user", content: "hello" }],
+      },
+    } as ServerContext;
+    await run(route!, context);
+  } finally {
+    globalThis.fetch = savedFetch;
+    await tokenStore.clearTokens(key);
+    await tokenStore.clearTokens(anthropicKey);
+    await clearAccountCooldown(anthropicKey);
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+await test("Messages streams early, reports partial failure once, and never replays output", async () => {
+  await withFallbackRoute(async (route, context) => {
+    const { getStats } = await import("../src/lib/proxy/usageStats.js");
+    let requests = 0;
+    let controller!: ReadableStreamDefaultController<Uint8Array>;
+    globalThis.fetch = async (_input, init) => {
+      requests += 1;
+      const sent = JSON.parse(String(init?.body));
+      assertEqual(sent.model, "gpt-6-astra", "model routing changed");
+      assertEqual(sent.reasoning.effort, "xhigh", "reasoning routing changed");
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          start(c) {
+            controller = c;
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    };
+    const before = getStats();
+    const stream = (await within(
+      route.handler(context),
+    )) as AsyncGenerator<string>;
+    assert(
+      String((await within(stream.next())).value).includes("message_start"),
+      "the handler buffered the complete response",
+    );
+    assertEqual(
+      getStats().totalSuccess,
+      before.totalSuccess,
+      "headers were counted as success",
+    );
+    controller.enqueue(
+      new TextEncoder().encode(
+        codexEvent("response.output_text.delta", { delta: "partial" }),
+      ),
+    );
+    let frames = "";
+    while (!frames.includes("partial")) {
+      frames += String((await within(stream.next())).value);
+    }
+    controller.error(new Error("recorded socket closure"));
+    for await (const frame of stream) {
+      frames += frame;
+    }
+    assert(
+      frames.includes("event: error") && !frames.includes("message_stop"),
+      "partial stream failure was presented as success",
+    );
+    assertEqual(requests, 1, "an already-started response was replayed");
+    assertEqual(
+      context.metadata.terminalErrorType,
+      "stream_error",
+      "lifecycle telemetry lost the in-band stream failure",
+    );
+    assertEqual(
+      getStats().totalErrors,
+      before.totalErrors + 1,
+      "partial failure was not counted exactly once",
+    );
+    assertEqual(
+      getStats().totalSuccess,
+      before.totalSuccess,
+      "partial failure incremented successes",
+    );
+  });
+});
+
+await test("Messages cancellation before consuming output cancels Codex and records one cancellation", async () => {
+  await withFallbackRoute(async (route, context) => {
+    const { takeProxyResponseObservers } =
+      await import("../src/lib/proxy/proxyActivity.js");
+    const { getStats } = await import("../src/lib/proxy/usageStats.js");
+    let cancelled = false;
+    globalThis.fetch = async () =>
+      new Response(
+        new ReadableStream({
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    const before = getStats().totalErrors;
+    await route.handler(context);
+    for (const observer of takeProxyResponseObservers(context.metadata)) {
+      observer.onTerminal?.({
+        outcome: "client_cancelled",
+        observedBodyBytes: 0,
+        responseChunks: 0,
+      });
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+    assert(cancelled, "unconsumed fallback kept upstream work alive");
+    assertEqual(
+      getStats().totalErrors,
+      before + 1,
+      "cancellation accounting was duplicated or missing",
+    );
+  });
+});
+
+await test("Messages surfaces fallback transport failure instead of the empty Anthropic pool", async () => {
+  await withFallbackRoute(async (route, context) => {
+    globalThis.fetch = async () =>
+      new Response("recorded upstream unavailable", { status: 503 });
+    const result = await route.handler(context);
+    if (!(result instanceof Response)) {
+      throw new Error(
+        "fallback failure did not preserve an explicit HTTP status",
+      );
+    }
+    assertEqual(result.status, 502, "fallback gateway status was changed");
+    const response = await result.json();
+    assertEqual(
+      response.error?.type,
+      "api_error",
+      "fallback failure was masked by credential or quota status",
+    );
+    assert(
+      response.error?.message?.includes("codex/gpt-6-astra") === true,
+      "error omitted the failed fallback provider",
+    );
+  });
+});
+
+// Deliberately delayed IPC offers reproduce the observed handoff failure without
+// blocking the live worker or depending on operating-system scheduling pressure.
+await test("an uncommitted socket timeout preserves unrelated streams and never serves the cancelled offer", async () => {
+  const { startRollingProxyServer } =
+    await import("../src/lib/proxy/rollingProxyServer.js");
+  const { spawnProxySocketWorker } =
+    await import("../src/lib/proxy/rollingWorkerProcess.js");
+  const { get } = await import("node:http");
+  const { fileURLToPath } = await import("node:url");
+  const fixture = fileURLToPath(
+    new URL("./fixtures/proxySocketWorker.cjs", import.meta.url),
+  );
+  const proxy = await startRollingProxyServer({
+    host: "127.0.0.1",
+    port: 0,
+    initialVersion: "1.0.0",
+    spawnWorker: (generation, expectedVersion) =>
+      spawnProxySocketWorker({
+        generation,
+        expectedVersion,
+        command: process.execPath,
+        args: [fixture],
+        socketAckTimeoutMs: 200,
+        env: {
+          NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS: "700",
+          NEUROLINK_PROXY_WORKER_DELAY_OFFER_NUMBER: "2",
+          NEUROLINK_PROXY_WORKER_STREAM_CHUNKS: "200",
+        },
+        stdout: "ignore",
+        stderr: "ignore",
+      }),
+  });
+  try {
+    const port = proxy.address.port;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const streaming = new Promise<number>((resolve, reject) => {
+      get(
+        { host: "127.0.0.1", port, path: "/stream", agent: false },
+        (response) => {
+          let bytes = 0;
+          response.on("data", (chunk) => {
+            bytes += chunk.length;
+            started();
+          });
+          response.on("end", () => resolve(bytes));
+          response.on("error", reject);
+        },
+      ).on("error", reject);
+    });
+    await within(ready);
+    const pid = proxy.snapshot().active?.pid;
+    const declined = await new Promise<boolean>((resolve) => {
+      const request = get(
+        { host: "127.0.0.1", port, path: "/must-not-execute", agent: false },
+        (response) => {
+          response.resume();
+          resolve(false);
+        },
+      );
+      request.on("error", () => resolve(true));
+    });
+    assert(declined, "the timed-out offer was served after its deadline");
+    assertEqual(
+      await within(streaming),
+      200 * 256,
+      "a socket offer failure interrupted an unrelated response",
+    );
+    assertEqual(
+      proxy.snapshot().active?.pid,
+      pid,
+      "the serving worker was killed for an uncommitted offer",
+    );
+    assertEqual(
+      proxy.snapshot().lastFailure?.supervisorAction,
+      "cancel_uncommitted_socket",
+      "the failure cause was misreported",
+    );
+    const count = await new Promise<string | string[] | undefined>(
+      (resolve, reject) => {
+        get(
+          { host: "127.0.0.1", port, path: "/health", agent: false },
+          (response) => {
+            response.resume();
+            response.once("end", () =>
+              resolve(response.headers["x-worker-served-requests"]),
+            );
+          },
+        ).on("error", reject);
+      },
+    );
+    assertEqual(
+      count,
+      "2",
+      "cancelled socket request was executed or replayed",
+    );
+  } finally {
+    await proxy.close();
+  }
+});
+
+await test("socket handoff backpressure bounds IPC offers while serving a burst without drops", async () => {
+  const { startRollingProxyServer } =
+    await import("../src/lib/proxy/rollingProxyServer.js");
+  const { spawnProxySocketWorker } =
+    await import("../src/lib/proxy/rollingWorkerProcess.js");
+  const { get } = await import("node:http");
+  const { fileURLToPath } = await import("node:url");
+  let peakPending = 0,
+    peakQueue = 0;
+  let lastPending = 0,
+    lastQueue = 0;
+  let publications = 0;
+  const proxy = await startRollingProxyServer({
+    host: "127.0.0.1",
+    port: 0,
+    initialVersion: "1.0.0",
+    maxPendingTransfers: 2,
+    onStateChange: (state) => {
+      publications += 1;
+      lastPending = state.pendingTransfers ?? 0;
+      lastQueue = state.queuedSockets;
+      peakPending = Math.max(peakPending, state.pendingTransfers ?? 0);
+      peakQueue = Math.max(peakQueue, state.queuedSockets);
+    },
+    spawnWorker: (generation, expectedVersion) =>
+      spawnProxySocketWorker({
+        generation,
+        expectedVersion,
+        command: process.execPath,
+        args: [
+          fileURLToPath(
+            new URL("./fixtures/proxySocketWorker.cjs", import.meta.url),
+          ),
+        ],
+        socketAckTimeoutMs: 2000,
+        env: { NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS: "30" },
+        stdout: "ignore",
+        stderr: "ignore",
+      }),
+  });
+  try {
+    await Promise.all(
+      Array.from(
+        { length: 24 },
+        () =>
+          new Promise<void>((resolve, reject) => {
+            get(
+              {
+                host: "127.0.0.1",
+                port: proxy.address.port,
+                path: "/health",
+                agent: false,
+              },
+              (response) => {
+                response.resume();
+                response.on("end", () => resolve());
+                response.on("error", reject);
+              },
+            ).on("error", reject);
+          }),
+      ),
+    );
+    assert(peakPending <= 2, "IPC offer capacity was exceeded");
+    assert(peakQueue > 0, "burst requests bypassed the bounded offer queue");
+    assertEqual(
+      proxy.snapshot().rejectedSockets,
+      0,
+      "bounded handoff dropped a queued request",
+    );
+    assertEqual(
+      proxy.snapshot().pendingTransfers,
+      0,
+      "completed socket offers were retained",
+    );
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    assertEqual(
+      lastPending + lastQueue,
+      0,
+      "published transfer diagnostics stayed stale after draining",
+    );
+    assert(publications < 12, "handoff telemetry wrote once per socket");
+  } finally {
+    await proxy.close();
+  }
+});
+
+await test("built proxy status renders qualified accounts once and reads status once", async () => {
+  const { createServer } = await import("node:http");
+  const { mkdirSync } = await import("node:fs");
+  const dir = mkdtempSync(join(tmpdir(), "proxy-status-rows-"));
+  const stateDir = join(dir, ".neurolink");
+  mkdirSync(stateDir);
+  let statusReads = 0;
+  const accounts = [
+    {
+      key: null,
+      provider: "unknown",
+      label: "shared@example.test",
+      type: "codex-oauth",
+      attempts: 10,
+      success: 8,
+      errors: 2,
+      cooling: false,
+      status: "unattributed",
+    },
+    {
+      key: "codex:shared@example.test",
+      provider: "codex",
+      label: "shared@example.test",
+      type: "codex-oauth",
+      attempts: 20,
+      success: 20,
+      errors: 0,
+      cooling: false,
+      status: "active",
+    },
+    {
+      key: "anthropic:shared@example.test",
+      provider: "anthropic",
+      label: "shared@example.test",
+      type: "oauth",
+      attempts: 30,
+      success: 29,
+      errors: 1,
+      cooling: true,
+      status: "cooling",
+    },
+  ];
+  const server = createServer((request, response) => {
+    response.setHeader("content-type", "application/json");
+    if (request.url === "/status") {
+      statusReads += 1;
+      response.end(
+        JSON.stringify({
+          stats: {
+            totalRequests: 60,
+            totalSuccess: 57,
+            totalErrors: 3,
+            totalRateLimits: 0,
+            accounts,
+          },
+        }),
+      );
+    } else {
+      response.end(JSON.stringify({ status: "ok" }));
+    }
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = server.address();
+    assert(
+      address !== null && typeof address === "object",
+      "fixture listener did not bind",
+    );
+    writeFileSync(
+      join(stateDir, "proxy-state.json"),
+      JSON.stringify({
+        pid: process.pid,
+        port: (address as { port: number }).port,
+        host: "127.0.0.1",
+        strategy: "fill-first",
+        startTime: new Date().toISOString(),
+        version: "1.0.0",
+      }),
+    );
+    const result = await runCLI(["proxy", "status"], {
+      env: { HOME: dir, USERPROFILE: dir },
+    });
+    assertEqual(result.exitCode, 0, "built status command failed");
+    assertEqual(
+      statusReads,
+      1,
+      "status command fetched the detailed snapshot more than once",
+    );
+    assertEqual(
+      (result.stdout.match(/codex:shared@example.test/g) ?? []).length,
+      1,
+      "Codex account was duplicated",
+    );
+    assertEqual(
+      (result.stdout.match(/anthropic:shared@example.test/g) ?? []).length,
+      1,
+      "Anthropic account was duplicated",
+    );
+    assertEqual(
+      (result.stdout.match(/shared@example.test/g) ?? []).length,
+      2,
+      "legacy history was rendered as another live account",
+    );
+    assert(
+      result.stdout.includes("Historical usage") &&
+        result.stdout.includes("10 attempts, 8 success, 2 errors"),
+      "legacy usage was lost from the display",
+    );
+    assert(
+      result.stdout.includes("60 total, 57 success, 3 errors"),
+      "account presentation changed the totals",
+    );
+    const json = await runCLI(["proxy", "status", "--format", "json"], {
+      env: { HOME: dir, USERPROFILE: dir },
+    });
+    const body = JSON.parse(json.stdout);
+    assertEqual(
+      body.stats.accounts.length,
+      3,
+      "JSON consumers lost historical records",
+    );
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test("exhausted Anthropic pool surfaces the actual fallback failure", async () => {
+  for (const status of [400, 503]) {
+    await withFallbackRoute(async (route, context) => {
+      let requests = 0;
+      globalThis.fetch = async (url) => {
+        assert(
+          new URL(url instanceof Request ? url.url : String(url)).hostname ===
+            "chatgpt.com",
+          "a cooling account was attempted",
+        );
+        requests += 1;
+        return new Response(
+          JSON.stringify({ error: { message: "invalid converted request" } }),
+          { status },
+        );
+      };
+      const result = await route.handler(context);
+      const body = result instanceof Response ? await result.json() : result;
+      assertEqual(requests, 1, "fallback request count changed");
+      assertEqual(
+        body.error?.type,
+        status === 400 ? "invalid_request_error" : "api_error",
+        "the exhausted primary masked the fallback failure",
+      );
+      if (status === 400) {
+        assert(
+          result instanceof Response && result.status === 400,
+          "fallback validation lost its HTTP status",
+        );
+      } else {
+        assert(
+          body.error?.message?.includes("codex/gpt-6-astra"),
+          "fallback failure lost its provider",
+        );
+      }
+    }, true);
+  }
+});
+
+await test("client cancellation before Codex headers stops account rotation", async () => {
+  await withFallbackRoute(async (route, context) => {
+    const second = "codex:second-cancel@example.test";
+    await tokenStore.saveTokens(second, {
+      accessToken: "isolated-second",
+      tokenType: "Bearer",
+      expiresAt: Date.now() + 7_200_000,
+    });
+    const controller = new AbortController();
+    context.abortSignal = controller.signal;
+    let started!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let requests = 0;
+    globalThis.fetch = async (_url, init) => {
+      requests += 1;
+      started();
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          "abort",
+          () => reject(new Error("recorded cancellation")),
+          { once: true },
+        );
+      });
+    };
+    try {
+      const pending = route.handler(context);
+      await within(ready);
+      controller.abort();
+      const response = await within(pending);
+      if (!(response instanceof Response)) {
+        throw new Error(
+          "cancellation did not preserve an explicit HTTP status",
+        );
+      }
+      assertEqual(response.status, 499, "cancellation status was changed");
+      const result = await response.json();
+      assertEqual(requests, 1, "cancelled work rotated to another account");
+      assertEqual(
+        result.error.type,
+        "client_cancelled",
+        "cancellation was reported as provider failure",
+      );
+    } finally {
+      await tokenStore.clearTokens(second);
+    }
+  });
+});
+
+await test("completed Messages fallback records one successful final response", async () => {
+  await withFallbackRoute(async (route, context) => {
+    const { getStats } = await import("../src/lib/proxy/usageStats.js");
+    const controller = new AbortController();
+    context.abortSignal = controller.signal;
+    globalThis.fetch = async () =>
+      new Response(codexDone([], "complete"), {
+        headers: { "content-type": "text/event-stream" },
+      });
+    const before = getStats();
+    const response = (await route.handler(context)) as AsyncGenerator<string>;
+    let body = "";
+    while (!body.includes("message_stop")) {
+      const next = await within(response.next());
+      if (next.done) {
+        break;
+      }
+      body += next.value;
+    }
+    // Clients may close immediately after the protocol's terminal frame.
+    controller.abort();
+    await response.return(undefined);
+    assert(
+      body.includes("message_stop") && body.includes("complete"),
+      "successful output did not finish",
+    );
+    assertEqual(
+      getStats().totalSuccess,
+      before.totalSuccess + 1,
+      "completed fallback was not counted exactly once",
+    );
+    assertEqual(
+      getStats().totalErrors,
+      before.totalErrors,
+      "completed fallback was counted as an error",
+    );
+  });
+});
+
+await test("HTTP Messages adapter applies slow-reader backpressure and cancels upstream", async () => {
+  await withFallbackRoute(async (_route, context) => {
+    const { createProxyStartApp } =
+      await import("../src/cli/commands/proxy.js");
+    const dir = mkdtempSync(join(tmpdir(), "http-fallback-reliability-"));
+    const configPath = join(dir, "config.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: {
+          fallbackChain: [
+            {
+              provider: "codex",
+              model: "gpt-6-astra",
+              reasoningEffort: "xhigh",
+            },
+          ],
+        },
+      }),
+    );
+    const runtime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    let pulls = 0;
+    let cancelled = false;
+    globalThis.fetch = async () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          pull(c) {
+            pulls += 1;
+            c.enqueue(
+              new TextEncoder().encode(
+                codexEvent("response.output_text.delta", {
+                  delta: "chunk".repeat(1024),
+                }),
+              ),
+            );
+          },
+          cancel() {
+            cancelled = true;
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    try {
+      const { app } = await createProxyStartApp({
+        neurolink: {
+          getToolRegistry: () => context.toolRegistry,
+        } as Parameters<typeof createProxyStartApp>[0]["neurolink"],
+        modelRouter: runtime.getSnapshot().modelRouter,
+        strategy: "fill-first",
+        passthrough: false,
+        port: 0,
+        host: "127.0.0.1",
+        proxyConfig: null,
+        primaryAccountKey: undefined,
+        accountAllowlist: new Set<string>(),
+      });
+      const response = await within(
+        Promise.resolve(
+          app.request("http://localhost/v1/messages", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(context.body),
+          }),
+        ),
+      );
+      assertEqual(
+        response.status,
+        200,
+        "HTTP adapter rejected the isolated request",
+      );
+      const reader = response.body!.getReader();
+      const first = await within(reader.read());
+      assert(
+        new TextDecoder().decode(first.value).includes("message_start"),
+        "HTTP adapter delayed headers until completion",
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const pausedPulls = pulls;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      assertEqual(
+        pulls,
+        pausedPulls,
+        "slow clients allowed unbounded upstream reads",
+      );
+      assert(pulls < 16, "the adapter buffered too much before client demand");
+      await within(reader.cancel());
+      assert(cancelled, "HTTP cancellation left upstream generation active");
+      globalThis.fetch = async () =>
+        new Response("recorded unavailable", { status: 503 });
+      const failed = await within(
+        Promise.resolve(
+          app.request("http://localhost/v1/messages", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(context.body),
+          }),
+        ),
+      );
+      assertEqual(
+        failed.status,
+        502,
+        "HTTP adapter remapped the fallback gateway status",
+      );
+      const failure = await failed.json();
+      assertEqual(
+        failure.error.type,
+        "api_error",
+        "fallback HTTP error type changed",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+for (const failCandidate of [false, true]) {
+  await test(`repeated socket stalls preserve the active stream when replacement ${failCandidate ? "fails" : "succeeds"}`, async () => {
+    const { startRollingProxyServer } =
+      await import("../src/lib/proxy/rollingProxyServer.js");
+    const { spawnProxySocketWorker } =
+      await import("../src/lib/proxy/rollingWorkerProcess.js");
+    const { get } = await import("node:http");
+    const { fileURLToPath } = await import("node:url");
+    const fixture = fileURLToPath(
+      new URL("./fixtures/proxySocketWorker.cjs", import.meta.url),
+    );
+    let spawns = 0;
+    const proxy = await startRollingProxyServer({
+      host: "127.0.0.1",
+      port: 0,
+      initialVersion: "1.0.0",
+      spawnWorker: (generation, expectedVersion) => {
+        spawns += 1;
+        return spawnProxySocketWorker({
+          generation,
+          expectedVersion,
+          command: process.execPath,
+          args:
+            generation > 1 && failCandidate
+              ? ["-e", "process.exit(1)"]
+              : [fixture],
+          socketAckTimeoutMs: 200,
+          env:
+            generation === 1
+              ? {
+                  NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS: "800",
+                  NEUROLINK_PROXY_WORKER_DELAY_OFFERS_AFTER: "1",
+                  NEUROLINK_PROXY_WORKER_STREAM_CHUNKS: "240",
+                }
+              : {},
+          stdout: "ignore",
+          stderr: "ignore",
+        });
+      },
+    });
+    const request = (path: string, onData?: () => void): Promise<number> =>
+      new Promise((resolve, reject) => {
+        get(
+          { host: "127.0.0.1", port: proxy.address.port, path, agent: false },
+          (response) => {
+            let bytes = 0;
+            response.on("data", (chunk) => {
+              bytes += chunk.length;
+              onData?.();
+            });
+            response.on("end", () => resolve(bytes));
+            response.on("error", reject);
+          },
+        ).on("error", reject);
+      });
+    try {
+      let started!: () => void;
+      const ready = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const streaming = request("/stream", started);
+      await within(ready);
+      const originalPid = proxy.snapshot().active?.pid;
+      const failures = await Promise.allSettled(
+        Array.from({ length: 3 }, () => request("/cancelled")),
+      );
+      assert(
+        failures.every((result) => result.status === "rejected"),
+        "a cancelled offer executed",
+      );
+      assertEqual(
+        await within(streaming),
+        240 * 256,
+        "replacement interrupted the serving stream",
+      );
+      assertEqual(
+        spawns,
+        2,
+        "stall recovery spawned the wrong number of workers",
+      );
+      const state = proxy.snapshot();
+      if (failCandidate) {
+        assertEqual(
+          state.active?.pid,
+          originalPid,
+          "failed replacement removed the active worker",
+        );
+        assertEqual(
+          state.lastFailure?.phase,
+          "startup",
+          "failed candidate was not diagnosed",
+        );
+      } else {
+        assert(
+          state.active?.pid !== originalPid,
+          "persistent stall did not activate a replacement",
+        );
+        assertEqual(
+          await within(request("/health")),
+          "worker-1.0.0".length,
+          "replacement did not serve new traffic",
+        );
+        process.kill(state.active!.pid, "SIGKILL");
+        await within(
+          (async () => {
+            while (proxy.snapshot().active?.pid === state.active?.pid) {
+              await new Promise((resolve) => setTimeout(resolve, 5));
+            }
+          })(),
+        );
+        assertEqual(
+          await within(request("/health")),
+          "worker-1.0.0".length,
+          "unexpected worker exit did not recover queued traffic",
+        );
+      }
+    } finally {
+      await proxy.close();
+    }
+  });
+}
+
+await test("streaming tool output has a bounded aggregate size", async () => {
+  const payload = Array.from({ length: 18 }, (_, i) =>
+    codexEvent("response.output_item.done", {
+      output_index: i,
+      item: {
+        type: "function_call",
+        call_id: `call-${i}`,
+        name: "write_file",
+        arguments: JSON.stringify({ content: "x".repeat(1024 * 1024) }),
+      },
+    }),
+  ).join("");
+  const bridge = await createCodexFallbackStream(
+    new Response(payload, { headers: { "content-type": "text/event-stream" } }),
+    "claude-test",
+  );
+  let rejected = false;
+  let tools = 0;
+  try {
+    for await (const frame of bridge.frames) {
+      if (frame.includes('"type":"tool_use"')) {
+        tools += 1;
+      }
+    }
+  } catch (error) {
+    rejected = error instanceof Error && error.message.includes("stream limit");
+  }
+  assert(rejected && tools < 18, "aggregate tool output grew without a bound");
 });
 
 await runSuite();

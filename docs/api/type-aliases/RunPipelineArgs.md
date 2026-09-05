@@ -8,7 +8,7 @@
 
 > **RunPipelineArgs** = [`BaseEvaluateArgs`](BaseEvaluateArgs.md) & `object`
 
-Defined in: [types/cli.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1574)
+Defined in: [types/cli.ts:1578](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1578)
 
 Arguments for `neurolink evaluate run-pipeline`.
 

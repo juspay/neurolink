@@ -3,6 +3,7 @@ import type {
   RollingProxyServer,
   RollingProxyServerOptions,
   RollingWorkerSupervisorSnapshot,
+  RollingWorkerSupervisorOptions,
 } from "../types/index.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
 import { RollingWorkerSupervisor } from "./rollingWorkerSupervisor.js";
@@ -22,6 +23,7 @@ export async function startRollingProxyServer(
   let requestedReplacementTimer: NodeJS.Timeout | undefined;
   let requestedReplacementSchedule = 0;
   let requestedReplacementPending = false;
+  let requestedReplacementReason = "environment";
   let replacementQueueTail: Promise<void> | null = null;
 
   const recoveryDelayMs = Math.max(
@@ -104,11 +106,18 @@ export async function startRollingProxyServer(
     }
   };
 
-  function scheduleRequestedReplacement(): void {
+  function scheduleRequestedReplacement(
+    request?: Parameters<
+      NonNullable<RollingWorkerSupervisorOptions["onReplacementRequested"]>
+    >[0],
+  ): void {
     if (closing) {
       return;
     }
     requestedReplacementPending = true;
+    if (request) {
+      requestedReplacementReason = request.reason;
+    }
     if (requestedReplacementTimer || replacementQueueTail) {
       return;
     }
@@ -123,20 +132,21 @@ export async function startRollingProxyServer(
       }
       requestedReplacementPending = false;
       const replacementVersion = desiredVersion;
+      const replacementReason = requestedReplacementReason;
       void queueReplacement(async () => {
         if (closing || !supervisor.snapshot().active) {
           return;
         }
         options.log?.(
-          `[proxy-supervisor] preparing same-version worker replacement version=${replacementVersion} reason=environment`,
+          `[proxy-supervisor] preparing same-version worker replacement version=${replacementVersion} reason=${replacementReason}`,
         );
         await supervisor.replace(replacementVersion);
         options.log?.(
-          `[proxy-supervisor] same-version worker replacement complete version=${replacementVersion} reason=environment`,
+          `[proxy-supervisor] same-version worker replacement complete version=${replacementVersion} reason=${replacementReason}`,
         );
       }).catch((error) => {
         options.log?.(
-          `[proxy-supervisor] same-version worker replacement failed version=${replacementVersion} reason=environment: ${error instanceof Error ? error.message : String(error)}`,
+          `[proxy-supervisor] same-version worker replacement failed version=${replacementVersion} reason=${replacementReason}: ${error instanceof Error ? error.message : String(error)}`,
         );
       });
     }, 50);
@@ -146,6 +156,7 @@ export async function startRollingProxyServer(
     spawnWorker: options.spawnWorker,
     readyTimeoutMs: options.readyTimeoutMs,
     socketQueueLimit: options.socketQueueLimit,
+    maxPendingTransfers: options.maxPendingTransfers,
     socketQueueTimeoutMs: options.socketQueueTimeoutMs,
     shutdownTimeoutMs: options.shutdownTimeoutMs,
     onStateChange: stateChanged,

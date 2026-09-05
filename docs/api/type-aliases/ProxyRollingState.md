@@ -64,11 +64,19 @@ Defined in: [types/cli.ts:990](https://github.com/juspay/neurolink/blob/release/
 
 ---
 
+### pendingTransfers?
+
+> `optional` **pendingTransfers?**: `number`
+
+Defined in: [types/cli.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L991)
+
+---
+
 ### rejectedSockets
 
 > **rejectedSockets**: `number`
 
-Defined in: [types/cli.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L991)
+Defined in: [types/cli.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L992)
 
 ---
 
@@ -76,12 +84,12 @@ Defined in: [types/cli.ts:991](https://github.com/juspay/neurolink/blob/release/
 
 > **failedTransfers**: `number`
 
-Defined in: [types/cli.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L992)
+Defined in: [types/cli.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L993)
 
 ---
 
 ### lastFailure
 
-> **lastFailure**: \{ `at`: `string`; `generation`: `number`; `version`: `string`; `phase`: `"startup"` \| `"activation"` \| `"runtime"` \| `"transfer"`; `message`: `string`; `workerPid?`: `number`; `workerExitCode?`: `number` \| `null`; `workerExitSignal?`: `string` \| `null`; `supervisorAction?`: `"none"` \| `"sigkill_after_transfer_failure"`; \} \| `null`
+> **lastFailure**: \{ `at`: `string`; `generation`: `number`; `version`: `string`; `phase`: `"startup"` \| `"activation"` \| `"runtime"` \| `"transfer"`; `message`: `string`; `workerPid?`: `number`; `workerExitCode?`: `number` \| `null`; `workerExitSignal?`: `string` \| `null`; `supervisorAction?`: `"none"` \| `"sigkill_after_transfer_failure"` \| `"cancel_uncommitted_socket"`; \} \| `null`
 
-Defined in: [types/cli.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L993)
+Defined in: [types/cli.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L994)

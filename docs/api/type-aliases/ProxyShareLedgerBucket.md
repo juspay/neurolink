@@ -8,7 +8,7 @@
 
 > **ProxyShareLedgerBucket** = `object`
 
-Defined in: [types/proxy.ts:3933](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3933)
+Defined in: [types/proxy.ts:3946](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3946)
 
 One grant's consumption of one account's current windows.
 
@@ -22,7 +22,7 @@ the first busy window.
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:3934](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3934)
+Defined in: [types/proxy.ts:3947](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3947)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:3934](https://github.com/juspay/neurolink/blob/relea
 
 > **accountKey**: `string`
 
-Defined in: [types/proxy.ts:3935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3935)
+Defined in: [types/proxy.ts:3948](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3948)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/proxy.ts:3935](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionResetAt**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3936](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3936)
+Defined in: [types/proxy.ts:3949](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3949)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/proxy.ts:3936](https://github.com/juspay/neurolink/blob/relea
 
 > **weeklyResetAt**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3937](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3937)
+Defined in: [types/proxy.ts:3950](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3950)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/proxy.ts:3937](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionFraction**: `number`
 
-Defined in: [types/proxy.ts:3939](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3939)
+Defined in: [types/proxy.ts:3952](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3952)
 
 Accumulated 5h-window utilization attributable to this grant (0..1).
 
@@ -64,7 +64,7 @@ Accumulated 5h-window utilization attributable to this grant (0..1).
 
 > **weeklyFraction**: `number`
 
-Defined in: [types/proxy.ts:3941](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3941)
+Defined in: [types/proxy.ts:3954](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3954)
 
 Accumulated 7d-window utilization attributable to this grant (0..1).
 
@@ -74,7 +74,7 @@ Accumulated 7d-window utilization attributable to this grant (0..1).
 
 > **coinsSpent**: `number`
 
-Defined in: [types/proxy.ts:3942](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3942)
+Defined in: [types/proxy.ts:3955](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3955)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:3942](https://github.com/juspay/neurolink/blob/relea
 
 > **requests**: `number`
 
-Defined in: [types/proxy.ts:3943](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3943)
+Defined in: [types/proxy.ts:3956](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3956)
 
 ---
 
@@ -90,4 +90,4 @@ Defined in: [types/proxy.ts:3943](https://github.com/juspay/neurolink/blob/relea
 
 > **updatedAt**: `number`
 
-Defined in: [types/proxy.ts:3944](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3944)
+Defined in: [types/proxy.ts:3957](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3957)

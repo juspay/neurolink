@@ -8,6 +8,17 @@ const pendingSockets = new Map();
 const socketAcceptDelayMs = Number(
   process.env.NEUROLINK_PROXY_WORKER_SOCKET_ACCEPT_DELAY_MS ?? 0,
 );
+let offeredSockets = 0;
+let servedRequests = 0;
+const delayedOffer = Number(
+  process.env.NEUROLINK_PROXY_WORKER_DELAY_OFFER_NUMBER ?? 0,
+);
+const delayOffersAfter = Number(
+  process.env.NEUROLINK_PROXY_WORKER_DELAY_OFFERS_AFTER ?? -1,
+);
+const streamChunks = Number(
+  process.env.NEUROLINK_PROXY_WORKER_STREAM_CHUNKS ?? 20,
+);
 let draining = false;
 let gracefulDrain = false;
 
@@ -80,6 +91,8 @@ function drainWhenPendingSettled() {
 }
 
 const server = http.createServer((request, response) => {
+  servedRequests += 1;
+  response.setHeader("x-worker-served-requests", String(servedRequests));
   const socket = request.socket;
   activeBySocket.set(socket, (activeBySocket.get(socket) ?? 0) + 1);
   response.setHeader("x-worker-version", version);
@@ -108,7 +121,7 @@ const server = http.createServer((request, response) => {
     const timer = setInterval(() => {
       response.write(Buffer.alloc(256, chunk));
       chunk += 1;
-      if (chunk === 20) {
+      if (chunk === streamChunks) {
         clearInterval(timer);
         response.end();
       }
@@ -177,7 +190,13 @@ process.on("message", (message, socket) => {
         },
       );
     };
-    if (socketAcceptDelayMs > 0) {
+    offeredSockets += 1;
+    if (
+      socketAcceptDelayMs > 0 &&
+      (delayOffersAfter >= 0
+        ? offeredSockets > delayOffersAfter
+        : delayedOffer === 0 || delayedOffer === offeredSockets)
+    ) {
       setTimeout(acknowledge, socketAcceptDelayMs);
     } else {
       acknowledge();

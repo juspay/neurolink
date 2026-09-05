@@ -8,7 +8,7 @@
 
 > **SystemPromptInjectorOptions** = `object`
 
-Defined in: [types/proxy.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L416)
+Defined in: [types/proxy.ts:421](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L421)
 
 Options for the SystemPromptInjector cloaking plugin.
 
@@ -18,7 +18,7 @@ Options for the SystemPromptInjector cloaking plugin.
 
 > `optional` **ide?**: `string`
 
-Defined in: [types/proxy.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L418)
+Defined in: [types/proxy.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L423)
 
 IDE name to inject (default: "vscode").
 
@@ -28,7 +28,7 @@ IDE name to inject (default: "vscode").
 
 > `optional` **ideVersion?**: `string`
 
-Defined in: [types/proxy.ts:420](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L420)
+Defined in: [types/proxy.ts:425](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L425)
 
 IDE version (default: "1.96.2").
 
@@ -38,7 +38,7 @@ IDE version (default: "1.96.2").
 
 > `optional` **platform?**: `string`
 
-Defined in: [types/proxy.ts:422](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L422)
+Defined in: [types/proxy.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L427)
 
 Platform string (default: "darwin").
 
@@ -48,7 +48,7 @@ Platform string (default: "darwin").
 
 > `optional` **cwd?**: `string`
 
-Defined in: [types/proxy.ts:424](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L424)
+Defined in: [types/proxy.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L429)
 
 Working directory to inject (default: "/home/user/project").
 
@@ -58,6 +58,6 @@ Working directory to inject (default: "/home/user/project").
 
 > `optional` **preamble?**: `string`
 
-Defined in: [types/proxy.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L426)
+Defined in: [types/proxy.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L431)
 
 Extra preamble to prepend.

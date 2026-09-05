@@ -8,6 +8,6 @@
 
 > **ProxyPeerAuthOutcome** = \{ `ok`: `true`; `grant`: [`ProxyShareGrant`](ProxyShareGrant.md); \} \| \{ `ok`: `false`; `body`: [`ProxyShareRefusalResponse`](ProxyShareRefusalResponse.md)\[`"body"`\]; \}
 
-Defined in: [types/proxy.ts:3831](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3831)
+Defined in: [types/proxy.ts:3844](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3844)
 
 Result of authenticating a `/peer/*` caller by its share token.

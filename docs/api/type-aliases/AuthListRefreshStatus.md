@@ -8,6 +8,6 @@
 
 > **AuthListRefreshStatus** = `"refreshed"` \| `"snapshot"` \| `"unavailable"` \| `"not_supported"`
 
-Defined in: [types/cli.ts:1115](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1115)
+Defined in: [types/cli.ts:1119](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1119)
 
 Refresh state for a provider-qualified account.

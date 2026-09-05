@@ -8,7 +8,7 @@
 
 > **CliClassifierRouterFlags** = `object`
 
-Defined in: [types/cli.ts:2003](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2003)
+Defined in: [types/cli.ts:2007](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2007)
 
 CLI flags for the classifier router (`--classifier-*`). Builds a
 ClassifierRouterConfig that is injected at SDK construction time.
@@ -19,7 +19,7 @@ ClassifierRouterConfig that is injected at SDK construction time.
 
 > `optional` **classifierRouter?**: `boolean`
 
-Defined in: [types/cli.ts:2005](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2005)
+Defined in: [types/cli.ts:2009](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2009)
 
 Master enable switch (--classifier-router).
 
@@ -29,7 +29,7 @@ Master enable switch (--classifier-router).
 
 > `optional` **classifierStrategy?**: `string`
 
-Defined in: [types/cli.ts:2007](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2007)
+Defined in: [types/cli.ts:2011](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2011)
 
 Strategy: "heuristic" (default) or "llm" (--classifier-strategy).
 
@@ -39,7 +39,7 @@ Strategy: "heuristic" (default) or "llm" (--classifier-strategy).
 
 > `optional` **classifierModelProvider?**: `string`
 
-Defined in: [types/cli.ts:2009](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2009)
+Defined in: [types/cli.ts:2013](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2013)
 
 LLM-classifier provider override (--classifier-model-provider).
 
@@ -49,7 +49,7 @@ LLM-classifier provider override (--classifier-model-provider).
 
 > `optional` **classifierModelName?**: `string`
 
-Defined in: [types/cli.ts:2011](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2011)
+Defined in: [types/cli.ts:2015](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2015)
 
 LLM-classifier model override (--classifier-model-name).
 
@@ -59,7 +59,7 @@ LLM-classifier model override (--classifier-model-name).
 
 > `optional` **classifierModelRegion?**: `string`
 
-Defined in: [types/cli.ts:2013](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2013)
+Defined in: [types/cli.ts:2017](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2017)
 
 LLM-classifier region override (--classifier-model-region).
 
@@ -69,7 +69,7 @@ LLM-classifier region override (--classifier-model-region).
 
 > `optional` **classifierPool?**: `string`
 
-Defined in: [types/cli.ts:2019](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2019)
+Defined in: [types/cli.ts:2023](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2023)
 
 Path to a JSON file OR inline JSON array of pool members
 (--classifier-pool). Each entry: { provider, model?, region?, description?,
@@ -81,6 +81,6 @@ tiers?, cost?, quality?, capabilities?, id? }.
 
 > `optional` **classifierTimeout?**: `number`
 
-Defined in: [types/cli.ts:2021](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2021)
+Defined in: [types/cli.ts:2025](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2025)
 
 LLM-classifier hard timeout in ms (--classifier-timeout).

@@ -8,7 +8,7 @@
 
 > **ProxyProviderTransportPermit** = \{ `allowed`: `true`; `probe`: `boolean`; `generation`: `number`; \} \| \{ `allowed`: `false`; `errorCode`: `string` \| `null`; `transportScope`: [`ProxyNetworkTransportScope`](ProxyNetworkTransportScope.md); `connectPhase`: `boolean`; \}
 
-Defined in: [types/proxy.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L551)
+Defined in: [types/proxy.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L556)
 
 ## Union Members
 

@@ -934,6 +934,7 @@ console.log(result.content);
 - [CodexReasoningEffort](type-aliases/CodexReasoningEffort.md)
 - [CodexResponsesRequest](type-aliases/CodexResponsesRequest.md)
 - [CodexFallbackResult](type-aliases/CodexFallbackResult.md)
+- [CodexFallbackStream](type-aliases/CodexFallbackStream.md)
 - [Unknown](type-aliases/Unknown.md)
 - [UnknownRecord](type-aliases/UnknownRecord.md)
 - [UnknownArray](type-aliases/UnknownArray.md)

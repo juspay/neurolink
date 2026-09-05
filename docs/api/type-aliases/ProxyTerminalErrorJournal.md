@@ -8,7 +8,7 @@
 
 > **ProxyTerminalErrorJournal** = `object`
 
-Defined in: [types/proxy.ts:1173](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1173)
+Defined in: [types/proxy.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1178)
 
 Bounded terminal-error state stored separately from counters and body logs.
 
@@ -18,7 +18,7 @@ Bounded terminal-error state stored separately from counters and body logs.
 
 > **startedAt**: `number`
 
-Defined in: [types/proxy.ts:1174](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1174)
+Defined in: [types/proxy.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1179)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1174](https://github.com/juspay/neurolink/blob/relea
 
 > **totalErrors**: `number`
 
-Defined in: [types/proxy.ts:1175](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1175)
+Defined in: [types/proxy.ts:1180](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1180)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1175](https://github.com/juspay/neurolink/blob/relea
 
 > **counts**: `Record`\<[`ProxyTerminalErrorCategory`](ProxyTerminalErrorCategory.md), `number`\>
 
-Defined in: [types/proxy.ts:1176](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1176)
+Defined in: [types/proxy.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1181)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:1176](https://github.com/juspay/neurolink/blob/relea
 
 > **recent**: [`ProxyTerminalErrorSummary`](ProxyTerminalErrorSummary.md)[]
 
-Defined in: [types/proxy.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1177)
+Defined in: [types/proxy.ts:1182](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1182)

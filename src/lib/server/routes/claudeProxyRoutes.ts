@@ -71,8 +71,10 @@ import {
 import {
   CodexFallbackResponseError,
   consumeCodexFallbackResponse,
+  createCodexFallbackStream,
   convertClaudeRequestToCodex,
 } from "../../proxy/codexFallback.js";
+import { registerProxyResponseObserver } from "../../proxy/proxyActivity.js";
 import {
   buildAnthropicModelsListResponse,
   buildTranslationOptions,
@@ -610,6 +612,7 @@ async function acquireFirstAvailableAccountAdmission(
 
 /** Track whether we've run the one-time startup prune. */
 let startupPruneDone = false;
+let startupPrune: Promise<void> | undefined;
 
 /** Default cooling period when retries are exhausted and upstream didn't
  *  provide a retry-after header. Short enough to recover quickly, long
@@ -4503,11 +4506,21 @@ async function loadClaudeProxyAccounts(args: {
   const persistedCooldowns = await loadAccountCooldowns();
 
   if (!startupPruneDone) {
-    await tokenStore.pruneExpired();
-    startupPruneDone = true;
+    startupPrune ??= tokenStore
+      .pruneExpired()
+      .then(() => {
+        startupPruneDone = true;
+      })
+      .finally(() => {
+        startupPrune = undefined;
+      });
+    await startupPrune;
   }
 
-  const compoundKeys = await tokenStore.listByPrefix("anthropic:");
+  const inventory = await tokenStore.getProviderSnapshot();
+  const compoundKeys = Object.keys(inventory).filter((key) =>
+    key.startsWith("anthropic:"),
+  );
   // Tracked so an empty pool can name the real cause: "every account is
   // entitlement-blocked" is a different problem from "no credentials".
   const entitlementBlockedLabels: string[] = [];
@@ -4520,9 +4533,9 @@ async function loadClaudeProxyAccounts(args: {
       );
       continue;
     }
-    if (await tokenStore.isDisabled(key)) {
+    if (inventory[key].disabled) {
       const existingState = getOrCreateRuntimeState(key);
-      const disabledReason = await tokenStore.getDisabledReason(key);
+      const disabledReason = inventory[key].disabledReason;
       // Older releases permanently disabled accounts after any refresh error,
       // including timeouts, 429s and 5xx responses. Re-evaluate those legacy
       // entries once under the terminal/transient classifier below.
@@ -4547,7 +4560,7 @@ async function loadClaudeProxyAccounts(args: {
       }
     }
 
-    const tokens = await tokenStore.loadTokens(key);
+    const tokens = inventory[key].tokens;
     if (!tokens) {
       skippedForOtherReasons += 1;
       continue;
@@ -5096,9 +5109,8 @@ async function executeClaudeFallbackWithRetry(
 /**
  * Run the configured `codex` fallback through the native pooled Codex route.
  *
- * The inner response is fully buffered and validated before this function
- * creates a single Claude frame. That preserves the proxy's no-replay-after-
- * output guarantee when Codex returns an incomplete stream.
+ * Streaming clients receive incremental output. Once the stream is returned,
+ * failures are terminal SSE errors; only pre-output failures may try a fallback.
  */
 async function executeClaudeCodexFallback(args: {
   ctx: ServerContext;
@@ -5151,6 +5163,163 @@ async function executeClaudeCodexFallback(args: {
   };
   const codexResponse = await handleCodexResponsesRequest(codexCtx);
   const codexHeaders = { ...(codexCtx.responseHeaders ?? {}) };
+
+  if (body.stream) {
+    const bridge = await createCodexFallbackStream(codexResponse, body.model);
+    ctx.responseHeaders ??= {};
+    Object.assign(ctx.responseHeaders, redactHeadersForBorrower(codexHeaders));
+    const account = codexHeaders["x-neurolink-account"] ?? "";
+    const accountType =
+      codexHeaders["x-neurolink-account-type"] ?? "codex-oauth";
+    let settled = false;
+    let captured = "";
+    let responseBytes = 0;
+    const finish = (
+      status: number,
+      result?: CodexFallbackResult,
+      errorType?: string,
+      message?: string,
+    ): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      ctx.abortSignal?.removeEventListener("abort", cancel);
+      if (status >= 400) {
+        ctx.metadata.terminalErrorType = errorType;
+      }
+      tracer?.end(status, Date.now() - requestStartTime);
+      logFinalRequest(status, account, accountType, errorType, message, {
+        inputTokens: result?.usage?.input,
+        outputTokens: result?.usage?.output,
+        cacheCreationTokens: result?.usage?.cacheCreationTokens,
+        cacheReadTokens: result?.usage?.cacheReadTokens,
+      });
+      recordFallbackAttempt({
+        provider: "codex",
+        model,
+        status: status < 400 ? "success" : "failure",
+        durationMs: Date.now() - requestStartTime,
+        ...(message ? { errorMessage: message } : {}),
+      });
+      logProxyBody({
+        phase: "client_response",
+        contentType: "text/event-stream",
+        body: captured,
+        bodySize: responseBytes,
+        responseStatus: status,
+        durationMs: Date.now() - requestStartTime,
+      });
+    };
+    const cancel = (): void => {
+      finish(
+        499,
+        undefined,
+        "client_cancelled",
+        "Client cancelled Codex fallback stream",
+      );
+      void bridge.cancel();
+    };
+    ctx.abortSignal?.addEventListener("abort", cancel, { once: true });
+    registerProxyResponseObserver(ctx.metadata, {
+      onTerminal: ({ outcome }) => {
+        if (outcome === "client_cancelled") {
+          cancel();
+        } else if (outcome === "stream_error") {
+          finish(
+            502,
+            undefined,
+            "stream_error",
+            "Codex fallback stream failed",
+          );
+          void bridge.cancel();
+        }
+      },
+    });
+    const capture = (frame: string): string => {
+      responseBytes += Buffer.byteLength(frame);
+      if (captured.length < 1024 * 1024) {
+        captured += frame.slice(0, 1024 * 1024 - captured.length);
+      }
+      return frame;
+    };
+    async function* relay(): AsyncGenerator<string> {
+      try {
+        if (ctx.abortSignal?.aborted) {
+          cancel();
+          return;
+        }
+        let pending = bridge.frames.next();
+        while (!settled) {
+          let timer: NodeJS.Timeout | undefined;
+          const heartbeat = new Promise<null>((resolve) => {
+            timer = setTimeout(() => resolve(null), 15_000);
+            timer.unref();
+          });
+          let next: IteratorResult<string, CodexFallbackResult> | null;
+          try {
+            next = await Promise.race([pending, heartbeat]);
+          } finally {
+            clearTimeout(timer);
+          }
+          if (settled) {
+            return;
+          }
+          if (next === null) {
+            yield capture(ClaudeStreamSerializer.pingEvent());
+            continue;
+          }
+          if (next.done === true) {
+            finish(200, next.value);
+            return;
+          }
+          const frame = capture(next.value);
+          if (frame.startsWith("event: message_stop\n")) {
+            // Finalize before exposing the terminal frame: a client can close
+            // immediately after receiving it without making another pull.
+            const completion = await bridge.frames.next();
+            if (completion.done !== true) {
+              throw new Error(
+                "Codex fallback emitted output after message_stop",
+              );
+            }
+            if (settled) {
+              return;
+            }
+            finish(200, completion.value);
+            yield frame;
+            return;
+          }
+          yield frame;
+          pending = bridge.frames.next();
+        }
+      } catch (error) {
+        if (!settled) {
+          const detail = redactProviderErrorMessage(
+            describeTransportError(error),
+          );
+          logger.always(`[proxy] Codex fallback stream failed: ${detail}`);
+          const serializer = new ClaudeStreamSerializer(body.model);
+          const frames = [
+            ...serializer.emitError(502, "Codex fallback stream failed"),
+          ].map(capture);
+          finish(502, undefined, "stream_error", detail);
+          yield* frames;
+        }
+      } finally {
+        ctx.abortSignal?.removeEventListener("abort", cancel);
+        if (!settled) {
+          cancel();
+        }
+        await bridge.cancel();
+        await bridge.frames
+          .return({ text: "", toolCalls: [], finishReason: "end_turn" })
+          .catch(() => undefined);
+      }
+    }
+    return relay();
+  }
+
   let parsed: CodexFallbackResult;
   try {
     parsed = await consumeCodexFallbackResponse(codexResponse);
@@ -5178,61 +5347,6 @@ async function executeClaudeCodexFallback(args: {
     ...(parsed.usage ? { usage: parsed.usage } : {}),
     toolCalls: parsed.toolCalls,
   };
-
-  if (body.stream) {
-    const serializer = new ClaudeStreamSerializer(
-      body.model,
-      parsed.usage?.input ?? 0,
-    );
-    const frames: string[] = [];
-    for (const frame of serializer.start()) {
-      frames.push(frame);
-    }
-    if (parsed.text) {
-      for (const frame of serializer.pushDelta(parsed.text)) {
-        frames.push(frame);
-      }
-    }
-    for (const toolCall of parsed.toolCalls) {
-      for (const frame of serializer.pushToolUse(
-        generateToolUseId(),
-        toolCall.toolName,
-        toolCall.args,
-      )) {
-        frames.push(frame);
-      }
-    }
-    for (const frame of serializer.finish(
-      parsed.usage?.output,
-      parsed.finishReason,
-    )) {
-      frames.push(frame);
-    }
-
-    tracer?.end(200, Date.now() - requestStartTime);
-    logFinalRequest(200, accountLabel, accountType, undefined, undefined, {
-      inputTokens: parsed.usage?.input,
-      outputTokens: parsed.usage?.output,
-      cacheCreationTokens: parsed.usage?.cacheCreationTokens,
-      cacheReadTokens: parsed.usage?.cacheReadTokens,
-    });
-    const bufferedBody = frames.join("");
-    logProxyBody({
-      phase: "client_response",
-      headers: { "content-type": "text/event-stream" },
-      body: bufferedBody,
-      bodySize: Buffer.byteLength(bufferedBody, "utf8"),
-      contentType: "text/event-stream",
-      responseStatus: 200,
-      durationMs: Date.now() - requestStartTime,
-    });
-    async function* sseGenerator(): AsyncIterable<string> {
-      for (const frame of frames) {
-        yield frame;
-      }
-    }
-    return sseGenerator();
-  }
 
   tracer?.end(200, Date.now() - requestStartTime);
   const clientResponse = serializeClaudeResponse(internal, body.model);
@@ -5367,6 +5481,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
   response: unknown | null;
   lastErrorMessage?: string;
   invalidRequestFailure?: AnthropicInvalidRequestFailure;
+  terminalFailure?: { status: number; message: string; errorType: string };
 }> {
   const {
     ctx,
@@ -5402,6 +5517,9 @@ async function tryConfiguredClaudeFallbackChain(args: {
     reason: "all_anthropic_accounts_exhausted",
   });
   let lastFallbackError: string | undefined;
+  let terminalFailure:
+    | { status: number; message: string; errorType: string }
+    | undefined;
   let invalidRequestFailure: AnthropicInvalidRequestFailure | undefined;
 
   for (const fallback of fallbackPlan.attempts.slice(1)) {
@@ -5465,6 +5583,9 @@ async function tryConfiguredClaudeFallbackChain(args: {
           providerLabel: fallback.provider,
         });
       }
+      if (fallback.provider === "codex" && body.stream) {
+        return { response };
+      }
       recordFallbackAttempt({
         provider: fallback.provider,
         model: fallback.model,
@@ -5490,7 +5611,28 @@ async function tryConfiguredClaudeFallbackChain(args: {
       }
       return { response };
     } catch (fallbackErr) {
-      invalidRequestFailure ??=
+      const status = ctx.abortSignal?.aborted
+        ? 499
+        : fallbackErr instanceof CodexFallbackResponseError
+          ? fallbackErr.status
+          : 502;
+      terminalFailure = {
+        status,
+        message: `Configured fallback ${fallback.provider}/${fallback.model} failed (HTTP ${status})`,
+        errorType:
+          status === 499
+            ? "client_cancelled"
+            : status === 429
+              ? "rate_limit_error"
+              : status === 401
+                ? "authentication_error"
+                : status === 403
+                  ? "permission_error"
+                  : status === 400
+                    ? "invalid_request_error"
+                    : "api_error",
+      };
+      invalidRequestFailure =
         getCodexFallbackInvalidRequestFailure(fallbackErr) ?? undefined;
       const errMsg = redactProviderErrorMessage(
         fallbackErr instanceof Error
@@ -5535,14 +5677,39 @@ async function tryConfiguredClaudeFallbackChain(args: {
         durationMs: Date.now() - fallbackStart,
       });
       lastFallbackError = `[${fallback.provider}/${fallback.model}] ${redactProviderErrorMessage(describeTransportError(fallbackErr))}`;
+      if (ctx.abortSignal?.aborted) {
+        break;
+      }
     }
   }
 
   return {
     response: null,
     lastErrorMessage: lastFallbackError,
+    terminalFailure,
     ...(invalidRequestFailure ? { invalidRequestFailure } : {}),
   };
+}
+
+/** Preserve the final fallback status through every HTTP route adapter. */
+function buildConfiguredClaudeFallbackFailure(args: {
+  failure: { status: number; message: string; errorType: string };
+  buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
+  tracer?: ProxyTracer;
+  requestStartTime: number;
+}): Response {
+  const { failure, buildLoggedClaudeError, tracer, requestStartTime } = args;
+  tracer?.setError(failure.errorType, failure.message);
+  tracer?.end(failure.status, Date.now() - requestStartTime);
+  const body = buildLoggedClaudeError(
+    failure.status,
+    failure.message,
+    failure.errorType,
+  );
+  return new Response(JSON.stringify(body), {
+    status: failure.status,
+    headers: { "content-type": "application/json" },
+  });
 }
 
 async function tryAutoClaudeFallback(args: {
@@ -9147,6 +9314,15 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         logFinalRequest,
       });
     }
+    if (configuredFallbackResult.terminalFailure) {
+      const failure = configuredFallbackResult.terminalFailure;
+      return buildConfiguredClaudeFallbackFailure({
+        failure,
+        buildLoggedClaudeError,
+        tracer,
+        requestStartTime,
+      });
+    }
     return buildDeferredClaudeAccountFailureResponse({
       ctx,
       tracer,
@@ -9770,15 +9946,25 @@ async function handleAnthropicRoutedClaudeRequest(args: {
     if (configuredFallbackResult.response) {
       return configuredFallbackResult.response;
     }
-    if (
-      configuredFallbackResult.invalidRequestFailure &&
-      !loopState.sawRateLimit
-    ) {
-      // A converted Codex request can be rejected independently of the original
-      // Anthropic request. Preserve a real pool 429 as the actionable terminal
-      // response when both occurred.
-      loopState.invalidRequestFailure =
-        configuredFallbackResult.invalidRequestFailure;
+    if (configuredFallbackResult.invalidRequestFailure) {
+      // Surface the failure of the provider actually attempted last.
+      return buildClaudeAnthropicFailureResponse({
+        tracer,
+        requestStartTime,
+        authFailureMessage: null,
+        authCooldownMessage: null,
+        invalidRequestFailure: configuredFallbackResult.invalidRequestFailure,
+        entitlementFailure: null,
+        scopedExhaustion: null,
+        sawNetworkError: false,
+        sawTransientFailure: false,
+        sawRateLimit: false,
+        lastError: undefined,
+        orderedAccounts: [],
+        buildLoggedClaudeError,
+        logProxyBody,
+        logFinalRequest,
+      });
     }
     fallbackFailureMessage = configuredFallbackResult.lastErrorMessage;
 
@@ -9804,6 +9990,18 @@ async function handleAnthropicRoutedClaudeRequest(args: {
         autoFallbackResult.lastErrorMessage ?? fallbackFailureMessage;
     }
 
+    if (
+      configuredFallbackResult.terminalFailure &&
+      !configuredFallbackResult.invalidRequestFailure
+    ) {
+      const failure = configuredFallbackResult.terminalFailure;
+      return buildConfiguredClaudeFallbackFailure({
+        failure,
+        buildLoggedClaudeError,
+        tracer,
+        requestStartTime,
+      });
+    }
     loopState.fallbackFailureMessage = fallbackFailureMessage;
   }
 

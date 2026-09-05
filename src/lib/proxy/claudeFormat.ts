@@ -672,7 +672,11 @@ export class ClaudeStreamSerializer {
   /**
    * Finalize the stream: content_block_stop, message_delta, message_stop.
    */
-  *finish(outputTokens?: number, finishReason?: string): Generator<string> {
+  *finish(
+    outputTokens?: number,
+    finishReason?: string,
+    finalUsage?: Partial<SSEMessageDelta["usage"]>,
+  ): Generator<string> {
     // If we never started (empty response), start first
     if (this.state === "idle") {
       yield* this.ensureMessageStarted();
@@ -698,7 +702,7 @@ export class ClaudeStreamSerializer {
         stop_reason: mapStopReason(resolvedFinishReason),
         stop_sequence: null,
       },
-      usage: { output_tokens: this.outputTokens },
+      usage: { ...finalUsage, output_tokens: this.outputTokens },
     };
     yield formatSSE("message_delta", messageDelta);
 

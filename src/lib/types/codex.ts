@@ -190,3 +190,9 @@ export type CodexFallbackResult = {
   usage?: NonNullable<InternalResult["usage"]>;
   finishReason: "end_turn" | "tool_use";
 };
+
+/** Incremental Claude frames and explicit upstream cancellation. */
+export type CodexFallbackStream = {
+  frames: AsyncGenerator<string, CodexFallbackResult>;
+  cancel: (reason?: unknown) => Promise<void>;
+};

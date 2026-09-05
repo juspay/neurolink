@@ -11,6 +11,7 @@ import { ErrorFactory } from "../utils/errorHandling.js";
 import {
   isProxyWorkerStatusMessage,
   PROXY_SOCKET_WORKER_ENV,
+  PROXY_SOCKET_OFFER_TIMEOUT,
 } from "./rollingWorkerProtocol.js";
 
 export function spawnProxySocketWorker(
@@ -178,12 +179,15 @@ export function spawnProxySocketWorker(
       }
       const socketId = `${generation}:${++nextSocketId}`;
       const timeout = setTimeout(() => {
-        settleSocket(
-          socketId,
-          new Error(
-            `proxy worker ${childPid} did not accept socket within ${socketAckTimeoutMs}ms`,
-          ),
+        const error: NodeJS.ErrnoException = new Error(
+          `proxy worker ${childPid} did not accept socket within ${socketAckTimeoutMs}ms`,
         );
+        if (!pendingSockets.get(socketId)?.accepted) {
+          // No commit was sent. The cancel message settles this offer without
+          // terminating unrelated requests already owned by the worker.
+          error.code = PROXY_SOCKET_OFFER_TIMEOUT;
+        }
+        settleSocket(socketId, error);
       }, socketAckTimeoutMs);
       timeout.unref?.();
       pendingSockets.set(socketId, {

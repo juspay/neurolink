@@ -8,7 +8,7 @@
 
 > **ObservabilityCommandArgs** = `object`
 
-Defined in: [types/cli.ts:1218](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1218)
+Defined in: [types/cli.ts:1222](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1222)
 
 Observability command arguments
 
@@ -18,7 +18,7 @@ Observability command arguments
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"`
 
-Defined in: [types/cli.ts:1219](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1219)
+Defined in: [types/cli.ts:1223](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1223)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1219](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **quiet?**: `boolean`
 
-Defined in: [types/cli.ts:1220](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1220)
+Defined in: [types/cli.ts:1224](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1224)

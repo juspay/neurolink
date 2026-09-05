@@ -8,7 +8,7 @@
 
 > **ProxyGeminiContent** = `object`
 
-Defined in: [types/proxy.ts:3343](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3343)
+Defined in: [types/proxy.ts:3356](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3356)
 
 One turn in a Gemini `contents[]` array.
 
@@ -18,7 +18,7 @@ One turn in a Gemini `contents[]` array.
 
 > `optional` **role?**: `string`
 
-Defined in: [types/proxy.ts:3343](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3343)
+Defined in: [types/proxy.ts:3356](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3356)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3343](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **parts?**: [`ProxyGeminiPart`](ProxyGeminiPart.md)[]
 
-Defined in: [types/proxy.ts:3343](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3343)
+Defined in: [types/proxy.ts:3356](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3356)

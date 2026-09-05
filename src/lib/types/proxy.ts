@@ -212,7 +212,12 @@ export type SSEContentBlockStop = {
 export type SSEMessageDelta = {
   type: "message_delta";
   delta: { stop_reason: string | null; stop_sequence: string | null };
-  usage: { output_tokens: number };
+  usage: {
+    output_tokens: number;
+    input_tokens?: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
 };
 
 export type SSEMessageStop = {
@@ -2766,7 +2771,10 @@ export type RollingWorkerFailureDetails = {
   workerPid?: number;
   workerExitCode?: number | null;
   workerExitSignal?: string | null;
-  supervisorAction?: "none" | "sigkill_after_transfer_failure";
+  supervisorAction?:
+    | "none"
+    | "sigkill_after_transfer_failure"
+    | "cancel_uncommitted_socket";
 };
 
 export type RollingWorkerSupervisorEvent = {
@@ -2788,6 +2796,8 @@ export type RollingWorkerSupervisorSnapshot = {
   } | null;
   draining: Array<{ pid: number; version: string; generation: number }>;
   queuedSockets: number;
+  /** Offered sockets awaiting acknowledgement or commit, across all workers. */
+  pendingTransfers?: number;
   rejectedSockets: number;
   failedTransfers: number;
   /** Bounded generation-scoped evidence for attributing lifetime counters. */
@@ -2810,13 +2820,15 @@ export type RollingWorkerSupervisorOptions = {
   ) => RollingWorkerHandle;
   readyTimeoutMs?: number;
   socketQueueLimit?: number;
+  /** Bound IPC socket offers independently of active HTTP requests. */
+  maxPendingTransfers?: number;
   socketQueueTimeoutMs?: number;
   shutdownTimeoutMs?: number;
   onStateChange?: (snapshot: RollingWorkerSupervisorSnapshot) => void;
   onReplacementRequested?: (request: {
     generation: number;
     pid: number;
-    reason: "environment";
+    reason: "environment" | "socket_offer_timeout";
   }) => void;
   log?: (message: string) => void;
 };
@@ -2831,6 +2843,7 @@ export type RollingProxyServerOptions = {
   ) => RollingWorkerHandle;
   readyTimeoutMs?: number;
   socketQueueLimit?: number;
+  maxPendingTransfers?: number;
   socketQueueTimeoutMs?: number;
   shutdownTimeoutMs?: number;
   recoveryDelayMs?: number;

@@ -163,7 +163,6 @@ const gatedShareRequests = new WeakSet<Request>();
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
 /** How long shutdown waits on the share listener before moving on. */
 const SHARE_LISTENER_CLOSE_TIMEOUT_MS = 10_000;
-const PROXY_STATUS_TOKEN_READ_TIMEOUT_MS = 2_000;
 const PROXY_STATUS_RECONCILE_TIMEOUT_MS = 750;
 const PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS = 750;
 // Allowed drift between a pid's OS-reported start time and the persisted
@@ -1514,6 +1513,12 @@ function registerProxyRequestTracking(
           });
         },
         onTerminal: ({ outcome, observedBodyBytes, responseChunks }) => {
+          if (
+            outcome === "completed" &&
+            metadata.terminalErrorType === "stream_error"
+          ) {
+            outcome = "stream_error";
+          }
           logProxyLifecycleEvent({
             event: "request_terminal",
             requestId: metadata.requestId,
@@ -1943,6 +1948,7 @@ export async function createProxyStartApp(params: {
         }
       }
 
+      const requestAbortController = new AbortController();
       const ctx = {
         requestId: metadata?.requestId ?? crypto.randomUUID(),
         method: c.req.method,
@@ -1952,6 +1958,10 @@ export async function createProxyStartApp(params: {
         params: c.req.param() as Record<string, string>,
         body,
         rawBody,
+        abortSignal: AbortSignal.any([
+          c.req.raw.signal,
+          requestAbortController.signal,
+        ]),
         // The proxy runtime exposes only the structural slice of NeuroLink the
         // routes use; narrow (overlap-checked) to the full class for ServerContext.
         neurolink: params.neurolink as NeuroLink,
@@ -2004,38 +2014,48 @@ export async function createProxyStartApp(params: {
           Symbol.asyncIterator
         ]();
         let cancelled = false;
-        const responseStream = new ReadableStream({
-          async start(controller) {
+        const encoder = new TextEncoder();
+        const responseStream = new ReadableStream<Uint8Array>({
+          async pull(controller) {
+            if (cancelled) {
+              return;
+            }
             try {
-              while (!cancelled) {
-                const { value, done } = await iterator.next();
-                if (done) {
-                  break;
-                }
-                controller.enqueue(new TextEncoder().encode(value));
-              }
-              controller.close();
-            } catch (streamErr) {
+              const next = await iterator.next();
               if (cancelled) {
-                controller.close();
                 return;
               }
-              const errMsg =
-                streamErr instanceof Error
-                  ? streamErr.message
-                  : String(streamErr);
-              const errorEvent = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: `Stream interrupted: ${errMsg}` } })}\n\n`;
-              try {
-                controller.enqueue(new TextEncoder().encode(errorEvent));
-              } catch {
-                // Controller already errored — ignore
+              if (next.done) {
+                controller.close();
+              } else {
+                controller.enqueue(encoder.encode(next.value));
               }
+            } catch (streamErr) {
+              if (cancelled) {
+                return;
+              }
+              if (metadata) {
+                metadata.terminalErrorType = "stream_error";
+              }
+              logger.debug("[proxy] response stream interrupted", {
+                error: streamErr,
+              });
+              controller.enqueue(
+                encoder.encode(
+                  `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: "Stream interrupted" } })}\n\n`,
+                ),
+              );
               controller.close();
             }
           },
-          async cancel() {
+          async cancel(reason) {
             cancelled = true;
-            await iterator.return?.();
+            requestAbortController.abort(reason);
+            await withTimeout(
+              Promise.resolve(iterator.return?.()),
+              1000,
+              "[proxy] response cancellation timed out",
+            ).catch(() => undefined);
           },
         });
         return new Response(responseStream, {
@@ -2181,67 +2201,31 @@ export async function createProxyStartApp(params: {
     let accountInventoryLoaded = false;
     try {
       const { tokenStore } = await import("../../lib/auth/tokenStore.js");
-      const [anthropicKeys, codexKeys] = await withTimeout(
-        Promise.all([
-          tokenStore.listByPrefix("anthropic:"),
-          tokenStore.listByPrefix("codex:"),
-        ]),
-        PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
-        "[proxy] /status account enumeration timed out",
-      );
-      for (const key of anthropicKeys) {
-        storedAnthropicAccountKeys.add(normalizeAnthropicAccountKey(key));
-      }
-      for (const key of codexKeys) {
-        storedCodexAccountKeys.add(key);
-      }
-      // Once account names are known, preserve them even when optional token
-      // metadata is slow. That keeps the status table useful and avoids
-      // incorrectly presenting known accounts as removed.
-      accountInventoryLoaded = true;
-      const storedKeys = [...anthropicKeys, ...codexKeys];
       const inventory = await withTimeout(
-        (async () => {
-          const tokenExpirations = await Promise.all(
-            storedKeys.map(async (key) => {
-              try {
-                const tokens = await withTimeout(
-                  tokenStore.peekTokens(key),
-                  PROXY_STATUS_TOKEN_READ_TIMEOUT_MS,
-                  "[proxy] /status token inspection timed out",
-                );
-                return tokens ? ([key, tokens.expiresAt] as const) : undefined;
-              } catch (error) {
-                logger.debug(
-                  `[proxy] /status: failed to inspect token metadata for ${normalizeAnthropicAccountKey(key)}: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`,
-                );
-                return undefined;
-              }
-            }),
-          );
-          const disabledKeys = await tokenStore.listDisabled();
-          return { tokenExpirations, disabledKeys };
-        })(),
+        tokenStore.getProviderSnapshot(),
         PROXY_STATUS_ACCOUNT_INVENTORY_TIMEOUT_MS,
-        "[proxy] /status account metadata timed out",
+        "[proxy] /status account inspection timed out",
       );
-      for (const expiration of inventory.tokenExpirations) {
-        if (expiration) {
-          const key = expiration[0].startsWith("anthropic:")
-            ? normalizeAnthropicAccountKey(expiration[0])
-            : expiration[0];
-          storedAccountExpirations.set(key, expiration[1]);
+      for (const [storedKey, entry] of Object.entries(inventory)) {
+        if (
+          !storedKey.startsWith("anthropic:") &&
+          !storedKey.startsWith("codex:")
+        ) {
+          continue;
+        }
+        const key = storedKey.startsWith("anthropic:")
+          ? normalizeAnthropicAccountKey(storedKey)
+          : storedKey;
+        (key.startsWith("anthropic:")
+          ? storedAnthropicAccountKeys
+          : storedCodexAccountKeys
+        ).add(key);
+        storedAccountExpirations.set(key, entry.tokens.expiresAt);
+        if (entry.disabled) {
+          disabledProviderAccountKeys.add(key);
         }
       }
-      for (const key of inventory.disabledKeys) {
-        disabledProviderAccountKeys.add(
-          key.startsWith("anthropic:")
-            ? normalizeAnthropicAccountKey(key)
-            : key,
-        );
-      }
+      accountInventoryLoaded = true;
     } catch (err) {
       logger.debug(
         `[proxy] /status: failed to resolve account cooldown labels: ${
@@ -3966,7 +3950,28 @@ function printStatusStats(stats: StatusStats): void {
       }
     }
   }
-  if (stats.accounts?.length) {
+  const historical = (stats.accounts ?? []).filter(
+    (account) => account.status === "unattributed",
+  );
+  const accounts = (stats.accounts ?? []).filter(
+    (account) => account.status !== "unattributed",
+  );
+  if (historical.length > 0) {
+    const sum = (
+      field: "attempts" | "success" | "errors" | "rateLimits",
+    ): number =>
+      historical.reduce((total, account) => total + (account[field] ?? 0), 0);
+    console.info(
+      `\n  Historical usage (provider unknown; included in totals):`,
+    );
+    console.info(
+      `    ${historical.length} legacy records: ${sum("attempts")} attempts, ${sum("success")} success, ${sum("errors")} errors, ${sum("rateLimits")} rate-limited attempts`,
+    );
+    console.info(
+      "    Per-record history remains available with --format json.",
+    );
+  }
+  if (accounts.length > 0) {
     console.info(`\n  Accounts:`);
     const headers = [
       "ACCOUNT",
@@ -3977,8 +3982,8 @@ function printStatusStats(stats: StatusStats): void {
       "RL",
       "STATUS",
     ];
-    const rows = stats.accounts.map((account) => [
-      account.label,
+    const rows = accounts.map((account) => [
+      account.key ?? account.label,
       account.type,
       String(account.attempts ?? account.requests ?? 0),
       String(account.success ?? 0),
@@ -4155,7 +4160,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
       }
 
       // Fetch live stats before rendering (JSON or text)
-      let liveStats: Record<string, unknown> | null = null;
+      let liveStats: StatusStats | null = null;
       let liveConfig: Record<string, unknown> | null = null;
       if (status.running && status.url) {
         try {
@@ -4167,7 +4172,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
               string,
               unknown
             >;
-            liveStats = statusData.stats as Record<string, unknown> | null;
+            liveStats = (statusData.stats as StatusStats | null) ?? null;
             liveConfig = statusData.config as Record<string, unknown> | null;
             status.workerVersion =
               typeof statusData.version === "string"
@@ -4282,6 +4287,11 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
             `  ${chalk.bold("Handoff:")}    ${chalk.cyan(`${status.rolling.draining.length} previous worker(s) draining`)}`,
           );
         }
+        if (status.rolling) {
+          logger.always(
+            `  ${chalk.bold("Socket handoff:")} ${status.rolling.pendingTransfers ?? "unknown"} pending, ${status.rolling.queuedSockets} queued; ${status.rolling.rejectedSockets} rejected, ${status.rolling.failedTransfers} failed transfers since supervisor start`,
+          );
+        }
         if (status.deferredUpdate) {
           const active =
             status.deferredUpdate.activeRequests === null
@@ -4366,22 +4376,8 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           );
         }
 
-        // Try to get detailed stats
-        try {
-          const liveUrl = status.url;
-          const statusResp = await fetch(`${liveUrl}/status`, {
-            signal: AbortSignal.timeout(2_000),
-          });
-          if (statusResp.ok) {
-            const statusData = (await statusResp.json()) as {
-              stats?: StatusStats;
-            };
-            if (statusData.stats) {
-              printStatusStats(statusData.stats);
-            }
-          }
-        } catch {
-          /* non-fatal */
+        if (liveStats) {
+          printStatusStats(liveStats);
         }
       } else {
         logger.always(

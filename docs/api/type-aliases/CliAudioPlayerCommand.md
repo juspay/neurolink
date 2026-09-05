@@ -8,7 +8,7 @@
 
 > **CliAudioPlayerCommand** = `object`
 
-Defined in: [types/cli.ts:2097](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2097)
+Defined in: [types/cli.ts:2101](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2101)
 
 A single audio-player invocation for CLI TTS playback: a binary plus its
 arguments for `execFile`. The player list is tried in order until one
@@ -20,7 +20,7 @@ succeeds (see `src/cli/utils/audioPlayer.ts`).
 
 > **command**: `string`
 
-Defined in: [types/cli.ts:2098](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2098)
+Defined in: [types/cli.ts:2102](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2102)
 
 ---
 
@@ -28,4 +28,4 @@ Defined in: [types/cli.ts:2098](https://github.com/juspay/neurolink/blob/release
 
 > **args**: `string`[]
 
-Defined in: [types/cli.ts:2099](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2099)
+Defined in: [types/cli.ts:2103](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2103)
