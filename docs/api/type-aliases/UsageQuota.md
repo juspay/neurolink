@@ -8,7 +8,7 @@
 
 > **UsageQuota** = `object`
 
-Defined in: [types/subscription.ts:747](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L747)
+Defined in: [types/subscription.ts:748](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L748)
 
 Usage quota for tracking Claude subscription usage
 
@@ -23,7 +23,7 @@ subscription usage against limits. Used for real-time quota monitoring.
 
 > **tier**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:751](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L751)
+Defined in: [types/subscription.ts:752](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L752)
 
 Current subscription tier
 
@@ -33,7 +33,7 @@ Current subscription tier
 
 > **dailyTokensUsed**: `number`
 
-Defined in: [types/subscription.ts:756](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L756)
+Defined in: [types/subscription.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L757)
 
 Daily tokens used in current period
 
@@ -43,7 +43,7 @@ Daily tokens used in current period
 
 > **dailyTokensLimit**: `number`
 
-Defined in: [types/subscription.ts:761](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L761)
+Defined in: [types/subscription.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L762)
 
 Daily token limit for current tier
 
@@ -53,7 +53,7 @@ Daily token limit for current tier
 
 > **messagesUsed**: `number`
 
-Defined in: [types/subscription.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L766)
+Defined in: [types/subscription.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L767)
 
 Messages used in current period
 
@@ -63,7 +63,7 @@ Messages used in current period
 
 > **messagesLimit**: `number`
 
-Defined in: [types/subscription.ts:771](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L771)
+Defined in: [types/subscription.ts:772](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L772)
 
 Message limit for current tier
 
@@ -73,7 +73,7 @@ Message limit for current tier
 
 > **resetTime**: `Date`
 
-Defined in: [types/subscription.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L776)
+Defined in: [types/subscription.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L777)
 
 Time when usage counters will reset
 
@@ -83,7 +83,7 @@ Time when usage counters will reset
 
 > `optional` **requestsUsed?**: `number`
 
-Defined in: [types/subscription.ts:781](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L781)
+Defined in: [types/subscription.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L782)
 
 Current requests used in rate limit window
 
@@ -93,7 +93,7 @@ Current requests used in rate limit window
 
 > `optional` **requestsLimit?**: `number`
 
-Defined in: [types/subscription.ts:786](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L786)
+Defined in: [types/subscription.ts:787](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L787)
 
 Request limit for rate limit window
 
@@ -103,7 +103,7 @@ Request limit for rate limit window
 
 > `optional` **isExceeded?**: `boolean`
 
-Defined in: [types/subscription.ts:791](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L791)
+Defined in: [types/subscription.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L792)
 
 Whether quota is currently exceeded
 
@@ -113,6 +113,6 @@ Whether quota is currently exceeded
 
 > `optional` **usagePercent?**: `number`
 
-Defined in: [types/subscription.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L796)
+Defined in: [types/subscription.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L797)
 
 Percentage of quota used (0-100)

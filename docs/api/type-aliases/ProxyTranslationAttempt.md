@@ -30,8 +30,16 @@ Defined in: [types/proxy.ts:1648](https://github.com/juspay/neurolink/blob/relea
 
 ---
 
+### reasoningEffort?
+
+> `optional` **reasoningEffort?**: [`FallbackEntry`](FallbackEntry.md)\[`"reasoningEffort"`\]
+
+Defined in: [types/proxy.ts:1649](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1649)
+
+---
+
 ### label
 
 > **label**: `string`
 
-Defined in: [types/proxy.ts:1649](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1649)
+Defined in: [types/proxy.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1650)

@@ -13,6 +13,7 @@ import type {
   ClaudeRequest,
   CodexContentPart,
   CodexFallbackResult,
+  CodexReasoningEffort,
   CodexResponsesInputItem,
   CodexResponsesRequest,
   InternalResult,
@@ -165,6 +166,7 @@ function convertClaudeMessage(
 export function convertClaudeRequestToCodex(
   body: ClaudeRequest,
   model: string,
+  reasoningEffort?: CodexReasoningEffort,
 ): CodexResponsesRequest {
   const input = body.messages.flatMap((message) =>
     convertClaudeMessage(message.role, message.content),
@@ -175,6 +177,9 @@ export function convertClaudeRequestToCodex(
     stream: true,
     // ChatGPT's backend rejects requests unless this is explicitly false.
     store: false,
+    ...(reasoningEffort !== undefined
+      ? { reasoning: { effort: reasoningEffort } }
+      : {}),
   };
 
   const instructions = buildSystemInstructions(body);

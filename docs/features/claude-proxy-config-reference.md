@@ -940,7 +940,21 @@ accounts:
 
 ## 7. Fallback Chain Examples
 
-The fallback chain is tried in order when all primary Claude accounts are exhausted (rate-limited, errored, or cooling down). Each entry specifies a provider and model. The proxy translates the Claude-format request into the target provider's format using `neurolink.generate()` or `neurolink.stream()`.
+The fallback chain is tried in order when all primary Claude accounts are exhausted (rate-limited, errored, or cooling down). Each entry specifies a provider and model. The proxy translates the Claude-format request into the target provider's format. Codex entries use the native pooled Codex Responses transport; other providers use `neurolink.generate()` or `neurolink.stream()`.
+
+### Example: Codex with Extra High reasoning
+
+```yaml
+routing:
+  fallback-chain:
+    - provider: codex
+      model: gpt-6-astra
+      reasoning-effort: xhigh
+```
+
+Authenticate a Codex account with `neurolink auth login codex` before using this fallback. `reasoning-effort` (or `reasoningEffort`) is optional and supported only on `codex` fallback entries. It is sent as `reasoning.effort` for both streaming and non-streaming Claude requests. Omit it to use the upstream model's default.
+
+Accepted values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh` (Extra High), and `max`; availability depends on the selected Codex model. Invalid values or use on another provider fail configuration validation. Changes reload with the routing config, and an invalid reload keeps the previous working configuration.
 
 ### Example: Gemini then OpenAI
 

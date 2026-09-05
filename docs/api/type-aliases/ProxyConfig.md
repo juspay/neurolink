@@ -8,7 +8,7 @@
 
 > **ProxyConfig** = `object`
 
-Defined in: [types/subscription.ts:1256](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1256)
+Defined in: [types/subscription.ts:1259](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1259)
 
 Full proxy config (loaded from YAML)
 
@@ -18,7 +18,7 @@ Full proxy config (loaded from YAML)
 
 > `optional` **host?**: `string`
 
-Defined in: [types/subscription.ts:1257](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1257)
+Defined in: [types/subscription.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1260)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1257](https://github.com/juspay/neurolink/blo
 
 > `optional` **port?**: `number`
 
-Defined in: [types/subscription.ts:1258](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1258)
+Defined in: [types/subscription.ts:1261](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1261)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/subscription.ts:1258](https://github.com/juspay/neurolink/blo
 
 > `optional` **auth?**: `"none"` \| `"api-key"`
 
-Defined in: [types/subscription.ts:1259](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1259)
+Defined in: [types/subscription.ts:1262](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1262)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/subscription.ts:1259](https://github.com/juspay/neurolink/blo
 
 > `optional` **proxyApiKey?**: `string`
 
-Defined in: [types/subscription.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1260)
+Defined in: [types/subscription.ts:1263](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1263)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/subscription.ts:1260](https://github.com/juspay/neurolink/blo
 
 > `optional` **accounts?**: `Record`\<`string`, `object`[]\>
 
-Defined in: [types/subscription.ts:1262](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1262)
+Defined in: [types/subscription.ts:1265](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1265)
 
 Provider-keyed account map matching the YAML structure (e.g. accounts.anthropic[0])
 
@@ -60,7 +60,7 @@ Provider-keyed account map matching the YAML structure (e.g. accounts.anthropic[
 
 > `optional` **routing?**: `Partial`\<[`ProxyRoutingConfig`](ProxyRoutingConfig.md)\>
 
-Defined in: [types/subscription.ts:1275](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1275)
+Defined in: [types/subscription.ts:1278](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1278)
 
 ---
 
@@ -68,4 +68,4 @@ Defined in: [types/subscription.ts:1275](https://github.com/juspay/neurolink/blo
 
 > `optional` **cloaking?**: [`CloakingConfig`](CloakingConfig.md)
 
-Defined in: [types/subscription.ts:1276](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1276)
+Defined in: [types/subscription.ts:1279](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1279)

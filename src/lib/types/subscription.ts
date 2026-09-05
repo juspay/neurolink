@@ -11,6 +11,7 @@
 // =============================================================================
 
 import type { StoredOAuthTokens } from "./auth.js";
+import type { CodexReasoningEffort } from "./codex.js";
 
 export type {
   StoredOAuthTokens,
@@ -1191,6 +1192,8 @@ export type ModelMapping = {
 export type FallbackEntry = {
   provider: string;
   model: string;
+  /** Explicit Codex fallback effort. Omit to use the upstream default. */
+  reasoningEffort?: CodexReasoningEffort;
 };
 
 /** Full proxy routing config */

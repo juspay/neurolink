@@ -8,7 +8,7 @@
 
 > **ClaudeTokenValidationResult** = `object`
 
-Defined in: [types/subscription.ts:986](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L986)
+Defined in: [types/subscription.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L987)
 
 Token validation result
 
@@ -18,7 +18,7 @@ Token validation result
 
 > **isValid**: `boolean`
 
-Defined in: [types/subscription.ts:988](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L988)
+Defined in: [types/subscription.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L989)
 
 Whether the token is valid
 
@@ -28,7 +28,7 @@ Whether the token is valid
 
 > `optional` **expiresIn?**: `number`
 
-Defined in: [types/subscription.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L990)
+Defined in: [types/subscription.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L991)
 
 Remaining time in seconds until expiration
 
@@ -38,7 +38,7 @@ Remaining time in seconds until expiration
 
 > `optional` **scopes?**: `string`[]
 
-Defined in: [types/subscription.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L992)
+Defined in: [types/subscription.ts:993](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L993)
 
 Scopes associated with the token
 
@@ -48,7 +48,7 @@ Scopes associated with the token
 
 > `optional` **user?**: `object`
 
-Defined in: [types/subscription.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L994)
+Defined in: [types/subscription.ts:995](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L995)
 
 User information if available
 
@@ -70,6 +70,6 @@ User information if available
 
 > `optional` **error?**: `string`
 
-Defined in: [types/subscription.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1000)
+Defined in: [types/subscription.ts:1001](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1001)
 
 Error message if validation failed

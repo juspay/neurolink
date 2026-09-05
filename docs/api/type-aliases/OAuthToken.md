@@ -8,7 +8,7 @@
 
 > **OAuthToken** = `object`
 
-Defined in: [types/subscription.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L63)
+Defined in: [types/subscription.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L64)
 
 OAuth token structure for Claude subscriptions
 
@@ -22,7 +22,7 @@ Contains the OAuth token information for authenticated sessions
 
 > **accessToken**: `string`
 
-Defined in: [types/subscription.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L67)
+Defined in: [types/subscription.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L68)
 
 The access token for API requests
 
@@ -32,7 +32,7 @@ The access token for API requests
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/subscription.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L72)
+Defined in: [types/subscription.ts:73](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L73)
 
 The refresh token for obtaining new access tokens
 
@@ -42,7 +42,7 @@ The refresh token for obtaining new access tokens
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/subscription.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L77)
+Defined in: [types/subscription.ts:78](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L78)
 
 Token expiration timestamp (Unix milliseconds, i.e. Date.now() scale)
 
@@ -52,7 +52,7 @@ Token expiration timestamp (Unix milliseconds, i.e. Date.now() scale)
 
 > `optional` **tokenType?**: `string`
 
-Defined in: [types/subscription.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L82)
+Defined in: [types/subscription.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L83)
 
 Token type (typically "Bearer")
 
@@ -62,6 +62,6 @@ Token type (typically "Bearer")
 
 > `optional` **scopes?**: `string`[]
 
-Defined in: [types/subscription.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L87)
+Defined in: [types/subscription.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L88)
 
 Scopes granted to this token

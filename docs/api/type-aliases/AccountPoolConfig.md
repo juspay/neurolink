@@ -8,7 +8,7 @@
 
 > **AccountPoolConfig** = `object`
 
-Defined in: [types/subscription.ts:1176](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1176)
+Defined in: [types/subscription.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1177)
 
 Configuration for AccountPool
 
@@ -18,7 +18,7 @@ Configuration for AccountPool
 
 > **strategy**: `"round-robin"` \| `"fill-first"`
 
-Defined in: [types/subscription.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1177)
+Defined in: [types/subscription.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1178)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/subscription.ts:1177](https://github.com/juspay/neurolink/blo
 
 > `optional` **defaultCooldownMs?**: `number`
 
-Defined in: [types/subscription.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1178)
+Defined in: [types/subscription.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1179)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/subscription.ts:1178](https://github.com/juspay/neurolink/blo
 
 > `optional` **maxCooldownMs?**: `number`
 
-Defined in: [types/subscription.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1179)
+Defined in: [types/subscription.ts:1180](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1180)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/subscription.ts:1179](https://github.com/juspay/neurolink/blo
 
 > `optional` **maxRetryAccounts?**: `number`
 
-Defined in: [types/subscription.ts:1180](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1180)
+Defined in: [types/subscription.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1181)

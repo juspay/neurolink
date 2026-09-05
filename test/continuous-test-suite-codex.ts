@@ -29,6 +29,10 @@
  * CLI's Codex auth surface.
  *
  * No API keys and no network.
+ * Fallback cases also drive the shipped Messages handler with a recorded Codex
+ * response: deterministic config reloads and captured outgoing JSON prove the
+ * requested effort survives the complete bridge without spending live quota.
+ * The isolation helper runs before proxy imports to protect operator state.
  *
  * Assertion messages deliberately never quote a payload: `defineSuite` treats a
  * message matching `isExpectedProviderError()` as a SKIP, so an upstream-looking
@@ -38,7 +42,8 @@
  * Run with: npx tsx test/continuous-test-suite-codex.ts
  */
 
-import { mkdtempSync } from "node:fs";
+import "./helpers/proxyTestIsolation.js";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeFileSync } from "node:fs";
@@ -61,11 +66,19 @@ import {
   parseCodexFallbackSSE,
 } from "../src/lib/proxy/codexFallback.js";
 import { runWithShareContext } from "../src/lib/proxy/shareContext.js";
-import { __testHooks as claudeProxyTestHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
+import { loadProxyConfig } from "../src/lib/proxy/proxyConfig.js";
+import { ProxyRuntimeConfigStore } from "../src/lib/proxy/runtimeConfig.js";
+import { tokenStore } from "../src/lib/auth/tokenStore.js";
+import {
+  __testHooks as claudeProxyTestHooks,
+  createClaudeProxyRoutes,
+} from "../src/lib/server/routes/claudeProxyRoutes.js";
 import { __testHooks } from "../src/lib/server/routes/codexProxyRoutes.js";
 import type {
   CodexRuntimeAccount,
+  CodexResponsesRequest,
   ProxyShareRequestContext,
+  ServerContext,
 } from "../src/lib/types/index.js";
 import { assert, assertEqual, defineSuite, runCLI } from "./helpers/harness.js";
 
@@ -1208,6 +1221,292 @@ await test("codex capture holds its byte cap against a single oversized chunk", 
 // ---------------------------------------------------------------------------
 // Claude -> Codex fallback wire bridge
 // ---------------------------------------------------------------------------
+
+await test("Codex fallback config accepts effort aliases and rejects invalid values", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "codex-fallback-config-"));
+  const path = join(dir, "proxy.yaml");
+  try {
+    for (const key of ["reasoning-effort", "reasoningEffort"]) {
+      for (const effort of [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+      ]) {
+        writeFileSync(
+          path,
+          `routing:\n  fallback-chain:\n    - provider: codex\n      model: gpt-6-astra\n      ${key}: ${effort}\n`,
+        );
+        const config = await loadProxyConfig(path);
+        assertEqual(
+          config.routing?.fallbackChain?.[0].reasoningEffort,
+          effort,
+          "configured effort did not survive YAML parsing",
+        );
+      }
+      for (const effort of [
+        null,
+        "",
+        "extra-high",
+        "XHIGH",
+        1,
+        false,
+        {},
+        [],
+      ]) {
+        writeFileSync(
+          path,
+          JSON.stringify({
+            routing: {
+              fallbackChain: [
+                { provider: "codex", model: "gpt-6-astra", [key]: effort },
+              ],
+            },
+          }),
+        );
+        let rejected = false;
+        try {
+          await loadProxyConfig(path);
+        } catch {
+          rejected = true;
+        }
+        assert(rejected, "invalid effort was silently accepted");
+      }
+    }
+    writeFileSync(
+      path,
+      JSON.stringify({
+        routing: {
+          fallbackChain: [
+            {
+              provider: "openai",
+              model: "gpt-6-astra",
+              reasoningEffort: "xhigh",
+            },
+          ],
+        },
+      }),
+    );
+    let rejected = false;
+    try {
+      await loadProxyConfig(path);
+    } catch {
+      rejected = true;
+    }
+    assert(
+      rejected,
+      "effort was accepted by a fallback provider that cannot forward it",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+await test("Claude fallback forwards effort through routing, reloads, and both response modes", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "codex-fallback-routing-"));
+  const configPath = join(dir, "proxy.json");
+  const key = "codex:fallback-reasoning@example.test";
+  const originalFetch = globalThis.fetch;
+  const requests: CodexResponsesRequest[] = [];
+  const writeConfig = (effort?: unknown) =>
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: {
+          fallbackChain: [
+            {
+              provider: "codex",
+              model: "gpt-6-astra",
+              ...(effort !== undefined ? { "reasoning-effort": effort } : {}),
+            },
+          ],
+        },
+      }),
+    );
+  try {
+    await tokenStore.saveTokens(key, {
+      accessToken: "fallback-test-access",
+      refreshToken: "fallback-test-refresh",
+      expiresAt: Date.now() + 3_600_000,
+      tokenType: "Bearer",
+    });
+    globalThis.fetch = async (input, init) => {
+      assertEqual(
+        String(input),
+        "https://chatgpt.com/backend-api/codex/responses",
+        "fallback attempted an unexpected upstream",
+      );
+      requests.push(JSON.parse(String(init?.body)) as CodexResponsesRequest);
+      return new Response(
+        `event: response.completed\ndata: ${JSON.stringify({
+          type: "response.completed",
+          response: {
+            status: "completed",
+            output: [
+              {
+                type: "message",
+                content: [{ type: "output_text", text: "fallback-ok" }],
+              },
+            ],
+            usage: { input_tokens: 10, output_tokens: 2 },
+          },
+        })}\n\n`,
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    };
+    writeConfig();
+    const runtime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    const route = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      undefined,
+      {
+        runtimeConfigProvider: () => runtime.getSnapshot(),
+      },
+    ).routes.find(
+      (entry) => entry.method === "POST" && entry.path === "/v1/messages",
+    );
+    assert(route !== undefined, "Messages route was not registered");
+
+    const call = async (model: string, stream: boolean, effort?: string) => {
+      const before = requests.length;
+      const ctx = {
+        requestId: `fallback-reasoning-${before}`,
+        method: "POST",
+        path: "/v1/messages",
+        headers: {},
+        query: {},
+        params: {},
+        metadata: {},
+        responseHeaders: {},
+        timestamp: Date.now(),
+        neurolink: {},
+        toolRegistry: {},
+        body: {
+          model,
+          stream,
+          max_tokens: 64,
+          messages: [{ role: "user", content: "Reply briefly." }],
+          tools: [
+            { name: "probe", input_schema: { type: "object", properties: {} } },
+          ],
+          tool_choice: { type: "any" },
+        },
+      } as ServerContext;
+      const result = await route!.handler(ctx);
+      assertEqual(
+        requests.length,
+        before + 1,
+        "fallback did not make exactly one upstream call",
+      );
+      const sent = requests[before];
+      assertEqual(
+        sent.model,
+        "gpt-6-astra",
+        "fallback model changed in transit",
+      );
+      assertEqual(
+        sent.reasoning?.effort,
+        effort,
+        "fallback effort changed in transit",
+      );
+      assertEqual(
+        Object.hasOwn(sent, "reasoning"),
+        effort !== undefined,
+        "omitted effort must leave the upstream default untouched",
+      );
+      assertEqual(sent.store, false, "Codex storage contract changed");
+      assertEqual(sent.tools?.[0].name, "probe", "fallback tool was lost");
+      assertEqual(
+        sent.tool_choice,
+        "required",
+        "fallback tool choice was lost",
+      );
+      assertEqual(
+        ctx.responseHeaders?.["x-neurolink-served-by"],
+        "codex",
+        "fallback attribution was lost",
+      );
+      if (stream) {
+        let text = "";
+        for await (const frame of result as AsyncGenerator<string>) {
+          text += frame;
+        }
+        assert(
+          text.includes("fallback-ok") && text.includes("message_stop"),
+          "Claude stream did not complete",
+        );
+      } else {
+        const response = result as {
+          model: string;
+          content: Array<{ text: string }>;
+        };
+        assertEqual(
+          response.model,
+          model,
+          "fallback changed the client model identity",
+        );
+        assertEqual(
+          response.content[0].text,
+          "fallback-ok",
+          "fallback response was lost",
+        );
+      }
+    };
+    await call("claude-opus-4-6", false);
+    const oldSnapshot = runtime.getSnapshot();
+    writeConfig("xhigh");
+    await runtime.reload("manual");
+    const configured = runtime.getSnapshot();
+    assert(
+      configured.configHash !== oldSnapshot.configHash,
+      "effort-only reload did not change the config hash",
+    );
+    assertEqual(
+      oldSnapshot.modelRouter?.getFallbackChain()[0].reasoningEffort,
+      undefined,
+      "reload mutated an in-flight routing snapshot",
+    );
+    for (const model of [
+      "claude-opus-4-6",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-future-model",
+    ]) {
+      for (const stream of [false, true]) {
+        await call(model, stream, "xhigh");
+      }
+    }
+    writeConfig("extra-high");
+    await runtime.reload("manual");
+    assert(
+      runtime.getSnapshot() === configured,
+      "invalid reload replaced the working config",
+    );
+    assert(
+      Boolean(runtime.getStatus().lastReloadError),
+      "invalid reload was not reported",
+    );
+    await call("claude-opus-4-6", false, "xhigh");
+    writeConfig();
+    await runtime.reload("manual");
+    await call("claude-opus-4-6", true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await tokenStore.clearTokens(key);
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 await test("Claude fallback converts system, history, tools, and tool results", () => {
   const request = convertClaudeRequestToCodex(

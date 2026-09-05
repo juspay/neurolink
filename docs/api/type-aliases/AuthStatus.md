@@ -8,7 +8,7 @@
 
 > **AuthStatus** = `object`
 
-Defined in: [types/subscription.ts:1109](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1109)
+Defined in: [types/subscription.ts:1110](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1110)
 
 Authentication status result
 
@@ -18,7 +18,7 @@ Authentication status result
 
 > **isAuthenticated**: `boolean`
 
-Defined in: [types/subscription.ts:1111](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1111)
+Defined in: [types/subscription.ts:1112](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1112)
 
 Whether the user is authenticated
 
@@ -28,7 +28,7 @@ Whether the user is authenticated
 
 > **method**: `"api-key"` \| `"oauth"` \| `"none"`
 
-Defined in: [types/subscription.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1113)
+Defined in: [types/subscription.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1114)
 
 Authentication method in use
 
@@ -38,7 +38,7 @@ Authentication method in use
 
 > `optional` **expiresAt?**: `Date`
 
-Defined in: [types/subscription.ts:1115](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1115)
+Defined in: [types/subscription.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1116)
 
 Token expiration time (for OAuth)
 
@@ -48,7 +48,7 @@ Token expiration time (for OAuth)
 
 > `optional` **needsRefresh?**: `boolean`
 
-Defined in: [types/subscription.ts:1117](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1117)
+Defined in: [types/subscription.ts:1118](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1118)
 
 Whether token refresh is needed (for OAuth)
 
@@ -58,7 +58,7 @@ Whether token refresh is needed (for OAuth)
 
 > `optional` **user?**: `object`
 
-Defined in: [types/subscription.ts:1119](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1119)
+Defined in: [types/subscription.ts:1120](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L1120)
 
 User information (for OAuth)
 

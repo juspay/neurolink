@@ -8,7 +8,7 @@
 
 > **AnthropicAuthConfig** = `object`
 
-Defined in: [types/subscription.ts:242](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L242)
+Defined in: [types/subscription.ts:243](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L243)
 
 Anthropic authentication configuration
 
@@ -23,7 +23,7 @@ Supports both API key and OAuth authentication methods.
 
 > **method**: [`AnthropicAuthMethod`](AnthropicAuthMethod.md)
 
-Defined in: [types/subscription.ts:247](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L247)
+Defined in: [types/subscription.ts:248](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L248)
 
 Authentication method to use
 
@@ -37,7 +37,7 @@ AnthropicAuthMethod
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/subscription.ts:253](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L253)
+Defined in: [types/subscription.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L254)
 
 API key for API key authentication method
 
@@ -51,7 +51,7 @@ Required when method is "api_key"
 
 > `optional` **oauthToken?**: [`OAuthToken`](OAuthToken.md)
 
-Defined in: [types/subscription.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L259)
+Defined in: [types/subscription.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L260)
 
 OAuth token object for OAuth authentication method
 
@@ -65,7 +65,7 @@ Full OAuth token with access, refresh, and expiry information
 
 > `optional` **accessToken?**: `string`
 
-Defined in: [types/subscription.ts:266](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L266)
+Defined in: [types/subscription.ts:267](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L267)
 
 OAuth access token for OAuth authentication method
 
@@ -83,7 +83,7 @@ Use oauthToken.accessToken instead
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/subscription.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L273)
+Defined in: [types/subscription.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L274)
 
 OAuth refresh token for obtaining new access tokens
 
@@ -101,7 +101,7 @@ Use oauthToken.refreshToken instead
 
 > `optional` **tokenExpiry?**: `number`
 
-Defined in: [types/subscription.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L280)
+Defined in: [types/subscription.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L281)
 
 Token expiry timestamp in milliseconds (Unix epoch)
 
@@ -119,7 +119,7 @@ Use oauthToken.expiresAt instead
 
 > `optional` **subscriptionTier?**: [`ClaudeSubscriptionTier`](ClaudeSubscriptionTier.md)
 
-Defined in: [types/subscription.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L286)
+Defined in: [types/subscription.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L287)
 
 User's subscription tier
 
@@ -133,7 +133,7 @@ Determines rate limits, features, and capabilities available
 
 > `optional` **autoRefresh?**: `boolean`
 
-Defined in: [types/subscription.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L292)
+Defined in: [types/subscription.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/subscription.ts#L293)
 
 Whether to automatically refresh OAuth tokens
 
