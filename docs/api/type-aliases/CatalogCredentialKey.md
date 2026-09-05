@@ -6,6 +6,6 @@
 
 # Type Alias: CatalogCredentialKey
 
-> **CatalogCredentialKey** = `"apiRoute"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"fireworks"` \| `"gmicloud"` \| `"groq"` \| `"inceptionLabs"` \| `"ioIntelligence"` \| `"mancer"` \| `"mistral"` \| `"novita"` \| `"perplexity"` \| `"sambanova"` \| `"together"` \| `"upstage"` \| `"xai"`
+> **CatalogCredentialKey** = `"apiRoute"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"fireworks"` \| `"gmicloud"` \| `"groq"` \| `"inceptionLabs"` \| `"ioIntelligence"` \| `"mancer"` \| `"mistral"` \| `"morph"` \| `"novita"` \| `"perplexity"` \| `"sambanova"` \| `"together"` \| `"upstage"` \| `"xai"`
 
-Defined in: [types/providerCatalog.generated.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.generated.ts#L20)
+Defined in: [types/providerCatalog.generated.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.generated.ts#L21)

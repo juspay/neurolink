@@ -8,7 +8,7 @@
 
 > `const` **DEFAULT_MODEL_ALIASES**: `object`
 
-Defined in: [types/providers.ts:1339](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1339)
+Defined in: [types/providers.ts:1340](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1340)
 
 Default model aliases for easy reference
 

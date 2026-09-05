@@ -8,7 +8,7 @@
 
 > **VertexAnthropicCacheOutput** = `object`
 
-Defined in: [types/providers.ts:2553](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2553)
+Defined in: [types/providers.ts:2554](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2554)
 
 Output of `applyVertexAnthropicCacheBreakpoints` — a cache-annotated request.
 
@@ -18,7 +18,7 @@ Output of `applyVertexAnthropicCacheBreakpoints` — a cache-annotated request.
 
 > `optional` **system?**: `string` \| [`VertexAnthropicSystemBlock`](VertexAnthropicSystemBlock.md)[]
 
-Defined in: [types/providers.ts:2554](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2554)
+Defined in: [types/providers.ts:2555](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2555)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2554](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **tools?**: [`VertexAnthropicTool`](VertexAnthropicTool.md)[]
 
-Defined in: [types/providers.ts:2555](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2555)
+Defined in: [types/providers.ts:2556](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2556)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:2555](https://github.com/juspay/neurolink/blob/r
 
 > **messages**: [`VertexAnthropicMessage`](VertexAnthropicMessage.md)[]
 
-Defined in: [types/providers.ts:2556](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2556)
+Defined in: [types/providers.ts:2557](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2557)

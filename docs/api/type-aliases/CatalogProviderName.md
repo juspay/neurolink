@@ -6,6 +6,6 @@
 
 # Type Alias: CatalogProviderName
 
-> **CatalogProviderName** = `"api-route"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"fireworks"` \| `"gmicloud"` \| `"groq"` \| `"inception-labs"` \| `"io-intelligence"` \| `"mancer"` \| `"mistral"` \| `"novita"` \| `"perplexity"` \| `"sambanova"` \| `"together-ai"` \| `"upstage"` \| `"xai"`
+> **CatalogProviderName** = `"api-route"` \| `"baseten"` \| `"cerebras"` \| `"cloudflare"` \| `"fireworks"` \| `"gmicloud"` \| `"groq"` \| `"inception-labs"` \| `"io-intelligence"` \| `"mancer"` \| `"mistral"` \| `"morph"` \| `"novita"` \| `"perplexity"` \| `"sambanova"` \| `"together-ai"` \| `"upstage"` \| `"xai"`
 
 Defined in: [types/providerCatalog.generated.ts:2](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.generated.ts#L2)

@@ -8,7 +8,7 @@
 
 > **BedrockContentBlock** = `object`
 
-Defined in: [types/providers.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1030)
+Defined in: [types/providers.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1031)
 
 Bedrock content block structure
 
@@ -18,7 +18,7 @@ Bedrock content block structure
 
 > `optional` **text?**: `string`
 
-Defined in: [types/providers.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1031)
+Defined in: [types/providers.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1032)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1031](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **image?**: `object`
 
-Defined in: [types/providers.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1032)
+Defined in: [types/providers.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1033)
 
 #### format
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:1032](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **document?**: `object`
 
-Defined in: [types/providers.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1038)
+Defined in: [types/providers.ts:1039](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1039)
 
 #### format
 
@@ -70,7 +70,7 @@ Defined in: [types/providers.ts:1038](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **toolUse?**: [`BedrockToolUse`](BedrockToolUse.md)
 
-Defined in: [types/providers.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1054)
+Defined in: [types/providers.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1055)
 
 ---
 
@@ -78,4 +78,4 @@ Defined in: [types/providers.ts:1054](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **toolResult?**: [`BedrockToolResult`](BedrockToolResult.md)
 
-Defined in: [types/providers.ts:1055](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1055)
+Defined in: [types/providers.ts:1056](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1056)

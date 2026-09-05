@@ -8,7 +8,7 @@
 
 > **ProviderCapabilities** = `object`
 
-Defined in: [types/providers.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L503)
+Defined in: [types/providers.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L504)
 
 Provider capabilities
 
@@ -18,7 +18,7 @@ Provider capabilities
 
 > **supportsStreaming**: `boolean`
 
-Defined in: [types/providers.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L504)
+Defined in: [types/providers.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L505)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:504](https://github.com/juspay/neurolink/blob/re
 
 > **supportsTools**: `boolean`
 
-Defined in: [types/providers.ts:505](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L505)
+Defined in: [types/providers.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L506)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:505](https://github.com/juspay/neurolink/blob/re
 
 > **supportsImages**: `boolean`
 
-Defined in: [types/providers.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L506)
+Defined in: [types/providers.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L507)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:506](https://github.com/juspay/neurolink/blob/re
 
 > **supportsAudio**: `boolean`
 
-Defined in: [types/providers.ts:507](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L507)
+Defined in: [types/providers.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L508)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:507](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/providers.ts:508](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L508)
+Defined in: [types/providers.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L509)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:508](https://github.com/juspay/neurolink/blob/re
 
 > **supportedModels**: `string`[]
 
-Defined in: [types/providers.ts:509](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L509)
+Defined in: [types/providers.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L510)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/providers.ts:509](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **subscriptionAware?**: `boolean`
 
-Defined in: [types/providers.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L514)
+Defined in: [types/providers.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L515)
 
 Whether the provider supports subscription-based features and tier management
 When true, the provider can adapt behavior based on subscription tier
@@ -77,7 +77,7 @@ When true, the provider can adapt behavior based on subscription tier
 
 > `optional` **supportedAuthMethods?**: `string`[]
 
-Defined in: [types/providers.ts:519](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L519)
+Defined in: [types/providers.ts:520](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L520)
 
 List of authentication methods supported by this provider
 e.g., ["api_key", "oauth", "session_token", "environment"]

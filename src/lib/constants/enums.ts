@@ -34,6 +34,7 @@ export enum AIProviderName {
   IO_INTELLIGENCE = "io-intelligence",
   MANCER = "mancer",
   MISTRAL = "mistral",
+  MORPH = "morph",
   NOVITA = "novita",
   PERPLEXITY = "perplexity",
   SAMBANOVA = "sambanova",
@@ -1401,6 +1402,11 @@ export enum MistralModels {
   MISTRAL_MODERATION_LATEST = "mistral-moderation-latest",
   MISTRAL_SMALL_4 = "mistral-small-2603",
   MISTRAL_SMALL_CREATIVE = "mistral-small-creative",
+}
+
+export enum MorphModels {
+  MORPH_V3_LARGE = "morph-v3-large",
+  MORPH_V3_FAST = "morph-v3-fast",
 }
 
 export enum NovitaModels {
