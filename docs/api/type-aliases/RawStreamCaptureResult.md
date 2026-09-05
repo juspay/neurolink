@@ -8,7 +8,7 @@
 
 > **RawStreamCaptureResult** = `object`
 
-Defined in: [types/proxy.ts:2229](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2229)
+Defined in: [types/proxy.ts:2234](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2234)
 
 Transformed stream pair used to capture upstream bodies without buffering.
 
@@ -18,7 +18,7 @@ Transformed stream pair used to capture upstream bodies without buffering.
 
 > **stream**: `TransformStream`\<`Uint8Array`, `Uint8Array`\>
 
-Defined in: [types/proxy.ts:2230](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2230)
+Defined in: [types/proxy.ts:2235](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2235)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:2230](https://github.com/juspay/neurolink/blob/relea
 
 > **capture**: `Promise`\<[`RawStreamCapture`](RawStreamCapture.md)\>
 
-Defined in: [types/proxy.ts:2231](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2231)
+Defined in: [types/proxy.ts:2236](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2236)

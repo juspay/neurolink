@@ -8,7 +8,7 @@
 
 > **ProxyUpdateWindowResult** = `object`
 
-Defined in: [types/proxy.ts:2569](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2569)
+Defined in: [types/proxy.ts:2574](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2574)
 
 Result from waiting for a non-disruptive updater execution window.
 
@@ -18,7 +18,7 @@ Result from waiting for a non-disruptive updater execution window.
 
 > **ready**: `boolean`
 
-Defined in: [types/proxy.ts:2570](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2570)
+Defined in: [types/proxy.ts:2575](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2575)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2570](https://github.com/juspay/neurolink/blob/relea
 
 > **draining**: `boolean`
 
-Defined in: [types/proxy.ts:2571](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2571)
+Defined in: [types/proxy.ts:2576](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2576)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2571](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **reason?**: `"stopping"` \| `"parent_stopped"` \| `"drain_failed"` \| `"drain_timeout"`
 
-Defined in: [types/proxy.ts:2572](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2572)
+Defined in: [types/proxy.ts:2577](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2577)

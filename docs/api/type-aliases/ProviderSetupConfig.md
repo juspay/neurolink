@@ -8,7 +8,7 @@
 
 > **ProviderSetupConfig** = `object`
 
-Defined in: [types/cli.ts:1474](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1474)
+Defined in: [types/cli.ts:1478](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1478)
 
 Superset provider-setup config. `endpoint` is Azure-only; other providers
 leave it undefined. Pre-consolidation there were 4 near-duplicate types
@@ -20,7 +20,7 @@ leave it undefined. Pre-consolidation there were 4 near-duplicate types
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:1475](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1475)
+Defined in: [types/cli.ts:1479](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1479)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/cli.ts:1475](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:1476](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1476)
+Defined in: [types/cli.ts:1480](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1480)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/cli.ts:1476](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **endpoint?**: `string`
 
-Defined in: [types/cli.ts:1477](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1477)
+Defined in: [types/cli.ts:1481](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1481)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/cli.ts:1477](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **isReconfiguring?**: `boolean`
 
-Defined in: [types/cli.ts:1478](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1478)
+Defined in: [types/cli.ts:1482](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1482)

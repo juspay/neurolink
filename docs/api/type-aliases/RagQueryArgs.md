@@ -8,7 +8,7 @@
 
 > **RagQueryArgs** = [`RAGCommandArgs`](RAGCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1621](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1621)
+Defined in: [types/cli.ts:1625](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1625)
 
 Arguments for `neurolink rag query`.
 

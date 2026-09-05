@@ -988,6 +988,7 @@ export type ProxyRollingState = {
   } | null;
   draining: Array<{ pid: number; version: string; generation: number }>;
   queuedSockets: number;
+  pendingTransfers?: number;
   rejectedSockets: number;
   failedTransfers: number;
   lastFailure: {
@@ -999,7 +1000,10 @@ export type ProxyRollingState = {
     workerPid?: number;
     workerExitCode?: number | null;
     workerExitSignal?: string | null;
-    supervisorAction?: "none" | "sigkill_after_transfer_failure";
+    supervisorAction?:
+      | "none"
+      | "sigkill_after_transfer_failure"
+      | "cancel_uncommitted_socket";
   } | null;
 };
 

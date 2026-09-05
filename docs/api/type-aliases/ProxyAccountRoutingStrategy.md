@@ -8,4 +8,4 @@
 
 > **ProxyAccountRoutingStrategy** = _typeof_ `PROXY_ACCOUNT_ROUTING_STRATEGIES`\[`number`\]
 
-Defined in: [types/proxy.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L511)
+Defined in: [types/proxy.ts:516](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L516)

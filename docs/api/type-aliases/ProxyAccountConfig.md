@@ -8,7 +8,7 @@
 
 > **ProxyAccountConfig** = `object`
 
-Defined in: [types/proxy.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L464)
+Defined in: [types/proxy.ts:469](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L469)
 
 Individual account configuration within a proxy config file.
 
@@ -18,7 +18,7 @@ Individual account configuration within a proxy config file.
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:466](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L466)
+Defined in: [types/proxy.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L471)
 
 Human-readable name for the account
 
@@ -28,7 +28,7 @@ Human-readable name for the account
 
 > **apiKey**: `string`
 
-Defined in: [types/proxy.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L468)
+Defined in: [types/proxy.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L473)
 
 API key or token (may contain env var references)
 
@@ -38,7 +38,7 @@ API key or token (may contain env var references)
 
 > `optional` **baseUrl?**: `string`
 
-Defined in: [types/proxy.ts:470](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L470)
+Defined in: [types/proxy.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L475)
 
 Base URL override for the provider endpoint
 
@@ -48,7 +48,7 @@ Base URL override for the provider endpoint
 
 > `optional` **orgId?**: `string`
 
-Defined in: [types/proxy.ts:472](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L472)
+Defined in: [types/proxy.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L477)
 
 Organization ID (e.g., OpenAI orgs)
 
@@ -58,7 +58,7 @@ Organization ID (e.g., OpenAI orgs)
 
 > `optional` **weight?**: `number`
 
-Defined in: [types/proxy.ts:474](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L474)
+Defined in: [types/proxy.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L479)
 
 Weight for weighted round-robin selection (default: 1)
 
@@ -68,7 +68,7 @@ Weight for weighted round-robin selection (default: 1)
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/proxy.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L476)
+Defined in: [types/proxy.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L481)
 
 Whether this account is currently enabled (default: true)
 
@@ -78,7 +78,7 @@ Whether this account is currently enabled (default: true)
 
 > `optional` **rateLimit?**: `number`
 
-Defined in: [types/proxy.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L478)
+Defined in: [types/proxy.ts:483](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L483)
 
 Maximum requests per minute for this account
 
@@ -88,6 +88,6 @@ Maximum requests per minute for this account
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L480)
+Defined in: [types/proxy.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L485)
 
 Arbitrary metadata attached to the account

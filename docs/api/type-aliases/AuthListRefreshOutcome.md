@@ -8,7 +8,7 @@
 
 > **AuthListRefreshOutcome** = `object`
 
-Defined in: [types/cli.ts:1155](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1155)
+Defined in: [types/cli.ts:1159](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1159)
 
 Outcome of the `auth list --refresh` fresh-limit fetch.
 
@@ -18,7 +18,7 @@ Outcome of the `auth list --refresh` fresh-limit fetch.
 
 > **via**: `"proxy"` \| `"direct"` \| `"mixed"` \| `"none"`
 
-Defined in: [types/cli.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1157)
+Defined in: [types/cli.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1161)
 
 How the fresh limits were obtained ("none" when every path failed).
 
@@ -28,7 +28,7 @@ How the fresh limits were obtained ("none" when every path failed).
 
 > **quotas**: `Record`\<`string`, [`AccountQuota`](AccountQuota.md)\> \| `null`
 
-Defined in: [types/cli.ts:1159](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1159)
+Defined in: [types/cli.ts:1163](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1163)
 
 Freshly fetched quotas keyed by provider-qualified account key.
 
@@ -38,7 +38,7 @@ Freshly fetched quotas keyed by provider-qualified account key.
 
 > **accounts**: `Record`\<`string`, [`AuthListRefreshAccountResult`](AuthListRefreshAccountResult.md)\>
 
-Defined in: [types/cli.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1161)
+Defined in: [types/cli.ts:1165](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1165)
 
 Per-account refresh status, also keyed by provider-qualified account key.
 
@@ -48,6 +48,6 @@ Per-account refresh status, also keyed by provider-qualified account key.
 
 > **errors**: `string`[]
 
-Defined in: [types/cli.ts:1163](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1163)
+Defined in: [types/cli.ts:1167](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1167)
 
 Per-account and transport errors, already formatted for display.

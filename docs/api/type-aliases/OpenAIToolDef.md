@@ -8,7 +8,7 @@
 
 > **OpenAIToolDef** = `object`
 
-Defined in: [types/proxy.ts:3249](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3249)
+Defined in: [types/proxy.ts:3262](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3262)
 
 OpenAI tool definition.
 
@@ -18,7 +18,7 @@ OpenAI tool definition.
 
 > **type**: `"function"`
 
-Defined in: [types/proxy.ts:3250](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3250)
+Defined in: [types/proxy.ts:3263](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3263)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3250](https://github.com/juspay/neurolink/blob/relea
 
 > **function**: `object`
 
-Defined in: [types/proxy.ts:3251](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3251)
+Defined in: [types/proxy.ts:3264](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3264)
 
 #### name
 

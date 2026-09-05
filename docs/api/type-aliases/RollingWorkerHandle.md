@@ -8,7 +8,7 @@
 
 > **RollingWorkerHandle** = `object`
 
-Defined in: [types/proxy.ts:2737](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2737)
+Defined in: [types/proxy.ts:2742](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2742)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2737](https://github.com/juspay/neurolink/blob/relea
 
 > **pid**: `number`
 
-Defined in: [types/proxy.ts:2738](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2738)
+Defined in: [types/proxy.ts:2743](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2743)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:2738](https://github.com/juspay/neurolink/blob/relea
 
 > **sendControl**: (`message`) => `void`
 
-Defined in: [types/proxy.ts:2739](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2739)
+Defined in: [types/proxy.ts:2744](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2744)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2739](https://github.com/juspay/neurolink/blob/relea
 
 > **sendSocket**: (`generation`, `socket`, `callback`) => `void`
 
-Defined in: [types/proxy.ts:2740](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2740)
+Defined in: [types/proxy.ts:2745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2745)
 
 #### Parameters
 
@@ -68,7 +68,7 @@ Defined in: [types/proxy.ts:2740](https://github.com/juspay/neurolink/blob/relea
 
 > **terminate**: (`signal?`) => `void`
 
-Defined in: [types/proxy.ts:2745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2745)
+Defined in: [types/proxy.ts:2750](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2750)
 
 #### Parameters
 
@@ -86,7 +86,7 @@ Defined in: [types/proxy.ts:2745](https://github.com/juspay/neurolink/blob/relea
 
 > **onMessage**: (`listener`) => () => `void`
 
-Defined in: [types/proxy.ts:2746](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2746)
+Defined in: [types/proxy.ts:2751](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2751)
 
 #### Parameters
 
@@ -104,7 +104,7 @@ Defined in: [types/proxy.ts:2746](https://github.com/juspay/neurolink/blob/relea
 
 > **onExit**: (`listener`) => () => `void`
 
-Defined in: [types/proxy.ts:2749](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2749)
+Defined in: [types/proxy.ts:2754](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2754)
 
 #### Parameters
 

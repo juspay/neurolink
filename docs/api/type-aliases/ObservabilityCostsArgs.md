@@ -8,7 +8,7 @@
 
 > **ObservabilityCostsArgs** = [`ObservabilityCommandArgs`](ObservabilityCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1235](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1235)
+Defined in: [types/cli.ts:1239](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1239)
 
 Observability costs sub-command args
 

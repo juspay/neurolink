@@ -205,19 +205,19 @@ function buildCodexErrorResponse(status: number, message: string): Response {
  * tokens and hydrating cooldown + quota state from disk.
  */
 async function loadCodexProxyAccounts(): Promise<CodexRuntimeAccount[]> {
-  const keys = await tokenStore.listByPrefix(CODEX_ACCOUNT_PREFIX);
-  const [cooldowns, quotas] = await Promise.all([
+  const [inventory, cooldowns, quotas] = await Promise.all([
+    tokenStore.getProviderSnapshot(),
     loadAccountCooldowns(),
     loadAccountQuotas(),
   ]);
   const now = Date.now();
   const accounts: CodexRuntimeAccount[] = [];
 
-  for (const key of keys) {
-    if (await tokenStore.isDisabled(key)) {
+  for (const [key, entry] of Object.entries(inventory)) {
+    if (!key.startsWith(CODEX_ACCOUNT_PREFIX) || entry.disabled) {
       continue;
     }
-    const tokens = await tokenStore.loadTokens(key);
+    const tokens = entry.tokens;
     if (!tokens || tokens.tokenType !== "Bearer") {
       // Only OAuth (Bearer) accounts can serve the ChatGPT backend.
       continue;
@@ -483,6 +483,19 @@ export async function handleCodexResponsesRequest(
   };
 
   const accounts = await loadCodexProxyAccounts();
+  const cancelRequest = async (
+    account?: CodexRuntimeAccount,
+  ): Promise<Response> => {
+    await recordFinalOutcome(account, 499, {
+      errorType: "client_cancelled",
+      errorMessage: "Client cancelled Codex request",
+      terminalOutcome: "client_cancelled",
+    });
+    return buildCodexErrorResponse(499, "Client cancelled Codex request");
+  };
+  if (ctx.abortSignal?.aborted) {
+    return cancelRequest();
+  }
   if (accounts.length === 0) {
     await recordFinalOutcome(undefined, 401, {
       errorType: "no_accounts",
@@ -542,6 +555,9 @@ export async function handleCodexResponsesRequest(
 
     // Same-account loop only re-runs once, for a post-401 token refresh.
     for (;;) {
+      if (ctx.abortSignal?.aborted) {
+        return cancelRequest(lastAttemptedAccount);
+      }
       attempt += 1;
       const attemptStartedAt = Date.now();
       lastAttemptedAccount = account;
@@ -552,9 +568,22 @@ export async function handleCodexResponsesRequest(
           method: "POST",
           headers: buildCodexUpstreamHeaders(ctx.headers, account),
           body: bodyStr,
-          signal: AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+          signal: ctx.abortSignal
+            ? AbortSignal.any([
+                ctx.abortSignal,
+                AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+              ])
+            : AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
         });
       } catch (error) {
+        if (ctx.abortSignal?.aborted) {
+          writeAttempt(account, attempt, attemptStartedAt, 499, {
+            errorType: "client_cancelled",
+            errorMessage: "Client cancelled Codex request",
+            retryable: false,
+          });
+          return cancelRequest(account);
+        }
         // A transport failure message is derived from local state — resolved
         // hostnames, socket paths, Node internals — and says nothing the caller
         // can act on. Keep the detail in the log and return a fixed string, so

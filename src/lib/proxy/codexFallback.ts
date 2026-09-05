@@ -7,12 +7,14 @@
  * rules as a native Codex request.
  */
 
+import { ClaudeStreamSerializer, generateToolUseId } from "./claudeFormat.js";
 import { extractCodexUsage } from "./codexUsage.js";
 import type {
   ClaudeContentBlock,
   ClaudeRequest,
   CodexContentPart,
   CodexFallbackResult,
+  CodexFallbackStream,
   CodexReasoningEffort,
   CodexResponsesInputItem,
   CodexResponsesRequest,
@@ -445,4 +447,204 @@ export async function consumeCodexFallbackResponse(
     throw new Error("Codex fallback returned a non-SSE response");
   }
   return parseCodexFallbackSSE(await response.text());
+}
+
+/**
+ * Translate a Codex stream as events arrive. A completed tool call is emitted
+ * once its arguments validate; text does not wait for response.completed.
+ * The caller owns error framing and must never retry after emitting output.
+ */
+export async function createCodexFallbackStream(
+  response: Response,
+  model: string,
+): Promise<CodexFallbackStream> {
+  if (!response.ok) {
+    throw new CodexFallbackResponseError(
+      response.status,
+      await response.text().catch(() => ""),
+    );
+  }
+  if (
+    !response.body ||
+    !(response.headers.get("content-type") ?? "")
+      .toLowerCase()
+      .includes("text/event-stream")
+  ) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new Error("Codex fallback returned a non-SSE or empty response");
+  }
+  const reader = response.body.getReader();
+  let cancellation: Promise<void> | undefined;
+  const cancel = (reason?: unknown): Promise<void> => {
+    cancellation ??= reader
+      .cancel(reason)
+      .catch(() => undefined)
+      .finally(() => reader.releaseLock());
+    return cancellation;
+  };
+  async function* frames(): AsyncGenerator<string, CodexFallbackResult> {
+    const serializer = new ClaudeStreamSerializer(model);
+    const decoder = new TextDecoder();
+    const toolCalls = new Map<
+      string,
+      NonNullable<InternalResult["toolCalls"]>[number]
+    >();
+    const emittedTools = new Set<string>();
+    const emittedTextItems = new Set<number>();
+    const textParts: string[] = [];
+    let textLength = 0;
+    let toolChars = 0;
+    let carry = "";
+    let searchFrom = 0;
+    let completed = false;
+    let usage: CodexFallbackResult["usage"];
+    const maxChars = 16 * 1024 * 1024;
+    function* text(value: string, index: number): Generator<string> {
+      if (!value) {
+        return;
+      }
+      textLength += value.length;
+      if (textLength > maxChars) {
+        throw new Error("Codex fallback output exceeded the stream limit");
+      }
+      textParts.push(value);
+      emittedTextItems.add(index);
+      yield* serializer.pushDelta(value);
+    }
+    function* item(value: unknown, index: number): Generator<string> {
+      if (!isRecord(value)) {
+        throw new Error("Codex fallback output item is malformed");
+      }
+      if (value.type === "function_call") {
+        const id = asNonEmptyString(value.call_id);
+        if (!id || !emittedTools.has(id)) {
+          toolChars += JSON.stringify(value).length;
+          if (toolChars > maxChars || toolCalls.size >= 4096) {
+            throw new Error("Codex fallback tools exceeded the stream limit");
+          }
+          addFunctionCall(value, toolCalls);
+          const call = id ? toolCalls.get(id) : undefined;
+          if (id && call) {
+            emittedTools.add(id);
+            yield* serializer.pushToolUse(
+              generateToolUseId(),
+              call.toolName,
+              call.args,
+            );
+          }
+        }
+      }
+      if (!emittedTextItems.has(index)) {
+        yield* text(outputTextFromItem(value), index);
+      }
+    }
+    function* event(frame: string): Generator<string> {
+      for (const { event: eventName, payload } of parseSSEPayloads(frame)) {
+        const type = asNonEmptyString(payload.type) ?? eventName;
+        if (!type) {
+          throw new Error("Codex fallback stream event is missing a type");
+        }
+        if (completed) {
+          throw new Error(
+            "Codex fallback stream emitted events after completion",
+          );
+        }
+        if (
+          type === "error" ||
+          type === "response.failed" ||
+          type === "response.incomplete"
+        ) {
+          throw new Error(`Codex fallback stream terminated with ${type}`);
+        }
+        const index =
+          typeof payload.output_index === "number" ? payload.output_index : 0;
+        if (type === "response.output_text.delta") {
+          if (typeof payload.delta !== "string") {
+            throw new Error("Codex fallback text delta is malformed");
+          }
+          yield* text(payload.delta, index);
+        } else if (type === "response.output_item.done") {
+          if (!isRecord(payload.item)) {
+            throw new Error("Codex fallback output item is malformed");
+          }
+          yield* item(payload.item, index);
+        } else if (type === "response.completed") {
+          if (responseStatus(payload) !== "completed") {
+            throw new Error("Codex fallback response did not complete");
+          }
+          completed = true;
+          const parsedUsage = extractCodexUsage(payload);
+          if (parsedUsage) {
+            usage = {
+              input: parsedUsage.inputTokens,
+              output: parsedUsage.outputTokens,
+              total: parsedUsage.inputTokens + parsedUsage.outputTokens,
+              cacheReadTokens: parsedUsage.cacheReadTokens,
+              cacheCreationTokens: parsedUsage.cacheCreationTokens,
+            };
+          }
+          const responseBody = payload.response;
+          if (isRecord(responseBody) && Array.isArray(responseBody.output)) {
+            for (const [i, output] of responseBody.output.entries()) {
+              yield* item(output, i);
+            }
+          }
+        }
+      }
+    }
+    try {
+      yield* serializer.start();
+      while (true) {
+        const chunk = await reader.read();
+        carry += decoder.decode(chunk.value, { stream: !chunk.done });
+        // Search only new bytes plus the boundary overlap. Long tool payloads
+        // split over many chunks must not rescan their accumulated prefix.
+        const boundary = /\r?\n\r?\n/g;
+        boundary.lastIndex = searchFrom;
+        let match: RegExpExecArray | null;
+        while ((match = boundary.exec(carry)) !== null) {
+          if (match.index > maxChars) {
+            throw new Error("Codex fallback event exceeded the stream limit");
+          }
+          yield* event(carry.slice(0, match.index));
+          carry = carry.slice(match.index + match[0].length);
+          boundary.lastIndex = 0;
+        }
+        if (carry.length > maxChars) {
+          throw new Error("Codex fallback event exceeded the stream limit");
+        }
+        searchFrom = Math.max(0, carry.length - 3);
+        if (chunk.done) {
+          break;
+        }
+      }
+      if (carry.trim()) {
+        yield* event(carry);
+      }
+      if (!completed) {
+        throw new Error(
+          "Codex fallback stream ended before response.completed",
+        );
+      }
+      if (textLength === 0 && toolCalls.size === 0) {
+        throw new Error("Codex fallback returned no content or tool calls");
+      }
+      const finishReason = toolCalls.size > 0 ? "tool_use" : "end_turn";
+      yield* serializer.finish(usage?.output, finishReason, {
+        input_tokens: usage?.input,
+        cache_read_input_tokens: usage?.cacheReadTokens,
+        cache_creation_input_tokens: usage?.cacheCreationTokens,
+      });
+      return {
+        text: textParts.join(""),
+        toolCalls: [...toolCalls.values()],
+        finishReason,
+        ...(usage ? { usage } : {}),
+      };
+    } finally {
+      await cancel();
+      reader.releaseLock();
+    }
+  }
+  return { frames: frames(), cancel };
 }

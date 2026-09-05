@@ -8,7 +8,7 @@
 
 > **StreamSerializerAdapter** = `object`
 
-Defined in: [types/proxy.ts:3196](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3196)
+Defined in: [types/proxy.ts:3209](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3209)
 
 Common adapter interface that hides the differences between
 Claude and OpenAI stream serializers from the unified translation engine.
@@ -19,7 +19,7 @@ Claude and OpenAI stream serializers from the unified translation engine.
 
 > **start**(): `Iterable`\<`string`\>
 
-Defined in: [types/proxy.ts:3197](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3197)
+Defined in: [types/proxy.ts:3210](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3210)
 
 #### Returns
 
@@ -31,7 +31,7 @@ Defined in: [types/proxy.ts:3197](https://github.com/juspay/neurolink/blob/relea
 
 > **pushDelta**(`text`): `Iterable`\<`string`\>
 
-Defined in: [types/proxy.ts:3198](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3198)
+Defined in: [types/proxy.ts:3211](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3211)
 
 #### Parameters
 
@@ -49,7 +49,7 @@ Defined in: [types/proxy.ts:3198](https://github.com/juspay/neurolink/blob/relea
 
 > **pushToolUse**(`id`, `name`, `input`): `Iterable`\<`string`\>
 
-Defined in: [types/proxy.ts:3199](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3199)
+Defined in: [types/proxy.ts:3212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3212)
 
 #### Parameters
 
@@ -75,7 +75,7 @@ Defined in: [types/proxy.ts:3199](https://github.com/juspay/neurolink/blob/relea
 
 > **finish**(`finishReason`, `usage`): `Iterable`\<`string`\>
 
-Defined in: [types/proxy.ts:3200](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3200)
+Defined in: [types/proxy.ts:3213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3213)
 
 #### Parameters
 
@@ -107,7 +107,7 @@ Defined in: [types/proxy.ts:3200](https://github.com/juspay/neurolink/blob/relea
 
 > **emitError**(`message`): `Iterable`\<`string`\>
 
-Defined in: [types/proxy.ts:3204](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3204)
+Defined in: [types/proxy.ts:3217](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3217)
 
 #### Parameters
 

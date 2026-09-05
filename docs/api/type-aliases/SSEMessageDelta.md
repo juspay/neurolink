@@ -45,3 +45,15 @@ Defined in: [types/proxy.ts:215](https://github.com/juspay/neurolink/blob/releas
 #### output_tokens
 
 > **output_tokens**: `number`
+
+#### input_tokens?
+
+> `optional` **input_tokens?**: `number`
+
+#### cache_read_input_tokens?
+
+> `optional` **cache_read_input_tokens?**: `number`
+
+#### cache_creation_input_tokens?
+
+> `optional` **cache_creation_input_tokens?**: `number`

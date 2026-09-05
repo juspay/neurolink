@@ -8,6 +8,6 @@
 
 > **ProxyShareHeartbeatRenewal** = `Extract`\<[`ProxyShareHeartbeatResponse`](ProxyShareHeartbeatResponse.md), \{ `ok`: `true`; \}\>
 
-Defined in: [types/proxy.ts:4179](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4179)
+Defined in: [types/proxy.ts:4192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4192)
 
 The renewing half of [ProxyShareHeartbeatResponse](ProxyShareHeartbeatResponse.md).

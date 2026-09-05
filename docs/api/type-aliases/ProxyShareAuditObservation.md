@@ -8,7 +8,7 @@
 
 > **ProxyShareAuditObservation** = `object`
 
-Defined in: [types/proxy.ts:4218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4218)
+Defined in: [types/proxy.ts:4231](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4231)
 
 One heartbeat's worth of evidence about a complete-mode grant.
 
@@ -23,7 +23,7 @@ claimed to spend is the whole audit.
 
 > **at**: `number`
 
-Defined in: [types/proxy.ts:4219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4219)
+Defined in: [types/proxy.ts:4232](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4232)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/proxy.ts:4219](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionUsed**: `number` \| `null`
 
-Defined in: [types/proxy.ts:4221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4221)
+Defined in: [types/proxy.ts:4234](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4234)
 
 0..1 utilization of the account's 5h window at this heartbeat.
 
@@ -41,7 +41,7 @@ Defined in: [types/proxy.ts:4221](https://github.com/juspay/neurolink/blob/relea
 
 > **weeklyUsed**: `number` \| `null`
 
-Defined in: [types/proxy.ts:4223](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4223)
+Defined in: [types/proxy.ts:4236](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4236)
 
 0..1 utilization of the account's 7d window at this heartbeat.
 
@@ -51,7 +51,7 @@ Defined in: [types/proxy.ts:4223](https://github.com/juspay/neurolink/blob/relea
 
 > **reportedCoins**: `number`
 
-Defined in: [types/proxy.ts:4225](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4225)
+Defined in: [types/proxy.ts:4238](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4238)
 
 Coins the borrower reported since the previous heartbeat.
 
@@ -61,7 +61,7 @@ Coins the borrower reported since the previous heartbeat.
 
 > **lenderRequests**: `number`
 
-Defined in: [types/proxy.ts:4229](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4229)
+Defined in: [types/proxy.ts:4242](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4242)
 
 Requests this node itself served on the account **since the previous
 observation**. A per-interval delta, not a running total: the drift check

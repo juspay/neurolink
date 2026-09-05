@@ -8,7 +8,7 @@
 
 > **SharedRefreshResult** = `object`
 
-Defined in: [types/proxy.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1260)
+Defined in: [types/proxy.ts:1265](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1265)
 
 Result shared by callers waiting on the same rotating refresh token.
 
@@ -18,7 +18,7 @@ Result shared by callers waiting on the same rotating refresh token.
 
 > **result**: [`RefreshResult`](RefreshResult.md)
 
-Defined in: [types/proxy.ts:1261](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1261)
+Defined in: [types/proxy.ts:1266](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1266)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1261](https://github.com/juspay/neurolink/blob/relea
 
 > **token**: `string`
 
-Defined in: [types/proxy.ts:1262](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1262)
+Defined in: [types/proxy.ts:1267](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1267)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1262](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **refreshToken?**: `string`
 
-Defined in: [types/proxy.ts:1263](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1263)
+Defined in: [types/proxy.ts:1268](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1268)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:1263](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **expiresAt?**: `number`
 
-Defined in: [types/proxy.ts:1264](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1264)
+Defined in: [types/proxy.ts:1269](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1269)

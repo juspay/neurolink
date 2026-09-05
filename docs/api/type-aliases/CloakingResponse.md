@@ -8,7 +8,7 @@
 
 > **CloakingResponse** = `object`
 
-Defined in: [types/proxy.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L361)
+Defined in: [types/proxy.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L366)
 
 Response envelope for cloaking pipeline.
 
@@ -18,7 +18,7 @@ Response envelope for cloaking pipeline.
 
 > **headers**: `Record`\<`string`, `string` \| `undefined`\>
 
-Defined in: [types/proxy.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L362)
+Defined in: [types/proxy.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L367)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:362](https://github.com/juspay/neurolink/blob/releas
 
 > **body**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L363)
+Defined in: [types/proxy.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L368)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:363](https://github.com/juspay/neurolink/blob/releas
 
 > **status**: `number`
 
-Defined in: [types/proxy.ts:364](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L364)
+Defined in: [types/proxy.ts:369](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L369)

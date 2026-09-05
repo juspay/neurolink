@@ -8,7 +8,7 @@
 
 > **RollingWorkerSupervisorSnapshot** = `object`
 
-Defined in: [types/proxy.ts:2781](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2781)
+Defined in: [types/proxy.ts:2789](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2789)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:2781](https://github.com/juspay/neurolink/blob/relea
 
 > **generation**: `number`
 
-Defined in: [types/proxy.ts:2782](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2782)
+Defined in: [types/proxy.ts:2790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2790)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:2782](https://github.com/juspay/neurolink/blob/relea
 
 > **active**: \{ `pid`: `number`; `version`: `string`; `generation`: `number`; \} \| `null`
 
-Defined in: [types/proxy.ts:2783](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2783)
+Defined in: [types/proxy.ts:2791](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2791)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:2783](https://github.com/juspay/neurolink/blob/relea
 
 > **candidate**: \{ `pid`: `number`; `expectedVersion`: `string`; `generation`: `number`; \} \| `null`
 
-Defined in: [types/proxy.ts:2784](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2784)
+Defined in: [types/proxy.ts:2792](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2792)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:2784](https://github.com/juspay/neurolink/blob/relea
 
 > **draining**: `object`[]
 
-Defined in: [types/proxy.ts:2789](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2789)
+Defined in: [types/proxy.ts:2797](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2797)
 
 #### pid
 
@@ -60,7 +60,17 @@ Defined in: [types/proxy.ts:2789](https://github.com/juspay/neurolink/blob/relea
 
 > **queuedSockets**: `number`
 
-Defined in: [types/proxy.ts:2790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2790)
+Defined in: [types/proxy.ts:2798](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2798)
+
+---
+
+### pendingTransfers?
+
+> `optional` **pendingTransfers?**: `number`
+
+Defined in: [types/proxy.ts:2800](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2800)
+
+Offered sockets awaiting acknowledgement or commit, across all workers.
 
 ---
 
@@ -68,7 +78,7 @@ Defined in: [types/proxy.ts:2790](https://github.com/juspay/neurolink/blob/relea
 
 > **rejectedSockets**: `number`
 
-Defined in: [types/proxy.ts:2791](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2791)
+Defined in: [types/proxy.ts:2801](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2801)
 
 ---
 
@@ -76,7 +86,7 @@ Defined in: [types/proxy.ts:2791](https://github.com/juspay/neurolink/blob/relea
 
 > **failedTransfers**: `number`
 
-Defined in: [types/proxy.ts:2792](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2792)
+Defined in: [types/proxy.ts:2802](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2802)
 
 ---
 
@@ -84,7 +94,7 @@ Defined in: [types/proxy.ts:2792](https://github.com/juspay/neurolink/blob/relea
 
 > **recentEvents**: [`RollingWorkerSupervisorEvent`](RollingWorkerSupervisorEvent.md)[]
 
-Defined in: [types/proxy.ts:2794](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2794)
+Defined in: [types/proxy.ts:2804](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2804)
 
 Bounded generation-scoped evidence for attributing lifetime counters.
 
@@ -94,4 +104,4 @@ Bounded generation-scoped evidence for attributing lifetime counters.
 
 > **lastFailure**: `object` & [`RollingWorkerFailureDetails`](RollingWorkerFailureDetails.md) \| `null`
 
-Defined in: [types/proxy.ts:2795](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2795)
+Defined in: [types/proxy.ts:2805](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2805)

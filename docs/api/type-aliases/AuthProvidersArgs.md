@@ -8,7 +8,7 @@
 
 > **AuthProvidersArgs** = `object`
 
-Defined in: [types/cli.ts:1413](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1413)
+Defined in: [types/cli.ts:1417](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1417)
 
 Auth command argument types
 
@@ -18,4 +18,4 @@ Auth command argument types
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"`
 
-Defined in: [types/cli.ts:1414](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1414)
+Defined in: [types/cli.ts:1418](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1418)

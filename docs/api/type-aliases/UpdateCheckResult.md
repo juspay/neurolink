@@ -8,7 +8,7 @@
 
 > **UpdateCheckResult** = `object`
 
-Defined in: [types/proxy.ts:2500](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2500)
+Defined in: [types/proxy.ts:2505](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2505)
 
 Outcome of a proxy auto-update version check against npm.
 
@@ -18,7 +18,7 @@ Outcome of a proxy auto-update version check against npm.
 
 > **currentVersion**: `string`
 
-Defined in: [types/proxy.ts:2501](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2501)
+Defined in: [types/proxy.ts:2506](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2506)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2501](https://github.com/juspay/neurolink/blob/relea
 
 > **latestVersion**: `string`
 
-Defined in: [types/proxy.ts:2502](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2502)
+Defined in: [types/proxy.ts:2507](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2507)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2502](https://github.com/juspay/neurolink/blob/relea
 
 > **updateAvailable**: `boolean`
 
-Defined in: [types/proxy.ts:2503](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2503)
+Defined in: [types/proxy.ts:2508](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2508)

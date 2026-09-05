@@ -4,6 +4,8 @@ import type {
 } from "../types/index.js";
 
 export const PROXY_SOCKET_WORKER_ENV = "NEUROLINK_PROXY_SOCKET_WORKER";
+/** The worker has not been sent a commit and cannot have served this socket. */
+export const PROXY_SOCKET_OFFER_TIMEOUT = "PROXY_SOCKET_OFFER_TIMEOUT";
 export const PROXY_ROLLING_SUPERVISOR_ENV =
   "NEUROLINK_PROXY_ROLLING_SUPERVISOR";
 
