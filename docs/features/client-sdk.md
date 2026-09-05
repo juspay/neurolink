@@ -327,56 +327,32 @@ function AgentPanel() {
 
 ## Vercel AI SDK Compatibility
 
-The AI SDK adapter implements `LanguageModelV1`, allowing NeuroLink to work as a drop-in provider with `generateText`, `streamText`, and other AI SDK functions.
+The AI SDK adapter (`NeuroLinkLanguageModel`) exposes a `doGenerate` / `doStream` pair that returns the **`LanguageModelV1` result shape** (`text`, `finishReason`, `usage.promptTokens`). It does not declare a `specificationVersion` and does not implement the `LanguageModelV2` / `V3` contract that `ai` v5+ requires (`content` parts, `usage.inputTokens`), so with a current `ai` release it needs a shim rather than being passed to `generateText` directly. NeuroLink itself has no dependency on `ai`.
 
-### createNeuroLinkProvider
+### Recommended: use the HTTP client directly
+
+The supported client surface does not require a Vercel model adapter:
 
 ```typescript
-import { createNeuroLinkProvider } from "@juspay/neurolink/client";
-import { generateText, streamText } from "ai";
+import { createClient } from "@juspay/neurolink/client";
 
-const neurolink = createNeuroLinkProvider({
+const client = createClient({
   baseUrl: "https://api.neurolink.example.com",
   apiKey: process.env.NEUROLINK_API_KEY,
 });
 
-// Non-streaming generation
-const result = await generateText({
-  model: neurolink("gpt-4o"),
-  prompt: "Explain recursion in one sentence",
-});
-console.log(result.text);
-
-// Streaming generation
-const stream = await streamText({
-  model: neurolink("claude-sonnet-4-6"),
-  prompt: "Write a short poem about TypeScript",
-});
-
-for await (const chunk of stream.textStream) {
-  process.stdout.write(chunk);
-}
-```
-
-The provider automatically infers the upstream AI provider from the model ID (e.g., `gpt-4o` maps to OpenAI, `claude-sonnet-4-6` to Anthropic, `gemini-3-flash-preview` to Google AI).
-
-### createNeuroLinkModel
-
-For a single pre-configured model without creating a full provider:
-
-```typescript
-import { createNeuroLinkModel } from "@juspay/neurolink/client";
-import { generateText } from "ai";
-
-const model = createNeuroLinkModel({
-  baseUrl: "https://api.neurolink.example.com",
-  apiKey: process.env.NEUROLINK_API_KEY,
-  modelId: "gpt-4o",
+const result = await client.generate({
   provider: "openai",
+  input: { text: "Explain recursion in one sentence" },
 });
-
-const result = await generateText({ model, prompt: "Hello!" });
+console.log(result.data.content);
 ```
+
+`createNeuroLinkProvider` and `createNeuroLinkModel` remain exported for legacy
+callers, but their handles must not be passed directly to a modern Vercel
+`generateText` or `streamText` call. No V2/V3 conversion shim is supplied by
+these helpers. Importing either helper successfully does not establish that
+protocol compatibility.
 
 ### Server-Side Streaming Response
 

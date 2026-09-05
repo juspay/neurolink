@@ -127,10 +127,11 @@ sdk.start();
 
 ### Vercel AI SDK Integration
 
-NeuroLink automatically captures GenAI semantic convention attributes from Vercel AI SDK:
+If your application also uses the Vercel AI SDK, NeuroLink's `ContextEnricher` reads the GenAI semantic-convention attributes that `experimental_telemetry` emits. NeuroLink itself has no dependency on the `ai` package — the imports below are your application's, and the SDK is not required to use NeuroLink:
 
 ```typescript
 import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { setLangfuseContext } from "@juspay/neurolink";
 
 await setLangfuseContext({ userId: "user-123" }, async () => {
