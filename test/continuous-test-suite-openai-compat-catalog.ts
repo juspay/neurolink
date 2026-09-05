@@ -137,6 +137,9 @@ const CATALOG_ENV_VARS = [
   "MANCER_API_KEY",
   "MANCER_BASE_URL",
   "MANCER_MODEL",
+  "NOVITA_API_KEY",
+  "NOVITA_BASE_URL",
+  "NOVITA_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1104,6 +1107,12 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     envVar: "MANCER_API_KEY",
     urlMatch: "neuro.mancer.tech/oai/v1/chat/completions",
     model: "deepseek-v4-flash",
+  },
+  {
+    alias: "novita",
+    envVar: "NOVITA_API_KEY",
+    urlMatch: "api.novita.ai/openai/v1/chat/completions",
+    model: "meta-llama/llama-3.3-70b-instruct",
   },
 ];
 
