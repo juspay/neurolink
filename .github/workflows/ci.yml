@@ -292,6 +292,13 @@ jobs:
         if: matrix.group == 'types'
         run: pnpm run check:tools-tests
 
+      # The shipped-declaration guard reads dist/*.d.ts, so it belongs in the
+      # one shard that builds. It was added in #1627 and hardened in #1632 and
+      # until now ran only when someone ran it by hand.
+      - name: 🔎 Check shipped declarations resolve
+        if: matrix.group == 'types'
+        run: pnpm run check:dts
+
       - name: Test CLI build
         if: matrix.group == 'types'
         run: |
@@ -1126,6 +1133,8 @@ jobs:
             test:autoresearch@2
             test:loop-engine@2
             test:handler-registry@1
+            test:vendor-recovery@5
+            test:browser-bundle@5
           "
           # Normalise every entry to name@weight (missing or non-numeric
           # weights become 30), then sort by weight descending. Greedy
