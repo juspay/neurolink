@@ -1,0 +1,130 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "friendli",
+  "displayName": "FriendliAI",
+  "aliases": [],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.friendli.ai/serverless/v1"
+  },
+  "models": {
+    "default": "zai-org/GLM-5.3",
+    "fallbacks": [
+      "zai-org/GLM-5.3",
+      "zai-org/GLM-5.3-Flash",
+      "zai-org/GLM-5.2",
+      "zai-org/GLM-5.1",
+      "google/gemma-4-31B-it",
+      "deepseek-ai/DeepSeek-V3.2",
+      "MiniMaxAI/MiniMax-M2.5"
+    ],
+    "defaultContextWindow": 1048576,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "zai-org/GLM-5.3": {
+        "contextWindow": 1048576,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 1.4,
+          "output": 4.4,
+          "cachedInput": 0.26
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Zhipu's flagship GLM-5.3, the only model in this roster that was live capability-probed end to end: a real structured tool call (finish_reason=tool_calls, 9 tool_calls deltas under streaming), SSE streaming (62 events, terminal [DONE]), and json_object structured output. A heavy internal reasoner exposed via reasoning/reasoning_content — at a small max_tokens budget the whole completion is spent on unfinished reasoning before any visible content, so give it a generous max_tokens. Rejects image/video input and rejects tools+response_format together, both HTTP 422 (see capabilities.structuredOutputWithTools). maxOutputTokens is the documented per-request output ceiling from https://friendli.ai/docs/examples/models/zai-glm-5-3/overview.md (retrieved 2026-09-09) — 131,072 tokens, distinct from the 1,048,576-token context window; the authenticated roster's max_completion_tokens field reports 1048576 (equal to context) but that is not treated as the output cap. Pricing per the same page: $1.40 / $4.40 per MTok input/output, $0.26 per MTok cached input."
+      },
+      "zai-org/GLM-5.3-Flash": {
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.3 Flash — lighter/faster sibling of the default; present on the live roster (GET /serverless/v1/models, 200) but not itself capability-probed under the tight rate limit; fallback."
+      },
+      "zai-org/GLM-5.2": {
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.2 — prior GLM generation; roster-listed only, not capability-probed; fallback."
+      },
+      "zai-org/GLM-5.1": {
+        "vision": false,
+        "status": "production",
+        "description": "Zhipu GLM-5.1 — prior GLM generation; roster-listed only, not capability-probed; fallback."
+      },
+      "google/gemma-4-31B-it": {
+        "vision": false,
+        "status": "production",
+        "description": "Google Gemma 4 31B instruct-tuned; roster-listed only, not capability-probed; fallback."
+      },
+      "deepseek-ai/DeepSeek-V3.2": {
+        "vision": false,
+        "status": "production",
+        "description": "DeepSeek V3.2; roster-listed only, not capability-probed; fallback."
+      },
+      "MiniMaxAI/MiniMax-M2.5": {
+        "vision": false,
+        "status": "production",
+        "description": "MiniMax M2.5; roster-listed only, not capability-probed; fallback."
+      }
+    },
+    "topModels": [
+      "zai-org/GLM-5.3",
+      "zai-org/GLM-5.3-Flash",
+      "zai-org/GLM-5.2",
+      "zai-org/GLM-5.1",
+      "google/gemma-4-31B-it",
+      "deepseek-ai/DeepSeek-V3.2",
+      "MiniMaxAI/MiniMax-M2.5"
+    ]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": true,
+    "toolsWithStreaming": true,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "Unauthorized|valid credential",
+      "class": "authentication",
+      "message": "Invalid Friendli API key. Check {apiKeyEnvVar}. Get one at {setupUrl}"
+    },
+    {
+      "status": 404,
+      "pattern": "\\bModel\\s+['\"][^'\"\\r\\n]+['\"]\\s+not\\s+found\\b",
+      "class": "invalid-model",
+      "message": "Friendli model '{model}' not found. Pick a current model from the authenticated /serverless/v1/models roster or {setupUrl}"
+    }
+  ],
+  "setup": {
+    "url": "https://suite.friendli.ai/",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-tier",
+    "instructions": [
+      "1. Visit: https://suite.friendli.ai/ and sign in",
+      "2. Create a Personal Access Token for the serverless endpoints",
+      "3. New accounts start with trial credit; confirm current billing terms in the console before heavy use",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ],
+    "description": "OpenAI-compatible endpoint at https://api.friendli.ai/serverless/v1, serving a small zai-org GLM-family roster plus a few third-party models. Rate limits are tight — pace requests at least 20 seconds apart."
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-06",
+      "method": "authenticated GET /serverless/v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-06",
+      "method": "POST /chat/completions with an invalid API key",
+      "status": 401
+    },
+    "liveMatrix": {
+      "date": "2026-09-06",
+      "result": "Probed against the default model, zai-org/GLM-5.3, via https://api.friendli.ai/serverless/v1. The first probe run used a 2s cadence, tripped Friendli's rate limit (12/16 cases 429) and is discarded entirely; this result is from a slower-paced re-run plus targeted single-call re-probes, each still hitting 429 occasionally even at ~25s spacing — Friendli's rate limits are tight, so any future live check needs generous pacing (20s+) and retry. Roster: GET /serverless/v1/models returns 200 with exactly 7 ids, all zai-org GLM family plus google/gemma-4-31B-it, deepseek-ai/DeepSeek-V3.2 and MiniMaxAI/MiniMax-M2.5 — models.fallbacks lists all 7. Wire mechanics on GLM-5.3: chat, system role, array content parts (message content IS accepted as a parts array, so no messageContentFormat quirk is declared), sampling params and max_completion_tokens all 200. Streaming: SSE, 200, 62 events, terminal [DONE] present — contentDeltas were 0 only because GLM-5.3 is a heavy reasoner that spent the small test budget entirely on reasoning/reasoning_content fields, not because streaming is broken. Tool calling: a real structured tool_call (get_time, tz argument parsed, finish_reason=tool_calls) on the first turn, a null-content assistant tool_calls turn accepted on replay, and 9 tool_calls deltas surfacing mid-SSE-stream — tools and toolsWithStreaming true; tool_choice is tolerated even with no tools declared. response_format json_object returns 200 cleanly — structuredOutput true. response_format json_schema also returns 200, but at the tested token budget the content is unfinished reasoning text rather than schema-conformant JSON — same reasoning-budget effect as above; NeuroLink's coerceJsonToSchema repair layer is the intended safety net. Sending tools and a JSON schema together in the same request is a genuine, hard rejection: HTTP 422 'The 'response_format' field cannot be set when tools are specified' — the same class of vendor exclusivity NeuroLink already handles generically for Groq via isToolsSchemaConflictError (pattern-matches the response_format+tool wording in the thrown error and retries the call without response_format), so no provider-specific quirk was added — structuredOutputWithTools is declared false. Vision: a real image part returns HTTP 422 'This model does not support image/video inputs.' — genuinely unsupported, not a rate limit; no model in this roster is marked vision:true and models.visionModel is left unset. Error shapes: bad key -> 401 {\"detail\":\"Unauthorized. Please provide a valid credential.\"}; bad model -> 404 {\"detail\":\"Model '<id>' not found.\"}. Only zai-org/GLM-5.3 (the declared default) was capability-probed end to end under the account's tight rate limit; the other 6 roster ids are roster-verified by id only, matching the account's usable request budget for this pass."
+    },
+    "addedInPR": "https://github.com/juspay/neurolink/pull/1657"
+  }
+}

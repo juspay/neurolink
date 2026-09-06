@@ -27,6 +27,7 @@ export enum AIProviderName {
   CEREBRAS = "cerebras",
   CLOUDFLARE = "cloudflare",
   FIREWORKS = "fireworks",
+  FRIENDLI = "friendli",
   GMICLOUD = "gmicloud",
   GROQ = "groq",
   INCEPTION_LABS = "inception-labs",
@@ -1278,6 +1279,16 @@ export enum FireworksModels {
   LLAMA_V3P2_90B_VISION_INSTRUCT = "accounts/fireworks/models/llama-v3p2-90b-vision-instruct",
   LLAMA_V3P2_11B_VISION_INSTRUCT = "accounts/fireworks/models/llama-v3p2-11b-vision-instruct",
   PHI_3_VISION_128K_INSTRUCT = "accounts/fireworks/models/phi-3-vision-128k-instruct",
+}
+
+export enum FriendliModels {
+  ZAI_ORG_GLM_5_3 = "zai-org/GLM-5.3",
+  ZAI_ORG_GLM_5_3_FLASH = "zai-org/GLM-5.3-Flash",
+  ZAI_ORG_GLM_5_2 = "zai-org/GLM-5.2",
+  ZAI_ORG_GLM_5_1 = "zai-org/GLM-5.1",
+  GOOGLE_GEMMA_4_31B_IT = "google/gemma-4-31B-it",
+  DEEPSEEK_AI_DEEPSEEK_V3_2 = "deepseek-ai/DeepSeek-V3.2",
+  MINIMAXAI_MINIMAX_M2_5 = "MiniMaxAI/MiniMax-M2.5",
 }
 
 export enum GmicloudModels {
