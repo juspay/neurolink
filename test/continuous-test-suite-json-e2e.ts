@@ -118,6 +118,17 @@ const arrayHeavySchema = z.object({
   total: z.number(),
 });
 
+// (D) A trivially small shape, for the case where the PROMPT says nothing about
+// the shape at all. Every other schema case above is driven by a prompt that
+// spells out the field names, which quietly does the schema's job for it: a
+// model answers those in JSON whether or not the SDK ever asked it to. This one
+// leaves the schema as the ONLY statement of the shape, which is what makes it
+// able to catch a turn where the schema never reached the model.
+const plainProseSchema = z.object({
+  colour: z.string(),
+  reason: z.string(),
+});
+
 // ── Prompts ─────────────────────────────────────────────────────────────────
 
 const STRESS_PROMPT = [
@@ -198,6 +209,19 @@ const SCHEMA_CASES: SchemaCase[] = [
     schema: arrayHeavySchema,
     prompt: ARRAY_PROMPT,
     maxTokens: 2500,
+  },
+  {
+    // Deliberately a PLAIN question: it names no field, no JSON, no shape.
+    // Regression guard for the tools-suppress-response_format defect — with
+    // tools attached, `response_format` is dropped on every provider that
+    // cannot combine the two, and nothing else was asking the model for JSON,
+    // so the turn came back as prose with `structuredData` unset. The other
+    // cases cannot catch that: their prompts name the fields, so the model
+    // emits JSON regardless of what the SDK sent.
+    name: "plain-prose-prompt",
+    schema: plainProseSchema,
+    prompt: "What colour is a clear daytime sky, and why?",
+    maxTokens: 500,
   },
   {
     // No maxTokens → exercises the per-model default (64K for Sonnet 4.x, etc).
@@ -322,6 +346,9 @@ const CELLS: Cell[] = [
     tier: "breadth",
     strictSchema: false,
   },
+  // Cerebras: named alongside groq in the report that opened this defect, and a
+  // second vendor family for the tools-suppress-response_format path.
+  { provider: "cerebras", tier: "breadth", strictSchema: false },
   {
     provider: "deepseek",
     model: "deepseek-chat",
@@ -373,10 +400,21 @@ async function runCell(cell: Cell, sc: SchemaCase): Promise<void> {
   try {
     parsed = JSON.parse(res.content);
   } catch (e) {
-    throw new Error(
-      `content is NOT valid JSON (${(e as Error).message}). head: ${JSON.stringify(
+    // The head of the response is printed, NOT thrown. defineSuite classifies a
+    // thrown error as a SKIP when its message matches isExpectedProviderError(),
+    // and that match runs against the message text — so quoting live model prose
+    // into it lets the model's own wording decide whether a real failure is
+    // reported. A model that hedges with "I don't have access to real-time data"
+    // would turn this very assertion into a green skip.
+    console.log(
+      `      · ${cell.provider}/${sc.name}: non-JSON content head: ${JSON.stringify(
         res.content.slice(0, 240),
       )}`,
+    );
+    throw new Error(
+      `content is NOT valid JSON — parse failed at character ${
+        /position (\d+)/.exec((e as Error).message)?.[1] ?? "0"
+      } of ${res.content.length} (head printed above)`,
       { cause: e },
     );
   }
@@ -444,13 +482,17 @@ for (const cell of CELLS) {
   if (onlyProviders && !onlyProviders.includes(cell.provider)) {
     continue;
   }
-  // core runs all cases (incl. the slow huge-output); breadth runs only the
-  // escaping-stress case — breadth providers don't exercise the changed
-  // native-Claude cap path, and keeping the run tractable avoids load-flakes.
+  // core runs all cases (incl. the slow huge-output); breadth runs the
+  // escaping-stress case plus the plain-prose case — breadth providers don't
+  // exercise the changed native-Claude cap path, and keeping the run tractable
+  // avoids load-flakes. plain-prose is on breadth deliberately: the
+  // tools-suppress-response_format defect it guards lives in the
+  // OpenAI-compatible native loop, which is exactly what the breadth cells are.
+  const BREADTH_CASES = ["agent/escaping-stress", "plain-prose-prompt"];
   const cases =
     cell.tier === "core"
       ? SCHEMA_CASES
-      : SCHEMA_CASES.filter((c) => c.name === "agent/escaping-stress");
+      : SCHEMA_CASES.filter((c) => BREADTH_CASES.includes(c.name));
   for (const sc of cases) {
     const label = `${cell.provider}${cell.model ? `:${cell.model}` : ""} — ${sc.name}`;
     await test(label, async () => {
