@@ -1811,14 +1811,18 @@ export class GoogleAIStudioProvider extends BaseProvider {
       tools: baseTools,
     };
 
-    // Check for tools + JSON schema conflict (Gemini limitation)
+    // Check for tools + JSON schema conflict, via the shared predicate (same
+    // gate executeStream() and executeNativeGemini3Generate() use) so this
+    // path also honors isGeminiProvider/isNativeAnthropicProvider instead of
+    // hand-rolling its own tools+schema condition.
     const wantsJsonOutput = options.output?.format === "json" || options.schema;
-    if (
-      wantsJsonOutput &&
-      mergedOptions.tools &&
-      Object.keys(mergedOptions.tools).length > 0 &&
-      !mergedOptions.disableTools
-    ) {
+    const exclusionInForce = isToolsSchemaExclusionInForce(
+      this.providerName,
+      modelName,
+      !mergedOptions.disableTools,
+      Object.keys(mergedOptions.tools ?? {}).length,
+    );
+    if (wantsJsonOutput && exclusionInForce) {
       logger.warn(
         "[GoogleAIStudio] Gemini does not support tools and JSON schema output simultaneously. Disabling tools for this request.",
       );

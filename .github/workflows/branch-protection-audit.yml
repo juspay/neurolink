@@ -1,0 +1,78 @@
+name: Branch Protection Audit
+
+on:
+  schedule:
+    # Hourly. required_status_checks can be edited outside any PR — a repo
+    # admin using the Settings UI or `gh api` directly — so a scheduled
+    # sweep is the only way to catch a manually emptied contexts list
+    # before something red merges to release on its strength.
+    - cron: "0 * * * *"
+  push:
+    branches: [release]
+  workflow_dispatch: {}
+
+# Deliberately NOT a required status check. It audits branch protection
+# itself, so making it required would let the exact failure mode it exists
+# to catch — required_status_checks silently losing an entry — also disable
+# this workflow's ability to report on it. See CLAUDE.md's "Required status
+# checks and the release bot" section: `release` carries five required
+# contexts split across two layers (a ruleset and classic branch
+# protection), and a ruleset-only migration would silently drop
+# `security-suites` because only four of the five are duplicated there.
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: 🛡️ Required Status Checks Present
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all five required contexts are still required
+        env:
+          # `administration` is not a valid GITHUB_TOKEN permission scope (no
+          # such key exists in the Actions permissions schema — actionlint
+          # rejects it), and the default token cannot read branch protection
+          # regardless: that endpoint needs Administration:read, which
+          # `github.token` never carries. BRANCH_PROTECTION_AUDIT_TOKEN is a
+          # repo secret holding a fine-grained PAT or GitHub App installation
+          # token scoped to Administration: Read — set it in the repo's
+          # Settings → Secrets before this workflow can pass. Falling back to
+          # `github.token` keeps the step runnable (and failing loudly via
+          # `gh api`'s 403 under `set -euo pipefail`) rather than the job
+          # erroring before it starts.
+          GH_TOKEN: ${{ secrets.BRANCH_PROTECTION_AUDIT_TOKEN || github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Keep this list in sync with CLAUDE.md's required-checks table.
+          # Query classic branch protection (`branches/.../protection`), not
+          # the ruleset API (`rulesets/11413189`) — the ruleset under-reports
+          # by omitting `security-suites`, which is required only on the
+          # classic layer today.
+          REQUIRED=(
+            "test"
+            "provider-safety-net"
+            "build-check"
+            "🔒 Single Commit Policy Validation"
+            "security-suites"
+          )
+
+          ACTUAL_JSON=$(gh api "repos/${REPO}/branches/release/protection" \
+            --jq '.required_status_checks.contexts // []')
+
+          MISSING=()
+          for ctx in "${REQUIRED[@]}"; do
+            if ! jq -e --arg ctx "$ctx" 'index($ctx) != null' >/dev/null <<<"$ACTUAL_JSON"; then
+              MISSING+=("$ctx")
+            fi
+          done
+
+          echo "Current required contexts: $ACTUAL_JSON"
+
+          if [ "${#MISSING[@]}" -gt 0 ]; then
+            printf '::error::release branch protection is missing required context: %s\n' "${MISSING[@]}"
+            exit 1
+          fi
+
+          echo "All five required contexts are present."

@@ -170,6 +170,7 @@ const VISION_CAPABILITIES: Record<string, readonly string[]> = {
     "gpt-4.1-mini",
     "gpt-4.1-nano",
     // o-series reasoning models (released Apr 2025)
+    "o1",
     "o3",
     "o3-mini",
     "o3-pro",

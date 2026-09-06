@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 import { jsonSchema } from "../dist/index.js";
+import type { NeurolinkCredentials } from "../dist/index.js";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -137,6 +138,12 @@ type OpenAICompatSpec = {
    *  subclass in this plan set this; pre-existing entries left it unset
    *  (no regression — the case is skipped, not failed, when absent). */
   rateLimitErrorMatch?: RegExp;
+  /** Optional: when set, the 401 case also asserts the thrown error's
+   *  `.provider` field equals this string exactly — characterizes
+   *  BaseProvider.providerName feeding classifyProviderError directly
+   *  instead of a second hand-copied literal. Left unset for specs this
+   *  plan didn't touch (no regression — skipped, not failed, when absent). */
+  expectedErrorProviderField?: string;
 };
 
 // ── Catalog-derived Tier-2 provider specs ──────────────────────────────
@@ -253,6 +260,7 @@ async function buildOpenAICompatProviders(): Promise<OpenAICompatSpec[]> {
       authPrefix: "Bearer ",
       model: "command-r-plus",
       authErrorMatch: /cohere|401|unauthor|api key/i,
+      expectedErrorProviderField: "cohere",
     },
   ];
 }
@@ -368,6 +376,15 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
             spec.authErrorMatch.test(msg),
             `msg='${msg.slice(0, 120)}'`,
           );
+          if (spec.expectedErrorProviderField) {
+            const provider = (err as { provider?: unknown })?.provider;
+            record(
+              results,
+              `${section}: thrown error's .provider identifies this provider`,
+              provider === spec.expectedErrorProviderField,
+              `error.provider did not identify ${spec.expectedErrorProviderField}`,
+            );
+          }
         }
       },
     );
@@ -2147,6 +2164,16 @@ async function runAzureSection(): Promise<void> {
             msg.includes("Invalid Azure OpenAI API key or endpoint."),
             `msg='${msg.slice(0, 120)}'`,
           );
+          // BaseProvider.providerName now feeds formatProviderError directly
+          // instead of a second hand-copied "azure" literal — characterize
+          // that the thrown error's .provider still identifies this provider.
+          const provider = (err as { provider?: unknown })?.provider;
+          record(
+            results,
+            `${section}: thrown error's .provider identifies this provider`,
+            provider === "azure",
+            "error.provider did not identify azure",
+          );
         }
       },
     );
@@ -3209,6 +3236,492 @@ async function runBedrockSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: classifier-provider-name — ProviderError#provider identity for
+// providers built on the shared OpenAIChatCompletionsProvider base
+// (deepseek, huggingface, llamacpp, lm-studio, nvidia-nim, ollama,
+// openrouter, openai-compatible). BaseProvider.providerName now feeds
+// classifyProviderError() directly instead of duplicating each provider's
+// canonical name as a second hand-copied literal; every constructor still
+// passes that literal to super(), so a name drifting between the two
+// would previously have gone unnoticed. Uses per-call `credentials`
+// overrides (not env vars) so each case is fully isolated and doesn't
+// depend on a provider's own env-var-derivation conventions.
+// ───────────────────────────────────────────────────────────────────────
+
+type ProviderErrorFieldSpec = {
+  /** Canonical AIProviderName string expected on the thrown error's `.provider`. */
+  provider: string;
+  /** Key into NeurolinkCredentials for a per-call override. */
+  credentialsKey: string;
+  model: string;
+};
+
+const PROVIDER_ERROR_FIELD_SPECS: ProviderErrorFieldSpec[] = [
+  { provider: "deepseek", credentialsKey: "deepseek", model: "deepseek-chat" },
+  {
+    provider: "huggingface",
+    credentialsKey: "huggingFace",
+    model: "meta-llama/Llama-3.1-8B-Instruct",
+  },
+  { provider: "llamacpp", credentialsKey: "llamacpp", model: "local-model" },
+  { provider: "lm-studio", credentialsKey: "lmStudio", model: "local-model" },
+  {
+    provider: "nvidia-nim",
+    credentialsKey: "nvidiaNim",
+    model: "meta/llama-3.1-8b-instruct",
+  },
+  { provider: "ollama", credentialsKey: "ollama", model: "llama3" },
+  {
+    provider: "openrouter",
+    credentialsKey: "openrouter",
+    model: "openai/gpt-4o-mini",
+  },
+  {
+    provider: "openai-compatible",
+    credentialsKey: "openaiCompatible",
+    model: "gpt-4o-mini",
+  },
+];
+
+async function runProviderErrorFieldSection(): Promise<void> {
+  console.log(
+    "\n=== LLM error identity (.provider field) — deepseek/huggingface/llamacpp/lm-studio/nvidia-nim/ollama/openrouter/openai-compatible ===",
+  );
+  const { NeuroLink } = await import("../dist/index.js");
+
+  for (const spec of PROVIDER_ERROR_FIELD_SPECS) {
+    const section = `LLM ${spec.provider}`;
+    const title = `${section}: thrown error's .provider identifies this provider`;
+    const baseURL = `https://mock-${spec.provider}.test/v1`;
+    try {
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: `mock-${spec.provider}.test`,
+            respond: {
+              status: 401,
+              json: {
+                error: { message: "Invalid API key", type: "auth_error" },
+              },
+            },
+          },
+        ],
+        async () => {
+          const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+          const credentials = {
+            [spec.credentialsKey]: {
+              apiKey: `test-fake-${spec.provider}-credential`,
+              baseURL,
+            },
+          } as NeurolinkCredentials;
+          try {
+            await nl.generate({
+              provider: spec.provider,
+              model: spec.model,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials,
+            });
+            record(results, title, false, "no error thrown");
+          } catch (err) {
+            const provider = (err as { provider?: unknown })?.provider;
+            record(
+              results,
+              title,
+              provider === spec.provider,
+              `error.provider did not identify ${spec.provider}`,
+            );
+          }
+        },
+      );
+    } catch (err) {
+      record(
+        results,
+        title,
+        false,
+        err instanceof Error ? err.message : String(err),
+      );
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: wrapper-message — single-provider failure is reported by name,
+// not as a generic "all providers" failure. directProviderGeneration()'s
+// post-loop epilogue used to throw the same
+// "Failed to generate text with all providers. Last error: ..." wording
+// unconditionally, even when providersToTry had exactly one entry (an
+// explicit provider, or disableInternalFallback). It now branches on
+// providersToTry.length === 1 and names the single provider instead. The
+// multi-provider wording is deliberately left unchanged (so existing
+// message-matching suites keep passing) — there is nothing new to
+// characterize on that side of the branch.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runSingleProviderWrapperMessageSection(): Promise<void> {
+  const section = "wrapper-message";
+  console.log(`\n=== ${section} ===`);
+  const { NeuroLink } = await import("../dist/index.js");
+  const model = "gpt-4o-mini";
+
+  // A 429 is retryable at the orchestration layer, so (unlike a 401, which
+  // is non-retryable and propagates immediately) it reaches the post-loop
+  // epilogue where the single-vs-multi-provider wording branches.
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 429,
+            json: {
+              error: {
+                message: "Rate limit reached",
+                type: "rate_limit_error",
+              },
+            },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+            disableInternalFallback: true,
+          });
+          record(
+            results,
+            `${section}: a single explicit provider's failure names that provider`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          const namesTheProvider = /\bProvider openai failed:/.test(msg);
+          const doesNotClaimAllProviders = !/all providers/i.test(msg);
+          record(
+            results,
+            `${section}: a single explicit provider's failure names that provider`,
+            namesTheProvider && doesNotClaimAllProviders,
+            `msg='${msg.slice(0, 160)}'`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a single explicit provider's failure names that provider`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: dist-instanceof — classifyProviderError's output classes
+// (AuthenticationError, RateLimitError, ...) are now re-exported at
+// src/lib/index.ts alongside the pre-existing client/errors.ts family, so
+// a consumer importing only from the built package entry can
+// `instanceof`-check a thrown error. The prior all-src contract suite
+// (continuous-test-suite-error-classifier-contract.ts) proved the
+// classifier's internal behavior but could not prove the class survives
+// the dist bundling boundary — this proves that specifically.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runDistErrorClassInstanceofSection(): Promise<void> {
+  const section = "dist-instanceof";
+  console.log(`\n=== ${section} ===`);
+  // Deliberately from the root barrel, not "../dist/types/index.js" (which
+  // the Vertex/Bedrock sections above already use, and which always
+  // exported these classes) — the fix under test is specifically that
+  // AuthenticationError/RateLimitError are now re-exported from the
+  // package's main entry. If that re-export were removed, this import
+  // itself would fail to typecheck under `pnpm run check`, independent of
+  // the runtime instanceof assertions below.
+  const { NeuroLink, AuthenticationError, RateLimitError } =
+    await import("../dist/index.js");
+  const model = "gpt-4o-mini";
+
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: {
+            status: 401,
+            json: { error: { message: "Invalid API key", type: "auth_error" } },
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        try {
+          await nl.generate({
+            provider: "openai",
+            model,
+            input: { text: "ping" },
+            disableTools: true,
+          });
+          record(
+            results,
+            `${section}: a 401 through dist/index.js's own AuthenticationError passes instanceof`,
+            false,
+            "no error thrown",
+          );
+        } catch (err) {
+          record(
+            results,
+            `${section}: a 401 through dist/index.js's own AuthenticationError passes instanceof`,
+            err instanceof AuthenticationError,
+            `error constructor was ${err instanceof Error ? err.constructor.name : typeof err}`,
+          );
+        }
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a 401 through dist/index.js's own AuthenticationError passes instanceof`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // A 429 cannot be driven through generate() the way the 401 case above
+  // is: RateLimitError is retryable, so directProviderGeneration's
+  // post-loop epilogue (neurolink.ts, the same one wrapper-message
+  // touches) always rewraps it into a brand-new generic `Error` once
+  // retries are exhausted — that rewrap is pre-existing, unrelated
+  // behavior (see continuous-test-suite-openai-compat-catalog.ts's header
+  // comment, which documents and relies on it elsewhere), not something
+  // this item changes.
+  //
+  // Correction from an earlier draft: `classifyProviderError` is NOT a
+  // single function re-exported once from the root barrel — there are two
+  // unrelated functions of that same name. `src/lib/index.ts`'s root
+  // export (line ~1109) re-exports the one-arg `modelPool.ts` variant,
+  // which returns a coarse `ProviderErrorClass` *string* (e.g.
+  // "rate_limit"), never an Error instance — asserting `instanceof
+  // RateLimitError` against it fails structurally, not because of a
+  // regression. The rules-based classifier this item is actually about
+  // lives in `errorClassifier.ts` and is not re-exported from the root
+  // barrel at all, so — per the same "sibling dist file" precedent used
+  // for `getCatalogJsonEntries` below — it's imported from its own
+  // compiled module. Checking its output `instanceof RateLimitError`
+  // against the class imported from the root `dist/index.js` barrel is
+  // exactly the cross-module-graph check this item's fix is about: it
+  // fails if errorClassifier.ts's `RateLimitError` and the root barrel's
+  // `RateLimitError` were ever two different compiled copies (the
+  // dist/lib-duplicate class of bug this same section's header discusses).
+  //
+  // Must use errorClassifier.ts's own DEFAULT_ERROR_RULES here, not a rule
+  // built locally with the root-barrel RateLimitError as its errorClass —
+  // handing classifyProviderError a rule whose errorClass already IS the
+  // class under test makes `new rule.errorClass(...) instanceof
+  // RateLimitError` true by construction, regardless of whether
+  // errorClassifier.ts's compiled module actually shares that class. Using
+  // the classifier's real built-in rule set is what makes this assertion
+  // capable of failing when the two copies diverge.
+  try {
+    const { classifyProviderError, DEFAULT_ERROR_RULES } =
+      await import("../dist/utils/errorClassifier.js");
+    const classified = classifyProviderError(
+      Object.assign(new Error("Rate limit reached"), { statusCode: 429 }),
+      DEFAULT_ERROR_RULES,
+      "openai",
+      model,
+    );
+    record(
+      results,
+      `${section}: a 429 through dist/index.js's own RateLimitError passes instanceof`,
+      classified instanceof RateLimitError,
+      `classifyProviderError's output constructor was ${classified.constructor.name}`,
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: a 429 through dist/index.js's own RateLimitError passes instanceof`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: catalog-mutable-array — getCatalogJsonEntries() returns a
+// frozen shallow copy instead of the module-singleton array by reference,
+// so a caller mutating the returned array (push/sort/index-assignment)
+// can no longer corrupt catalog state for the rest of the process.
+//
+// getCatalogJsonEntries is not re-exported from src/lib/index.ts (dist/
+// index.js), so there is no root-barrel public-SDK surface to drive this
+// through generate()/stream()/the CLI. This imports the loader directly
+// from its own compiled module under dist/ — the same "sibling dist file,
+// not dist/index.js" precedent this suite already uses for
+// CATALOG_JSON_ENTRIES (see buildOpenAICompatProviders above) — rather
+// than skipping outright, since the file is a genuine build artifact and
+// the property is otherwise meaningful and easy to regress silently.
+// ───────────────────────────────────────────────────────────────────────
+
+// Fuller nested shape than the file-wide `CatalogJsonEntry` mirror above —
+// only needed here, to exercise deep-freeze on `aliases` and
+// `models.fallbacks`, which the mirror type above doesn't declare.
+type CatalogJsonEntryWithNested = CatalogJsonEntry & {
+  aliases: string[];
+  models: { default: string; fallbacks: string[] };
+};
+
+async function runCatalogMutableArraySection(): Promise<void> {
+  const section = "catalog-mutable-array";
+  console.log(`\n=== ${section} ===`);
+  try {
+    const { getCatalogJsonEntries } =
+      (await import("../dist/providers/catalog/loader.js")) as {
+        getCatalogJsonEntries: () => readonly CatalogJsonEntryWithNested[];
+      };
+
+    const first = getCatalogJsonEntries();
+    const second = getCatalogJsonEntries();
+
+    record(
+      results,
+      `${section}: two calls return distinct array references`,
+      first !== second,
+      "both calls returned the identical array reference",
+    );
+    record(
+      results,
+      `${section}: two calls' entries are deep-equal`,
+      JSON.stringify(first) === JSON.stringify(second),
+      "entry content diverged between calls",
+    );
+    record(
+      results,
+      `${section}: the returned array is frozen`,
+      Object.isFrozen(first),
+      "Object.isFrozen(getCatalogJsonEntries()) was false",
+    );
+
+    let pushThrew = false;
+    try {
+      // Double assertion: `first` is `readonly CatalogJsonEntryWithNested[]`
+      // (widened locally to exercise the nested-freeze checks below), whose
+      // extra required fields don't sufficiently overlap with the plain
+      // `CatalogJsonEntry[]` this push() targets, and dropping `readonly`
+      // on top of that narrows further. Test file — exempt from the
+      // no-double-type-assertion rule (see CLAUDE.md rule 14).
+      const mutable = first as unknown as CatalogJsonEntry[];
+      mutable.push({
+        id: "injected",
+        wire: {},
+        models: { default: "x" },
+      });
+    } catch {
+      pushThrew = true;
+    }
+    record(
+      results,
+      `${section}: mutating the returned array (.push) throws`,
+      pushThrew,
+      "push() onto the returned array did not throw",
+    );
+
+    // A third call proves the earlier (failed or no-op) push left the
+    // module-level singleton uncorrupted for the rest of the process.
+    const third = getCatalogJsonEntries();
+    record(
+      results,
+      `${section}: a later call is unaffected by a prior mutation attempt`,
+      third.length === second.length,
+      `entry count changed: ${second.length} -> ${third.length}`,
+    );
+
+    // Nested-mutation regression: Object.freeze() only freezes the
+    // outermost level, so freezing just the returned array left
+    // entry.aliases, entry.models.fallbacks etc. shared, mutable objects —
+    // a caller mutating one result could corrupt what every later
+    // getCatalogJsonEntries() call sees. Pick an entry that actually
+    // carries a non-empty `aliases` array to exercise this.
+    const nestedTarget = first.find((e) => e.aliases.length > 0);
+    if (nestedTarget === undefined) {
+      record(
+        results,
+        `${section}: nested aliases array is frozen`,
+        false,
+        "no catalog entry with a non-empty aliases[] was found to test",
+      );
+    } else {
+      record(
+        results,
+        `${section}: nested aliases array is frozen`,
+        Object.isFrozen(nestedTarget.aliases),
+        "Object.isFrozen(entry.aliases) was false",
+      );
+      record(
+        results,
+        `${section}: nested models object is frozen`,
+        Object.isFrozen(nestedTarget.models),
+        "Object.isFrozen(entry.models) was false",
+      );
+
+      let nestedPushThrew = false;
+      try {
+        nestedTarget.aliases.push("injected-alias");
+      } catch {
+        nestedPushThrew = true;
+      }
+      record(
+        results,
+        `${section}: mutating a nested array (entry.aliases.push) throws`,
+        nestedPushThrew,
+        "push() onto entry.aliases did not throw",
+      );
+
+      let nestedAssignThrew = false;
+      try {
+        nestedTarget.models.default = "mutated";
+      } catch {
+        nestedAssignThrew = true;
+      }
+      record(
+        results,
+        `${section}: mutating a nested field (entry.models.default) throws`,
+        nestedAssignThrew,
+        "assigning to entry.models.default did not throw",
+      );
+
+      // A later call proves the earlier (failed or no-op) nested mutation
+      // attempts left the module-level singleton's nested data
+      // uncorrupted for the rest of the process.
+      const fourth = getCatalogJsonEntries();
+      const fourthTarget = fourth.find((e) => e.id === nestedTarget.id);
+      record(
+        results,
+        `${section}: a later call's nested aliases are unaffected by a prior mutation attempt`,
+        fourthTarget !== undefined &&
+          fourthTarget.aliases.length === nestedTarget.aliases.length,
+        `nested aliases length changed for entry "${nestedTarget.id}"`,
+      );
+    }
+  } catch (err) {
+    record(
+      results,
+      `${section}: setup`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: main
 // ───────────────────────────────────────────────────────────────────────
 
@@ -3232,6 +3745,10 @@ async function main(): Promise<void> {
     await runInvalidModelFallbackSection();
     await runVertexSection();
     await runBedrockSection();
+    await runProviderErrorFieldSection();
+    await runSingleProviderWrapperMessageSection();
+    await runDistErrorClassInstanceofSection();
+    await runCatalogMutableArraySection();
   } finally {
     restoreEnv();
   }
