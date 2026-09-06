@@ -120,7 +120,7 @@ export class OpenAICompatibleProvider extends OpenAIChatCompletionsProvider {
     return classifyProviderError(
       error,
       rules,
-      "openai-compatible",
+      this.providerName,
       this.modelName,
     );
   }

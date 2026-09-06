@@ -400,11 +400,11 @@ async function main(): Promise<void> {
       // retryable by isNonRetryableProviderError()'s own status-code table,
       // so directProviderGeneration()'s single-provider fallback loop
       // exhausts its (one-element) provider list and rethrows a plain
-      // `Error("Failed to generate text with all providers. Last error:
-      // ...")` — the classified RateLimitError's message text survives
-      // verbatim inside it, but its `instanceof` identity does not. Asserted
-      // via message content instead, matching providers-mocked.ts's
-      // documented precedent for this exact wrapping behavior.
+      // `Error("Provider mistral failed: ...")` — the classified
+      // RateLimitError's message text survives verbatim inside it, but its
+      // `instanceof` identity does not. Asserted via message content
+      // instead, matching providers-mocked.ts's documented precedent for
+      // this exact wrapping behavior.
       setHandler(jsonError(429, "slow down"));
       await expectGenerateError({
         name: "DEFAULT_ERROR_RULES via mistral: 429 statusCode -> RateLimitError",

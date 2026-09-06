@@ -138,6 +138,11 @@ export class HuggingFaceProvider extends OpenAIChatCompletionsProvider {
       },
       ...DEFAULT_ERROR_RULES,
     ];
-    return classifyProviderError(error, rules, "huggingface", this.modelName);
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 }

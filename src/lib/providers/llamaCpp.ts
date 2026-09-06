@@ -104,6 +104,11 @@ export class LlamaCppProvider extends OpenAIChatCompletionsProvider {
       },
       ...DEFAULT_ERROR_RULES,
     ];
-    return classifyProviderError(error, rules, "llamacpp", this.modelName);
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 }

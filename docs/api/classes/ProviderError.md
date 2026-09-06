@@ -16,12 +16,12 @@ Thrown when a provider encounters a generic error.
 
 ## Extended by
 
+- [`ModelAccessDeniedError`](ModelAccessDeniedError.md)
 - [`AuthenticationError`](AuthenticationError.md)
 - [`AuthorizationError`](AuthorizationError.md)
 - [`NetworkError`](NetworkError.md)
 - [`RateLimitError`](RateLimitError.md)
 - [`InvalidModelError`](InvalidModelError.md)
-- [`ModelAccessDeniedError`](ModelAccessDeniedError.md)
 
 ## Constructors
 

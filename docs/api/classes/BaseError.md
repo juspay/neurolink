@@ -17,10 +17,10 @@ This allows for easy identification of errors thrown by the SDK.
 
 ## Extended by
 
-- [`ProviderError`](ProviderError.md)
 - [`OAuthError`](OAuthError.md)
 - [`TokenStoreError`](TokenStoreError.md)
 - [`ModelAccessError`](ModelAccessError.md)
+- [`ProviderError`](ProviderError.md)
 
 ## Constructors
 
