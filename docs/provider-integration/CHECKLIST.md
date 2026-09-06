@@ -41,21 +41,23 @@ commands — don't paste a generic 12-file list anymore, it's stale.
 - [ ] CLI smoke test passes (`pnpm run cli generate "..." --provider
 <name>`)
 
-**Docs (Tier 2 and above; Tier 1 is different — see the note below):**
+**Docs (Tier 2 and above only):**
 
 - [ ] `docs/getting-started/providers/<name>.md` — NEW per-provider guide
 - [ ] `docs/getting-started/providers/index.md` — add card
 - [ ] `docs/getting-started/provider-setup.md` — add to index
 - [ ] `docs/getting-started/environment-variables.md` — document new env
       vars
+- [ ] `docs/reference/provider-comparison.md` — add row
+- [ ] `README.md` — update provider count
 
 Tier 1 adds no new `AIProviderName`, so the per-provider guide, card, and
 index entries above don't apply. Only `environment-variables.md` may be
 touched, and even that is optional — see the Tier 1 guide's own checklist
-item in `tiers/tier-1-aggregator-passthrough.md`.
-
-- [ ] `docs/reference/provider-comparison.md` — add row
-- [ ] `README.md` — update provider count
+item in `tiers/tier-1-aggregator-passthrough.md`. Tier 1 also never
+touches `docs/reference/provider-comparison.md` or the README provider
+count — an aggregator-routed model id is not a new provider and must not
+be counted as one.
 
 ---
 

@@ -13,6 +13,7 @@
 
 import fs from "fs";
 import path from "path";
+import { execFileSync } from "child_process";
 
 // ANSI color codes for output formatting
 const colors: Record<string, string> = {
@@ -593,7 +594,44 @@ class EnvironmentValidator {
   }
 
   getSourceFiles(): string[] {
-    const extensions = [".js", ".ts", ".jsx", ".tsx"];
+    const extensions = new Set([".js", ".ts", ".jsx", ".tsx"]);
+
+    try {
+      // `git ls-files` respects .gitignore and never descends into
+      // node_modules/build artifacts in any workspace, without needing a
+      // hand-maintained ignore-dir list. `--cached` + `--others
+      // --exclude-standard` covers both tracked and new-but-not-ignored
+      // files, matching what the old recursive fs walk intended to find.
+      const output = execFileSync(
+        "git",
+        [
+          "ls-files",
+          "--cached",
+          "--others",
+          "--exclude-standard",
+          "--",
+          "*.ts",
+          "*.js",
+          "*.tsx",
+          "*.jsx",
+        ],
+        { cwd: this.projectRoot, encoding: "utf8" },
+      );
+
+      return output
+        .split("\n")
+        .filter(
+          (relPath) => relPath.length > 0 && extensions.has(path.extname(relPath)),
+        )
+        .map((relPath) => path.join(this.projectRoot, relPath));
+    } catch (_error: unknown) {
+      // Not a git repo (or git unavailable) — fall back to the bounded
+      // recursive walk so the script still degrades gracefully.
+      return this.walkSourceFilesFallback(extensions);
+    }
+  }
+
+  walkSourceFilesFallback(extensions: Set<string>): string[] {
     const ignoreDirs = [
       "node_modules",
       ".git",
@@ -618,7 +656,7 @@ class EnvironmentValidator {
             }
           } else if (stat.isFile()) {
             const ext = path.extname(item);
-            if (extensions.includes(ext)) {
+            if (extensions.has(ext)) {
               files.push(fullPath);
             }
           }

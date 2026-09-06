@@ -29,17 +29,20 @@ import { withCaseTimeout } from "./helpers/harness.js";
  * InvalidModelError, and a few others — see
  * `isNonRetryableProviderError`) escape to the caller unwrapped. Anything
  * else — RateLimitError, NetworkError, a plain ProviderError from a
- * TimeoutError override — gets caught, the (single, explicitly-named)
- * provider is not retried further, and the loop still exits through
- * `throw new Error(\`Failed to generate text with all providers. Last
- * error: ${lastError.message}\`)`. So the *class* NeuroLink hands the
- * caller for a retryable case is always the generic `Error`, and the
- * per-provider text this suite pins verbatim shows up as a substring of
- * that wrapper's message, not as `error.message` on its own. That is
- * real, observable, public behavior — not a suite limitation — and it is
- * exactly what lets this suite tell Groq's TimeoutError override apart
- * from every other catalog entry's default (section 4): the wrapper class
- * is identical either way, but the embedded per-provider text differs.
+ * TimeoutError override — gets caught, and since every call in this suite
+ * passes a single, explicitly-named `provider:`, the fallback loop's
+ * candidate list has exactly one entry and exits through
+ * `throw new Error(\`Provider ${name} failed: ${lastError.message}\`)`
+ * (the "Failed to generate text with all providers" wording is reserved
+ * for a real multi-provider fallback list). So the *class* NeuroLink
+ * hands the caller for a retryable case is always the generic `Error`,
+ * and the per-provider text this suite pins verbatim shows up as a
+ * substring of that wrapper's message, not as `error.message` on its own.
+ * That is real, observable, public behavior — not a suite limitation —
+ * and it is exactly what lets this suite tell Groq's TimeoutError
+ * override apart from every other catalog entry's default (section 4):
+ * the wrapper class is identical either way, but the embedded
+ * per-provider text differs.
  *
  * Run with: pnpm run test:openai-compat-catalog
  * (Runs against dist/ — `pnpm run build` first.)

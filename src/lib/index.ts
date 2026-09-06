@@ -165,6 +165,26 @@ export {
   isApiError,
 } from "./client/errors.js";
 
+// The SDK-side error hierarchy `classifyProviderError()` actually throws
+// (as opposed to the unrelated `Client*` REST-client errors above). These
+// already reach consumers transitively through `export * from
+// "./types/index.js"` below, but that makes them public by accident of the
+// types barrel's shape — a future reshuffle of that barrel could drop them
+// silently. Exporting them here, explicitly, by name, makes the guarantee
+// intentional: `catch (e) { if (e instanceof RateLimitError) ... }` against
+// `@juspay/neurolink` is a supported, stable pattern, not an implementation
+// detail a caller happened to be able to reach. Imported from the barrel
+// (never the specific `types/errors.js` file) per Critical Rule 13.
+export {
+  BaseError,
+  ProviderError,
+  AuthenticationError,
+  AuthorizationError,
+  NetworkError,
+  RateLimitError,
+  InvalidModelError,
+} from "./types/index.js";
+
 export {
   AIProviderName,
   BedrockModels,

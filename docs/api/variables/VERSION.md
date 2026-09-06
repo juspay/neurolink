@@ -8,4 +8,4 @@
 
 > `const` **VERSION**: `"1.0.0"` = `"1.0.0"`
 
-Defined in: [index.ts:403](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L403)
+Defined in: [index.ts:423](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L423)
