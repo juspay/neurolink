@@ -1035,6 +1035,7 @@ console.log(result.content);
 - [SummarizeResult](type-aliases/SummarizeResult.md)
 - [DeduplicationResult](type-aliases/DeduplicationResult.md)
 - [FileSummarizationServiceOptions](type-aliases/FileSummarizationServiceOptions.md)
+- [NativeGenerateGuardConfig](type-aliases/NativeGenerateGuardConfig.md)
 - [StorageConfig](type-aliases/StorageConfig.md)
 - [ConversationMemoryConfig](type-aliases/ConversationMemoryConfig.md)
 - [SessionMemory](type-aliases/SessionMemory.md)
