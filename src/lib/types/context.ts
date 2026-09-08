@@ -1027,3 +1027,10 @@ export type FileSummarizationServiceOptions = {
   provider?: string;
   model?: string;
 };
+
+/** Per-turn configuration for reclaiming a native V3 conversation. */
+export type NativeGenerateGuardConfig = {
+  provider: string;
+  availableInputTokens: number;
+  getFixedOverheadTokens: () => number;
+};
