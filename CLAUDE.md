@@ -550,6 +550,100 @@ membership.
 The general trap: a command that exits 0 is not evidence it did anything. Check
 that the work landed — a changed file, a written artifact — not the status code.
 
+### ⚠️ The advisory gate is time-dependent: a green run expires
+
+`scripts/security-check.ts` — the "🔒 Security & Environment Validation" step
+inside `test-shards (validate)`, and therefore inside the required `test`
+check — runs `pnpm audit --prod --json` **live** against the advisory
+database. Nothing about its verdict is pinned to the commit.
+
+Two consequences, both of which have already produced wrong conclusions here:
+
+**A pull request's green is a statement about when it ran, not about its
+diff.** When the js-yaml and hono advisories were published, one PR's
+`validate` shard had run at 20:05 UTC and passed; another ran at 02:03 UTC
+and failed. Identical dependency trees. The first PR looked green and
+mergeable and was neither — a re-run would have failed it. **Do not treat a
+green `test` older than the newest advisory publication as current**, and
+never conclude from "this PR is green and that one is red" that the
+difference is in their diffs.
+
+**A red gate usually is not yours.** Because the audit is repo-wide and
+live, a newly published advisory turns `test` red on _every_ open pull
+request simultaneously, including ones that touch no manifest at all. The
+check's own output says so — it appends a note about the branch being behind
+`origin/release` and warns that the failure "may not originate in your
+changes." Before investigating your own diff, reproduce on the untouched
+`release` tip:
+
+```bash
+# A fixed path is not re-runnable: the second call dies with
+# `fatal: '/tmp/nl-audit' already exists` instead of auditing. Take a unique
+# directory, and remove the worktree outside the `&&` chain so a failed audit
+# still cleans up after itself.
+audit_dir="$(mktemp -d)/nl-audit"
+git fetch origin release \
+  && git worktree add "$audit_dir" origin/release \
+  && ( cd "$audit_dir" && pnpm install --frozen-lockfile \
+       && pnpm exec tsx scripts/security-check.ts )
+# Guarded: if the fetch or the `worktree add` failed, there is nothing to
+# remove, and an unguarded remove prints `fatal: ... is not a working tree`
+# on exactly the failure path this section exists to de-confuse.
+[ -d "$audit_dir" ] && git worktree remove --force "$audit_dir"
+rm -rf "$(dirname "$audit_dir")"
+```
+
+Note `origin/release`, not `release`: the check reports how far behind
+`origin/release` you are, so auditing a stale local ref reproduces a tree CI
+never ran and sends you chasing a difference that is your own checkout. The
+throwaway worktree keeps it read-only — `git stash && git checkout` mutates
+the tree you are debugging, which is a poor trade for a diagnostic whose
+whole question is "was it already broken without me?" And `--frozen-lockfile`
+because that is how every CI job installs: a plain `pnpm install` may
+re-resolve a transitive range and hand you a tree CI never audited, which is
+the same class of mistake this whole section is about.
+
+If it fails there too, the fix belongs in its own dependency PR, not in
+whatever you were working on.
+
+**Fixing it: raise the floor, and move the override band with it.** Prefer
+bumping the declared range over adding an accepted-risk entry — an accepted
+risk silences the gate for everyone, while a floor bump is what actually
+protects downstream consumers, who resolve from `package.json` and never see
+our lockfile. Two things are easy to get wrong:
+
+- **A lockfile-only bump is not a fix.** It greens CI and leaves every
+  installer of the published package on the vulnerable version.
+- **A raised floor with a stale `pnpm.overrides` band is worse than no
+  override.** The entries lift transitive consumers to a version that was
+  patched for an _older_ advisory, which can sit inside the _new_ one's
+  vulnerable range.
+
+  The worked example is historical, and deliberately so — the repository has
+  since been fixed, so do not expect `package.json` to still show the broken
+  state. `GHSA-2883-xcg3-v3hh` covers `>=3.0.0 <3.15.2` **and**
+  `>=4.0.0 <4.3.2`; the js-yaml overrides then read `>=3.14.2` / `>=4.1.1`,
+  which are the fixes for an _earlier_ js-yaml advisory and sit **inside**
+  both of this one's bands. They now read `>=3.15.2` / `>=4.3.2`, on the band
+  edges, which is what correct looks like. The trap is the shape, not those
+  numbers: an override target that was patched for the advisory you fixed
+  last time.
+
+  A lockfile that happens to resolve a safe version hides this, so CI stays
+  green and the pin re-manifests on the next install that re-resolves a
+  transitive range. Note also that `pnpm audit` printed only the 4.x range —
+  the 3.x half was invisible. Check every range on the GHSA record, not just
+  the one the audit showed you:
+
+  ```bash
+  gh api graphql -f query='{securityVulnerabilities(first:10, ecosystem:NPM,
+    package:"<pkg>"){nodes{advisory{ghsaId} vulnerableVersionRange
+    firstPatchedVersion{identifier}}}}'
+  ```
+
+  `fast-xml-parser`, `undici` and now `js-yaml` in the same table are the
+  worked examples of a band kept in step with its floor.
+
 ### ⚠️ ffmpeg is deliberately not installed in CI
 
 Nothing CI runs needs it. No package script invokes it, nothing installs it as a
