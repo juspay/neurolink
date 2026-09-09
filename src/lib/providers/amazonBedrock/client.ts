@@ -297,10 +297,19 @@ export class AmazonBedrockProvider extends BaseProvider {
         `[AmazonBedrockProvider] Text-only input in generate(), using simple message builder`,
       );
 
-      // Add user message to conversation - simple text-only case
+      // Add user message to conversation - simple text-only case.
+      // The public generate contract accepts either `prompt` or `input.text`
+      // (see BaseProvider); reading only `prompt` here sent an empty user
+      // message whenever a caller used the `input.text` shape.
+      //
+      // `||`, not `??`, to match the canonical resolution in
+      // `Utilities.normalizeTextOptions`. This provider overrides `generate()`
+      // outright, so normalization never runs and the caller's raw options
+      // land here — an empty `prompt` must fall through to `input.text`
+      // rather than win by virtue of not being nullish.
       const userMessage: BedrockMessage = {
         role: "user",
-        content: [{ text: options.prompt }],
+        content: [{ text: options.prompt || input?.text || "" }],
       };
       this.conversationHistory.push(userMessage);
     }
