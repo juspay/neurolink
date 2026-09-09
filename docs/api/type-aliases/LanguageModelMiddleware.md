@@ -8,4 +8,4 @@
 
 > **LanguageModelMiddleware** = [`LanguageModelV3Middleware`](LanguageModelV3Middleware.md)
 
-Defined in: [types/aiCompat.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L528)
+Defined in: [types/aiCompat.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L532)

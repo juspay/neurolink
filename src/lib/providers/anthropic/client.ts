@@ -457,6 +457,12 @@ const messagesToAnthropic = (
       }
       case "assistant": {
         const blocks: Anthropic.Messages.ContentBlockParam[] = [];
+        // Extended thinking must come back byte-identical — signature
+        // included — or Anthropic rejects the turn, and the loop replays this
+        // message on every tool step. Blocks are emitted in content order
+        // rather than hoisted: `interleaved-thinking-2025-05-14` (requested in
+        // the beta header) lets thinking appear between tool calls, so
+        // reordering would corrupt the chain it validates.
         for (const part of partsOf(msg.content)) {
           if (typeof part === "string") {
             if (part.length > 0) {
@@ -470,7 +476,33 @@ const messagesToAnthropic = (
             toolCallId?: string;
             toolName?: string;
             input?: unknown;
+            providerOptions?: Record<string, Record<string, unknown>>;
           };
+          if (p?.type === "reasoning") {
+            const meta = p.providerOptions?.anthropic;
+            const redacted = meta?.redactedData;
+            if (typeof redacted === "string" && redacted.length > 0) {
+              blocks.push({ type: "redacted_thinking", data: redacted });
+              continue;
+            }
+            const signature = meta?.signature;
+            // Both halves required, matching loopAdapter's check on the
+            // streaming path: Anthropic rejects a thinking block that is
+            // unsigned, and equally one whose text is empty. Reasoning from a
+            // provider that never produced a signature (a reasoner model's
+            // plain text) is not an Anthropic thinking block at all, and an
+            // empty one carries nothing worth replaying — either way, dropping
+            // it beats sending a block that will be refused.
+            if (
+              typeof signature === "string" &&
+              signature.length > 0 &&
+              typeof p.text === "string" &&
+              p.text.length > 0
+            ) {
+              blocks.push({ type: "thinking", thinking: p.text, signature });
+            }
+            continue;
+          }
           if (p?.type === "text" && typeof p.text === "string") {
             if (p.text.length > 0) {
               const cc = cacheControlOf(p);
@@ -1541,7 +1573,28 @@ export class AnthropicProvider extends BaseProvider {
         let jsonToolAnswered = false;
         for (const block of response.content) {
           if (block.type === "thinking") {
-            content.push({ type: "reasoning", text: block.thinking });
+            // The signature rides along in providerOptions because Anthropic
+            // rejects a replayed thinking block without it, and the tool loop
+            // pushes this part straight back into the conversation.
+            content.push({
+              type: "reasoning",
+              text: block.thinking,
+              providerOptions: {
+                anthropic: { signature: block.signature },
+              },
+            });
+          } else if (block.type === "redacted_thinking") {
+            // Encrypted reasoning: no readable text, but it must still be
+            // replayed verbatim or the turn is rejected.
+            content.push({
+              type: "reasoning",
+              text: "",
+              providerOptions: {
+                anthropic: {
+                  redactedData: (block as { data?: string }).data,
+                },
+              },
+            });
           } else if (block.type === "text") {
             // In forced-json mode the payload arrives via the tool input, not
             // text — pass text through only in normal mode.

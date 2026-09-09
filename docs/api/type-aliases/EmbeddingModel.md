@@ -8,4 +8,4 @@
 
 > **EmbeddingModel** = `string` \| `Record`\<`string`, `unknown`\>
 
-Defined in: [types/aiCompat.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L533)
+Defined in: [types/aiCompat.ts:537](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L537)
