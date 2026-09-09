@@ -8,7 +8,7 @@
 
 > **PrepareStepResult**\<`TOOLS`\> = `object`
 
-Defined in: [types/aiCompat.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L589)
+Defined in: [types/aiCompat.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L593)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: [types/aiCompat.ts:589](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **model?**: [`LanguageModel`](LanguageModel.md)
 
-Defined in: [types/aiCompat.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L592)
+Defined in: [types/aiCompat.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L596)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/aiCompat.ts:592](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **toolChoice?**: [`ToolChoice`](ToolChoice.md)\<`TOOLS`\>
 
-Defined in: [types/aiCompat.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L593)
+Defined in: [types/aiCompat.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L597)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/aiCompat.ts:593](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **activeTools?**: keyof `TOOLS`[]
 
-Defined in: [types/aiCompat.ts:594](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L594)
+Defined in: [types/aiCompat.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L598)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/aiCompat.ts:594](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **system?**: `string`
 
-Defined in: [types/aiCompat.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L595)
+Defined in: [types/aiCompat.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L599)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/aiCompat.ts:595](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **messages?**: [`ModelMessage`](ModelMessage.md)[]
 
-Defined in: [types/aiCompat.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L596)
+Defined in: [types/aiCompat.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L600)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/aiCompat.ts:596](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **providerOptions?**: `Record`\<`string`, `Record`\<`string`, `unknown`\>\>
 
-Defined in: [types/aiCompat.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L597)
+Defined in: [types/aiCompat.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L601)
 
 ---
 
@@ -70,4 +70,4 @@ Defined in: [types/aiCompat.ts:597](https://github.com/juspay/neurolink/blob/rel
 
 > `optional` **tools?**: `TOOLS`
 
-Defined in: [types/aiCompat.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L598)
+Defined in: [types/aiCompat.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L602)

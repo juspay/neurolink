@@ -693,4 +693,413 @@ await test("stream preserves an explicit caller cache marker without adding anot
   }
 });
 
+type AnthropicThinkingProbe = {
+  baseURL: string;
+  requests(): number;
+  replayedAssistant(): Array<Record<string, unknown>>;
+};
+
+/**
+ * Messages endpoint that answers a tool-using extended-thinking turn, then
+ * records the assistant message it is handed on the follow-up request.
+ *
+ * Anthropic requires the thinking block — signature included — to be replayed
+ * in the assistant turn that owns the tool_use, or it rejects the request. The
+ * probe's whole job is to capture that second request's assistant message.
+ */
+const TOOL_USE_BLOCK = {
+  type: "tool_use",
+  id: "toolu_probe_1",
+  name: "lookup",
+  input: { q: "x" },
+};
+
+const startAnthropicThinkingProbe = async (
+  firstTurnContent: Array<Record<string, unknown>> = [
+    {
+      type: "thinking",
+      thinking: THINKING_TEXT,
+      signature: THINKING_SIGNATURE,
+    },
+    TOOL_USE_BLOCK,
+  ],
+): Promise<AnthropicThinkingProbe> => {
+  let requests = 0;
+  let replayed: Array<Record<string, unknown>> = [];
+  const server = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const part of req) {
+      chunks.push(part as Buffer);
+    }
+    requests += 1;
+    const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+      messages?: Array<{ role?: string; content?: unknown }>;
+    };
+    if (requests > 1) {
+      const assistant = (parsed.messages ?? []).filter(
+        (m) => m.role === "assistant",
+      );
+      const last = assistant[assistant.length - 1];
+      replayed = Array.isArray(last?.content)
+        ? (last.content as Array<Record<string, unknown>>)
+        : [];
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    if (requests === 1) {
+      res.end(
+        JSON.stringify({
+          id: "msg_probe",
+          type: "message",
+          role: "assistant",
+          model: "claude-sonnet-4-20250514",
+          content: firstTurnContent,
+          stop_reason: "tool_use",
+          stop_sequence: null,
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+      );
+      return;
+    }
+    res.end(
+      JSON.stringify({
+        id: "msg_probe_2",
+        type: "message",
+        role: "assistant",
+        model: "claude-sonnet-4-20250514",
+        content: [{ type: "text", text: "done" }],
+        stop_reason: "end_turn",
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+      }),
+    );
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address !== "object") {
+    throw new Error("probe server did not bind");
+  }
+  return {
+    baseURL: `http://127.0.0.1:${address.port}`,
+    requests: () => requests,
+    replayedAssistant: () => replayed,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections();
+        server.close(() => resolve());
+      }),
+  } as AnthropicThinkingProbe & { close: () => Promise<void> };
+};
+
+const THINKING_TEXT = "Let me check the lookup table before answering.";
+const THINKING_SIGNATURE = "sig-probe-abc123";
+
+await test("an Anthropic thinking block survives the tool-loop replay", async () => {
+  const probe =
+    (await startAnthropicThinkingProbe()) as AnthropicThinkingProbe & {
+      close: () => Promise<void>;
+    };
+  const saved = {
+    url: process.env.ANTHROPIC_BASE_URL,
+    key: process.env.ANTHROPIC_API_KEY,
+  };
+  process.env.ANTHROPIC_BASE_URL = probe.baseURL;
+  process.env.ANTHROPIC_API_KEY = "sk-ant-mock-local-server";
+  const sdk = new NeuroLink();
+  try {
+    await sdk.generate({
+      input: { text: "look it up" },
+      provider: "anthropic",
+      model: "claude-sonnet-4-20250514",
+      disableInternalFallback: true,
+      tools: {
+        lookup: tool({
+          description: "look something up",
+          inputSchema: z.object({ q: z.string() }),
+          execute: async () => "found",
+        }),
+      },
+    });
+    // Precondition: without a second request there is no replay to inspect,
+    // and an empty `replayedAssistant()` would read as a pass.
+    if (probe.requests() < 2) {
+      throw new Error(
+        "precondition: the tool loop never issued a follow-up request",
+      );
+    }
+    const blocks = probe.replayedAssistant();
+    if (blocks.length === 0) {
+      throw new Error(
+        "precondition: the follow-up carried no assistant message",
+      );
+    }
+    const thinking = blocks.filter((b) => b.type === "thinking");
+    if (thinking.length !== 1) {
+      throw new Error(
+        "the replayed assistant turn does not carry exactly one thinking block",
+      );
+    }
+    if (thinking[0].thinking !== THINKING_TEXT) {
+      throw new Error("the replayed thinking block lost its text");
+    }
+    if (thinking[0].signature !== THINKING_SIGNATURE) {
+      throw new Error("the replayed thinking block lost its signature");
+    }
+    const toolUseAt = blocks.findIndex((b) => b.type === "tool_use");
+    if (toolUseAt === -1) {
+      throw new Error("the replayed assistant turn lost its tool_use block");
+    }
+    // Position is PRESERVED, not forced. Asserting "thinking must be first"
+    // would contradict the reason this replays in content order at all:
+    // `interleaved-thinking-2025-05-14` lets thinking sit between tool calls,
+    // so the invariant is that a block keeps its place relative to its
+    // siblings — here, ahead of the tool_use it reasoned about.
+    const thinkingAt = blocks.findIndex((b) => b.type === "thinking");
+    if (thinkingAt > toolUseAt) {
+      throw new Error(
+        "the replayed thinking block moved past its tool_use sibling",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await probe.close();
+    if (saved.url === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = saved.url;
+    }
+    if (saved.key === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = saved.key;
+    }
+  }
+});
+
+await test("an empty-but-signed thinking block is not replayed", async () => {
+  // Anthropic rejects a thinking block whose text is empty, signed or not.
+  // The streaming path drops that shape (loopAdapter's truthy `thinking?.text`
+  // check); the generate path must not be laxer, or a signed empty block turns
+  // the next step of a thinking turn into a 400.
+  const probe = (await startAnthropicThinkingProbe([
+    { type: "thinking", thinking: "", signature: THINKING_SIGNATURE },
+    TOOL_USE_BLOCK,
+  ])) as AnthropicThinkingProbe & {
+    close: () => Promise<void>;
+  };
+  const saved = {
+    url: process.env.ANTHROPIC_BASE_URL,
+    key: process.env.ANTHROPIC_API_KEY,
+  };
+  process.env.ANTHROPIC_BASE_URL = probe.baseURL;
+  process.env.ANTHROPIC_API_KEY = "sk-ant-mock-local-server";
+  const sdk = new NeuroLink();
+  try {
+    await sdk.generate({
+      input: { text: "look it up" },
+      provider: "anthropic",
+      model: "claude-sonnet-4-20250514",
+      disableInternalFallback: true,
+      tools: {
+        lookup: tool({
+          description: "look something up",
+          inputSchema: z.object({ q: z.string() }),
+          execute: async () => "found",
+        }),
+      },
+    });
+    // Preconditions: without a follow-up there is nothing to inspect, and an
+    // empty capture would read as a pass.
+    if (probe.requests() < 2) {
+      throw new Error(
+        "precondition: the tool loop never issued a follow-up request",
+      );
+    }
+    const blocks = probe.replayedAssistant();
+    if (blocks.length === 0) {
+      throw new Error(
+        "precondition: the follow-up carried no assistant message",
+      );
+    }
+    if (!blocks.some((b) => b.type === "tool_use")) {
+      throw new Error(
+        "precondition: the replayed assistant turn lost its tool_use block",
+      );
+    }
+    if (blocks.some((b) => b.type === "thinking")) {
+      throw new Error(
+        "an empty thinking block was replayed instead of being dropped",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await probe.close();
+    if (saved.url === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = saved.url;
+    }
+    if (saved.key === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = saved.key;
+    }
+  }
+});
+
+const REDACTED_DATA = "EncryptedPayloadAbc123==";
+
+await test("a redacted_thinking block survives the tool-loop replay", async () => {
+  // The encrypted variant a model emits when its reasoning is not
+  // extractable. It carries no readable text, but Anthropic validates it on
+  // the next turn exactly like a signed thinking block, so dropping it fails
+  // the same way — silently, and only for models that emit it.
+  const probe = (await startAnthropicThinkingProbe([
+    { type: "redacted_thinking", data: REDACTED_DATA },
+    TOOL_USE_BLOCK,
+  ])) as AnthropicThinkingProbe & {
+    close: () => Promise<void>;
+  };
+  const saved = {
+    url: process.env.ANTHROPIC_BASE_URL,
+    key: process.env.ANTHROPIC_API_KEY,
+  };
+  process.env.ANTHROPIC_BASE_URL = probe.baseURL;
+  process.env.ANTHROPIC_API_KEY = "sk-ant-mock-local-server";
+  const sdk = new NeuroLink();
+  try {
+    await sdk.generate({
+      input: { text: "look it up" },
+      provider: "anthropic",
+      model: "claude-sonnet-4-20250514",
+      disableInternalFallback: true,
+      tools: {
+        lookup: tool({
+          description: "look something up",
+          inputSchema: z.object({ q: z.string() }),
+          execute: async () => "found",
+        }),
+      },
+    });
+    if (probe.requests() < 2) {
+      throw new Error(
+        "precondition: the tool loop never issued a follow-up request",
+      );
+    }
+    const blocks = probe.replayedAssistant();
+    if (blocks.length === 0) {
+      throw new Error(
+        "precondition: the follow-up carried no assistant message",
+      );
+    }
+    const redacted = blocks.filter((b) => b.type === "redacted_thinking");
+    if (redacted.length !== 1) {
+      throw new Error(
+        "the replayed assistant turn does not carry exactly one redacted block",
+      );
+    }
+    if (redacted[0].data !== REDACTED_DATA) {
+      throw new Error("the replayed redacted block lost its payload");
+    }
+    const toolUseAt = blocks.findIndex((b) => b.type === "tool_use");
+    if (toolUseAt === -1) {
+      throw new Error("the replayed assistant turn lost its tool_use block");
+    }
+    if (blocks.findIndex((b) => b.type === "redacted_thinking") > toolUseAt) {
+      throw new Error(
+        "the replayed redacted block moved past its tool_use sibling",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await probe.close();
+    if (saved.url === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = saved.url;
+    }
+    if (saved.key === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = saved.key;
+    }
+  }
+});
+
+await test("a reasoning part with no Anthropic metadata is not replayed", async () => {
+  // The fourth outcome of the reasoning branch, and the one the fix treats as
+  // a deliberate decision: a `reasoning` part carrying NO
+  // `providerOptions.anthropic` at all. That is what a non-Anthropic reasoner
+  // emits (DeepSeek `reasoning_content`, OpenAI o-series) — plain text with no
+  // signature. It is not an Anthropic thinking block and must be dropped; a
+  // refactor that started sending it as one would be rejected on every turn.
+  //
+  // The probe scripts a `thinking` block with an empty signature, which is the
+  // one wire shape that reaches the consumer with reasoning text but without
+  // usable Anthropic metadata.
+  const probe = (await startAnthropicThinkingProbe([
+    { type: "thinking", thinking: "unsigned reasoner prose", signature: "" },
+    TOOL_USE_BLOCK,
+  ])) as AnthropicThinkingProbe & {
+    close: () => Promise<void>;
+  };
+  const saved = {
+    url: process.env.ANTHROPIC_BASE_URL,
+    key: process.env.ANTHROPIC_API_KEY,
+  };
+  process.env.ANTHROPIC_BASE_URL = probe.baseURL;
+  process.env.ANTHROPIC_API_KEY = "sk-ant-mock-local-server";
+  const sdk = new NeuroLink();
+  try {
+    await sdk.generate({
+      input: { text: "look it up" },
+      provider: "anthropic",
+      model: "claude-sonnet-4-20250514",
+      disableInternalFallback: true,
+      tools: {
+        lookup: tool({
+          description: "look something up",
+          inputSchema: z.object({ q: z.string() }),
+          execute: async () => "found",
+        }),
+      },
+    });
+    if (probe.requests() < 2) {
+      throw new Error(
+        "precondition: the tool loop never issued a follow-up request",
+      );
+    }
+    const blocks = probe.replayedAssistant();
+    if (blocks.length === 0) {
+      throw new Error(
+        "precondition: the follow-up carried no assistant message",
+      );
+    }
+    if (!blocks.some((b) => b.type === "tool_use")) {
+      throw new Error(
+        "precondition: the replayed assistant turn lost its tool_use block",
+      );
+    }
+    if (blocks.some((b) => b.type === "thinking")) {
+      throw new Error("an unsigned reasoning part was replayed as thinking");
+    }
+    if (blocks.some((b) => b.type === "redacted_thinking")) {
+      throw new Error("an unsigned reasoning part was replayed as redacted");
+    }
+  } finally {
+    await sdk.shutdown();
+    await probe.close();
+    if (saved.url === undefined) {
+      delete process.env.ANTHROPIC_BASE_URL;
+    } else {
+      process.env.ANTHROPIC_BASE_URL = saved.url;
+    }
+    if (saved.key === undefined) {
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      process.env.ANTHROPIC_API_KEY = saved.key;
+    }
+  }
+});
+
 await runSuite();

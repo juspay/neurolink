@@ -8,7 +8,7 @@
 
 > **GenerateTextResult**\<`TOOLS`, `OUTPUT`\> = [`StepResult`](StepResult.md)\<`TOOLS`\> & `object`
 
-Defined in: [types/aiCompat.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L570)
+Defined in: [types/aiCompat.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L574)
 
 ## Type Declaration
 

@@ -8,7 +8,7 @@
 
 > **PrepareStepFunction**\<`TOOLS`\> = (`options`) => [`PrepareStepResult`](PrepareStepResult.md)\<`TOOLS`\> \| `undefined` \| `PromiseLike`\<[`PrepareStepResult`](PrepareStepResult.md)\<`TOOLS`\> \| `undefined`\>
 
-Defined in: [types/aiCompat.ts:601](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L601)
+Defined in: [types/aiCompat.ts:605](https://github.com/juspay/neurolink/blob/release/src/lib/types/aiCompat.ts#L605)
 
 ## Type Parameters
 

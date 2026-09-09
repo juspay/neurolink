@@ -400,7 +400,11 @@ export type LanguageModelV3ToolChoice =
 
 export type LanguageModelV3Content =
   | { type: "text"; text: string }
-  | { type: "reasoning"; text: string }
+  | {
+      type: "reasoning";
+      text: string;
+      providerOptions?: Record<string, Record<string, unknown>>;
+    }
   | { type: "file"; data: unknown; mediaType: string }
   | LanguageModelV3ToolCall
   | LanguageModelV3Source
