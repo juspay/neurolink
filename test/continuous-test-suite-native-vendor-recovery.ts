@@ -1102,4 +1102,117 @@ await test("a reasoning part with no Anthropic metadata is not replayed", async 
   }
 });
 
+await test("generate() keeps the reasoning from every step, not just the last", async () => {
+  // generate() replaced its `reasoning` each step, so the caller saw only
+  // whatever the final step happened to think — usually the shortest part, and
+  // often nothing at all when the model simply answers after the tool returns.
+  // The fix is to accumulate: every step's reasoning, in order, concatenated
+  // with nothing between them. That is the shape asserted below.
+  //
+  // The same shape is what a stream() consumer accumulates from its per-step
+  // reasoning chunks, but this test does not exercise stream() and must not be
+  // read as proving that: the scripted server replies with plain JSON and has
+  // no SSE tool-loop, so there is no stream() turn to compare against here.
+  // The stream() side of the contract lives in `BaseProvider.stream()` and is
+  // covered by its own suites.
+  const STEP_ONE = "I need the lookup table first.";
+  const STEP_TWO = "The table says 42, so that is the answer.";
+  let executions = 0;
+  const server = await startScriptedChatServer([
+    {
+      id: "reasoner-step-1",
+      object: "chat.completion",
+      created: 1,
+      model: "scripted-reasoner",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: null,
+            reasoning_content: STEP_ONE,
+            tool_calls: [
+              {
+                id: "call_7",
+                type: "function",
+                function: { name: "lookup", arguments: '{"value":7}' },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    },
+    {
+      id: "reasoner-step-2",
+      object: "chat.completion",
+      created: 2,
+      model: "scripted-reasoner",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: "42",
+            reasoning_content: STEP_TWO,
+          },
+          finish_reason: "stop",
+        },
+      ],
+      usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+    },
+  ]);
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "what is the answer?" },
+      provider: "openai",
+      model: "scripted-reasoner",
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.baseURL),
+      maxSteps: 3,
+      tools: {
+        lookup: tool({
+          description: "Looks a value up",
+          inputSchema: z.object({ value: z.number() }),
+          execute: async () => {
+            executions += 1;
+            return { answer: 42 };
+          },
+        }),
+      },
+    });
+    // Preconditions: a single-step turn would make the assertion vacuous —
+    // the last step's reasoning is trivially all of it.
+    if (executions !== 1) {
+      throw new Error("precondition: the tool did not execute exactly once");
+    }
+    if (server.requestCount() < 2) {
+      throw new Error("precondition: the loop never took a second step");
+    }
+    if (result.content !== "42") {
+      throw new Error("precondition: the final answer did not reach content");
+    }
+    const reasoning = result.reasoning ?? "";
+    if (!reasoning.includes(STEP_ONE)) {
+      throw new Error("the first step's reasoning was dropped");
+    }
+    if (!reasoning.includes(STEP_TWO)) {
+      throw new Error("the final step's reasoning was dropped");
+    }
+    // Exact concatenation, not merely "contains both": the includes() guards
+    // above already catch a dropped step, so what this adds is ordering and
+    // the absence of any injected separator.
+    if (reasoning !== `${STEP_ONE}${STEP_TWO}`) {
+      throw new Error(
+        "generate() reasoning is not the steps concatenated in order",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
 await runSuite();
