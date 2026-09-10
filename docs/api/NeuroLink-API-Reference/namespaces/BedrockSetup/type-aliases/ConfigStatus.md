@@ -8,7 +8,7 @@
 
 > **ConfigStatus** = `object`
 
-Defined in: [types/cli.ts:855](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L855)
+Defined in: [types/cli.ts:857](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L857)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:855](https://github.com/juspay/neurolink/blob/release/
 
 > **hasCredentials**: `boolean`
 
-Defined in: [types/cli.ts:856](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L856)
+Defined in: [types/cli.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L858)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:856](https://github.com/juspay/neurolink/blob/release/
 
 > **hasRegion**: `boolean`
 
-Defined in: [types/cli.ts:857](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L857)
+Defined in: [types/cli.ts:859](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L859)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:857](https://github.com/juspay/neurolink/blob/release/
 
 > **hasModel**: `boolean`
 
-Defined in: [types/cli.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L858)
+Defined in: [types/cli.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L860)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:858](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **isReconfiguring?**: `boolean`
 
-Defined in: [types/cli.ts:859](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L859)
+Defined in: [types/cli.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L861)

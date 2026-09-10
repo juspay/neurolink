@@ -540,7 +540,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
               if ("inlineData" in part && part.inlineData?.data) {
                 const foundImageData = part.inlineData.data;
                 imageData = foundImageData;
-                const mimeType = part.inlineData.mimeType || "image/png";
+                // Keep the DECLARED value separate from the display default.
+                // ImageGenService trusts a string `mimeType` on imageOutput and
+                // skips sniffing, so forwarding a hardcoded "image/png" for a
+                // vendor that declared nothing would defeat the byte detection
+                // — WebP bytes would ship labelled PNG, with a .png extension.
+                const declaredMimeType = part.inlineData.mimeType;
+                const mimeType = declaredMimeType || "image/png";
 
                 logger.info("Image generation successful", {
                   model: imageModelName,
@@ -552,7 +558,12 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 const result: EnhancedGenerateResult = {
                   content: `Generated image using ${imageModelName} (${mimeType})`,
                   imageOutput: {
+                    // The vendor declares the format on the inline part; that
+                    // beats sniffing it back out of the bytes. When it declares
+                    // nothing, omit the field entirely so the service sniffs
+                    // rather than trusting a default we invented.
                     base64: foundImageData,
+                    ...(declaredMimeType ? { mimeType: declaredMimeType } : {}),
                   },
                   provider: this.providerName,
                   model: imageModelName,
@@ -601,7 +612,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
             if ("inlineData" in part && part.inlineData?.data) {
               const foundImageData = part.inlineData.data;
               imageData = foundImageData;
-              const mimeType = part.inlineData.mimeType || "image/png";
+              // See the streaming site above: only a mime type the vendor
+              // actually declared may be forwarded, or the sniffer is bypassed.
+              const declaredMimeType = part.inlineData.mimeType;
+              const mimeType = declaredMimeType || "image/png";
 
               logger.info("Image generation successful (non-streaming)", {
                 model: imageModelName,
@@ -613,7 +627,9 @@ export class GoogleAIStudioProvider extends BaseProvider {
               const result: EnhancedGenerateResult = {
                 content: `Generated image using ${imageModelName} (${mimeType})`,
                 imageOutput: {
+                  // As above: forward only a declared value, never a default.
                   base64: foundImageData,
+                  ...(declaredMimeType ? { mimeType: declaredMimeType } : {}),
                 },
                 provider: this.providerName,
                 model: imageModelName,

@@ -8,7 +8,7 @@
 
 > **AuthMethodStatus** = `object`
 
-Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L877)
+Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L879)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:877](https://github.com/juspay/neurolink/blob/release/
 
 > **hasServiceAccount**: `boolean`
 
-Defined in: [types/cli.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L878)
+Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L880)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:878](https://github.com/juspay/neurolink/blob/release/
 
 > **hasGcloudAuth**: `boolean`
 
-Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L879)
+Defined in: [types/cli.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L881)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:879](https://github.com/juspay/neurolink/blob/release/
 
 > **hasApplicationDefault**: `boolean`
 
-Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L880)
+Defined in: [types/cli.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L882)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:880](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **preferredMethod?**: `"service-account"` \| `"gcloud"` \| `"adc"`
 
-Defined in: [types/cli.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L881)
+Defined in: [types/cli.ts:883](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L883)

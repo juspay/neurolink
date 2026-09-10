@@ -8,7 +8,7 @@
 
 > **ObservabilityMetricsArgs** = [`ObservabilityCommandArgs`](ObservabilityCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1232](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1232)
+Defined in: [types/cli.ts:1234](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1234)
 
 Observability metrics sub-command args
 

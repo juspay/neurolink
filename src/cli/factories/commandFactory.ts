@@ -33,6 +33,7 @@ import {
 import { checkRedisAvailability } from "../../lib/utils/conversationMemory.js";
 import { normalizeEvaluationData } from "../../lib/utils/evaluationUtils.js";
 import { logger } from "../../lib/utils/logger.js";
+import { sniffImageMimeType } from "../../lib/utils/imageDetection.js";
 import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.js";
 import { buildToolRoutingConfigFromCli } from "../utils/toolRoutingFlags.js";
 import { buildClassifierRouterConfigFromCli } from "../utils/classifierRouterFlags.js";
@@ -290,7 +291,7 @@ export class CLICommandFactory {
     imageOutput: {
       type: "string" as const,
       description:
-        "Custom path for generated image (default: generated-images/image-<timestamp>.png)",
+        "Custom path for generated image (default: generated-images/image-<timestamp>.<ext>, where the extension follows the format the provider actually returned)",
       alias: "image-output",
     },
 
@@ -1292,7 +1293,11 @@ export class CLICommandFactory {
             } else {
               const imageDir = "generated-images";
               const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-              imagePath = path.join(imageDir, `image-${timestamp}.png`);
+              const ext = imageExtensionFor(
+                generateResult.imageOutput.mimeType,
+                generateResult.imageOutput.base64,
+              );
+              imagePath = path.join(imageDir, `image-${timestamp}.${ext}`);
               // Create directory if it doesn't exist
               if (!fs.existsSync(imageDir)) {
                 fs.mkdirSync(imageDir, { recursive: true });
@@ -4239,7 +4244,8 @@ export class CLICommandFactory {
         } else {
           const imageDir = "generated-images";
           const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-          imagePath = path.join(imageDir, `image-${timestamp}.png`);
+          const ext = imageExtensionFor(undefined, streamResult.imageBase64);
+          imagePath = path.join(imageDir, `image-${timestamp}.${ext}`);
           if (!fs.existsSync(imageDir)) {
             fs.mkdirSync(imageDir, { recursive: true });
           }
@@ -6147,3 +6153,27 @@ export class CLICommandFactory {
 
 /** Re-export of CLICommandFactory's static option definitions for direct import by tests/tooling. */
 export const commonOptions = CLICommandFactory.commonOptions;
+
+/**
+ * File extension for generated image bytes. The provider now labels what it
+ * returned, so a WebP no longer gets written to a `.png` filename — which is
+ * the same wrong-label problem one layer up from the provider.
+ */
+function imageExtensionFor(
+  mimeType: string | undefined,
+  base64: string,
+): string {
+  const known: Record<string, string> = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+  };
+  if (mimeType && known[mimeType]) {
+    return known[mimeType];
+  }
+  // No label from the provider: sniff the leading bytes rather than assume.
+  const head = Buffer.from(base64.slice(0, 64), "base64");
+  const sniffed = sniffImageMimeType(head);
+  return sniffed ? known[sniffed] : "png";
+}

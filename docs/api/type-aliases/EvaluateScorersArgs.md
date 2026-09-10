@@ -8,7 +8,7 @@
 
 > **EvaluateScorersArgs** = `object`
 
-Defined in: [types/cli.ts:1571](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1571)
+Defined in: [types/cli.ts:1573](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1573)
 
 Arguments for `neurolink evaluate scorers` (list-scorers).
 
@@ -18,7 +18,7 @@ Arguments for `neurolink evaluate scorers` (list-scorers).
 
 > `optional` **category?**: `string`
 
-Defined in: [types/cli.ts:1572](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1572)
+Defined in: [types/cli.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1574)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1572](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **type?**: `string`
 
-Defined in: [types/cli.ts:1573](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1573)
+Defined in: [types/cli.ts:1575](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1575)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1573](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/cli.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1574)
+Defined in: [types/cli.ts:1576](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1576)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1574](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **detailed?**: `boolean`
 
-Defined in: [types/cli.ts:1575](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1575)
+Defined in: [types/cli.ts:1577](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1577)

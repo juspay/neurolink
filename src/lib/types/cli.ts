@@ -456,6 +456,8 @@ export type CliGenerateResult = CommandResult & {
   imageOutput?: {
     base64: string;
     savedPath?: string; // Local file path where image was saved
+    /** Encoded format, when the provider identified it (e.g. Recraft returns WebP). */
+    mimeType?: string;
   } | null; // Image generation output
 };
 

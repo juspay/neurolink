@@ -34,6 +34,10 @@ import type {
   NeuroLinkInstance,
 } from "../types/index.js";
 import { DEFAULT_IMAGE_GEN_CONFIG } from "../types/index.js";
+import {
+  detectImageMimeType,
+  sniffImageMimeType,
+} from "../utils/imageDetection.js";
 
 /**
  * NeuroLink instance type (avoiding circular dependencies)
@@ -275,9 +279,15 @@ export class ImageGenService {
       const img = imageOutput as Record<string, unknown>;
       if (typeof img.base64 === "string") {
         const base64 = img.base64;
-        const mimeType = (img.mimeType as string) ?? "image/png";
+        const imageBuffer = Buffer.from(base64, "base64");
+        // Providers that do not label the format get it sniffed from the
+        // bytes rather than assumed to be PNG (Recraft, for one, returns WebP).
+        const mimeType =
+          typeof img.mimeType === "string"
+            ? img.mimeType
+            : detectImageMimeType(imageBuffer);
         return {
-          imageBuffer: Buffer.from(base64, "base64"),
+          imageBuffer,
           base64,
           mimeType,
         };
@@ -290,7 +300,7 @@ export class ImageGenService {
       return {
         imageBuffer: imageOutput,
         base64,
-        mimeType: "image/png",
+        mimeType: detectImageMimeType(imageOutput),
       };
     }
 
@@ -314,20 +324,16 @@ export class ImageGenService {
       // Try to detect if it's base64 encoded image data
       try {
         const buffer = Buffer.from(content, "base64");
-        // Check for PNG magic bytes
-        if (buffer[0] === 0x89 && buffer[1] === 0x50) {
+        // Only treat the content as an image when it carries a known
+        // signature. `detectImageMimeType` answers `image/png` for bytes it
+        // does not recognise, so asking it here would turn arbitrary text into
+        // an image result; `sniffImageMimeType` says "no" instead.
+        const sniffed = sniffImageMimeType(buffer);
+        if (sniffed !== null) {
           return {
             imageBuffer: buffer,
             base64: content,
-            mimeType: "image/png",
-          };
-        }
-        // Check for JPEG magic bytes
-        if (buffer[0] === 0xff && buffer[1] === 0xd8) {
-          return {
-            imageBuffer: buffer,
-            base64: content,
-            mimeType: "image/jpeg",
+            mimeType: sniffed,
           };
         }
       } catch {
