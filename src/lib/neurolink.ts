@@ -5615,6 +5615,22 @@ Current user's request: ${currentInput}`;
       middleware: options.middleware,
       conversationMessages: options.conversationMessages,
       credentials: options.credentials,
+      // Extended thinking. Every provider gates it on `thinkingConfig`, so
+      // omitting the field here meant it never reached one: the request went
+      // out with no thinking block and the result carried no reasoning, with
+      // nothing raised to say the option had been discarded. This is the same
+      // failure the note above records for `disableInternalFallback` — an
+      // allowlist that silently swallows a documented option.
+      //
+      // `thinkingConfig` is the only one of the documented thinking options
+      // that `GenerateOptions` actually declares. `thinking`, `thinkingBudget`
+      // and `thinkingLevel` are folded into a `thinkingConfig` only by the CLI,
+      // in `src/lib/utils/thinkingConfig.ts`; nothing on the SDK path does that
+      // merge. They exist solely on the internal `TextGenerationOptions`, so no
+      // caller can pass them through
+      // generate() today. Declaring them is a public-type decision and is
+      // deliberately left out of this fix.
+      thinkingConfig: options.thinkingConfig,
       // Lifecycle callbacks must reach the provider so non-AI-SDK paths
       // (Vertex's native @google/genai, native Bedrock, Ollama, etc.) can
       // invoke them directly. Pipeline A also still receives them via the
