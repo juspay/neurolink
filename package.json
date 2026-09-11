@@ -110,6 +110,7 @@
     "test:new-providers": "pnpm exec tsx test/continuous-test-suite-new-providers.ts",
     "test:matrix": "pnpm exec tsx test/continuous-test-suite-provider-matrix.ts",
     "test:matrix:cli": "pnpm exec tsx test/continuous-test-suite-provider-matrix-cli.ts",
+    "test:thinking-config": "pnpm exec tsx test/continuous-test-suite-sdk-thinking-config.ts",
     "test:mcp:spans": "pnpm exec tsx test/continuous-test-suite-mcp-spans.ts",
     "test:mcp:infra": "pnpm exec tsx test/continuous-test-suite-mcp-infra.ts",
     "test:vendor-recovery": "pnpm exec tsx test/continuous-test-suite-native-vendor-recovery.ts",

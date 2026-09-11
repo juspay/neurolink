@@ -1495,15 +1495,32 @@ export class AnthropicProvider extends BaseProvider {
           },
           "anthropic.doGenerate",
         );
+        // Dropping a caller's explicit sampling parameters is exactly the
+        // kind of silent discard this change fixes elsewhere, so say so.
+        if (
+          thinking &&
+          (samplingParams.temperature !== undefined ||
+            samplingParams.topP !== undefined)
+        ) {
+          logger.debug(
+            "[anthropic] extended thinking is enabled, so temperature/top_p are omitted — Anthropic rejects any temperature but 1 while thinking is set",
+          );
+        }
         const params: Anthropic.Messages.MessageCreateParamsNonStreaming = {
           model: modelId,
           messages: cachedMessages,
           max_tokens: resolveClaudeMaxTokens(modelId, options.maxOutputTokens),
           ...(system ? { system } : {}),
-          ...(samplingParams.temperature !== undefined
+          // Extended thinking fixes sampling: Anthropic rejects any
+          // temperature but 1 while `thinking` is set, and does not honour
+          // top_p there. The CLI always sends a default temperature, so
+          // forwarding it alongside thinking turns a call that used to work
+          // into a 400. Drop the sampling knobs for exactly those turns and
+          // let Anthropic's thinking defaults stand.
+          ...(!thinking && samplingParams.temperature !== undefined
             ? { temperature: samplingParams.temperature }
             : {}),
-          ...(samplingParams.topP !== undefined
+          ...(!thinking && samplingParams.topP !== undefined
             ? { top_p: samplingParams.topP }
             : {}),
           ...(options.stopSequences && options.stopSequences.length > 0
@@ -2406,6 +2423,11 @@ export class AnthropicProvider extends BaseProvider {
             : {},
           "anthropic.executeStream",
         );
+        if (thinking && streamSamplingParams.temperature !== undefined) {
+          logger.debug(
+            "[anthropic] extended thinking is enabled, so temperature is omitted on the stream path — Anthropic rejects any temperature but 1 while thinking is set",
+          );
+        }
         return {
           model: modelId,
           messages: cachedConversation,
@@ -2415,7 +2437,9 @@ export class AnthropicProvider extends BaseProvider {
           // the adapter immediately overwrites — and forced this whole params
           // object into the streaming variant for a field it does not own.
           ...(payload.system ? { system: payload.system } : {}),
-          ...(streamSamplingParams.temperature !== undefined
+          // Same constraint on the streaming path: a temperature alongside
+          // `thinking` is rejected outright.
+          ...(!thinking && streamSamplingParams.temperature !== undefined
             ? { temperature: streamSamplingParams.temperature }
             : {}),
           ...(cachedTools && cachedTools.length > 0
