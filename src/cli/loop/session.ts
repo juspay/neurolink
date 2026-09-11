@@ -28,6 +28,7 @@ import { tracers } from "../../lib/telemetry/tracers.js";
 import { handleError } from "../errorHandler.js";
 import { ConversationSelector } from "./conversationSelector.js";
 import { textGenerationOptionsSchema } from "./optionsSchema.js";
+import { ensureStdinRef } from "../utils/stdinRef.js";
 
 // Banner Art
 const NEUROLINK_BANNER = `
@@ -605,6 +606,11 @@ export class LoopSession {
    * Get command input with history support using readline
    */
   private async getCommandWithHistory(): Promise<string> {
+    // The SDK's MCP stdio transport unrefs stdin on import so an idle
+    // process can exit on its own (see externalServerManager.ts). The
+    // interactive loop reads a line from stdin on every prompt and must
+    // block on it, so ref it back before consuming.
+    ensureStdinRef();
     return new Promise((resolve) => {
       const rl = readline.createInterface({
         input: process.stdin,

@@ -87,6 +87,7 @@
     "test:mcp:sdk": "pnpm exec tsx test/continuous-test-suite-mcp-sdk.ts",
     "test:mcp:cli": "pnpm exec tsx test/continuous-test-suite-mcp-cli.ts",
     "test:mcp:stdio-lifecycle": "pnpm exec tsx test/continuous-test-suite-mcp-stdio-lifecycle.ts",
+    "test:process-exit": "pnpm exec tsx test/continuous-test-suite-process-exit.ts",
     "test:mcp-direct-name-repair": "pnpm exec tsx test/continuous-test-suite-mcp-direct-name-repair.ts",
     "test:mcp:full": "pnpm run test:mcp:infra && pnpm run test:mcp:spans && pnpm run test:mcp:stdio-lifecycle && pnpm run test:mcp:sdk && pnpm run test:mcp:cli && pnpm run test:mcp:http",
     "test:media": "pnpm exec tsx test/continuous-test-suite-media-gen.ts",
