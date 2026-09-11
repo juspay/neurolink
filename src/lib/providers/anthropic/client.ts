@@ -116,7 +116,10 @@ import {
   TimeoutError,
 } from "../../utils/timeout.js";
 import { raceWithAbort } from "../../utils/async/index.js";
-import { resolveToolChoice } from "../../utils/toolChoice.js";
+import {
+  normalizeResolvedToolChoice,
+  resolveToolChoice,
+} from "../../utils/toolChoice.js";
 import { emitToolEndFromStepFinish } from "../../utils/toolEndEmitter.js";
 import type { LanguageModel, Tool } from "../../types/index.js";
 import { NoOutputGeneratedError } from "../../utils/generationErrors.js";
@@ -1403,12 +1406,22 @@ export class AnthropicProvider extends BaseProvider {
         if (tools && tools.length === 0) {
           tools = undefined;
         }
-        let toolChoice = options.toolChoice
-          ? toolChoiceToAnthropic(
-              options.toolChoice.type === "tool"
-                ? { type: "tool", toolName: options.toolChoice.toolName }
-                : options.toolChoice.type,
-            )
+        // The value here has already been through `resolveToolChoice`
+        // upstream in `executeNativeGenerate`, so this layer translates
+        // rather than re-resolves — re-resolving would apply the auto/none
+        // defaulting twice, and `toolsRecord`/`shouldUseTools` are not in
+        // scope inside `getAISDKModel` in any case.
+        //
+        // Only the SHAPE varies, and reading `.type` off it was the bug:
+        // a bare `"required"` has no `.type`, so the translator received
+        // `undefined` and the field was dropped from the request entirely.
+        // Normalisation now lives in the shared util rather than being
+        // re-derived here, so this site cannot drift from its siblings again.
+        const normalisedToolChoice = normalizeResolvedToolChoice(
+          options.toolChoice,
+        );
+        let toolChoice = normalisedToolChoice
+          ? toolChoiceToAnthropic(normalisedToolChoice)
           : undefined;
 
         // JSON/structured output: Anthropic has no response_format — emulate
