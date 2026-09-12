@@ -137,6 +137,9 @@ const CATALOG_ENV_VARS = [
   "MANCER_API_KEY",
   "MANCER_BASE_URL",
   "MANCER_MODEL",
+  "MORPH_API_KEY",
+  "MORPH_BASE_URL",
+  "MORPH_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1104,6 +1107,18 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     envVar: "MANCER_API_KEY",
     urlMatch: "neuro.mancer.tech/oai/v1/chat/completions",
     model: "deepseek-v4-flash",
+  },
+  {
+    alias: "morph",
+    envVar: "MORPH_API_KEY",
+    urlMatch: "api.morphllm.com/v1/chat/completions",
+    model: "morph-v3-large",
+  },
+  {
+    alias: "morphllm",
+    envVar: "MORPH_API_KEY",
+    urlMatch: "api.morphllm.com/v1/chat/completions",
+    model: "morph-v3-large",
   },
 ];
 
