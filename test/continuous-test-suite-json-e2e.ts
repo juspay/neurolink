@@ -576,4 +576,100 @@ await test("anthropic:claude-sonnet-4-6 — forced truncation yields a partial o
   );
 });
 
+// A Zod schema with ANY optional field converts to `required` missing that
+// property while `additionalProperties: false` is already present — a shape
+// OpenAI's strict mode rejects outright with "'required' is required to be
+// supplied". So `generate({ schema })` failed with a 400, not a degraded
+// answer, for the most ordinary optional field there is.
+//
+// Forcing every property into `required` would satisfy strict mode but would
+// silently make the caller's optional fields mandatory. The request must drop
+// to non-strict instead, which OpenAI accepts and which honours optionality.
+//
+// The absence assertion is the point: without it, an implementation that
+// regressed to forcing `required` would still pass, because the model would
+// return both fields and every other assertion would hold.
+await test("openai:gpt-4o-mini — an optional Zod field stays optional, and is absent when unset", async () => {
+  let res: SchemaResult;
+  try {
+    res = (await nl.generate({
+      input: {
+        text: "Name the capital of France. Do not include a population figure.",
+      },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      maxTokens: 200,
+      schema: z.object({
+        capital: z.string(),
+        population: z.number().optional(),
+      }),
+    })) as SchemaResult;
+  } catch (e) {
+    if (isInfraError(String((e as Error)?.message ?? e))) {
+      throw new Skip("openai unavailable for provider reasons");
+    }
+    throw new Error(
+      "a schema with an optional property was rejected outright",
+      { cause: e },
+    );
+  }
+  const data = res.structuredData as Record<string, unknown> | undefined;
+  assert(
+    !!data && typeof data === "object" && !Array.isArray(data),
+    "structuredData must be a plain object",
+  );
+  assert(
+    typeof data?.capital === "string" && (data.capital as string).length > 0,
+    "the required property must be present and non-empty",
+  );
+  assert(
+    data !== undefined && !("population" in data),
+    "the optional property must be absent, proving it was not forced into required",
+  );
+  console.log(
+    "      · optional Zod field honoured and absent — request not rejected",
+  );
+});
+
+// The same shared path carries the whole OpenAI-compatible family, so pin a
+// second member of it. Azure is the right second cell here: it is the other
+// provider that opts OUT of suppressing response_format with tools, so it
+// actually exercises the `json_schema` + strict decision this change makes,
+// rather than a provider whose format is downgraded or suppressed before the
+// decision matters.
+await test("azure — an optional field survives on a second family member", async () => {
+  const azureModel = process.env.AZURE_OPENAI_MODEL ?? process.env.AZURE_MODEL;
+  if (!azureModel) {
+    throw new Skip("no azure deployment configured");
+  }
+  let res: SchemaResult;
+  try {
+    res = (await nl.generate({
+      input: {
+        text: "Name the capital of France. Do not include a population figure.",
+      },
+      provider: "azure",
+      model: azureModel,
+      maxTokens: 200,
+      schema: z.object({
+        capital: z.string(),
+        population: z.number().optional(),
+      }),
+    })) as SchemaResult;
+  } catch (e) {
+    if (isInfraError(String((e as Error)?.message ?? e))) {
+      throw new Skip("azure unavailable for provider reasons");
+    }
+    throw new Error("optional-field schema failed on a second provider", {
+      cause: e,
+    });
+  }
+  const data = res.structuredData as Record<string, unknown> | undefined;
+  assert(
+    !!data && typeof data === "object",
+    "structuredData must be produced on the shared family path too",
+  );
+  console.log("      · optional field honoured on a second family member");
+});
+
 await runSuite();
