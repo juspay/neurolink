@@ -1125,6 +1125,7 @@ jobs:
             test:resolve-request-kind@1
             test:vertex-loop-characterization@100
             test:tool-reliability@57
+            test:reasoning-parity-live@19
             test:auth@50
             test:vertex-claude-characterization@46
             test:openai-compat-catalog@24

@@ -228,11 +228,16 @@ export async function runNativeGenerateLoop(
       .map((p) => p.text as string)
       .join("");
     // Reasoner models (DeepSeek `reasoning_content`, gateway `reasoning`,
-    // OpenAI o-series) emit reasoning as its own V3 content part. Join it on
-    // the same replace-per-step rule as the text so the caller can surface
-    // `result.reasoning`; without this the provider builds the part and the
-    // loop drops it.
-    reasoning = parts
+    // OpenAI o-series) emit reasoning as its own V3 content part.
+    //
+    // Unlike `text`, this ACCUMULATES across steps. Each step's answer
+    // supersedes the last, but each step's reasoning is its own thought:
+    // replacing meant a tool loop reported only whatever the final step
+    // happened to think, which is usually the shortest part and frequently
+    // empty once the model just answers from the tool result. Concatenating
+    // with nothing between them is what a stream() consumer accumulates from
+    // the per-step reasoning chunks, so both surfaces agree on the turn.
+    reasoning += parts
       .filter((p) => p.type === "reasoning" && typeof p.text === "string")
       .map((p) => p.text as string)
       .join("");
