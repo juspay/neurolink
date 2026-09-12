@@ -8,7 +8,7 @@
 
 > **UnifiedTool** = `object`
 
-Defined in: [types/mcp.ts:1838](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1838)
+Defined in: [types/mcp.ts:1857](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1857)
 
 Unified tool entry from multiple servers
 
@@ -18,7 +18,7 @@ Unified tool entry from multiple servers
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1842](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1842)
+Defined in: [types/mcp.ts:1861](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1861)
 
 Tool name
 
@@ -28,7 +28,7 @@ Tool name
 
 > **description**: `string`
 
-Defined in: [types/mcp.ts:1847](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1847)
+Defined in: [types/mcp.ts:1866](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1866)
 
 Tool description
 
@@ -38,7 +38,7 @@ Tool description
 
 > **servers**: `object`[]
 
-Defined in: [types/mcp.ts:1852](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1852)
+Defined in: [types/mcp.ts:1871](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1871)
 
 Servers that provide this tool
 
@@ -64,7 +64,7 @@ Servers that provide this tool
 
 > **hasConflict**: `boolean`
 
-Defined in: [types/mcp.ts:1862](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1862)
+Defined in: [types/mcp.ts:1881](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1881)
 
 Whether this tool has naming conflicts
 
@@ -74,6 +74,6 @@ Whether this tool has naming conflicts
 
 > `optional` **preferredServerId?**: `string`
 
-Defined in: [types/mcp.ts:1867](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1867)
+Defined in: [types/mcp.ts:1886](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1886)
 
 Preferred server for this tool

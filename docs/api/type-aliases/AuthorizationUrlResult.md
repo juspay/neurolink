@@ -8,7 +8,7 @@
 
 > **AuthorizationUrlResult** = `object`
 
-Defined in: [types/mcp.ts:930](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L930)
+Defined in: [types/mcp.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L949)
 
 Authorization URL result from OAuth flow
 
@@ -18,7 +18,7 @@ Authorization URL result from OAuth flow
 
 > **url**: `string`
 
-Defined in: [types/mcp.ts:931](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L931)
+Defined in: [types/mcp.ts:950](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L950)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:931](https://github.com/juspay/neurolink/blob/release/
 
 > **state**: `string`
 
-Defined in: [types/mcp.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L932)
+Defined in: [types/mcp.ts:951](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L951)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:932](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **codeVerifier?**: `string`
 
-Defined in: [types/mcp.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L933)
+Defined in: [types/mcp.ts:952](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L952)

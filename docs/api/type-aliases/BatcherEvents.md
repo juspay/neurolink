@@ -8,7 +8,7 @@
 
 > **BatcherEvents**\<`T`\> = `object`
 
-Defined in: [types/mcp.ts:2349](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2349)
+Defined in: [types/mcp.ts:2368](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2368)
 
 Batcher events
 
@@ -24,7 +24,7 @@ Batcher events
 
 > **batchStarted**: `object`
 
-Defined in: [types/mcp.ts:2350](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2350)
+Defined in: [types/mcp.ts:2369](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2369)
 
 #### batchId
 
@@ -40,7 +40,7 @@ Defined in: [types/mcp.ts:2350](https://github.com/juspay/neurolink/blob/release
 
 > **batchCompleted**: `object`
 
-Defined in: [types/mcp.ts:2351](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2351)
+Defined in: [types/mcp.ts:2370](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2370)
 
 #### batchId
 
@@ -56,7 +56,7 @@ Defined in: [types/mcp.ts:2351](https://github.com/juspay/neurolink/blob/release
 
 > **batchFailed**: `object`
 
-Defined in: [types/mcp.ts:2352](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2352)
+Defined in: [types/mcp.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2371)
 
 #### batchId
 
@@ -72,7 +72,7 @@ Defined in: [types/mcp.ts:2352](https://github.com/juspay/neurolink/blob/release
 
 > **requestQueued**: `object`
 
-Defined in: [types/mcp.ts:2353](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2353)
+Defined in: [types/mcp.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2372)
 
 #### requestId
 
@@ -88,7 +88,7 @@ Defined in: [types/mcp.ts:2353](https://github.com/juspay/neurolink/blob/release
 
 > **flushTriggered**: `object`
 
-Defined in: [types/mcp.ts:2354](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2354)
+Defined in: [types/mcp.ts:2373](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2373)
 
 #### reason
 

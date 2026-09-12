@@ -8,7 +8,7 @@
 
 > **McpServerWeight** = `object`
 
-Defined in: [types/mcp.ts:2440](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2440)
+Defined in: [types/mcp.ts:2459](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2459)
 
 Server routing weight configuration
 
@@ -18,7 +18,7 @@ Server routing weight configuration
 
 > **serverId**: `string`
 
-Defined in: [types/mcp.ts:2441](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2441)
+Defined in: [types/mcp.ts:2460](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2460)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:2441](https://github.com/juspay/neurolink/blob/release
 
 > **weight**: `number`
 
-Defined in: [types/mcp.ts:2442](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2442)
+Defined in: [types/mcp.ts:2461](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2461)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/mcp.ts:2442](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **capabilities?**: `string`[]
 
-Defined in: [types/mcp.ts:2443](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2443)
+Defined in: [types/mcp.ts:2462](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2462)

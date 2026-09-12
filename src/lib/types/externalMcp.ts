@@ -11,7 +11,11 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 /**
  * Supported MCP transport protocols - imported from mcpTypes.js (canonical definition)
  */
-import type { MCPTransportType, MCPServerInfo } from "./mcp.js";
+import type {
+  MCPTransportType,
+  MCPServerInfo,
+  MCPServerReadiness,
+} from "./mcp.js";
 export type { MCPTransportType } from "./mcp.js";
 
 /**
@@ -249,12 +253,28 @@ export type ExternalMCPOperationResult<T = unknown> = {
   /** Operation duration in milliseconds */
   duration?: number;
 
-  /** Additional metadata */
+  /**
+   * Additional metadata.
+   *
+   * The two typed optional fields are intersected with the pre-existing
+   * `JsonValue` index signature rather than declared inside it: declaring an
+   * optional property next to a `JsonValue` index signature does not compile
+   * (its type includes `undefined`), and widening the index signature to
+   * `JsonValue | undefined` would change the read type of every other key
+   * for every existing consumer — a backward-incompatible public change.
+   */
   metadata?: {
     timestamp: number;
     operation: string;
-    [key: string]: JsonValue;
-  };
+    /**
+     * Set on `addServer` results: whether the registration discovered
+     * enough tools to be considered ready (see `MCPServerInfo.minTools`).
+     * Absent on operations the minTools gate does not apply to.
+     */
+    readiness?: MCPServerReadiness;
+    /** Set alongside `readiness` on `addServer` results — tools discovered, post block-list. */
+    toolsDiscovered?: number;
+  } & { [key: string]: JsonValue };
 };
 
 /**

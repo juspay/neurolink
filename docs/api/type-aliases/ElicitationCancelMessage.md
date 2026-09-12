@@ -8,7 +8,7 @@
 
 > **ElicitationCancelMessage** = `object`
 
-Defined in: [types/mcp.ts:1382](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1382)
+Defined in: [types/mcp.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1401)
 
 Elicitation cancel protocol message
 
@@ -18,7 +18,7 @@ Elicitation cancel protocol message
 
 > **jsonrpc**: `"2.0"`
 
-Defined in: [types/mcp.ts:1383](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1383)
+Defined in: [types/mcp.ts:1402](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1402)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/mcp.ts:1383](https://github.com/juspay/neurolink/blob/release
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1384)
+Defined in: [types/mcp.ts:1403](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1403)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:1384](https://github.com/juspay/neurolink/blob/release
 
 > **method**: `"elicitation/cancel"`
 
-Defined in: [types/mcp.ts:1385](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1385)
+Defined in: [types/mcp.ts:1404](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1404)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/mcp.ts:1385](https://github.com/juspay/neurolink/blob/release
 
 > **params**: [`ElicitationCancelParams`](ElicitationCancelParams.md)
 
-Defined in: [types/mcp.ts:1386](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1386)
+Defined in: [types/mcp.ts:1405](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1405)

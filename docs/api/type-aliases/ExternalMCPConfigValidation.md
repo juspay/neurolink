@@ -8,7 +8,7 @@
 
 > **ExternalMCPConfigValidation** = `object`
 
-Defined in: [types/externalMcp.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L219)
+Defined in: [types/externalMcp.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L223)
 
 External MCP server configuration validation result
 
@@ -18,7 +18,7 @@ External MCP server configuration validation result
 
 > **isValid**: `boolean`
 
-Defined in: [types/externalMcp.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L221)
+Defined in: [types/externalMcp.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L225)
 
 Whether the configuration is valid
 
@@ -28,7 +28,7 @@ Whether the configuration is valid
 
 > **errors**: `string`[]
 
-Defined in: [types/externalMcp.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L224)
+Defined in: [types/externalMcp.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L228)
 
 Validation errors
 
@@ -38,7 +38,7 @@ Validation errors
 
 > **warnings**: `string`[]
 
-Defined in: [types/externalMcp.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L227)
+Defined in: [types/externalMcp.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L231)
 
 Validation warnings
 
@@ -48,6 +48,6 @@ Validation warnings
 
 > **suggestions**: `string`[]
 
-Defined in: [types/externalMcp.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L230)
+Defined in: [types/externalMcp.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L234)
 
 Suggestions for improvement

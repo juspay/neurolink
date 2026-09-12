@@ -8,7 +8,7 @@
 
 > **ExternalMCPServerConfig** = `object`
 
-Defined in: [types/externalMcp.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L20)
+Defined in: [types/externalMcp.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L24)
 
 External MCP server configuration for process spawning
 
@@ -18,7 +18,7 @@ External MCP server configuration for process spawning
 
 > **id**: `string`
 
-Defined in: [types/externalMcp.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L22)
+Defined in: [types/externalMcp.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L26)
 
 Unique identifier for the server
 
@@ -28,7 +28,7 @@ Unique identifier for the server
 
 > **command**: `string`
 
-Defined in: [types/externalMcp.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L25)
+Defined in: [types/externalMcp.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L29)
 
 Command to execute (e.g., 'npx', 'node', 'python')
 
@@ -38,7 +38,7 @@ Command to execute (e.g., 'npx', 'node', 'python')
 
 > **args**: `string`[]
 
-Defined in: [types/externalMcp.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L28)
+Defined in: [types/externalMcp.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L32)
 
 Arguments to pass to the command
 
@@ -48,7 +48,7 @@ Arguments to pass to the command
 
 > `optional` **env?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/externalMcp.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L31)
+Defined in: [types/externalMcp.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L35)
 
 Environment variables for the process
 
@@ -58,7 +58,7 @@ Environment variables for the process
 
 > **transport**: [`MCPTransportType`](MCPTransportType.md)
 
-Defined in: [types/externalMcp.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L34)
+Defined in: [types/externalMcp.ts:38](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L38)
 
 Transport protocol to use
 
@@ -68,7 +68,7 @@ Transport protocol to use
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/externalMcp.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L37)
+Defined in: [types/externalMcp.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L41)
 
 Connection timeout in milliseconds (default: 10000)
 
@@ -78,7 +78,7 @@ Connection timeout in milliseconds (default: 10000)
 
 > `optional` **retries?**: `number`
 
-Defined in: [types/externalMcp.ts:40](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L40)
+Defined in: [types/externalMcp.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L44)
 
 Maximum retry attempts for connection (default: 3)
 
@@ -88,7 +88,7 @@ Maximum retry attempts for connection (default: 3)
 
 > `optional` **healthCheckInterval?**: `number`
 
-Defined in: [types/externalMcp.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L43)
+Defined in: [types/externalMcp.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L47)
 
 Health check interval in milliseconds (default: 30000)
 
@@ -98,7 +98,7 @@ Health check interval in milliseconds (default: 30000)
 
 > `optional` **autoRestart?**: `boolean`
 
-Defined in: [types/externalMcp.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L46)
+Defined in: [types/externalMcp.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L50)
 
 Whether to automatically restart on failure (default: true)
 
@@ -108,7 +108,7 @@ Whether to automatically restart on failure (default: true)
 
 > `optional` **cwd?**: `string`
 
-Defined in: [types/externalMcp.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L49)
+Defined in: [types/externalMcp.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L53)
 
 Working directory for the process
 
@@ -118,7 +118,7 @@ Working directory for the process
 
 > `optional` **url?**: `string`
 
-Defined in: [types/externalMcp.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L52)
+Defined in: [types/externalMcp.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L56)
 
 URL for SSE/WebSocket/HTTP transports
 
@@ -128,7 +128,7 @@ URL for SSE/WebSocket/HTTP transports
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/externalMcp.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L55)
+Defined in: [types/externalMcp.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L59)
 
 HTTP headers for authentication and configuration (HTTP/SSE/WebSocket)
 
@@ -138,7 +138,7 @@ HTTP headers for authentication and configuration (HTTP/SSE/WebSocket)
 
 > `optional` **blockedTools?**: `string`[]
 
-Defined in: [types/externalMcp.ts:58](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L58)
+Defined in: [types/externalMcp.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L62)
 
 List of tool names to block/blacklist from this server
 
@@ -148,6 +148,6 @@ List of tool names to block/blacklist from this server
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/externalMcp.ts:61](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L61)
+Defined in: [types/externalMcp.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/externalMcp.ts#L65)
 
 Additional metadata

@@ -8,7 +8,7 @@
 
 > **PendingRequest**\<`T`\> = `object`
 
-Defined in: [types/mcp.ts:2566](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2566)
+Defined in: [types/mcp.ts:2585](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2585)
 
 Pending request in the batcher queue.
 
@@ -24,7 +24,7 @@ Pending request in the batcher queue.
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:2567](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2567)
+Defined in: [types/mcp.ts:2586](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2586)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/mcp.ts:2567](https://github.com/juspay/neurolink/blob/release
 
 > **tool**: `string`
 
-Defined in: [types/mcp.ts:2568](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2568)
+Defined in: [types/mcp.ts:2587](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2587)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/mcp.ts:2568](https://github.com/juspay/neurolink/blob/release
 
 > **args**: `unknown`
 
-Defined in: [types/mcp.ts:2569](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2569)
+Defined in: [types/mcp.ts:2588](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2588)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/mcp.ts:2569](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **serverId?**: `string`
 
-Defined in: [types/mcp.ts:2570](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2570)
+Defined in: [types/mcp.ts:2589](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2589)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/mcp.ts:2570](https://github.com/juspay/neurolink/blob/release
 
 > **resolve**: (`value`) => `void`
 
-Defined in: [types/mcp.ts:2571](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2571)
+Defined in: [types/mcp.ts:2590](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2590)
 
 #### Parameters
 
@@ -74,7 +74,7 @@ Defined in: [types/mcp.ts:2571](https://github.com/juspay/neurolink/blob/release
 
 > **reject**: (`error`) => `void`
 
-Defined in: [types/mcp.ts:2572](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2572)
+Defined in: [types/mcp.ts:2591](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2591)
 
 #### Parameters
 
@@ -92,4 +92,4 @@ Defined in: [types/mcp.ts:2572](https://github.com/juspay/neurolink/blob/release
 
 > **addedAt**: `number`
 
-Defined in: [types/mcp.ts:2573](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2573)
+Defined in: [types/mcp.ts:2592](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2592)

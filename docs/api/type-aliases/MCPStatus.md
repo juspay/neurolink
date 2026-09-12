@@ -8,7 +8,7 @@
 
 > **MCPStatus** = `object`
 
-Defined in: [types/mcp.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L306)
+Defined in: [types/mcp.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L325)
 
 ## Indexable
 
@@ -20,7 +20,7 @@ Defined in: [types/mcp.ts:306](https://github.com/juspay/neurolink/blob/release/
 
 > **mcpInitialized**: `boolean`
 
-Defined in: [types/mcp.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L307)
+Defined in: [types/mcp.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L326)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/mcp.ts:307](https://github.com/juspay/neurolink/blob/release/
 
 > **totalServers**: `number`
 
-Defined in: [types/mcp.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L308)
+Defined in: [types/mcp.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L327)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/mcp.ts:308](https://github.com/juspay/neurolink/blob/release/
 
 > **availableServers**: `number`
 
-Defined in: [types/mcp.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L309)
+Defined in: [types/mcp.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L328)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/mcp.ts:309](https://github.com/juspay/neurolink/blob/release/
 
 > **autoDiscoveredCount**: `number`
 
-Defined in: [types/mcp.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L310)
+Defined in: [types/mcp.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L329)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/mcp.ts:310](https://github.com/juspay/neurolink/blob/release/
 
 > **totalTools**: `number`
 
-Defined in: [types/mcp.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L311)
+Defined in: [types/mcp.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L330)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/mcp.ts:311](https://github.com/juspay/neurolink/blob/release/
 
 > **autoDiscoveredServers**: [`MCPServerInfo`](MCPServerInfo.md)[]
 
-Defined in: [types/mcp.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L312)
+Defined in: [types/mcp.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L331)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/mcp.ts:312](https://github.com/juspay/neurolink/blob/release/
 
 > **customToolsCount**: `number`
 
-Defined in: [types/mcp.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L313)
+Defined in: [types/mcp.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L332)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/mcp.ts:313](https://github.com/juspay/neurolink/blob/release/
 
 > **inMemoryServersCount**: `number`
 
-Defined in: [types/mcp.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L314)
+Defined in: [types/mcp.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L333)
 
 ---
 
@@ -84,7 +84,7 @@ Defined in: [types/mcp.ts:314](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **externalMCPServersCount?**: `number`
 
-Defined in: [types/mcp.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L315)
+Defined in: [types/mcp.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L334)
 
 ---
 
@@ -92,7 +92,7 @@ Defined in: [types/mcp.ts:315](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **externalMCPConnectedCount?**: `number`
 
-Defined in: [types/mcp.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L316)
+Defined in: [types/mcp.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L335)
 
 ---
 
@@ -100,7 +100,7 @@ Defined in: [types/mcp.ts:316](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **externalMCPFailedCount?**: `number`
 
-Defined in: [types/mcp.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L317)
+Defined in: [types/mcp.ts:336](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L336)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/mcp.ts:317](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **externalMCPServers?**: [`MCPServerInfo`](MCPServerInfo.md)[]
 
-Defined in: [types/mcp.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L318)
+Defined in: [types/mcp.ts:337](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L337)
 
 ---
 
@@ -116,4 +116,4 @@ Defined in: [types/mcp.ts:318](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **error?**: `string`
 
-Defined in: [types/mcp.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L319)
+Defined in: [types/mcp.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L338)

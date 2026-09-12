@@ -8,7 +8,7 @@
 
 > **CircuitBreakerConfig** = `object`
 
-Defined in: [types/mcp.ts:690](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L690)
+Defined in: [types/mcp.ts:709](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L709)
 
 Circuit breaker configuration
 Moved from src/lib/mcp/mcpCircuitBreaker.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/mcpCircuitBreaker.ts
 
 > **failureThreshold**: `number`
 
-Defined in: [types/mcp.ts:692](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L692)
+Defined in: [types/mcp.ts:711](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L711)
 
 Number of failures before opening the circuit
 
@@ -29,7 +29,7 @@ Number of failures before opening the circuit
 
 > **resetTimeout**: `number`
 
-Defined in: [types/mcp.ts:695](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L695)
+Defined in: [types/mcp.ts:714](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L714)
 
 Time to wait before attempting reset (milliseconds)
 
@@ -39,7 +39,7 @@ Time to wait before attempting reset (milliseconds)
 
 > **halfOpenMaxCalls**: `number`
 
-Defined in: [types/mcp.ts:698](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L698)
+Defined in: [types/mcp.ts:717](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L717)
 
 Maximum calls allowed in half-open state
 
@@ -49,7 +49,7 @@ Maximum calls allowed in half-open state
 
 > **operationTimeout**: `number`
 
-Defined in: [types/mcp.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L701)
+Defined in: [types/mcp.ts:720](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L720)
 
 Timeout for individual operations (milliseconds)
 
@@ -59,7 +59,7 @@ Timeout for individual operations (milliseconds)
 
 > **minimumCallsBeforeCalculation**: `number`
 
-Defined in: [types/mcp.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L704)
+Defined in: [types/mcp.ts:723](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L723)
 
 Minimum number of calls before calculating failure rate
 
@@ -69,6 +69,6 @@ Minimum number of calls before calculating failure rate
 
 > **statisticsWindowSize**: `number`
 
-Defined in: [types/mcp.ts:707](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L707)
+Defined in: [types/mcp.ts:726](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L726)
 
 Window size for calculating failure rate (milliseconds)

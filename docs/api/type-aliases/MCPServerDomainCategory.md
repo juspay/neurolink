@@ -8,6 +8,6 @@
 
 > **MCPServerDomainCategory** = `"aiProviders"` \| `"frameworks"` \| `"development"` \| `"business"` \| `"content"` \| `"data"` \| `"integrations"` \| `"automation"` \| `"analysis"` \| `"custom"`
 
-Defined in: [types/mcp.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L64)
+Defined in: [types/mcp.ts:72](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L72)
 
 MCP Server Domain Categories - Functional domain classification
