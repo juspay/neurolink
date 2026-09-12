@@ -8,7 +8,7 @@
 
 > **StabilityImageResponse** = `object`
 
-Defined in: [types/providers.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L280)
+Defined in: [types/providers.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L281)
 
 Stability AI /v2beta/stable-image/generate/{model} response shape
 (returns either binary directly, or JSON with base64 when Accept is set
@@ -20,7 +20,7 @@ to application/json). We always request JSON for uniformity.
 
 > `optional` **image?**: `string`
 
-Defined in: [types/providers.ts:281](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L281)
+Defined in: [types/providers.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L282)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/providers.ts:281](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **finish_reason?**: `"SUCCESS"` \| `"ERROR"` \| `"CONTENT_FILTERED"`
 
-Defined in: [types/providers.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L282)
+Defined in: [types/providers.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L283)
 
 ---
 
@@ -36,4 +36,4 @@ Defined in: [types/providers.ts:282](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **seed?**: `number`
 
-Defined in: [types/providers.ts:283](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L283)
+Defined in: [types/providers.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L284)

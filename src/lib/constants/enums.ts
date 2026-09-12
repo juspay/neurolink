@@ -33,6 +33,7 @@ export enum AIProviderName {
   IO_INTELLIGENCE = "io-intelligence",
   MANCER = "mancer",
   MISTRAL = "mistral",
+  NOVITA = "novita",
   PERPLEXITY = "perplexity",
   SAMBANOVA = "sambanova",
   TOGETHER_AI = "together-ai",
@@ -1388,6 +1389,14 @@ export enum MistralModels {
   MISTRAL_MODERATION_LATEST = "mistral-moderation-latest",
   MISTRAL_SMALL_4 = "mistral-small-2603",
   MISTRAL_SMALL_CREATIVE = "mistral-small-creative",
+}
+
+export enum NovitaModels {
+  META_LLAMA_LLAMA_3_3_70B_INSTRUCT = "meta-llama/llama-3.3-70b-instruct",
+  ZAI_ORG_GLM_5_3_FLASH = "zai-org/glm-5.3-flash",
+  DEEPSEEK_DEEPSEEK_V3_0324 = "deepseek/deepseek-v3-0324",
+  QWEN_QWEN_2_5_72B_INSTRUCT = "qwen/qwen-2.5-72b-instruct",
+  GOOGLE_GEMMA_3_27B_IT = "google/gemma-3-27b-it",
 }
 
 export enum PerplexityModels {
