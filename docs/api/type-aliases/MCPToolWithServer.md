@@ -8,7 +8,7 @@
 
 > **MCPToolWithServer** = `object`
 
-Defined in: [types/cli.ts:1919](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1919)
+Defined in: [types/cli.ts:1921](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1921)
 
 Row in the MCP tools listing produced by `neurolink mcp tools`.
 
@@ -18,7 +18,7 @@ Row in the MCP tools listing produced by `neurolink mcp tools`.
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:1920](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1920)
+Defined in: [types/cli.ts:1922](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1922)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1920](https://github.com/juspay/neurolink/blob/release
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1921](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1921)
+Defined in: [types/cli.ts:1923](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1923)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1921](https://github.com/juspay/neurolink/blob/release
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1922](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1922)
+Defined in: [types/cli.ts:1924](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1924)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1922](https://github.com/juspay/neurolink/blob/release
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1923](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1923)
+Defined in: [types/cli.ts:1925](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1925)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:1923](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **inputSchema?**: `object`
 
-Defined in: [types/cli.ts:1924](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1924)
+Defined in: [types/cli.ts:1926](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1926)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/cli.ts:1924](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **category?**: `string`
 
-Defined in: [types/cli.ts:1925](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1925)
+Defined in: [types/cli.ts:1927](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1927)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1925](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **annotations?**: `object`
 
-Defined in: [types/cli.ts:1926](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1926)
+Defined in: [types/cli.ts:1928](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1928)
 
 #### readOnlyHint?
 

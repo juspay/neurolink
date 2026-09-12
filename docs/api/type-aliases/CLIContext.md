@@ -8,7 +8,7 @@
 
 > **CLIContext** = `object`
 
-Defined in: [types/cli.ts:510](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L510)
+Defined in: [types/cli.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L512)
 
 CLI context
 
@@ -18,7 +18,7 @@ CLI context
 
 > **cwd**: `string`
 
-Defined in: [types/cli.ts:511](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L511)
+Defined in: [types/cli.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L513)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:511](https://github.com/juspay/neurolink/blob/release/
 
 > **args**: `string`[]
 
-Defined in: [types/cli.ts:512](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L512)
+Defined in: [types/cli.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L514)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:512](https://github.com/juspay/neurolink/blob/release/
 
 > **env**: `NodeJS.ProcessEnv`
 
-Defined in: [types/cli.ts:513](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L513)
+Defined in: [types/cli.ts:515](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L515)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:513](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **exitCode?**: `number`
 
-Defined in: [types/cli.ts:514](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L514)
+Defined in: [types/cli.ts:516](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L516)

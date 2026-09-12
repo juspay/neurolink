@@ -98,4 +98,28 @@ PPT generation result when ppt mode is enabled
 
 ### imageOutput?
 
-> `optional` **imageOutput?**: \{ `base64`: `string`; `savedPath?`: `string`; \} \| `null`
+> `optional` **imageOutput?**: \{ `base64`: `string`; `savedPath?`: `string`; `mimeType?`: `string`; \} \| `null`
+
+#### Union Members
+
+##### Type Literal
+
+\{ `base64`: `string`; `savedPath?`: `string`; `mimeType?`: `string`; \}
+
+##### base64
+
+> **base64**: `string`
+
+##### savedPath?
+
+> `optional` **savedPath?**: `string`
+
+##### mimeType?
+
+> `optional` **mimeType?**: `string`
+
+Encoded format, when the provider identified it (e.g. Recraft returns WebP).
+
+---
+
+`null`

@@ -8,7 +8,7 @@
 
 > **ConsoleOverride** = `object`
 
-Defined in: [types/cli.ts:554](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L554)
+Defined in: [types/cli.ts:556](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L556)
 
 Console override for quiet mode
 

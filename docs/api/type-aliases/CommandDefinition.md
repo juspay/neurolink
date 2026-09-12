@@ -8,7 +8,7 @@
 
 > **CommandDefinition**\<`TArgs`\> = `object`
 
-Defined in: [types/cli.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L492)
+Defined in: [types/cli.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L494)
 
 Command definition
 
@@ -24,7 +24,7 @@ Command definition
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L493)
+Defined in: [types/cli.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L495)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:493](https://github.com/juspay/neurolink/blob/release/
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L494)
+Defined in: [types/cli.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L496)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:494](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **aliases?**: `string`[]
 
-Defined in: [types/cli.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L495)
+Defined in: [types/cli.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L497)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/cli.ts:495](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **args?**: \{ \[K in keyof TArgs\]: \{ type: "string" \| "number" \| "boolean"; description: string; required?: boolean; default?: TArgs\[K\] \} \}
 
-Defined in: [types/cli.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L496)
+Defined in: [types/cli.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L498)
 
 ---
 
@@ -56,4 +56,4 @@ Defined in: [types/cli.ts:496](https://github.com/juspay/neurolink/blob/release/
 
 > **handler**: [`CommandHandler`](CommandHandler.md)\<`TArgs`\>
 
-Defined in: [types/cli.ts:504](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L504)
+Defined in: [types/cli.ts:506](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L506)

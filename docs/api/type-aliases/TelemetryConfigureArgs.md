@@ -8,7 +8,7 @@
 
 > **TelemetryConfigureArgs** = [`TelemetryCommandArgs`](TelemetryCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:1185](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1185)
+Defined in: [types/cli.ts:1187](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1187)
 
 Telemetry configure sub-command args
 

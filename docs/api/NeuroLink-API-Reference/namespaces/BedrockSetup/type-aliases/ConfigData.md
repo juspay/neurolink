@@ -8,7 +8,7 @@
 
 > **ConfigData** = `object`
 
-Defined in: [types/cli.ts:848](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L848)
+Defined in: [types/cli.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L850)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:848](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **region?**: `string`
 
-Defined in: [types/cli.ts:849](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L849)
+Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L851)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:849](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **accessKeyId?**: `string`
 
-Defined in: [types/cli.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L850)
+Defined in: [types/cli.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L852)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:850](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **secretAccessKey?**: `string`
 
-Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L851)
+Defined in: [types/cli.ts:853](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L853)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/cli.ts:851](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L852)
+Defined in: [types/cli.ts:854](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L854)

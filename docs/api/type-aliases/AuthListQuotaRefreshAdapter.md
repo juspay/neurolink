@@ -8,7 +8,7 @@
 
 > **AuthListQuotaRefreshAdapter** = `object`
 
-Defined in: [types/cli.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1141)
+Defined in: [types/cli.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1143)
 
 Provider-specific quota capability used by the generic auth-list refresh.
 
@@ -18,7 +18,7 @@ Provider-specific quota capability used by the generic auth-list refresh.
 
 > `optional` **supportsProxyRefresh?**: `boolean`
 
-Defined in: [types/cli.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1143)
+Defined in: [types/cli.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1145)
 
 A successful local proxy `/limits` response is authoritative for this provider.
 
@@ -28,7 +28,7 @@ A successful local proxy `/limits` response is authoritative for this provider.
 
 > **listAccounts**: () => `Promise`\<[`ProxyPassthroughAccount`](ProxyPassthroughAccount.md)[]\>
 
-Defined in: [types/cli.ts:1144](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1144)
+Defined in: [types/cli.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1146)
 
 #### Returns
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:1144](https://github.com/juspay/neurolink/blob/release
 
 > **priorQuotaKeys**: (`account`) => readonly `string`[]
 
-Defined in: [types/cli.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1145)
+Defined in: [types/cli.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1147)
 
 #### Parameters
 
@@ -58,7 +58,7 @@ readonly `string`[]
 
 > **refreshAccount**: (`account`, `options`) => `Promise`\<[`AuthListDirectQuotaRefreshResult`](AuthListDirectQuotaRefreshResult.md)\>
 
-Defined in: [types/cli.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1146)
+Defined in: [types/cli.ts:1148](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1148)
 
 #### Parameters
 

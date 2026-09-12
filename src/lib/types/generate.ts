@@ -1041,8 +1041,12 @@ export type MediaGenerationOutputs = {
    * ```
    */
   ppt?: PPTGenerationResult;
-  /** Standard format for image generation */
-  imageOutput?: { base64: string } | null;
+  /**
+   * Standard format for image generation. `mimeType` is set when the provider
+   * can identify the encoded format (sniffed from the image bytes, e.g.
+   * Recraft returns WebP), so callers do not have to assume PNG.
+   */
+  imageOutput?: { base64: string; mimeType?: string } | null;
   /** STT transcription result (present when stt.enabled is true and audio input was provided) */
   transcription?: STTResult;
 };

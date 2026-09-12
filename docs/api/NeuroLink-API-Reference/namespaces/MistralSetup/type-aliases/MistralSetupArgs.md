@@ -8,7 +8,7 @@
 
 > **MistralSetupArgs** = `object`
 
-Defined in: [types/cli.ts:900](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L900)
+Defined in: [types/cli.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L902)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:900](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:901](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L901)
+Defined in: [types/cli.ts:903](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L903)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:901](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L902)
+Defined in: [types/cli.ts:904](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L904)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/cli.ts:902](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **help?**: `boolean`
 
-Defined in: [types/cli.ts:903](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L903)
+Defined in: [types/cli.ts:905](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L905)
