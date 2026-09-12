@@ -114,7 +114,12 @@ export function estimateTokens(
  * charged at the fallback size rather than aborting the estimate (and with it
  * the whole turn).
  */
-function serializeForEstimate(value: unknown): string {
+/**
+ * Serialize a value for token estimation. The fallback is deliberately huge:
+ * an estimator that cannot measure a value must over-report, so a budget guard
+ * fires rather than waving through content it failed to size.
+ */
+export function serializeForEstimate(value: unknown): string {
   if (typeof value === "string") {
     return value;
   }

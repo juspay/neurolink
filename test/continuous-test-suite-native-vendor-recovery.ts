@@ -692,5 +692,208 @@ await test("stream preserves an explicit caller cache marker without adding anot
     }
   }
 });
+// ---------------------------------------------------------------------------
+// Per-step context reclaim on the GENERATE path.
+//
+// Both native loop guards — guardOpenAICompatConversation and
+// planAnthropicLoopReclaim — were wired into executeStream only, so a long
+// agentic generate() walked into a provider context-overflow with no reclaim,
+// while the identical stream() turn reclaimed. Nothing covered either guard.
+// ---------------------------------------------------------------------------
+
+await test("generate() reclaims context when a tool loop outgrows the window", async () => {
+  const STEPS = 6;
+  // Head/tail preview keeps the ends and drops the middle, so a sentinel in
+  // the middle is exactly what disappears when an output is truncated.
+  const blob = (i: number): string =>
+    `${"A".repeat(50_000)}SENTINEL_${i}${"B".repeat(50_000)}`;
+
+  const script = [];
+  for (let i = 0; i < STEPS; i++) {
+    script.push(
+      chatCompletion({
+        finishReason: "tool_calls",
+        toolCalls: [
+          {
+            id: `call_${i}`,
+            type: "function",
+            function: { name: "big_tool", arguments: JSON.stringify({ i }) },
+          },
+        ],
+      }),
+    );
+  }
+  script.push(
+    chatCompletion({ content: "final answer", finishReason: "stop" }),
+  );
+
+  let calls = 0;
+  const server = await startScriptedChatServer(script);
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "call the tool repeatedly then answer" },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      disableInternalFallback: true,
+      maxSteps: STEPS + 2,
+      credentials: credentialsFor(server.baseURL),
+      tools: {
+        big_tool: tool({
+          description: "Returns a very large payload",
+          inputSchema: z.object({ i: z.number() }),
+          execute: async () => blob(calls++),
+        }),
+      },
+    });
+
+    // Preconditions: the loop must actually have run every step, or there is
+    // no oversized history for a guard to reclaim and the claim proves nothing.
+    if (server.requestCount() < STEPS + 1) {
+      throw new Error(
+        `precondition: loop stopped early at ${server.requestCount()} requests`,
+      );
+    }
+    if (calls < STEPS) {
+      throw new Error(
+        `precondition: tool ran ${calls} times, expected ${STEPS}`,
+      );
+    }
+    if (result.content !== "final answer") {
+      throw new Error("precondition: the final answer did not reach content");
+    }
+
+    const bodies = server.getAllRequestBodies();
+    const last = bodies[bodies.length - 1] ?? "";
+    // The newest tool output rides inside the protected tail and must survive
+    // untouched — without this, "reclaimed" could just mean "dropped it all".
+    if (!last.includes(`SENTINEL_${STEPS - 1}`)) {
+      throw new Error(
+        "the most recent tool output was reclaimed, but must not be",
+      );
+    }
+    // The oldest output sits well outside the protected tail. If no reclaim
+    // happened it is still there in full.
+    if (last.includes("SENTINEL_0")) {
+      throw new Error(
+        "the oldest tool output was still sent in full — no context reclaim ran on the generate path",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
+for (const calibrated of [false, true]) {
+  await test(`generate reclaim preserves tool pairs (${calibrated ? "calibrated usage" : "batch dropping"})`, async () => {
+    const count = 8;
+    const padding = "x".repeat(calibrated ? 24_000 : 75_000);
+    const replies = Array.from({ length: count }, (_, i) => ({
+      ...chatCompletion({
+        finishReason: "tool_calls",
+        toolCalls: [
+          {
+            id: `batch_${i}`,
+            type: "function",
+            function: {
+              name: "record_batch",
+              arguments: JSON.stringify({ i, padding }),
+            },
+          },
+        ],
+      }),
+      usage: {
+        prompt_tokens: calibrated ? 100_000 : 1,
+        completion_tokens: 1,
+        total_tokens: calibrated ? 100_001 : 2,
+      },
+    }));
+    const server = await startScriptedChatServer([
+      ...replies,
+      chatCompletion({ content: "paired answer" }),
+    ]);
+    const sdk = new NeuroLink();
+    let executions = 0;
+    try {
+      const result = await sdk.generate({
+        input: { text: "TASK_MUST_SURVIVE" },
+        provider: "openai",
+        model: "gpt-4o-mini",
+        maxSteps: count + 1,
+        maxTokens: 1024,
+        disableInternalFallback: true,
+        credentials: credentialsFor(server.baseURL),
+        tools: {
+          record_batch: tool({
+            description: "Return a small result",
+            inputSchema: z.object({ i: z.number(), padding: z.string() }),
+            execute: async ({ i }) => {
+              executions++;
+              return `result_${i}`;
+            },
+          }),
+        },
+      });
+      if (
+        executions !== count ||
+        server.requestCount() !== count + 1 ||
+        result.content !== "paired answer"
+      ) {
+        throw new Error("precondition: all scripted batch steps must finish");
+      }
+      const requests = server.getAllRequestBodies().map(
+        (body) =>
+          JSON.parse(body) as {
+            messages: Array<{
+              role: string;
+              content?: unknown;
+              tool_call_id?: string;
+              tool_calls?: Array<{ id: string }>;
+            }>;
+          },
+      );
+      if (!JSON.stringify(requests[1]).includes("batch_0")) {
+        throw new Error("precondition: original batch never reached the wire");
+      }
+      for (const request of requests) {
+        const pending = new Set<string>();
+        for (const message of request.messages) {
+          if (message.role === "tool") {
+            if (
+              !message.tool_call_id ||
+              !pending.delete(message.tool_call_id)
+            ) {
+              throw new Error("reclaim emitted an orphan tool result");
+            }
+          } else {
+            if (pending.size) {
+              throw new Error("reclaim emitted an unanswered tool call");
+            }
+            for (const call of message.tool_calls ?? []) {
+              pending.add(call.id);
+            }
+          }
+        }
+        if (pending.size) {
+          throw new Error("request ends with unanswered tool calls");
+        }
+      }
+      const last = JSON.stringify(requests.at(-1));
+      if (last.includes("batch_0")) {
+        throw new Error("old batch was not reclaimed");
+      }
+      if (
+        !last.includes(`batch_${count - 1}`) ||
+        !last.includes("TASK_MUST_SURVIVE")
+      ) {
+        throw new Error("reclaim removed the task or protected tail");
+      }
+    } finally {
+      await sdk.shutdown();
+      await server.close();
+    }
+  });
+}
 
 await runSuite();
