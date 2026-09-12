@@ -8,7 +8,7 @@
 
 > **ThinkingConfig** = `object`
 
-Defined in: [types/config.ts:586](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L586)
+Defined in: [types/config.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L596)
 
 ThinkingConfig matching the SDK's expected structure.
 
@@ -18,7 +18,7 @@ ThinkingConfig matching the SDK's expected structure.
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L587)
+Defined in: [types/config.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L597)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:587](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **type?**: `"enabled"` \| `"disabled"`
 
-Defined in: [types/config.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L588)
+Defined in: [types/config.ts:598](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L598)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:588](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **budgetTokens?**: `number`
 
-Defined in: [types/config.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L590)
+Defined in: [types/config.ts:600](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L600)
 
 Token budget for thinking (Anthropic models: 5000-100000)
 
@@ -44,6 +44,6 @@ Token budget for thinking (Anthropic models: 5000-100000)
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/config.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L592)
+Defined in: [types/config.ts:602](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L602)
 
 Thinking level for Gemini 3 models

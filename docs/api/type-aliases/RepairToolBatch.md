@@ -8,7 +8,7 @@
 
 > **RepairToolBatch** = `object`
 
-Defined in: [types/context.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L935)
+Defined in: [types/context.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L944)
 
 One contiguous tool batch: the run of `tool_call` messages emitted by a
 single agent step, plus the run of `tool_result` messages that follows it.
@@ -22,7 +22,7 @@ batch — not adjacency — is the unit that pairing and truncation operate on.
 
 > **calls**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:936](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L936)
+Defined in: [types/context.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L945)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/context.ts:936](https://github.com/juspay/neurolink/blob/rele
 
 > **results**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:937](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L937)
+Defined in: [types/context.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L946)
 
 ---
 
@@ -38,4 +38,4 @@ Defined in: [types/context.ts:937](https://github.com/juspay/neurolink/blob/rele
 
 > **endIndex**: `number`
 
-Defined in: [types/context.ts:938](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L938)
+Defined in: [types/context.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L947)
