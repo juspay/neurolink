@@ -35,10 +35,12 @@ console.log(user); // { name: "John Doe", age: 30, email: "john.doe@example.com"
 
 ## Requirements
 
-Both parameters are required for structured output:
-
-1. **`schema`**: A Zod schema defining the output structure
-2. **`output.format`**: Must be `"json"` or `"structured"` (defaults to `"text"` if not specified)
+1. **`schema`**: A Zod schema defining the output structure — always required.
+2. **`output.format`**: Must be `"json"` or `"structured"` to get a JSON string
+   in `result.content` (defaults to `"text"` if not specified). This is
+   independent of `structuredData`: passing `schema` alone, with no
+   `output.format`, is enough for `result.structuredData` to be populated —
+   this is the path the [tools section below](#works-with-tools) uses.
 
 ## Complex Schemas
 
@@ -82,6 +84,47 @@ const result = await neurolink.generate({
 });
 // Tools execute first, then response is formatted as JSON
 ```
+
+### How this works on OpenAI-compatible providers
+
+Most OpenAI-compatible vendors reject `response_format` and `tools` in the same
+request, so NeuroLink does not send them together. That leaves a turn with tools
+attached — which is most turns, since built-in and MCP tools ride along by
+default — with nothing telling the model to answer in JSON.
+
+NeuroLink closes that gap itself. The tool turn runs untouched, and if its
+answer does not satisfy your schema, the SDK re-asks **once** with the tools
+removed, which is what makes native `response_format` legal again. That second
+pass only reformats an answer the model has already produced, so tool results
+still drive the content; `toolsUsed`, `toolExecutions` and `usage` cover the
+whole turn, not just the reformat.
+
+Two consequences worth knowing:
+
+- A `generate({ schema })` call that needed the reformat costs **two** requests.
+  Calls whose first answer already satisfies the schema cost one, as before.
+- The reformat is accepted only if it actually produced a schema-valid value.
+  If it fails, if the SDK's own turn deadline is reached, or if it comes back as
+  prose anyway, the original answer is returned rather than an error — so this
+  can improve an outcome but never degrade one. A caller that cancels the
+  request still gets its cancellation. In those cases `structuredData` may still
+  be unset, which is the honest signal that the model never produced the value.
+
+The schema is deliberately **not** injected into the tool turn's system prompt.
+Some models read a JSON Schema sitting next to a tool list as another tool and
+answer by calling one that does not exist — Groq's `llama-3.3-70b-versatile`
+tries to call a tool named `json`, which the server rejects outright.
+
+The re-ask is not a single attempt. It tries native `response_format` first,
+because removing the tools is precisely what makes that legal again. Some
+vendors then reject the **schema itself** rather than the request: Groq answers
+a non-object root with `invalid JSON schema for response_format: schema must
+have type 'object'`, so an array- or scalar-rooted schema fails at this stage.
+When that happens the SDK degrades a second time and re-runs the same tools-free
+pass with the schema spelled into the prompt instead. That is why a
+`z.array(z.string())` schema returns `["red","blue","yellow"]` with matching
+`structuredData` rather than prose. Both stages run without tools; only the way
+the schema is communicated changes.
 
 ### Important: Google Gemini Providers Limitation
 
@@ -156,8 +199,8 @@ If you need both tool execution and structured output with Gemini, consider thes
 ## Important Notes
 
 - **Only available in `generate()`** - Not supported in `stream()` function
-- **Requires both `schema` and `output.format`** - If `output.format` is not "json" or "structured", regular text is returned even with a schema
-- **Auto-validated** - Invalid responses throw `NoObjectGeneratedError` with validation details
+- **`output.format` controls `result.content`** - If it is not "json" or "structured", `result.content` is plain text even with a schema; `result.structuredData` can still be populated from `schema` alone (see [Requirements](#requirements))
+- **Auto-validated, with a no-throw fallback when tools are involved** - Without tools, an invalid response throws `NoObjectGeneratedError` with validation details. With tools attached, a failed schema match triggers the tool-free re-ask described in [Works with Tools](#works-with-tools); if that also fails, the original answer is returned rather than an error, and `structuredData` is left unset
 - **Provider support** - Works with OpenAI, Anthropic, Google AI Studio, Vertex AI
 - **Gemini JSON Schema Support** - Gemini 3 / Gemini 2.5 models have excellent native JSON schema support
 - **Gemini Tools Limitation** - All Gemini models (including Gemini 3) cannot combine tools with schemas - use `disableTools: true`

@@ -82,6 +82,7 @@ import {
   composeAbortSignalsScoped,
   createTimeoutController,
   mergeAbortSignals,
+  TimeoutError,
 } from "../utils/timeout.js";
 import { emitToolEndFromStepFinish } from "../utils/toolEndEmitter.js";
 import { resolveRequestKind } from "../core/resolveRequestKind.js";
@@ -144,6 +145,13 @@ const WINDOW_FIT_MARGIN_TOKENS = 512;
  * object. A schema we cannot validate with accepts everything, so an unknown
  * schema never forces a pointless second request.
  */
+/**
+ * Thrown internally to unwind to the "keep the original answer" path when a
+ * structured-output re-ask completed but did not produce the object. Never
+ * escapes executeNativeGenerate.
+ */
+class StructuredReformatRejected extends Error {}
+
 const yieldsSchemaValidObject = (
   text: string,
   schema: ValidationSchema,
@@ -1167,13 +1175,24 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // Structured output rides response_format, which is what Output.object did
     // on the ai path. Suppressed where the provider says the combination with
     // tools is rejected.
+    const schemaJson = options.schema
+      ? (convertZodToJsonSchema(options.schema as ZodUnknownSchema) as Record<
+          string,
+          unknown
+        >)
+      : undefined;
+    // Suppression is the DEFAULT (see suppressResponseFormatWithTools) and
+    // tools ride along on virtually every turn, so for a `generate({ schema })`
+    // call this is the ORDINARY path, not an edge case.
+    const responseFormatSuppressed =
+      schemaJson !== undefined &&
+      hasTools &&
+      this.suppressResponseFormatWithTools();
     const responseFormat =
-      options.schema && !(hasTools && this.suppressResponseFormatWithTools())
+      schemaJson && !responseFormatSuppressed
         ? {
             type: "json" as const,
-            schema: convertZodToJsonSchema(
-              options.schema as ZodUnknownSchema,
-            ) as Record<string, unknown>,
+            schema: schemaJson,
           }
         : undefined;
 
@@ -1185,14 +1204,18 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     const runLoop = (
       conv: Array<Record<string, unknown>>,
       format: typeof responseFormat,
+      // Omit the tools for a pass that only has to reformat an answer the
+      // model has already given. Dropping them is what makes `response_format`
+      // legal again on a vendor that refuses the two together.
+      withTools: boolean = true,
     ) =>
       runNativeGenerateLoop(
         {
           doGenerate,
           conversation: conv,
-          ...(v3Tools ? { tools: v3Tools } : {}),
+          ...(withTools && v3Tools ? { tools: v3Tools } : {}),
           toolsRecord,
-          ...(hasTools && options.toolChoice
+          ...(withTools && hasTools && options.toolChoice
             ? { toolChoice: resolveToolChoice(options, toolsRecord, true) }
             : {}),
           // The per-call `timeout` keeps its per-MODEL-CALL meaning once
@@ -1285,9 +1308,29 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         undefined,
       );
     }
+
+    // Ordinary case: tools rode along, so response_format was dropped and the
+    // model was never asked for JSON at all. Recover it with a tool-free
+    // re-ask. See reformatWithoutTools for why it is not done in the prompt.
+    if (responseFormatSuppressed && schemaJson && options.schema) {
+      loop = await this.reformatWithoutTools({
+        toolPhase: loop,
+        conversation,
+        schemaJson,
+        schema: options.schema as ValidationSchema,
+        runLoop,
+        modelId,
+        abortSignal: options.abortSignal,
+      });
+    }
+
     const { text, finishReason, toolsUsed } = loop;
     const inputTokens = loop.inputTokens;
     const outputTokens = loop.outputTokens;
+    // `loop.rawFinishReason` is where reformatWithoutTools's raw/unified
+    // pairing lands — without forwarding it here, that pairing logic is
+    // computed but never reaches the caller, and `result.rawFinishReason`
+    // is silently undefined regardless of what the tool phase reported.
 
     // stopReason / stepsUsed parity with the other native loops (Vertex
     // Gemini / Claude / Bedrock) and with the ai-package path this replaced.
@@ -1309,6 +1352,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       provider: this.providerName,
       model: modelId,
       finishReason,
+      ...(loop.rawFinishReason
+        ? { rawFinishReason: loop.rawFinishReason }
+        : {}),
       stopReason,
       stepsUsed,
       usage: {
@@ -1338,6 +1384,248 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     };
 
     return this.finalizeNativeGenerate(enhanced, options, startTime);
+  }
+
+  /**
+   * Recover structured output on a turn where tools forced `response_format`
+   * off the wire.
+   *
+   * Runs only after the tool turn is complete, and only when its answer does
+   * not already satisfy the schema. The re-ask drops the tools, which is what
+   * makes native `response_format` legal again on a vendor that refuses the two
+   * together, so this is a formatting pass over an answer the model has already
+   * produced rather than a second attempt at the question.
+   *
+   * The schema is deliberately NOT spelled into the tool turn's system prompt
+   * instead. That was tried and reverted: a model handed a JSON Schema next to a
+   * tool list can read it as another tool — Groq's llama-3.3 answers by calling
+   * one named "json", which the server rejects — turning a wrong answer into a
+   * hard error.
+   *
+   * Returns the merged result, or the untouched `toolPhase` whenever the re-ask
+   * cannot be run or cannot be trusted, so it can improve an outcome but never
+   * degrade one.
+   */
+  private async reformatWithoutTools(args: {
+    toolPhase: Awaited<ReturnType<typeof runNativeGenerateLoop>>;
+    conversation: Array<Record<string, unknown>>;
+    schemaJson: Record<string, unknown>;
+    schema: ValidationSchema;
+    runLoop: (
+      conv: Array<Record<string, unknown>>,
+      format: { type: "json"; schema: Record<string, unknown> } | undefined,
+      withTools?: boolean,
+    ) => Promise<Awaited<ReturnType<typeof runNativeGenerateLoop>>>;
+    modelId: string;
+    abortSignal?: AbortSignal;
+  }): Promise<Awaited<ReturnType<typeof runNativeGenerateLoop>>> {
+    const {
+      toolPhase,
+      conversation,
+      schemaJson,
+      schema,
+      runLoop,
+      modelId,
+      abortSignal,
+    } = args;
+    let loop = toolPhase;
+    // A function, not a captured boolean: the signal is read once before the
+    // re-ask and again after it, and it can legitimately flip in between — a
+    // const would let the compiler narrow the second read away.
+    const isCancelled = (): boolean => abortSignal?.aborted === true;
+    // The suppressed case, which is the ordinary one: tools rode along, so
+    // `response_format` was dropped — and because BOTH branches above are keyed
+    // on `responseFormat !== undefined`, the very condition that dropped it also
+    // disabled the fallback that would have asked for the object in words. The
+    // model was never asked for JSON in any form, answered in prose, and
+    // `structuredData` came back unset, breaking the documented
+    // `generate({ schema })` guarantee.
+    //
+    // The fix is NOT to spell the schema into the system prompt of the tool
+    // turn. That collides with the tool-call channel: Groq's llama-3.3, handed
+    // a JSON Schema while tools are declared, answers by trying to call a tool
+    // literally named "json", and the server rejects the turn outright — a hard
+    // error where there used to be a merely wrong answer.
+    //
+    // Instead, let the tool turn finish untouched and re-ask ONCE with the
+    // tools removed, which is what makes native `response_format` legal again.
+    // By then the tool phase is over and this is a pure formatting pass over an
+    // answer the model has already produced.
+    //
+    // Wrapped so it can only ever improve the outcome: if the reformat pass
+    // fails for any reason, the original tool-phase result stands and the turn
+    // succeeds exactly as it did before.
+    if (
+      // Nothing to reformat. An empty completion has its own handling
+      // downstream, and asking a model to restate a blank answer as JSON
+      // invites it to invent one.
+      loop.text.trim().length > 0 &&
+      // Already cancelled: starting a second request here could only burn
+      // quota on a turn nobody is waiting for.
+      !isCancelled() &&
+      !yieldsSchemaValidObject(loop.text, schema)
+    ) {
+      logger.warn(
+        `[${this.providerName}] tools suppressed response_format and the answer is not schema-valid — re-asking once without tools`,
+        { provider: this.providerName, model: modelId },
+      );
+      try {
+        // `conversation` is load-bearing here, and its contents are not
+        // obvious: runNativeGenerateLoop PUSHES each assistant tool-call turn
+        // and each tool-result turn onto this very array, but breaks out before
+        // pushing the final text answer. So it already carries the whole tool
+        // exchange and is missing exactly one message — the answer — which is
+        // what the assistant turn below supplies. That is what lets the
+        // reformat restate tool-derived values instead of re-answering blind.
+        // If that loop is ever changed to build a new array instead of pushing
+        // onto its input, this call must be changed to take the loop's
+        // conversation, or the reformat goes blind to the tools.
+        const reaskConversation = [
+          ...conversation,
+          { role: "assistant", content: toolPhase.text },
+          {
+            role: "user",
+            content:
+              // "value", not "object": ValidationSchema also accepts array
+              // and scalar roots (z.array(...), z.string()). Demanding an
+              // object told a compliant model to emit something those roots
+              // can never satisfy, so yieldsSchemaValidObject rejected every
+              // such re-ask and the recovery silently never fired for them.
+              "Return that same answer as a single JSON value conforming to " +
+              "the required schema. No prose before or after it, and no " +
+              "markdown code fence.",
+          },
+        ];
+        // Two strategies, native first. A vendor can reject the SCHEMA itself
+        // rather than the request: Groq answers a non-object root with
+        // "invalid JSON schema for response_format: schema must have type
+        // 'object'", so every array- and scalar-root schema fails here. The
+        // non-suppressed path already degrades to spelling the schema into the
+        // prompt (its catch classifies that error via
+        // isToolsSchemaConflictError); this path has to do the same or the
+        // recovery is dead for exactly the roots the "value" wording was meant
+        // to serve. Still tools-free either way, so response_format stays legal.
+        let reformatted;
+        try {
+          reformatted = await runLoop(
+            reaskConversation,
+            { type: "json" as const, schema: schemaJson },
+            false,
+          );
+        } catch (nativeFormatError) {
+          if (isCancelled()) {
+            throw nativeFormatError;
+          }
+          logger.warn(
+            `[${this.providerName}] the re-ask's response_format was rejected — retrying with the schema in the prompt`,
+            {
+              provider: this.providerName,
+              model: modelId,
+              error:
+                nativeFormatError instanceof Error
+                  ? nativeFormatError.message
+                  : String(nativeFormatError),
+            },
+          );
+          reformatted = await runLoop(
+            appendJsonSchemaInstruction(reaskConversation, schemaJson),
+            undefined,
+            false,
+          );
+        }
+        // Accept the reformat ONLY if it actually produced the object. Sending
+        // response_format is not the same as being obeyed: some vendors ignore
+        // it outright (the branch above this one exists for precisely that),
+        // and the pass can also be cut short by the same maxTokens cap the
+        // prose answer just used. Without this check a substantive prose answer
+        // could be replaced by a worse non-answer, which is the one thing this
+        // fallback must never do.
+        if (!yieldsSchemaValidObject(reformatted.text, schema)) {
+          logger.warn(
+            `[${this.providerName}] the tool-free re-ask did not yield a schema-valid object either; keeping the original answer`,
+            { provider: this.providerName, model: modelId },
+          );
+          throw new StructuredReformatRejected();
+        }
+        // Keep the tool phase's accounting. The reformat pass ran without
+        // tools, so on its own it reports no tool use and only its own tokens —
+        // publishing that verbatim would erase the tools the turn really did
+        // call and under-report what the turn really did cost.
+        loop = {
+          ...reformatted,
+          toolsUsed: [
+            ...new Set([...toolPhase.toolsUsed, ...reformatted.toolsUsed]),
+          ],
+          inputTokens: toolPhase.inputTokens + reformatted.inputTokens,
+          outputTokens: toolPhase.outputTokens + reformatted.outputTokens,
+          cacheReadTokens:
+            (toolPhase.cacheReadTokens ?? 0) +
+            (reformatted.cacheReadTokens ?? 0),
+          cacheWriteTokens:
+            (toolPhase.cacheWriteTokens ?? 0) +
+            (reformatted.cacheWriteTokens ?? 0),
+          // NOT summed. `steps` is the agentic-loop budget that `maxSteps`
+          // bounds, and the reformat is not a tool step — it runs after the
+          // loop, with no tools. Adding it lets `stepsUsed` exceed the very
+          // bound it is measured against, and pushes a tool phase that stopped
+          // one step short of the cap over the `stepsUsed >= maxSteps`
+          // threshold below, reporting a "step-cap" that never happened.
+          steps: toolPhase.steps,
+          // Only the TOOL phase can end for an alarming reason — the reformat
+          // runs without tools and stops on its own — so any tool-phase reason
+          // other than a clean "stop" is a signal the caller must still get.
+          // Taking the reformat's cheerful "stop" verbatim would erase it:
+          // "tool-calls" is what the step-cap stopReason just below is derived
+          // from, and "length" is what tells the truncation machinery the
+          // underlying answer was cut off. A turn cut short would report itself
+          // as a clean completion. Deferring to the reformat only on a clean
+          // tool phase also lets a reformat that itself hit the cap surface its
+          // own "length".
+          //
+          // `rawFinishReason` moves WITH it. It arrives via the spread, so
+          // taking the tool phase's unified reason while leaving the reformat's
+          // raw one would hand a consumer a contradictory pair — unified
+          // "length" beside raw "stop".
+          ...(toolPhase.finishReason !== "stop"
+            ? {
+                finishReason: toolPhase.finishReason,
+                // Override unconditionally: even when the tool phase has no
+                // raw reason of its own, the reformat's raw "stop" must not
+                // survive alongside a non-"stop" unified reason — that
+                // contradictory pairing is exactly what this block exists to
+                // prevent.
+                rawFinishReason: toolPhase.rawFinishReason,
+              }
+            : { finishReason: reformatted.finishReason }),
+        };
+      } catch (reformatError) {
+        // A caller who cancelled deserves their cancellation, but OUR OWN turn
+        // deadline must not turn an answer they used to receive into an error:
+        // withTurnTimeout races no timer, it only translates errors, so a
+        // deadline reached DURING the reformat would do exactly that. The two
+        // are distinguishable even though both arrive on one composed signal —
+        // AbortSignal.any propagates the reason of whichever fired, and the
+        // turn timer aborts with a TimeoutError. So: our deadline keeps the
+        // tool-phase answer, a caller's abort propagates.
+        if (isCancelled() && !(abortSignal?.reason instanceof TimeoutError)) {
+          throw reformatError;
+        }
+        if (!(reformatError instanceof StructuredReformatRejected)) {
+          logger.warn(
+            `[${this.providerName}] the tool-free structured-output re-ask failed; keeping the original answer`,
+            {
+              provider: this.providerName,
+              model: modelId,
+              error:
+                reformatError instanceof Error
+                  ? reformatError.message
+                  : String(reformatError),
+            },
+          );
+        }
+      }
+    }
+    return loop;
   }
 
   protected async executeStream(

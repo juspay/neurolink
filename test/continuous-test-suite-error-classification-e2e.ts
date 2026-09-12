@@ -1589,6 +1589,7 @@ async function main(): Promise<void> {
         messages?: Array<{ role: string; content?: unknown }>;
         response_format?: unknown;
         tool_choice?: unknown;
+        tools?: unknown[];
       };
       const completion = (
         message: Record<string, unknown>,
@@ -1956,6 +1957,536 @@ async function main(): Promise<void> {
             name,
             false,
             `generate() threw unexpectedly: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+          );
+        }
+      }
+
+      // --- 4b. tools suppress response_format -> tool-free re-ask ---------
+      // The ordinary shape of a `generate({ schema })` call: tools are attached,
+      // so response_format is dropped from the wire and NOTHING asks the model
+      // for JSON. The turn then re-asks once with the tools removed. These
+      // three cases pin the property the recovery is built on — it can improve
+      // an outcome but must never degrade one — by scripting the re-ask to
+      // succeed, to fail outright, and to come back unusable.
+      {
+        const skySchema = z.object({ colour: z.string(), reason: z.string() });
+        const pingTool = {
+          ping: tool({
+            description: "Health check. Returns pong.",
+            inputSchema: z.object({}),
+            execute: async () => "pong",
+          }),
+        };
+        const PROSE = "A clear daytime sky looks blue because of scattering.";
+        // The re-ask is identifiable on the wire without guessing: the tool turn
+        // carries `tools` and no `response_format`, the re-ask is the inverse.
+        const isReask = (b: ChatRequestBody): boolean =>
+          b.response_format !== undefined &&
+          (b.tools === undefined || (b.tools as unknown[]).length === 0);
+
+        const driveReask = async (
+          label: string,
+          reaskResponse: () => MockResponseSpec,
+        ): Promise<{
+          seen: ChatRequestBody[];
+          result?: { content?: string; structuredData?: unknown };
+          threw?: unknown;
+        }> => {
+          const seen: ChatRequestBody[] = [];
+          setHandler(() => {
+            const body = parseBody(lastRequestBody);
+            seen.push(body);
+            return isReask(body)
+              ? reaskResponse()
+              : completion({ role: "assistant", content: PROSE }, "stop");
+          });
+          try {
+            const result = (await nl().generate({
+              provider: "openai-compatible",
+              model: "gpt-4o-mini",
+              input: { text: "What colour is a clear daytime sky, and why?" },
+              schema: skySchema,
+              tools: pingTool,
+              disableTools: false,
+            } as Parameters<
+              InstanceType<typeof NeuroLink>["generate"]
+            >[0])) as { content?: string; structuredData?: unknown };
+            return { seen, result };
+          } catch (threw) {
+            return { seen, threw };
+          }
+        };
+
+        // (a) The re-ask works: structuredData is recovered even though the
+        //     tool turn answered in prose.
+        {
+          const name =
+            "openai-compatible: tools suppress response_format -> a tool-free re-ask recovers structuredData";
+          const { seen, result, threw } = await driveReask("ok", () =>
+            completion(
+              {
+                role: "assistant",
+                content: '{"colour":"blue","reason":"scattering"}',
+              },
+              "stop",
+            ),
+          );
+          const problems: string[] = [];
+          if (threw) {
+            problems.push("generate() threw instead of recovering");
+          }
+          if (seen.length !== 2) {
+            problems.push(`expected exactly 2 requests, saw ${seen.length}`);
+          }
+          if (seen[0]?.response_format !== undefined) {
+            problems.push("the tool turn carried response_format");
+          }
+          if (seen[1] && !isReask(seen[1])) {
+            problems.push("the re-ask kept its tools or dropped the schema");
+          }
+          if (!skySchema.safeParse(result?.structuredData).success) {
+            problems.push("structuredData was not recovered");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        }
+
+        // (b) The re-ask FAILS outright. The turn must still succeed with the
+        //     answer the tool phase already produced.
+        {
+          const name =
+            "openai-compatible: a re-ask that fails keeps the original answer instead of failing the turn";
+          const { seen, result, threw } = await driveReask("boom", () => ({
+            status: 500,
+            headers: { "retry-after": "0" },
+            body: JSON.stringify({ error: { message: "upstream exploded" } }),
+          }));
+          const problems: string[] = [];
+          if (threw) {
+            problems.push("a failed re-ask was allowed to fail the whole turn");
+          }
+          // NOT an exact count: a 5xx is retryable, so withProviderRetry's
+          // ladder legitimately issues the re-ask more than once before giving
+          // up. What matters is that a re-ask was attempted at all and that
+          // exhausting it did not fail the turn.
+          if (seen.length < 2) {
+            problems.push(`expected a re-ask, saw ${seen.length} request(s)`);
+          }
+          if (result?.content !== PROSE) {
+            problems.push("the tool phase's answer was not preserved");
+          }
+          if (result?.structuredData !== undefined) {
+            problems.push("structuredData was published despite no valid JSON");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        }
+
+        // (c) The re-ask returns 200 but ignores the schema. Sending
+        //     response_format is not the same as being obeyed, so the unusable
+        //     answer must be discarded rather than replace a good one.
+        {
+          const name =
+            "openai-compatible: a re-ask that ignores the schema is discarded, not published";
+          const { seen, result, threw } = await driveReask("prose", () =>
+            completion(
+              { role: "assistant", content: "Still just prose, sorry." },
+              "stop",
+            ),
+          );
+          const problems: string[] = [];
+          if (threw) {
+            problems.push("generate() threw instead of keeping the answer");
+          }
+          if (seen.length !== 2) {
+            problems.push(`expected exactly 2 requests, saw ${seen.length}`);
+          }
+          if (result?.content !== PROSE) {
+            problems.push(
+              "a non-schema-valid re-ask replaced the tool phase's answer",
+            );
+          }
+          if (result?.structuredData !== undefined) {
+            problems.push(
+              "structuredData was published from an unusable re-ask",
+            );
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        }
+      }
+
+      // --- 4b-2. review follow-ups: non-object roots, and tool bookkeeping --
+      {
+        const pingTool2 = {
+          ping: tool({
+            description: "Health check. Returns pong.",
+            inputSchema: z.object({}),
+            execute: async () => "pong",
+          }),
+        };
+        const PROSE2 = "Blue, green and red are the ones I would pick.";
+
+        // (d) An ARRAY-root schema. The re-ask prompt used to demand "a single
+        //     JSON object", which an array root can never satisfy — so the
+        //     recovery was silently dead for every non-object schema. Guards the
+        //     "object" -> "value" wording.
+        {
+          const arraySchema = z.array(z.string());
+          const seen: ChatRequestBody[] = [];
+          setHandler(() => {
+            const body = parseBody(lastRequestBody);
+            seen.push(body);
+            const isReask =
+              body.response_format !== undefined &&
+              (body.tools === undefined ||
+                (body.tools as unknown[]).length === 0);
+            return completion(
+              {
+                role: "assistant",
+                content: isReask ? '["blue","green","red"]' : PROSE2,
+              },
+              "stop",
+            );
+          });
+          const name =
+            "openai-compatible: an ARRAY-root schema is recovered by the tool-free re-ask";
+          try {
+            const r = (await nl().generate({
+              provider: "openai-compatible",
+              model: "gpt-4o-mini",
+              input: { text: "Name three colours." },
+              schema: arraySchema,
+              tools: pingTool2,
+              disableTools: false,
+            } as Parameters<
+              InstanceType<typeof NeuroLink>["generate"]
+            >[0])) as { structuredData?: unknown };
+            const problems: string[] = [];
+            if (seen.length < 2) {
+              problems.push(`expected a re-ask, saw ${seen.length} request(s)`);
+            }
+            if (!arraySchema.safeParse(r.structuredData).success) {
+              problems.push("the array root was not recovered");
+            }
+            // Assert the INSTRUCTION, not just the outcome. A scripted mock
+            // returns its array whatever the prompt says, so recovery alone
+            // would pass with the old "a single JSON object" wording too — the
+            // very wording that misdirects a real model away from an array
+            // root. Checking the wire text is what actually pins the fix.
+            const reaskText = JSON.stringify(
+              seen[seen.length - 1]?.messages ?? [],
+            );
+            if (!reaskText.includes("single JSON value")) {
+              problems.push("the re-ask did not ask for a JSON value");
+            }
+            if (reaskText.includes("single JSON object")) {
+              problems.push(
+                "the re-ask still demands an object, which an array root cannot satisfy",
+              );
+            }
+            record(
+              name,
+              problems.length === 0,
+              problems.join("; ") || undefined,
+            );
+          } catch (err) {
+            record(
+              name,
+              false,
+              `generate() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+            );
+          }
+        }
+
+        // (e) A tool really runs, the tool phase then answers in PROSE, and the
+        //     re-ask (which declares no tools) succeeds. Review claimed the
+        //     merge drops the tool phase's toolExecutions. It does not:
+        //     toolExecutions is built from the shared toolExecutionSummaries
+        //     array, not from the loop result — which carries no such field.
+        //     This pins that, so the claim cannot be re-litigated from reading
+        //     the merge alone.
+        {
+          const timeSchema = z.object({ city: z.string() });
+          const seen: ChatRequestBody[] = [];
+          setHandler(() => {
+            const body = parseBody(lastRequestBody);
+            seen.push(body);
+            const isReask =
+              body.response_format !== undefined &&
+              (body.tools === undefined ||
+                (body.tools as unknown[]).length === 0);
+            if (isReask) {
+              return completion(
+                { role: "assistant", content: '{"city":"Tokyo"}' },
+                "stop",
+              );
+            }
+            // First turn: ask for the tool. Second: answer in prose.
+            // Detect the tool RESULT by role, the way the section above does —
+            // a substring search for "tool" matches the first request too,
+            // because the tool descriptions are already in its messages.
+            const hasToolResult = (body.messages ?? []).some(
+              (m) => m.role === "tool",
+            );
+            if (!hasToolResult) {
+              return completion(
+                {
+                  role: "assistant",
+                  content: null,
+                  tool_calls: [
+                    {
+                      id: "call_1",
+                      type: "function",
+                      function: {
+                        name: "get_city",
+                        arguments: JSON.stringify({ tz: "Asia/Tokyo" }),
+                      },
+                    },
+                  ],
+                },
+                "tool_calls",
+              );
+            }
+            return completion(
+              { role: "assistant", content: "It is Tokyo over there." },
+              "stop",
+            );
+          });
+          let executed = 0;
+          const cityTool = {
+            get_city: tool({
+              description: "Get the city for a timezone.",
+              inputSchema: z.object({ tz: z.string() }),
+              execute: async () => {
+                executed += 1;
+                return JSON.stringify({ city: "Tokyo" });
+              },
+            }),
+          };
+          const name =
+            "openai-compatible: a tool-free re-ask keeps the tool phase's toolExecutions and toolsUsed";
+          try {
+            const r = (await nl().generate({
+              provider: "openai-compatible",
+              model: "gpt-4o-mini",
+              input: { text: "Which city is Asia/Tokyo?" },
+              schema: timeSchema,
+              tools: cityTool,
+              disableTools: false,
+            } as Parameters<
+              InstanceType<typeof NeuroLink>["generate"]
+            >[0])) as {
+              structuredData?: unknown;
+              toolsUsed?: string[];
+              toolExecutions?: unknown[];
+            };
+            const problems: string[] = [];
+            if (executed !== 1) {
+              problems.push(`the tool ran ${executed} time(s), expected 1`);
+            }
+            if (!(r.toolsUsed ?? []).includes("get_city")) {
+              problems.push("toolsUsed lost the tool phase's entry");
+            }
+            if ((r.toolExecutions ?? []).length < 1) {
+              problems.push(
+                "toolExecutions lost the tool phase's execution record",
+              );
+            }
+            if (!timeSchema.safeParse(r.structuredData).success) {
+              problems.push("structuredData was not recovered");
+            }
+            record(
+              name,
+              problems.length === 0,
+              problems.join("; ") || undefined,
+            );
+          } catch (err) {
+            record(
+              name,
+              false,
+              `generate() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+            );
+          }
+        }
+      }
+
+      // (f) A tool phase that ends on `length` (truncated) then recovers. The
+      //     unified reason must survive the merge AND its raw partner must move
+      //     with it — reporting unified "length" beside the reformat's raw
+      //     "stop" hands a consumer a contradictory pair. `steps` must also stay
+      //     the loop's own count: the reformat is not a tool step, so counting
+      //     it can push stepsUsed past the maxSteps it is measured against and
+      //     manufacture a step-cap that never happened.
+      {
+        const sSchema = z.object({ colour: z.string() });
+        const pingTool3 = {
+          ping: tool({
+            description: "Health check. Returns pong.",
+            inputSchema: z.object({}),
+            execute: async () => "pong",
+          }),
+        };
+        setHandler(() => {
+          const body = parseBody(lastRequestBody);
+          const isReask =
+            body.response_format !== undefined &&
+            (body.tools === undefined ||
+              (body.tools as unknown[]).length === 0);
+          // The tool phase ends on `tool_calls` WITHOUT any tool_calls array
+          // and with prose text, so the loop breaks after ONE step carrying
+          // finishReason "tool-calls". With maxSteps 2 that is one step short
+          // of the cap — which is exactly what makes a summed reformat step
+          // cross the threshold and manufacture a step-cap.
+          return isReask
+            ? completion(
+                { role: "assistant", content: '{"colour":"blue"}' },
+                "stop",
+              )
+            : completion(
+                { role: "assistant", content: "The sky is blue because" },
+                "tool_calls",
+              );
+        });
+        const name =
+          "openai-compatible: the tool-free reformat is not counted as a loop step and does not fake a step-cap";
+        try {
+          const r = (await nl().generate({
+            provider: "openai-compatible",
+            model: "gpt-4o-mini",
+            input: { text: "What colour is the sky?" },
+            schema: sSchema,
+            tools: pingTool3,
+            disableTools: false,
+            maxSteps: 2,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            finishReason?: string;
+            rawFinishReason?: string;
+            stopReason?: string;
+            stepsUsed?: number;
+            structuredData?: unknown;
+          };
+          const problems: string[] = [];
+          if (r.finishReason !== "tool-calls") {
+            problems.push("the tool phase's finishReason was lost");
+          }
+          // The discriminator: the loop ran ONE step. Summing the reformat's
+          // step makes stepsUsed 2, which is >= maxSteps 2, and with
+          // finishReason "tool-calls" that reports a step-cap the tool loop
+          // never hit.
+          if (r.stepsUsed !== 1) {
+            problems.push(
+              `stepsUsed counted the tool-free reformat as a loop step (${r.stepsUsed})`,
+            );
+          }
+          if (r.stopReason === "step-cap") {
+            problems.push("a step-cap was reported that never happened");
+          }
+          // Exact match, not just "isn't the reformat's stop": the tool
+          // phase's own doGenerate call always carries a raw finish reason
+          // (openaiChatCompletionsBase defaults it to "stop" when the wire
+          // value is falsy), so a tolerant "undefined-or-tool_calls" check
+          // would silently accept a merge that dropped the raw pairing.
+          if (r.rawFinishReason !== "tool_calls") {
+            problems.push(
+              "rawFinishReason did not stay paired with the tool phase's finishReason",
+            );
+          }
+          if (!sSchema.safeParse(r.structuredData).success) {
+            problems.push("structuredData was not recovered");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
+          );
+        }
+      }
+
+      // (g) The vendor rejects the SCHEMA ITSELF on the re-ask. Groq answers a
+      //     non-object root with "invalid JSON schema for response_format:
+      //     schema must have type 'object'", so array and scalar roots fail
+      //     there even though the request shape is fine. Found live; no mock
+      //     that always accepts response_format can surface it. The re-ask must
+      //     degrade to spelling the schema into the prompt, exactly as the
+      //     non-suppressed path already does.
+      {
+        const arrSchema2 = z.array(z.string()).min(2);
+        const pingTool4 = {
+          ping: tool({
+            description: "Health check. Returns pong.",
+            inputSchema: z.object({}),
+            execute: async () => "pong",
+          }),
+        };
+        const seen: ChatRequestBody[] = [];
+        setHandler(() => {
+          const body = parseBody(lastRequestBody);
+          seen.push(body);
+          const wantsNativeFormat = body.response_format !== undefined;
+          if (wantsNativeFormat) {
+            // Reject the schema the way Groq does for a non-object root.
+            return {
+              status: 400,
+              body: JSON.stringify({
+                error: {
+                  message:
+                    "invalid JSON schema for response_format: schema must have type 'object'",
+                },
+              }),
+            };
+          }
+          // The prompt-instruction degradation carries the schema in a system
+          // turn instead; only then do we answer with the array.
+          const carriesInstruction = JSON.stringify(
+            body.messages ?? [],
+          ).includes("JSON Schema");
+          return completion(
+            {
+              role: "assistant",
+              content: carriesInstruction
+                ? '["red","blue","yellow"]'
+                : "The primary colours are red, blue and yellow.",
+            },
+            "stop",
+          );
+        });
+        const name =
+          "openai-compatible: a re-ask whose response_format the vendor rejects degrades to the schema-in-prompt path";
+        try {
+          const r = (await nl().generate({
+            provider: "openai-compatible",
+            model: "gpt-4o-mini",
+            input: { text: "Name three primary colours." },
+            schema: arrSchema2,
+            tools: pingTool4,
+            disableTools: false,
+          } as Parameters<InstanceType<typeof NeuroLink>["generate"]>[0])) as {
+            structuredData?: unknown;
+          };
+          const problems: string[] = [];
+          if (!arrSchema2.safeParse(r.structuredData).success) {
+            problems.push(
+              "the array root was not recovered after the schema was rejected",
+            );
+          }
+          if (!seen.some((b) => b.response_format !== undefined)) {
+            problems.push("the native response_format re-ask was never tried");
+          }
+          if (
+            !seen.some(
+              (b) =>
+                b.response_format === undefined &&
+                JSON.stringify(b.messages ?? []).includes("JSON Schema"),
+            )
+          ) {
+            problems.push("the schema-in-prompt degradation never ran");
+          }
+          record(name, problems.length === 0, problems.join("; ") || undefined);
+        } catch (err) {
+          record(
+            name,
+            false,
+            `generate() threw: ${err instanceof Error ? err.constructor.name : "non-Error"}`,
           );
         }
       }
