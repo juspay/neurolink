@@ -422,6 +422,43 @@ Consequences worth knowing before you go looking for them:
 directly.** If it does, it will be rejected, and the failure appears as a
 release-job error rather than anything resembling a permissions problem.
 
+### Stacked pull requests, and why they used to be unmergeable
+
+A **stacked** pull request is one whose base is another feature branch rather
+than `release`, opened so dependent work can proceed before its parent merges.
+They work now. They did not before, and the reason is worth keeping because it
+is invisible in exactly the way this repository keeps getting caught by.
+
+Every required status context — `test`, `provider-safety-net`,
+`security-suites`, `build-check` — is a **job inside `ci.yml`**. So a
+base-branch filter on that file's `pull_request` trigger does not decide whether
+those checks pass. It decides whether they are **created at all**. Scoped to
+`branches: [release]`, a stacked PR got none of them, and a check that was never
+created reports as _missing_, not as failing — which on a pull request is
+indistinguishable from "still queued". PR #1670 sat at **1 of 5** required
+contexts from the day it was opened, with nothing red to explain why.
+
+`single-commit-enforcement.yml` broke them a second, independent way. Its
+`pull_request` trigger was scoped to `[release, main]`, so a stacked PR fell
+through to the **push-event** path, which hardcoded `BASE_BRANCH="origin/release"`.
+Counting commits from `release` on a branch stacked on another feature branch
+includes the parent's commit, so a single-commit PR was reported as carrying two
+and failed a policy it had not broken.
+
+Both `pull_request` triggers are now unfiltered by base branch. The
+pull-request path already resolved the real base from `github.base_ref`; it was
+simply never reached. The push path now asks for the branch's open PR and uses
+its base, falling back to `release` when there is none.
+
+Two things to know when stacking:
+
+- **`push` in `ci.yml` is still scoped to `release`,** deliberately. Only
+  pull-request handling was widened.
+- **Merge the parent first, then let GitHub rebase the child.** The child's PR
+  retargets to `release` automatically once the parent merges with
+  `--delete-branch`. Do not rebase the child by hand while its parent is open —
+  a force-push re-triggers stale bot reviews on both.
+
 ### ⚠️ Reading a CI result: six ways this repo has misread one
 
 Every incident below produced a confident wrong answer. The first four are the
