@@ -2177,8 +2177,15 @@ export class ExternalServerManager extends EventEmitter {
         totalTime / instance.metrics.totalToolCalls;
 
       if (result.success) {
+        // A resolved `{ isError: true }` still comes back with success:true so
+        // the caller receives the MCP error payload as-is, but it is a failed
+        // call for telemetry: label mcp_tool_calls_total accordingly instead
+        // of counting every resolved error as a success.
+        const resolvedError = result.isErrorResult === true;
         mcpLogger.debug(
-          `[ExternalServerManager] Tool executed successfully: ${toolName} on ${serverId}`,
+          resolvedError
+            ? `[ExternalServerManager] Tool returned a resolved MCP error: ${toolName} on ${serverId}`
+            : `[ExternalServerManager] Tool executed successfully: ${toolName} on ${serverId}`,
           {
             duration,
           },
@@ -2187,7 +2194,7 @@ export class ExternalServerManager extends EventEmitter {
           TelemetryService.getInstance()?.recordMCPToolCall(
             toolName,
             duration,
-            true,
+            !resolvedError,
           );
         } catch {
           /* telemetry should not break execution */
