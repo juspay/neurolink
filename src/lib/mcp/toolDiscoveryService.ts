@@ -265,13 +265,11 @@ export class ToolDiscoveryService extends EventEmitter {
     timeout: number,
   ): Promise<Tool[]> {
     // List tools from the MCP server
-    const listToolsPromise = client.listTools();
-    const timeoutPromise = this.createTimeoutPromise<never>(
+    const result = await this.raceWithTimeout(
+      client.listTools(),
       timeout,
       "Tool discovery timeout",
     );
-
-    const result = await Promise.race([listToolsPromise, timeoutPromise]);
 
     if (!result || !result.tools) {
       throw new Error("No tools returned from server");
@@ -1178,17 +1176,29 @@ export class ToolDiscoveryService extends EventEmitter {
   }
 
   /**
-   * Create timeout promise
+   * Race an operation against a timeout, clearing the timer on either
+   * outcome. A bare `Promise.race([operation, timeoutPromise])` leaves the
+   * timeout's `setTimeout` handle ref'd and pending until it fires even
+   * after `operation` already won the race — on the (common) success path
+   * that stray timer holds the event loop open for the full timeout
+   * duration for no reason.
    */
-  private createTimeoutPromise<T>(
+  private async raceWithTimeout<T>(
+    operation: Promise<T>,
     timeout: number,
     message: string,
   ): Promise<T> {
-    return new Promise((_, reject) => {
-      setTimeout(() => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
         reject(new Error(message));
       }, timeout);
     });
+    try {
+      return await Promise.race([operation, timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**

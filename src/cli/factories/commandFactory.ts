@@ -37,6 +37,7 @@ import { createThinkingConfigFromRecord } from "../../lib/utils/thinkingConfig.j
 import { buildToolRoutingConfigFromCli } from "../utils/toolRoutingFlags.js";
 import { buildClassifierRouterConfigFromCli } from "../utils/classifierRouterFlags.js";
 import { buildSkillsConfigFromCli } from "../utils/skillsFlags.js";
+import { ensureStdinRef } from "../utils/stdinRef.js";
 import { SkillsManager } from "../../lib/skills/skillsManager.js";
 import { configManager } from "../commands/config.js";
 import { MCPCommandFactory } from "../commands/mcp.js";
@@ -3126,6 +3127,11 @@ export class CLICommandFactory {
       (argv as { inputAudio?: string }).inputAudio
     );
     if (!argv.input && !process.stdin.isTTY) {
+      // The SDK's MCP stdio transport unrefs stdin on import so an idle
+      // process can exit on its own (see externalServerManager.ts). This
+      // path actually reads stdin and must block on it, so ref it back
+      // before consuming.
+      ensureStdinRef();
       let stdinData = "";
       process.stdin.setEncoding("utf8");
       for await (const chunk of process.stdin) {
@@ -4580,6 +4586,11 @@ export class CLICommandFactory {
     // as the prompt). Skip the stdin/empty-input rejection in that case.
     const isSttOnly = !!argv.stt && !!argv.inputAudio;
     if (!argv.input && !process.stdin.isTTY) {
+      // The SDK's MCP stdio transport unrefs stdin on import so an idle
+      // process can exit on its own (see externalServerManager.ts). This
+      // path actually reads stdin and must block on it, so ref it back
+      // before consuming.
+      ensureStdinRef();
       let stdinData = "";
       process.stdin.setEncoding("utf8");
       for await (const chunk of process.stdin) {
@@ -5886,6 +5897,11 @@ export class CLICommandFactory {
         return;
       }
 
+      // The SDK's MCP stdio transport unrefs stdin on import so an idle
+      // process can exit on its own (see externalServerManager.ts). This
+      // prompt actually reads stdin and must block on it, so ref it back
+      // before consuming.
+      ensureStdinRef();
       const readline = await import("readline");
       const rl = readline.createInterface({
         input: process.stdin,

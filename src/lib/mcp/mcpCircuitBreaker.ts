@@ -61,8 +61,15 @@ export class MCPCircuitBreaker extends EventEmitter {
       statisticsWindowSize: config.statisticsWindowSize ?? 300000, // 5 minutes
     };
 
-    // Clean up old call records periodically - now storing the timer reference
+    // Clean up old call records periodically - now storing the timer reference.
+    // Unref'd so a live breaker (the manager's Map is a module-level
+    // singleton, never torn down by a script that merely imports the SDK)
+    // doesn't block process exit on its own — destroy()/destroyAll() still
+    // clearInterval() it for callers that do explicit lifecycle management.
     this.cleanupTimer = setInterval(() => this.cleanupCallHistory(), 60000);
+    if (this.cleanupTimer.unref) {
+      this.cleanupTimer.unref();
+    }
   }
 
   /**
@@ -126,10 +133,10 @@ export class MCPCircuitBreaker extends EventEmitter {
       }
 
       // Execute operation with timeout
-      const result = await Promise.race([
+      const result = await this.raceWithTimeout(
         operation(),
-        this.timeoutPromise<T>(this.config.operationTimeout),
-      ]);
+        this.config.operationTimeout,
+      );
 
       // Record successful call
       this.recordCall(true, Date.now() - startTime);
@@ -283,14 +290,28 @@ export class MCPCircuitBreaker extends EventEmitter {
   }
 
   /**
-   * Create a timeout promise
+   * Race an operation against a timeout, clearing the timer on either
+   * outcome. A bare `Promise.race([operation, timeoutPromise])` leaves the
+   * timeout's `setTimeout` handle ref'd and pending until it fires even
+   * after `operation` already won the race — on the (common) success path
+   * that stray timer holds the event loop open for the full timeout
+   * duration for no reason.
    */
-  private timeoutPromise<T>(timeout: number): Promise<T> {
-    return new Promise((_, reject) => {
-      setTimeout(() => {
+  private async raceWithTimeout<T>(
+    operation: Promise<T>,
+    timeout: number,
+  ): Promise<T> {
+    let timeoutId: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
         reject(new Error(`Operation timed out after ${timeout}ms`));
       }, timeout);
     });
+    try {
+      return await Promise.race([operation, timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
   /**
