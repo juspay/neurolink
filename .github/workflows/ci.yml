@@ -3,8 +3,17 @@ name: CI
 on:
   push:
     branches: [release]
+  # Deliberately UNFILTERED by base branch. Every one of the four required
+  # contexts this repository gates on — test, provider-safety-net,
+  # security-suites, build-check — is a job in THIS file, so a base filter
+  # here decides whether they exist at all, not merely whether they pass.
+  # Scoped to [release], a stacked pull request (one based on another feature
+  # branch so it can build on unmerged work) had NONE of them created. That
+  # does not read as a failure: a check that was never created is reported as
+  # missing, which looks like "still queued" forever, and the pull request can
+  # never go green no matter how good the change is. PR #1670 sat at 1 of 5
+  # required checks for exactly this reason.
   pull_request:
-    branches: [release]
 
 # Cancel a run that a newer push to the same ref has superseded. Without this
 # an amend-and-force-push — routine under the single-commit-per-branch policy —

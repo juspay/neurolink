@@ -3,8 +3,13 @@ name: Single Commit Per Branch Enforcement
 on:
   push:
     branches-ignore: [release, main, develop]
+  # Unfiltered by base branch, for the same reason as ci.yml: the
+  # pull_request path below is the only one that knows the PR's real base
+  # (github.base_ref). Filtered to [release, main], a stacked PR fell through
+  # to the push path, which assumed origin/release and therefore counted the
+  # PARENT branch's commit as one of this branch's own — reporting two commits
+  # for a single-commit PR and failing a policy it had not broken.
   pull_request:
-    branches: [release, main]
     types: [opened, synchronize, reopened]
 
 concurrency:
@@ -43,9 +48,13 @@ jobs:
           HEAD_REPO_ID: ${{ github.event.pull_request.head.repo.id }}
           BASE_REPO_ID: ${{ github.event.repository.id }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # Needed by the `gh pr list` base lookup on the push path below.
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Determine the base branch and current branch
           if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Authoritative: the event carries the PR's real base branch.
+            BASE_KNOWN=true
             BASE_BRANCH="origin/$BASE_REF"
             BRANCH_NAME="$HEAD_REF"
             
@@ -70,7 +79,56 @@ jobs:
               CURRENT_BRANCH="origin/$HEAD_REF"
             fi
           else
+            # A push event carries no base branch. Assuming release is right
+            # for the ordinary case and wrong for a stacked branch, where it
+            # counts the parent's commits as this branch's own. So the base is
+            # read from the branch's open pull request when exactly one can be
+            # identified, and treated as UNKNOWN otherwise — never guessed into
+            # a verdict.
+            BASE_KNOWN=false
             BASE_BRANCH="origin/release"
+
+            # Three outcomes have to stay distinguishable here, because two of
+            # them look identical if you only check whether the output is
+            # empty: the lookup succeeded and found one PR, it succeeded and
+            # found none, or it FAILED. Swallowing a failure with `|| true`
+            # turns an auth or API error into "no pull request", which then
+            # silently produces a policy verdict measured against the wrong
+            # base. So the exit status is captured separately from the output.
+            PR_LOOKUP_OK=true
+            PR_JSON=$(gh pr list --head "$REF_NAME" --state open \
+              --json headRefName,baseRefName 2>/dev/null) || PR_LOOKUP_OK=false
+
+            if [ "$PR_LOOKUP_OK" != "true" ]; then
+              echo "⚠️  Could not query pull requests for this branch (auth or"
+              echo "    API failure). Treating the base as unknown rather than"
+              echo "    assuming release, so no verdict is reached on a base"
+              echo "    that was never confirmed."
+            else
+              # `--head` filters by name and can match a PREFIX, and a branch
+              # may legitimately have several open pull requests that share it
+              # while targeting different bases. Either way `.[0]` would pick
+              # one arbitrarily, so require exactly one EXACT head match.
+              MATCHES=$(printf '%s' "$PR_JSON" \
+                | jq --arg ref "$REF_NAME" '[.[] | select(.headRefName == $ref)]')
+              MATCH_COUNT=$(printf '%s' "$MATCHES" | jq 'length')
+
+              if [ "$MATCH_COUNT" -eq 1 ]; then
+                BASE_KNOWN=true
+                BASE_BRANCH="origin/$(printf '%s' "$MATCHES" | jq -r '.[0].baseRefName')"
+                echo "🔗 Resolved base branch from the branch's one open PR: $BASE_BRANCH"
+              elif [ "$MATCH_COUNT" -eq 0 ]; then
+                echo "ℹ️  No open pull request for this branch yet, so the real"
+                echo "    base is unknown. Assuming release for reporting, but"
+                echo "    enforcement is deferred to the pull_request run."
+              else
+                echo "⚠️  $MATCH_COUNT open pull requests share this head branch"
+                echo "    while targeting different bases, so the intended base"
+                echo "    is ambiguous. Treating it as unknown; each pull"
+                echo "    request is still enforced against its own base by the"
+                echo "    pull_request run."
+              fi
+            fi
             CURRENT_BRANCH="HEAD"
             BRANCH_NAME="$REF_NAME"
           fi
@@ -86,6 +144,7 @@ jobs:
           COMMIT_COUNT=$(git rev-list --count $CURRENT_BRANCH ^$BASE_BRANCH 2>/dev/null || echo "0")
 
           echo "commits_ahead=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+          echo "base_known=$BASE_KNOWN" >> $GITHUB_OUTPUT
           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
 
@@ -112,6 +171,21 @@ jobs:
             echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
             echo "commit_author=$COMMIT_AUTHOR" >> $GITHUB_OUTPUT
             
+          elif [ "$BASE_KNOWN" != "true" ]; then
+            # More than one commit ahead of a base we GUESSED. On a stacked
+            # branch that is the correct and expected state: the extra commits
+            # belong to the parent branch, not to this one. Failing here would
+            # report a policy violation the branch has not committed, which is
+            # exactly what this workflow used to do to every stacked PR on its
+            # first push — before its pull request existed to be read.
+            echo "⚠️  $COMMIT_COUNT commits ahead of the ASSUMED base"
+            echo "    ($BASE_BRANCH), and no open pull request was found to"
+            echo "    confirm the real one. Not treating this as a violation."
+            echo "    The pull_request run enforces the policy against the"
+            echo "    branch's actual base, so nothing merges unchecked."
+            echo "status=base_unknown" >> $GITHUB_OUTPUT
+            echo "📋 Commits ahead of the assumed base:"
+            git log --oneline $CURRENT_BRANCH ^$BASE_BRANCH
           else
             echo "❌ POLICY VIOLATION: Branch contains $COMMIT_COUNT commits"
             echo "status=violation" >> $GITHUB_OUTPUT
