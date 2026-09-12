@@ -341,7 +341,7 @@ const CELLS: Cell[] = [
 // Deliberately narrow: only infra-shaped statuses (429/5xx) are skippable —
 // generic 4xx / "bad request" would mask real request-construction bugs.
 function isInfraError(message: string): boolean {
-  return /api key|apikey|credential|security token|unauthor|permission|quota|rate.?limit|too many requests|429|not found|unknown model|model.*not|region|ENOTFOUND|ECONNREFUSED|ECONNRESET|socket hang|fetch failed|network|timeout|deadline|unavailable|overloaded|throttl|capacity|exhausted|billing|credits|insufficient|payment|402|access|forbidden|invalid.*model|does not exist|status (429|500|502|503|504)|internal server|service unavailable|max_tokens is too large|supports at most|completion tokens|maximum context|context length/i.test(
+  return /api key|apikey|credential|security token|unauthor|permission|quota|rate.?limit|too many requests|429|not found|unknown model|model.*not|timed.?out|region|ENOTFOUND|ECONNREFUSED|ECONNRESET|socket hang|fetch failed|network|timeout|deadline|unavailable|overloaded|throttl|capacity|exhausted|billing|credits|insufficient|payment|402|access|forbidden|invalid.*model|does not exist|status (429|500|502|503|504)|internal server|service unavailable|max_tokens is too large|supports at most|completion tokens|maximum context|context length/i.test(
     message,
   );
 }
@@ -671,5 +671,62 @@ await test("azure — an optional field survives on a second family member", asy
   );
   console.log("      · optional field honoured on a second family member");
 });
+
+// This suite sets NEUROLINK_DISABLE_BUILTIN_TOOLS at the top, so it cannot
+// reach the case below on its own: every OpenAI-compatible provider except
+// OpenAI and Azure suppresses `response_format` when the request carries
+// tools, and the caller's schema then never reaches the wire at all. Passing a
+// tool explicitly reproduces it regardless of the built-in setting.
+//
+// Before the fix the prompt-based fallback was gated on `response_format`
+// having been sent, so the suppressed case — the one the fallback exists for —
+// could never trigger it. The answer came back as prose with structuredData
+// undefined, silently breaking the documented generate({ schema }) contract.
+// Two providers, because the break was never deepseek-specific: it lives in
+// the shared `executeNativeGenerate` base that the whole OpenAI-compatible
+// family rides, and cohere showed the identical symptom before the fix.
+for (const [provider, model] of [
+  ["deepseek", "deepseek-chat"],
+  ["cohere", "command-r-plus-08-2024"],
+] as const) {
+  await test(`${provider}:${model} — a schema survives a request that also carries tools`, async () => {
+    let res: SchemaResult;
+    try {
+      res = (await nl.generate({
+        input: { text: "Capital of France and its population." },
+        provider,
+        model,
+        maxTokens: 300,
+        tools: pingTool,
+        schema: z.object({ capital: z.string(), population: z.number() }),
+      })) as SchemaResult;
+    } catch (e) {
+      if (isInfraError(String((e as Error)?.message ?? e))) {
+        throw new Skip("provider unavailable for provider reasons");
+      }
+      throw new Error("schema request with tools present failed outright", {
+        cause: e,
+      });
+    }
+    const data = res.structuredData as Record<string, unknown> | undefined;
+    assert(
+      !!data && typeof data === "object" && !Array.isArray(data),
+      "structuredData must be produced even when tools suppress response_format",
+    );
+    // Assert the WHOLE declared schema, not just one field. The recovery path
+    // can publish a syntactically valid object that still fails the schema, so
+    // checking only `capital` would let a half-restored contract pass — the
+    // schema declares both properties required.
+    assert(
+      typeof data?.capital === "string" &&
+        (data.capital as string).length > 0 &&
+        typeof data?.population === "number",
+      "both required schema properties must be present and correctly typed",
+    );
+    console.log(
+      "      · schema honoured on a tools-bearing request (prompt fallback)",
+    );
+  });
+}
 
 await runSuite();
