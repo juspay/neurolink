@@ -128,7 +128,12 @@ export class DeepSeekProvider extends OpenAIChatCompletionsProvider {
       },
       ...DEFAULT_ERROR_RULES,
     ];
-    return classifyProviderError(error, rules, "deepseek", this.modelName);
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   // ===========================================================================

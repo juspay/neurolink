@@ -6,18 +6,29 @@
  */
 
 import type { TimeoutConfig, TimeoutResult } from "../types/index.js";
+import { TimeoutError as BaseTimeoutError } from "./async/withTimeout.js";
 
 /**
- * Custom error class for timeout operations
+ * Custom error class for timeout operations.
+ *
+ * Extends the base {@link BaseTimeoutError} (from `./async/withTimeout.js`)
+ * rather than `Error` directly, merging what were two independent internal
+ * `TimeoutError` classes onto one prototype chain — an `instanceof` check
+ * against either module's `TimeoutError` now recognizes errors thrown by
+ * this class. Constructor signature, `.name`, and the extra
+ * `timeout`/`provider`/`operation` fields are unchanged so all 15 existing
+ * `instanceof TimeoutError` call sites keep working exactly as before;
+ * `super(message, timeout)` additionally populates the base class's
+ * `timeoutMs` field (equal to `timeout`) as a byproduct.
  */
-export class TimeoutError extends Error {
+export class TimeoutError extends BaseTimeoutError {
   constructor(
     message: string,
     public readonly timeout: number,
     public readonly provider?: string,
     public readonly operation?: "generate" | "stream",
   ) {
-    super(message);
+    super(message, timeout);
     this.name = "TimeoutError";
     // Maintains proper stack trace for where error was thrown
     if (typeof Error.captureStackTrace === "function") {

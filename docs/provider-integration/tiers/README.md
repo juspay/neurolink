@@ -34,6 +34,10 @@ Is the model already served by an aggregator NeuroLink already speaks to
 | 3 — Adapter-based native   | A vendor with its own SDK/wire format but a normal request/response HTTP lifecycle | One provider class                                                | Days                              |
 | 4 — Full custom            | SageMaker-class: non-HTTP protocol, SDK-signed auth, bespoke lifecycle             | Custom `executeStream`/`doGenerate`, possibly own CLI subcommands | Days, needs written justification |
 
+> Tier 1 adds zero provider coverage — it is a usage change against an
+> already-counted aggregator, never reflected in
+> `docs/reference/provider-comparison.md` or the README's provider count.
+
 Every tier that adds a new `AIProviderName` member (Tier 2 and above) ends
 the same way: a manifest at
 `docs/provider-integration/manifests/<provider>.json`

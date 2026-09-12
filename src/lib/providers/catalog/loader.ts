@@ -107,8 +107,38 @@ function buildErrorRules(entry: ProviderCatalogJson): ProviderErrorRule[] {
   return [...bespoke, ...DEFAULT_ERROR_RULES];
 }
 
-export function getCatalogJsonEntries(): ProviderCatalogJson[] {
-  return CATALOG_JSON_ENTRIES;
+// Recursively freezes a value in place and returns it. Used only on a
+// structuredClone()d graph below — never on CATALOG_JSON_ENTRIES itself —
+// so this never touches the module-level singleton.
+function deepFreeze<T>(value: T): T {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      deepFreeze(item);
+    }
+    return Object.freeze(value) as T;
+  }
+  if (value !== null && typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      deepFreeze((value as Record<string, unknown>)[key]);
+    }
+    return Object.freeze(value) as T;
+  }
+  return value;
+}
+
+// Returns a deep clone of the catalog graph, frozen at every level, never
+// the module-level singleton by reference or anything sharing its nested
+// objects/arrays — CATALOG_JSON_ENTRIES is reused on every call, so handing
+// out (a shallow copy of) the live array would let any one caller's
+// mutation corrupt catalog state for the rest of the process, and freezing
+// only the outer array left `entry.aliases`, `entry.models.fallbacks`,
+// `entry.models.catalog` etc. shared and mutable despite the `readonly`
+// return type. structuredClone() first (so the frozen graph never aliases
+// CATALOG_JSON_ENTRIES's own objects), then deepFreeze() the clone. All
+// current callers only .find/.map/.flatMap/.filter/iterate, so this is
+// behavior-preserving for them.
+export function getCatalogJsonEntries(): readonly ProviderCatalogJson[] {
+  return deepFreeze(structuredClone(CATALOG_JSON_ENTRIES));
 }
 
 export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {

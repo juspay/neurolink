@@ -97,7 +97,12 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
       },
       ...DEFAULT_ERROR_RULES,
     ];
-    return classifyProviderError(error, rules, "lm-studio", this.modelName);
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   async validateConfiguration(): Promise<boolean> {
