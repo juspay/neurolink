@@ -475,6 +475,138 @@ export const v3ToolChoiceToOpenAI = (
   }
 };
 
+/**
+ * OpenAI's strict structured-output mode rejects a schema unless every object
+ * node carries `additionalProperties: false` AND lists every one of its
+ * properties in `required` — recursively, including through array `items`.
+ * A plain JSON Schema satisfies neither, so sending one with `strict: true`
+ * fails the request outright rather than degrading.
+ *
+ * Adding `additionalProperties: false` is safe: it forbids keys the caller
+ * never asked for, which strict mode would forbid anyway. Filling in
+ * `required` is NOT safe — it would silently make the caller's optional
+ * fields mandatory. So when a schema still has optional properties after
+ * normalisation, the request drops to `strict: false`, which OpenAI accepts
+ * and which honours optionality. Callers whose schemas are already strict-
+ * compatible keep the stronger guarantee.
+ */
+// `properties` and `$defs` are MAPS of schemas, not schemas — recursing into
+// them as if they were nodes silently skips every child, which is exactly the
+// bug that let a nested object through without `additionalProperties: false`.
+const SCHEMA_MAPS = [
+  "properties",
+  "patternProperties",
+  "$defs",
+  "definitions",
+] as const;
+const SCHEMA_NODES = [
+  "items",
+  "prefixItems",
+  "anyOf",
+  "oneOf",
+  "allOf",
+  "not",
+  "then",
+  "else",
+] as const;
+
+// OpenAI's strict mode does not accept these composition keywords. A schema
+// carrying one cannot be sent with `strict: true` at all, so it is not merely
+// "not yet normalised" — it must drop to non-strict, where the schema is
+// honoured as written.
+const STRICT_UNSUPPORTED = ["allOf", "not", "if", "then", "else"] as const;
+
+const mapValues = (
+  obj: unknown,
+  fn: (v: unknown) => unknown,
+): Record<string, unknown> =>
+  Object.fromEntries(
+    Object.entries((obj ?? {}) as Record<string, unknown>).map(([k, v]) => [
+      k,
+      fn(v),
+    ]),
+  );
+
+const withClosedObjects = (node: unknown): unknown => {
+  if (Array.isArray(node)) {
+    return node.map(withClosedObjects);
+  }
+  if (!node || typeof node !== "object") {
+    return node;
+  }
+  const next: Record<string, unknown> = {
+    ...(node as Record<string, unknown>),
+  };
+  for (const key of SCHEMA_MAPS) {
+    if (key in next) {
+      next[key] = mapValues(next[key], withClosedObjects);
+    }
+  }
+  for (const key of SCHEMA_NODES) {
+    if (key in next) {
+      next[key] = withClosedObjects(next[key]);
+    }
+  }
+  // A schema-valued `additionalProperties` is itself a schema (the index/value
+  // pattern) and its nested objects need closing too. A boolean one is a flag
+  // and must be left exactly as the caller wrote it.
+  if (
+    next.additionalProperties &&
+    typeof next.additionalProperties === "object"
+  ) {
+    next.additionalProperties = withClosedObjects(next.additionalProperties);
+  } else if (next.type === "object" && !("additionalProperties" in next)) {
+    // Closed whether or not it declares `properties`: strict mode requires the
+    // key on EVERY object, including an empty one.
+    next.additionalProperties = false;
+  }
+  return next;
+};
+
+/**
+ * True when the schema can legally be sent with `strict: true`: every object
+ * node lists all of its properties as required, every object is closed, and
+ * no composition keyword OpenAI rejects appears anywhere.
+ *
+ * Deliberately conservative — a false negative costs only the stronger
+ * guarantee, while a false positive costs the whole request.
+ */
+const satisfiesStrictRequired = (node: unknown): boolean => {
+  if (Array.isArray(node)) {
+    return node.every(satisfiesStrictRequired);
+  }
+  if (!node || typeof node !== "object") {
+    return true;
+  }
+  const rec = node as Record<string, unknown>;
+  if (STRICT_UNSUPPORTED.some((k) => k in rec)) {
+    return false;
+  }
+  if (rec.type === "object") {
+    if (rec.additionalProperties !== false) {
+      return false;
+    }
+    const names = Object.keys(
+      (rec.properties ?? {}) as Record<string, unknown>,
+    );
+    const required = Array.isArray(rec.required)
+      ? (rec.required as unknown[])
+      : [];
+    if (names.some((n) => !required.includes(n))) {
+      return false;
+    }
+  }
+  const mapsOk = SCHEMA_MAPS.filter((k) => k in rec).every((k) =>
+    Object.values((rec[k] ?? {}) as Record<string, unknown>).every(
+      satisfiesStrictRequired,
+    ),
+  );
+  const nodesOk = SCHEMA_NODES.filter((k) => k in rec).every((k) =>
+    satisfiesStrictRequired(rec[k]),
+  );
+  return mapsOk && nodesOk;
+};
+
 export const v3ResponseFormatToOpenAI = (rf: {
   type: "text" | "json";
   schema?: Record<string, unknown>;
@@ -487,13 +619,38 @@ export const v3ResponseFormatToOpenAI = (rf: {
   if (!rf.schema) {
     return { type: "json_object" };
   }
+  // Mutate as little as possible, in this order:
+  //
+  //   1. already strict-legal  -> send it UNTOUCHED with strict: true
+  //   2. legal once closed     -> send the closed copy with strict: true
+  //   3. neither               -> send it UNTOUCHED with strict: false
+  //
+  // Case 3 is why closure is not applied unconditionally. Non-strict mode
+  // honours the schema exactly as written, so injecting
+  // `additionalProperties: false` there would silently change the caller's
+  // contract — and for a composition it can make the schema unsatisfiable:
+  // closing two `allOf` members that declare different properties leaves no
+  // object able to satisfy both. Leaving case 3 untouched also means
+  // non-OpenAI endpoints in this family, which may not implement OpenAI's
+  // strict contract at all, see exactly the schema the caller wrote.
+  //
+  // Case 1 matters for parity: a Zod schema whose properties are all required
+  // already converts to a strict-legal shape, so it goes out byte-identical to
+  // what it did before this change.
+  const original = rf.schema;
+  const closed = withClosedObjects(original) as Record<string, unknown>;
+  const schema = satisfiesStrictRequired(original)
+    ? original
+    : satisfiesStrictRequired(closed)
+      ? closed
+      : original;
   return {
     type: "json_schema",
     json_schema: {
       name: rf.name ?? "response",
-      schema: rf.schema as never,
+      schema: schema as never,
       ...(rf.description ? { description: rf.description } : {}),
-      strict: true,
+      strict: satisfiesStrictRequired(schema),
     },
   };
 };
