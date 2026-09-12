@@ -503,6 +503,12 @@ precondition first, in the probe, and make it fail loudly when it does not hold.
 naive currency check over them would have been **permanently red** — the same
 shape of always-failing required check the ffmpeg incident below produced.
 
+(Only `search-index.json` is committed now. The two llms files are gitignored:
+they are not in package.json `files`, so they never shipped, and committing a
+9.5 MB whole-file regeneration conflicted on nearly every docs pull request.
+The reproducibility lesson below still stands — it is what lets the remaining
+artifact be diffed at all.)
+
 Two separate causes, and the second is the one that hides:
 
 1. `build-llms-txt.ts` stamped `new Date().toISOString()` into both llms files.
@@ -526,6 +532,23 @@ post-merge with `contents: read`, and giving it write access would not help,
 because a push to `release` from outside a pull request carries no check runs
 and is declined by branch protection. See the required-status-checks section
 above.
+
+### ⚠️ `pnpm --filter ./docs-site` matches nothing and exits 0
+
+`pnpm-workspace.yaml` deliberately sets no `packages:` field — the cooldown
+policy lives there, and `docs-site/` stays an independent project. So a
+`--filter ./docs-site` selector matches no project. pnpm prints _"No projects
+matched the filters"_ and **exits 0**, which means every script written that way
+succeeds while doing nothing.
+
+The four `docs:*` scripts were written that way, including the `docs:build` that
+the artifact-currency check printed as its own remediation. Running exactly what
+the error message told you to run left the artifacts stale and reported success.
+Use `pnpm --dir docs-site <script>`, which does not depend on workspace
+membership.
+
+The general trap: a command that exits 0 is not evidence it did anything. Check
+that the work landed — a changed file, a written artifact — not the status code.
 
 ### ⚠️ ffmpeg is deliberately not installed in CI
 
