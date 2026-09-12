@@ -1167,14 +1167,19 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // Structured output rides response_format, which is what Output.object did
     // on the ai path. Suppressed where the provider says the combination with
     // tools is rejected.
+    // The schema is converted whether or not it reaches the wire: when tools
+    // suppress `response_format`, the prompt-based fallback below still needs
+    // it. Previously it was computed only inside the branch, so the suppressed
+    // case had nothing to fall back WITH.
+    const jsonSchema = options.schema
+      ? (convertZodToJsonSchema(options.schema as ZodUnknownSchema) as Record<
+          string,
+          unknown
+        >)
+      : undefined;
     const responseFormat =
-      options.schema && !(hasTools && this.suppressResponseFormatWithTools())
-        ? {
-            type: "json" as const,
-            schema: convertZodToJsonSchema(
-              options.schema as ZodUnknownSchema,
-            ) as Record<string, unknown>,
-          }
+      jsonSchema && !(hasTools && this.suppressResponseFormatWithTools())
+        ? { type: "json" as const, schema: jsonSchema }
         : undefined;
 
     const conversation = (await this.buildMessagesForStream(
@@ -1271,17 +1276,28 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     // above was reached; the native loop has no such parser, so the silent
     // case sailed through and handed the caller prose. Same recovery, keyed on
     // the result rather than on an exception.
+    // Keyed on the CALLER's schema, not on whether response_format reached the
+    // wire. When tools suppress response_format the schema never ships at all,
+    // nothing instructs the model to emit JSON, and the answer comes back as
+    // prose with `structuredData` undefined — silently breaking the documented
+    // `generate({ schema })` contract on every OpenAI-compatible provider that
+    // suppresses (all of them except OpenAI and Azure, which opt out). That
+    // suppressed case is precisely what the prompt fallback exists for, yet
+    // the old `responseFormat !== undefined` guard made it unreachable there.
     if (
-      responseFormat !== undefined &&
       options.schema !== undefined &&
       !yieldsSchemaValidObject(loop.text, options.schema as ValidationSchema)
     ) {
       logger.warn(
-        `[${this.providerName}] response_format did not yield a schema-valid object — retrying with the schema in the system prompt`,
-        { provider: this.providerName, model: modelId },
+        `[${this.providerName}] answer was not a schema-valid object — retrying with the schema in the system prompt`,
+        {
+          provider: this.providerName,
+          model: modelId,
+          responseFormatSent: responseFormat !== undefined,
+        },
       );
       loop = await runLoop(
-        appendJsonSchemaInstruction(conversation, responseFormat.schema),
+        appendJsonSchemaInstruction(conversation, jsonSchema ?? {}),
         undefined,
       );
     }
