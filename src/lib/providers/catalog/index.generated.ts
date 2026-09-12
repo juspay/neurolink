@@ -4,6 +4,7 @@ import basetenJson from "./baseten.json" with { type: "json" };
 import cerebrasJson from "./cerebras.json" with { type: "json" };
 import cloudflareJson from "./cloudflare.json" with { type: "json" };
 import fireworksJson from "./fireworks.json" with { type: "json" };
+import friendliJson from "./friendli.json" with { type: "json" };
 import gmicloudJson from "./gmicloud.json" with { type: "json" };
 import groqJson from "./groq.json" with { type: "json" };
 import inceptionLabsJson from "./inception-labs.json" with { type: "json" };
@@ -22,6 +23,7 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   cerebrasJson as ProviderCatalogJson,
   cloudflareJson as ProviderCatalogJson,
   fireworksJson as ProviderCatalogJson,
+  friendliJson as ProviderCatalogJson,
   gmicloudJson as ProviderCatalogJson,
   groqJson as ProviderCatalogJson,
   inceptionLabsJson as ProviderCatalogJson,
@@ -40,6 +42,7 @@ export const CATALOG_PROVIDER_IDS = [
   "cerebras",
   "cloudflare",
   "fireworks",
+  "friendli",
   "gmicloud",
   "groq",
   "inception-labs",

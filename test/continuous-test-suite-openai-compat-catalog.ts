@@ -110,6 +110,9 @@ const CATALOG_ENV_VARS = [
   "FIREWORKS_API_KEY",
   "FIREWORKS_BASE_URL",
   "FIREWORKS_MODEL",
+  "FRIENDLI_API_KEY",
+  "FRIENDLI_BASE_URL",
+  "FRIENDLI_MODEL",
   "PERPLEXITY_API_KEY",
   "PERPLEXITY_BASE_URL",
   "PERPLEXITY_MODEL",
@@ -721,6 +724,8 @@ async function testConfiguredProviderHookDelegation(): Promise<void> {
 
 const XAI_URL = "api.x.ai/v1/chat/completions";
 const XAI_MODEL = "grok-3";
+const FRIENDLI_URL = "api.friendli.ai/serverless/v1/chat/completions";
+const FRIENDLI_MODEL = "zai-org/GLM-5.3";
 
 async function testGroqTimeoutErrorClassOverride(): Promise<void> {
   const section = "Groq pre-migration quirks";
@@ -911,6 +916,94 @@ async function testGroqTimeoutErrorClassOverride(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section 4b: Friendli's narrowed model-not-found pattern (PR #1657 review
+// fix). The bespoke 404 rule's pattern used to be the bare substring
+// "not found", which — combined with the classifier's OR-of-status-or-
+// pattern semantics — would also fire on a non-404 message that merely
+// contains that phrase (e.g. a gateway "host not found"). It is now
+// scoped to the quoted-model-id shape actually observed from Friendli
+// (`Model '<id>' not found.`, see friendli.json evidence.liveMatrix).
+// ───────────────────────────────────────────────────────────────────────
+
+async function testFriendliNotFoundPatternNarrowing(): Promise<void> {
+  const section = "Friendli not-found pattern narrowing";
+  setEnv("FRIENDLI_API_KEY", undefined);
+
+  await runCase(
+    `${section}: 404 with the observed quoted-id shape still maps to InvalidModelError`,
+    async () => {
+      let caught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: FRIENDLI_URL,
+            respond: errResp(
+              404,
+              `Model '${FRIENDLI_MODEL}' not found.`,
+              "invalid_request_error",
+            ),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "friendli",
+              model: FRIENDLI_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { friendli: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+        },
+      );
+      expect(caught instanceof InvalidModelError, "error class");
+      expectEq(
+        (caught as Error).message,
+        `[friendli] Friendli model '${FRIENDLI_MODEL}' not found. Pick a current model from the authenticated /serverless/v1/models roster or https://suite.friendli.ai/`,
+        "friendli's bespoke not-found message fires on the observed quoted-id shape",
+      );
+    },
+  );
+
+  await runCase(
+    `${section}: a non-404 message merely containing "not found" is NOT misclassified as invalid-model`,
+    async () => {
+      let caught: unknown;
+      await withMocks(
+        [
+          {
+            method: "POST",
+            url: FRIENDLI_URL,
+            respond: errResp(503, "upstream host not found", "server_error"),
+          },
+        ],
+        async () => {
+          try {
+            await newNL().generate({
+              provider: "friendli",
+              model: FRIENDLI_MODEL,
+              input: { text: "ping" },
+              disableTools: true,
+              credentials: { friendli: { apiKey: "test-key" } },
+            });
+          } catch (err) {
+            caught = err;
+          }
+        },
+      );
+      expect(caught instanceof Error, "still throws");
+      expect(
+        !(caught instanceof InvalidModelError),
+        "the narrowed pattern does not match a generic 'host not found' phrase on a non-404 status, so this is not misclassified as invalid-model",
+      );
+    },
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section 5: catalog membership + alias routing.
 //
 // The original file asserted a handful of pure data-shape facts by
@@ -993,6 +1086,12 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     envVar: "FIREWORKS_API_KEY",
     urlMatch: "api.fireworks.ai/inference/v1/chat/completions",
     model: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+  },
+  {
+    alias: "friendli",
+    envVar: "FRIENDLI_API_KEY",
+    urlMatch: "api.friendli.ai/serverless/v1/chat/completions",
+    model: "zai-org/GLM-5.3",
   },
   {
     alias: "perplexity",
@@ -1163,6 +1262,7 @@ async function main(): Promise<void> {
     await testResolveConfigComputedBaseURL();
     await testConfiguredProviderHookDelegation();
     await testGroqTimeoutErrorClassOverride();
+    await testFriendliNotFoundPatternNarrowing();
     await testCatalogStructuralInvariants();
   } finally {
     restoreEnv();
