@@ -352,7 +352,34 @@ export class FileDetector {
         },
       },
       async (span) => {
-        const detection = await FileDetector.detect(input, options);
+        // A URL used to be detected before it was loaded: MimeTypeStrategy
+        // issued a HEAD for Content-Type, then loadFromURL issued a GET for
+        // the body. Fetch it once and reuse the GET headers for the MIME
+        // strategy. A caller's explicit mimetypeHint remains authoritative,
+        // while a server header still comes after magic bytes.
+        const isUrlInput =
+          typeof input === "string" &&
+          (input.startsWith("http://") || input.startsWith("https://"));
+        const loadedUrl = isUrlInput
+          ? await FileDetector.loadUrl(input, options)
+          : undefined;
+        const detection = loadedUrl
+          ? {
+              ...(await FileDetector.detect(
+                loadedUrl.content,
+                {
+                  ...options,
+                  filenameHint:
+                    options?.filenameHint ||
+                    FileDetector.deriveInputFilename(input),
+                },
+                loadedUrl.contentType,
+                options?.filenameHint ||
+                  FileDetector.deriveInputFilename(input),
+              )),
+              source: "url" as const,
+            }
+          : await FileDetector.detect(input, options);
 
         span.setAttribute(ATTR.FILE_CATEGORY, detection.type);
         span.setAttribute(ATTR.FILE_MIMETYPE, detection.mimeType || "unknown");
@@ -367,11 +394,9 @@ export class FileDetector {
           options?.allowedTypes &&
           !options.allowedTypes.includes(detection.type)
         ) {
-          const content = await FileDetector.loadContent(
-            input,
-            detection,
-            options,
-          );
+          const content =
+            loadedUrl?.content ??
+            (await FileDetector.loadContent(input, detection, options));
           const errors: string[] = [];
 
           for (const allowedType of options.allowedTypes) {
@@ -432,11 +457,9 @@ export class FileDetector {
           return result;
         }
 
-        const content = await FileDetector.loadContent(
-          input,
-          detection,
-          options,
-        );
+        const content =
+          loadedUrl?.content ??
+          (await FileDetector.loadContent(input, detection, options));
         const csvOptions: CSVProcessorOptions | undefined = options?.csvOptions;
         const result = await FileDetector.processFile(
           content,
@@ -828,6 +851,8 @@ export class FileDetector {
   private static async detect(
     input: FileInput,
     options?: FileDetectorOptions,
+    responseMimeType?: string,
+    extensionInput?: string,
   ): Promise<FileDetectionResult> {
     // Short-circuit on a trustworthy caller-provided mimetype hint. This is
     // the eager-path counterpart to FileReferenceRegistry.register()'s hint
@@ -861,14 +886,18 @@ export class FileDetector {
     const confidenceThreshold = options?.confidenceThreshold ?? 80;
     const strategies: DetectionStrategy[] = [
       new MagicBytesStrategy(),
-      new MimeTypeStrategy(),
+      new MimeTypeStrategy(responseMimeType),
       new ExtensionStrategy(),
       new ContentHeuristicStrategy(),
     ];
 
     let best: FileDetectionResult | null = null;
     for (const strategy of strategies) {
-      const result = await strategy.detect(input);
+      const result = await strategy.detect(
+        strategy instanceof ExtensionStrategy && extensionInput
+          ? extensionInput
+          : input,
+      );
       if (!best || result.metadata.confidence > best.metadata.confidence) {
         best = result;
       }
@@ -2017,58 +2046,18 @@ export class FileDetector {
     url: string,
     options?: FileDetectorOptions,
   ): Promise<Buffer> {
+    return (await FileDetector.loadUrl(url, options)).content;
+  }
+
+  /**
+   * Fetch a URL once and retain its response MIME type for detection.
+   */
+  private static async loadUrl(
+    url: string,
+    options?: FileDetectorOptions,
+  ): Promise<{ content: Buffer; contentType: string }> {
     const maxSize = options?.maxSize || 200 * 1024 * 1024; // 200MB default (matches Curator memory-safety cap)
     const timeout = options?.timeout || FileDetector.DEFAULT_NETWORK_TIMEOUT;
-
-    // #317: pre-flight HEAD to reject an oversized file BEFORE downloading any
-    // body. content-length is advisory (chunked responses omit it), so a
-    // missing/invalid header — or a server that refuses HEAD — falls through to
-    // the streaming byte guard below; only a genuine oversize rejection stops
-    // the GET from ever running.
-    //
-    // #323: skip the pre-flight entirely when this exact URL was recently seen
-    // (its Content-Type is still cached, whether from a prior loadFromURL GET
-    // or a MimeTypeStrategy HEAD) — issuing a fresh HEAD here would defeat the
-    // whole point of that cache. The streaming byte guard in the GET below
-    // still enforces maxSize even without a pre-flight, so this doesn't remove
-    // the oversize protection — it only skips the redundant round-trip for a
-    // URL we've already been talking to within the last 60s.
-    if (getCachedUrlContentType(url, Date.now()) === undefined) {
-      try {
-        const head = await request(url, {
-          dispatcher: redirectFollowingDispatcher(5),
-          method: "HEAD",
-          headersTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
-          bodyTimeout: FileDetector.DEFAULT_HEAD_TIMEOUT,
-        });
-        // Drain/close the (empty) HEAD body so the connection can be reused.
-        await head.body.dump();
-        // Only trust `content-length` on a genuine 2xx response. A non-2xx
-        // HEAD (redirect the dispatcher didn't follow, 403/404/405 "HEAD not
-        // allowed", 5xx, …) can still carry a stale/irrelevant
-        // `content-length` header — enforcing size off of that would reject
-        // (or silently pass) based on the wrong body. Treat any non-2xx HEAD
-        // as if the header were missing and fall through to the streaming
-        // GET guard below, which enforces maxSize independently either way.
-        if (head.statusCode >= 200 && head.statusCode < 300) {
-          const declaredLength = Number(head.headers["content-length"]);
-          if (Number.isFinite(declaredLength) && declaredLength > maxSize) {
-            throw new Error(
-              `File too large: ${formatFileSize(declaredLength)} (max: ${formatFileSize(maxSize)})`,
-            );
-          }
-        }
-      } catch (error) {
-        if (error instanceof Error && /File too large/.test(error.message)) {
-          throw error;
-        }
-        logger.debug(
-          `[FileDetector] HEAD pre-flight skipped for ${redactUrlForError(url)}: ${
-            sanitizeErrorCause(error).message
-          }`,
-        );
-      }
-    }
 
     return withRetry(
       async () => {
@@ -2088,13 +2077,25 @@ export class FileDetector {
             );
           }
 
+          const contentType =
+            (response.headers["content-type"] as string) || "";
+          const declaredLength = Number(response.headers["content-length"]);
+          if (Number.isFinite(declaredLength) && declaredLength > maxSize) {
+            // `request()` resolves after response headers arrive. Close the
+            // unread stream before throwing so a declared oversize response
+            // never enters the body-reading loop or holds its connection.
+            // Undici emits an abort error asynchronously when the stream is
+            // destroyed, so consume that expected event before closing it.
+            response.body.once("error", () => {});
+            response.body.destroy();
+            throw new Error(
+              `File too large: ${formatFileSize(declaredLength)} (max: ${formatFileSize(maxSize)})`,
+            );
+          }
+
           // #323: cache the Content-Type from this GET so a subsequent detection
           // of the same URL needs no HEAD.
-          setCachedUrlContentType(
-            url,
-            (response.headers["content-type"] as string) || "",
-            Date.now(),
-          );
+          setCachedUrlContentType(url, contentType, Date.now());
 
           const chunks: Buffer[] = [];
           let totalSize = 0;
@@ -2109,7 +2110,7 @@ export class FileDetector {
             chunks.push(chunk);
           }
 
-          return Buffer.concat(chunks);
+          return { content: Buffer.concat(chunks), contentType };
         } catch (error) {
           // Node/undici DNS, TLS, and connect-timeout errors embed the full
           // request URL (including a presigned query token) in
@@ -2912,7 +2913,21 @@ class MagicBytesStrategy implements DetectionStrategy {
  * Detects file type from HTTP Content-Type headers
  */
 class MimeTypeStrategy implements DetectionStrategy {
+  constructor(private readonly responseMimeType?: string) {}
+
   async detect(input: FileInput): Promise<FileDetectionResult> {
+    if (this.responseMimeType !== undefined) {
+      const contentType = this.responseMimeType;
+      const type = this.mimeToFileType(contentType);
+      return {
+        type,
+        mimeType: contentType.split(";")[0].trim(),
+        extension: null,
+        source: "url",
+        metadata: { confidence: type !== "unknown" ? 85 : 0 },
+      };
+    }
+
     if (typeof input !== "string" || !this.isURL(input)) {
       return this.unknown();
     }

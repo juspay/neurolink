@@ -2321,22 +2321,26 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "FileDetector #317: pre-flight HEAD rejects an oversized URL before the GET",
+    name: "FileDetector #317: GET headers reject an oversized URL without a HEAD",
     category: "pdf-processor",
     fn: async () => {
       let getCalled = false;
+      let headCalled = false;
       const server = http.createServer((req, res) => {
         if (req.method === "HEAD") {
-          res.setHeader(
-            "content-length",
-            req.url === "/big" ? String(500 * 1024 * 1024) : "12",
-          );
-          res.setHeader("content-type", "application/pdf");
+          headCalled = true;
           res.end();
         } else {
           getCalled = true;
+          const body = Buffer.from("%PDF-1.4\nok");
+          res.setHeader(
+            "content-length",
+            req.url === "/big"
+              ? String(500 * 1024 * 1024)
+              : String(body.length),
+          );
           res.setHeader("content-type", "application/pdf");
-          res.end("%PDF-1.4\nok");
+          res.end(body);
         }
       });
       await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
@@ -2351,7 +2355,7 @@ const tests: TestFunction[] = [
           }
         ).loadFromURL.bind(FileDetector);
 
-        // Oversized: rejected via HEAD, GET never runs.
+        // Oversized: rejected from GET headers, without an extra HEAD.
         let rejected = false;
         try {
           await load(`http://127.0.0.1:${addr.port}/big`, {
@@ -2360,16 +2364,17 @@ const tests: TestFunction[] = [
         } catch (e) {
           rejected = e instanceof Error && /too large/i.test(e.message);
         }
-        if (!rejected || getCalled) {
+        if (!rejected || !getCalled || headCalled) {
           return false;
         }
 
-        // Normal: HEAD passes, GET proceeds.
+        // Normal: GET proceeds without a HEAD.
         getCalled = false;
+        headCalled = false;
         const buf = await load(`http://127.0.0.1:${addr.port}/ok`, {
           maxSize: 10 * 1024 * 1024,
         });
-        return getCalled && buf.length > 0;
+        return getCalled && !headCalled && buf.length > 0;
       } finally {
         await new Promise<void>((r) => server.close(() => r()));
       }
@@ -8287,6 +8292,141 @@ exit 127
       }
     },
   },
+  {
+    name: "FileDetector #323: fresh URLs use one GET, with magic bytes ahead of GET MIME",
+    category: "file-detector",
+    fn: async () => {
+      let headCount = 0;
+      let getCount = 0;
+      const png = Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+        "base64",
+      );
+      const server = http.createServer((req, res) => {
+        if (req.method === "HEAD") {
+          headCount++;
+          res.end();
+          return;
+        }
+        getCount++;
+        if (req.url === "/remote-file") {
+          // The response MIME is deliberately wrong: fetching before
+          // detection must still leave magic-byte detection in first place.
+          res.writeHead(200, { "content-type": "text/plain" });
+          res.end(png);
+          return;
+        }
+        if (req.url === "/report.csv") {
+          // A MIME-less CSV URL must still be classified from its filename.
+          res.end("name,value\n");
+          return;
+        }
+        // No extension or magic bytes: the MIME from this same GET is the
+        // next detection signal after magic bytes.
+        res.writeHead(200, { "content-type": "text/csv" });
+        res.end("name,value\none,1\n");
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve),
+      );
+      try {
+        const address = server.address() as { port: number };
+        const magicResult = await FileDetector.detectAndProcess(
+          `http://127.0.0.1:${address.port}/remote-file`,
+        );
+        const mimeResult = await FileDetector.detectAndProcess(
+          `http://127.0.0.1:${address.port}/remote-data`,
+        );
+        const extensionResult = await FileDetector.detectAndProcess(
+          `http://127.0.0.1:${address.port}/report.csv`,
+        );
+        const detect = (
+          FileDetector as unknown as {
+            detect: (
+              input: Buffer,
+              options?: undefined,
+              responseMimeType?: string,
+              extensionInput?: string,
+            ) => Promise<{
+              type: string;
+              metadata: { confidence: number };
+            }>;
+          }
+        ).detect.bind(FileDetector);
+        const extensionDetection = await detect(
+          Buffer.from("name,value\\n"),
+          undefined,
+          "",
+          `http://127.0.0.1:${address.port}/report.csv`,
+        );
+        return (
+          magicResult.type === "image" &&
+          mimeResult.type === "csv" &&
+          extensionResult.type === "csv" &&
+          extensionDetection.type === "csv" &&
+          extensionDetection.metadata.confidence === 85 &&
+          getCount === 3 &&
+          headCount === 0
+        );
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    },
+  },
+  {
+    name: "FileDetector #323: declared oversize URL rejects before its GET body is read",
+    category: "file-detector",
+    fn: async () => {
+      let headCount = 0;
+      let getCount = 0;
+      let bodyWritten = false;
+      const server = http.createServer((req, res) => {
+        if (req.method === "HEAD") {
+          headCount++;
+          res.end();
+          return;
+        }
+        getCount++;
+        res.writeHead(200, {
+          "content-length": String(2048),
+          "content-type": "application/octet-stream",
+        });
+        res.flushHeaders();
+        const bodyTimer = setTimeout(() => {
+          bodyWritten = true;
+          res.end(Buffer.alloc(2048));
+        }, 100);
+        res.once("close", () => clearTimeout(bodyTimer));
+      });
+      await new Promise<void>((resolve) =>
+        server.listen(0, "127.0.0.1", resolve),
+      );
+      try {
+        const address = server.address() as { port: number };
+        const loadFromURL = (
+          FileDetector as unknown as {
+            loadFromURL: (
+              url: string,
+              options?: { maxSize?: number },
+            ) => Promise<Buffer>;
+          }
+        ).loadFromURL.bind(FileDetector);
+        let rejected = false;
+        try {
+          await loadFromURL(`http://127.0.0.1:${address.port}/oversize.bin`, {
+            maxSize: 1024,
+          });
+        } catch (error) {
+          rejected =
+            error instanceof Error && /File too large/.test(error.message);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return rejected && getCount === 1 && headCount === 0 && !bodyWritten;
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    },
+  },
   // ---------- Round-4: CLI/processor decoupling + testable validators ----------
   {
     name: "CLI (review #1202 round 4): commandFactory.ts no longer imports processor sizeLimits (CLI/SDK layering)",
@@ -9158,11 +9298,11 @@ exit 127
         resetImageCache();
       }
 
-      // -- FileDetector: two URLs differing only by a secret query param
-      // must NOT share a urlContentTypeCache entry anymore (a fresh HEAD is
-      // expected for the second, different-secret URL), while the identical
-      // URL requested again must still avoid a redundant HEAD.
+      // -- FileDetector: every public URL load now uses its GET response for
+      // both bytes and detection. Different signed URLs remain independent,
+      // and no public path needs a HEAD.
       let headCount = 0;
+      let getCount = 0;
       const png = Buffer.from(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
         "base64",
@@ -9173,6 +9313,7 @@ exit 127
           res.setHeader("content-type", "image/png");
           res.end();
         } else {
+          getCount++;
           res.setHeader("content-type", "image/png");
           res.end(png);
         }
@@ -9193,19 +9334,22 @@ exit 127
         ).loadFromURL.bind(FileDetector);
         await load(url1, { maxSize: 1024 });
 
-        // Different secret (SIGB), same path: must NOT reuse url1's cache
-        // entry — this is the collision the T4 fix closes.
+        // Different secret (SIGB), same path: it must be loaded independently.
         headCount = 0;
         const result2 = await FileDetector.detectAndProcess(url2);
-        if (!(result2.type === "image" && headCount > 0)) {
+        if (!(result2.type === "image" && getCount === 2 && headCount === 0)) {
           return false;
         }
 
-        // The exact same URL (SIGA) requested again must still hit the
-        // cache — proving the hash suffix is deterministic, not random.
+        // The exact same URL (SIGA) still requires only its single GET.
         headCount = 0;
+        const getCountBeforeRepeat = getCount;
         const result1Again = await FileDetector.detectAndProcess(url1);
-        return result1Again.type === "image" && headCount === 0;
+        return (
+          result1Again.type === "image" &&
+          getCount === getCountBeforeRepeat + 1 &&
+          headCount === 0
+        );
       } finally {
         await new Promise<void>((r) => server.close(() => r()));
       }
