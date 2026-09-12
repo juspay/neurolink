@@ -23,6 +23,21 @@ The following overrides address known security vulnerabilities:
   - **Security Advisory**: CVE-2024-42459 (insecure temporary file creation)
   - Important for secure file operations
 
+### `landing/` overrides
+
+`landing/` is a separate pnpm project with its own lockfile, so its overrides
+live in `landing/package.json` and are not covered by the root block above.
+
+- **fflate → >=0.8.3**
+  - **Security Advisory**: [GHSA-px8p-9vwx-vf98](https://github.com/advisories/GHSA-px8p-9vwx-vf98) (moderate)
+  - Reached through `satori > @shuding/opentype.js > fflate`. `satori` is a
+    production dependency used at request time by `src/routes/api/og/+server.ts`,
+    so unlike the build-time overrides above this one sat on a live request path.
+  - Remove when `@shuding/opentype.js` ships a release depending on `>=0.8.3`.
+
+The block also carries `tar`, `devalue`, `rollup`, `minimatch`, `cookie` and
+`esbuild` entries that predate this document and are not itemised here.
+
 ### Compatibility Fixes
 
 - **@eslint/plugin-kit@<0.3.4 → >=0.3.4**
