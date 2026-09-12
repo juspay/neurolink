@@ -9,9 +9,8 @@
   },
   "models": {
     "default": "mistral-small-2506",
-    "fallbackModelName": "mistral-small-2506",
     "registryDefaultModel": "mistral-large-latest",
-    "fallbacks": ["mistral-small-2506", "mistral-large-latest"],
+    "fallbacks": ["mistral-small-2506", "mistral-medium-latest"],
     "defaultContextWindow": 128000,
     "defaultMaxOutputTokens": 4096,
     "catalog": {
