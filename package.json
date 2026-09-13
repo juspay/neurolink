@@ -106,6 +106,7 @@
     "test:observability": "pnpm exec tsx test/continuous-test-suite-observability.ts",
     "test:ppt": "pnpm exec tsx test/continuous-test-suite-ppt.ts",
     "test:vertex-loop-characterization": "tsx test/continuous-test-suite-vertex-loop-characterization.ts",
+    "test:vertex-claude-thinking": "pnpm exec tsx test/continuous-test-suite-vertex-claude-thinking.ts",
     "test:providers": "pnpm exec tsx test/continuous-test-suite-providers.ts",
     "test:new-providers": "pnpm exec tsx test/continuous-test-suite-new-providers.ts",
     "test:matrix": "pnpm exec tsx test/continuous-test-suite-provider-matrix.ts",

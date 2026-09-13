@@ -128,6 +128,11 @@ async function readAnthropicStep({
   let cacheWrite5mTokens = 0;
   let cacheWrite1hTokens = 0;
   let stepOutputTokens = 0;
+  // Thinking tokens are a SUBSET of output_tokens (Anthropic bills them as
+  // part of the same total), so this is tracked separately for
+  // observability and never added into outputTokens above.
+  let reasoningTokens = 0;
+  let stepReasoningTokens = 0;
   // Anthropic closes every complete message with `message_stop`. Its
   // absence is the only signal that the response ended early, because the
   // content blocks that DID arrive are syntactically complete.
@@ -149,6 +154,9 @@ async function readAnthropicStep({
       const startOutput = usage?.output_tokens ?? 0;
       outputTokens += startOutput - stepOutputTokens;
       stepOutputTokens = startOutput;
+      const startReasoning = usage?.output_tokens_details?.thinking_tokens ?? 0;
+      reasoningTokens += startReasoning - stepReasoningTokens;
+      stepReasoningTokens = startReasoning;
       // Anthropic reports cache reads/writes separately from input_tokens
       // on this same event; without these the stream drops all cache
       // accounting.
@@ -241,6 +249,11 @@ async function readAnthropicStep({
       const cumulative = event.usage?.output_tokens ?? stepOutputTokens;
       outputTokens += cumulative - stepOutputTokens;
       stepOutputTokens = cumulative;
+      const cumulativeReasoning =
+        event.usage?.output_tokens_details?.thinking_tokens ??
+        stepReasoningTokens;
+      reasoningTokens += cumulativeReasoning - stepReasoningTokens;
+      stepReasoningTokens = cumulativeReasoning;
       continue;
     }
 
@@ -392,6 +405,7 @@ async function readAnthropicStep({
       // in that tier".
       ...(cacheWrite5mTokens ? { cacheWrite5mTokens } : {}),
       ...(cacheWrite1hTokens ? { cacheWrite1hTokens } : {}),
+      ...(reasoningTokens ? { reasoningTokens } : {}),
     },
     rawStopReason,
     raw: blocks,
