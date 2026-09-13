@@ -8,6 +8,6 @@
 
 > **CacheStrategy** = `"lru"` \| `"fifo"` \| `"lfu"`
 
-Defined in: [types/mcp.ts:2361](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2361)
+Defined in: [types/mcp.ts:2380](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2380)
 
 Cache eviction strategy

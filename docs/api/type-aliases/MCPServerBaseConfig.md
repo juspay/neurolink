@@ -8,7 +8,7 @@
 
 > **MCPServerBaseConfig** = `object`
 
-Defined in: [types/mcp.ts:1085](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1085)
+Defined in: [types/mcp.ts:1104](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1104)
 
 Base configuration for an MCP server.
 
@@ -18,7 +18,7 @@ Base configuration for an MCP server.
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1087](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1087)
+Defined in: [types/mcp.ts:1106](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1106)
 
 Unique server identifier
 
@@ -28,7 +28,7 @@ Unique server identifier
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1089](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1089)
+Defined in: [types/mcp.ts:1108](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1108)
 
 Human-readable server name
 
@@ -38,7 +38,7 @@ Human-readable server name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1091)
+Defined in: [types/mcp.ts:1110](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1110)
 
 Server description
 
@@ -48,7 +48,7 @@ Server description
 
 > `optional` **version?**: `string`
 
-Defined in: [types/mcp.ts:1093](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1093)
+Defined in: [types/mcp.ts:1112](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1112)
 
 Server version
 
@@ -58,7 +58,7 @@ Server version
 
 > `optional` **category?**: [`MCPServerCategory`](MCPServerCategory.md)
 
-Defined in: [types/mcp.ts:1095](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1095)
+Defined in: [types/mcp.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1114)
 
 Server category for organization
 
@@ -68,7 +68,7 @@ Server category for organization
 
 > `optional` **transport?**: [`MCPTransportType`](MCPTransportType.md)
 
-Defined in: [types/mcp.ts:1097](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1097)
+Defined in: [types/mcp.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1116)
 
 Transport protocol preference
 
@@ -78,7 +78,7 @@ Transport protocol preference
 
 > `optional` **metadata?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/mcp.ts:1099](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1099)
+Defined in: [types/mcp.ts:1118](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1118)
 
 Custom metadata
 
@@ -88,7 +88,7 @@ Custom metadata
 
 > `optional` **defaultTimeoutMs?**: `number`
 
-Defined in: [types/mcp.ts:1101](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1101)
+Defined in: [types/mcp.ts:1120](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1120)
 
 Default timeout for tool execution in milliseconds (default: 30000)
 
@@ -98,6 +98,6 @@ Default timeout for tool execution in milliseconds (default: 30000)
 
 > `optional` **defaultAnnotations?**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
 
-Defined in: [types/mcp.ts:1103](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1103)
+Defined in: [types/mcp.ts:1122](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1122)
 
 Global tool annotations applied to all tools

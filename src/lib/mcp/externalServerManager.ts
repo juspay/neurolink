@@ -32,6 +32,7 @@ import type {
   RuntimeMCPServerInfo,
   MCPServerInfo,
   MCPServerCategory,
+  MCPServerReadiness,
   MCPTransportType,
 } from "../types/index.js";
 import { HITLUserRejectedError, HITLTimeoutError } from "../hitl/hitlErrors.js";
@@ -92,6 +93,31 @@ const CONNECTION_LOST_PATTERN =
 function isConnectionLostError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return CONNECTION_LOST_PATTERN.test(message);
+}
+
+/**
+ * Thrown by `startServer` when a server's discovered tool count falls below
+ * its configured `minTools` floor. Deliberately thrown *inside* the same
+ * try/catch that already handles every other start failure, so the existing
+ * machinery (status -> "failed", `lastError`, span exception recording,
+ * rethrow to `addServer`'s own catch) applies unchanged; `addServer`
+ * recognizes this specific error via `instanceof` to attach the
+ * `readiness: "insufficient_tools"` + `toolsDiscovered` metadata that a
+ * generic start failure does not carry.
+ */
+class InsufficientToolsError extends Error {
+  readonly readiness: MCPServerReadiness = "insufficient_tools";
+
+  constructor(
+    readonly serverId: string,
+    readonly toolsDiscovered: number,
+    readonly minTools: number,
+  ) {
+    super(
+      `Server '${serverId}' discovered ${toolsDiscovered} tool(s), below the configured minTools=${minTools}`,
+    );
+    this.name = "InsufficientToolsError";
+  }
 }
 
 /**
@@ -836,6 +862,7 @@ export class ExternalServerManager extends EventEmitter {
       retries: config.retries,
       healthCheckInterval: config.healthCheckInterval,
       autoRestart: config.autoRestart,
+      minTools: config.minTools,
       cwd: config.cwd,
       url: config.url,
       metadata: {
@@ -904,6 +931,7 @@ export class ExternalServerManager extends EventEmitter {
         retries: serverInfo.retries,
         healthCheckInterval: serverInfo.healthCheckInterval,
         autoRestart: serverInfo.autoRestart,
+        minTools: serverInfo.minTools,
         cwd: serverInfo.cwd,
         url: serverInfo.url,
         blockedTools: serverInfo.blockedTools,
@@ -1001,6 +1029,7 @@ export class ExternalServerManager extends EventEmitter {
         metadata: {
           timestamp: Date.now(),
           operation: "addServer",
+          readiness: "ready",
           toolsDiscovered: finalInstance.tools.length,
         },
       };
@@ -1014,6 +1043,24 @@ export class ExternalServerManager extends EventEmitter {
 
       // Clean up if instance was created
       this.servers.delete(serverId);
+
+      // The minTools readiness gate carries structured metadata a generic
+      // start failure does not: how many tools were actually discovered, so
+      // a caller can distinguish "too few tools" from "could not connect".
+      if (error instanceof InsufficientToolsError) {
+        return {
+          success: false,
+          error: error.message,
+          serverId,
+          duration: Date.now() - startTime,
+          metadata: {
+            timestamp: Date.now(),
+            operation: "addServer",
+            readiness: error.readiness,
+            toolsDiscovered: error.toolsDiscovered,
+          },
+        };
+      }
 
       return {
         success: false,
@@ -1156,6 +1203,25 @@ export class ExternalServerManager extends EventEmitter {
       // Discover tools from the server
       await this.discoverServerTools(serverId);
 
+      // Readiness gate: a server whose discovered tool count falls below
+      // its configured minTools (default 0 — no minimum, so resource/prompt
+      // -only servers stay valid) is torn back down instead of being marked
+      // connected/healthy. Thrown here — before tools are registered with
+      // the main registry and before health monitoring starts — so a
+      // rejected server is never marked ready even transiently, and the
+      // throw is caught by this method's own catch below, which sets status
+      // "failed" and rethrows to addServer's catch the same way any other
+      // start failure does.
+      const minTools = config.minTools ?? 0;
+      if (instance.toolsMap.size < minTools) {
+        const toolsDiscovered = instance.toolsMap.size;
+        mcpLogger.warn(
+          `[ExternalServerManager] Server '${serverId}' discovered ${toolsDiscovered} tool(s), below the configured minTools=${minTools}; tearing the connection back down`,
+        );
+        await this.closeInstanceConnection(serverId, instance);
+        throw new InsufficientToolsError(serverId, toolsDiscovered, minTools);
+      }
+
       // Register tools with main registry if integration is enabled
       if (this.enableMainRegistryIntegration) {
         await this.registerServerToolsWithMainRegistry(serverId);
@@ -1204,6 +1270,41 @@ export class ExternalServerManager extends EventEmitter {
   }
 
   /**
+   * Close a live client/transport pair, clearing the lifecycle hooks first
+   * so the `onclose` they would otherwise trigger cannot schedule a restart
+   * of a connection being torn down deliberately. Shared by `stopServer` and
+   * the minTools readiness gate in `startServer`, which rejects a server
+   * before it is ever registered as connected. Leaves status untouched —
+   * callers set whatever status fits their case.
+   */
+  private async closeInstanceConnection(
+    serverId: string,
+    instance: RuntimeMCPServerInfo,
+  ): Promise<void> {
+    if (!instance.client || !instance.transportInstance) {
+      return;
+    }
+    instance.client.onclose = undefined;
+    instance.client.onerror = undefined;
+    try {
+      await MCPClientFactory.closeClient(
+        instance.client,
+        instance.transportInstance,
+      );
+    } catch (error) {
+      mcpLogger.debug(
+        `[ExternalServerManager] Error closing client for ${serverId}:`,
+        error,
+      );
+    }
+
+    instance.client = null;
+    instance.transportInstance = null;
+    instance.process = null;
+    instance.pid = undefined;
+  }
+
+  /**
    * Stop an external MCP server
    */
   private async stopServer(serverId: string): Promise<void> {
@@ -1241,28 +1342,10 @@ export class ExternalServerManager extends EventEmitter {
       this.toolDiscovery.clearServerTools(serverId);
 
       // Close MCP client using factory cleanup. This close is ours, not a
-      // crash: drop the lifecycle hooks first so the onclose it triggers
-      // cannot schedule a restart of a server we are deliberately stopping.
-      if (instance.client && instance.transportInstance) {
-        instance.client.onclose = undefined;
-        instance.client.onerror = undefined;
-        try {
-          await MCPClientFactory.closeClient(
-            instance.client,
-            instance.transportInstance,
-          );
-        } catch (error) {
-          mcpLogger.debug(
-            `[ExternalServerManager] Error closing client for ${serverId}:`,
-            error,
-          );
-        }
-
-        instance.client = null;
-        instance.transportInstance = null;
-        instance.process = null;
-        instance.pid = undefined;
-      }
+      // crash: closeInstanceConnection drops the lifecycle hooks first so
+      // the onclose it triggers cannot schedule a restart of a server we
+      // are deliberately stopping.
+      await this.closeInstanceConnection(serverId, instance);
       this.updateServerStatus(serverId, "stopped");
 
       span.setStatus({ code: SpanStatusCode.OK });

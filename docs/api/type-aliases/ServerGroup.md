@@ -8,7 +8,7 @@
 
 > **ServerGroup** = `object`
 
-Defined in: [types/mcp.ts:1792](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1792)
+Defined in: [types/mcp.ts:1811](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1811)
 
 Server group definition
 
@@ -18,7 +18,7 @@ Server group definition
 
 > **id**: `string`
 
-Defined in: [types/mcp.ts:1796](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1796)
+Defined in: [types/mcp.ts:1815](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1815)
 
 Group identifier
 
@@ -28,7 +28,7 @@ Group identifier
 
 > **name**: `string`
 
-Defined in: [types/mcp.ts:1801](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1801)
+Defined in: [types/mcp.ts:1820](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1820)
 
 Human-readable name
 
@@ -38,7 +38,7 @@ Human-readable name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/mcp.ts:1806](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1806)
+Defined in: [types/mcp.ts:1825](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1825)
 
 Description of the group
 
@@ -48,7 +48,7 @@ Description of the group
 
 > **servers**: `string`[]
 
-Defined in: [types/mcp.ts:1811](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1811)
+Defined in: [types/mcp.ts:1830](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1830)
 
 Server IDs in this group
 
@@ -58,7 +58,7 @@ Server IDs in this group
 
 > **strategy**: [`LoadBalancingStrategy`](LoadBalancingStrategy.md)
 
-Defined in: [types/mcp.ts:1816](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1816)
+Defined in: [types/mcp.ts:1835](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1835)
 
 Load balancing strategy for this group
 
@@ -68,7 +68,7 @@ Load balancing strategy for this group
 
 > `optional` **weights?**: [`ServerWeight`](ServerWeight.md)[]
 
-Defined in: [types/mcp.ts:1821](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1821)
+Defined in: [types/mcp.ts:1840](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1840)
 
 Weights for weighted strategy
 
@@ -78,7 +78,7 @@ Weights for weighted strategy
 
 > `optional` **healthAware?**: `boolean`
 
-Defined in: [types/mcp.ts:1826](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1826)
+Defined in: [types/mcp.ts:1845](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1845)
 
 Whether to enable health-aware routing
 
@@ -88,6 +88,6 @@ Whether to enable health-aware routing
 
 > `optional` **minHealthyServers?**: `number`
 
-Defined in: [types/mcp.ts:1831](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1831)
+Defined in: [types/mcp.ts:1850](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1850)
 
 Minimum healthy servers before alerting

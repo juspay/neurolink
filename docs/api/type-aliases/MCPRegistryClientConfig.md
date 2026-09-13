@@ -8,7 +8,7 @@
 
 > **MCPRegistryClientConfig** = `object`
 
-Defined in: [types/mcp.ts:1740](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1740)
+Defined in: [types/mcp.ts:1759](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1759)
 
 Registry client configuration
 
@@ -18,7 +18,7 @@ Registry client configuration
 
 > `optional` **registries?**: [`RegistryConfig`](RegistryConfig.md)[]
 
-Defined in: [types/mcp.ts:1744](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1744)
+Defined in: [types/mcp.ts:1763](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1763)
 
 Default registries to use
 
@@ -28,7 +28,7 @@ Default registries to use
 
 > `optional` **enableCache?**: `boolean`
 
-Defined in: [types/mcp.ts:1749](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1749)
+Defined in: [types/mcp.ts:1768](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1768)
 
 Enable automatic caching
 
@@ -38,7 +38,7 @@ Enable automatic caching
 
 > `optional` **defaultCacheTTL?**: `number`
 
-Defined in: [types/mcp.ts:1754](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1754)
+Defined in: [types/mcp.ts:1773](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1773)
 
 Default cache TTL
 
@@ -48,7 +48,7 @@ Default cache TTL
 
 > `optional` **timeout?**: `number`
 
-Defined in: [types/mcp.ts:1759](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1759)
+Defined in: [types/mcp.ts:1778](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1778)
 
 Request timeout
 
@@ -58,6 +58,6 @@ Request timeout
 
 > `optional` **userAgent?**: `string`
 
-Defined in: [types/mcp.ts:1764](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1764)
+Defined in: [types/mcp.ts:1783](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1783)
 
 User agent string

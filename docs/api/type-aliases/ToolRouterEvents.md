@@ -8,7 +8,7 @@
 
 > **ToolRouterEvents** = `object`
 
-Defined in: [types/mcp.ts:2528](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2528)
+Defined in: [types/mcp.ts:2547](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2547)
 
 Tool Router events
 
@@ -18,7 +18,7 @@ Tool Router events
 
 > **routeDecision**: `object`
 
-Defined in: [types/mcp.ts:2529](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2529)
+Defined in: [types/mcp.ts:2548](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2548)
 
 #### toolName
 
@@ -34,7 +34,7 @@ Defined in: [types/mcp.ts:2529](https://github.com/juspay/neurolink/blob/release
 
 > **routeFailed**: `object`
 
-Defined in: [types/mcp.ts:2533](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2533)
+Defined in: [types/mcp.ts:2552](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2552)
 
 #### toolName
 
@@ -54,7 +54,7 @@ Defined in: [types/mcp.ts:2533](https://github.com/juspay/neurolink/blob/release
 
 > **affinitySet**: `object`
 
-Defined in: [types/mcp.ts:2538](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2538)
+Defined in: [types/mcp.ts:2557](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2557)
 
 #### key
 
@@ -70,7 +70,7 @@ Defined in: [types/mcp.ts:2538](https://github.com/juspay/neurolink/blob/release
 
 > **affinityExpired**: `object`
 
-Defined in: [types/mcp.ts:2542](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2542)
+Defined in: [types/mcp.ts:2561](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2561)
 
 #### key
 
@@ -82,7 +82,7 @@ Defined in: [types/mcp.ts:2542](https://github.com/juspay/neurolink/blob/release
 
 > **healthUpdate**: `object`
 
-Defined in: [types/mcp.ts:2545](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2545)
+Defined in: [types/mcp.ts:2564](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2564)
 
 #### serverId
 

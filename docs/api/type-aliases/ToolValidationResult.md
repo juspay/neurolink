@@ -8,7 +8,7 @@
 
 > **ToolValidationResult** = `object`
 
-Defined in: [types/mcp.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L616)
+Defined in: [types/mcp.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L635)
 
 Tool validation result
 Moved from src/lib/mcp/toolDiscoveryService.ts
@@ -19,7 +19,7 @@ Moved from src/lib/mcp/toolDiscoveryService.ts
 
 > **isValid**: `boolean`
 
-Defined in: [types/mcp.ts:618](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L618)
+Defined in: [types/mcp.ts:637](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L637)
 
 Whether the tool is valid
 
@@ -29,7 +29,7 @@ Whether the tool is valid
 
 > **errors**: `string`[]
 
-Defined in: [types/mcp.ts:621](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L621)
+Defined in: [types/mcp.ts:640](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L640)
 
 Validation errors
 
@@ -39,7 +39,7 @@ Validation errors
 
 > **warnings**: `string`[]
 
-Defined in: [types/mcp.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L624)
+Defined in: [types/mcp.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L643)
 
 Validation warnings
 
@@ -49,7 +49,7 @@ Validation warnings
 
 > `optional` **metadata?**: `object`
 
-Defined in: [types/mcp.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L627)
+Defined in: [types/mcp.ts:646](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L646)
 
 Tool metadata
 

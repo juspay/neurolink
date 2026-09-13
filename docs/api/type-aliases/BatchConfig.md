@@ -8,7 +8,7 @@
 
 > **BatchConfig** = `object`
 
-Defined in: [types/mcp.ts:2297](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2297)
+Defined in: [types/mcp.ts:2316](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2316)
 
 Batch configuration options
 
@@ -18,7 +18,7 @@ Batch configuration options
 
 > **maxBatchSize**: `number`
 
-Defined in: [types/mcp.ts:2301](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2301)
+Defined in: [types/mcp.ts:2320](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2320)
 
 Maximum number of requests to batch together (default: 10)
 
@@ -28,7 +28,7 @@ Maximum number of requests to batch together (default: 10)
 
 > **maxWaitMs**: `number`
 
-Defined in: [types/mcp.ts:2306](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2306)
+Defined in: [types/mcp.ts:2325](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2325)
 
 Maximum time to wait for a full batch in milliseconds (default: 100ms)
 
@@ -38,7 +38,7 @@ Maximum time to wait for a full batch in milliseconds (default: 100ms)
 
 > `optional` **enableParallel?**: `boolean`
 
-Defined in: [types/mcp.ts:2312](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2312)
+Defined in: [types/mcp.ts:2331](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2331)
 
 Enable parallel execution of batched requests (default: true).
 Reserved for future parallel batch execution; currently stored but not read.
@@ -49,7 +49,7 @@ Reserved for future parallel batch execution; currently stored but not read.
 
 > `optional` **maxConcurrentBatches?**: `number`
 
-Defined in: [types/mcp.ts:2317](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2317)
+Defined in: [types/mcp.ts:2336](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2336)
 
 Maximum concurrent batches in flight (default: 5)
 
@@ -59,6 +59,6 @@ Maximum concurrent batches in flight (default: 5)
 
 > `optional` **groupByServer?**: `boolean`
 
-Defined in: [types/mcp.ts:2322](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2322)
+Defined in: [types/mcp.ts:2341](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L2341)
 
 Group requests by server ID (default: true)

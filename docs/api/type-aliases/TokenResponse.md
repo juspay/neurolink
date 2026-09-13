@@ -8,7 +8,7 @@
 
 > **TokenResponse** = `object`
 
-Defined in: [types/mcp.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1012)
+Defined in: [types/mcp.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1031)
 
 Token response from OAuth server
 Standard OAuth 2.0/2.1 token endpoint response structure
@@ -20,7 +20,7 @@ Used internally by NeuroLinkOAuthProvider for token exchange and refresh
 
 > **access_token**: `string`
 
-Defined in: [types/mcp.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1014)
+Defined in: [types/mcp.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1033)
 
 Access token for API authentication
 
@@ -30,7 +30,7 @@ Access token for API authentication
 
 > `optional` **refresh_token?**: `string`
 
-Defined in: [types/mcp.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1016)
+Defined in: [types/mcp.ts:1035](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1035)
 
 Refresh token for obtaining new access tokens (optional)
 
@@ -40,7 +40,7 @@ Refresh token for obtaining new access tokens (optional)
 
 > `optional` **expires_in?**: `number`
 
-Defined in: [types/mcp.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1018)
+Defined in: [types/mcp.ts:1037](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1037)
 
 Token lifetime in seconds (optional)
 
@@ -50,7 +50,7 @@ Token lifetime in seconds (optional)
 
 > **token_type**: `string`
 
-Defined in: [types/mcp.ts:1020](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1020)
+Defined in: [types/mcp.ts:1039](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1039)
 
 Token type (typically "Bearer")
 
@@ -60,6 +60,6 @@ Token type (typically "Bearer")
 
 > `optional` **scope?**: `string`
 
-Defined in: [types/mcp.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1022)
+Defined in: [types/mcp.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/mcp.ts#L1041)
 
 OAuth scope granted (optional, space-separated)
