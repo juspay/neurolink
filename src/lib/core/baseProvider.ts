@@ -77,7 +77,11 @@ import {
   TimeoutError,
 } from "../utils/timeout.js";
 import { shouldDisableBuiltinTools } from "../utils/toolUtils.js";
-import { getKeyCount, getKeysAsString } from "../utils/transformationUtils.js";
+import {
+  getKeyCount,
+  getKeysAsString,
+  transformToolExecutions,
+} from "../utils/transformationUtils.js";
 import { ToolExecutionRecorder } from "./toolExecutionRecorder.js";
 import { TTS_ERROR_CODES, TTSProcessor } from "../utils/ttsProcessor.js";
 import {
@@ -113,6 +117,7 @@ import type {
 import { generateOnceNative } from "../utils/nativeSingleShot.js";
 import { validateExecutionControl } from "../utils/parameterValidation.js";
 import { extractTokenUsage } from "../utils/tokenUtils.js";
+import { preserveLiveStreamAccessors } from "../utils/streamResultAccessors.js";
 
 /**
  * Read the consumer-facing lifecycle callbacks buried inside a request's
@@ -716,10 +721,14 @@ export abstract class BaseProvider implements AIProvider {
       cancelStream(activeStream);
       releaseIterator(activeIterator);
     });
-    return {
+    // A naked spread reads (and thereby snapshots) every enumerable getter
+    // on `result` — including a provider's lazily-populated `toolsUsed` /
+    // `toolExecutions` — before the consumer has pulled a single chunk.
+    // Re-applying the original accessor descriptors keeps those fields live.
+    return preserveLiveStreamAccessors(result, {
       ...result,
       stream: wrapped as StreamResult["stream"],
-    };
+    });
   }
 
   /**
@@ -918,7 +927,12 @@ export abstract class BaseProvider implements AIProvider {
       releaseIterator(upstreamIterator);
     });
 
-    return { ...result, stream: wrappedStream };
+    // See the comment in withStreamModelFallback above: this spread must not
+    // be allowed to freeze a provider's lazy toolsUsed/toolExecutions getters.
+    return preserveLiveStreamAccessors(result, {
+      ...result,
+      stream: wrappedStream,
+    });
   }
 
   /**
@@ -1159,33 +1173,60 @@ export abstract class BaseProvider implements AIProvider {
         : undefined;
 
       // Create a synthetic stream from the generate result that simulates progressive delivery
-      return {
-        stream: this.createFakeStreamingOutput(result, options, onTTSComplete),
-        usage: result?.usage,
-        provider: result?.provider,
-        model: result?.model,
-        toolCalls: result?.toolCalls?.map((call) => ({
-          toolName: call.toolName,
-          parameters: call.args,
-          id: call.toolCallId,
-        })),
-        toolResults: result?.toolResults
-          ? result.toolResults.map((tr) => ({
-              toolName: ((tr as UnknownRecord).toolName as string) || "unknown",
-              status: (((tr as UnknownRecord).status as string) === "error"
-                ? "failure"
-                : "success") as "success" | "failure",
-              result:
-                (tr as UnknownRecord).output ?? (tr as UnknownRecord).result,
-              error: (tr as UnknownRecord).error as string | undefined,
-            }))
-          : undefined,
-        // 🔧 FIX: Include analytics and evaluation from generate result
-        analytics: result?.analytics,
-        evaluation: result?.evaluation,
-        audio,
-        ttsMetadata,
-      };
+      //
+      // toolsUsed/toolExecutions: generate()'s result carries both once the
+      // tool round trip settles, but a plain field list (like every other
+      // field above) would silently drop them from the fake-streaming
+      // StreamResult. toolsUsed overlaps generate()'s and StreamResult's
+      // declared types exactly, so it is assigned directly; toolExecutions
+      // does not (GenerateResult carries ToolExecutionRecord[], StreamResult
+      // declares ToolExecutionSummary[] but every other live producer of this
+      // field actually returns transformToolExecutions()'s
+      // {name,input,output,duration} shape) — attached via defineProperty,
+      // the same bypass `createMCPStream()` uses, rather than a literal that
+      // would fail the structural check or need a banned double-cast.
+      return Object.defineProperty(
+        {
+          stream: this.createFakeStreamingOutput(
+            result,
+            options,
+            onTTSComplete,
+          ),
+          usage: result?.usage,
+          provider: result?.provider,
+          model: result?.model,
+          toolCalls: result?.toolCalls?.map((call) => ({
+            toolName: call.toolName,
+            parameters: call.args,
+            id: call.toolCallId,
+          })),
+          toolResults: result?.toolResults
+            ? result.toolResults.map((tr) => ({
+                toolName:
+                  ((tr as UnknownRecord).toolName as string) || "unknown",
+                status: (((tr as UnknownRecord).status as string) === "error"
+                  ? "failure"
+                  : "success") as "success" | "failure",
+                result:
+                  (tr as UnknownRecord).output ?? (tr as UnknownRecord).result,
+                error: (tr as UnknownRecord).error as string | undefined,
+              }))
+            : undefined,
+          // 🔧 FIX: Include analytics and evaluation from generate result
+          analytics: result?.analytics,
+          evaluation: result?.evaluation,
+          audio,
+          ttsMetadata,
+          toolsUsed: result?.toolsUsed,
+        },
+        "toolExecutions",
+        {
+          value: transformToolExecutions(result?.toolExecutions),
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        },
+      );
     } catch (error) {
       logger.error(
         `Fake streaming fallback failed for ${this.providerName}:`,

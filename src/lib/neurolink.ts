@@ -323,6 +323,10 @@ import { interleaveTTSStream } from "./utils/ttsStream.js";
 import { resolveLifecycleTimeoutMs } from "./utils/lifecycleTimeout.js";
 import { cloneOptionsForCallIsolation } from "./utils/cloneOptions.js";
 import {
+  pickLiveStreamDescriptors,
+  preserveLiveStreamAccessors,
+} from "./utils/streamResultAccessors.js";
+import {
   coerceJsonToSchema,
   recoverScalarRoot,
   schemaAccepts,
@@ -9327,10 +9331,17 @@ Current user's request: ${currentInput}`;
       );
     })();
 
-    return {
+    // `result`'s toolsUsed/toolExecutions may be live getters (openai-compat
+    // providers back them with a getter over an array still being populated
+    // by a background loop) — a naked spread here would read them once, now,
+    // and freeze whatever they held at that instant. preserveLiveStreamAccessors
+    // re-applies the original getter descriptors onto the rebuilt object, the
+    // same fix already applied to withStreamModelFallback/
+    // wrapStreamWithLifecycleCallbacks in baseProvider.ts.
+    return preserveLiveStreamAccessors(result, {
       ...result,
       stream: wrappedStream as StreamResult["stream"],
-    };
+    });
   }
 
   private async executeStreamRequest(
@@ -10253,6 +10264,11 @@ Current user's request: ${currentInput}`;
         factoryResult,
         sessionId: enhancedOptions.context?.sessionId,
       });
+      // Kept whole (not just destructured) so its toolsUsed/toolExecutions
+      // descriptors can be re-applied onto the final StreamResult near the
+      // bottom of this method, without ever reading — and thereby freezing —
+      // a getter-based provider's value here.
+      const mcpStreamOutcome = await this.createMCPStream(enhancedOptions);
       const {
         stream: mcpStream,
         provider: providerName,
@@ -10263,7 +10279,7 @@ Current user's request: ${currentInput}`;
         toolResults: streamToolResults,
         analytics: streamAnalytics,
         metadata: providerStreamMetadata,
-      } = await this.createMCPStream(enhancedOptions);
+      } = mcpStreamOutcome;
       let streamedTTSResult: TTSResult | undefined;
       const { stream: incrementalStream, ttsMetadata: streamTtsMetadata } =
         await this.createIncrementalTTSStream({
@@ -10692,6 +10708,7 @@ Current user's request: ${currentInput}`;
         error: metadata.error,
         events: eventSequence,
         providerMetadata: providerStreamMetadata,
+        toolTelemetrySource: mcpStreamOutcome,
       });
     } catch (error) {
       ttsResolver?.(undefined);
@@ -11497,6 +11514,15 @@ Current user's request: ${currentInput}`;
     analytics?: AnalyticsData | Promise<AnalyticsData>;
     /** Provider metadata, passed through by reference (see return site). */
     metadata?: StreamResult["metadata"];
+    /**
+     * Declared on StreamResult so callers are entitled to them, and kept
+     * live (via pickLiveStreamDescriptors at both return sites below)
+     * rather than eagerly copied: a provider populates these as its
+     * background stream loop runs, so a snapshot taken here — before the
+     * caller has pulled a single chunk — would read as permanently empty.
+     */
+    toolsUsed?: string[];
+    toolExecutions?: ToolExecutionSummary[];
   }> {
     // Simplified placeholder - in the actual implementation this would contain the complex MCP stream logic
     const providerName = await getBestProvider(options.provider);
@@ -11855,17 +11881,27 @@ Current user's request: ${currentInput}`;
             }
           })();
 
-          return {
-            stream: wrappedStream,
-            provider: poolStreamProviderName,
-            usage: poolStreamResult.usage,
-            model: poolStreamResult.model || poolStreamModel,
-            finishReason: poolStreamResult.finishReason,
-            toolCalls: poolStreamResult.toolCalls ?? [],
-            toolResults: poolStreamResult.toolResults ?? [],
-            analytics: poolStreamResult.analytics,
-            metadata: poolStreamResult.metadata,
-          };
+          // toolsUsed/toolExecutions are attached via defineProperties (not
+          // listed as plain fields above) so a getter-based provider result
+          // keeps resolving lazily through this boundary instead of being
+          // read — and frozen — once, right here, before any chunk is drained.
+          return Object.defineProperties(
+            {
+              stream: wrappedStream,
+              provider: poolStreamProviderName,
+              usage: poolStreamResult.usage,
+              model: poolStreamResult.model || poolStreamModel,
+              finishReason: poolStreamResult.finishReason,
+              toolCalls: poolStreamResult.toolCalls ?? [],
+              toolResults: poolStreamResult.toolResults ?? [],
+              analytics: poolStreamResult.analytics,
+              metadata: poolStreamResult.metadata,
+            },
+            pickLiveStreamDescriptors(poolStreamResult, [
+              "toolsUsed",
+              "toolExecutions",
+            ]),
+          );
         } catch (poolStreamError) {
           if (isAbortError(poolStreamError)) {
             throw poolStreamError;
@@ -11924,22 +11960,29 @@ Current user's request: ${currentInput}`;
       systemPromptPassedLength: enhancedSystemPrompt.length,
     });
 
-    return {
-      stream: streamResult.stream,
-      provider: providerName,
-      usage: streamResult.usage,
-      model: streamResult.model || options.model,
-      finishReason: streamResult.finishReason,
-      toolCalls: streamResult.toolCalls ?? [],
-      toolResults: streamResult.toolResults ?? [],
-      analytics: streamResult.analytics,
-      // Pass the provider's metadata object THROUGH BY REFERENCE: native
-      // background-loop streams (Vertex Gemini/Claude) resolve
-      // finishReason/stopReason/rawFinishReason/stepsUsed onto it only when
-      // the loop finishes — snapshotting fields here would freeze them as
-      // undefined before the stream is drained.
-      metadata: streamResult.metadata,
-    };
+    // toolsUsed/toolExecutions are attached via defineProperties, not listed
+    // as plain fields: see the identical comment on the ModelPool branch
+    // above — a plain `toolsUsed: streamResult.toolsUsed` here would invoke
+    // and freeze a getter-based provider's value before any chunk is drained.
+    return Object.defineProperties(
+      {
+        stream: streamResult.stream,
+        provider: providerName,
+        usage: streamResult.usage,
+        model: streamResult.model || options.model,
+        finishReason: streamResult.finishReason,
+        toolCalls: streamResult.toolCalls ?? [],
+        toolResults: streamResult.toolResults ?? [],
+        analytics: streamResult.analytics,
+        // Pass the provider's metadata object THROUGH BY REFERENCE: native
+        // background-loop streams (Vertex Gemini/Claude) resolve
+        // finishReason/stopReason/rawFinishReason/stepsUsed onto it only when
+        // the loop finishes — snapshotting fields here would freeze them as
+        // undefined before the stream is drained.
+        metadata: streamResult.metadata,
+      },
+      pickLiveStreamDescriptors(streamResult, ["toolsUsed", "toolExecutions"]),
+    );
   }
 
   /**
@@ -12018,29 +12061,48 @@ Current user's request: ${currentInput}`;
        * undefined.
        */
       providerMetadata?: StreamResult["metadata"];
+      /**
+       * The createMCPStream() outcome object carrying toolsUsed/toolExecutions
+       * (declared on StreamResult, see src/lib/types/stream.ts). Passed as the
+       * object itself, not the already-read fields, so pickLiveStreamDescriptors
+       * below can copy their descriptors — a getter-based provider's value
+       * stays lazy instead of being read (and frozen) once here.
+       */
+      toolTelemetrySource?: {
+        toolsUsed?: string[];
+        toolExecutions?: ToolExecutionSummary[];
+      };
     },
   ): StreamResult {
-    return {
-      stream,
-      provider: config.providerName,
-      model: config.options.model,
-      usage: streamResult.usage,
-      finishReason: streamResult.finishReason,
-      toolCalls: streamResult.toolCalls,
-      toolResults: streamResult.toolResults,
-      analytics: streamResult.analytics,
-      evaluation: streamResult.evaluation,
-      events:
-        config.events && config.events.length > 0 ? config.events : undefined,
-      metadata: Object.assign(config.providerMetadata ?? {}, {
-        streamId: config.streamId,
-        startTime: config.startTime,
-        responseTime: config.responseTime,
-        fallback: config.fallback || false,
-        guardrailsBlocked: config.guardrailsBlocked,
-        error: config.error,
-      }),
-    };
+    return Object.defineProperties(
+      {
+        stream,
+        provider: config.providerName,
+        model: config.options.model,
+        usage: streamResult.usage,
+        finishReason: streamResult.finishReason,
+        toolCalls: streamResult.toolCalls,
+        toolResults: streamResult.toolResults,
+        analytics: streamResult.analytics,
+        evaluation: streamResult.evaluation,
+        events:
+          config.events && config.events.length > 0 ? config.events : undefined,
+        metadata: Object.assign(config.providerMetadata ?? {}, {
+          streamId: config.streamId,
+          startTime: config.startTime,
+          responseTime: config.responseTime,
+          fallback: config.fallback || false,
+          guardrailsBlocked: config.guardrailsBlocked,
+          error: config.error,
+        }),
+      },
+      config.toolTelemetrySource
+        ? pickLiveStreamDescriptors(config.toolTelemetrySource, [
+            "toolsUsed",
+            "toolExecutions",
+          ])
+        : {},
+    );
   }
 
   /**
