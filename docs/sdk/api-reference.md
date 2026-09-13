@@ -1330,7 +1330,7 @@ AZURE_OPENAI_DEPLOYMENT_ID?: string              // Deployment ID
 
 // Hugging Face
 HUGGINGFACE_API_KEY: string                      // HF token from huggingface.co
-HUGGINGFACE_MODEL?: string                       // Default: 'microsoft/DialoGPT-medium'
+HUGGINGFACE_MODEL?: string                       // Default: 'Qwen/Qwen2.5-72B-Instruct'
 
 // Ollama (Local)
 OLLAMA_BASE_URL?: string                         // Default: 'http://localhost:11434'

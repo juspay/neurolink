@@ -12,7 +12,7 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **Anthropic** - Claude 4.5 Opus/Sonnet/Haiku, Claude 4.0 Opus/Sonnet, Claude 3.7 Sonnet
 - **Azure OpenAI** - GPT-4, GPT-3.5-Turbo
 - **LiteLLM** - 100+ models from all providers via proxy server
-- **Hugging Face** - 100,000+ open source models including DialoGPT, GPT-2, GPT-Neo
+- **Hugging Face** - open models served by the unified router (Llama 3.x, Qwen 2.5, DeepSeek, Mistral)
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
 - **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
 - **DeepSeek** - deepseek-chat (V3) and deepseek-reasoner (R1)
@@ -862,7 +862,7 @@ export HUGGINGFACE_API_KEY="hf_your_token_here"
 ### Optional Configuration
 
 ```bash
-export HUGGINGFACE_MODEL="microsoft/DialoGPT-medium"  # Default model
+export HUGGINGFACE_MODEL="Qwen/Qwen2.5-72B-Instruct"  # Default model
 ```
 
 ### Model Selection Strategy
@@ -905,11 +905,12 @@ const result = await neurolink.generate({
 
 ### Popular Models
 
-- `microsoft/DialoGPT-medium` (default) - Conversational AI
-- `gpt2` - Classic GPT-2
-- `distilgpt2` - Lightweight GPT-2
-- `EleutherAI/gpt-neo-2.7B` - Large open model
-- `bigscience/bloom-560m` - Multilingual model
+- `Qwen/Qwen2.5-72B-Instruct` (default) - tool-capable, strong multilingual
+- `meta-llama/Llama-3.1-8B-Instruct` - fastest of the served set, tool-capable
+- `meta-llama/Llama-3.3-70B-Instruct` - stronger general reasoning
+- `deepseek-ai/DeepSeek-V3` - highest quality of the served set
+- `Qwen/Qwen2.5-Coder-32B-Instruct` - code-focused
+- Any id listed by `GET https://router.huggingface.co/v1/models`
 
 ### Getting Started with Hugging Face
 
@@ -1801,7 +1802,7 @@ AZURE_OPENAI_DEPLOYMENT_ID=your-deployment-name
 
 # Hugging Face
 HUGGINGFACE_API_KEY=hf_your_token_here
-HUGGINGFACE_MODEL=microsoft/DialoGPT-medium  # Optional
+HUGGINGFACE_MODEL=Qwen/Qwen2.5-72B-Instruct  # Optional
 
 # Ollama (Local AI)
 OLLAMA_BASE_URL=http://localhost:11434  # Optional
