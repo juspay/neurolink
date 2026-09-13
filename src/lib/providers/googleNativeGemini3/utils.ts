@@ -564,7 +564,11 @@ export function buildNativeConfig(
     temperature?: number;
     maxTokens?: number;
     systemPrompt?: string;
-    /** Model id, used for the registry-driven sampling-param strip. */
+    /**
+     * Model id, used for the registry-driven sampling-param strip and to
+     * pick the right thinkingConfig wire shape (thinkingLevel for Gemini 3,
+     * a translated numeric thinkingBudget for Gemini 2.5).
+     */
     model?: string;
     thinkingConfig?: ThinkingConfig;
     /**
@@ -603,9 +607,17 @@ export function buildNativeConfig(
     config.systemInstruction = options.systemPrompt;
   }
 
-  // Add thinking config for Gemini 3
+  // Add thinking config. `options.model` is the resolved model id (both
+  // call sites in googleAiStudio/client.ts pass their effective `modelName`
+  // in) — createNativeThinkingConfig picks the wire shape from it: Gemini 3
+  // gets thinkingLevel passthrough, Gemini 2.5 gets a translated numeric
+  // thinkingBudget (see thinkingConfig.ts). Mirrors the Vertex call sites
+  // in googleVertex/client.ts, which this native path was previously
+  // missing — Google AI Studio's identical native SDK rejects
+  // thinkingLevel on Gemini 2.5 exactly like Vertex does.
   const nativeThinkingConfig = createNativeThinkingConfig(
     options.thinkingConfig,
+    options.model,
   );
   if (nativeThinkingConfig) {
     config.thinkingConfig = nativeThinkingConfig;

@@ -8,7 +8,7 @@
 
 > **EnhancedGenerateResult** = [`GenerateResult`](GenerateResult.md) & `object`
 
-Defined in: [types/generate.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1747)
+Defined in: [types/generate.ts:1756](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1756)
 
 ## Type Declaration
 

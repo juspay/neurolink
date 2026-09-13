@@ -602,8 +602,18 @@ export type CreateThinkingConfigOptions = {
   thinkingLevel?: ThinkingLevel;
 };
 
-/** Native SDK thinkingConfig structure for Gemini native SDK. */
+/**
+ * Native SDK thinkingConfig structure for Gemini native SDK.
+ *
+ * `thinkingLevel` and `thinkingBudget` are mutually exclusive on the wire:
+ * Gemini 3 models accept `thinkingLevel`; Gemini 2.5 (and earlier) models
+ * reject it outright with INVALID_ARGUMENT "thinking_level not supported by
+ * this model" and require the numeric `thinkingBudget` instead. Both fields
+ * are optional here so a single type can represent either shape — callers
+ * building the request pick whichever field the target model accepts.
+ */
 export type NativeThinkingConfig = {
   includeThoughts: boolean;
-  thinkingLevel: ThinkingLevel;
+  thinkingLevel?: ThinkingLevel;
+  thinkingBudget?: number;
 };

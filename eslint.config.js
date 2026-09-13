@@ -457,6 +457,15 @@ export default [
             // drives `new NeuroLink().stream()`; this one function is the
             // exception, and the suite's header says so.
             "test/continuous-test-suite-anthropic-execution-control.ts",
+            // `mapThinkingLevelToBudget` is a pure level->budget translation
+            // table (THINKING_LEVEL_FRACTIONS' 0/0.25/0.55/1 split). The
+            // live cases in this suite only observe it indirectly, through
+            // `reasoningTokens` ordering on a real Gemini 2.5 call — real
+            // signal, but unable to pin the exact fractions without live
+            // credentials. Every other case drives `new NeuroLink().generate()`;
+            // this one function is the exception, and the suite's header says
+            // so.
+            "test/continuous-test-suite-gemini-thinking-level.ts",
 
             // ---------------------------------------------------------------
             // Grandfathered when this rule was extended to cover deep `dist/`

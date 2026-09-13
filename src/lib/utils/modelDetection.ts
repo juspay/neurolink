@@ -66,6 +66,53 @@ export function getMaxThinkingBudgetTokens(modelName: string): number {
   return 10000;
 }
 
+// Per-model `thinkingBudget` bounds for the Gemini 2.5 family, confirmed
+// against live Vertex generateContent responses (not just vendor docs, which
+// have been observed to drift from runtime behavior — see the "known gotcha"
+// on Gemini 2.5 Pro's range in public bug reports). Vertex rejects a budget
+// outside these bounds with INVALID_ARGUMENT "thinking_budget is out of
+// range; supported values are integers from <min> to <max>".
+//
+// Flash's true floor is 1, but budget:1 measured 0 thoughtsTokenCount — i.e.
+// technically accepted but indistinguishable from thinking being off. The
+// floor is bumped to 128 (Pro's real floor) here so a "minimal" mapping
+// still produces observable thinking. Must precede the plain "flash" pattern
+// below — "gemini-2.5-flash-lite" also matches a bare `/^gemini-2\.5-flash/`.
+const GEMINI_25_THINKING_BUDGET_RANGES: ReadonlyArray<{
+  pattern: RegExp;
+  min: number;
+  max: number;
+}> = [
+  { pattern: /^gemini-2\.5-flash-lite/i, min: 512, max: 24576 },
+  { pattern: /^gemini-2\.5-flash/i, min: 128, max: 24576 },
+  { pattern: /^gemini-2\.5-pro/i, min: 128, max: 32768 },
+];
+
+// Bounds safe for any Gemini 2.5 variant not explicitly listed above — the
+// intersection of all three known models' verified ranges, so a model we
+// haven't named still gets a budget every family member accepts.
+const GEMINI_25_FALLBACK_BUDGET_RANGE = { min: 512, max: 24576 };
+
+/**
+ * Resolves the Vertex-accepted `thinkingBudget` bounds for a Gemini 2.5
+ * model. Returns undefined for anything that isn't a Gemini 2.5 model —
+ * Gemini 3 takes `thinkingLevel` directly, and no thinking-budget mapping
+ * has been verified for earlier Gemini generations.
+ */
+export function getGemini25ThinkingBudgetRange(
+  modelName: string,
+): { min: number; max: number } | undefined {
+  if (!isValidModelName(modelName) || !isGemini25Model(modelName)) {
+    return undefined;
+  }
+  for (const { pattern, min, max } of GEMINI_25_THINKING_BUDGET_RANGES) {
+    if (pattern.test(modelName)) {
+      return { min, max };
+    }
+  }
+  return GEMINI_25_FALLBACK_BUDGET_RANGE;
+}
+
 export function getModelFamily(modelName: string): string {
   if (!isValidModelName(modelName)) {
     return "unknown";

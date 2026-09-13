@@ -1570,19 +1570,28 @@ export type TextGenerationOptions = {
    * - Range: 5000-100000 tokens
    * - `thinkingLevel` is ignored for Anthropic
    *
-   * **Google Gemini 3 (gemini-3.1-pro-preview, gemini-3-flash-preview):**
-   * - Use `thinkingConfig.thinkingLevel` or `thinkingLevel`
+   * **Google Gemini 2.5 and 3 (gemini-2.5-pro/flash/flash-lite,
+   * gemini-3.1-pro-preview, gemini-3-flash-preview), via `thinkingConfig`:**
+   * - Use `thinkingConfig.thinkingLevel` (the public contract is the same
+   *   `thinkingLevel` lever for the whole Gemini family)
    * - Levels: minimal, low, medium, high
-   * - `budgetTokens` is ignored for Gemini (uses level-based allocation)
+   * - `thinkingConfig.budgetTokens` is not read for Gemini — the wire-level
+   *   Vertex/native-SDK request always carries a level-derived value.
+   *   Internally, Gemini 3 sends the vendor's `thinkingLevel` field as-is;
+   *   Gemini 2.5 has no such field (Vertex rejects it with INVALID_ARGUMENT
+   *   "thinking_level not supported by this model") and the requested level
+   *   is translated to the vendor's numeric `thinkingBudget` within that
+   *   model's verified range instead. That translation is an implementation
+   *   detail of the provider — callers keep using `thinkingLevel` either way.
    *
    * ### Option Compatibility Matrix
    *
-   * | Option         | Anthropic | Gemini 3 | Other Providers |
-   * |----------------|-----------|----------|-----------------|
-   * | thinking       | Yes       | Yes      | Ignored         |
-   * | thinkingBudget | Yes       | Ignored  | Ignored         |
-   * | thinkingLevel  | Ignored   | Yes      | Ignored         |
-   * | thinkingConfig | Yes       | Yes      | Ignored         |
+   * | Option         | Anthropic | Gemini 2.5 / 3 | Other Providers |
+   * |----------------|-----------|----------------|------------------|
+   * | thinking       | Yes       | Yes            | Ignored          |
+   * | thinkingBudget | Yes       | Ignored        | Ignored          |
+   * | thinkingLevel  | Ignored   | Yes            | Ignored          |
+   * | thinkingConfig | Yes       | Yes            | Ignored          |
    *
    * ### Examples
    *

@@ -8,7 +8,7 @@
 
 > **TTSMetadata** = `object`
 
-Defined in: [types/generate.ts:1732](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1732)
+Defined in: [types/generate.ts:1741](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1741)
 
 Enhanced result type with optional analytics/evaluation
 
@@ -18,7 +18,7 @@ Enhanced result type with optional analytics/evaluation
 
 > **attempted**: `boolean`
 
-Defined in: [types/generate.ts:1734](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1734)
+Defined in: [types/generate.ts:1743](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1743)
 
 Whether TTS synthesis was invoked. False indicates TTS was skipped.
 
@@ -28,7 +28,7 @@ Whether TTS synthesis was invoked. False indicates TTS was skipped.
 
 > **success**: `boolean`
 
-Defined in: [types/generate.ts:1736](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1736)
+Defined in: [types/generate.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1745)
 
 Whether TTS synthesis completed successfully.
 
@@ -38,7 +38,7 @@ Whether TTS synthesis completed successfully.
 
 > `optional` **error?**: `object`
 
-Defined in: [types/generate.ts:1738](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1738)
+Defined in: [types/generate.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1747)
 
 Structured synthesis error details, present only when synthesis failed.
 
@@ -60,6 +60,6 @@ Structured synthesis error details, present only when synthesis failed.
 
 > `optional` **latency?**: `number`
 
-Defined in: [types/generate.ts:1744](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1744)
+Defined in: [types/generate.ts:1753](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1753)
 
 TTS synthesis time in milliseconds.
