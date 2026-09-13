@@ -113,6 +113,7 @@
     "test:mcp:spans": "pnpm exec tsx test/continuous-test-suite-mcp-spans.ts",
     "test:mcp:infra": "pnpm exec tsx test/continuous-test-suite-mcp-infra.ts",
     "test:vendor-recovery": "pnpm exec tsx test/continuous-test-suite-native-vendor-recovery.ts",
+    "test:anthropic-generate-guard": "pnpm exec tsx test/continuous-test-suite-anthropic-generate-guard.ts",
     "test:browser-bundle": "pnpm exec tsx test/continuous-test-suite-browser-bundle.ts",
     "test:providers-mocked": "pnpm exec tsx test/continuous-test-suite-providers-mocked.ts",
     "scaffold:provider": "pnpm exec tsx tools/scaffold-provider.ts",

@@ -140,6 +140,7 @@ import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
 
 import { ANTHROPIC_BETA_HEADERS } from "./constants.js";
 import { cacheControlOf, withLastToolCacheBreakpoint } from "./cacheControl.js";
+import { createNativeGenerateGuard } from "../../context/nativeGenerateGuard.js";
 import {
   appendFinalResultInstruction,
   appendFinalResultTool,
@@ -1852,6 +1853,23 @@ export class AnthropicProvider extends BaseProvider {
     const loop = await runNativeGenerateLoop(
       {
         doGenerate,
+        ...createNativeGenerateGuard({
+          provider: "anthropic",
+          availableInputTokens: getAvailableInputTokens(
+            "anthropic",
+            modelId,
+            options.maxTokens ?? undefined,
+          ),
+          getFixedOverheadTokens: () =>
+            estimateTokens(
+              JSON.stringify({
+                tools: v3Tools,
+                responseFormat,
+                providerOptions,
+              }),
+              "anthropic",
+            ),
+        }),
         conversation,
         ...(hasTools ? { tools: v3Tools } : {}),
         toolsRecord,
