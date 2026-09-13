@@ -134,3 +134,19 @@ jobs:
           IDEOGRAM_API_KEY: ${{ secrets.IDEOGRAM_API_KEY }}
           RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      # The parity suite between generate() and stream() reasoning. It is
+      # registered in ci.yml's `extended-suites`, but that tier runs with no
+      # provider credentials by design, so `skipUnlessProviderAvailable`
+      # makes every live leg SKIP there — registered, never exercised. This
+      # job is the only place in CI that holds DEEPSEEK_API_KEY, which is the
+      # one credential the suite reads.
+      #
+      # Bounded like the two sweeps above: the suite samples the generate leg
+      # repeatedly to avoid failing on a single quiet turn, so its worst case
+      # is several live round trips rather than one.
+      - name: Live reasoning parity — generate() vs stream() (SKIPs cleanly without the key)
+        run: pnpm run test:reasoning-parity-live
+        timeout-minutes: 15
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
