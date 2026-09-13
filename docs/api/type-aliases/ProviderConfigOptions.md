@@ -8,7 +8,7 @@
 
 > **ProviderConfigOptions** = `object`
 
-Defined in: [types/providers.ts:697](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L697)
+Defined in: [types/providers.ts:698](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L698)
 
 Configuration options for provider validation
 
@@ -18,7 +18,7 @@ Configuration options for provider validation
 
 > **providerName**: `string`
 
-Defined in: [types/providers.ts:698](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L698)
+Defined in: [types/providers.ts:699](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L699)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:698](https://github.com/juspay/neurolink/blob/re
 
 > **envVarName**: `string`
 
-Defined in: [types/providers.ts:699](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L699)
+Defined in: [types/providers.ts:700](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L700)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:699](https://github.com/juspay/neurolink/blob/re
 
 > **setupUrl**: `string`
 
-Defined in: [types/providers.ts:700](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L700)
+Defined in: [types/providers.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L701)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:700](https://github.com/juspay/neurolink/blob/re
 
 > **description**: `string`
 
-Defined in: [types/providers.ts:701](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L701)
+Defined in: [types/providers.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L702)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:701](https://github.com/juspay/neurolink/blob/re
 
 > **instructions**: `string`[]
 
-Defined in: [types/providers.ts:702](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L702)
+Defined in: [types/providers.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L703)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:702](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **fallbackEnvVars?**: `string`[]
 
-Defined in: [types/providers.ts:703](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L703)
+Defined in: [types/providers.ts:704](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L704)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/providers.ts:703](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **optional?**: `boolean`
 
-Defined in: [types/providers.ts:708](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L708)
+Defined in: [types/providers.ts:709](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L709)

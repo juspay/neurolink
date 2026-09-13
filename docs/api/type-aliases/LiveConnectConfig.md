@@ -8,7 +8,7 @@
 
 > **LiveConnectConfig** = `object`
 
-Defined in: [types/providers.ts:1112](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1112)
+Defined in: [types/providers.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1113)
 
 Live connection configuration
 
@@ -18,7 +18,7 @@ Live connection configuration
 
 > **model**: `string`
 
-Defined in: [types/providers.ts:1113](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1113)
+Defined in: [types/providers.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1114)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:1113](https://github.com/juspay/neurolink/blob/r
 
 > **callbacks**: [`LiveConnectCallbacks`](LiveConnectCallbacks.md)
 
-Defined in: [types/providers.ts:1114](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1114)
+Defined in: [types/providers.ts:1115](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1115)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:1114](https://github.com/juspay/neurolink/blob/r
 
 > **config**: `object`
 
-Defined in: [types/providers.ts:1115](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1115)
+Defined in: [types/providers.ts:1116](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1116)
 
 #### responseModalities
 

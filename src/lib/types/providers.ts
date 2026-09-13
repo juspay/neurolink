@@ -213,6 +213,7 @@ export type NeurolinkCredentials = {
   cerebras?: { apiKey?: string; baseURL?: string };
   cloudflare?: { apiKey?: string; baseURL?: string; accountId?: string };
   fireworks?: { apiKey?: string; baseURL?: string };
+  friendli?: { apiKey?: string; baseURL?: string };
   gmicloud?: { apiKey?: string; baseURL?: string };
   groq?: { apiKey?: string; baseURL?: string };
   inceptionLabs?: { apiKey?: string; baseURL?: string };

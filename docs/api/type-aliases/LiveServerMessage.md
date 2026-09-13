@@ -8,7 +8,7 @@
 
 > **LiveServerMessage** = `object`
 
-Defined in: [types/providers.ts:1095](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1095)
+Defined in: [types/providers.ts:1096](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1096)
 
 Live server message structure
 
@@ -18,4 +18,4 @@ Live server message structure
 
 > `optional` **serverContent?**: [`LiveServerContent`](LiveServerContent.md)
 
-Defined in: [types/providers.ts:1096](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1096)
+Defined in: [types/providers.ts:1097](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1097)

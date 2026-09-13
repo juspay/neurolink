@@ -8,7 +8,7 @@
 
 > **LiveServerMessagePartInlineData** = `object`
 
-Defined in: [types/providers.ts:1073](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1073)
+Defined in: [types/providers.ts:1074](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1074)
 
 Live server message inline data
 
@@ -18,4 +18,4 @@ Live server message inline data
 
 > `optional` **data?**: `string`
 
-Defined in: [types/providers.ts:1074](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1074)
+Defined in: [types/providers.ts:1075](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1075)

@@ -8,7 +8,7 @@
 
 > **ProviderConstructor** = ((`modelName?`, `providerName?`, `sdk?`, `region?`, `credentials?`) => [`AIProvider`](AIProvider.md)) \| ((`modelName?`, `providerName?`, `sdk?`, `region?`, `credentials?`) => `Promise`\<[`AIProvider`](AIProvider.md)\>)
 
-Defined in: [types/providers.ts:2127](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2127)
+Defined in: [types/providers.ts:2128](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2128)
 
 Provider constructor interface - supports both sync constructors and async
 factory functions.

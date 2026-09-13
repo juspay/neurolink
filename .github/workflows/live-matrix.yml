@@ -74,6 +74,7 @@ jobs:
           SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
           BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
           GMICLOUD_API_KEY: ${{ secrets.GMICLOUD_API_KEY }}
+          FRIENDLI_API_KEY: ${{ secrets.FRIENDLI_API_KEY }}
           INCEPTION_LABS_API_KEY: ${{ secrets.INCEPTION_LABS_API_KEY }}
           IO_INTELLIGENCE_API_KEY: ${{ secrets.IO_INTELLIGENCE_API_KEY }}
           UPSTAGE_API_KEY: ${{ secrets.UPSTAGE_API_KEY }}
