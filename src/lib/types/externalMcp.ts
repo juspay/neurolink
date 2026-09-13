@@ -293,6 +293,14 @@ export type ExternalMCPToolResult = {
   /** Error message if failed */
   error?: string;
 
+  /**
+   * True when the call completed at the transport level but the MCP result
+   * itself is `{ isError: true }`. `success` stays true for such results so
+   * the resolved MCP error payload still reaches the caller unchanged; this
+   * flag is what lets stats and telemetry count the call as a failure.
+   */
+  isErrorResult?: boolean;
+
   /** Execution duration in milliseconds */
   duration: number;
 

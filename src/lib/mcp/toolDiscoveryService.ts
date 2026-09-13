@@ -595,134 +595,153 @@ export class ToolDiscoveryService extends EventEmitter {
         },
       );
 
-      // Execute tool with circuit breaker protection
-      const result = await circuitBreaker.execute(async () => {
-        return mcpTracer.startActiveSpan(
-          "neurolink.mcp.callTool",
-          {
-            kind: SpanKind.CLIENT,
-            attributes: {
-              "mcp.server_id": serverId,
-              "mcp.tool_name": toolName,
-              "mcp.timeout_ms": effectiveTimeout,
-              // Curator P1-4: Langfuse observations rely on ai.*/gen_ai.*
-              // attributes for tool name and I/O previews. Provide them so
-              // the SPAN observation in Langfuse is legible without
-              // timestamp-joining against the parent ai.toolCall. Redact
-              // parameters via the existing secret-stripping helper so
-              // tokens/credentials/paths don't leave the process.
-              "ai.tool.name": toolName,
-              "gen_ai.tool.name": toolName,
-              "gen_ai.request": safeJsonStringify(
-                {
-                  name: toolName,
-                  arguments: redactForPreview(effectiveParameters),
-                },
-                2048,
-              ),
-            },
-          },
-          async (callSpan) => {
-            try {
-              const timeout = effectiveTimeout;
-              // Pass the timeout as MCP RequestOptions too: without it the
-              // SDK applies its own DEFAULT_REQUEST_TIMEOUT_MSEC (60s), so a
-              // configured server timeout above 60s never took effect — the
-              // SDK aborted first. The SDK timeout also cancels the transport
-              // request and sends a cancellation notification, which the
-              // outer Promise.race below (kept as a backstop) cannot do.
-              const callResult = await withTimeout(
-                client.callTool(
+      // Execute tool with circuit breaker protection. `recordResolvedFailure`
+      // lets the callback below tell the breaker that a *resolved* MCP
+      // isError result is a failure — the MCP client does not throw on a
+      // protocol error, so without this the breaker would only ever see a
+      // clean resolve and could never open for a tool that fails this way.
+      let isErrorResultDetected = false;
+      const result = await circuitBreaker.execute(
+        async (recordResolvedFailure) => {
+          return mcpTracer.startActiveSpan(
+            "neurolink.mcp.callTool",
+            {
+              kind: SpanKind.CLIENT,
+              attributes: {
+                "mcp.server_id": serverId,
+                "mcp.tool_name": toolName,
+                "mcp.timeout_ms": effectiveTimeout,
+                // Curator P1-4: Langfuse observations rely on ai.*/gen_ai.*
+                // attributes for tool name and I/O previews. Provide them so
+                // the SPAN observation in Langfuse is legible without
+                // timestamp-joining against the parent ai.toolCall. Redact
+                // parameters via the existing secret-stripping helper so
+                // tokens/credentials/paths don't leave the process.
+                "ai.tool.name": toolName,
+                "gen_ai.tool.name": toolName,
+                "gen_ai.request": safeJsonStringify(
                   {
                     name: toolName,
-                    arguments: effectiveParameters,
+                    arguments: redactForPreview(effectiveParameters),
                   },
-                  undefined,
-                  { timeout: effectiveTimeout },
+                  2048,
                 ),
-                timeout,
-                new Error(`Tool execution timeout: ${toolName}`),
-              );
-              // Curator P0-1/P0-2: the MCP client does NOT throw on protocol
-              // errors — it returns { isError: true, content: [...] }. Detect
-              // that pattern so the span status reflects reality.
-              const resultObj = callResult as {
-                isError?: unknown;
-                content?: unknown;
-              } | null;
-              if (resultObj && resultObj.isError === true) {
-                const errorText = extractMcpErrorText(resultObj);
-                callSpan.setStatus({
-                  code: SpanStatusCode.ERROR,
-                  message: errorText || `Tool ${toolName} returned isError`,
-                });
-              } else {
-                callSpan.setStatus({ code: SpanStatusCode.OK });
-              }
+              },
+            },
+            async (callSpan) => {
+              try {
+                const timeout = effectiveTimeout;
+                // Pass the timeout as MCP RequestOptions too: without it the
+                // SDK applies its own DEFAULT_REQUEST_TIMEOUT_MSEC (60s), so a
+                // configured server timeout above 60s never took effect — the
+                // SDK aborted first. The SDK timeout also cancels the transport
+                // request and sends a cancellation notification, which the
+                // outer Promise.race below (kept as a backstop) cannot do.
+                const callResult = await withTimeout(
+                  client.callTool(
+                    {
+                      name: toolName,
+                      arguments: effectiveParameters,
+                    },
+                    undefined,
+                    { timeout: effectiveTimeout },
+                  ),
+                  timeout,
+                  new Error(`Tool execution timeout: ${toolName}`),
+                );
+                // Curator P0-1/P0-2: the MCP client does NOT throw on protocol
+                // errors — it returns { isError: true, content: [...] }. Detect
+                // that pattern so the span status reflects reality.
+                const resultObj = callResult as {
+                  isError?: unknown;
+                  content?: unknown;
+                } | null;
+                if (resultObj && resultObj.isError === true) {
+                  const errorText = extractMcpErrorText(resultObj);
+                  callSpan.setStatus({
+                    code: SpanStatusCode.ERROR,
+                    message: errorText || `Tool ${toolName} returned isError`,
+                  });
+                  // NLK: count a resolved isError result as a breaker failure
+                  // and label completion telemetry as error below — without
+                  // throwing, so the protocol result is still returned as-is.
+                  isErrorResultDetected = true;
+                  recordResolvedFailure(
+                    errorText || `Tool ${toolName} returned isError`,
+                  );
+                } else {
+                  callSpan.setStatus({ code: SpanStatusCode.OK });
+                }
 
-              // ── MCP output normalization ──────────────────────────────────
-              // Intercept here — after receive, before cache, before memory,
-              // before LLM context injection. Returns a compact surrogate when
-              // the payload exceeds mcp.outputLimits.maxBytes.
-              let resultForPreview: unknown = callResult;
-              let resultForReturn: unknown = callResult;
-              if (this.outputNormalizer) {
-                try {
-                  const normalized = await this.outputNormalizer.normalize(
-                    callResult,
-                    { toolName, serverId },
-                  );
-                  callSpan.setAttribute(
-                    "mcp.output.strategy",
-                    normalized.isExternalized ? "externalize" : "inline",
-                  );
-                  if (normalized.isExternalized) {
+                // ── MCP output normalization ──────────────────────────────────
+                // Intercept here — after receive, before cache, before memory,
+                // before LLM context injection. Returns a compact surrogate when
+                // the payload exceeds mcp.outputLimits.maxBytes.
+                let resultForPreview: unknown = callResult;
+                let resultForReturn: unknown = callResult;
+                if (this.outputNormalizer) {
+                  try {
+                    const normalized = await this.outputNormalizer.normalize(
+                      callResult,
+                      { toolName, serverId },
+                    );
                     callSpan.setAttribute(
-                      "mcp.output.original_bytes",
-                      normalized.originalBytes,
+                      "mcp.output.strategy",
+                      normalized.isExternalized ? "externalize" : "inline",
+                    );
+                    if (normalized.isExternalized) {
+                      callSpan.setAttribute(
+                        "mcp.output.original_bytes",
+                        normalized.originalBytes,
+                      );
+                    }
+                    resultForPreview = normalized.result;
+                    resultForReturn = normalized.result;
+                  } catch (normErr) {
+                    mcpLogger.warn(
+                      `[ToolDiscoveryService] McpOutputNormalizer failed for ` +
+                        `${toolName}: ${normErr instanceof Error ? normErr.message : String(normErr)} ` +
+                        `— returning raw result`,
                     );
                   }
-                  resultForPreview = normalized.result;
-                  resultForReturn = normalized.result;
-                } catch (normErr) {
-                  mcpLogger.warn(
-                    `[ToolDiscoveryService] McpOutputNormalizer failed for ` +
-                      `${toolName}: ${normErr instanceof Error ? normErr.message : String(normErr)} ` +
-                      `— returning raw result`,
-                  );
                 }
+                // ── end normalization ─────────────────────────────────────────
+
+                // Curator P1-4: build gen_ai.response AFTER normalization so
+                // large payloads use the compact surrogate instead of the raw
+                // result (avoids redundant stringify + memory hit on payloads
+                // that were specifically externalized to Redis). Redact via the
+                // same secret-stripping path used for request parameters.
+                callSpan.setAttribute(
+                  "gen_ai.response",
+                  safeJsonStringify(redactForPreview(resultForPreview), 2048),
+                );
+
+                return resultForReturn;
+              } catch (err) {
+                callSpan.setStatus({
+                  code: SpanStatusCode.ERROR,
+                  message: (err as Error).message,
+                });
+                callSpan.recordException(err as Error);
+                throw err;
+              } finally {
+                callSpan.end();
               }
-              // ── end normalization ─────────────────────────────────────────
-
-              // Curator P1-4: build gen_ai.response AFTER normalization so
-              // large payloads use the compact surrogate instead of the raw
-              // result (avoids redundant stringify + memory hit on payloads
-              // that were specifically externalized to Redis). Redact via the
-              // same secret-stripping path used for request parameters.
-              callSpan.setAttribute(
-                "gen_ai.response",
-                safeJsonStringify(redactForPreview(resultForPreview), 2048),
-              );
-
-              return resultForReturn;
-            } catch (err) {
-              callSpan.setStatus({
-                code: SpanStatusCode.ERROR,
-                message: (err as Error).message,
-              });
-              callSpan.recordException(err as Error);
-              throw err;
-            } finally {
-              callSpan.end();
-            }
-          },
-        );
-      });
+            },
+          );
+        },
+      );
 
       const duration = Date.now() - startTime;
 
-      // Update tool statistics
-      this.updateToolStats(toolKey, true, duration);
+      // Update tool statistics. A resolved isError result is a failed call
+      // for completion telemetry purposes even though the wrapper below
+      // still returns success:true / data:result unchanged — flipping
+      // `success` here would make externalServerManager.executeTool() throw
+      // instead of returning the resolved MCP error, which is exactly the
+      // "thrown transport error" this fix must not introduce.
+      this.updateToolStats(toolKey, !isErrorResultDetected, duration);
 
       // Validate output if requested
       if (options.validateOutput !== false) {
@@ -740,6 +759,7 @@ export class ToolDiscoveryService extends EventEmitter {
       return {
         success: true,
         data: result,
+        isErrorResult: isErrorResultDetected,
         duration,
         metadata: {
           toolName,
