@@ -76,8 +76,18 @@ Defined in: [types/proxy.ts:765](https://github.com/juspay/neurolink/blob/releas
 
 ---
 
+### rejectionReasons
+
+> **rejectionReasons**: `Record`\<`string`, `number`\>
+
+Defined in: [types/proxy.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L767)
+
+Admission failures by exact guard, independent of processing failures.
+
+---
+
 ### lastError?
 
 > `optional` **lastError?**: `string`
 
-Defined in: [types/proxy.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L766)
+Defined in: [types/proxy.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L768)

@@ -8,6 +8,6 @@
 
 > **ProxyShareLeaseRefusal** = `Extract`\<[`ProxyShareLeaseVerdict`](ProxyShareLeaseVerdict.md), \{ `usable`: `false`; \}\>
 
-Defined in: [types/proxy.ts:4324](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4324)
+Defined in: [types/proxy.ts:4364](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4364)
 
 The refusing half of [ProxyShareLeaseVerdict](ProxyShareLeaseVerdict.md).

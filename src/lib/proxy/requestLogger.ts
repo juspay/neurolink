@@ -11,7 +11,9 @@ import {
   getProxyOtelLogSnapshot,
   initializeProxyOtelLogs,
   isProxyOtelOnly,
+  publishProxyOtelBody,
 } from "./otelLogSink.js";
+import { randomUUID } from "node:crypto";
 import { join } from "path";
 import { homedir } from "os";
 import { logger } from "../utils/logger.js";
@@ -43,6 +45,7 @@ import type {
   RequestLogEntry,
   StoredBodyArtifact,
   ProcessedProxyBodyCapture,
+  ProxyBodyDeliveryResult,
   ProxyRequestLoggerSnapshot,
   ProxyRequestLogSinkSnapshot,
 } from "../types/index.js";
@@ -51,7 +54,7 @@ import { OtelBridge } from "../observability/otelBridge.js";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import { configureProxyLifecycleLogger } from "./proxyLifecycle.js";
-import { notifyProxyFinalLog } from "./proxyActivity.js";
+import { notifyProxyFinalLog, notifyProxyAttemptLog } from "./proxyActivity.js";
 import { withTimeout } from "../utils/async/withTimeout.js";
 
 let logDir: string | null = null;
@@ -305,10 +308,6 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
 export async function logRequestAttempt(
   entry: RequestAttemptLogEntry,
 ): Promise<void> {
-  if (!logEnabled || (!logDir && !isProxyOtelOnly())) {
-    return;
-  }
-
   if (!entry.traceId) {
     const bridge = new OtelBridge();
     const traceCtx = bridge.getCurrentTraceContext();
@@ -316,6 +315,11 @@ export async function logRequestAttempt(
       entry.traceId = traceCtx.traceId;
       entry.spanId = traceCtx.spanId;
     }
+  }
+
+  notifyProxyAttemptLog(entry);
+  if (!logEnabled || (!logDir && !isProxyOtelOnly())) {
+    return;
   }
 
   if (isProxyOtelOnly()) {
@@ -559,26 +563,20 @@ function pruneEmptyDirectories(directory: string, stopAt: string): void {
 function emitOtlpBodyLogRecord(
   entry: ProxyBodyCaptureEntry,
   stored: StoredBodyArtifact,
-): Promise<void> {
+): Promise<ProxyBodyDeliveryResult | undefined> {
   return resolveLoggerProvider()
-    .then(async (provider) => {
+    .then(async (provider): Promise<ProxyBodyDeliveryResult | undefined> => {
       if (!provider || stored.redactedBody === undefined) {
-        return;
+        return undefined;
       }
 
       const otelLogger = provider.getLogger("neurolink-proxy-bodies", "1.0.0");
-      const chunks = splitUtf8StringByBytes(
-        stored.redactedBody,
-        BODY_OTLP_CHUNK_SIZE,
-      );
-      const totalChunks = Math.max(1, chunks.length);
-
-      for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
-        if (chunkIndex > 0 && chunkIndex % 4 === 0) {
-          await yieldToRequests();
-        }
-        const chunk = chunks[chunkIndex] ?? "";
-
+      const captureId = entry.captureId ?? randomUUID();
+      const emit = (
+        chunk: string,
+        chunkIndex: number,
+        totalChunks: number,
+      ): void => {
         otelLogger.emit({
           severityNumber:
             (entry.responseStatus ?? 0) >= 400
@@ -591,6 +589,7 @@ function emitOtlpBodyLogRecord(
             "proxy.record_kind": "body",
             "request.id": entry.requestId,
             "body.phase": entry.phase,
+            "body.capture_id": captureId,
             "body.chunk_index": chunkIndex,
             "body.chunk_count": totalChunks,
             "body.content_type": entry.contentType ?? "application/json",
@@ -625,10 +624,25 @@ function emitOtlpBodyLogRecord(
             source: "otlp",
           },
         });
+      };
+      if (isProxyOtelOnly()) {
+        return publishProxyOtelBody(captureId, stored.redactedBody, emit);
       }
+      const chunks = splitUtf8StringByBytes(
+        stored.redactedBody,
+        BODY_OTLP_CHUNK_SIZE,
+      );
+      for (let i = 0; i < chunks.length; i++) {
+        if (i > 0 && i % 4 === 0) {
+          await yieldToRequests();
+        }
+        emit(chunks[i], i, chunks.length);
+      }
+      return undefined;
     })
     .catch(() => {
       // Non-fatal — never crash proxy for OTLP log failures
+      return undefined;
     });
 }
 
@@ -655,7 +669,11 @@ export async function logBodyCapture(
   const destination = logDir;
   // Publication callbacks retain metadata and the bounded redacted result,
   // never the original unbounded body while a sink is slow.
-  const metadata = { ...entry, body: undefined };
+  const metadata = {
+    ...entry,
+    captureId: entry.captureId ?? randomUUID(),
+    body: undefined,
+  };
   /** Persist the processed capture index and publish its redacted body before releasing capacity. */
   const consume = async (
     processed: ProcessedProxyBodyCapture,
@@ -671,6 +689,7 @@ export async function logBodyCapture(
       timestamp: metadata.timestamp,
       type: "body_capture",
       requestId: metadata.requestId,
+      captureId: metadata.captureId,
       phase: metadata.phase,
       model: metadata.model,
       stream: metadata.stream,
@@ -687,6 +706,8 @@ export async function logBodyCapture(
       redactedBodyBytes: stored.redactedBodyBytes,
       storedFileBytes: stored.storedFileBytes,
       bodyTruncated: stored.bodyTruncated,
+      bodyCaptureLimitBytes: stored.bodyCaptureLimitBytes,
+      originalRedactedBodyBytes: stored.originalRedactedBodyBytes,
       bodyWriteFailed: stored.bodyWriteFailed,
       captureError: processed.error,
       captureQueueWaitMs: processed.queueWaitMs,
@@ -700,7 +721,24 @@ export async function logBodyCapture(
     }
 
     if (isProxyOtelOnly()) {
+      const delivery = await emitOtlpBodyLogRecord(
+        {
+          ...metadata,
+          traceId: traceCtx?.traceId ?? metadata.traceId,
+          spanId: traceCtx?.spanId ?? metadata.spanId,
+        },
+        stored,
+      );
+      indexEntry.bodyDelivery = delivery ?? {
+        status: processed.error
+          ? "capture_rejected"
+          : stored.redactedBody === undefined
+            ? "no_body"
+            : "export_unconfirmed",
+        ...(processed.error ? { reason: processed.error } : {}),
+      };
       emitProxyOtelEvent("body_capture_index", indexEntry);
+      return;
     }
     try {
       if (logFile) {
@@ -726,7 +764,16 @@ export async function logBodyCapture(
       stored,
     );
   };
-  return trackLogOperation(captureProxyBody(entry, destination, consume));
+  const operation = trackLogOperation(
+    captureProxyBody(entry, destination, consume),
+  );
+  // HTTP handlers may await this function. Collector latency must never hold
+  // their response open; shutdown uses flushRequestLogs as the completion fence.
+  if (isProxyOtelOnly()) {
+    void operation;
+    return;
+  }
+  return operation;
 }
 
 /**

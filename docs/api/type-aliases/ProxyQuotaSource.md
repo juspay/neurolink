@@ -8,7 +8,7 @@
 
 > **ProxyQuotaSource** = `"live"` \| `"snapshot"` \| `"none"`
 
-Defined in: [types/proxy.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1559)
+Defined in: [types/proxy.ts:1593](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1593)
 
 Provenance of the quota numbers attached to a single proxy response.
 

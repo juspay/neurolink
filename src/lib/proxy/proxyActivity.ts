@@ -3,6 +3,7 @@ import type {
   ProxyResponseTerminalOutcome,
   ProxyResponseTrackingObserver,
   RequestLogEntry,
+  RequestAttemptLogEntry,
 } from "../types/index.js";
 import { withTimeout } from "../utils/async/withTimeout.js";
 import { logger } from "../utils/logger.js";
@@ -22,22 +23,45 @@ const responseObserversByMetadata = new WeakMap<
 >();
 
 const finalLogObservers = new Map<string, (entry: RequestLogEntry) => void>();
+const attemptLogObservers = new Map<
+  string,
+  (entry: RequestAttemptLogEntry) => void
+>();
 
 /** Join route accounting to the HTTP lifecycle without relying on write order. */
 export function observeProxyFinalLog(
   requestId: string,
   observer: (entry: RequestLogEntry) => void,
+  attemptObserver?: (entry: RequestAttemptLogEntry) => void,
 ): () => void {
   finalLogObservers.set(requestId, observer);
+  if (attemptObserver) {
+    attemptLogObservers.set(requestId, attemptObserver);
+  } else {
+    attemptLogObservers.delete(requestId);
+  }
   return () => {
     if (finalLogObservers.get(requestId) === observer) {
       finalLogObservers.delete(requestId);
+      attemptLogObservers.delete(requestId);
     }
   };
 }
 
 export function notifyProxyFinalLog(entry: RequestLogEntry): void {
   finalLogObservers.get(entry.requestId)?.(entry);
+}
+
+/** Retain only the last attempt for a currently observed HTTP request. */
+export function notifyProxyAttemptLog(entry: RequestAttemptLogEntry): void {
+  const observer = attemptLogObservers.get(entry.requestId);
+  observer?.(entry);
+  if (entry.parentRequestId && entry.parentRequestId !== entry.requestId) {
+    const parentObserver = attemptLogObservers.get(entry.parentRequestId);
+    if (parentObserver !== observer) {
+      parentObserver?.(entry);
+    }
+  }
 }
 
 export function registerProxyResponseObserver(

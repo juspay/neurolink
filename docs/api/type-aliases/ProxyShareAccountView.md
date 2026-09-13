@@ -8,7 +8,7 @@
 
 > **ProxyShareAccountView** = `object`
 
-Defined in: [types/proxy.ts:3810](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3810)
+Defined in: [types/proxy.ts:3850](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3850)
 
 One candidate account as the share gates see it.
 
@@ -18,7 +18,7 @@ One candidate account as the share gates see it.
 
 > **accountKey**: `string`
 
-Defined in: [types/proxy.ts:3811](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3811)
+Defined in: [types/proxy.ts:3851](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3851)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3811](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionUsed**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3813](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3813)
+Defined in: [types/proxy.ts:3853](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3853)
 
 0..1 utilization of the 5h window, or null when unobserved.
 
@@ -36,7 +36,7 @@ Defined in: [types/proxy.ts:3813](https://github.com/juspay/neurolink/blob/relea
 
 > **weeklyUsed**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3815](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3815)
+Defined in: [types/proxy.ts:3855](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3855)
 
 0..1 utilization of the 7d window, or null when unobserved.
 
@@ -46,7 +46,7 @@ Defined in: [types/proxy.ts:3815](https://github.com/juspay/neurolink/blob/relea
 
 > **sessionResetAt**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3817](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3817)
+Defined in: [types/proxy.ts:3857](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3857)
 
 Epoch ms when the 5h window resets, or null when unknown.
 
@@ -56,7 +56,7 @@ Epoch ms when the 5h window resets, or null when unknown.
 
 > **weeklyResetAt**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3819](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3819)
+Defined in: [types/proxy.ts:3859](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3859)
 
 Epoch ms when the 7d window resets, or null when unknown.
 
@@ -66,7 +66,7 @@ Epoch ms when the 7d window resets, or null when unknown.
 
 > **borrowedSessionFraction**: `number`
 
-Defined in: [types/proxy.ts:3821](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3821)
+Defined in: [types/proxy.ts:3861](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3861)
 
 Fraction (0..1) of the current 5h window this grant has already taken.
 
@@ -76,6 +76,6 @@ Fraction (0..1) of the current 5h window this grant has already taken.
 
 > **borrowedWeeklyFraction**: `number`
 
-Defined in: [types/proxy.ts:3823](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3823)
+Defined in: [types/proxy.ts:3863](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3863)
 
 Fraction (0..1) of the current 7d window this grant has already taken.

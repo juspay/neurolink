@@ -8,4 +8,4 @@
 
 > **TokenPersistTarget** = `string` \| \{ `credPath`: `string`; \} \| \{ `providerKey`: `string`; \}
 
-Defined in: [types/proxy.ts:1328](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1328)
+Defined in: [types/proxy.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1362)

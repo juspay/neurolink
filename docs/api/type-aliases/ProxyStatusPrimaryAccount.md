@@ -8,7 +8,7 @@
 
 > **ProxyStatusPrimaryAccount** = `object`
 
-Defined in: [types/proxy.ts:3088](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3088)
+Defined in: [types/proxy.ts:3128](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3128)
 
 Primary-account info exposed by the proxy `/status` endpoint.
 `source` is "configured" when the operator's `routing.primaryAccount` is
@@ -21,7 +21,7 @@ or the configured one is missing/disabled.
 
 > **configured**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3089](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3089)
+Defined in: [types/proxy.ts:3129](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3129)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/proxy.ts:3089](https://github.com/juspay/neurolink/blob/relea
 
 > **key**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3090](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3090)
+Defined in: [types/proxy.ts:3130](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3130)
 
 ---
 
@@ -37,7 +37,7 @@ Defined in: [types/proxy.ts:3090](https://github.com/juspay/neurolink/blob/relea
 
 > **label**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3091](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3091)
+Defined in: [types/proxy.ts:3131](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3131)
 
 ---
 
@@ -45,4 +45,4 @@ Defined in: [types/proxy.ts:3091](https://github.com/juspay/neurolink/blob/relea
 
 > **source**: `"configured"` \| `"fallback"`
 
-Defined in: [types/proxy.ts:3092](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3092)
+Defined in: [types/proxy.ts:3132](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3132)

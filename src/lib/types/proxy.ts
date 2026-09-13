@@ -763,8 +763,42 @@ export type ProxyBodyCaptureWorkerSnapshot = {
   pendingBytes: number;
   maxPending: number;
   maxPendingBytes: number;
+  /** Admission failures by exact guard, independent of processing failures. */
+  rejectionReasons: Record<string, number>;
   lastError?: string;
 };
+
+/** Collector transport evidence; acknowledgement does not prove backend storage. */
+export type ProxyBodyDeliveryResult = {
+  status:
+    | "transport_acknowledged"
+    | "export_unconfirmed"
+    | "rejected"
+    | "partial";
+  /** Absent when publication was rejected before chunking. */
+  expectedChunks?: number;
+  acknowledgedChunks: number;
+  unconfirmedChunks: number;
+  droppedChunks: number;
+  notSubmittedChunks?: number;
+  reason?: string;
+};
+
+/** One bounded body publication, tracked across exporter callbacks. */
+export type ProxyBodyPublicationProgress = {
+  acknowledged: number;
+  unconfirmed: number;
+  dropped: number;
+  emitted: number;
+  notify?: () => void;
+};
+
+/** Chunk emission stays in the request logger, which owns request attributes. */
+export type ProxyBodyChunkEmitter = (
+  chunk: string,
+  index: number,
+  count: number,
+) => void;
 export type ProxyRequestLoggerSnapshot = {
   diskEnabled?: boolean;
   otel?: ReturnType<
@@ -2335,6 +2369,8 @@ export type ProxyAnalysisRoutingRecord = {
 
 /** Request metadata retained by the HTTP adapter for terminal error logging. */
 export type RuntimeRequestMetadata = {
+  /** Last dispatched attempt, retained until this HTTP request terminates. */
+  lastUpstreamAttempt?: RequestAttemptLogEntry;
   requestId: string;
   method: string;
   path: string;
@@ -2377,6 +2413,8 @@ export type RawStreamCaptureResult = {
 
 /** Single captured body/headers entry written to disk by the proxy logger. */
 export type ProxyBodyCaptureEntry = {
+  /** Unique capture identity shared by its index and every exported chunk. */
+  captureId?: string;
   timestamp: string;
   requestId: string;
   phase: string;
@@ -2531,6 +2569,8 @@ export type StoredBodyArtifact = {
   storedFileBytes?: number;
   redactedBody?: string;
   bodyTruncated?: boolean;
+  bodyCaptureLimitBytes?: number;
+  originalRedactedBodyBytes?: number;
   bodyWriteFailed?: boolean;
 };
 

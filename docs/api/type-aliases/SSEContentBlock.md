@@ -8,7 +8,7 @@
 
 > **SSEContentBlock** = `object`
 
-Defined in: [types/proxy.ts:2549](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2549)
+Defined in: [types/proxy.ts:2589](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2589)
 
 Individual content block observed during an SSE stream.
 
@@ -18,7 +18,7 @@ Individual content block observed during an SSE stream.
 
 > **index**: `number`
 
-Defined in: [types/proxy.ts:2550](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2550)
+Defined in: [types/proxy.ts:2590](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2590)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2550](https://github.com/juspay/neurolink/blob/relea
 
 > **type**: `"text"` \| `"thinking"` \| `"tool_use"` \| `"tool_result"`
 
-Defined in: [types/proxy.ts:2551](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2551)
+Defined in: [types/proxy.ts:2591](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2591)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2551](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **text?**: `string`
 
-Defined in: [types/proxy.ts:2553](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2553)
+Defined in: [types/proxy.ts:2593](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2593)
 
 Accumulated text for text blocks. Capped at MAX_BLOCK_CONTENT_BYTES.
 
@@ -44,7 +44,7 @@ Accumulated text for text blocks. Capped at MAX_BLOCK_CONTENT_BYTES.
 
 > `optional` **thinking?**: `string`
 
-Defined in: [types/proxy.ts:2555](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2555)
+Defined in: [types/proxy.ts:2595](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2595)
 
 Accumulated thinking content. Capped at MAX_BLOCK_CONTENT_BYTES.
 
@@ -54,7 +54,7 @@ Accumulated thinking content. Capped at MAX_BLOCK_CONTENT_BYTES.
 
 > `optional` **toolName?**: `string`
 
-Defined in: [types/proxy.ts:2557](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2557)
+Defined in: [types/proxy.ts:2597](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2597)
 
 Tool name for tool_use blocks.
 
@@ -64,7 +64,7 @@ Tool name for tool_use blocks.
 
 > `optional` **toolId?**: `string`
 
-Defined in: [types/proxy.ts:2559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2559)
+Defined in: [types/proxy.ts:2599](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2599)
 
 Tool call id for tool_use blocks.
 
@@ -74,6 +74,6 @@ Tool call id for tool_use blocks.
 
 > `optional` **toolInput?**: `string`
 
-Defined in: [types/proxy.ts:2561](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2561)
+Defined in: [types/proxy.ts:2601](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2601)
 
 Accumulated partial JSON input for tool_use blocks. Capped at MAX_BLOCK_CONTENT_BYTES.

@@ -8,7 +8,7 @@
 
 > **ProxyShareNoteFile** = `object`
 
-Defined in: [types/proxy.ts:3981](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3981)
+Defined in: [types/proxy.ts:4021](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4021)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3981](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:3982](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3982)
+Defined in: [types/proxy.ts:4022](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4022)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:3982](https://github.com/juspay/neurolink/blob/relea
 
 > **notes**: `Record`\<`string`, [`ProxyShareNoteRecord`](ProxyShareNoteRecord.md)\>
 
-Defined in: [types/proxy.ts:3983](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3983)
+Defined in: [types/proxy.ts:4023](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4023)

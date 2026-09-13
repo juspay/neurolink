@@ -8,7 +8,7 @@
 
 > **ProxyAccountDirectoryOverride** = `object`
 
-Defined in: [types/proxy.ts:1532](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1532)
+Defined in: [types/proxy.ts:1566](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1566)
 
 Test-only replacement for the token store behind the account-exposing
 routes. The token store is a module singleton bound to the real home at
@@ -22,7 +22,7 @@ engine, exactly as the real listers would answer.
 
 > **knownKeys**: `Set`\<`string`\>
 
-Defined in: [types/proxy.ts:1533](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1533)
+Defined in: [types/proxy.ts:1567](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1567)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxy.ts:1533](https://github.com/juspay/neurolink/blob/relea
 
 > **anthropic**: [`ProxyPassthroughAccount`](ProxyPassthroughAccount.md)[]
 
-Defined in: [types/proxy.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1534)
+Defined in: [types/proxy.ts:1568](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1568)
 
 ---
 
@@ -38,4 +38,4 @@ Defined in: [types/proxy.ts:1534](https://github.com/juspay/neurolink/blob/relea
 
 > **codex**: [`ProxyPassthroughAccount`](ProxyPassthroughAccount.md)[]
 
-Defined in: [types/proxy.ts:1535](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1535)
+Defined in: [types/proxy.ts:1569](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1569)

@@ -11,6 +11,7 @@ import type {
 const REQUEST_LOG_IO_TIMEOUT_MS = 5_000;
 /** Maximum redacted body bytes persisted per capture entry. */
 const MAX_CAPTURED_BODY_BYTES = 1024 * 1024;
+const MAX_OTEL_CAPTURED_BODY_BYTES = 8 * 1024 * 1024;
 const BODY_TRUNCATION_MARKER = "\n...[TRUNCATED]";
 
 const gzip = promisify(gzipCallback);
@@ -165,17 +166,24 @@ export function splitUtf8StringByBytes(
  * Apply structural redaction before enforcing the per-artifact byte
  * ceiling.
  */
-function prepareRedactedBody(body: unknown): {
+function prepareRedactedBody(
+  body: unknown,
+  maxBytes = MAX_CAPTURED_BODY_BYTES,
+): {
   value?: string;
   bytes?: number;
   truncated: boolean;
+  originalBytes?: number;
 } {
   const redacted = redactBody(body);
   if (redacted === undefined) {
     return { truncated: false };
   }
 
-  return truncateUtf8String(redacted, MAX_CAPTURED_BODY_BYTES);
+  return {
+    ...truncateUtf8String(redacted, maxBytes),
+    originalBytes: utf8ByteLength(redacted),
+  };
 }
 
 /**
@@ -265,7 +273,9 @@ export async function processProxyBodyCapture(
   logDir: string | null,
 ): Promise<ProcessedProxyBodyCapture> {
   const headers = redactHeaders(entry.headers);
-  const prepared = prepareRedactedBody(entry.body);
+  const limit =
+    logDir === null ? MAX_OTEL_CAPTURED_BODY_BYTES : MAX_CAPTURED_BODY_BYTES;
+  const prepared = prepareRedactedBody(entry.body, limit);
   if (logDir === null) {
     return {
       headers,
@@ -273,6 +283,10 @@ export async function processProxyBodyCapture(
         redactedBody: prepared.value,
         redactedBodyBytes: prepared.bytes,
         bodyTruncated: prepared.truncated,
+        bodyCaptureLimitBytes: limit,
+        originalRedactedBodyBytes: prepared.originalBytes,
+        bodySha256:
+          prepared.value === undefined ? undefined : sha256(prepared.value),
       },
     };
   }
@@ -293,5 +307,12 @@ export async function processProxyBodyCapture(
       bodyWriteFailed: true,
     };
   }
-  return { headers, stored };
+  return {
+    headers,
+    stored: {
+      ...stored,
+      bodyCaptureLimitBytes: limit,
+      originalRedactedBodyBytes: prepared.originalBytes,
+    },
+  };
 }

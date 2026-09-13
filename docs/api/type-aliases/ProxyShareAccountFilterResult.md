@@ -8,7 +8,7 @@
 
 > **ProxyShareAccountFilterResult** = `object`
 
-Defined in: [types/proxy.ts:4053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4053)
+Defined in: [types/proxy.ts:4093](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4093)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4053](https://github.com/juspay/neurolink/blob/relea
 
 > **allowed**: `string`[]
 
-Defined in: [types/proxy.ts:4054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4054)
+Defined in: [types/proxy.ts:4094](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4094)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:4054](https://github.com/juspay/neurolink/blob/relea
 
 > **excluded**: [`ProxyShareAccountExclusion`](ProxyShareAccountExclusion.md)[]
 
-Defined in: [types/proxy.ts:4055](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4055)
+Defined in: [types/proxy.ts:4095](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4095)

@@ -8,7 +8,7 @@
 
 > **ProxyShareGates** = `object`
 
-Defined in: [types/proxy.ts:3631](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3631)
+Defined in: [types/proxy.ts:3671](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3671)
 
 The gate set. Every configured gate must pass; the effective allowance is the
 minimum across all of them. Gates are deliberately orthogonal so a headroom
@@ -21,7 +21,7 @@ a model allowlist, and so on.
 
 > `optional` **maxSlice?**: [`ProxyShareWindowSlice`](ProxyShareWindowSlice.md)
 
-Defined in: [types/proxy.ts:3636](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3636)
+Defined in: [types/proxy.ts:3676](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3676)
 
 Hard ceiling on how much of the **pool** the borrower may consume, as a
 percentage of one window's worth of capacity. Pool-wide because an
@@ -34,7 +34,7 @@ every credential they happen to own.
 
 > `optional` **maxSlicePerAccount?**: [`ProxyShareWindowSlice`](ProxyShareWindowSlice.md)
 
-Defined in: [types/proxy.ts:3639](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3639)
+Defined in: [types/proxy.ts:3679](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3679)
 
 Per-account ceiling. Rare — reach for `maxSlice` unless you specifically
 mean "this much of every credential, independently".
@@ -45,7 +45,7 @@ mean "this much of every credential, independently".
 
 > `optional` **reserveFloor?**: [`ProxyShareWindowSlice`](ProxyShareWindowSlice.md)
 
-Defined in: [types/proxy.ts:3641](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3641)
+Defined in: [types/proxy.ts:3681](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3681)
 
 Admit only while the lender's own utilization leaves this much headroom.
 
@@ -55,7 +55,7 @@ Admit only while the lender's own utilization leaves this much headroom.
 
 > `optional` **spillover?**: [`ProxyShareSpilloverGate`](ProxyShareSpilloverGate.md)
 
-Defined in: [types/proxy.ts:3642](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3642)
+Defined in: [types/proxy.ts:3682](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3682)
 
 ---
 
@@ -63,7 +63,7 @@ Defined in: [types/proxy.ts:3642](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **models?**: `string`[]
 
-Defined in: [types/proxy.ts:3644](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3644)
+Defined in: [types/proxy.ts:3684](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3684)
 
 Model tier allowlist, matched case-insensitively as substrings.
 
@@ -73,7 +73,7 @@ Model tier allowlist, matched case-insensitively as substrings.
 
 > `optional` **accounts?**: `string`[]
 
-Defined in: [types/proxy.ts:3646](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3646)
+Defined in: [types/proxy.ts:3686](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3686)
 
 Which of the lender's accounts are lendable under this grant.
 
@@ -83,7 +83,7 @@ Which of the lender's accounts are lendable under this grant.
 
 > `optional` **rate?**: [`ProxyShareRate`](ProxyShareRate.md)
 
-Defined in: [types/proxy.ts:3647](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3647)
+Defined in: [types/proxy.ts:3687](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3687)
 
 ---
 
@@ -91,7 +91,7 @@ Defined in: [types/proxy.ts:3647](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **schedule?**: [`ProxyShareSchedule`](ProxyShareSchedule.md)
 
-Defined in: [types/proxy.ts:3648](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3648)
+Defined in: [types/proxy.ts:3688](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3688)
 
 ---
 
@@ -99,6 +99,6 @@ Defined in: [types/proxy.ts:3648](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **notAfter?**: `number`
 
-Defined in: [types/proxy.ts:3650](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3650)
+Defined in: [types/proxy.ts:3690](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3690)
 
 Grant expiry, epoch ms.

@@ -1,5 +1,6 @@
 /* eslint-disable no-console -- This proxy-only sink replaces console methods with OTLP emission. */
 import { inspect } from "node:util";
+import { setImmediate as yieldToRequests } from "node:timers/promises";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ExportResult } from "@opentelemetry/core";
@@ -12,12 +13,35 @@ import {
 import type {
   LogRecordExporter,
   LogRecordProcessor,
+  ReadableLogRecord,
 } from "@opentelemetry/sdk-logs";
 import { sanitizeForLog } from "../utils/logSanitize.js";
+import { splitUtf8StringByBytes } from "./bodyCaptureProcessing.js";
+import type {
+  ProxyBodyChunkEmitter,
+  ProxyBodyDeliveryResult,
+  ProxyBodyPublicationProgress,
+} from "../types/index.js";
 
 let provider: LoggerProvider | undefined;
 let restoreConsole: (() => void) | undefined;
 const queues: Array<ReturnType<typeof createTrackedProcessor>> = [];
+const bodyPublications = new Map<string, ProxyBodyPublicationProgress>();
+let bodyPublicationChain = Promise.resolve();
+let shuttingDown = false;
+const bodyDelivery = {
+  attempted: 0,
+  transportAcknowledged: 0,
+  exportUnconfirmed: 0,
+  rejected: 0,
+  partial: 0,
+  pending: 0,
+  pendingBytes: 0,
+  highWaterPending: 0,
+  highWaterBytes: 0,
+  maxPending: 16,
+  maxPendingBytes: 32 * 1024 * 1024,
+};
 
 /** Explicit opt-in; configuration never silently falls back to file logging. */
 export function isProxyOtelOnly(): boolean {
@@ -25,7 +49,13 @@ export function isProxyOtelOnly(): boolean {
 }
 
 /** Reserve capacity including exports in flight, independently for metadata and bodies. */
-function createTrackedProcessor(url: string, capacity: number) {
+function createTrackedProcessor(
+  url: string,
+  capacity: number,
+  kind: "metadata" | "bodies",
+) {
+  const unsettled = new Set<ReadableLogRecord>();
+  const flushWaiters = new Set<() => void>();
   const state = {
     attempted: 0,
     submitted: 0,
@@ -35,16 +65,27 @@ function createTrackedProcessor(url: string, capacity: number) {
     outstanding: 0,
     lastAcknowledgedAt: undefined as string | undefined,
     lastFailureAt: undefined as string | undefined,
+    highWaterOutstanding: 0,
   };
   const transport = new OTLPLogExporter({ url, timeoutMillis: 5000 });
   const exporter: LogRecordExporter = {
     export(records, callback) {
       let settled = false;
+      const deadline = setTimeout(
+        () =>
+          settle({
+            code: ExportResultCode.FAILED,
+            error: new Error("OTLP export callback deadline exceeded"),
+          }),
+        6_000,
+      );
+      deadline.unref();
       const settle = (result: ExportResult): void => {
         if (settled) {
           return;
         }
         settled = true;
+        clearTimeout(deadline);
         state.outstanding -= records.length;
         if (result.code === ExportResultCode.SUCCESS) {
           state.transportAcknowledged += records.length;
@@ -52,6 +93,23 @@ function createTrackedProcessor(url: string, capacity: number) {
         } else {
           state.exportUnconfirmed += records.length;
           state.lastFailureAt = new Date().toISOString();
+        }
+        for (const record of records) {
+          unsettled.delete(record);
+          const id = record.attributes?.["body.capture_id"];
+          const publication =
+            typeof id === "string" ? bodyPublications.get(id) : undefined;
+          if (publication) {
+            if (result.code === ExportResultCode.SUCCESS) {
+              publication.acknowledged++;
+            } else {
+              publication.unconfirmed++;
+            }
+            publication.notify?.();
+          }
+        }
+        for (const notify of flushWaiters) {
+          notify();
         }
         callback(result);
       };
@@ -75,18 +133,212 @@ function createTrackedProcessor(url: string, capacity: number) {
   const processor: LogRecordProcessor = {
     onEmit(record) {
       state.attempted++;
+      const id = record.attributes?.["body.capture_id"];
+      const publication =
+        typeof id === "string" ? bodyPublications.get(id) : undefined;
+      if (publication) {
+        publication.emitted++;
+      }
       if (state.outstanding >= capacity) {
         state.dropped++;
+        if (publication) {
+          publication.dropped++;
+          publication.notify?.();
+        }
         return;
       }
       state.submitted++;
       state.outstanding++;
+      unsettled.add(record);
+      state.highWaterOutstanding = Math.max(
+        state.highWaterOutstanding,
+        state.outstanding,
+      );
       batch.onEmit(record);
     },
-    forceFlush: () => batch.forceFlush(),
-    shutdown: () => batch.shutdown(),
+    forceFlush: async () => {
+      const boundary = new Set(unsettled);
+      try {
+        await batch.forceFlush();
+      } finally {
+        await new Promise<void>((resolve) => {
+          const check = () => {
+            if (![...boundary].some((record) => unsettled.has(record))) {
+              flushWaiters.delete(check);
+              resolve();
+            }
+          };
+          flushWaiters.add(check);
+          check();
+        });
+      }
+    },
+    shutdown: async () => {
+      try {
+        await processor.forceFlush();
+      } finally {
+        await batch.shutdown();
+      }
+    },
   };
-  return { state, processor, capacity };
+  return { state, processor, capacity, kind };
+}
+
+/**
+ * Own a whole capture within byte/count bounds, then pace its chunks by actual
+ * export callbacks. SDK forceFlush alone does not await an automatic export
+ * already in flight. Serial publication prevents bursts from dropping tails.
+ */
+export async function publishProxyOtelBody(
+  captureId: string,
+  body: string,
+  emit: ProxyBodyChunkEmitter,
+): Promise<ProxyBodyDeliveryResult> {
+  bodyDelivery.attempted++;
+  const bytes = Buffer.byteLength(body, "utf8");
+  if (
+    !provider ||
+    shuttingDown ||
+    bodyPublications.has(captureId) ||
+    bodyDelivery.pending >= bodyDelivery.maxPending ||
+    bodyDelivery.pendingBytes + bytes > bodyDelivery.maxPendingBytes
+  ) {
+    bodyDelivery.rejected++;
+    return {
+      status: "rejected",
+      acknowledgedChunks: 0,
+      unconfirmedChunks: 0,
+      droppedChunks: 0,
+      reason: bodyPublications.has(captureId)
+        ? "body_capture_id_in_use"
+        : !provider || shuttingDown
+          ? "body_exporter_unavailable"
+          : "body_publication_queue_full",
+    };
+  }
+  bodyDelivery.pending++;
+  bodyDelivery.pendingBytes += bytes;
+  bodyDelivery.highWaterPending = Math.max(
+    bodyDelivery.highWaterPending,
+    bodyDelivery.pending,
+  );
+  bodyDelivery.highWaterBytes = Math.max(
+    bodyDelivery.highWaterBytes,
+    bodyDelivery.pendingBytes,
+  );
+  const progress: ProxyBodyPublicationProgress = {
+    acknowledged: 0,
+    unconfirmed: 0,
+    dropped: 0,
+    emitted: 0,
+  };
+  bodyPublications.set(captureId, progress);
+  const deadline = Date.now() + 20_000;
+  const operation = bodyPublicationChain.then(
+    async (): Promise<ProxyBodyDeliveryResult> => {
+      const queue = queues.find((candidate) => candidate.kind === "bodies");
+      if (!queue || Date.now() >= deadline) {
+        return {
+          status: "rejected",
+          acknowledgedChunks: 0,
+          unconfirmedChunks: 0,
+          droppedChunks: 0,
+          reason: !queue
+            ? "body_exporter_unavailable"
+            : "body_publication_deadline",
+        };
+      }
+      const chunks = splitUtf8StringByBytes(body, 16_000);
+      const awaitSettlement = () =>
+        new Promise<void>((resolve) => {
+          const check = () => {
+            if (
+              progress.acknowledged + progress.unconfirmed + progress.dropped >=
+              progress.emitted
+            ) {
+              progress.notify = undefined;
+              resolve();
+            }
+          };
+          progress.notify = check;
+          check();
+        });
+      let reason: string | undefined;
+      try {
+        for (let offset = 0; offset < chunks.length; offset += 64) {
+          if (Date.now() >= deadline) {
+            reason = "body_publication_deadline";
+            break;
+          }
+          // Ordinary body records from an external logger may share this queue.
+          // Wait for them before admitting any part of this batch.
+          while (queue.state.outstanding > queue.capacity - 64) {
+            await queue.processor.forceFlush();
+            if (Date.now() >= deadline) {
+              throw new Error("body_publication_deadline");
+            }
+          }
+          for (let i = offset; i < Math.min(offset + 64, chunks.length); i++) {
+            emit(chunks[i], i, chunks.length);
+          }
+          await queue.processor.forceFlush();
+          await awaitSettlement();
+          if (progress.unconfirmed || progress.dropped) {
+            reason = "body_export_unconfirmed";
+            break;
+          }
+          await yieldToRequests();
+        }
+      } catch (error) {
+        reason =
+          error instanceof Error &&
+          error.message === "body_publication_deadline"
+            ? "body_publication_deadline"
+            : "body_publication_failed";
+        // Retain ownership of already submitted chunks until their callbacks settle.
+        await queue.processor.forceFlush().catch(() => undefined);
+        await awaitSettlement();
+      }
+      const status =
+        progress.emitted === 0 && chunks.length > 0
+          ? "rejected"
+          : progress.dropped || progress.emitted !== chunks.length
+            ? "partial"
+            : progress.unconfirmed
+              ? "export_unconfirmed"
+              : "transport_acknowledged";
+      return {
+        status,
+        expectedChunks: chunks.length,
+        acknowledgedChunks: progress.acknowledged,
+        unconfirmedChunks: progress.unconfirmed,
+        droppedChunks: progress.dropped,
+        notSubmittedChunks: chunks.length - progress.emitted,
+        ...(reason ? { reason } : {}),
+      };
+    },
+  );
+  bodyPublicationChain = operation.then(
+    () => undefined,
+    () => undefined,
+  );
+  try {
+    const result = await operation;
+    if (result.status === "transport_acknowledged") {
+      bodyDelivery.transportAcknowledged++;
+    } else if (result.status === "export_unconfirmed") {
+      bodyDelivery.exportUnconfirmed++;
+    } else if (result.status === "rejected") {
+      bodyDelivery.rejected++;
+    } else {
+      bodyDelivery.partial++;
+    }
+    return result;
+  } finally {
+    bodyPublications.delete(captureId);
+    bodyDelivery.pending--;
+    bodyDelivery.pendingBytes -= bytes;
+  }
 }
 
 /** Initialize a log-only provider in every proxy process, including the supervisor. */
@@ -117,8 +369,8 @@ export function initializeProxyOtelLogs(
       "Proxy OTLP logs require HTTPS for non-loopback collectors",
     );
   }
-  const metadata = createTrackedProcessor(endpoint, 2048);
-  const bodies = createTrackedProcessor(endpoint, 256);
+  const metadata = createTrackedProcessor(endpoint, 2048, "metadata");
+  const bodies = createTrackedProcessor(endpoint, 256, "bodies");
   queues.push(metadata, bodies);
   provider = new LoggerProvider({
     resource: resourceFromAttributes({
@@ -243,8 +495,9 @@ export function getProxyOtelLogSnapshot() {
     deliveryGuarantee:
       "best-effort; HTTP success is not per-record acceptance or backend persistence",
     invalidRecords,
-    queues: queues.map((q, index) => ({
-      kind: index === 0 ? "metadata" : "bodies",
+    bodyDelivery: { ...bodyDelivery },
+    queues: queues.map((q) => ({
+      kind: q.kind,
       capacity: q.capacity,
       ...q.state,
     })),
@@ -253,17 +506,36 @@ export function getProxyOtelLogSnapshot() {
 
 /** Bounded provider flush belongs after final request and lifecycle publication. */
 export async function flushProxyOtelLogs(): Promise<void> {
+  await bodyPublicationChain;
   await provider?.forceFlush();
 }
 
 /** Release this process's exporter and restore console ownership. */
 export async function shutdownProxyOtelLogs(): Promise<void> {
+  shuttingDown = true;
+  await bodyPublicationChain;
   restoreConsole?.();
   restoreConsole = undefined;
   await provider?.shutdown();
   provider = undefined;
   queues.length = 0;
   invalidRecords = 0;
+  bodyPublications.clear();
+  bodyPublicationChain = Promise.resolve();
+  shuttingDown = false;
+  for (const key of [
+    "attempted",
+    "transportAcknowledged",
+    "exportUnconfirmed",
+    "rejected",
+    "partial",
+    "pending",
+    "pendingBytes",
+    "highWaterPending",
+    "highWaterBytes",
+  ] as const) {
+    bodyDelivery[key] = 0;
+  }
 }
 
 /** Flush short-lived proxy command diagnostics on every normal return or exception. */

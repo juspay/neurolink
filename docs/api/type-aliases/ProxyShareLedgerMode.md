@@ -8,6 +8,6 @@
 
 > **ProxyShareLedgerMode** = `"coins"` \| `"unlimited"`
 
-Defined in: [types/proxy.ts:3592](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3592)
+Defined in: [types/proxy.ts:3632](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3632)
 
 Whether consumption is metered against a coin balance or uncapped.

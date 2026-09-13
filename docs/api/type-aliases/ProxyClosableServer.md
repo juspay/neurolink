@@ -8,7 +8,7 @@
 
 > **ProxyClosableServer** = `object`
 
-Defined in: [types/proxy.ts:3987](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3987)
+Defined in: [types/proxy.ts:4027](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4027)
 
 The slice of a node HTTP server the proxy runtime actually closes.
 
@@ -18,7 +18,7 @@ The slice of a node HTTP server the proxy runtime actually closes.
 
 > `optional` **close?**: (`callback?`) => `void`
 
-Defined in: [types/proxy.ts:3988](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3988)
+Defined in: [types/proxy.ts:4028](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4028)
 
 #### Parameters
 

@@ -8,7 +8,7 @@
 
 > **ProxyGeminiPart** = `object`
 
-Defined in: [types/proxy.ts:3512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3512)
+Defined in: [types/proxy.ts:3552](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3552)
 
 One part of a Gemini `contents[].parts[]` entry.
 
@@ -18,7 +18,7 @@ One part of a Gemini `contents[].parts[]` entry.
 
 > `optional` **text?**: `string`
 
-Defined in: [types/proxy.ts:3512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3512)
+Defined in: [types/proxy.ts:3552](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3552)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3512](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **inlineData?**: `object`
 
-Defined in: [types/proxy.ts:3512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3512)
+Defined in: [types/proxy.ts:3552](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3552)
 
 #### data?
 

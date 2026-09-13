@@ -7,7 +7,9 @@ import type {
 
 const MAX_PENDING = 16;
 const MAX_PENDING_BYTES = 32 * 1024 * 1024;
-const MAX_ENTRY_BYTES = 8 * 1024 * 1024;
+// Bound retained UTF-16 strings rather than a 3x UTF-8 guess. This accommodates
+// the observed 7.3 MB JSON requests while retaining a 32 MiB aggregate pool.
+const MAX_ENTRY_BYTES = 16 * 1024 * 1024;
 export const PROXY_BODY_CAPTURE_DEADLINE_MS = 20_000;
 let worker: Worker | undefined;
 let workerUrl: URL | undefined;
@@ -22,6 +24,7 @@ const snapshot: ProxyBodyCaptureWorkerSnapshot = {
   pendingBytes: 0,
   maxPending: MAX_PENDING,
   maxPendingBytes: MAX_PENDING_BYTES,
+  rejectionReasons: {},
 };
 const pending = new Map<
   number,
@@ -43,12 +46,15 @@ function estimateCloneBytes(value: unknown): number {
   let bytes = 0,
     nodes = 0;
   while (stack.length) {
-    if (++nodes > 100_000 || bytes > MAX_ENTRY_BYTES) {
-      return Infinity;
+    if (++nodes > 100_000) {
+      throw new Error("body_capture_traversal_limit");
+    }
+    if (bytes > MAX_ENTRY_BYTES) {
+      throw new Error("body_capture_entry_too_large");
     }
     const item = stack.pop();
     if (typeof item === "string") {
-      bytes += item.length * 3;
+      bytes += 16 + item.length * 2;
       continue;
     }
     bytes += 16;
@@ -56,7 +62,7 @@ function estimateCloneBytes(value: unknown): number {
       continue;
     }
     if (seen.has(item)) {
-      return Infinity;
+      throw new Error("body_capture_unsupported_value");
     }
     seen.add(item);
     if (
@@ -64,17 +70,20 @@ function estimateCloneBytes(value: unknown): number {
       Object.getPrototypeOf(item) !== Object.prototype &&
       Object.getPrototypeOf(item) !== null
     ) {
-      return Infinity;
+      throw new Error("body_capture_unsupported_value");
     }
     for (const key of Object.keys(item)) {
-      bytes += key.length * 3;
+      bytes += 16 + key.length * 2;
       const descriptor = Object.getOwnPropertyDescriptor(item, key);
       if (!descriptor || descriptor.get || descriptor.set) {
-        return Infinity;
+        throw new Error("body_capture_unsupported_value");
       }
       stack.push(descriptor.value);
-      if (stack.length > 100_000 || bytes > MAX_ENTRY_BYTES) {
-        return Infinity;
+      if (stack.length > 100_000) {
+        throw new Error("body_capture_traversal_limit");
+      }
+      if (bytes > MAX_ENTRY_BYTES) {
+        throw new Error("body_capture_entry_too_large");
       }
     }
   }
@@ -157,10 +166,20 @@ export async function captureProxyBody(
 ): Promise<void> {
   snapshot.attempted += 1;
   let bytes: number;
+  let admissionError: string | undefined;
   try {
     bytes = estimateCloneBytes(entry);
-  } catch {
+  } catch (error) {
     bytes = Infinity;
+    admissionError =
+      error instanceof Error &&
+      [
+        "body_capture_entry_too_large",
+        "body_capture_traversal_limit",
+        "body_capture_unsupported_value",
+      ].includes(error.message)
+        ? error.message
+        : "body_capture_unsupported_value";
   }
   if (
     bytes > MAX_ENTRY_BYTES ||
@@ -171,11 +190,13 @@ export async function captureProxyBody(
     snapshot.rejected += 1;
     const error =
       bytes > MAX_ENTRY_BYTES
-        ? "body_capture_too_large_or_non_json"
+        ? (admissionError ?? "body_capture_entry_too_large")
         : Date.now() < retryAfter
           ? "body_worker_backoff"
           : "body_capture_queue_full";
     snapshot.lastError = error;
+    snapshot.rejectionReasons[error] =
+      (snapshot.rejectionReasons[error] ?? 0) + 1;
     return consume({ error, stored: { bodyWriteFailed: true } });
   }
   let current: Worker;
@@ -239,7 +260,7 @@ export async function captureProxyBody(
  * retained publication work.
  */
 export function getBodyCaptureWorkerSnapshot(): ProxyBodyCaptureWorkerSnapshot {
-  return { ...snapshot };
+  return { ...snapshot, rejectionReasons: { ...snapshot.rejectionReasons } };
 }
 
 /** Isolated tests point at a separately executed built worker. */
@@ -263,6 +284,7 @@ export const __bodyCaptureWorkerTestHooks = {
       pending: 0,
       pendingBytes: 0,
       lastError: undefined,
+      rejectionReasons: {},
     });
   },
 };

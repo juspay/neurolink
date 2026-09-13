@@ -13,12 +13,12 @@ const DEFAULT_MAX_LAG_SECONDS = 900;
 const STREAMS_TO_CHECK = [
   {
     type: "logs",
-    name: "neurolink_proxy",
+    name: process.env.NEUROLINK_PROXY_STREAM_HEADER || "neurolink_proxy",
     label: "OpenObserve logs",
   },
   {
     type: "traces",
-    name: "neurolink_proxy",
+    name: process.env.NEUROLINK_PROXY_STREAM_HEADER || "neurolink_proxy",
     label: "OpenObserve traces",
   },
   {
@@ -74,6 +74,7 @@ async function fetchStreams(type) {
   );
 
   const response = await fetch(url, {
+    signal: globalThis.AbortSignal.timeout(15_000),
     headers: {
       Authorization: getAuthHeader(),
     },
@@ -156,7 +157,8 @@ async function main() {
     ),
   );
 
-  const localSummary = await readLatestLocalSummary();
+  const otelOnly = process.env.NEUROLINK_PROXY_LOG_SINK === "otel";
+  const localSummary = otelOnly ? null : await readLatestLocalSummary();
   const localSummaryMicros = localSummary?.timestamp
     ? new Date(localSummary.timestamp).getTime() * 1000
     : null;
@@ -186,18 +188,27 @@ async function main() {
 
     console.log(`${stream.label}: ${status}`);
     console.log(`  stream: ${stream.name}`);
-    console.log(`  latest: ${latestMicros ? formatDate(latestMicros) : "missing"}`);
+    console.log(
+      `  latest: ${latestMicros ? formatDate(latestMicros) : "missing"}`,
+    );
     console.log(`  age: ${formatAgeSeconds(ageSeconds)}`);
     console.log(`  docs: ${item?.stats?.doc_num ?? 0}`);
   }
 
   console.log("");
   console.log("Local proxy summary log:");
-  if (!localSummary || !localSummaryMicros) {
+  if (otelOnly) {
+    console.log(
+      "  disabled (OTel-only mode); local file freshness is not a delivery check",
+    );
+  } else if (!localSummary || !localSummaryMicros) {
     console.log("  missing");
     hasProblem = true;
   } else {
-    const ageSeconds = Math.max(0, (nowMicros - localSummaryMicros) / 1_000_000);
+    const ageSeconds = Math.max(
+      0,
+      (nowMicros - localSummaryMicros) / 1_000_000,
+    );
     console.log(`  latest: ${localSummary.timestamp}`);
     console.log(`  age: ${formatAgeSeconds(ageSeconds)}`);
     console.log(`  requestId: ${localSummary.requestId}`);
@@ -220,7 +231,9 @@ async function main() {
       if (status !== "fresh") {
         hasProblem = true;
       }
-      console.log(`  ${stream.name}: ${status} (${formatAgeSeconds(deltaSeconds)})`);
+      console.log(
+        `  ${stream.name}: ${status} (${formatAgeSeconds(deltaSeconds)})`,
+      );
     }
   }
 

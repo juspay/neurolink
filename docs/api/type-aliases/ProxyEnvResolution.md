@@ -8,7 +8,7 @@
 
 > **ProxyEnvResolution** = `object`
 
-Defined in: [types/proxy.ts:1867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1867)
+Defined in: [types/proxy.ts:1901](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1901)
 
 Result of resolving which proxy env file to load.
 
@@ -18,7 +18,7 @@ Result of resolving which proxy env file to load.
 
 > `optional` **path?**: `string`
 
-Defined in: [types/proxy.ts:1868](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1868)
+Defined in: [types/proxy.ts:1902](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1902)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1868](https://github.com/juspay/neurolink/blob/relea
 
 > **source**: [`ProxyEnvSource`](ProxyEnvSource.md)
 
-Defined in: [types/proxy.ts:1869](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1869)
+Defined in: [types/proxy.ts:1903](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1903)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:1869](https://github.com/juspay/neurolink/blob/relea
 
 > **required**: `boolean`
 
-Defined in: [types/proxy.ts:1870](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1870)
+Defined in: [types/proxy.ts:1904](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1904)

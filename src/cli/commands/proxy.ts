@@ -1447,6 +1447,9 @@ function registerProxyRequestTracking(
       (entry) => {
         metadata.terminalResult = entry;
       },
+      (entry) => {
+        metadata.lastUpstreamAttempt = { ...entry };
+      },
     );
     const finishActivity = metadata.rejectForUpdate
       ? () => undefined
@@ -1732,10 +1735,11 @@ export async function createProxyStartApp(params: {
   ): Promise<void> => {
     const clientMessage = options?.clientMessage ?? errorMessage;
     const clientErrorType = options?.clientErrorType ?? errorType;
+    const attempt = metadata.lastUpstreamAttempt;
     recordFinalError(
       status,
-      PROXY_INTERNAL_ACCOUNT_LABEL,
-      PROXY_INTERNAL_ACCOUNT_TYPE,
+      attempt?.account ?? PROXY_INTERNAL_ACCOUNT_LABEL,
+      attempt?.accountType ?? PROXY_INTERNAL_ACCOUNT_TYPE,
       {
         requestId: metadata.requestId,
         errorType,
@@ -1753,8 +1757,13 @@ export async function createProxyStartApp(params: {
         model: metadata.model,
         stream: metadata.stream,
         toolCount: metadata.toolCount,
-        account: "",
-        accountType: "proxy-runtime",
+        account: attempt?.account ?? "",
+        accountType: attempt?.accountType ?? "proxy-runtime",
+        accountKey: attempt?.accountKey,
+        provider: attempt?.provider,
+        transportScope: attempt?.transportScope,
+        traceId: attempt?.traceId,
+        spanId: attempt?.spanId,
         responseStatus: status,
         responseTimeMs: Date.now() - metadata.startedAt,
         errorType,

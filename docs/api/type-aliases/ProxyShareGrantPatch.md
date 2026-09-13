@@ -8,7 +8,7 @@
 
 > **ProxyShareGrantPatch** = `object`
 
-Defined in: [types/proxy.ts:3784](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3784)
+Defined in: [types/proxy.ts:3824](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3824)
 
 Partial edit applied by `share set` / `share topup` / `share level`.
 
@@ -18,7 +18,7 @@ Partial edit applied by `share set` / `share topup` / `share level`.
 
 > `optional` **entitlement?**: `Partial`\<[`ProxyShareEntitlement`](ProxyShareEntitlement.md)\>
 
-Defined in: [types/proxy.ts:3785](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3785)
+Defined in: [types/proxy.ts:3825](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3825)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3785](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **gates?**: [`ProxyShareGates`](ProxyShareGates.md)
 
-Defined in: [types/proxy.ts:3786](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3786)
+Defined in: [types/proxy.ts:3826](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3826)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3786](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **level?**: [`ProxyShareLevel`](ProxyShareLevel.md)
 
-Defined in: [types/proxy.ts:3787](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3787)
+Defined in: [types/proxy.ts:3827](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3827)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:3787](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **note?**: `string`
 
-Defined in: [types/proxy.ts:3788](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3788)
+Defined in: [types/proxy.ts:3828](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3828)
