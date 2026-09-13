@@ -8,7 +8,7 @@
 
 > **ToolOutputPreviewResult** = `object`
 
-Defined in: [types/context.ts:823](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L823)
+Defined in: [types/context.ts:832](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L832)
 
 Result of tool output preview generation.
 
@@ -18,7 +18,7 @@ Result of tool output preview generation.
 
 > **preview**: `string`
 
-Defined in: [types/context.ts:825](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L825)
+Defined in: [types/context.ts:834](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L834)
 
 The preview string (or full output if under limits)
 
@@ -28,7 +28,7 @@ The preview string (or full output if under limits)
 
 > **truncated**: `boolean`
 
-Defined in: [types/context.ts:827](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L827)
+Defined in: [types/context.ts:836](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L836)
 
 Whether truncation was applied
 
@@ -38,6 +38,6 @@ Whether truncation was applied
 
 > **originalSize**: `number`
 
-Defined in: [types/context.ts:829](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L829)
+Defined in: [types/context.ts:838](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L838)
 
 Original byte size of the full output
