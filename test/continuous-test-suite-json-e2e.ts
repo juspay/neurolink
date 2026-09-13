@@ -28,6 +28,23 @@
  * Run:  npx tsx test/continuous-test-suite-json-e2e.ts
  *       npx tsx test/continuous-test-suite-json-e2e.ts --only=vertex,openai
  */
+// Drops `directAgentTools` only — it does NOT produce a tool-free run, and
+// nothing here should be read as covering the no-tools path. The repo's
+// tracked `.mcp-config.json` auto-registers a filesystem MCP server, so ~19
+// tools still reach the wire with this set (26 without it); only an explicit
+// `disableTools` gets to zero.
+//
+// That matters for what this suite can prove. Every provider except OpenAI and
+// Azure suppresses `response_format` whenever tools are present, so for those
+// providers these cells never send a schema to the provider at all — the JSON
+// they assert on comes from the fallback re-ask, not from provider-enforced
+// structured output. A model asked for JSON usually returns JSON either way,
+// so a reply-only assertion cannot tell the two apart.
+//
+// The `response_format` branch is covered deterministically instead, against a
+// local endpoint that records the request bytes: see
+// "a schema reaches the wire as response_format only when no tools are
+// attached" in continuous-test-suite-provider-wiring.ts.
 process.env.NEUROLINK_DISABLE_BUILTIN_TOOLS = "true";
 
 // ── Outbound request capture ────────────────────────────────────────────────
