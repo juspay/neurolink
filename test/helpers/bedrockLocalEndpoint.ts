@@ -82,6 +82,21 @@ function streamEvent(type: string, payload: unknown): Buffer {
   );
 }
 
+export type LocalBedrockOptions = {
+  /**
+   * When set, the FIRST buffered Converse call answers with a `toolUse`
+   * content block and `stopReason: "tool_use"` instead of text, exactly as
+   * the real service does when a model decides to call a tool. The provider
+   * then runs the tool for real and sends a second request carrying the
+   * `toolResult`, which is answered with `reply`.
+   *
+   * This is what makes tool-loop behaviour testable without an AWS account:
+   * the loop, the tool dispatch and the second round trip are all genuine —
+   * only the model's decision is scripted.
+   */
+  toolUse?: { name: string; input?: Record<string, unknown> };
+};
+
 export type LocalBedrock = {
   /** Value for AWS_ENDPOINT_URL_BEDROCK_RUNTIME. */
   endpoint: string;
@@ -95,8 +110,13 @@ export type LocalBedrock = {
  * streaming operation answer with, so a caller can assert on a round trip and
  * not merely on the request.
  */
-export async function startLocalBedrock(reply = "OK"): Promise<LocalBedrock> {
+export async function startLocalBedrock(
+  reply = "OK",
+  options: LocalBedrockOptions = {},
+): Promise<LocalBedrock> {
   const requests: CapturedRequest[] = [];
+  let converseCalls = 0;
+  let streamCalls = 0;
   const server: Http2Server = createServer();
 
   // `server.close()` stops accepting connections, then waits for every open
@@ -120,9 +140,39 @@ export async function startLocalBedrock(reply = "OK"): Promise<LocalBedrock> {
         body: Buffer.concat(chunks).toString("utf8"),
       });
       if ((req.url ?? "").includes("converse-stream")) {
+        streamCalls += 1;
         res.writeHead(200, {
           "content-type": "application/vnd.amazon.eventstream",
         });
+        if (options.toolUse && streamCalls === 1) {
+          // The streamed form of a tool call: the name arrives in
+          // contentBlockStart and the arguments as JSON-string deltas, which
+          // is what the provider's adapter accumulates and parses.
+          res.write(streamEvent("messageStart", { role: "assistant" }));
+          res.write(
+            streamEvent("contentBlockStart", {
+              contentBlockIndex: 0,
+              start: {
+                toolUse: {
+                  name: options.toolUse.name,
+                  toolUseId: "tooluse-local-stream-1",
+                },
+              },
+            }),
+          );
+          res.write(
+            streamEvent("contentBlockDelta", {
+              contentBlockIndex: 0,
+              delta: {
+                toolUse: { input: JSON.stringify(options.toolUse.input ?? {}) },
+              },
+            }),
+          );
+          res.write(streamEvent("contentBlockStop", { contentBlockIndex: 0 }));
+          res.write(streamEvent("messageStop", { stopReason: "tool_use" }));
+          res.end();
+          return;
+        }
         res.write(streamEvent("messageStart", { role: "assistant" }));
         res.write(
           streamEvent("contentBlockDelta", {
@@ -135,7 +185,31 @@ export async function startLocalBedrock(reply = "OK"): Promise<LocalBedrock> {
         res.end();
         return;
       }
+      converseCalls += 1;
       res.writeHead(200, { "content-type": "application/json" });
+      if (options.toolUse && converseCalls === 1) {
+        res.end(
+          JSON.stringify({
+            output: {
+              message: {
+                role: "assistant",
+                content: [
+                  {
+                    toolUse: {
+                      toolUseId: "tooluse-local-1",
+                      name: options.toolUse.name,
+                      input: options.toolUse.input ?? {},
+                    },
+                  },
+                ],
+              },
+            },
+            stopReason: "tool_use",
+            usage: { inputTokens: 5, outputTokens: 1, totalTokens: 6 },
+          }),
+        );
+        return;
+      }
       res.end(
         JSON.stringify({
           output: {
@@ -174,6 +248,37 @@ export function userTextOnWire(body: string): string {
     return parsed.messages?.[0]?.content?.[0]?.text ?? "";
   } catch {
     return "";
+  }
+}
+
+/**
+ * The tool-result payloads a request body carries back to the model, as JSON
+ * strings. Non-empty only on the turn that follows a `toolUse` reply, so it is
+ * direct wire evidence that the tool really ran and its output was returned.
+ */
+export function toolResultsOnWire(body: string): string[] {
+  try {
+    const parsed = JSON.parse(body) as {
+      messages?: Array<{
+        content?: Array<{
+          toolResult?: { content?: Array<{ text?: string; json?: unknown }> };
+        }>;
+      }>;
+    };
+    const out: string[] = [];
+    for (const message of parsed.messages ?? []) {
+      for (const block of message.content ?? []) {
+        if (!block.toolResult) {
+          continue;
+        }
+        for (const part of block.toolResult.content ?? []) {
+          out.push(part.text ?? JSON.stringify(part.json ?? null));
+        }
+      }
+    }
+    return out;
+  } catch {
+    return [];
   }
 }
 

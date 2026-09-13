@@ -898,4 +898,115 @@ await test("Bedrock carries the caller's text on the wire across all four public
   }
 });
 
+await test("Bedrock reports the tools it actually ran", async () => {
+  // The defect this guards: the Bedrock native generate path ran the agentic
+  // loop, executed tools and fed their results back to the model correctly —
+  // then returned a result carrying only text, usage and finish reason. The
+  // loop's own `toolCalls` / `toolExecutions` were computed and dropped, so
+  // `baseProvider` fell back to `result.toolsUsed || []` and every turn
+  // reported zero tools. Bedrock was the only `runAgenticLoop` consumer that
+  // forwarded none of it; anthropic, vertex and google-ai all do.
+  //
+  // Nothing observable in the answer reveals this — the tools genuinely work.
+  // Only analytics, cost attribution, audit and any caller branching on
+  // `toolsUsed` see the lie, which is why it survived.
+  //
+  // The endpoint is scripted to ask for one tool call, so the loop, the tool
+  // dispatch and the second round trip are real. Nothing reaches AWS.
+  const { startLocalBedrock, toolResultsOnWire, PLACEHOLDER_AWS_ENV } =
+    await import("./helpers/bedrockLocalEndpoint.js");
+  const { NeuroLink } = await import("../dist/index.js");
+
+  const TOOL = "get_vault_code";
+  const NONCE = "VLT4QX9R2K";
+  const MODEL = "amazon.nova-micro-v1:0";
+  const local = await startLocalBedrock("Done.", {
+    toolUse: { name: TOOL, input: {} },
+  });
+
+  const savedEnv = { ...process.env };
+  Object.assign(process.env, PLACEHOLDER_AWS_ENV, {
+    AWS_ENDPOINT_URL_BEDROCK_RUNTIME: local.endpoint,
+  });
+  delete process.env.AWS_SESSION_TOKEN;
+
+  let executed = 0;
+  try {
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    nl.registerTool(TOOL, {
+      name: TOOL,
+      description: "Return the secret vault code.",
+      inputSchema: { type: "object", properties: {}, required: [] },
+      execute: async () => {
+        executed += 1;
+        return { vault_code: NONCE };
+      },
+    });
+
+    const result = await nl.generate({
+      input: { text: "Call the tool, then report the code." },
+      provider: "bedrock",
+      model: MODEL,
+    });
+
+    // The tool really ran, and its output really went back to the model.
+    // Without this half, an empty `toolsUsed` would be honest reporting.
+    assert(
+      executed === 1,
+      `tool did not execute exactly once (runs: ${executed})`,
+    );
+    const delivered = local.requests.flatMap((r) => toolResultsOnWire(r.body));
+    assert(
+      delivered.some((value) => value.includes(NONCE)),
+      "the tool result never reached the model on the wire",
+    );
+
+    // So the result must say so.
+    assert(
+      (result.toolsUsed ?? []).includes(TOOL),
+      "toolsUsed omits a tool the provider executed on this turn",
+    );
+    assert(
+      (result.toolExecutions ?? []).length > 0,
+      "toolExecutions is empty for a turn that executed a tool",
+    );
+
+    // The streamed surface has the same duty. Its analytics derive
+    // toolCallCount from the result handed to createAnalytics, and Bedrock
+    // passed usage alone — so a streamed turn that ran tools reported none.
+    const streamed = await nl.stream({
+      input: { text: "Call the tool, then report the code." },
+      provider: "bedrock",
+      model: MODEL,
+    });
+    for await (const chunk of streamed.stream) {
+      void chunk;
+    }
+    const analytics = await streamed.analytics;
+    // Wire evidence, not an execution counter: the tool middleware caches
+    // identical calls, so a second turn with the same name and arguments
+    // legitimately replays the first result without calling execute() again.
+    // What matters is that the tool took part in the streamed turn.
+    const streamedToolResults = local.requests
+      .filter((request) => request.path.includes("converse-stream"))
+      .flatMap((request) => toolResultsOnWire(request.body));
+    assert(
+      streamedToolResults.some((value) => value.includes(NONCE)),
+      "the streamed turn never carried a tool result back to the model",
+    );
+    assert(
+      (analytics?.toolCallCount ?? 0) > 0,
+      "stream analytics reports no tool calls for a turn that used one",
+    );
+  } finally {
+    await local.close();
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
+});
+
 await runSuite();
