@@ -1,0 +1,97 @@
+{
+  "$schema": "./provider-catalog.schema.json",
+  "id": "morph",
+  "displayName": "Morph",
+  "aliases": ["morphllm"],
+  "tier": 2,
+  "wire": {
+    "baseURL": "https://api.morphllm.com/v1"
+  },
+  "models": {
+    "default": "morph-v3-large",
+    "fallbacks": ["morph-v3-large", "morph-v3-fast"],
+    "defaultContextWindow": 262144,
+    "defaultMaxOutputTokens": 131072,
+    "catalog": {
+      "morph-v3-large": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.9,
+          "output": 1.9
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Recommended - Morph's high-accuracy Fast Apply model for complex code edits (2500+ tok/sec, 98% accuracy); the general-purpose choice of Morph's two chat-usable models. Does not honour the OpenAI tool-calling contract: with tools attached it emits the call as literal <tool_call> text in message.content instead of a tool_calls array"
+      },
+      "morph-v3-fast": {
+        "contextWindow": 262144,
+        "maxOutputTokens": 131072,
+        "pricingPerMTok": {
+          "input": 0.8,
+          "output": 1.2
+        },
+        "vision": false,
+        "status": "production",
+        "description": "Morph's fastest Fast Apply model, purpose-built for applying code edits (10,500+ tok/sec, 96% accuracy) rather than general chat. Ignores the tools parameter outright and returns unrelated generated text instead of a tool call"
+      }
+    },
+    "topModels": ["morph-v3-large", "morph-v3-fast"]
+  },
+  "capabilities": {
+    "text": true,
+    "streaming": true,
+    "tools": false,
+    "toolsWithStreaming": false,
+    "structuredOutput": true,
+    "structuredOutputWithTools": false,
+    "embeddings": false,
+    "thinking": false
+  },
+  "errorRules": [
+    {
+      "status": 401,
+      "pattern": "API key required",
+      "class": "authentication",
+      "message": "Invalid or missing Morph API key. Check {apiKeyEnvVar}. Get one at https://morphllm.com/dashboard"
+    },
+    {
+      "status": 400,
+      "pattern": "is not served by this endpoint",
+      "class": "invalid-model",
+      "message": "Morph model '{model}' is not served by this endpoint. Pick a current model from the authenticated GET /v1/models roster or https://morphllm.com/dashboard."
+    }
+  ],
+  "setup": {
+    "url": "https://morphllm.com/dashboard",
+    "apiKeyFormat": null,
+    "billingPolicy": "free-with-card",
+    "description": "API key",
+    "instructions": [
+      "1. Visit: https://morphllm.com/dashboard and sign in",
+      "2. A card on file is required; the account is rate-limited (5 req/min) until one is added",
+      "3. Create an API key on the dashboard",
+      "4. Set {apiKeyEnvVar} in your .env file"
+    ]
+  },
+  "quirks": {
+    "messageContentFormat": "string"
+  },
+  "evidence": {
+    "rosterVerified": {
+      "date": "2026-09-05",
+      "method": "authenticated GET /v1/models",
+      "status": 200
+    },
+    "authProbe": {
+      "date": "2026-09-05",
+      "status": 401,
+      "code": "invalid_api_key"
+    },
+    "liveMatrix": {
+      "date": "2026-09-05",
+      "result": "Full wire probe on morph-v3-fast plus a focused tool-calling re-probe on both chat models. Non-tool basics all 200: chat, max_completion_tokens, system role, sampling params, SSE streaming (content deltas, usage chunk, [DONE]), json_schema (valid JSON matching schema) and json_object. Array-shaped message content is REJECTED with HTTP 500 'Request processing failed: text.charCodeAt is not a function' — same class of quirk as Cloudflare (PR #1587); messageContentFormat is set to 'string' and vision is false because the vision probe sends array parts and hits the identical 500. Tool calling does NOT work despite HTTP 200: morph-v3-large echoes the call as literal '<tool_call>{...}</tool_call>' text in message.content, and morph-v3-fast ignores the tools parameter and returns unrelated generated text (Python source) with finish_reason=length. tools and toolsWithStreaming are declared false on that basis; tools_plus_schema returning 200 is not evidence of structuredOutputWithTools since tools do not actually work. structuredOutput is true and strong (schema-conformant JSON, json_object accepted). The GET /v1/models roster lists 22 ids (morph-v3-fast, morph-v3-large, auto, morph-compactor, morph-warp-grep-v2.1, and passthrough ids for GLM/DeepSeek/Kimi/Qwen/MiniMax/Gemma/computer-use), but a deliberately invalid model name on /chat/completions came back 'is not served by this endpoint; accepted models: morph-v0, morph-v2, morph-v3-fast, morph-v3-large' — none of those other 18 roster ids were live-verified against chat/completions, so only the two confirmed working chat models are catalogued; context window (262144) and max output tokens (131072) for both come from Morph's public model metadata (https://www.morphllm.com/api/models/json), which also supplied pricing. Morph is a code-application (Fast Apply) specialist, not a general chat vendor: morph-v3-large is catalogued as the default because it is the general-purpose one of the pair, while morph-v3-fast is purpose-built for edit application rather than open-ended conversation."
+    },
+    "addedInPR": "pending"
+  }
+}

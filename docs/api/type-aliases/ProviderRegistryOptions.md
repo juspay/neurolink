@@ -8,7 +8,7 @@
 
 > **ProviderRegistryOptions** = `object`
 
-Defined in: [types/providers.ts:941](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L941)
+Defined in: [types/providers.ts:942](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L942)
 
 Configuration options for the provider registry
 
@@ -18,7 +18,7 @@ Configuration options for the provider registry
 
 > `optional` **enableManualMCP?**: `boolean`
 
-Defined in: [types/providers.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L946)
+Defined in: [types/providers.ts:947](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L947)
 
 Enable loading of manual MCP configurations from .mcp-config.json
 Should only be true for CLI mode, false for SDK mode

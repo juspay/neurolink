@@ -140,6 +140,9 @@ const CATALOG_ENV_VARS = [
   "NOVITA_API_KEY",
   "NOVITA_BASE_URL",
   "NOVITA_MODEL",
+  "MORPH_API_KEY",
+  "MORPH_BASE_URL",
+  "MORPH_MODEL",
 ];
 
 function neutralizeCatalogEnv(): void {
@@ -1113,6 +1116,18 @@ const CATALOG_ALIAS_CHECKS: AliasCheck[] = [
     envVar: "NOVITA_API_KEY",
     urlMatch: "api.novita.ai/openai/v1/chat/completions",
     model: "meta-llama/llama-3.3-70b-instruct",
+  },
+  {
+    alias: "morph",
+    envVar: "MORPH_API_KEY",
+    urlMatch: "api.morphllm.com/v1/chat/completions",
+    model: "morph-v3-large",
+  },
+  {
+    alias: "morphllm",
+    envVar: "MORPH_API_KEY",
+    urlMatch: "api.morphllm.com/v1/chat/completions",
+    model: "morph-v3-large",
   },
 ];
 
