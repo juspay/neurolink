@@ -1,3 +1,4 @@
+import { HuggingFaceModels } from "../../constants/enums.js";
 import type { AIProviderName } from "../../constants/enums.js";
 import {
   AuthenticationError,
@@ -27,8 +28,23 @@ const HUGGINGFACE_DEFAULT_BASE_URL = "https://router.huggingface.co/v1";
 const getHuggingFaceApiKey = (): string =>
   validateApiKey(createHuggingFaceConfig());
 
+/**
+ * Must stay the same id `providerRegistry` passes as the registration default
+ * (`process.env.HUGGINGFACE_MODEL || HuggingFaceModels.QWEN_2_5_72B_INSTRUCT`),
+ * hence the shared constant rather than a second literal.
+ *
+ * The registry supplies `modelName` on every factory-created provider, so this
+ * only decides a directly-constructed `new HuggingFaceProvider()`. It still
+ * matters: it previously read `microsoft/DialoGPT-medium`, which the router
+ * does not serve under any request shape — it answers 400 "not supported by
+ * any provider you have enabled" with or without `tools` — and that stale id
+ * was what the docs and setup guidance advertised as the default.
+ */
 const getDefaultHuggingFaceModel = (): string =>
-  getProviderModel("HUGGINGFACE_MODEL", "microsoft/DialoGPT-medium");
+  getProviderModel(
+    "HUGGINGFACE_MODEL",
+    HuggingFaceModels.QWEN_2_5_72B_INSTRUCT,
+  );
 
 /**
  * HuggingFace Provider — direct HTTP, no AI SDK.
@@ -82,32 +98,37 @@ export class HuggingFaceProvider extends OpenAIChatCompletionsProvider {
   }
 
   /**
-   * HuggingFace serves a huge variety of models, many of which reject the
-   * OpenAI `tools` field. The base reports supportsTools() === true
-   * unconditionally, which would merge tools into requests for models
-   * (including the default DialoGPT-medium) that don't accept them. Preserve
-   * the pre-migration allowlist: only known tool-calling-capable model
-   * families opt in; everything else runs tool-free.
+   * Tool support is resolved by the base through MODEL_REGISTRY's
+   * `modelSupports()` facade, which defaults unknown models to supported.
+   *
+   * This class used to override that with a 13-entry allowlist of model-name
+   * substrings, written for the old per-model Inference API where many
+   * endpoints rejected the OpenAI `tools` field. The router replaced that, and
+   * the list did not keep up. Measured against the 142 models
+   * `GET router.huggingface.co/v1/models` served on 2026-09-13 (the
+   * catalogue drifts, so treat the totals as a snapshot; the ratio is the
+   * point):
+   *
+   *   allowlist entries matching ANY served model   1 of 13
+   *   served models the allowlist ADMITS            1 of 142
+   *   served models the allowlist BLOCKS          141
+   *
+   * So it suppressed tool calling for 99% of the catalogue, including
+   * Qwen/Qwen2.5-72B-Instruct, which the router demonstrably tool-calls. A
+   * spread of the blocked models — GLM-5.3-Flash, gemma-4-31B-it,
+   * DeepSeek-V4-Flash — all accept `tools` with HTTP 200 and return
+   * `tool_calls`; none rejected the field.
+   *
+   * The allowlist's own comment named `microsoft/DialoGPT-medium` — which
+   * `getDefaultModel()`, not `getFallbackModelName()`, used to return — as a
+   * model that rejects `tools`. The router does not serve it under any
+   * request shape, so that path was never reachable; the default now points
+   * at a served model (see `getDefaultHuggingFaceModel`).
+   *
+   * A model that genuinely cannot use tools simply does not emit `tool_calls`,
+   * which the loop already handles, so the optimistic default costs nothing
+   * that the allowlist was protecting.
    */
-  public supportsTools(): boolean {
-    const modelName = this.modelName.toLowerCase();
-    const toolCapableModels = [
-      "llama-3.1-8b-instruct",
-      "llama-3.1-70b-instruct",
-      "llama-3.1-405b-instruct",
-      "llama-3.1-nemotron-ultra",
-      "hermes-3-llama-3.2",
-      "hermes-2-pro",
-      "codellama-34b-instruct",
-      "codellama-13b-instruct",
-      "mistral-7b-instruct-v0.3",
-      "mistral-8x7b-instruct",
-      "nous-hermes",
-      "openchat",
-      "wizardcoder",
-    ];
-    return toolCapableModels.some((capable) => modelName.includes(capable));
-  }
 
   protected formatProviderError(error: unknown): Error {
     const rules: ProviderErrorRule[] = [

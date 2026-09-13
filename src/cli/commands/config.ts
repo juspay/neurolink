@@ -94,7 +94,7 @@ const ConfigSchema: z.ZodType<CliNeuroLinkConfig> = z.object({
       huggingface: z
         .object({
           apiKey: z.string().optional(),
-          model: z.string().default("microsoft/DialoGPT-large"),
+          model: z.string().default("Qwen/Qwen2.5-72B-Instruct"),
         })
         .optional(),
       ollama: z
@@ -860,7 +860,7 @@ export class ConfigManager {
         type: "input",
         name: "model",
         message: "Model name:",
-        default: "microsoft/DialoGPT-large",
+        default: "Qwen/Qwen2.5-72B-Instruct",
       },
     ]);
 

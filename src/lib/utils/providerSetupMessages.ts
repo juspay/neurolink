@@ -82,8 +82,8 @@ export function getProviderSetupMessage(
       envVars: [
         'HUGGINGFACE_API_KEY="hf_your_huggingface_token"',
         "# Optional:",
-        'HUGGINGFACE_MODEL="microsoft/DialoGPT-medium"',
-        'HUGGINGFACE_ENDPOINT="https://api-inference.huggingface.co"',
+        'HUGGINGFACE_MODEL="Qwen/Qwen2.5-72B-Instruct"',
+        'HUGGINGFACE_BASE_URL="https://router.huggingface.co/v1"',
       ],
     },
     mistral: {
