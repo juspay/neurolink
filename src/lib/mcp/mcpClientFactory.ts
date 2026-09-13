@@ -307,13 +307,11 @@ export class MCPClientFactory {
       });
 
       // Connect with timeout
-      await Promise.race([
+      await this.raceWithTimeout(
         client.connect(transport),
-        this.createTimeoutPromise(
-          timeout,
-          `Client connection timeout for ${config.id}`,
-        ),
-      ]);
+        timeout,
+        `Client connection timeout for ${config.id}`,
+      );
 
       // Perform handshake to get server capabilities
       const serverCapabilities = await this.performHandshake(client, timeout);
@@ -727,10 +725,11 @@ export class MCPClientFactory {
     try {
       // The MCP SDK handles the handshake automatically during connect()
       // We can request server info to verify the connection
-      const serverInfo = await Promise.race<Record<string, unknown>>([
+      const serverInfo = await this.raceWithTimeout<Record<string, unknown>>(
         this.getServerInfo(client),
-        this.createTimeoutPromise<never>(timeout, "Handshake timeout"),
-      ]);
+        timeout,
+        "Handshake timeout",
+      );
 
       // Extract capabilities from server info
       return this.extractCapabilities(serverInfo);
@@ -786,27 +785,44 @@ export class MCPClientFactory {
   }
 
   /**
-   * Create a timeout promise with AbortController support
-   * Provides consistent async timeout patterns across the factory
+   * Race an operation against a timeout (with optional AbortController
+   * support), clearing the timer on every outcome. A bare
+   * `Promise.race([operation, timeoutPromise])` leaves the timeout's
+   * `setTimeout` handle ref'd and pending until it fires even after
+   * `operation` already won the race — on the (common) success path that
+   * stray timer holds the event loop open for the full timeout duration for
+   * no reason.
    */
-  private static createTimeoutPromise<T>(
+  private static async raceWithTimeout<T>(
+    operation: Promise<T>,
     timeout: number,
     message: string,
     abortSignal?: AbortSignal,
   ): Promise<T> {
-    return new Promise((_, reject) => {
-      const timeoutId = setTimeout(() => {
+    let timeoutId: NodeJS.Timeout | undefined;
+    let onAbort: (() => void) | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
         reject(new Error(message));
       }, timeout);
 
       // Support abortion for better async cleanup
       if (abortSignal) {
-        abortSignal.addEventListener("abort", () => {
+        onAbort = () => {
           clearTimeout(timeoutId);
           reject(new Error(`Operation aborted: ${message}`));
-        });
+        };
+        abortSignal.addEventListener("abort", onAbort);
       }
     });
+    try {
+      return await Promise.race([operation, timeoutPromise]);
+    } finally {
+      clearTimeout(timeoutId);
+      if (abortSignal && onAbort) {
+        abortSignal.removeEventListener("abort", onAbort);
+      }
+    }
   }
 
   /**
