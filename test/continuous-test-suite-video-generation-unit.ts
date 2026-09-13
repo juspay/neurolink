@@ -57,9 +57,12 @@
  *   3. Fidelity reduction (not a full drop): the old suite asserted on the
  *      typed `err.code === VIDEO_ERROR_CODES.X` and `err instanceof
  *      VideoError`. Through the public `generate()` surface, NeuroLink wraps
- *      every provider error into a plain `Error` with a composed message
- *      ("Failed to generate text with all providers. Last error: ...") —
- *      `VideoError`/`VIDEO_ERROR_CODES` are not exposed on the thrown value.
+ *      every provider error into a plain `Error` with a composed message —
+ *      since every call here names a single, explicit `provider:`, that
+ *      message is `"Provider <name> failed: ..."` (the "Failed to generate
+ *      text with all providers" wording only applies to a real multi-provider
+ *      fallback list) — and `VideoError`/`VIDEO_ERROR_CODES` are not exposed
+ *      on the thrown value.
  *      This suite instead matches the distinctive, stable phrase each
  *      VideoError code is known to produce (e.g. "is not registered", "is
  *      not configured") inside that message. This is weaker than asserting

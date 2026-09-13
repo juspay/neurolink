@@ -129,7 +129,12 @@ export class CohereProvider extends OpenAIChatCompletionsProvider {
       },
       ...DEFAULT_ERROR_RULES,
     ];
-    return classifyProviderError(error, rules, "cohere", this.modelName);
+    return classifyProviderError(
+      error,
+      rules,
+      this.providerName,
+      this.modelName,
+    );
   }
 
   async validateConfiguration(): Promise<boolean> {

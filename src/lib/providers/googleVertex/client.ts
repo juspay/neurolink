@@ -1334,9 +1334,13 @@ export class GoogleVertexProvider extends BaseProvider {
     warnGoogleSdkIgnoresProxy("GoogleVertex");
 
     const expressApiKey = this.resolveExpressApiKey();
-    // Resolved only on the ADC path: getVertexProjectId() throws when no
-    // project is configured, which an Express request legitimately has none of.
-    const project = expressApiKey ? "" : getVertexProjectId();
+    // Resolved only on the ADC path, and from the per-instance projectId the
+    // constructor already settled (credentials.projectId if supplied, else
+    // the same ambient getVertexProjectId() fallback) — not re-read from
+    // ambient env here, or a per-request projectId override would be built
+    // into the client with the wrong project while call sites elsewhere
+    // (generateContent's `project:` param) correctly used this.projectId.
+    const project = expressApiKey ? "" : this.projectId;
     const location = regionOverride || this.location || getVertexLocation();
 
     const mod: unknown = await import("@google/genai");
@@ -1427,119 +1431,6 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Convert one AI-SDK tool into a Vertex Gemini function declaration.
-   * Single source for the pre-loop snapshot AND the mid-turn discovery
-   * refresh, so tools hydrated by search_tools get the exact same schema
-   * treatment (inline, typed, additionalProperties stripped).
-   */
-  private buildGeminiFunctionDeclaration(
-    name: string,
-    tool: Tool,
-  ): VertexGenaiFunctionDeclaration {
-    const decl: VertexGenaiFunctionDeclaration = {
-      name,
-      description: tool.description || `Tool: ${name}`,
-    };
-
-    // Access legacy `parameters` (AI SDK v3/v4) or current `inputSchema` (v6)
-    const legacyTool = tool as ToolWithLegacyParams;
-    const toolParams = legacyTool.parameters || tool.inputSchema;
-    if (toolParams) {
-      // Convert and inline schema to resolve $ref/definitions
-      const rawSchema = convertZodToJsonSchema(
-        toolParams as ZodUnknownSchema,
-        "openApi3",
-      ) as Record<string, unknown>;
-      const inlinedSchema = inlineJsonSchema(rawSchema);
-      // Remove $schema if present - @google/genai doesn't need it
-      if (inlinedSchema.$schema) {
-        delete inlinedSchema.$schema;
-      }
-      // CRITICAL: Google Vertex AI requires ALL nested schemas to have a type field
-      // ensureNestedSchemaTypes recursively adds missing type fields to tool schemas
-      // Note: convertZodToJsonSchema now uses openApi3 target which produces nullable: true
-      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-      // Strip `additionalProperties` recursively — Vertex Gemini's
-      // function-call validator rejects it on object schemas (returns
-      // 400 INVALID_ARGUMENT) even though it's valid OpenAPI 3. The
-      // field has no semantic meaning to the model, so dropping it
-      // before send is safe for every caller.
-      stripAdditionalPropertiesDeep(typedSchema);
-      decl.parametersJsonSchema = typedSchema;
-    }
-    return decl;
-  }
-
-  /**
-   * Mid-turn tool sync for the native Gemini loops. `search_tools` hydrates
-   * discovered tools into the live `options.tools` record between steps, but
-   * the loop's declarations + executeMap are a pre-loop snapshot — without
-   * this refresh, a tool discovered this turn stays invisible to the rest of
-   * the turn and every call to it dies as TOOL_NOT_FOUND. Mutates the
-   * declaration array in place (the request config holds it by reference)
-   * and clears breaker strikes accrued while the tool was still deferred.
-   */
-  private refreshGeminiToolDeclarations(
-    liveTools: Record<string, Tool> | undefined,
-    declarations: VertexGenaiFunctionDeclaration[] | undefined,
-    executeMap: DedupExecuteMap,
-    failedTools: Map<string, { count: number; lastError: string }>,
-  ): void {
-    if (!liveTools || !declarations) {
-      return;
-    }
-    const declared = new Set(declarations.map((d) => d.name));
-    for (const [name, tool] of Object.entries(liveTools)) {
-      if (declared.has(name)) {
-        continue;
-      }
-      declarations.push(this.buildGeminiFunctionDeclaration(name, tool));
-      if (tool.execute) {
-        executeMap.set(name, tool.execute);
-      }
-      failedTools.delete(name);
-      logger.info(
-        `[GoogleVertex] Tool "${name}" hydrated mid-turn via discovery — added to Gemini declarations.`,
-      );
-    }
-  }
-
-  /**
-   * Dispatch-miss recovery for the native Gemini loops: the model called a
-   * name missing from the executeMap snapshot. Re-read the live record (a
-   * tool hydrated by search_tools in this very step batch) or auto-hydrate a
-   * deferred catalog tool the model called directly by its advertised name.
-   * Returns the dedup-wrapped executor, or undefined when the name is
-   * genuinely unknown — callers keep TOOL_NOT_FOUND for that case.
-   */
-  private resolveGeminiToolOnMiss(
-    name: string,
-    liveTools: Record<string, Tool> | undefined,
-    declarations: VertexGenaiFunctionDeclaration[] | undefined,
-    executeMap: DedupExecuteMap,
-    failedTools: Map<string, { count: number; lastError: string }>,
-  ): Tool["execute"] | undefined {
-    if (!declarations) {
-      return undefined;
-    }
-    const tool = resolveLiveTool(liveTools, name);
-    if (!tool?.execute) {
-      return undefined;
-    }
-    if (!declarations.some((d) => d.name === name)) {
-      declarations.push(this.buildGeminiFunctionDeclaration(name, tool));
-    }
-    executeMap.set(name, tool.execute);
-    // NOT_FOUND strikes accrued while the tool was deferred are snapshot
-    // artifacts, not real failures — reset so the breaker starts clean.
-    failedTools.delete(name);
-    logger.info(
-      `[GoogleVertex] Tool "${name}" resolved mid-turn via discovery — executing.`,
-    );
-    return executeMap.get(name);
-  }
-
-  /**
    * Convert one AI-SDK tool into an Anthropic (Claude-on-Vertex) tool
    * declaration. Single source for the pre-loop snapshot AND the mid-turn
    * discovery refresh — Anthropic validates input_schema as JSON Schema
@@ -1577,8 +1468,7 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Mid-turn tool sync for the Claude-on-Vertex loops — the Anthropic
-   * counterpart of refreshGeminiToolDeclarations. Claude only calls tools
+   * Mid-turn tool sync for the Claude-on-Vertex loops. Claude only calls tools
    * present in the request's `tools` array, so without this per-step refresh
    * a tool discovered via search_tools is unreachable for the rest of the
    * turn. Mutates the array in place (requestParams holds it by reference).
@@ -1609,8 +1499,7 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Dispatch-miss recovery for the Claude-on-Vertex loops — the Anthropic
-   * counterpart of resolveGeminiToolOnMiss.
+   * Dispatch-miss recovery for the Claude-on-Vertex loops.
    */
   private resolveAnthropicToolOnMiss(
     name: string,
@@ -1635,6 +1524,37 @@ export class GoogleVertexProvider extends BaseProvider {
       `[GoogleVertex] Tool "${name}" resolved mid-turn via discovery — executing.`,
     );
     return executeMap.get(name);
+  }
+
+  /**
+   * Build the synthetic `final_result` tool used to force structured output
+   * on Claude-on-Vertex. Anthropic has no native responseSchema, so a schema
+   * is instead enforced by requiring the model to call this tool with
+   * matching arguments. Single source for the non-streaming and streaming
+   * paths — both previously built this object independently from their own
+   * schema variable, byte-identical apart from that variable's name.
+   */
+  private buildFinalResultTool(schema: ZodUnknownSchema): VertexAnthropicTool {
+    const schemaAsJson = convertZodToJsonSchema(schema) as Record<
+      string,
+      unknown
+    >;
+    const inlinedSchema = inlineJsonSchema(schemaAsJson);
+    if (inlinedSchema.$schema) {
+      delete inlinedSchema.$schema;
+    }
+    const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
+    return {
+      name: "final_result",
+      description:
+        "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
+      input_schema: {
+        type: "object",
+        properties:
+          (typedSchema.properties as Record<string, unknown>) || typedSchema,
+        required: (typedSchema.required as string[]) || [],
+      },
+    };
   }
 
   /**
@@ -4111,28 +4031,8 @@ export class GoogleVertexProvider extends BaseProvider {
     if (streamOptions.schema) {
       useFinalResultTool = true;
 
-      // Convert schema to JSON schema format
-      const schemaAsJson = convertZodToJsonSchema(
-        streamOptions.schema as ZodUnknownSchema,
-      ) as Record<string, unknown>;
-      const inlinedSchema = inlineJsonSchema(schemaAsJson);
-      if (inlinedSchema.$schema) {
-        delete inlinedSchema.$schema;
-      }
-      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-
       // Create final_result tool
-      const finalResultTool: VertexAnthropicTool = {
-        name: "final_result",
-        description:
-          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
-        input_schema: {
-          type: "object",
-          properties:
-            (typedSchema.properties as Record<string, unknown>) || typedSchema,
-          required: (typedSchema.required as string[]) || [],
-        },
-      };
+      const finalResultTool = this.buildFinalResultTool(streamOptions.schema);
 
       // Add to tools array or create new array
       if (!tools) {
@@ -4147,7 +4047,9 @@ export class GoogleVertexProvider extends BaseProvider {
       logger.debug(
         "[GoogleVertex] Added final_result tool for Anthropic structured output (stream)",
         {
-          schemaKeys: Object.keys(typedSchema),
+          schemaKeys: Object.keys(
+            finalResultTool.input_schema.properties ?? {},
+          ),
           totalTools: tools.length,
         },
       );
@@ -4865,10 +4767,19 @@ export class GoogleVertexProvider extends BaseProvider {
           // with text in step 2 would look unfinished and fall into terminal
           // handling. The finish reason is the per-turn signal — the engine
           // reports "tool-calls" only when the cap was hit with tools still
-          // pending.
+          // pending. That signal is not enough on its own, though: Anthropic
+          // reports stop_reason "tool_use" — which maps to finishReason
+          // "tool-calls" — for ANY tool_use block, including a genuine
+          // terminal `final_result` call. Without the third clause, a turn
+          // that called a real tool earlier (toolCalls.length > 0) and then
+          // legitimately finished via final_result reads as unfinished and
+          // falls into the terminal-handling block below, which forces a
+          // redundant second final_result call and pushes its JSON onto the
+          // stream a second time.
           modelFinished =
             engineResult.toolCalls.length === 0 ||
-            engineResult.finishReason !== "tool-calls";
+            engineResult.finishReason !== "tool-calls" ||
+            (useFinalResultTool && structuredOutputRef.value !== undefined);
           // Replace in place: the terminal block and the finalization call both
           // read `currentMessages`.
           currentMessages.length = 0;
@@ -5650,28 +5561,10 @@ export class GoogleVertexProvider extends BaseProvider {
     if (options.schema) {
       useFinalResultTool = true;
 
-      // Convert schema to JSON schema format
-      const schemaAsJson = convertZodToJsonSchema(
-        options.schema as ZodUnknownSchema,
-      ) as Record<string, unknown>;
-      const inlinedSchema = inlineJsonSchema(schemaAsJson);
-      if (inlinedSchema.$schema) {
-        delete inlinedSchema.$schema;
-      }
-      const typedSchema = ensureNestedSchemaTypes(inlinedSchema);
-
       // Create final_result tool
-      const finalResultTool: VertexAnthropicTool = {
-        name: "final_result",
-        description:
-          "Return the final structured result. You MUST call this tool when you have gathered all information and are ready to provide the final answer. The arguments should contain the structured data matching the expected schema.",
-        input_schema: {
-          type: "object",
-          properties:
-            (typedSchema.properties as Record<string, unknown>) || typedSchema,
-          required: (typedSchema.required as string[]) || [],
-        },
-      };
+      const finalResultTool = this.buildFinalResultTool(
+        options.schema as ZodUnknownSchema,
+      );
 
       // Add to tools array or create new array
       if (!tools) {
@@ -5686,7 +5579,9 @@ export class GoogleVertexProvider extends BaseProvider {
       logger.debug(
         "[GoogleVertex] Added final_result tool for Anthropic structured output (generate)",
         {
-          schemaKeys: Object.keys(typedSchema),
+          schemaKeys: Object.keys(
+            finalResultTool.input_schema.properties ?? {},
+          ),
           totalTools: tools.length,
         },
       );

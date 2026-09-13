@@ -31,6 +31,8 @@ it works — this is a _usage_ change, not an _integration_ change.
 - [ ] No manifest file is required — `tools/verify-provider-onboarding.ts`
       (see `../../../tools/verify-provider-onboarding.ts`) only gates
       _new_ `AIProviderName` members, and Tier 1 never adds one.
+- [ ] Confirmed: no edit to `docs/reference/provider-comparison.md` or
+      README provider count for this change.
 
 ## Verification commands
 

@@ -711,6 +711,164 @@ await test("the generate path declares and executes a caller's tools", async () 
   );
 });
 
+section("schema + tools together (buildFinalResultTool)");
+
+// Both native loops now build the synthetic `final_result` tool through one
+// shared helper instead of each hand-rolling an identical object from its
+// own schema variable. These two cases (stream, generate) pin that the
+// dedup changed nothing observable: `final_result`'s wire schema still
+// carries the caller's fields, it is still declared alongside a caller's
+// own tool, and a natural call to it still resolves the turn into structured
+// output on the surface each entry point actually exposes to callers —
+// `structuredData` for generate(), and JSON-decodable stream text for
+// stream() (StreamResult carries no `structuredData`/`jsonTruncated`; the
+// provider's own `structuredOutput` getter is not among the fields
+// NeuroLink.stream()'s wrapper copies onto the object it hands back).
+
+await test("a stream turn with a caller tool AND a schema declares both and returns structured JSON", async () => {
+  const server = await startStandIn((i) =>
+    i === 0
+      ? toolTurn("lookup", { q: "x" })
+      : toolTurn("final_result", { answer: "42" }, "toolu_final"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let aggregated = "";
+  let streamFailure = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look it up, then answer with structure" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 64,
+      maxSteps: 4,
+      disableTools: false,
+      disableInternalFallback: true,
+      schema: z.object({ answer: z.string() }),
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        aggregated += chunk.content;
+      }
+    }
+  } catch (error) {
+    streamFailure =
+      error instanceof Error ? error.message.slice(0, 200) : String(error);
+  } finally {
+    restore();
+    await server.close();
+  }
+
+  const finalResultCall = server.calls.find((call) =>
+    declaredToolNames(call).includes("final_result"),
+  );
+  const finalResultDecl = (
+    (finalResultCall?.body?.tools ?? []) as Array<{
+      name?: string;
+      input_schema?: { properties?: Record<string, unknown> };
+    }>
+  ).find((t) => t.name === "final_result");
+
+  console.log(
+    `    [diagnostic] vertex-claude schema+tools stream: calls=${server.calls.length} executed=${counter.calls} aggregatedLen=${aggregated.length} outcome=${streamFailure || "ok"} aggregated=${JSON.stringify(aggregated)}`,
+  );
+  assert(
+    !!finalResultDecl?.input_schema?.properties?.answer,
+    "the final_result tool's declared schema did not carry the caller's 'answer' field",
+  );
+  assert(
+    declaredToolNames(finalResultCall).includes("lookup"),
+    "the caller's own tool was not declared alongside final_result",
+  );
+  assert(
+    counter.calls === 1,
+    "the caller's tool was not executed once before finalization",
+  );
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(aggregated);
+  } catch {
+    parsed = undefined;
+  }
+  assert(
+    !!parsed && (parsed as { answer?: string }).answer === "42",
+    "the streamed text did not JSON-decode to the model's final_result payload",
+  );
+});
+
+await test("a generate turn with a caller tool AND a schema declares both and returns structuredData", async () => {
+  const server = await startStandIn((i) =>
+    i === 0
+      ? toolTurn("lookup", { q: "x" })
+      : toolTurn("final_result", { answer: "42" }, "toolu_final"),
+  );
+  const restore = withVertexEnv();
+  const counter = { calls: 0 };
+  let structuredData: unknown;
+  let jsonTruncated: unknown;
+  let generateFailure = "";
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.generate({
+      input: { text: "look it up, then answer with structure" },
+      provider: "vertex",
+      model: MODEL,
+      maxTokens: 64,
+      maxSteps: 4,
+      disableTools: false,
+      disableInternalFallback: true,
+      schema: z.object({ answer: z.string() }),
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    structuredData = result.structuredData;
+    jsonTruncated = result.jsonTruncated;
+  } catch (error) {
+    generateFailure =
+      error instanceof Error ? error.message.slice(0, 200) : String(error);
+  } finally {
+    restore();
+    await server.close();
+  }
+
+  const finalResultCall = server.calls.find((call) =>
+    declaredToolNames(call).includes("final_result"),
+  );
+  const finalResultDecl = (
+    (finalResultCall?.body?.tools ?? []) as Array<{
+      name?: string;
+      input_schema?: { properties?: Record<string, unknown> };
+    }>
+  ).find((t) => t.name === "final_result");
+
+  console.log(
+    `    [diagnostic] vertex-claude schema+tools generate: calls=${server.calls.length} executed=${counter.calls} structuredData=${JSON.stringify(structuredData)} outcome=${generateFailure || "ok"}`,
+  );
+  assert(
+    !!finalResultDecl?.input_schema?.properties?.answer,
+    "the final_result tool's declared schema did not carry the caller's 'answer' field",
+  );
+  assert(
+    declaredToolNames(finalResultCall).includes("lookup"),
+    "the caller's own tool was not declared alongside final_result",
+  );
+  assert(
+    counter.calls === 1,
+    "the caller's tool was not executed once before finalization",
+  );
+  assert(
+    (structuredData as { answer?: string } | undefined)?.answer === "42",
+    "generate() did not return the model's final_result payload as structuredData",
+  );
+  assert(
+    !jsonTruncated,
+    "generate() reported jsonTruncated for a clean, complete final_result response",
+  );
+});
+
 section("mid-turn tool hydration observability");
 
 /**

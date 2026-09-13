@@ -8851,6 +8851,17 @@ Current user's request: ${currentInput}`;
       throw lastError;
     }
 
+    // A single-candidate list (an explicit provider, or
+    // disableInternalFallback) never actually tried "all providers" —
+    // naming the one provider that failed is clearer than the generic
+    // multi-provider wording. The multi-provider prefix is left untouched
+    // so existing message-matching suites keep passing.
+    if (providersToTry.length === 1) {
+      throw new Error(
+        `Provider ${providersToTry[0]} failed: ${lastError?.message || "Unknown error"}`,
+      );
+    }
+
     throw new Error(
       `Failed to generate text with all providers. Last error: ${lastError?.message || "Unknown error"}`,
     );
@@ -14765,17 +14776,39 @@ Current user's request: ${currentInput}`;
             }
           }
 
-          // Test other providers with actual generation call
+          // Test other providers with actual generation call. The losing
+          // side of the race is aborted in `finally` below — previously the
+          // timeout promise alone rejected while the still-running
+          // testProviderConnection() call (and the provider request inside
+          // it) kept executing to completion unobserved, wasting quota and
+          // holding the connection open past the 5s status check.
           const testTimeout = 5000;
-          const testPromise = this.testProviderConnection(providerName);
+          const abortController = new AbortController();
+          const testPromise = this.testProviderConnection(
+            providerName,
+            abortController.signal,
+          );
+          let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
           const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(
-              () => reject(new Error("Provider test timeout (5s)")),
-              testTimeout,
-            );
+            timeoutHandle = setTimeout(() => {
+              reject(new Error("Provider test timeout (5s)"));
+            }, testTimeout);
           });
 
-          await Promise.race([testPromise, timeoutPromise]);
+          try {
+            await Promise.race([testPromise, timeoutPromise]);
+          } finally {
+            // Runs on both outcomes: clears the timer so it can't fire after
+            // a fast success, and aborts the signal so a timed-out
+            // generate() call stops instead of finishing unobserved.
+            clearTimeout(timeoutHandle);
+            // The aborted generate() resolves/rejects after the race is
+            // decided; swallow that settlement so it can't surface as an
+            // unhandledRejection, mirroring raceWithAbort's handling of the
+            // losing side.
+            testPromise.catch(() => undefined);
+            abortController.abort();
+          }
 
           return {
             provider: providerName,
@@ -14835,9 +14868,15 @@ Current user's request: ${currentInput}`;
   }
 
   /**
-   * Internal method to test provider connection with minimal generation call
+   * Internal method to test provider connection with minimal generation call.
+   * `signal` lets a caller (getProviderStatus's per-provider race) cancel the
+   * underlying request once it has already lost the race against its
+   * timeout, instead of leaving it running unobserved.
    */
-  private async testProviderConnection(providerName: string): Promise<void> {
+  private async testProviderConnection(
+    providerName: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
     const { AIProviderFactory } = await import("./core/factory.js");
 
     const provider = await AIProviderFactory.createProvider(
@@ -14849,6 +14888,7 @@ Current user's request: ${currentInput}`;
       prompt: "test",
       maxTokens: 1,
       disableTools: true,
+      abortSignal: signal,
     });
   }
 
