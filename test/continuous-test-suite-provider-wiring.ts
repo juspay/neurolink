@@ -28,7 +28,7 @@ import "dotenv/config";
  *      pnpm run test:provider-wiring
  */
 import { createServer, type Server } from "node:http";
-import { defineSuite, assert } from "./helpers/harness.js";
+import { defineSuite, assert, Skip } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 import type {
   NeurolinkCredentials,
@@ -576,6 +576,62 @@ await test("catalog-provider enum surfaces are byte-identical to the pre-JSON-mi
       providerNames.includes(id),
       `AIProviderName missing catalog id: ${id}`,
     );
+  }
+});
+
+await test("a Vertex model-unavailable error never suggests the model that just failed", async () => {
+  // Found by sweeping every feature across Vertex: asking for
+  // `gemini-3-pro-preview-11-2025` in a project without access produced
+  //
+  //   Model 'gemini-3-pro-preview-11-2025' is not available in region global.
+  //   Suggested alternatives: Google Models (always available):
+  //     • gemini-3-pro-preview-11-2025        <-- the id that just failed
+  //
+  // The list is static, so it cannot know what a project and region serve.
+  // It claimed "always available" and did not exclude the requested model,
+  // so the error recommended the exact id the caller had used. A caller
+  // following that advice retries the same failing model.
+  //
+  // Skips when the model IS available to the account — then there is no error
+  // to inspect and nothing to assert.
+  const { NeuroLink } = await import("../dist/index.js");
+
+  const hasVertex =
+    Boolean(process.env.GOOGLE_AUTH_CLIENT_EMAIL) ||
+    Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  if (!hasVertex) {
+    throw new Skip("no Vertex credentials");
+  }
+
+  const requested = "gemini-3-pro-preview-11-2025";
+  const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+  try {
+    await nl.generate({
+      input: { text: "Reply with exactly: ready" },
+      provider: "vertex",
+      model: requested,
+      maxTokens: 64,
+    });
+    throw new Skip("model is available to this account");
+  } catch (error) {
+    if (error instanceof Skip) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/not available in region/i.test(message)) {
+      throw new Skip("vertex did not report a model-availability error");
+    }
+    const suggestionsOnly = message.slice(message.indexOf("Suggested"));
+    assert(
+      !suggestionsOnly.includes(requested),
+      "the suggestion list offers the model the caller just asked for",
+    );
+    assert(
+      !/always available/i.test(message),
+      "the suggestion list still claims availability it cannot know",
+    );
+  } finally {
+    await nl.shutdown?.().catch(() => {});
   }
 });
 

@@ -8222,6 +8222,17 @@ export class GoogleVertexProvider extends BaseProvider {
   /**
    * Get model suggestions when a model is not found
    */
+  /**
+   * Candidate model ids for a "model not available" error.
+   *
+   * This list is static. It cannot know what the caller's project and region
+   * actually serve, so it must not claim to: it previously announced
+   * "always available" and included the requested model itself, which
+   * produced errors that recommended the very id that had just failed —
+   * `gemini-3-pro-preview-11-2025` suggesting `gemini-3-pro-preview-11-2025`.
+   * The requested model is now filtered out, and the wording says these are
+   * ids to try rather than ids known to work.
+   */
   private getModelSuggestions(requestedModel: string | undefined): string {
     const availableModels = {
       google: [
@@ -8248,13 +8259,20 @@ export class GoogleVertexProvider extends BaseProvider {
       ],
     };
 
-    let suggestions = "\n🤖 Google Models (always available):\n";
-    availableModels.google.forEach((model) => {
+    // Never offer the id that just failed back to the caller.
+    const notRequested = (model: string): boolean =>
+      model.toLowerCase() !== (requestedModel ?? "").toLowerCase();
+    const google = availableModels.google.filter(notRequested);
+    const claude = availableModels.claude.filter(notRequested);
+
+    let suggestions =
+      "\n🤖 Google Models (availability depends on your project and region):\n";
+    google.forEach((model) => {
       suggestions += `  • ${model}\n`;
     });
 
     suggestions += "\n🧠 Claude Models (requires Anthropic integration):\n";
-    availableModels.claude.forEach((model) => {
+    claude.forEach((model) => {
       suggestions += `  • ${model}\n`;
     });
 
