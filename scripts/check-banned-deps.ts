@@ -351,10 +351,40 @@ const SOURCE_EXTS = new Set([".ts", ".tsx", ".js", ".mjs", ".cjs"]);
 // installs that SDK in their own project.
 const ALLOWED_IMPORT_PREFIXES = ["examples/client-sdks/"];
 
-const SKIP_DIRS = new Set([
+/**
+ * Directories the SOURCE scan does not descend into. Its job is to grep real
+ * source for banned imports, so build output is excluded because a bundled or
+ * minified artifact re-states imports the source already declares — matching
+ * them again would report the same violation twice and, worse, report one that
+ * no longer exists in source against a stale `dist/`.
+ */
+const SOURCE_SKIP_DIRS = new Set([
   "node_modules",
   "dist",
   "action-dist",
+  ".svelte-kit",
+  ".git",
+]);
+
+/**
+ * Directories the MANIFEST scan does not descend into. A separate list from
+ * SOURCE_SKIP_DIRS because the two scans exclude things for unrelated reasons:
+ * sharing one set meant an entry added for a source-grep reason silently
+ * stopped a real workspace package's `package.json` from being checked at all.
+ *
+ * `node_modules` and `.git` hold manifests that are not ours. `dist` and
+ * `.svelte-kit` are gitignored build output, so scanning them would make the
+ * result depend on whether the tree happens to have been built — a fresh clone
+ * has neither, a developer's tree has both.
+ *
+ * `action-dist` is deliberately NOT excluded: `.gitignore` un-ignores it and
+ * its `package.json` is tracked, so it is a real shipped manifest. Inheriting
+ * the source list skipped it, which meant a banned dependency added there
+ * would never have been caught.
+ */
+const MANIFEST_SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
   ".svelte-kit",
   ".git",
 ]);
@@ -391,7 +421,7 @@ function collectSourceFiles(rootDir: string): string[] {
         continue;
       }
       if (stat.isDirectory()) {
-        if (!SKIP_DIRS.has(entry)) {
+        if (!SOURCE_SKIP_DIRS.has(entry)) {
           stack.push(full);
         }
       } else if (stat.isFile() && SOURCE_EXTS.has(extname(entry))) {
@@ -493,7 +523,7 @@ function collectPackageJsonDirs(rootDir: string): string[] {
       continue;
     }
     for (const entry of entries) {
-      if (SKIP_DIRS.has(entry)) {
+      if (MANIFEST_SKIP_DIRS.has(entry)) {
         continue;
       }
       const full = join(dir, entry);
