@@ -6622,7 +6622,12 @@ export class GoogleVertexProvider extends BaseProvider {
           if (imageOutput) {
             yield {
               type: "image" as const,
-              imageOutput: { base64: imageOutput.base64 || "" },
+              imageOutput: {
+                base64: imageOutput.base64 || "",
+                ...(imageOutput.mimeType
+                  ? { mimeType: imageOutput.mimeType }
+                  : {}),
+              },
             };
           }
           yield { content: textContent };
@@ -8173,10 +8178,13 @@ export class GoogleVertexProvider extends BaseProvider {
       // Extract image data (handle both formats)
       const imageData =
         imagePart.inlineData?.data || imagePart.inline_data?.data;
-      const mimeType =
-        imagePart.inlineData?.mimeType ||
-        imagePart.inline_data?.mime_type ||
-        "image/png";
+      // The declared label and the display default are deliberately separate.
+      // `ImageGenService` trusts a string `mimeType` and skips sniffing, so
+      // stamping the `image/png` default onto `imageOutput` would relabel an
+      // unlabelled WebP as PNG — the exact defect this change fixes elsewhere.
+      const declaredMimeType =
+        imagePart.inlineData?.mimeType || imagePart.inline_data?.mime_type;
+      const mimeType = declaredMimeType || "image/png";
 
       if (!imageData) {
         throw new ProviderError(
@@ -8197,6 +8205,7 @@ export class GoogleVertexProvider extends BaseProvider {
         content: `Generated image using ${imageModelName} (${mimeType})`,
         imageOutput: {
           base64: imageData,
+          ...(declaredMimeType ? { mimeType: declaredMimeType } : {}),
         },
         provider: this.providerName,
         model: imageModelName,

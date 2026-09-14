@@ -8,7 +8,7 @@
 
 > **AzureSetupOptions** = `object`
 
-Defined in: [types/cli.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L814)
+Defined in: [types/cli.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L816)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:814](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **checkOnly?**: `boolean`
 
-Defined in: [types/cli.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L815)
+Defined in: [types/cli.ts:817](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L817)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:815](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **interactive?**: `boolean`
 
-Defined in: [types/cli.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L816)
+Defined in: [types/cli.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L818)

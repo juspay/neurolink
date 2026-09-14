@@ -305,6 +305,10 @@ export {
 
 // Image generation + HITL — surfaced from their dedicated barrels
 export { ImageGenService } from "./image-gen/ImageGenService.js";
+export {
+  detectImageMimeType,
+  sniffImageMimeType,
+} from "./utils/imageDetection.js";
 export { HITLManager } from "./hitl/hitlManager.js";
 
 // Provider registry (for tests, advanced consumers, and tools that need to

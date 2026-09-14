@@ -8,7 +8,7 @@
 
 > **CliToolRoutingFlags** = `object`
 
-Defined in: [types/cli.ts:1981](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1981)
+Defined in: [types/cli.ts:1983](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1983)
 
 Raw CLI flag shape for the tool-routing family of options.
 Keys are camelCase as yargs delivers them after parsing kebab-case aliases.
@@ -19,7 +19,7 @@ Keys are camelCase as yargs delivers them after parsing kebab-case aliases.
 
 > `optional` **toolRouting?**: `boolean`
 
-Defined in: [types/cli.ts:1983](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1983)
+Defined in: [types/cli.ts:1985](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1985)
 
 Master enable switch (--tool-routing).
 
@@ -29,7 +29,7 @@ Master enable switch (--tool-routing).
 
 > `optional` **toolRoutingTimeout?**: `number`
 
-Defined in: [types/cli.ts:1985](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1985)
+Defined in: [types/cli.ts:1987](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1987)
 
 Router LLM hard timeout in ms (--tool-routing-timeout).
 
@@ -39,7 +39,7 @@ Router LLM hard timeout in ms (--tool-routing-timeout).
 
 > `optional` **toolRoutingRouterProvider?**: `string`
 
-Defined in: [types/cli.ts:1987](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1987)
+Defined in: [types/cli.ts:1989](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1989)
 
 Router LLM provider override (--tool-routing-router-provider).
 
@@ -49,7 +49,7 @@ Router LLM provider override (--tool-routing-router-provider).
 
 > `optional` **toolRoutingRouterModel?**: `string`
 
-Defined in: [types/cli.ts:1989](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1989)
+Defined in: [types/cli.ts:1991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1991)
 
 Router LLM model override (--tool-routing-router-model).
 
@@ -59,7 +59,7 @@ Router LLM model override (--tool-routing-router-model).
 
 > `optional` **toolRoutingRouterRegion?**: `string`
 
-Defined in: [types/cli.ts:1991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1991)
+Defined in: [types/cli.ts:1993](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1993)
 
 Router LLM region override (--tool-routing-router-region).
 
@@ -69,7 +69,7 @@ Router LLM region override (--tool-routing-router-region).
 
 > `optional` **toolRoutingAlwaysInclude?**: `string`[]
 
-Defined in: [types/cli.ts:1996](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1996)
+Defined in: [types/cli.ts:1998](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1998)
 
 Server ids that are always kept and never offered to the router
 (--tool-routing-always-include, repeatable).
@@ -80,7 +80,7 @@ Server ids that are always kept and never offered to the router
 
 > `optional` **toolRoutingServers?**: `string`
 
-Defined in: [types/cli.ts:2001](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2001)
+Defined in: [types/cli.ts:2003](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2003)
 
 Path to a JSON file OR inline JSON array of server descriptors
 (--tool-routing-servers).

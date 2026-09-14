@@ -8,7 +8,7 @@
 
 > **GoogleAISetupArgv** = `object`
 
-Defined in: [types/cli.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L798)
+Defined in: [types/cli.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L800)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:798](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:799](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L799)
+Defined in: [types/cli.ts:801](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L801)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:799](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:800](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L800)
+Defined in: [types/cli.ts:802](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L802)

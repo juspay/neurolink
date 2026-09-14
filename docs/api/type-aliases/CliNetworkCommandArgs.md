@@ -8,7 +8,7 @@
 
 > **CliNetworkCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:2068](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2068)
+Defined in: [types/cli.ts:2070](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2070)
 
 Network command arguments for agent network orchestration
 
