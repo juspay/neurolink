@@ -587,6 +587,7 @@ jobs:
           pnpm run test:mcp:spans
           pnpm run test:mcp:stdio-lifecycle
           pnpm run test:proxy-connect-retry
+          pnpm run test:proxy-restart
           pnpm run test:tool-routing
           pnpm run test:tool-routing-cli
           pnpm run test:tool-dedup

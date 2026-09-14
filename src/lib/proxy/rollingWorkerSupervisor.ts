@@ -336,6 +336,17 @@ export class RollingWorkerSupervisor {
           if (this.candidate?.generation === generation) {
             this.candidate = null;
           }
+          // A candidate that never became ready may also ignore SIGTERM.
+          // Bound its cleanup independently of the still-serving generation.
+          const killTimeout = setTimeout(
+            () => handle.terminate("SIGKILL"),
+            1_000,
+          );
+          killTimeout.unref?.();
+          const offCandidateExit = handle.onExit(() => {
+            clearTimeout(killTimeout);
+            offCandidateExit();
+          });
           handle.terminate("SIGTERM");
           dispose();
           this.publishState();

@@ -388,6 +388,10 @@ export default [
             // deliberately outside the exception.
             "test/continuous-test-suite-codex.ts",
             "test/continuous-test-suite-proxy-telemetry.ts",
+            // Isolated rolling workers inject startup stalls and crashes while
+            // the built restart CLI and real streaming sockets are exercised.
+            "test/continuous-test-suite-proxy-restart.ts",
+            "test/fixtures/proxyRestartWorker.mjs",
             // Synthetic Codex response streams, upstream transport failures,
             // and provider-qualified persistence all need exact outcomes that
             // a live request cannot safely or deterministically reproduce.

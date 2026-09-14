@@ -147,6 +147,7 @@
     "test:proxy": "pnpm exec tsx test/continuous-test-suite-proxy.ts",
     "test:proxy-connect-retry": "pnpm exec tsx test/continuous-test-suite-proxy-connect-retry.ts",
     "test:proxy-telemetry": "pnpm exec tsx test/continuous-test-suite-proxy-telemetry.ts",
+    "test:proxy-restart": "pnpm exec tsx test/continuous-test-suite-proxy-restart.ts",
     "test:codex": "pnpm exec tsx test/continuous-test-suite-codex.ts",
     "test:bugfixes": "pnpm exec tsx test/continuous-test-suite-bugfixes.ts",
     "test:json-e2e": "pnpm exec tsx test/continuous-test-suite-json-e2e.ts",

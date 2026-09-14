@@ -67,7 +67,7 @@ import type {
   ProxyStartStrategy,
   ProxyClosableServer,
   ProxyState,
-  ProxySupervisorState,
+  ProxyRestartSupervisorState as ProxySupervisorState,
   ProxyStatusArgs,
   ProxyStatusPrimaryAccount,
   ProxyTelemetryAction,
@@ -117,6 +117,7 @@ import {
 import { startUpdaterWorkerSupervisor } from "../../lib/proxy/updaterSupervisor.js";
 import { openProxyWorkerLog } from "../../lib/proxy/workerLog.js";
 import { startRollingProxyServer } from "../../lib/proxy/rollingProxyServer.js";
+import { startProxyRestartControl } from "../../lib/proxy/restartControl.js";
 import { isProxyAuxiliaryRequest } from "../../lib/proxy/proxyRequestKind.js";
 import { spawnProxySocketWorker } from "../../lib/proxy/rollingWorkerProcess.js";
 import {
@@ -1845,6 +1846,19 @@ export async function createProxyStartApp(params: {
       .json<{ action?: string }>()
       .catch(() => ({ action: undefined }));
     if (payload.action === "drain") {
+      // A rolling worker must keep admitting until the supervisor has a ready
+      // replacement. The legacy global drain can otherwise strand the listener
+      // behind maintenance responses when its caller stalls or disappears.
+      if (isProxySocketWorkerProcess()) {
+        return c.json(
+          {
+            error: "rolling_restart_required",
+            message:
+              "Use neurolink proxy restart; global update drain is disabled for rolling workers.",
+          },
+          409,
+        );
+      }
       if (!markProxyDrainingForUpdate(readiness)) {
         return c.json({ error: "proxy_not_ready" }, 409);
       }
@@ -3577,6 +3591,9 @@ async function runLaunchdProxySupervisor(
     filePrefix: "proxy-supervisor",
   });
   let currentUpdaterPid: number | undefined;
+  let restartControl:
+    | Awaited<ReturnType<typeof startProxyRestartControl>>
+    | undefined;
   const rollingServer = await startRollingProxyServer({
     onEvent: (event) =>
       logProxyLifecycleEvent({
@@ -3609,6 +3626,7 @@ async function runLaunchdProxySupervisor(
         version: PROXY_VERSION,
         updaterPid: currentUpdaterPid,
         rolling: snapshot,
+        restartControl: restartControl?.identity,
       });
     },
     log: (message) => logger.always(message),
@@ -3656,13 +3674,55 @@ async function runLaunchdProxySupervisor(
   process.on("SIGUSR2", activatePendingUpdate);
 
   const readinessHost = host === "0.0.0.0" ? "127.0.0.1" : host;
+  try {
+    restartControl = await startProxyRestartControl({
+      stateDir: join(homedir(), ".neurolink"),
+      server: rollingServer,
+      log: (message) => logger.warn(message),
+      isUpdatePending: () =>
+        !!rollingReplacement || !!loadUpdateState()?.pendingRestartVersion,
+      getInstalledVersion: async () => {
+        const { execFile } = await import("node:child_process");
+        const { promisify } = await import("node:util");
+        const { stdout } = await promisify(execFile)(
+          TRAMPOLINE_PATH,
+          ["--version"],
+          { timeout: 5_000, maxBuffer: 65_536 },
+        );
+        return stdout.trim();
+      },
+      getStatus: async () => {
+        const probeHost = readinessHost === "::" ? "::1" : readinessHost;
+        const response = await fetch(
+          `http://${probeHost.includes(":") ? `[${probeHost}]` : probeHost}:${rollingServer.address.port}/status`,
+          {
+            headers: { connection: "close" },
+            signal: AbortSignal.timeout(3_000),
+          },
+        );
+        if (!response.ok) {
+          throw new Error("Serving status is unavailable.");
+        }
+        return response.json();
+      },
+    });
+  } catch (error) {
+    // A control-plane setup failure must not stop an otherwise serving proxy.
+    logger.warn(
+      `[proxy-supervisor] safe restart control unavailable: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   const updatePersistedUpdaterPid = (updaterPid: number | undefined): void => {
     currentUpdaterPid = updaterPid;
     const state = loadProxySupervisorState();
     if (!state || state.pid !== process.pid) {
       return;
     }
-    saveProxySupervisorState({ ...state, updaterPid });
+    saveProxySupervisorState({
+      ...state,
+      updaterPid,
+      restartControl: restartControl?.identity,
+    });
   };
   const updaterSupervisor = startUpdaterWorkerSupervisor({
     spawnWorker: () =>
@@ -3697,6 +3757,7 @@ async function runLaunchdProxySupervisor(
     stopping = true;
     logger.always(`[proxy-supervisor] shutting down (${signal})`);
     process.off("SIGUSR2", activatePendingUpdate);
+    await restartControl?.close();
     updaterSupervisor.stop();
     await rollingServer.close();
     await flushProxyLifecycleEvents().catch((error) =>

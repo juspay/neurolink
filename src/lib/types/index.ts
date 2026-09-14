@@ -124,3 +124,4 @@ export * from "./localUsage.js";
 
 // resolveRequestKind() dispatch-decision types
 export * from "./dispatch.js";
+export * from "./proxyRestart.js";

@@ -86,6 +86,51 @@ neurolink proxy start
 # Step 5: Restart Claude Code to pick up the new ANTHROPIC_BASE_URL
 ```
 
+### Restart the serving worker
+
+```bash
+neurolink proxy restart --check
+neurolink proxy restart
+```
+
+`restart` starts a replacement worker while the existing worker continues serving.
+The supervisor switches new connections only after the replacement acknowledges
+readiness and activation, then lets requests on the previous worker finish.
+You do not need to run the check separately: `restart` includes it.
+
+The command verifies admission, worker identity/version, socket-transfer counters
+and preservation of request-log disk/OTel settings. It does not generate a model
+request. A failed candidate has a 120-second readiness limit; the serving worker
+is retained. Concurrent restarts, pending updates and additional restarts while
+an older worker is still draining are refused. A disconnected terminal does not
+cancel the supervisor-owned operation or close admission.
+
+Use `--format json` for scripts. Exit zero means the check or activation was
+verified. `activated_unverified` means the replacement activated but a subsequent
+check failed; inspect `neurolink proxy status` before another operation. A lost
+control connection leaves the outcome unknown, rather than triggering a forced
+service restart.
+
+The JSON contract is `CliProxyRestartOutput`: an authenticated supervisor result
+or `{ "ok": false, "phase": "unverified", "message": "..." }` when the CLI cannot
+receive or authenticate that result. The latter exits nonzero and deliberately
+omits supervisor/worker fields that could not be verified. It does not mean the
+replacement failed or was rolled back. Control-server errors after binding are
+reported through the supervisor logger without stopping the serving listener.
+
+This requires a running supervisor that advertises restart-control support.
+Older supervisors must first receive a separately planned service activation;
+installing a newer CLI alone does not add the capability to an existing process.
+The command refuses an unsupported supervisor without signalling it.
+
+The listener and supervisor remain running, so this command does not apply changed
+launchd stdout/stderr destinations or replace supervisor/updater code. Those need
+a service activation with its own interruption budget. `proxy install` is service
+setup, not a routine restart command. The restart command does not rewrite the
+launcher, environment, routing configuration or update history. Local OTel
+initialization is checked; collector/backend delivery still needs telemetry
+verification.
+
 ## How It Works
 
 ### Request Flow
