@@ -567,8 +567,8 @@ HUGGINGFACE_API_KEY="hf_your_huggingface_token"
 #### Optional Variables
 
 ```bash
-HUGGINGFACE_MODEL="microsoft/DialoGPT-medium"    # Default model
-HUGGINGFACE_ENDPOINT="https://api-inference.huggingface.co"  # Default endpoint
+HUGGINGFACE_MODEL="Qwen/Qwen2.5-72B-Instruct"  # Default model
+HUGGINGFACE_BASE_URL="https://router.huggingface.co/v1"  # Default endpoint
 ```
 
 #### How to Get Hugging Face API Token
@@ -581,11 +581,17 @@ HUGGINGFACE_ENDPOINT="https://api-inference.huggingface.co"  # Default endpoint
 
 #### Supported Models
 
-- **Open Source**: Access to 100,000+ community models
-- `microsoft/DialoGPT-medium` (default) - Conversational AI
-- `gpt2` - Classic GPT-2
-- `EleutherAI/gpt-neo-2.7B` - Large open model
-- Any model from [Hugging Face Hub](https://huggingface.co/models)
+Requests go to the unified router (`router.huggingface.co/v1`), which serves
+a curated set of ~140 models — **not** the whole Hub. An id absent from the
+router answers 400 "not supported by any provider you have enabled", which is
+why the legacy defaults (DialoGPT, GPT-2, GPT-Neo) no longer work.
+
+- `Qwen/Qwen2.5-72B-Instruct` (default) - tool-capable, strong multilingual
+- `meta-llama/Llama-3.1-8B-Instruct` - fastest of the served set, tool-capable
+- `meta-llama/Llama-3.3-70B-Instruct` - stronger general reasoning
+- `deepseek-ai/DeepSeek-V3` - highest quality of the served set
+- `Qwen/Qwen2.5-Coder-32B-Instruct` - code-focused
+- Any id listed by `GET https://router.huggingface.co/v1/models`
 
 ---
 
@@ -1156,7 +1162,7 @@ AZURE_MODEL="gpt-4o"
 
 # Hugging Face Configuration
 HUGGINGFACE_API_KEY="hf_your_huggingface_token"
-HUGGINGFACE_MODEL="microsoft/DialoGPT-medium"
+HUGGINGFACE_MODEL="Qwen/Qwen2.5-72B-Instruct"
 
 # Ollama Configuration (Local AI - No API Key Required)
 OLLAMA_BASE_URL="http://localhost:11434"

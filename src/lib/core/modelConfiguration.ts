@@ -73,11 +73,13 @@ export const MODEL_NAMES = {
     QUALITY: "llama3.1:70b",
   },
 
-  // HuggingFace Models
+  // HuggingFace Models — router-served ids. The previous three
+  // (DialoGPT-medium / -large, Llama-2-7b-chat-hf) are absent from the
+  // router catalogue and answer 400 on every request.
   HUGGINGFACE: {
-    FAST: "microsoft/DialoGPT-medium",
-    BALANCED: "microsoft/DialoGPT-large",
-    QUALITY: "meta-llama/Llama-2-7b-chat-hf",
+    FAST: "meta-llama/Llama-3.1-8B-Instruct",
+    BALANCED: "Qwen/Qwen2.5-72B-Instruct",
+    QUALITY: "deepseek-ai/DeepSeek-V3",
   },
 
   // Mistral Models

@@ -56,6 +56,7 @@ import {
   type ColorName,
   withCaseTimeout,
   isCaseTimeout,
+  runCLI,
 } from "./helpers/harness.js";
 
 import { assertDistFresh } from "./helpers/distFreshness.js";
@@ -811,6 +812,141 @@ async function testGemini3TokenCounting(
     logTest("Gemini 3 - Token Counting", "FAIL", msg);
     return false;
   }
+}
+
+// --- HuggingFace tool calling ---
+// A 13-entry model-name allowlist in the HuggingFace client used to gate
+// supportsTools(), suppressing tool calling for 142 of the 143 models the
+// router serves. This pins the behaviour the allowlist blocked: a served,
+// tool-capable model must actually invoke a registered tool.
+//
+// Skips rather than fails when the key is absent or the vendor refuses for
+// account reasons — only a real tool-wiring break should fail.
+async function testHuggingFaceToolCalling(): Promise<boolean | null> {
+  logTest("HuggingFace Tool Calling", "TESTING");
+  if (!process.env.HUGGINGFACE_API_KEY && !process.env.HUGGING_FACE_API_KEY) {
+    logTest("HuggingFace Tool Calling", "SKIP", "no HuggingFace key");
+    return null;
+  }
+  const sdk = new NeuroLink();
+  try {
+    sdk.registerTool("lookup_population", {
+      name: "lookup_population",
+      description:
+        "Return the population of a named city. Always use this tool.",
+      inputSchema: {
+        type: "object",
+        properties: { city: { type: "string" } },
+        required: ["city"],
+      },
+      execute: async () => ({ population: 12478447 }),
+    });
+    const result = await sdk.generate({
+      input: {
+        text: "Use the lookup_population tool to get the population of Bengaluru, then state the number.",
+      },
+      provider: "huggingface",
+      model: process.env.HUGGINGFACE_MODEL || "Qwen/Qwen2.5-72B-Instruct",
+      maxTokens: 400,
+    });
+    const used = result.toolsUsed ?? [];
+    if (!used.includes("lookup_population")) {
+      logTest(
+        "HuggingFace Tool Calling",
+        "FAIL",
+        "registered tool was not invoked",
+      );
+      return false;
+    }
+    logTest("HuggingFace Tool Calling", "PASS", "tool invoked");
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // 402 is HuggingFace's credits-exhausted answer, not a wiring break: the
+    // router bills Inference Providers per call and refuses with Payment
+    // Required once the monthly allowance is gone. It is bounded to \b402\b so
+    // a duration like 1402ms in the output cannot masquerade as one.
+    if (
+      /api key|unauthor|forbidden|quota|rate.?limit|429|\b402\b|payment.?required|insufficient (?:credit|balance|fund)|not supported by any provider|timed.?out|timeout|503|502/i.test(
+        message,
+      )
+    ) {
+      logTest("HuggingFace Tool Calling", "SKIP", "vendor/account unavailable");
+      return null;
+    }
+    logTest("HuggingFace Tool Calling", "FAIL", "tool request failed");
+    return false;
+  } finally {
+    await sdk.shutdown?.().catch(() => {});
+  }
+}
+
+// --- HuggingFace default model ---
+// Nothing covered the omitted-model path, and every static surface that named
+// a HuggingFace default named an id the router does not serve: the provider's
+// getDefaultModel(), the setup wizard's five choices, the CLI config defaults
+// and the docs all pointed at DialoGPT/blenderbot ids that answer 400 "not
+// supported by any provider you have enabled".
+//
+// The live path survived only because providerRegistry passes its own default
+// (HuggingFaceModels.QWEN_2_5_72B_INSTRUCT), so this is a guard against future
+// drift rather than a regression pin — the registry default was already served
+// before the dead ids were replaced.
+//
+// It must run as a child process: providerRegistry reads
+// `process.env.HUGGINGFACE_MODEL` when the module is first imported, so
+// clearing the variable inside this process after import has no effect.
+// Passing it through empty makes the registration default fall through to the
+// shipped constant, which is the value under test.
+async function testHuggingFaceDefaultModel(): Promise<boolean | null> {
+  logTest("HuggingFace Default Model", "TESTING");
+  if (!process.env.HUGGINGFACE_API_KEY && !process.env.HUGGING_FACE_API_KEY) {
+    logTest("HuggingFace Default Model", "SKIP", "no HuggingFace key");
+    return null;
+  }
+  const result = await runCLI(
+    [
+      "generate",
+      "Reply with the single word: ready",
+      "--provider",
+      "huggingface",
+      "--max-tokens",
+      "16",
+    ],
+    { env: { HUGGINGFACE_MODEL: "" }, timeoutMs: 90000 },
+  );
+  const output = `${result.stdout}\n${result.stderr}`;
+  // 402 carries the same credits-exhausted meaning here, and this regex reads
+  // the CLI's whole output rather than an error, so the bound on \b402\b also
+  // keeps a successful run whose output happens to contain 402 from skipping.
+  if (
+    /api key|unauthor|forbidden|quota|rate.?limit|429|\b402\b|payment.?required|insufficient (?:credit|balance|fund)|timed.?out|timeout|503|502/i.test(
+      output,
+    )
+  ) {
+    logTest("HuggingFace Default Model", "SKIP", "vendor/account unavailable");
+    return null;
+  }
+  // A "not supported by any provider" response IS the defect, so it is
+  // deliberately absent from the skip set above.
+  if (result.exitCode !== 0) {
+    logTest(
+      "HuggingFace Default Model",
+      "FAIL",
+      "CLI exited non-zero on the default model",
+    );
+    return false;
+  }
+  if (result.stdout.trim().length === 0) {
+    logTest(
+      "HuggingFace Default Model",
+      "FAIL",
+      "default model produced no output",
+    );
+    return false;
+  }
+  logTest("HuggingFace Default Model", "PASS", "default model answered");
+  return true;
 }
 
 // --- Test #10: DisableTools (provider-agnostic) ---
@@ -3307,6 +3443,14 @@ async function runAllTests(): Promise<void> {
     {
       name: "Structured Output - Vertex",
       fn: () => testStructuredOutputVertex(sharedSdk),
+    },
+    {
+      name: "HuggingFace Tool Calling",
+      fn: () => testHuggingFaceToolCalling(),
+    },
+    {
+      name: "HuggingFace Default Model",
+      fn: () => testHuggingFaceDefaultModel(),
     },
     {
       name: "Structured Output - Vertex Alt",

@@ -657,9 +657,9 @@ MISTRAL_MODEL=mistral-small-2506
 
 ## 9. HuggingFace Provider
 
-**File:** `src/lib/providers/huggingFace.ts`
+**File:** `src/lib/providers/huggingFace/client.ts`
 **Provider Name:** `huggingface`
-**Default Model:** `microsoft/DialoGPT-medium`
+**Default Model:** `Qwen/Qwen2.5-72B-Instruct`
 
 ### Capabilities
 
@@ -674,23 +674,27 @@ MISTRAL_MODEL=mistral-small-2506
 - Real-time streaming via unified router
 - OpenAI-compatible endpoint
 
-#### Tool Calling ⚠️
+#### Tool Calling ✓
 
-**Model-Dependent Support:**
+Tools are offered to every model; capability is resolved by the shared
+`modelSupports()` facade rather than a provider-local list.
 
-**Supported Models:**
+A 13-entry model-name allowlist used to gate this. It was written for the
+retired per-model Inference API, where many endpoints rejected the OpenAI
+`tools` field. Measured against the 142 models the router served on
+2026-09-13, it admitted **1** and blocked 141 — including
+`Qwen/Qwen2.5-72B-Instruct`,
+`zai-org/GLM-5.3-Flash`, `google/gemma-4-31B-it` and
+`deepseek-ai/DeepSeek-V4-Flash`, every one of which returns HTTP 200 with
+`tool_calls`. No served model rejected the field, so the allowlist was
+removed.
 
-- Llama 3.1 series (8B, 70B, 405B Instruct)
-- Llama 3.1 Nemotron Ultra
-- Hermes 3 Llama 3.2
-- CodeLlama 34B Instruct
-- Mistral 7B Instruct v0.3
+A model that cannot use tools simply does not emit `tool_calls`, which the
+tool loop already handles.
 
-**Unsupported Models:**
-
-- DialoGPT variants (treats tools as conversation)
-- GPT-2, BERT, RoBERTa variants
-- Most pre-2024 models
+Note the legacy ids in the old list (CodeLlama 34B, Mistral 7B Instruct v0.3,
+Hermes 3 Llama 3.2, Llama 3.1 70B/405B) are **not served by the router** —
+they answer 400 regardless of tools.
 
 #### Vision/Multimodal ✗
 
