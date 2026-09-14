@@ -8,7 +8,7 @@
 
 > **CliAnalyticsDomainAnalyticsConfig** = `object`
 
-Defined in: [types/cli.ts:1828](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1828)
+Defined in: [types/cli.ts:1842](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1842)
 
 Analytics config for the analytics evaluation domain.
 
@@ -18,7 +18,7 @@ Analytics config for the analytics evaluation domain.
 
 > **trackDataQuality**: `boolean`
 
-Defined in: [types/cli.ts:1829](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1829)
+Defined in: [types/cli.ts:1843](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1843)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1829](https://github.com/juspay/neurolink/blob/release
 
 > **trackModelPerformance**: `boolean`
 
-Defined in: [types/cli.ts:1830](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1830)
+Defined in: [types/cli.ts:1844](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1844)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1830](https://github.com/juspay/neurolink/blob/release
 
 > **trackBusinessImpact**: `boolean`
 
-Defined in: [types/cli.ts:1831](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1831)
+Defined in: [types/cli.ts:1845](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1845)

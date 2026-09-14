@@ -8,7 +8,7 @@
 
 > **ProxyTranslationAttempt** = `object`
 
-Defined in: [types/proxy.ts:1741](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1741)
+Defined in: [types/proxy.ts:1838](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1838)
 
 A single provider attempt in the proxy translation plan.
 
@@ -18,7 +18,7 @@ A single provider attempt in the proxy translation plan.
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/proxy.ts:1742](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1742)
+Defined in: [types/proxy.ts:1839](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1839)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1742](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/proxy.ts:1743](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1743)
+Defined in: [types/proxy.ts:1840](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1840)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1743](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **reasoningEffort?**: [`FallbackEntry`](FallbackEntry.md)\[`"reasoningEffort"`\]
 
-Defined in: [types/proxy.ts:1744](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1744)
+Defined in: [types/proxy.ts:1841](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1841)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:1744](https://github.com/juspay/neurolink/blob/relea
 
 > **label**: `string`
 
-Defined in: [types/proxy.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1745)
+Defined in: [types/proxy.ts:1842](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1842)

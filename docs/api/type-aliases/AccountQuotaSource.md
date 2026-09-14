@@ -8,7 +8,7 @@
 
 > **AccountQuotaSource** = `"headers"` \| `"usage-api"`
 
-Defined in: [types/proxy.ts:1425](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1425)
+Defined in: [types/proxy.ts:1522](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1522)
 
 Where an AccountQuota snapshot came from.
 

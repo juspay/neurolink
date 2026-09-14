@@ -8,7 +8,7 @@
 
 > **BedrockConfigStatus** = `object`
 
-Defined in: [types/cli.ts:1668](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1668)
+Defined in: [types/cli.ts:1682](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1682)
 
 Status of Bedrock setup configuration flags.
 
@@ -18,7 +18,7 @@ Status of Bedrock setup configuration flags.
 
 > **hasAccessKey**: `boolean`
 
-Defined in: [types/cli.ts:1669](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1669)
+Defined in: [types/cli.ts:1683](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1683)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1669](https://github.com/juspay/neurolink/blob/release
 
 > **hasSecretKey**: `boolean`
 
-Defined in: [types/cli.ts:1670](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1670)
+Defined in: [types/cli.ts:1684](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1684)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1670](https://github.com/juspay/neurolink/blob/release
 
 > **hasRegion**: `boolean`
 
-Defined in: [types/cli.ts:1671](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1671)
+Defined in: [types/cli.ts:1685](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1685)

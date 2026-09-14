@@ -348,6 +348,7 @@ async function withHttpFixture(
   run: (response: Response, dir: string) => Promise<void>,
   requestPath?: string,
   additionalCodexAccount = false,
+  requestHeaders: Record<string, string> = {},
 ): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "telemetry-http-"));
   const key = `${provider === "fallback" ? "codex" : provider}:telemetry@example.test`;
@@ -461,7 +462,7 @@ async function withHttpFixture(
           };
     const response = await app.request(`http://localhost${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...requestHeaders },
       body: JSON.stringify(body),
     });
     await run(response, dir);
@@ -1481,6 +1482,9 @@ await test("capture pressure and worker failure preserve exact accounting and vi
     const queued = getRequestLoggerSnapshot().bodyCapture!;
     assertEqual(queued.pending, 16);
     assertEqual(queued.rejected, 8);
+    assertEqual(queued.highWaterPending, 16);
+    assertEqual(queued.highWaterBytes, queued.pendingBytes);
+    assert(Boolean(queued.lastRejectedAt), "rejection timestamp absent");
     assert(
       queued.pendingBytes <= queued.maxPendingBytes,
       "capture queue exceeded its byte budget",
@@ -1495,6 +1499,15 @@ await test("capture pressure and worker failure preserve exact accounting and vi
     assertEqual(state.failed, 16);
     const indexes = await lines(dir, "proxy-debug");
     assertEqual(indexes.length, 24);
+    for (const row of indexes.filter(
+      (r) => r.captureError === "body_capture_queue_full",
+    )) {
+      assertEqual(
+        (row.captureAdmission as { limitingResource: string }).limitingResource,
+        "captures",
+        "capture limit was not identified",
+      );
+    }
     assert(
       indexes.every(
         (r) => r.bodyWriteFailed && typeof r.captureError === "string",
@@ -3095,10 +3108,18 @@ await test("fallback attempt observers receive enriched trace context even with 
     await import("../src/lib/proxy/proxyActivity.js");
   const { logRequestAttempt } =
     await import("../src/lib/proxy/requestLogger.js");
-  const { OtelBridge } = await import("../src/lib/observability/otelBridge.js");
-  const originalTrace = OtelBridge.prototype.getCurrentTraceContext;
-  const traceContext = { traceId: "a".repeat(32), spanId: "b".repeat(16) };
-  OtelBridge.prototype.getCurrentTraceContext = () => traceContext;
+  const { NodeTracerProvider } = await import("@opentelemetry/sdk-trace-node");
+  const { context, trace, propagation, ROOT_CONTEXT } =
+    await import("@opentelemetry/api");
+  trace.disable();
+  context.disable();
+  const provider = new NodeTracerProvider();
+  provider.register();
+  const traceContext = {
+    traceId: "a".repeat(32),
+    spanId: "b".repeat(16),
+    traceFlags: 1,
+  };
   const observed: Array<Parameters<typeof logRequestAttempt>[0]> = [];
   let childCalls = 0;
   const shared = (entry: Parameters<typeof logRequestAttempt>[0]) => {
@@ -3132,7 +3153,9 @@ await test("fallback attempt observers receive enriched trace context even with 
     responseTimeMs: 10,
   };
   try {
-    await logRequestAttempt({ ...attempt });
+    await context.with(trace.setSpanContext(ROOT_CONTEXT, traceContext), () =>
+      logRequestAttempt({ ...attempt }),
+    );
     assertEqual(childCalls, 1);
     assertEqual(observed.length, 1);
     assertEqual(observed[0].account, "fallback@example.test");
@@ -3146,7 +3169,10 @@ await test("fallback attempt observers receive enriched trace context even with 
     for (const release of releases) {
       release();
     }
-    OtelBridge.prototype.getCurrentTraceContext = originalTrace;
+    await provider.shutdown();
+    trace.disable();
+    context.disable();
+    propagation.disable();
   }
 });
 
@@ -3270,6 +3296,628 @@ await test("history queries bound time and pages, preserve equal-time ordering a
   } finally {
     await new Promise<void>((resolve) => backend.close(() => resolve()));
   }
+});
+
+await test("OTLP Codex text, tool and control-only streams carry native trace context and explicit timing evidence", async () => {
+  const { NodeTracerProvider } = await import("@opentelemetry/sdk-trace-node");
+  const { InMemorySpanExporter, SimpleSpanProcessor } =
+    await import("@opentelemetry/sdk-trace-base");
+  const { trace, context, propagation } = await import("@opentelemetry/api");
+  const exporter = new InMemorySpanExporter();
+  const provider = new NodeTracerProvider({
+    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  });
+  trace.disable();
+  provider.register();
+  try {
+    for (const [event, payload] of [
+      ["response.refusal.delta", { delta: "refusal" }],
+      ["response.refusal.done", { refusal: "refusal" }],
+      ["response.function_call_arguments.done", { arguments: "{}" }],
+      ["response.custom_tool_call_input.done", { input: "patch" }],
+      [
+        "response.content_part.done",
+        { part: { type: "output_text", text: "text" } },
+      ],
+      [
+        "response.completed",
+        { response: { output: [{ type: "function_call", arguments: "{}" }] } },
+      ],
+      ["response.output_text.delta", { delta: "text" }],
+      ["response.function_call_arguments.delta", { delta: "{}" }],
+      ["response.custom_tool_call_input.delta", { delta: "patch" }],
+      [
+        "response.output_item.added",
+        { item: { type: "custom_tool_call", name: "fixture", input: "patch" } },
+      ],
+      ["response.output_text.done", { text: "text" }],
+      ["response.created", { response: { usage: null } }],
+    ] as const) {
+      const wire =
+        sse(event, payload) +
+        sse("response.completed", {
+          response: { usage: { input_tokens: 3, output_tokens: 1 } },
+        });
+      await withBodyCollector(
+        (_records, res) => {
+          res.writeHead(200).end("{}");
+        },
+        async (received) => {
+          await withHttpFixture(
+            "codex",
+            () => new Response(wire),
+            async (response) => {
+              assertEqual(
+                await response.text(),
+                wire,
+                "telemetry changed relayed bytes",
+              );
+              await eventually(
+                () => getProxyActivitySnapshot().activeRequests === 0,
+              );
+              await flushRequestLogs();
+              const { flushProxyOtelLogs } =
+                await import("../src/lib/proxy/otelLogSink.js");
+              await flushProxyOtelLogs();
+              const finals = received.filter(
+                (record) =>
+                  otelAttribute(record, "proxy.record_kind") ===
+                  "request_final",
+              );
+              assertEqual(finals.length, 1, "OTLP final was not unique");
+              const body = JSON.parse(finals[0].body.stringValue);
+              assertEqual(
+                body.reasoningEffort,
+                "xhigh",
+                "reasoning metadata disappeared",
+              );
+              assert(
+                /^[a-f0-9]{32}$/i.test(body.traceId) &&
+                  !/^0+$/.test(body.traceId),
+                "native Codex trace was not initialized",
+              );
+              assertEqual(
+                (
+                  finals[0] as (typeof finals)[number] & { traceId: string }
+                ).traceId.toLowerCase(),
+                body.traceId.toLowerCase(),
+                "native OTLP trace field disagrees with metadata",
+              );
+              assertEqual(
+                body.traceFlags,
+                1,
+                "final metadata lost sampling flags",
+              );
+              for (const record of received.filter(
+                (record) =>
+                  otelAttribute(record, "request.id") === body.requestId,
+              )) {
+                assertEqual(
+                  (
+                    record as typeof record & { traceId?: string }
+                  ).traceId?.toLowerCase(),
+                  body.traceId.toLowerCase(),
+                  "request telemetry lost native trace correlation",
+                );
+                assertEqual(
+                  (record as typeof record & { flags?: number }).flags,
+                  1,
+                  "native OTLP sampling flags were lost",
+                );
+              }
+              assertEqual(
+                body.firstUsefulOutputStatus,
+                event === "response.created" ? "no_useful_output" : "observed",
+                "timing availability was invented or omitted",
+              );
+              if (event !== "response.created") {
+                assert(
+                  Number.isFinite(body.firstUsefulOutputMs),
+                  "useful output timing is absent",
+                );
+                assertEqual(
+                  body.firstUsefulOutputEvent,
+                  event,
+                  "timing source event was lost",
+                );
+              } else {
+                assertEqual(
+                  body.firstUsefulOutputMs,
+                  undefined,
+                  "control frame became zero-latency useful output",
+                );
+              }
+              await provider.forceFlush();
+              const spans = exporter
+                .getFinishedSpans()
+                .filter((span) => span.spanContext().traceId === body.traceId);
+              assert(
+                spans.some((span) => span.name === "proxy.http.request"),
+                "ingress span was not completed",
+              );
+              const ingress = spans.find(
+                (span) => span.name === "proxy.http.request",
+              );
+              const requestSpan = spans.find(
+                (span) => span.name === "proxy.request",
+              );
+              assert(
+                Boolean(requestSpan),
+                "Codex request span was not completed",
+              );
+              assertEqual(
+                ingress?.parentSpanContext?.spanId,
+                "2".repeat(16),
+                "W3C remote parent was lost",
+              );
+              assertEqual(
+                requestSpan?.parentSpanContext?.spanId,
+                ingress?.spanContext().spanId,
+                "route span bypassed ingress",
+              );
+              assertEqual(
+                requestSpan?.attributes["proxy.account.selected"],
+                "telemetry@example.test",
+                "trace lost account attribution",
+              );
+              exporter.reset();
+            },
+            undefined,
+            false,
+            { traceparent: `00-${"1".repeat(32)}-${"2".repeat(16)}-01` },
+          );
+        },
+      );
+    }
+  } finally {
+    await provider.shutdown();
+    trace.disable();
+    context.disable();
+    propagation.disable();
+  }
+});
+
+await test("failed OTLP batches retain record identities and publish bounded recovery diagnostics without replaying records", async () => {
+  let reject = true;
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(reject ? 400 : 200).end("{}");
+    },
+    async (received) => {
+      const {
+        emitProxyOtelEvent,
+        flushProxyOtelLogs,
+        getProxyOtelLogSnapshot,
+      } = await import("../src/lib/proxy/otelLogSink.js");
+      emitProxyOtelEvent("lifecycle", {
+        requestId: "failure-fixture",
+        event: "request_accepted",
+        confidentialBody: "must-not-enter-failure-history",
+      });
+      await flushProxyOtelLogs();
+      const queue = getProxyOtelLogSnapshot().queues.find(
+        (q) => q.kind === "metadata",
+      )!;
+      assertEqual(queue.exportUnconfirmed, 1, "failed batch was acknowledged");
+      assertEqual(
+        queue.recentFailures.length,
+        1,
+        "failure identity was not retained",
+      );
+      const failure = queue.recentFailures[0];
+      assertEqual(
+        failure.records[0].requestId,
+        "failure-fixture",
+        "failure lost request identity",
+      );
+      assertEqual(
+        failure.records[0].eventId,
+        otelAttribute(received[0], "proxy.event_id"),
+        "failure lost the exported event identity",
+      );
+      assert(
+        !JSON.stringify(failure).includes("must-not-enter-failure-history"),
+        "failure history retained log content",
+      );
+      reject = false;
+      emitProxyOtelEvent("lifecycle", {
+        requestId: "recovery-fixture",
+        event: "request_accepted",
+      });
+      await flushProxyOtelLogs();
+      await eventually(() =>
+        received.some(
+          (r) => otelAttribute(r, "proxy.record_kind") === "telemetry_delivery",
+        ),
+      );
+      assertEqual(
+        received.filter(
+          (r) => otelAttribute(r, "request.id") === "failure-fixture",
+        ).length,
+        1,
+        "original unconfirmed record was replayed",
+      );
+      const diagnostic = received.find(
+        (r) => otelAttribute(r, "proxy.record_kind") === "telemetry_delivery",
+      )!;
+      assertEqual(
+        JSON.parse(diagnostic.body.stringValue).id,
+        failure.id,
+        "recovery diagnostic lost its failure identity",
+      );
+    },
+  );
+});
+
+await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bodies, empty traffic and partial backend data", async () => {
+  const { checkProxyTelemetry } =
+    await import("../scripts/observability/proxy-telemetry-check.mjs");
+  const { createHash } = await import("node:crypto");
+  const traceId = "1".repeat(32),
+    captureId = "12345678-1234-1234-1234-123456789abc";
+  const final = {
+    requestId: "fixture",
+    model: "fixture-model",
+    terminalOutcome: "completed",
+    responseTimeMs: 10,
+    firstUsefulOutputMs: 1,
+    traceId,
+  };
+  const index = {
+    requestId: "fixture",
+    captureId,
+    bodySha256: createHash("sha256").update("{}").digest("hex"),
+    redactedBodyBytes: 2,
+    bodyDelivery: { status: "transport_acknowledged" },
+  };
+  let mode = "healthy";
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/status")) {
+      return Response.json({
+        ready: true,
+        acceptingConnections: true,
+        pid: 1,
+        observability: {
+          requestLogs: {
+            diskEnabled: false,
+            otel: {
+              initialized: true,
+              queues: [
+                {
+                  kind: "metadata",
+                  dropped: 0,
+                  exportUnconfirmed: 0,
+                  outstanding: 0,
+                  capacity: 2048,
+                },
+                {
+                  kind: "body",
+                  dropped: 0,
+                  exportUnconfirmed: 0,
+                  outstanding: 0,
+                  capacity: 256,
+                },
+              ],
+            },
+            bodyCapture: { rejected: 0, failed: 0 },
+          },
+        },
+      });
+    }
+    if (url.endsWith("/metrics")) {
+      return new Response(
+        mode === "no_collector_metrics"
+          ? ""
+          : ["log_records", "spans", "metric_points"]
+              .map((signal) =>
+                mode === "sparse_collector"
+                  ? `otelcol_exporter_sent_${signal}{exporter="fixture"} 20`
+                  : `otelcol_exporter_send_failed_${signal}_total{exporter="fixture"} ${mode === "bad_collector_metrics" ? "NaN" : mode === "collector_failure" ? 1 : 0}`,
+              )
+              .join("\n") +
+              (mode === "busy_collector"
+                ? '\notelcol_exporter_queue_size{exporter="fixture"} 7\n'
+                : ""),
+      );
+    }
+    const query = JSON.parse(String(init?.body)).query;
+    if (mode === "partial") {
+      return Response.json({ is_partial: true, hits: [] });
+    }
+    let hits: Array<Record<string, unknown>> = [];
+    if (mode !== "empty") {
+      if (query.sql.includes("COUNT(*) AS records")) {
+        hits = [
+          { records: 1, latest: mode === "stale" ? -200_000_000 : 2_000_000 },
+        ];
+      } else if (query.sql.includes("proxy_record_kind='request_final'")) {
+        const row = {
+          _timestamp: 2_000_000,
+          service_instance_id: "worker-1",
+          request_id: "fixture",
+          body: JSON.stringify(
+            mode === "missing"
+              ? { ...final, traceId: undefined, firstUsefulOutputMs: undefined }
+              : mode === "unknown_timing"
+                ? {
+                    ...final,
+                    firstUsefulOutputMs: undefined,
+                    firstUsefulOutputStatus: "not_observed",
+                  }
+                : mode === "negative_timing"
+                  ? { ...final, firstUsefulOutputMs: -1 }
+                  : mode === "late_timing"
+                    ? { ...final, firstUsefulOutputMs: 11 }
+                    : mode === "contradictory_timing"
+                      ? {
+                          ...final,
+                          firstUsefulOutputStatus: "no_useful_output",
+                        }
+                      : final,
+          ),
+        };
+        hits = mode === "duplicate" ? [row, row] : [row];
+      } else if (query.sql.includes("proxy_record_kind='body_capture_index'")) {
+        hits = [
+          {
+            _timestamp: 2_000_000,
+            request_id: "fixture",
+            body: JSON.stringify(index),
+          },
+        ];
+      } else if (query.sql.includes("proxy_record_kind='lifecycle'")) {
+        hits = [
+          {
+            body: JSON.stringify({
+              requestId: mode === "missing_final" ? "lost-final" : "fixture",
+              event: "request_terminal",
+              telemetryStatus: "complete",
+              outcomeSource: "final_request",
+            }),
+          },
+        ];
+      } else if (query.sql.includes("body_chunk_index")) {
+        hits = [
+          {
+            body_chunk_index: 0,
+            body_chunk_count: 1,
+            body: mode === "corrupt" ? "x" : "{}",
+          },
+        ];
+      } else if (query.sql.includes("trace_id IN")) {
+        hits = [{ trace_id: traceId, spans: 1 }];
+      }
+    }
+    return Response.json({ hits });
+  };
+  const options = {
+    backend: {
+      baseUrl: "http://127.0.0.1:1",
+      organization: "default",
+      stream: "fixture",
+      collectorMetricsUrl: "http://127.0.0.1:1/metrics",
+    },
+    startTime: 1_000_000,
+    endTime: 3_000_000,
+    proxyUrl: "http://127.0.0.1:1",
+    fetchImpl,
+  };
+  assertEqual(
+    (await checkProxyTelemetry(options)).status,
+    "pass",
+    "complete recorded telemetry did not pass",
+  );
+  for (mode of [
+    "missing",
+    "duplicate",
+    "corrupt",
+    "empty",
+    "stale",
+    "unknown_timing",
+    "negative_timing",
+    "late_timing",
+    "contradictory_timing",
+    "missing_final",
+    "no_collector_metrics",
+    "bad_collector_metrics",
+    "collector_failure",
+  ]) {
+    assert(
+      (await checkProxyTelemetry(options)).status !== "pass",
+      "incomplete evidence passed the doctor",
+    );
+  }
+  for (mode of ["busy_collector", "sparse_collector"]) {
+    assertEqual(
+      (await checkProxyTelemetry(options)).status,
+      "pass",
+      "normal collector occupancy or absent untriggered failure series was treated as a failure",
+    );
+  }
+  mode = "partial";
+  let rejected = false;
+  try {
+    await checkProxyTelemetry(options);
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, "partial backend query was accepted");
+  let contacted = false;
+  try {
+    await checkProxyTelemetry({
+      ...options,
+      startTime: NaN,
+      fetchImpl: async () => {
+        contacted = true;
+        throw new Error("must not contact");
+      },
+    });
+  } catch {
+    /* Invalid input must be rejected before contacting any service. */
+  }
+  assert(!contacted, "invalid doctor contacted a service");
+
+  // Exercise the shipped command without native services or Docker.
+  const { createServer } = await import("node:http");
+  const backend = createServer(async (req, res) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const response = await fetchImpl(`http://127.0.0.1${req.url}`, {
+      body: Buffer.concat(chunks).toString(),
+    });
+    res
+      .writeHead(response.status, {
+        "content-type":
+          response.headers.get("content-type") ?? "application/json",
+      })
+      .end(await response.text());
+  });
+  await new Promise<void>((resolve) => backend.listen(0, "127.0.0.1", resolve));
+  const address = backend.address();
+  if (!address || typeof address === "string") {
+    throw new Error("backend did not listen");
+  }
+  const endpoint = `http://127.0.0.1:${address.port}`;
+  const env = {
+    NEUROLINK_OPENOBSERVE_URL: endpoint,
+    NEUROLINK_OPENOBSERVE_ORG: "default",
+    NEUROLINK_PROXY_STREAM_HEADER: "fixture",
+    NEUROLINK_OTEL_COLLECTOR_METRICS_URL: `${endpoint}/metrics`,
+    NEUROLINK_PROXY_URL: endpoint,
+  };
+  const args = [
+    "proxy",
+    "telemetry",
+    "doctor",
+    "--format",
+    "json",
+    "--since",
+    "1970-01-01T00:00:01Z",
+    "--until",
+    "1970-01-01T00:00:03Z",
+  ];
+  try {
+    mode = "healthy";
+    const good = await runCLI(args, { env });
+    assertEqual(good.exitCode, 0, good.stderr);
+    assertEqual(
+      JSON.parse(good.stdout).status,
+      "pass",
+      "shipped doctor did not return structured JSON",
+    );
+    mode = "missing";
+    const bad = await runCLI(args, { env });
+    assertEqual(bad.exitCode, 1, "shipped doctor hid missing telemetry");
+    assertEqual(JSON.parse(bad.stdout).status, "fail");
+    mode = "partial";
+    const partial = await runCLI(args, { env });
+    assertEqual(partial.exitCode, 1, "shipped doctor accepted partial query");
+    assertEqual(JSON.parse(partial.stdout).completeQuery, false);
+    assertEqual(JSON.parse(partial.stdout).status, "incomplete");
+    mode = "healthy";
+    const query = await runCLI(
+      [
+        "proxy",
+        "telemetry",
+        "query",
+        "--since",
+        "1970-01-01T00:00:01Z",
+        "--until",
+        "1970-01-01T00:00:03Z",
+      ],
+      { env },
+    );
+    assertEqual(query.exitCode, 0, query.stderr);
+    assertEqual(JSON.parse(query.stdout).recordCount, 1);
+  } finally {
+    await new Promise<void>((resolve) => backend.close(() => resolve()));
+  }
+});
+
+await test("malformed and incomplete Codex output never becomes a zero or proven absent first-output measurement", async () => {
+  for (const prefix of [
+    "data: {broken}\n\n",
+    "data: " + "x".repeat(1024 * 1024 + 1),
+    sse("response.output_item.added", {
+      item: { type: "function_call", name: "fixture", arguments: "" },
+    }),
+  ]) {
+    const malformed = !prefix.startsWith("event:");
+    const wire =
+      prefix +
+      "\n\n" +
+      sse("response.completed", {
+        response: { usage: { input_tokens: 1, output_tokens: 0 } },
+      });
+    await withHttpFixture(
+      "codex",
+      () => new Response(wire),
+      async (response, dir) => {
+        assertEqual(
+          await response.text(),
+          wire,
+          "malformed response was modified",
+        );
+        await eventually(() => getProxyActivitySnapshot().activeRequests === 0);
+        await flushRequestLogs();
+        const finals = await lines(dir, "proxy");
+        assertEqual(finals.length, 1);
+        assertEqual(finals[0].firstUsefulOutputMs, undefined);
+        assertEqual(
+          finals[0].firstUsefulOutputStatus,
+          malformed ? "not_observed" : "no_useful_output",
+        );
+      },
+    );
+  }
+});
+
+await test("detached OTLP logs preserve both sampled and unsampled trace contexts", async () => {
+  const { context, ROOT_CONTEXT } = await import("@opentelemetry/api");
+  const { emitProxyOtelEvent, flushProxyOtelLogs } =
+    await import("../src/lib/proxy/otelLogSink.js");
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(200).end("{}");
+    },
+    async (received) => {
+      for (const traceFlags of [0, 1]) {
+        context.with(ROOT_CONTEXT, () =>
+          emitProxyOtelEvent("lifecycle", {
+            requestId: `detached-${traceFlags}`,
+            traceId: "f".repeat(32),
+            spanId: "e".repeat(16),
+            traceFlags,
+            event: "request_terminal",
+          }),
+        );
+      }
+      await flushProxyOtelLogs();
+      for (const traceFlags of [0, 1]) {
+        const record = received.find(
+          (r) => otelAttribute(r, "request.id") === `detached-${traceFlags}`,
+        );
+        assert(Boolean(record), "detached record missing");
+        const native = record as (typeof received)[number] & {
+          traceId: string;
+          flags: number;
+        };
+        assertEqual(
+          native.traceId.toLowerCase(),
+          "f".repeat(32),
+          "unsampled trace was rejected",
+        );
+        assertEqual(
+          native.flags,
+          traceFlags,
+          "detached log changed original sampling flags",
+        );
+      }
+    },
+  );
 });
 
 await runSuite();

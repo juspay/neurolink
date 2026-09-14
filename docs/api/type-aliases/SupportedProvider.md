@@ -8,6 +8,6 @@
 
 > **SupportedProvider** = `"anthropic"` \| `"codex"`
 
-Defined in: [types/cli.ts:1491](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1491)
+Defined in: [types/cli.ts:1505](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1505)
 
 Providers with first-class credential flows implemented by `neurolink auth`.

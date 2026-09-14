@@ -55,6 +55,45 @@ const nonNegativeInt = (value: unknown): number =>
     ? Math.floor(value)
     : 0;
 
+function usefulOutputItem(item: unknown): boolean {
+  if (!item || typeof item !== "object") {
+    return false;
+  }
+  if ("type" in item) {
+    if (item.type === "function_call") {
+      return (
+        "arguments" in item &&
+        typeof item.arguments === "string" &&
+        item.arguments.length > 0
+      );
+    }
+    if (item.type === "custom_tool_call") {
+      return (
+        "input" in item &&
+        typeof item.input === "string" &&
+        item.input.length > 0
+      );
+    }
+    if (item.type === "output_text") {
+      return (
+        "text" in item && typeof item.text === "string" && item.text.length > 0
+      );
+    }
+    if (item.type === "refusal") {
+      return (
+        "refusal" in item &&
+        typeof item.refusal === "string" &&
+        item.refusal.length > 0
+      );
+    }
+  }
+  return (
+    "content" in item &&
+    Array.isArray(item.content) &&
+    item.content.some(usefulOutputItem)
+  );
+}
+
 /**
  * Pull usage out of one parsed SSE `data:` payload.
  *
@@ -148,7 +187,7 @@ const CAPTURE_LIMIT_BYTES = 256 * 1024;
  */
 function createCaptureSink(): ((chunk: Uint8Array) => void) | null {
   const target = process.env.NEUROLINK_PROXY_CODEX_CAPTURE;
-  if (!target) {
+  if (!target || process.env.NEUROLINK_PROXY_LOG_SINK === "otel") {
     return null;
   }
   let written = 0;
@@ -197,9 +236,13 @@ export function createCodexUsageTap(): {
     events: Array<{ event: string; data: string }>,
   ): void => {
     for (const frame of events) {
+      if (frame.data.trim() === "[DONE]") {
+        continue;
+      }
       try {
         const event = JSON.parse(frame.data) as Record<string, unknown>;
         if (!event || typeof event !== "object") {
+          evidence.observationIncomplete = true;
           continue;
         }
         const seen = extractCodexUsage(event);
@@ -209,11 +252,59 @@ export function createCodexUsageTap(): {
         const type = event.type ?? frame.event;
         if (
           (type === "response.output_text.delta" ||
+            type === "response.refusal.delta" ||
             type === "response.function_call_arguments.delta") &&
           typeof event.delta === "string" &&
           event.delta.length > 0
         ) {
-          evidence.firstUsefulOutputAt ??= Date.now();
+          if (evidence.firstUsefulOutputAt === undefined) {
+            evidence.firstUsefulOutputAt = Date.now();
+            evidence.firstUsefulOutputEvent = String(type);
+          }
+        }
+        // Some clients/providers emit complete output items without deltas.
+        // Reasoning/control events are not useful client output. Recognize
+        // actual tool calls and text only, without inventing an earlier time.
+        const usefulItem = usefulOutputItem(event.item);
+        const completedResponse = event.response;
+        const usefulCompletion =
+          type === "response.completed" &&
+          completedResponse &&
+          typeof completedResponse === "object" &&
+          "output" in completedResponse &&
+          Array.isArray(completedResponse.output) &&
+          completedResponse.output.some(usefulOutputItem);
+        const usefulDone =
+          (type === "response.output_text.done" &&
+            typeof event.text === "string" &&
+            event.text.length > 0) ||
+          (type === "response.refusal.done" &&
+            typeof event.refusal === "string" &&
+            event.refusal.length > 0) ||
+          (type === "response.function_call_arguments.done" &&
+            typeof event.arguments === "string" &&
+            event.arguments.length > 0) ||
+          (type === "response.custom_tool_call_input.done" &&
+            typeof event.input === "string" &&
+            event.input.length > 0) ||
+          ((type === "response.content_part.added" ||
+            type === "response.content_part.done") &&
+            usefulOutputItem(event.part));
+        const usefulToolDelta =
+          type === "response.custom_tool_call_input.delta" &&
+          typeof event.delta === "string" &&
+          event.delta.length > 0;
+        if (
+          evidence.firstUsefulOutputAt === undefined &&
+          (usefulDone ||
+            usefulCompletion ||
+            usefulToolDelta ||
+            ((type === "response.output_item.added" ||
+              type === "response.output_item.done") &&
+              usefulItem))
+        ) {
+          evidence.firstUsefulOutputAt = Date.now();
+          evidence.firstUsefulOutputEvent = String(type);
         }
         if (type === "response.completed") {
           evidence.completed = true;
@@ -257,6 +348,7 @@ export function createCodexUsageTap(): {
         }
       } catch {
         // Unknown frames cannot establish successful completion.
+        evidence.observationIncomplete = true;
       }
     }
   };
@@ -306,15 +398,20 @@ export function createCodexUsageTap(): {
         carry = remainder;
         inspectEvidence(events);
         if (carry.length > CARRY_LIMIT_CHARS) {
+          evidence.observationIncomplete = true;
           carry = carry.slice(-2);
           discardingEvent = true;
         }
       } catch {
         // Telemetry must never break the relay.
+        evidence.observationIncomplete = true;
       }
     },
     flush() {
       // An event without its dispatch delimiter is incomplete on the wire.
+      if (discardingEvent || carry.trim()) {
+        evidence.observationIncomplete = true;
+      }
       settle(latest);
     },
     /**

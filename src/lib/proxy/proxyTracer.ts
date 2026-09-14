@@ -18,6 +18,10 @@ import {
   type Meter,
   type Span,
   SpanStatusCode,
+  SpanKind,
+  ROOT_CONTEXT,
+  isSpanContextValid,
+  propagation,
   context,
   metrics,
   trace,
@@ -30,6 +34,10 @@ import { OtelBridge } from "../observability/otelBridge.js";
 import { calculateCost } from "../utils/pricing.js";
 import { TelemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
+import {
+  registerProxyRequestTraceContext,
+  releaseProxyRequestTraceContext,
+} from "./proxyTraceContext.js";
 import type {
   AccountSelectionContext,
   ProxyMetrics,
@@ -37,6 +45,8 @@ import type {
   ResponseInfoContext,
   UpstreamAttemptContext,
   UsageContext,
+  RuntimeRequestMetadata,
+  ProxyLogTraceContext,
 } from "../types/index.js";
 
 const LOG_PREFIX = "[ProxyTracer]";
@@ -259,6 +269,8 @@ class ProxyTracer {
   private billingProvider: string;
   private readonly startTime: number;
   private readonly isStream: boolean;
+  private ended = false;
+  private recordRequestMetrics = true;
 
   private accountEmail?: string;
   private usage?: UsageContext;
@@ -293,7 +305,7 @@ class ProxyTracer {
 
     // Extract parent context from incoming headers (Claude Code may send traceparent)
     let parentContext = context.active();
-    if (incomingHeaders) {
+    if (incomingHeaders && !trace.getSpan(context.active())) {
       const bridge = new OtelBridge();
       const extracted = bridge.extractContext(incomingHeaders);
       if (extracted) {
@@ -356,6 +368,7 @@ class ProxyTracer {
       ctx.stream,
       ctx.provider ?? "anthropic",
     );
+    instance.recordRequestMetrics = ctx.recordRequestMetrics !== false;
 
     // Set Langfuse context (fire-and-forget — non-blocking)
     // Prefer NeuroLink session/user from calling SDK over Claude Code session
@@ -775,11 +788,12 @@ class ProxyTracer {
   // -------------------------------------------------------------------------
 
   /** Return the OTel trace/span IDs for this request (for log correlation). */
-  getTraceContext(): { traceId: string; spanId: string } {
+  getTraceContext(): ProxyLogTraceContext {
     const spanCtx = this.rootSpan.spanContext();
     return {
       traceId: spanCtx.traceId,
       spanId: spanCtx.spanId,
+      traceFlags: spanCtx.traceFlags,
     };
   }
 
@@ -794,6 +808,10 @@ class ProxyTracer {
 
   /** End the root span with final HTTP status and duration, and emit OTEL metrics. */
   end(responseStatus: number, durationMs: number): void {
+    if (this.ended) {
+      return;
+    }
+    this.ended = true;
     this.rootSpan.setAttributes({
       "http.status_code": responseStatus,
       "proxy.duration_ms": durationMs,
@@ -813,6 +831,10 @@ class ProxyTracer {
     }
 
     this.rootSpan.end();
+
+    if (!this.recordRequestMetrics) {
+      return;
+    }
 
     // ---- Emit OTEL metrics (lazy-init instruments) ----
     const m = getProxyMetrics();
@@ -957,3 +979,77 @@ export function recordFallbackAttempt(attrs: {
 }
 
 export { ProxyTracer };
+
+/** Standard SERVER span covers every proxy door, including parsing and admission failures. */
+export function startProxyHttpTrace(
+  metadata: RuntimeRequestMetadata,
+  headers: Record<string, string>,
+) {
+  try {
+    // Match OtelBridge's existing compatibility policy for HTTP-combined
+    // traceparent values: retain the first injected parent.
+    const normalizedHeaders = { ...headers };
+    if (normalizedHeaders.traceparent?.includes(",")) {
+      normalizedHeaders.traceparent = normalizedHeaders.traceparent
+        .split(",", 1)[0]
+        .trim();
+    }
+    const parent = propagation.extract(ROOT_CONTEXT, normalizedHeaders);
+    const span = getTracer("neurolink.proxy").startSpan(
+      "proxy.http.request",
+      {
+        kind: SpanKind.SERVER,
+        attributes: {
+          "http.request.method": metadata.method,
+          "url.path": metadata.path,
+          "proxy.request_id": metadata.requestId,
+        },
+      },
+      parent,
+    );
+    const spanContext = span.spanContext();
+    if (isSpanContextValid(spanContext)) {
+      metadata.traceId = spanContext.traceId;
+      metadata.spanId = spanContext.spanId;
+      metadata.traceFlags = spanContext.traceFlags;
+      registerProxyRequestTraceContext(metadata.requestId, {
+        traceId: spanContext.traceId,
+        spanId: spanContext.spanId,
+        traceFlags: spanContext.traceFlags,
+      });
+    }
+    const active = trace.setSpan(parent, span);
+    let ended = false;
+    return {
+      run: <T>(fn: () => T): T => context.with(active, fn),
+      end: (status: number, outcome: string, errorType?: string): void => {
+        if (ended) {
+          return;
+        }
+        ended = true;
+        try {
+          span.setAttributes({
+            "http.response.status_code": status,
+            "proxy.terminal_outcome": outcome,
+            ...(errorType ? { "error.type": errorType } : {}),
+          });
+          if (
+            status >= 500 ||
+            outcome === "stream_error" ||
+            outcome === "unknown"
+          ) {
+            span.setStatus({ code: SpanStatusCode.ERROR });
+          }
+          span.end();
+        } catch {
+          // Telemetry must not interrupt transport cleanup.
+        } finally {
+          releaseProxyRequestTraceContext(metadata.requestId);
+        }
+      },
+    };
+  } catch {
+    releaseProxyRequestTraceContext(metadata.requestId);
+    return { run: <T>(fn: () => T): T => fn(), end: () => undefined };
+  }
+}

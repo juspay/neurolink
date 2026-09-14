@@ -8,7 +8,7 @@
 
 > **AnnotatedToolTarget** = `object`
 
-Defined in: [types/cli.ts:1601](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1601)
+Defined in: [types/cli.ts:1615](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1615)
 
 Tool target used by the annotation printer.
 
@@ -18,7 +18,7 @@ Tool target used by the annotation printer.
 
 > **name**: `string`
 
-Defined in: [types/cli.ts:1602](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1602)
+Defined in: [types/cli.ts:1616](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1616)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1602](https://github.com/juspay/neurolink/blob/release
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1603](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1603)
+Defined in: [types/cli.ts:1617](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1617)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1603](https://github.com/juspay/neurolink/blob/release
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1604](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1604)
+Defined in: [types/cli.ts:1618](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1618)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1604](https://github.com/juspay/neurolink/blob/release
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1605](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1605)
+Defined in: [types/cli.ts:1619](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1619)

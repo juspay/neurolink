@@ -8,7 +8,7 @@
 
 > **BedrockConfigData** = `object`
 
-Defined in: [types/cli.ts:1660](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1660)
+Defined in: [types/cli.ts:1674](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1674)
 
 Captured Bedrock setup configuration data.
 
@@ -18,7 +18,7 @@ Captured Bedrock setup configuration data.
 
 > `optional` **accessKeyId?**: `string`
 
-Defined in: [types/cli.ts:1661](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1661)
+Defined in: [types/cli.ts:1675](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1675)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1661](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **secretAccessKey?**: `string`
 
-Defined in: [types/cli.ts:1662](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1662)
+Defined in: [types/cli.ts:1676](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1676)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1662](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **region?**: `string`
 
-Defined in: [types/cli.ts:1663](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1663)
+Defined in: [types/cli.ts:1677](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1677)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1663](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:1664](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1664)
+Defined in: [types/cli.ts:1678](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1678)

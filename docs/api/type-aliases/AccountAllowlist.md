@@ -8,6 +8,6 @@
 
 > **AccountAllowlist** = `ReadonlySet`\<`string`\>
 
-Defined in: [types/proxy.ts:1648](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1648)
+Defined in: [types/proxy.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1745)
 
 Normalized Anthropic account keys eligible for proxy routing.

@@ -8,7 +8,7 @@
 
 > **AccountAdmissionState** = `object`
 
-Defined in: [types/proxy.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1052)
+Defined in: [types/proxy.ts:1149](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1149)
 
 In-process request admission state for an OAuth account.
 
@@ -18,7 +18,7 @@ In-process request admission state for an OAuth account.
 
 > **active**: `number`
 
-Defined in: [types/proxy.ts:1053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1053)
+Defined in: [types/proxy.ts:1150](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1150)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:1053](https://github.com/juspay/neurolink/blob/relea
 
 > **waiters**: [`AccountAdmissionWaiter`](AccountAdmissionWaiter.md)[]
 
-Defined in: [types/proxy.ts:1054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1054)
+Defined in: [types/proxy.ts:1151](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1151)

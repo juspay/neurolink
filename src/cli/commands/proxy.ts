@@ -46,6 +46,7 @@ import {
   sanitizeForLog,
 } from "../../lib/utils/logSanitize.js";
 import { withTimeout } from "../../lib/utils/async/withTimeout.js";
+import { startProxyHttpTrace } from "../../lib/proxy/proxyTracer.js";
 import {
   formatUptime,
   isProcessRunning,
@@ -1124,7 +1125,10 @@ function spawnProxyUpdater(
   }
 }
 
-async function runProxyTelemetryManager(command: string): Promise<void> {
+async function runProxyTelemetryManager(
+  command: string,
+  argv?: ProxyTelemetryArgs,
+): Promise<void> {
   const { existsSync } = await import("fs");
   if (!existsSync(PROXY_TELEMETRY_SCRIPT_PATH)) {
     throw new Error(
@@ -1133,10 +1137,40 @@ async function runProxyTelemetryManager(command: string): Promise<void> {
   }
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn("bash", [PROXY_TELEMETRY_SCRIPT_PATH, command], {
-      stdio: "inherit",
-      env: process.env,
-    });
+    const queryCommand = command === "doctor" || command === "query";
+    const queryArgs: string[] = [];
+    if (queryCommand && argv) {
+      for (const [key, option] of [
+        ["since", "--since"],
+        ["until", "--until"],
+        ["kind", "--kind"],
+        ["format", "--format"],
+        ["maxRows", "--max-rows"],
+        ["proxyUrl", "--proxy-url"],
+      ] as const) {
+        if (argv[key] !== undefined) {
+          queryArgs.push(option, String(argv[key]));
+        }
+      }
+    }
+    const child = spawn(
+      queryCommand ? process.execPath : "bash",
+      queryCommand
+        ? [
+            join(
+              dirname(PROXY_TELEMETRY_SCRIPT_PATH),
+              command === "doctor"
+                ? "check-proxy-telemetry.mjs"
+                : "query-proxy-history.mjs",
+            ),
+            ...queryArgs,
+          ]
+        : [PROXY_TELEMETRY_SCRIPT_PATH, command],
+      {
+        stdio: "inherit",
+        env: process.env,
+      },
+    );
 
     child.on("error", (error) => {
       reject(error);
@@ -1443,6 +1477,10 @@ function registerProxyRequestTracking(
       rejectForUpdate: readiness.drainingForUpdate,
     };
     requestMetadata.set(c.req.raw, metadata);
+    const httpTrace = startProxyHttpTrace(
+      metadata,
+      Object.fromEntries(c.req.raw.headers),
+    );
     const stopObservingFinalLog = observeProxyFinalLog(
       metadata.requestId,
       (entry) => {
@@ -1456,6 +1494,11 @@ function registerProxyRequestTracking(
       ? () => undefined
       : beginProxyRequest();
     const finish = () => {
+      httpTrace.end(
+        metadata.terminalResult?.responseStatus ?? c.res.status,
+        metadata.terminalResult?.terminalOutcome ?? "unknown",
+        metadata.terminalErrorType,
+      );
       stopObservingFinalLog();
       finishActivity();
       // Borrowed traffic holds a concurrency slot for the lifetime of the
@@ -1468,16 +1511,18 @@ function registerProxyRequestTracking(
     // them at acceptance instead of publishing misleading placeholder values;
     // subsequent events carry the parsed metadata under the same request ID.
     try {
-      await persistProxyLifecycleAcceptance({
-        requestId: metadata.requestId,
-        method: metadata.method,
-        path: metadata.path,
-        sessionHash,
-        requestBytes,
-        elapsedMs: 0,
-        monotonicMs: startedMonotonicMs,
-      });
-      await next();
+      await httpTrace.run(() =>
+        persistProxyLifecycleAcceptance({
+          requestId: metadata.requestId,
+          method: metadata.method,
+          path: metadata.path,
+          sessionHash,
+          requestBytes,
+          elapsedMs: 0,
+          monotonicMs: startedMonotonicMs,
+        }),
+      );
+      await httpTrace.run(next);
       const responseStatus = c.res.status;
       logProxyLifecycleEvent({
         event: "response_headers",
@@ -1558,12 +1603,14 @@ function registerProxyRequestTracking(
           let accountingTimedOut = false;
           let accountingFailed = false;
           try {
-            accountingFailed = await notifyRouteTerminal({
-              outcome,
-              error,
-              observedBodyBytes,
-              responseChunks,
-            });
+            accountingFailed = await httpTrace.run(() =>
+              notifyRouteTerminal({
+                outcome,
+                error,
+                observedBodyBytes,
+                responseChunks,
+              }),
+            );
           } catch {
             accountingTimedOut = true;
           }
@@ -1623,6 +1670,11 @@ function registerProxyRequestTracking(
             errorCode: final?.errorCode ?? metadata.terminalErrorCode,
           });
           stopObservingFinalLog();
+          httpTrace.end(
+            final?.responseStatus ?? responseStatus,
+            terminalOutcome,
+            final?.errorType ?? metadata.terminalErrorType,
+          );
         },
       });
     } catch (error) {
@@ -1650,6 +1702,13 @@ function registerProxyRequestTracking(
         errorType: error instanceof Error ? error.name : "unknown_error",
         errorCode: getProxyRuntimeErrorCode(error),
       });
+      httpTrace.end(
+        getProxyRuntimeErrorCode(error) === "PROXY_TELEMETRY_UNAVAILABLE"
+          ? 503
+          : 502,
+        "handler_error",
+        error instanceof Error ? error.name : "unknown_error",
+      );
       throw error;
     }
   };
@@ -1763,8 +1822,9 @@ export async function createProxyStartApp(params: {
         accountKey: attempt?.accountKey,
         provider: attempt?.provider,
         transportScope: attempt?.transportScope,
-        traceId: attempt?.traceId,
-        spanId: attempt?.spanId,
+        traceId: attempt?.traceId ?? metadata.traceId,
+        spanId: attempt?.spanId ?? metadata.spanId,
+        traceFlags: attempt?.traceFlags ?? metadata.traceFlags,
         responseStatus: status,
         responseTimeMs: Date.now() - metadata.startedAt,
         errorType,
@@ -1774,6 +1834,9 @@ export async function createProxyStartApp(params: {
       logBodyCapture({
         timestamp: new Date().toISOString(),
         requestId: metadata.requestId,
+        traceId: attempt?.traceId ?? metadata.traceId,
+        spanId: attempt?.spanId ?? metadata.spanId,
+        traceFlags: attempt?.traceFlags ?? metadata.traceFlags,
         model: metadata.model,
         stream: metadata.stream,
         phase: "client_response",
@@ -4604,6 +4667,8 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
 // =============================================================================
 
 const PROXY_TELEMETRY_ACTIONS = [
+  "doctor",
+  "query",
   "setup",
   "start",
   "stop",
@@ -4616,14 +4681,40 @@ export const proxyTelemetryCommand: CommandModule<object, ProxyTelemetryArgs> =
   {
     command: "telemetry <action>",
     describe:
-      "Manage the local OpenObserve stack and dashboard for proxy observability",
+      "Query and verify stored OTel telemetry or manage the local observability stack",
     builder: (yargs: Argv) =>
       yargs
         .positional("action", {
           type: "string",
           choices: [...PROXY_TELEMETRY_ACTIONS],
           describe:
-            "Telemetry action: setup, start, stop, status, logs, or import-dashboard",
+            "Telemetry action: doctor, query, setup, start, stop, status, logs, or import-dashboard",
+        })
+        .option("since", {
+          type: "string",
+          description: "Inclusive ISO timestamp for stored telemetry",
+        })
+        .option("until", {
+          type: "string",
+          description: "Exclusive ISO timestamp for stored telemetry",
+        })
+        .option("kind", {
+          type: "string",
+          description:
+            "Metadata kind for query, such as request_final or telemetry_delivery",
+        })
+        .option("format", {
+          type: "string",
+          choices: ["json", "text"] as const,
+          description: "Doctor report format; query always returns JSON",
+        })
+        .option("max-rows", {
+          type: "number",
+          description: "Explicit bounded history record limit",
+        })
+        .option("proxy-url", {
+          type: "string",
+          description: "Proxy endpoint used by the read-only doctor",
         })
         .option("quiet", {
           type: "boolean",
@@ -4631,6 +4722,14 @@ export const proxyTelemetryCommand: CommandModule<object, ProxyTelemetryArgs> =
           default: false,
           description: "Suppress the local CLI spinner and delegate directly",
         })
+        .example(
+          "neurolink proxy telemetry doctor --format json",
+          "Verify field coverage, stored captures, trace correlation, and delivery evidence",
+        )
+        .example(
+          "neurolink proxy telemetry query --since 2026-09-15T00:00:00Z --kind request_final",
+          "Read stored OTLP metadata without scanning proxy log files",
+        )
         .example(
           "neurolink proxy telemetry setup",
           "Start OpenObserve, start the OTEL collector, and import the dashboard",
@@ -4645,15 +4744,16 @@ export const proxyTelemetryCommand: CommandModule<object, ProxyTelemetryArgs> =
         ) as Argv<ProxyTelemetryArgs>,
     handler: async (argv) => {
       const action = argv.action as ProxyTelemetryAction;
-      const spinner = argv.quiet
-        ? null
-        : ora(`Running proxy telemetry ${action}...`).start();
+      const spinner =
+        argv.quiet || action === "doctor" || action === "query"
+          ? null
+          : ora(`Running proxy telemetry ${action}...`).start();
 
       try {
         if (spinner) {
           spinner.stop();
         }
-        await runProxyTelemetryManager(action);
+        await runProxyTelemetryManager(action, argv);
         if (spinner) {
           spinner.succeed(`proxy telemetry ${action} completed`);
         }

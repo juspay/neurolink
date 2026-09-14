@@ -106,14 +106,41 @@ Use these streams when validating or updating the dashboard:
 
 Do not point dashboard panels at the stale log stream `neurolink_proxy_logs` unless it has been intentionally revalidated.
 
-### Local Log Families And Query Rules
+### OTel Queries And Coverage
+
+Use the same OTel pipeline for application logs, request/attempt metadata,
+redacted bodies, lifecycle evidence and traces. Set `NEUROLINK_PROXY_LOG_SINK=otel`
+to disable proxy application disk logging. See [OTel logging](../proxy-otel-logging.md)
+for limits, native backend discovery, correlation and the maintained coverage matrix.
+
+```bash
+neurolink proxy telemetry doctor --format json
+neurolink proxy telemetry query --since 2026-09-15T00:00:00Z --kind request_final
+neurolink proxy telemetry query --since 2026-09-15T00:00:00Z --kind attempt
+```
+
+These commands read stored OTLP telemetry using OpenObserve's search API. OTLP
+itself is an export protocol, not a query language. The doctor also reads runtime
+and collector diagnostics, makes no model calls and returns nonzero for missing,
+stale, partial or corrupt evidence. A green report covers its requested interval
+and explicitly bounded samples; it is not a guarantee of universal delivery.
+`telemetry logs` remains the Compose service-output command, while `telemetry query`
+reads application telemetry and also works with the native stack.
+
+### Historical File Families And Query Rules
+
+The paths below apply to file mode and old archives; they are not the source for
+new OTel-only traffic.
 
 - `~/.neurolink/logs/proxy-YYYY-MM-DD.jsonl` holds final request summaries. These are the rows the dashboard is built around.
 - `~/.neurolink/logs/proxy-attempts-YYYY-MM-DD.jsonl` holds per-upstream-attempt diagnostics. Rate-limited attempts include `retryable`, `rateLimitKind`, and `cooldownReason` so transient admission throttles are distinguishable from exhausted quota windows. Use this file when retries or account rotation need debugging.
 - `~/.neurolink/logs/proxy-debug-YYYY-MM-DD.jsonl` is the redacted index for captured request and response bodies.
 - `~/.neurolink/logs/bodies/YYYY-MM-DD/<request-id>/*.json.gz` stores the corresponding redacted body artifacts.
 - In OpenObserve, body captures arrive in the same `neurolink_proxy` log stream with `event.name=proxy.body_capture`, so request panels must filter to request-summary rows, for example `http_method IS NOT NULL`.
-- Attempt logs are local-only on purpose. They should help explain retries without inflating dashboard request counts.
+- In OTel-only mode attempts use `proxy.record_kind=attempt`; final request counts
+  must filter `proxy.record_kind=request_final`. Lifecycle, body and delivery
+  diagnostics must not inflate those counts. File-mode attempt archives remain
+  available for offline reconstruction.
 
 ### Deterministic Request Reconstruction
 

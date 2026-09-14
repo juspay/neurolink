@@ -8,7 +8,7 @@
 
 > **ProxyPaths** = `object`
 
-Defined in: [types/proxy.ts:1786](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1786)
+Defined in: [types/proxy.ts:1883](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1883)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:1786](https://github.com/juspay/neurolink/blob/relea
 
 > **stateDir**: `string`
 
-Defined in: [types/proxy.ts:1788](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1788)
+Defined in: [types/proxy.ts:1885](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1885)
 
 Base directory for proxy state files
 
@@ -26,7 +26,7 @@ Base directory for proxy state files
 
 > **logsDir**: `string`
 
-Defined in: [types/proxy.ts:1790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1790)
+Defined in: [types/proxy.ts:1887](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1887)
 
 logs/ — request/response logs
 
@@ -36,7 +36,7 @@ logs/ — request/response logs
 
 > **quotaFile**: `string`
 
-Defined in: [types/proxy.ts:1792](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1792)
+Defined in: [types/proxy.ts:1889](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1889)
 
 account-quotas.json — per-account rate limit state
 
@@ -46,7 +46,7 @@ account-quotas.json — per-account rate limit state
 
 > **cooldownFile**: `string`
 
-Defined in: [types/proxy.ts:1794](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1794)
+Defined in: [types/proxy.ts:1891](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1891)
 
 account-cooldowns.json — restart-safe account cooldown state
 
@@ -56,7 +56,7 @@ account-cooldowns.json — restart-safe account cooldown state
 
 > `optional` **statsFile?**: `string`
 
-Defined in: [types/proxy.ts:1796](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1796)
+Defined in: [types/proxy.ts:1893](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1893)
 
 proxy-usage-stats.json — restart- and handoff-safe usage counters
 
@@ -66,7 +66,7 @@ proxy-usage-stats.json — restart- and handoff-safe usage counters
 
 > `optional` **grantsFile?**: `string`
 
-Defined in: [types/proxy.ts:1798](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1798)
+Defined in: [types/proxy.ts:1895](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1895)
 
 proxy-grants.json — grants this node has issued to borrowers
 
@@ -76,7 +76,7 @@ proxy-grants.json — grants this node has issued to borrowers
 
 > `optional` **ledgerFile?**: `string`
 
-Defined in: [types/proxy.ts:1800](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1800)
+Defined in: [types/proxy.ts:1897](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1897)
 
 proxy-share-ledger.json — coin balances, holds and settled spend
 
@@ -86,7 +86,7 @@ proxy-share-ledger.json — coin balances, holds and settled spend
 
 > `optional` **peersFile?**: `string`
 
-Defined in: [types/proxy.ts:1802](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1802)
+Defined in: [types/proxy.ts:1899](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1899)
 
 proxy-peers.json — lenders this node may borrow from
 
@@ -96,6 +96,6 @@ proxy-peers.json — lenders this node may borrow from
 
 > **isDev**: `boolean`
 
-Defined in: [types/proxy.ts:1804](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1804)
+Defined in: [types/proxy.ts:1901](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1901)
 
 Whether this is a dev-mode isolated instance

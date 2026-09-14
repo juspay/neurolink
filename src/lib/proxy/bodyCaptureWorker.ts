@@ -24,6 +24,8 @@ const snapshot: ProxyBodyCaptureWorkerSnapshot = {
   pendingBytes: 0,
   maxPending: MAX_PENDING,
   maxPendingBytes: MAX_PENDING_BYTES,
+  highWaterPending: 0,
+  highWaterBytes: 0,
   rejectionReasons: {},
 };
 const pending = new Map<
@@ -195,9 +197,28 @@ export async function captureProxyBody(
           ? "body_worker_backoff"
           : "body_capture_queue_full";
     snapshot.lastError = error;
+    snapshot.lastRejectedAt = new Date().toISOString();
     snapshot.rejectionReasons[error] =
       (snapshot.rejectionReasons[error] ?? 0) + 1;
-    return consume({ error, stored: { bodyWriteFailed: true } });
+    return consume({
+      error,
+      stored: { bodyWriteFailed: true },
+      admission: {
+        limitingResource:
+          bytes > MAX_ENTRY_BYTES
+            ? "entry"
+            : Date.now() < retryAfter
+              ? "worker"
+              : snapshot.pending >= MAX_PENDING
+                ? "captures"
+                : "bytes",
+        estimatedBytes: Number.isFinite(bytes) ? bytes : undefined,
+        pending: snapshot.pending,
+        pendingBytes: snapshot.pendingBytes,
+        maxPending: MAX_PENDING,
+        maxPendingBytes: MAX_PENDING_BYTES,
+      },
+    });
   }
   let current: Worker;
   try {
@@ -242,7 +263,15 @@ export async function captureProxyBody(
       },
     });
     snapshot.pending += 1;
+    snapshot.highWaterPending = Math.max(
+      snapshot.highWaterPending,
+      snapshot.pending,
+    );
     snapshot.pendingBytes += bytes;
+    snapshot.highWaterBytes = Math.max(
+      snapshot.highWaterBytes,
+      snapshot.pendingBytes,
+    );
     current.ref();
     try {
       current.postMessage({ id, entry, logDir, queuedAt: Date.now() });
@@ -284,6 +313,9 @@ export const __bodyCaptureWorkerTestHooks = {
       pending: 0,
       pendingBytes: 0,
       lastError: undefined,
+      lastRejectedAt: undefined,
+      highWaterPending: 0,
+      highWaterBytes: 0,
       rejectionReasons: {},
     });
   },

@@ -8,7 +8,7 @@
 
 > **ProxyShareNettingResult** = `object`
 
-Defined in: [types/proxy.ts:3978](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3978)
+Defined in: [types/proxy.ts:4089](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4089)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3978](https://github.com/juspay/neurolink/blob/relea
 
 > **netted**: `number`
 
-Defined in: [types/proxy.ts:3980](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3980)
+Defined in: [types/proxy.ts:4091](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4091)
 
 Coins forgiven in this round, on both sides.
 
@@ -26,7 +26,7 @@ Coins forgiven in this round, on both sides.
 
 > **totalNetted**: `number`
 
-Defined in: [types/proxy.ts:3982](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3982)
+Defined in: [types/proxy.ts:4093](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4093)
 
 Cumulative total after this round.
 
@@ -36,4 +36,4 @@ Cumulative total after this round.
 
 > **detail**: `string`
 
-Defined in: [types/proxy.ts:3983](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3983)
+Defined in: [types/proxy.ts:4094](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4094)

@@ -8,4 +8,4 @@
 
 > **OpenAIContentPart** = [`OpenAIContentPartText`](OpenAIContentPartText.md) \| [`OpenAIContentPartImage`](OpenAIContentPartImage.md)
 
-Defined in: [types/proxy.ts:3429](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3429)
+Defined in: [types/proxy.ts:3540](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3540)

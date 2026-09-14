@@ -1,5 +1,10 @@
 /* eslint-disable no-console -- This proxy-only sink replaces console methods with OTLP emission. */
 import { inspect } from "node:util";
+import { randomUUID } from "node:crypto";
+import {
+  getProxyRequestTraceContext,
+  proxyLogContext,
+} from "./proxyTraceContext.js";
 import { setImmediate as yieldToRequests } from "node:timers/promises";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import { ExportResultCode } from "@opentelemetry/core";
@@ -21,6 +26,7 @@ import type {
   ProxyBodyChunkEmitter,
   ProxyBodyDeliveryResult,
   ProxyBodyPublicationProgress,
+  ProxyOtelExportFailure,
 } from "../types/index.js";
 
 let provider: LoggerProvider | undefined;
@@ -66,6 +72,64 @@ function createTrackedProcessor(
     lastAcknowledgedAt: undefined as string | undefined,
     lastFailureAt: undefined as string | undefined,
     highWaterOutstanding: 0,
+    recentFailures: [] as ProxyOtelExportFailure[],
+    failureHistoryEvicted: 0,
+  };
+  const diagnostics: ProxyOtelExportFailure[] = [];
+  let diagnosticScheduled = false;
+  const rememberFailure = (
+    records: ReadableLogRecord[],
+    reason: ProxyOtelExportFailure["reason"],
+    error?: Error,
+  ): void => {
+    const stringAttribute = (
+      record: ReadableLogRecord,
+      name: string,
+    ): string | undefined => {
+      const value = record.attributes[name];
+      return typeof value === "string" ? value.slice(0, 128) : undefined;
+    };
+    const failure: ProxyOtelExportFailure = {
+      id: randomUUID(),
+      at: new Date().toISOString(),
+      reason,
+      ...(error ? { error: sanitizeForLog(error.message).slice(0, 256) } : {}),
+      records: records.slice(0, 64).map((record) => ({
+        eventId: stringAttribute(record, "proxy.event_id") ?? "unavailable",
+        kind: stringAttribute(record, "proxy.record_kind"),
+        requestId: stringAttribute(record, "request.id"),
+        captureId: stringAttribute(record, "body.capture_id"),
+      })),
+    };
+    if (state.recentFailures.length === 16) {
+      state.recentFailures.shift();
+      state.failureHistoryEvicted++;
+    }
+    state.recentFailures.push(failure);
+    // A failed diagnostic must not generate another diagnostic recursively.
+    if (
+      records.some(
+        (record) =>
+          record.attributes["proxy.record_kind"] !== "telemetry_delivery",
+      )
+    ) {
+      if (diagnostics.length === 16) {
+        diagnostics.shift();
+      }
+      diagnostics.push(failure);
+    }
+  };
+  const publishRecoveredDiagnostics = (): void => {
+    if (diagnosticScheduled || !diagnostics.length || shuttingDown) {
+      return;
+    }
+    diagnosticScheduled = true;
+    queueMicrotask(() => {
+      diagnosticScheduled = false;
+      for (const failure of diagnostics.splice(0)) {
+        emitProxyOtelEvent("telemetry_delivery", { queue: kind, ...failure });
+      }
+    });
   };
   const transport = new OTLPLogExporter({ url, timeoutMillis: 5000 });
   const exporter: LogRecordExporter = {
@@ -90,9 +154,11 @@ function createTrackedProcessor(
         if (result.code === ExportResultCode.SUCCESS) {
           state.transportAcknowledged += records.length;
           state.lastAcknowledgedAt = new Date().toISOString();
+          publishRecoveredDiagnostics();
         } else {
           state.exportUnconfirmed += records.length;
           state.lastFailureAt = new Date().toISOString();
+          rememberFailure(records, "export_unconfirmed", result.error);
         }
         for (const record of records) {
           unsettled.delete(record);
@@ -132,6 +198,7 @@ function createTrackedProcessor(
   });
   const processor: LogRecordProcessor = {
     onEmit(record) {
+      record.attributes["proxy.event_id"] ??= randomUUID();
       state.attempted++;
       const id = record.attributes?.["body.capture_id"];
       const publication =
@@ -141,6 +208,7 @@ function createTrackedProcessor(
       }
       if (state.outstanding >= capacity) {
         state.dropped++;
+        rememberFailure([record], "queue_full");
         if (publication) {
           publication.dropped++;
           publication.notify?.();
@@ -408,12 +476,18 @@ export function emitProxyOtelEvent(
     return;
   }
   try {
+    const ids =
+      typeof record.requestId === "string" && !record.traceId
+        ? getProxyRequestTraceContext(record.requestId)
+        : undefined;
+    const correlated = ids ? { ...record, ...ids } : record;
     initializeProxyOtelLogs()
       ?.getLogger("neurolink-proxy-events")
       .emit({
+        context: proxyLogContext(correlated),
         severityNumber: SeverityNumber.INFO,
         severityText: "INFO",
-        body: JSON.stringify(record),
+        body: JSON.stringify(correlated),
         attributes: {
           "proxy.record_kind": kind,
           "event.name": `proxy.${kind}`,
@@ -500,6 +574,10 @@ export function getProxyOtelLogSnapshot() {
       kind: q.kind,
       capacity: q.capacity,
       ...q.state,
+      recentFailures: q.state.recentFailures.map((failure) => ({
+        ...failure,
+        records: failure.records.map((record) => ({ ...record })),
+      })),
     })),
   };
 }

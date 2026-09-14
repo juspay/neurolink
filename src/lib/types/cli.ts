@@ -971,8 +971,22 @@ export type ProxyGuardArgs = {
 
 /** Arguments accepted by `neurolink proxy telemetry <subcommand>` */
 export type ProxyTelemetryArgs = {
-  action?: "setup" | "start" | "stop" | "status" | "logs" | "import-dashboard";
+  action?:
+    | "setup"
+    | "start"
+    | "stop"
+    | "status"
+    | "logs"
+    | "import-dashboard"
+    | "doctor"
+    | "query";
   quiet?: boolean;
+  since?: string;
+  until?: string;
+  kind?: string;
+  format?: "json" | "text";
+  maxRows?: number;
+  proxyUrl?: string;
 };
 
 /** A fallback chain entry (serialisable subset of FallbackEntry) */

@@ -67,7 +67,9 @@ count and digest. The index is emitted after publication settles:
 - `rejected`: the publication queue or deadline rejected the capture. No
   partial body is deliberately enqueued to make room.
 - `capture_rejected`: the body worker's admission guard rejected processing;
-  the index includes `captureError`. `no_body` means no body was present.
+  the index includes `captureError`. `captureAdmission` identifies the limiting
+  resource (`entry`, `captures`, `bytes`, or `worker`) and the admission-time
+  pending count/bytes and configured limits. `no_body` means no body was present.
 
 The worker uses a 16 MiB per-entry estimate of retained clone memory and a
 32 MiB aggregate pool. Its estimate accounts for UTF-16 strings without
@@ -82,7 +84,8 @@ keeps its existing **1 MiB** ceiling. Indexes expose `bodyCaptureLimitBytes`,
 `originalRedactedBodyBytes` and `bodyTruncated`. Larger or structurally excessive
 inputs remain bounded and explicitly rejected or truncated. This is a logging
 policy and does not truncate the request sent to the model. Borrowed traffic
-still excludes body capture.
+still excludes body capture and emits a metadata-only `policy_excluded` index
+with reason `borrowed_traffic`; it does not expose the borrowed body.
 
 `/status` exposes the selected sink and per-process export counters under request
 logging observability. `submitted` means admitted to the memory queue;
@@ -111,7 +114,7 @@ Configure `NEUROLINK_OPENOBSERVE_URL`, `NEUROLINK_OPENOBSERVE_ORG`,
 Keep credentials in the environment rather than command-line arguments.
 
 ```sh
-node scripts/observability/query-proxy-history.mjs \
+neurolink proxy telemetry query \
   --since 2026-09-13T12:32:00Z --until 2026-09-13T18:52:00Z \
   --kind body_capture_index > body-capture-history.json
 ```
@@ -126,10 +129,110 @@ describes query completeness for the specified interval, not whether the proxy
 instrumented or delivered every possible event. Include the returned query
 ledger when reporting evidence.
 
-The telemetry doctor honors the configured stream name and, with
-`NEUROLINK_PROXY_LOG_SINK=otel`, does not require or scan stale local log files.
-Stream inventory freshness alone remains a coarse signal; reconcile records
-with producer counters and capture indexes for a delivery audit.
+## Built-in telemetry verification
+
+```sh
+neurolink proxy telemetry doctor --format json
+neurolink proxy telemetry doctor --since 2026-09-15T00:00:00Z --until 2026-09-15T01:00:00Z
+neurolink proxy telemetry query --since 2026-09-15T00:00:00Z --kind telemetry_delivery
+```
+
+OTLP is the standard for exporting logs, traces and metrics; it has no historical
+query API. These read-only commands query **stored OTLP data through OpenObserve's
+search API**, and inspect the proxy/collector diagnostics endpoints. They do not
+start Docker, restart services, generate model traffic or scan application files.
+The existing script entry points call the same implementation. New OTel-only
+traffic must be read through these commands or the backend; archived file-based
+analyze/replay commands retain their offline meaning.
+
+Backend settings come from the OpenObserve environment variables above, or from
+`~/.neurolink/telemetry-native/config/collector.yaml` when an explicit backend URL
+is absent. Override the config path with `NEUROLINK_OTEL_COLLECTOR_CONFIG`.
+Credentials stay internal and redirects are rejected. Use
+`NEUROLINK_OTEL_COLLECTOR_METRICS_URL` to select the loopback collector metrics
+endpoint; native discovery defaults to `http://127.0.0.1:14388/metrics`.
+`--proxy-url` or `NEUROLINK_PROXY_URL` selects the proxy diagnostics endpoint.
+
+The doctor defaults to the last fifteen minutes ending thirty seconds ago to
+allow export/ingestion to settle. It verifies:
+
+- Runtime readiness and explicitly selected OTel-only logging.
+- Producer queue failures and capture admission failures, including bounded
+  record identities and high-water counts/bytes.
+- Stored logs, traces and request metrics with a latest timestamp no more than
+  120 seconds behind the **selected window end**. Historical windows therefore
+  measure historical freshness, not current service health.
+- Unique final IDs, trace/duration/outcome fields and explained first-output
+  timing, grouped by model. `not_observed` cannot pass timing coverage.
+- Stored terminal-event/final reconciliation. In-flight admissions and requests
+  spanning the query boundaries are not assumed to have failed.
+- Capture rejection/truncation/policy status for every queried index, plus count,
+  contiguous chunk indexes, UTF-8 bytes and SHA-256 for up to three largest
+  acknowledged captures (8 MiB per sample). This is explicitly a sample check.
+- Up to three stored trace correlations, and collector failure/queue counters.
+  Collector counters are cumulative; a historical failure is not a count of
+  proven missing records in the selected interval.
+
+All queries share a 512-request budget; history has a configurable 10,000-record
+limit per kind (maximum 100,000). Invalid ranges, partial backend results and
+exceeded bounds fail explicitly. Missing data, idle traffic, absent collector
+series, old versions without required fields and unavailable measurements cannot
+produce a green report. `pass` exits zero; `fail` or `incomplete` exits nonzero.
+A successful report proves these checks over the selected records and samples;
+it cannot prove an event that disappeared before any observable admission.
+
+## Correlation and output timing
+
+The shared HTTP tracker creates a W3C-parented OTel SERVER span for `/v1/*`,
+`/v1beta/*` and `/backend-api/*`. Health, status and administrative polling are
+excluded to avoid recursive diagnostic traffic. Route traces inherit that span;
+finals, attempts, lifecycle and body records retain native OTLP trace/span fields
+through deferred callbacks. Standalone supervisor events are process evidence
+and do not invent a request trace. Direct Codex requests now use the same tracing
+and request metrics path, including selected account and requested reasoning
+effort. Internal fallback traces do not increment independent request/token
+metrics; their parent request owns those metrics.
+
+Codex `firstUsefulOutputStatus` is `observed`, `no_useful_output`, or
+`not_observed`. Timing recognizes nonempty text/refusal, populated function and
+custom-tool calls, content parts and completion-only output. Empty tool shells,
+reasoning and control events are not useful output. Malformed, oversized or
+undispatched frames make an absence claim unavailable. These observations never
+change the relayed bytes, retry policy or context sent to the model.
+
+Each OTel log gets a `proxy.event_id`. Per queue, `/status` retains the latest
+16 failed exports/admissions, up to 64 record identities per batch, and a
+`failureHistoryEvicted` counter. These entries contain event/request/capture IDs
+and sanitized error metadata, not log bodies. After a successful export,
+`telemetry_delivery` records report queued diagnostics through the same OTel
+pipeline. The original uncertain records are not replayed. Failure diagnostics
+are bounded, can themselves be lost, and cannot repair an abrupt process exit.
+The standard SDK may report transport success for an OTLP `partialSuccess`
+response; transport acknowledgement is deliberately not called record acceptance.
+
+## Coverage maintained in CI
+
+`pnpm run test:proxy-telemetry` exercises recorded upstreams, local collector
+fixtures and the built CLI in temporary homes. It is wired into required CI.
+The matrix below describes supported cases, not a universal lossless guarantee.
+
+| Case                                                                              | Observable evidence                                                                   | Deterministic verification                                             |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Anthropic/Codex completion, client cancel, semantic SSE failure, missing terminal | Final outcome, account, attempt, transport and lifecycle records                      | HTTP route/stream fault fixtures                                       |
+| W3C context and Codex text, tool, refusal, control-only output                    | Native OTLP trace IDs, parent spans, timing status/source                             | Actual local OTLP receiver and in-memory span exporter                 |
+| Malformed frames and incomplete measurement                                       | Explicit `not_observed`, preserved relay bytes                                        | Malformed/oversized Codex fixture                                      |
+| Upstream auth, quota, cooling and network faults                                  | Classified attempt and terminal outcomes                                              | Recorded transport/account/fallback fixtures                           |
+| Admission, stream accounting and worker exit                                      | Lifecycle sequence, terminal evidence or explicit unconfirmed state                   | Durable journal, worker death and socket fixtures                      |
+| OTel-only application logs                                                        | Finals, attempts, bodies, lifecycle and console records; no application log directory | Local collector plus filesystem assertions                             |
+| Export rejection, delayed acknowledgement and shutdown                            | Unconfirmed/dropped counters, failed record IDs, recovery diagnostics                 | Reject/recover and slow collector fixtures                             |
+| Large body, redaction, truncation and queue pressure                              | Capture index, admission reason, delivery counts, digest                              | 7.3 MB request, burst, redaction and rejection fixtures                |
+| Stored query completeness and duplicates                                          | Query ledger, explicit row/page bounds and nonzero failure                            | Partial/paged backend fixtures and built CLI                           |
+| Missing, stale, corrupt or inconsistent stored data                               | Doctor fail/incomplete with named check                                               | Recorded backend variants including missing final and collector series |
+
+Finite memory, policy exclusions, sampling, collector/backend retention and
+process death remain explicit limits. OTel-only removes proxy application log
+files; collectors/backends still need storage. Operational account, credential,
+quota and supervisor state is not application logging and remains persistent.
 
 For rollback, restore the previous service environment and launchd configuration,
 then replace the supervisor with the previous runtime after draining requests.

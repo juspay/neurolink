@@ -8,7 +8,7 @@
 
 > **ProxyShareSpilloverGate** = `object`
 
-Defined in: [types/proxy.ts:3648](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3648)
+Defined in: [types/proxy.ts:3759](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3759)
 
 Use-it-or-lose-it capacity: admit the borrower only in the run-up to a window
 reset, and only when little of that window was consumed. `maxSlicePct` caps
@@ -21,7 +21,7 @@ so a spillover grant can still carry a hard ceiling.
 
 > **beforeResetHours**: `number`
 
-Defined in: [types/proxy.ts:3649](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3649)
+Defined in: [types/proxy.ts:3760](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3760)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/proxy.ts:3649](https://github.com/juspay/neurolink/blob/relea
 
 > **whenUtilizationBelowPct**: `number`
 
-Defined in: [types/proxy.ts:3650](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3650)
+Defined in: [types/proxy.ts:3761](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3761)
 
 ---
 
@@ -37,4 +37,4 @@ Defined in: [types/proxy.ts:3650](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxSlicePct?**: `number`
 
-Defined in: [types/proxy.ts:3651](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3651)
+Defined in: [types/proxy.ts:3762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3762)

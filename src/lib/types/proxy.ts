@@ -670,8 +670,14 @@ export type ProxyAccountSortMetrics = {
 };
 
 export type RequestLogEntry = {
-  /** First output text or tool-argument delta, excluding SSE control frames. */
+  /** First text, refusal or populated tool output, excluding SSE control frames. */
   firstUsefulOutputMs?: number;
+  /** Why first-useful-output timing is absent; never substitute a zero. */
+  firstUsefulOutputStatus?: "observed" | "no_useful_output" | "not_observed";
+  /** Native protocol event that established the first useful output. */
+  firstUsefulOutputEvent?: string;
+  /** Requested reasoning effort retained independently of body capture. */
+  reasoningEffort?: string;
   /** Small routing evidence retained even when response bodies are pruned. */
   fallbackPlan?: Array<{
     provider: string;
@@ -730,6 +736,8 @@ export type RequestLogEntry = {
   traceId?: string;
   /** OTel span ID for correlation with distributed traces */
   spanId?: string;
+  /** Original OTel sampling flags retained through deferred logging. */
+  traceFlags?: number;
   /** Exact secret-free inputs and result of initial account selection. */
   routingDecision?: ProxyAccountRoutingDecision;
 };
@@ -753,6 +761,16 @@ export type ProcessedProxyBodyCapture = {
   error?: string;
   queueWaitMs?: number;
   processingMs?: number;
+  admission?: ProxyBodyCaptureAdmission;
+};
+/** Exact bounded-admission state; records no request content. */
+export type ProxyBodyCaptureAdmission = {
+  limitingResource: "entry" | "captures" | "bytes" | "worker";
+  estimatedBytes?: number;
+  pending: number;
+  pendingBytes: number;
+  maxPending: number;
+  maxPendingBytes: number;
 };
 export type ProxyBodyCaptureWorkerSnapshot = {
   attempted: number;
@@ -763,9 +781,12 @@ export type ProxyBodyCaptureWorkerSnapshot = {
   pendingBytes: number;
   maxPending: number;
   maxPendingBytes: number;
+  highWaterPending: number;
+  highWaterBytes: number;
   /** Admission failures by exact guard, independent of processing failures. */
   rejectionReasons: Record<string, number>;
   lastError?: string;
+  lastRejectedAt?: string;
 };
 
 /** Collector transport evidence; acknowledgement does not prove backend storage. */
@@ -791,6 +812,78 @@ export type ProxyBodyPublicationProgress = {
   dropped: number;
   emitted: number;
   notify?: () => void;
+};
+
+/** Bounded metadata-only evidence for an unconfirmed or locally rejected OTLP batch. */
+export type ProxyOtelExportFailure = {
+  id: string;
+  at: string;
+  reason: "export_unconfirmed" | "queue_full";
+  error?: string;
+  records: Array<{
+    eventId: string;
+    kind?: string;
+    requestId?: string;
+    captureId?: string;
+  }>;
+};
+
+/** Read adapter configuration; credentials never appear in diagnostic reports. */
+export type ProxyTelemetryBackend = {
+  baseUrl: string;
+  organization: string;
+  stream: string;
+  authorization?: string;
+  collectorMetricsUrl?: string;
+};
+export type ProxyTelemetryNativeConfig = {
+  exporters?: Record<
+    string,
+    { endpoint?: string; headers?: Record<string, string> }
+  >;
+};
+export type ProxyTelemetryQueryBudget = { used: number; limit: number };
+export type ProxyTelemetryQueryOptions = {
+  sql: string;
+  signal?: string;
+  startTime: number;
+  endTime: number;
+  size?: number;
+  offset?: number;
+};
+export type ProxyTelemetryDoctorOptions = {
+  backend: ProxyTelemetryBackend;
+  startTime: number;
+  endTime: number;
+  proxyUrl?: string;
+  maxRows?: number;
+  fetchImpl?: typeof fetch;
+};
+export type ProxyTelemetryCheck = {
+  name: string;
+  status: "pass" | "fail" | "warn" | "unverified";
+  evidence: unknown;
+};
+/** Small stored metadata used by the doctor; bodies are queried separately. */
+export type ProxyTelemetryStoredRecord = Partial<RequestLogEntry> & {
+  captureId?: string;
+  bodySha256?: string;
+  redactedBodyBytes?: number;
+  bodyDelivery?: { status?: string };
+  captureError?: string;
+  captureAdmission?: ProxyBodyCaptureAdmission;
+  bodyTruncated?: boolean;
+  phase?: string;
+  event?: string;
+  telemetryStatus?: string;
+  outcomeSource?: string;
+};
+export type ProxyTelemetryFieldCoverage = {
+  records: number;
+  traceMissing: number;
+  durationMissing: number;
+  outcomeMissing: number;
+  firstOutputUnexplained: number;
 };
 
 /** Chunk emission stays in the request logger, which owns request attributes. */
@@ -857,6 +950,8 @@ export type RequestAttemptLogEntry = {
   traceId?: string;
   /** OTel span ID for correlation with distributed traces */
   spanId?: string;
+  /** Original OTel sampling flags retained through deferred logging. */
+  traceFlags?: number;
 };
 
 /** Additional fields recorded when a Codex response becomes client-final. */
@@ -873,6 +968,8 @@ export type CodexFinalLogExtra = Partial<
     | "cacheCreationTokens"
     | "terminalOutcome"
     | "firstUsefulOutputMs"
+    | "firstUsefulOutputStatus"
+    | "firstUsefulOutputEvent"
   >
 >;
 
@@ -1848,6 +1945,8 @@ export type ProxyRequestContext = {
    * every non-Anthropic model prices to $0.
    */
   provider?: string;
+  /** An internal fallback is an attempt; its parent owns request/token metrics. */
+  recordRequestMetrics?: boolean;
 };
 
 /** Response-side details parsed from the upstream reply (model, finish, tools). */
@@ -2351,7 +2450,10 @@ export type CodexStreamUsage = {
 export type CodexStreamEvidence = {
   completed: boolean;
   terminalBytes: number;
+  /** Malformed, oversized or undispatched frames prevent proving output absence. */
+  observationIncomplete?: boolean;
   firstUsefulOutputAt?: number;
+  firstUsefulOutputEvent?: string;
   errorType?: string;
   errorMessage?: string;
   errorCode?: string;
@@ -2372,6 +2474,11 @@ export type RuntimeRequestMetadata = {
   /** Last dispatched attempt, retained until this HTTP request terminates. */
   lastUpstreamAttempt?: RequestAttemptLogEntry;
   requestId: string;
+  /** Ingress OTel correlation survives detached stream/error callbacks. */
+  traceId?: string;
+  spanId?: string;
+  /** Original OTel sampling flags retained through deferred logging. */
+  traceFlags?: number;
   method: string;
   path: string;
   startedAt: number;
@@ -2431,6 +2538,8 @@ export type ProxyBodyCaptureEntry = {
   attempt?: number;
   traceId?: string;
   spanId?: string;
+  /** Original OTel sampling flags retained through deferred logging. */
+  traceFlags?: number;
   metadata?: Record<string, unknown>;
 };
 
@@ -3387,6 +3496,8 @@ export type StatusStats = {
 
 /** Sub-action of the `proxy telemetry` CLI command. */
 export type ProxyTelemetryAction =
+  | "doctor"
+  | "query"
   | "setup"
   | "start"
   | "stop"
@@ -4488,4 +4599,11 @@ export type ProxyShareProvisioningBundle = {
     refreshToken?: string;
     expiresAt?: number;
   };
+};
+
+/** Log correlation retained independently of the current async context. */
+export type ProxyLogTraceContext = {
+  traceId: string;
+  spanId: string;
+  traceFlags: number;
 };

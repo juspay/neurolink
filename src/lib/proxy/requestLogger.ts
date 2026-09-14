@@ -56,6 +56,10 @@ import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import { configureProxyLifecycleLogger } from "./proxyLifecycle.js";
 import { notifyProxyFinalLog, notifyProxyAttemptLog } from "./proxyActivity.js";
 import { withTimeout } from "../utils/async/withTimeout.js";
+import {
+  resolveProxyLogTraceContext,
+  proxyLogContext,
+} from "./proxyTraceContext.js";
 
 let logDir: string | null = null;
 let logEnabled = false;
@@ -255,6 +259,12 @@ export function initRequestLogger(
 }
 
 export async function logRequest(entry: RequestLogEntry): Promise<void> {
+  if (!entry.traceId || entry.traceFlags === undefined) {
+    const traceCtx = resolveProxyLogTraceContext(entry);
+    if (traceCtx) {
+      Object.assign(entry, traceCtx);
+    }
+  }
   entry.terminalOutcome ??=
     entry.errorType === "client_cancelled" || entry.responseStatus === 499
       ? "client_cancelled"
@@ -266,18 +276,6 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
   notifyProxyFinalLog(entry);
   if (!logEnabled || (!logDir && !isProxyOtelOnly())) {
     return;
-  }
-
-  // Only use OtelBridge if traceId not already provided by caller.
-  // Deferred .then() callbacks lose async context, so OtelBridge would
-  // return undefined and overwrite the valid traceId the caller passed.
-  if (!entry.traceId) {
-    const bridge = new OtelBridge();
-    const traceCtx = bridge.getCurrentTraceContext();
-    if (traceCtx) {
-      entry.traceId = traceCtx.traceId;
-      entry.spanId = traceCtx.spanId;
-    }
   }
 
   if (isProxyOtelOnly()) {
@@ -308,12 +306,12 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
 export async function logRequestAttempt(
   entry: RequestAttemptLogEntry,
 ): Promise<void> {
-  if (!entry.traceId) {
-    const bridge = new OtelBridge();
-    const traceCtx = bridge.getCurrentTraceContext();
+  if (!entry.traceId || entry.traceFlags === undefined) {
+    const traceCtx = resolveProxyLogTraceContext(entry);
     if (traceCtx) {
       entry.traceId = traceCtx.traceId;
       entry.spanId = traceCtx.spanId;
+      entry.traceFlags = traceCtx.traceFlags;
     }
   }
 
@@ -403,6 +401,7 @@ function emitOtlpLogRecord(entry: RequestLogEntry): Promise<void> {
       const severityText = isError ? (isRateLimit ? "WARN" : "ERROR") : "INFO";
 
       otelLogger.emit({
+        context: proxyLogContext(entry),
         severityNumber,
         severityText,
         body: isProxyOtelOnly()
@@ -578,6 +577,7 @@ function emitOtlpBodyLogRecord(
         totalChunks: number,
       ): void => {
         otelLogger.emit({
+          context: proxyLogContext(entry),
           severityNumber:
             (entry.responseStatus ?? 0) >= 400
               ? SeverityNumber.WARN
@@ -658,14 +658,17 @@ export async function logBodyCapture(
   // not something a share token can be read as consenting to. The request is
   // still logged; only the bodies are dropped.
   if (isBorrowedRequest()) {
+    emitProxyOtelEvent("body_capture_index", {
+      timestamp: entry.timestamp,
+      requestId: entry.requestId,
+      captureId: entry.captureId ?? randomUUID(),
+      phase: entry.phase,
+      bodyDelivery: { status: "policy_excluded", reason: "borrowed_traffic" },
+    });
     return;
   }
 
-  const bridge = new OtelBridge();
-  const traceCtx =
-    entry.traceId && entry.spanId
-      ? { traceId: entry.traceId, spanId: entry.spanId }
-      : bridge.getCurrentTraceContext();
+  const traceCtx = resolveProxyLogTraceContext(entry);
   const destination = logDir;
   // Publication callbacks retain metadata and the bounded redacted result,
   // never the original unbounded body while a sink is slow.
@@ -710,6 +713,7 @@ export async function logBodyCapture(
       originalRedactedBodyBytes: stored.originalRedactedBodyBytes,
       bodyWriteFailed: stored.bodyWriteFailed,
       captureError: processed.error,
+      captureAdmission: processed.admission,
       captureQueueWaitMs: processed.queueWaitMs,
       captureProcessingMs: processed.processingMs,
       metadata: processed.error ? undefined : metadata.metadata,
@@ -718,6 +722,7 @@ export async function logBodyCapture(
     if (traceCtx) {
       indexEntry.traceId = traceCtx.traceId;
       indexEntry.spanId = traceCtx.spanId;
+      indexEntry.traceFlags = traceCtx.traceFlags;
     }
 
     if (isProxyOtelOnly()) {
@@ -726,6 +731,7 @@ export async function logBodyCapture(
           ...metadata,
           traceId: traceCtx?.traceId ?? metadata.traceId,
           spanId: traceCtx?.spanId ?? metadata.spanId,
+          traceFlags: traceCtx?.traceFlags ?? metadata.traceFlags,
         },
         stored,
       );
@@ -760,6 +766,7 @@ export async function logBodyCapture(
         ...metadata,
         traceId: traceCtx?.traceId ?? metadata.traceId,
         spanId: traceCtx?.spanId ?? metadata.spanId,
+        traceFlags: traceCtx?.traceFlags ?? metadata.traceFlags,
       },
       stored,
     );

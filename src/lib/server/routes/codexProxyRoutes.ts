@@ -46,6 +46,7 @@ import {
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { registerProxyResponseObserver } from "../../proxy/proxyActivity.js";
 import { logRequest, logRequestAttempt } from "../../proxy/requestLogger.js";
+import { ProxyTracer } from "../../proxy/proxyTracer.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
 import {
   recordAttempt,
@@ -401,6 +402,28 @@ export async function handleCodexResponsesRequest(
       ? reasoning.effort
       : undefined;
 
+  let tracer: ProxyTracer | undefined;
+  try {
+    tracer = ProxyTracer.startRequest(
+      {
+        requestId: ctx.requestId,
+        method: ctx.method,
+        path: ctx.path,
+        model,
+        stream: true,
+        toolCount: Array.isArray((body as Record<string, unknown>).tools)
+          ? ((body as Record<string, unknown>).tools as unknown[]).length
+          : 0,
+        provider: "openai",
+        userAgent: ctx.headers["user-agent"],
+        recordRequestMetrics: !isFallbackRequest,
+      },
+      ctx.headers,
+    );
+  } catch {
+    // Instrumentation must not change provider request handling.
+  }
+
   const writeFinalLog = (
     account: CodexRuntimeAccount | undefined,
     responseStatus: number,
@@ -422,6 +445,10 @@ export async function handleCodexResponsesRequest(
       // This is the cost provider. accountKey and the response header identify
       // the actual Codex pool that supplied the credential.
       provider: "openai",
+      ...tracer?.getTraceContext(),
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      firstUsefulOutputStatus:
+        extra.firstUsefulOutputMs !== undefined ? "observed" : "not_observed",
       ...buildClientAttribution(ctx.headers),
       responseStatus,
       responseTimeMs: Date.now() - requestStartTime,
@@ -434,10 +461,24 @@ export async function handleCodexResponsesRequest(
     responseStatus: number,
     extra: CodexFinalLogExtra = {},
   ): Promise<void> => {
-    if (isFallbackRequest || finalOutcomeRecorded) {
+    if (finalOutcomeRecorded) {
       return;
     }
     finalOutcomeRecorded = true;
+    try {
+      if (extra.errorType) {
+        tracer?.setError(
+          extra.errorType,
+          extra.errorMessage ?? extra.errorType,
+        );
+      }
+      tracer?.end(responseStatus, Date.now() - requestStartTime);
+    } catch {
+      // End bookkeeping is best effort; the client outcome remains authoritative.
+    }
+    if (isFallbackRequest) {
+      return;
+    }
     if (responseStatus >= 400) {
       recordFinalError(
         responseStatus,
@@ -472,6 +513,7 @@ export async function handleCodexResponsesRequest(
       timestamp: new Date().toISOString(),
       requestId: ctx.requestId,
       attempt,
+      ...tracer?.getTraceContext(),
       ...(isFallbackRequest
         ? { parentRequestId: ctx.requestId.replace(/:codex-fallback$/, "") }
         : {}),
@@ -494,468 +536,523 @@ export async function handleCodexResponsesRequest(
     }).catch(() => undefined);
   };
 
-  const accounts = await loadCodexProxyAccounts();
-  const cancelRequest = async (
-    account?: CodexRuntimeAccount,
-  ): Promise<Response> => {
-    await recordFinalOutcome(account, 499, {
-      errorType: "client_cancelled",
-      errorMessage: "Client cancelled Codex request",
-      terminalOutcome: "client_cancelled",
-    });
-    return buildCodexErrorResponse(499, "Client cancelled Codex request");
-  };
-  if (ctx.abortSignal?.aborted) {
-    return cancelRequest();
-  }
-  if (accounts.length === 0) {
-    await recordFinalOutcome(undefined, 401, {
-      errorType: "no_accounts",
-      errorMessage: "No Codex accounts",
-    });
-    return buildCodexErrorResponse(
-      401,
-      "No Codex accounts configured. Run `neurolink auth login codex`.",
+  const dispatch = async (): Promise<Response> => {
+    const accounts = await loadCodexProxyAccounts();
+    const cancelRequest = async (
+      account?: CodexRuntimeAccount,
+    ): Promise<Response> => {
+      await recordFinalOutcome(account, 499, {
+        errorType: "client_cancelled",
+        errorMessage: "Client cancelled Codex request",
+        terminalOutcome: "client_cancelled",
+      });
+      return buildCodexErrorResponse(499, "Client cancelled Codex request");
+    };
+    if (ctx.abortSignal?.aborted) {
+      return cancelRequest();
+    }
+    if (accounts.length === 0) {
+      await recordFinalOutcome(undefined, 401, {
+        errorType: "no_accounts",
+        errorMessage: "No Codex accounts",
+      });
+      return buildCodexErrorResponse(
+        401,
+        "No Codex accounts configured. Run `neurolink auth login codex`.",
+      );
+    }
+
+    const now = Date.now();
+    const ordered = orderCodexAccounts(accounts, now);
+    const eligible = ordered.filter(
+      (a) => !(a.coolingUntil !== undefined && a.coolingUntil > now),
     );
-  }
 
-  const now = Date.now();
-  const ordered = orderCodexAccounts(accounts, now);
-  const eligible = ordered.filter(
-    (a) => !(a.coolingUntil !== undefined && a.coolingUntil > now),
-  );
-
-  if (eligible.length === 0) {
-    // Every account is cooling; surface the soonest recovery as retry-after.
-    const soonest = ordered.reduce<number | undefined>((min, a) => {
-      if (a.coolingUntil === undefined) {
-        return min;
-      }
-      return min === undefined ? a.coolingUntil : Math.min(min, a.coolingUntil);
-    }, undefined);
-    const retryAfterSec = soonest
-      ? Math.max(1, Math.ceil((soonest - now) / 1000))
-      : 60;
-    await recordFinalOutcome(undefined, 429, {
-      errorType: "all_accounts_cooling",
-      errorMessage: "All Codex accounts are rate-limited",
-    });
-    return new Response(
-      JSON.stringify({
-        error: {
-          type: "rate_limit_error",
-          message: "All Codex accounts are currently rate-limited",
+    if (eligible.length === 0) {
+      // Every account is cooling; surface the soonest recovery as retry-after.
+      const soonest = ordered.reduce<number | undefined>((min, a) => {
+        if (a.coolingUntil === undefined) {
+          return min;
+        }
+        return min === undefined
+          ? a.coolingUntil
+          : Math.min(min, a.coolingUntil);
+      }, undefined);
+      const retryAfterSec = soonest
+        ? Math.max(1, Math.ceil((soonest - now) / 1000))
+        : 60;
+      await recordFinalOutcome(undefined, 429, {
+        errorType: "all_accounts_cooling",
+        errorMessage: "All Codex accounts are rate-limited",
+      });
+      return new Response(
+        JSON.stringify({
+          error: {
+            type: "rate_limit_error",
+            message: "All Codex accounts are currently rate-limited",
+          },
+        }),
+        {
+          status: 429,
+          headers: {
+            "content-type": "application/json",
+            "retry-after": String(retryAfterSec),
+          },
         },
-      }),
-      {
-        status: 429,
-        headers: {
-          "content-type": "application/json",
-          "retry-after": String(retryAfterSec),
-        },
-      },
-    );
-  }
+      );
+    }
 
-  let attempt = 0;
-  let lastErrorMessage = "All Codex accounts failed";
-  let lastErrorStatus = 502;
-  let lastFailure: CodexFinalLogExtra = { errorType: "all_accounts_failed" };
-  let lastAttemptedAccount: CodexRuntimeAccount | undefined;
+    let attempt = 0;
+    let lastErrorMessage = "All Codex accounts failed";
+    let lastErrorStatus = 502;
+    let lastFailure: CodexFinalLogExtra = { errorType: "all_accounts_failed" };
+    let lastAttemptedAccount: CodexRuntimeAccount | undefined;
 
-  for (const account of eligible) {
-    let authRetried = false;
-
-    // Same-account loop only re-runs once, for a post-401 token refresh.
-    for (;;) {
-      if (ctx.abortSignal?.aborted) {
-        return cancelRequest(lastAttemptedAccount);
-      }
-      attempt += 1;
-      const attemptStartedAt = Date.now();
-      lastAttemptedAccount = account;
-      recordAttempt(account.label, CODEX_ACCOUNT_TYPE);
-      let upstream: Response;
+    for (const account of eligible) {
       try {
-        upstream = await fetch(CODEX_RESPONSES_URL, {
-          method: "POST",
-          headers: buildCodexUpstreamHeaders(ctx.headers, account),
-          body: bodyStr,
-          signal: ctx.abortSignal
-            ? AbortSignal.any([
-                ctx.abortSignal,
-                AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
-              ])
-            : AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+        tracer?.setAccountSelection({
+          strategy: "codex-quota-order",
+          accountsTotal: accounts.length,
+          accountsHealthy: eligible.length,
+          selectedAccount: account.label,
+          accountType: CODEX_ACCOUNT_TYPE,
         });
-      } catch (error) {
-        if (ctx.abortSignal?.aborted) {
-          writeAttempt(account, attempt, attemptStartedAt, 499, {
-            errorType: "client_cancelled",
-            errorMessage: "Client cancelled Codex request",
-            retryable: false,
-          });
-          return cancelRequest(account);
-        }
-        // A transport failure message is derived from local state — resolved
-        // hostnames, socket paths, Node internals — and says nothing the caller
-        // can act on. Keep the detail in the log and return a fixed string, so
-        // internal topology never reaches the client.
-        logger.debug(
-          `Codex upstream fetch failed (${account.label}): ${sanitizeForLog(
-            error instanceof Error ? error.message : String(error),
-          )}`,
-        );
-        const errorMessage = summarizeCodexUpstreamError(
-          error instanceof Error ? error.message : String(error),
-          "Codex upstream request failed",
-        );
-        const errorCode = getCodexTransportErrorCode(error);
-        const transportScope = codexTransportScope(error);
-        recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
-        writeAttempt(account, attempt, attemptStartedAt, 502, {
-          errorType: "network_error",
-          errorMessage,
-          ...(errorCode ? { errorCode } : {}),
-          transportScope,
-          // These codes prove failure before HTTP dispatch. Socket resets,
-          // EPIPE and generic timeouts may follow dispatch and must not replay.
-          retryable: [
-            "UND_ERR_CONNECT_TIMEOUT",
-            "ECONNREFUSED",
-            "ENOTFOUND",
-            "EAI_AGAIN",
-          ].includes(errorCode ?? ""),
-        });
-        lastFailure = {
-          errorType: "network_error",
-          errorMessage,
-          errorCode,
-          transportScope,
-        };
-        if (
-          ![
-            "UND_ERR_CONNECT_TIMEOUT",
-            "ECONNREFUSED",
-            "ENOTFOUND",
-            "EAI_AGAIN",
-          ].includes(errorCode ?? "")
-        ) {
-          await recordFinalOutcome(account, 502, {
-            ...lastFailure,
-            errorMessage,
-          });
-          return buildCodexErrorResponse(502, "Codex upstream request failed");
-        }
-        lastErrorMessage = "Codex upstream request failed";
-        lastErrorStatus = 502;
-        break; // rotate to next account
+      } catch {
+        // Account attribution cannot affect routing.
       }
+      let authRetried = false;
 
-      if (upstream.ok) {
-        const quota = parseCodexRateLimitHeaders(upstream.headers);
-        if (quota) {
-          saveAccountQuota(account.key, quota).catch(() => undefined);
+      // Same-account loop only re-runs once, for a post-401 token refresh.
+      for (;;) {
+        if (ctx.abortSignal?.aborted) {
+          return cancelRequest(lastAttemptedAccount);
         }
-        // A prior cooldown that has expired is cleared on success. The
-        // compare-and-swap guards against wiping a longer cooldown that another
-        // in-flight request set while this one was upstream.
-        if (account.expiredCooldownUntil !== undefined) {
-          clearAccountCooldown(account.key, account.expiredCooldownUntil).catch(
-            () => undefined,
+        attempt += 1;
+        const attemptStartedAt = Date.now();
+        lastAttemptedAccount = account;
+        recordAttempt(account.label, CODEX_ACCOUNT_TYPE);
+        let upstream: Response;
+        try {
+          upstream = await fetch(CODEX_RESPONSES_URL, {
+            method: "POST",
+            headers: buildCodexUpstreamHeaders(ctx.headers, account),
+            body: bodyStr,
+            signal: ctx.abortSignal
+              ? AbortSignal.any([
+                  ctx.abortSignal,
+                  AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+                ])
+              : AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+          });
+        } catch (error) {
+          if (ctx.abortSignal?.aborted) {
+            writeAttempt(account, attempt, attemptStartedAt, 499, {
+              errorType: "client_cancelled",
+              errorMessage: "Client cancelled Codex request",
+              retryable: false,
+            });
+            return cancelRequest(account);
+          }
+          // A transport failure message is derived from local state — resolved
+          // hostnames, socket paths, Node internals — and says nothing the caller
+          // can act on. Keep the detail in the log and return a fixed string, so
+          // internal topology never reaches the client.
+          logger.debug(
+            `Codex upstream fetch failed (${account.label}): ${sanitizeForLog(
+              error instanceof Error ? error.message : String(error),
+            )}`,
           );
-        }
-        publishCodexHeaders(ctx, account, attempt, quota);
-        writeAttempt(account, attempt, attemptStartedAt, upstream.status);
-        const headers: Record<string, string> = {
-          "content-type":
-            upstream.headers.get("content-type") ?? "text/event-stream",
-          "cache-control": "no-cache",
-          connection: "keep-alive",
-          ...(ctx.responseHeaders ?? {}),
-        };
-
-        if (!upstream.body) {
+          const errorMessage = summarizeCodexUpstreamError(
+            error instanceof Error ? error.message : String(error),
+            "Codex upstream request failed",
+          );
+          const errorCode = getCodexTransportErrorCode(error);
+          const transportScope = codexTransportScope(error);
           recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
           writeAttempt(account, attempt, attemptStartedAt, 502, {
-            errorType: "incomplete_stream",
-            errorMessage: "Codex returned no response stream",
-            retryable: false,
+            errorType: "network_error",
+            errorMessage,
+            ...(errorCode ? { errorCode } : {}),
+            transportScope,
+            // These codes prove failure before HTTP dispatch. Socket resets,
+            // EPIPE and generic timeouts may follow dispatch and must not replay.
+            retryable: [
+              "UND_ERR_CONNECT_TIMEOUT",
+              "ECONNREFUSED",
+              "ENOTFOUND",
+              "EAI_AGAIN",
+            ].includes(errorCode ?? ""),
           });
-          await recordFinalOutcome(account, 502, {
-            terminalOutcome: "stream_error",
-            errorType: "incomplete_stream",
-            errorMessage: "Codex returned no response stream",
-          });
-          return new Response(upstream.body, {
+          lastFailure = {
+            errorType: "network_error",
+            errorMessage,
+            errorCode,
+            transportScope,
+          };
+          if (
+            ![
+              "UND_ERR_CONNECT_TIMEOUT",
+              "ECONNREFUSED",
+              "ENOTFOUND",
+              "EAI_AGAIN",
+            ].includes(errorCode ?? "")
+          ) {
+            await recordFinalOutcome(account, 502, {
+              ...lastFailure,
+              errorMessage,
+            });
+            return buildCodexErrorResponse(
+              502,
+              "Codex upstream request failed",
+            );
+          }
+          lastErrorMessage = "Codex upstream request failed";
+          lastErrorStatus = 502;
+          break; // rotate to next account
+        }
+
+        if (upstream.ok) {
+          const quota = parseCodexRateLimitHeaders(upstream.headers);
+          if (quota) {
+            saveAccountQuota(account.key, quota).catch(() => undefined);
+          }
+          // A prior cooldown that has expired is cleared on success. The
+          // compare-and-swap guards against wiping a longer cooldown that another
+          // in-flight request set while this one was upstream.
+          if (account.expiredCooldownUntil !== undefined) {
+            clearAccountCooldown(
+              account.key,
+              account.expiredCooldownUntil,
+            ).catch(() => undefined);
+          }
+          publishCodexHeaders(ctx, account, attempt, quota);
+          writeAttempt(account, attempt, attemptStartedAt, upstream.status);
+          const headers: Record<string, string> = {
+            "content-type":
+              upstream.headers.get("content-type") ?? "text/event-stream",
+            "cache-control": "no-cache",
+            connection: "keep-alive",
+            ...(ctx.responseHeaders ?? {}),
+          };
+
+          if (!upstream.body) {
+            recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
+            writeAttempt(account, attempt, attemptStartedAt, 502, {
+              errorType: "incomplete_stream",
+              errorMessage: "Codex returned no response stream",
+              retryable: false,
+            });
+            await recordFinalOutcome(account, 502, {
+              terminalOutcome: "stream_error",
+              errorType: "incomplete_stream",
+              errorMessage: "Codex returned no response stream",
+            });
+            return new Response(upstream.body, {
+              status: upstream.status,
+              headers,
+            });
+          }
+          const {
+            stream: usageTap,
+            usage: usageSeen,
+            evidence,
+          } = createCodexUsageTap();
+          const relay = new Response(upstream.body.pipeThrough(usageTap), {
             status: upstream.status,
             headers,
           });
-        }
-        const {
-          stream: usageTap,
-          usage: usageSeen,
-          evidence,
-        } = createCodexUsageTap();
-        const relay = new Response(upstream.body.pipeThrough(usageTap), {
-          status: upstream.status,
-          headers,
-        });
-        registerProxyResponseObserver(ctx.metadata, {
-          onTerminal: ({ outcome, error, observedBodyBytes }) => {
-            return usageSeen
-              .then((usage) => {
-                const semantic = evidence();
-                const completedFrameDelivered =
-                  semantic.completed &&
-                  observedBodyBytes >= semantic.terminalBytes;
-                const failed =
-                  semantic.errorType ||
-                  ((outcome === "completed" || outcome === "bodyless") &&
-                    !semantic.completed);
-                const usageExtra = usage
-                  ? {
-                      inputTokens: usage.inputTokens,
-                      outputTokens: usage.outputTokens,
-                      cacheReadTokens: usage.cacheReadTokens,
-                      cacheCreationTokens: usage.cacheCreationTokens,
+          registerProxyResponseObserver(ctx.metadata, {
+            onTerminal: ({ outcome, error, observedBodyBytes }) => {
+              return usageSeen
+                .then((usage) => {
+                  const semantic = evidence();
+                  const completedFrameDelivered =
+                    semantic.completed &&
+                    observedBodyBytes >= semantic.terminalBytes;
+                  const failed =
+                    semantic.errorType ||
+                    ((outcome === "completed" || outcome === "bodyless") &&
+                      !semantic.completed);
+                  const usageExtra = usage
+                    ? {
+                        inputTokens: usage.inputTokens,
+                        outputTokens: usage.outputTokens,
+                        cacheReadTokens: usage.cacheReadTokens,
+                        cacheCreationTokens: usage.cacheCreationTokens,
+                      }
+                    : {};
+                  if (usage) {
+                    try {
+                      tracer?.setUsage(usage);
+                    } catch {
+                      // Pricing/metrics must never change the stream outcome.
                     }
-                  : {};
-                const timing =
-                  semantic.firstUsefulOutputAt === undefined
-                    ? {}
-                    : {
-                        firstUsefulOutputMs: Math.max(
-                          0,
-                          semantic.firstUsefulOutputAt - requestStartTime,
-                        ),
-                      };
-                if (failed) {
-                  recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
-                  writeAttempt(account, attempt, attemptStartedAt, 502, {
-                    errorType: semantic.errorType ?? "incomplete_stream",
-                    errorCode: semantic.errorCode,
-                    errorMessage:
-                      semantic.errorMessage ??
-                      "Codex stream ended without a completion event",
-                    retryable: false,
-                  });
-                  return recordFinalOutcome(account, 502, {
-                    ...usageExtra,
-                    ...timing,
-                    terminalOutcome: "stream_error",
-                    errorType: semantic.errorType ?? "incomplete_stream",
-                    errorCode: semantic.errorCode,
-                    errorMessage:
-                      semantic.errorMessage ??
-                      "Codex stream ended without a completion event",
-                  });
-                }
-                if (
-                  outcome === "completed" ||
-                  outcome === "bodyless" ||
-                  (outcome === "client_cancelled" && completedFrameDelivered)
-                ) {
-                  return recordFinalOutcome(account, upstream.status, {
-                    terminalOutcome: "completed",
-                    ...usageExtra,
-                    ...timing,
-                  });
-                }
-                if (outcome === "stream_error") {
-                  recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
-                  writeAttempt(account, attempt, attemptStartedAt, 502, {
-                    errorType: "stream_error",
-                    errorCode: getCodexTransportErrorCode(error),
-                    errorMessage: summarizeCodexUpstreamError(
-                      error instanceof Error ? error.message : "",
-                      "Codex upstream stream failed",
-                    ),
-                    retryable: false,
-                  });
-                }
-                return recordFinalOutcome(
-                  account,
-                  outcome === "client_cancelled" ? 499 : 502,
-                  {
-                    errorType:
-                      outcome === "client_cancelled"
-                        ? "client_cancelled"
-                        : "stream_error",
-                    errorMessage:
-                      outcome === "client_cancelled"
-                        ? "Client cancelled Codex stream"
-                        : summarizeCodexUpstreamError(
-                            error instanceof Error ? error.message : "",
-                            "Codex upstream stream failed",
+                  }
+                  const timing =
+                    semantic.firstUsefulOutputAt === undefined ||
+                    semantic.observationIncomplete
+                      ? {
+                          firstUsefulOutputStatus:
+                            semantic.completed &&
+                            !semantic.observationIncomplete
+                              ? ("no_useful_output" as const)
+                              : ("not_observed" as const),
+                        }
+                      : {
+                          firstUsefulOutputStatus: "observed" as const,
+                          firstUsefulOutputEvent:
+                            semantic.firstUsefulOutputEvent,
+                          firstUsefulOutputMs: Math.max(
+                            0,
+                            semantic.firstUsefulOutputAt - requestStartTime,
                           ),
-                    ...(outcome === "stream_error"
-                      ? { errorCode: getCodexTransportErrorCode(error) }
-                      : {}),
-                    terminalOutcome: outcome,
-                    ...usageExtra,
-                    ...timing,
-                  },
-                );
-              })
-              .catch(() => undefined);
-          },
-        });
-        return relay;
-      }
+                        };
+                  if (failed) {
+                    recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
+                    writeAttempt(account, attempt, attemptStartedAt, 502, {
+                      errorType: semantic.errorType ?? "incomplete_stream",
+                      errorCode: semantic.errorCode,
+                      errorMessage:
+                        semantic.errorMessage ??
+                        "Codex stream ended without a completion event",
+                      retryable: false,
+                    });
+                    return recordFinalOutcome(account, 502, {
+                      ...usageExtra,
+                      ...timing,
+                      terminalOutcome: "stream_error",
+                      errorType: semantic.errorType ?? "incomplete_stream",
+                      errorCode: semantic.errorCode,
+                      errorMessage:
+                        semantic.errorMessage ??
+                        "Codex stream ended without a completion event",
+                    });
+                  }
+                  if (
+                    outcome === "completed" ||
+                    outcome === "bodyless" ||
+                    (outcome === "client_cancelled" && completedFrameDelivered)
+                  ) {
+                    return recordFinalOutcome(account, upstream.status, {
+                      terminalOutcome: "completed",
+                      ...usageExtra,
+                      ...timing,
+                    });
+                  }
+                  if (outcome === "stream_error") {
+                    recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
+                    writeAttempt(account, attempt, attemptStartedAt, 502, {
+                      errorType: "stream_error",
+                      errorCode: getCodexTransportErrorCode(error),
+                      errorMessage: summarizeCodexUpstreamError(
+                        error instanceof Error ? error.message : "",
+                        "Codex upstream stream failed",
+                      ),
+                      retryable: false,
+                    });
+                  }
+                  return recordFinalOutcome(
+                    account,
+                    outcome === "client_cancelled" ? 499 : 502,
+                    {
+                      errorType:
+                        outcome === "client_cancelled"
+                          ? "client_cancelled"
+                          : "stream_error",
+                      errorMessage:
+                        outcome === "client_cancelled"
+                          ? "Client cancelled Codex stream"
+                          : summarizeCodexUpstreamError(
+                              error instanceof Error ? error.message : "",
+                              "Codex upstream stream failed",
+                            ),
+                      ...(outcome === "stream_error"
+                        ? { errorCode: getCodexTransportErrorCode(error) }
+                        : {}),
+                      terminalOutcome: outcome,
+                      ...usageExtra,
+                      ...timing,
+                    },
+                  );
+                })
+                .catch(() => undefined);
+            },
+          });
+          return relay;
+        }
 
-      const errText = await upstream.text().catch(() => "");
+        const errText = await upstream.text().catch(() => "");
 
-      // 401/403 → try a forced token refresh once, then rotate.
-      if (
-        (upstream.status === 401 || upstream.status === 403) &&
-        !authRetried &&
-        account.refreshToken
-      ) {
-        const errorMessage = summarizeCodexUpstreamError(
-          errText,
-          "Codex authentication rejected upstream",
-        );
-        recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
-        writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
-          errorType: "authentication_error",
-          errorMessage,
-          retryable: true,
-        });
-        authRetried = true;
-        const staleTokens = {
-          accessToken: account.token,
-          refreshToken: account.refreshToken,
-          expiresAt: account.expiresAt ?? 0,
-        };
-        try {
-          const refreshed = await refreshCodexTokenOnce(
-            account.key,
-            account.refreshToken,
+        // 401/403 → try a forced token refresh once, then rotate.
+        if (
+          (upstream.status === 401 || upstream.status === 403) &&
+          !authRetried &&
+          account.refreshToken
+        ) {
+          const errorMessage = summarizeCodexUpstreamError(
+            errText,
+            "Codex authentication rejected upstream",
           );
-          account.token = refreshed.accessToken;
-          account.refreshToken = refreshed.refreshToken ?? account.refreshToken;
-          account.expiresAt = refreshed.expiresAt ?? account.expiresAt;
-          account.accountId = resolveCodexAccountId(refreshed.accessToken);
-          continue; // retry same account with the fresh token
-        } catch (error) {
-          if (isPermanentCodexRefreshFailure(error)) {
-            // Compare-and-swap: the pool is rebuilt per request with no shared
-            // state, so a concurrent request may already have rotated this
-            // credential. Disabling unconditionally would kill the account that
-            // the other request just healed.
-            const disabled = await tokenStore.markDisabledIfCurrent(
+          recordAttemptError(
+            account.label,
+            CODEX_ACCOUNT_TYPE,
+            upstream.status,
+          );
+          writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+            errorType: "authentication_error",
+            errorMessage,
+            retryable: true,
+          });
+          authRetried = true;
+          const staleTokens = {
+            accessToken: account.token,
+            refreshToken: account.refreshToken,
+            expiresAt: account.expiresAt ?? 0,
+          };
+          try {
+            const refreshed = await refreshCodexTokenOnce(
               account.key,
-              staleTokens,
-              "refresh_invalid",
+              account.refreshToken,
             );
-            if (disabled) {
-              logger.always(
-                `[proxy] codex account=${account.label} disabled until re-authentication. Run: neurolink auth login codex --label ${account.label}`,
+            account.token = refreshed.accessToken;
+            account.refreshToken =
+              refreshed.refreshToken ?? account.refreshToken;
+            account.expiresAt = refreshed.expiresAt ?? account.expiresAt;
+            account.accountId = resolveCodexAccountId(refreshed.accessToken);
+            continue; // retry same account with the fresh token
+          } catch (error) {
+            if (isPermanentCodexRefreshFailure(error)) {
+              // Compare-and-swap: the pool is rebuilt per request with no shared
+              // state, so a concurrent request may already have rotated this
+              // credential. Disabling unconditionally would kill the account that
+              // the other request just healed.
+              const disabled = await tokenStore.markDisabledIfCurrent(
+                account.key,
+                staleTokens,
+                "refresh_invalid",
               );
+              if (disabled) {
+                logger.always(
+                  `[proxy] codex account=${account.label} disabled until re-authentication. Run: neurolink auth login codex --label ${account.label}`,
+                );
+              }
+              lastFailure = {
+                errorType: "authentication_error",
+                errorCode: "refresh_invalid",
+              };
+              lastErrorStatus = 401;
+              lastErrorMessage =
+                "Codex token refresh failed; re-login required";
+              break;
             }
+            // No verdict on the credential — cool briefly and try the next
+            // account, so a 5xx or a timeout cannot cost the user a login.
+            await saveAccountCooldown(
+              account.key,
+              Date.now() + CODEX_AUTH_COOLDOWN_MS,
+              "auth",
+            ).catch(() => undefined);
+            logger.debug(
+              `[proxy] codex account=${account.label} refresh failed transiently; cooling and rotating`,
+            );
             lastFailure = {
-              errorType: "authentication_error",
-              errorCode: "refresh_invalid",
+              errorType: "auth_refresh_unavailable",
+              errorCode: getCodexTransportErrorCode(error),
             };
-            lastErrorStatus = 401;
-            lastErrorMessage = "Codex token refresh failed; re-login required";
+            lastErrorStatus = 503;
+            lastErrorMessage = "Codex token refresh temporarily unavailable";
             break;
           }
-          // No verdict on the credential — cool briefly and try the next
-          // account, so a 5xx or a timeout cannot cost the user a login.
+        }
+
+        // 429 → cooldown + rotate.
+        if (upstream.status === 429) {
+          const quota = parseCodexRateLimitHeaders(upstream.headers);
+          if (quota) {
+            saveAccountQuota(account.key, quota).catch(() => undefined);
+          }
+          const retryAfterMs = parseRetryAfterMs(
+            upstream.headers.get("retry-after"),
+          );
+          const plan = planCodexCooldown(quota, retryAfterMs, Date.now());
+          await saveAccountCooldown(
+            account.key,
+            plan.coolingUntil,
+            plan.reason,
+          ).catch(() => undefined);
+          const rateLimitKind =
+            plan.reason === "transient" ? "transient" : "quota";
+          const errorMessage = summarizeCodexUpstreamError(
+            errText,
+            "Codex account rate-limited",
+          );
+          recordAttemptError(
+            account.label,
+            CODEX_ACCOUNT_TYPE,
+            upstream.status,
+            rateLimitKind,
+          );
+          writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
+            errorType: "rate_limit_error",
+            errorMessage,
+            retryable: true,
+            rateLimitKind,
+            cooldownReason: plan.reason,
+          });
+          lastFailure = { errorType: "rate_limit_error" };
+          lastErrorStatus = 429;
+          lastErrorMessage = "Codex account rate-limited";
+          break; // rotate
+        }
+
+        // Other non-ok → record and rotate.
+        if (upstream.status === 401 || upstream.status === 403) {
+          // Reached only when the account has no refresh token to retry with, so
+          // it will fail identically on the next request. Park it briefly instead
+          // of letting it stay first in line with unknown quota.
           await saveAccountCooldown(
             account.key,
             Date.now() + CODEX_AUTH_COOLDOWN_MS,
             "auth",
           ).catch(() => undefined);
-          logger.debug(
-            `[proxy] codex account=${account.label} refresh failed transiently; cooling and rotating`,
-          );
-          lastFailure = {
-            errorType: "auth_refresh_unavailable",
-            errorCode: getCodexTransportErrorCode(error),
-          };
-          lastErrorStatus = 503;
-          lastErrorMessage = "Codex token refresh temporarily unavailable";
-          break;
         }
-      }
-
-      // 429 → cooldown + rotate.
-      if (upstream.status === 429) {
-        const quota = parseCodexRateLimitHeaders(upstream.headers);
-        if (quota) {
-          saveAccountQuota(account.key, quota).catch(() => undefined);
-        }
-        const retryAfterMs = parseRetryAfterMs(
-          upstream.headers.get("retry-after"),
-        );
-        const plan = planCodexCooldown(quota, retryAfterMs, Date.now());
-        await saveAccountCooldown(
-          account.key,
-          plan.coolingUntil,
-          plan.reason,
-        ).catch(() => undefined);
-        const rateLimitKind =
-          plan.reason === "transient" ? "transient" : "quota";
         const errorMessage = summarizeCodexUpstreamError(
           errText,
-          "Codex account rate-limited",
+          "Codex error",
         );
-        recordAttemptError(
-          account.label,
-          CODEX_ACCOUNT_TYPE,
-          upstream.status,
-          rateLimitKind,
-        );
+        const errorType =
+          upstream.status === 401 || upstream.status === 403
+            ? "authentication_error"
+            : "api_error";
+        recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
         writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
-          errorType: "rate_limit_error",
+          errorType,
           errorMessage,
-          retryable: true,
-          rateLimitKind,
-          cooldownReason: plan.reason,
+          retryable: upstream.status >= 500,
         });
-        lastFailure = { errorType: "rate_limit_error" };
-        lastErrorStatus = 429;
-        lastErrorMessage = "Codex account rate-limited";
+        lastFailure = { errorType };
+        lastErrorStatus = upstream.status >= 500 ? 502 : upstream.status;
+        lastErrorMessage = errorMessage;
         break; // rotate
       }
-
-      // Other non-ok → record and rotate.
-      if (upstream.status === 401 || upstream.status === 403) {
-        // Reached only when the account has no refresh token to retry with, so
-        // it will fail identically on the next request. Park it briefly instead
-        // of letting it stay first in line with unknown quota.
-        await saveAccountCooldown(
-          account.key,
-          Date.now() + CODEX_AUTH_COOLDOWN_MS,
-          "auth",
-        ).catch(() => undefined);
-      }
-      const errorMessage = summarizeCodexUpstreamError(errText, "Codex error");
-      const errorType =
-        upstream.status === 401 || upstream.status === 403
-          ? "authentication_error"
-          : "api_error";
-      recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, upstream.status);
-      writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
-        errorType,
-        errorMessage,
-        retryable: upstream.status >= 500,
-      });
-      lastFailure = { errorType };
-      lastErrorStatus = upstream.status >= 500 ? 502 : upstream.status;
-      lastErrorMessage = errorMessage;
-      break; // rotate
     }
-  }
 
-  await recordFinalOutcome(lastAttemptedAccount, lastErrorStatus, {
-    ...lastFailure,
-    errorMessage: lastFailure.errorMessage ?? lastErrorMessage,
-  });
-  return buildCodexErrorResponse(lastErrorStatus, lastErrorMessage);
+    await recordFinalOutcome(lastAttemptedAccount, lastErrorStatus, {
+      ...lastFailure,
+      errorMessage: lastFailure.errorMessage ?? lastErrorMessage,
+    });
+    return buildCodexErrorResponse(lastErrorStatus, lastErrorMessage);
+  };
+  try {
+    return await dispatch();
+  } catch (error) {
+    try {
+      tracer?.end(502, Date.now() - requestStartTime);
+    } catch {
+      // Shared HTTP error handling owns the client outcome and final log.
+    }
+    throw error;
+  }
 }
 
 /**

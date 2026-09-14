@@ -8,7 +8,7 @@
 
 > **ServerInstance** = `object`
 
-Defined in: [types/cli.ts:1636](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1636)
+Defined in: [types/cli.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1650)
 
 Minimal server instance contract used by `neurolink serve`.
 
@@ -18,7 +18,7 @@ Minimal server instance contract used by `neurolink serve`.
 
 > **initialize**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1637](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1637)
+Defined in: [types/cli.ts:1651](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1651)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/cli.ts:1637](https://github.com/juspay/neurolink/blob/release
 
 > **start**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1638](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1638)
+Defined in: [types/cli.ts:1652](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1652)
 
 #### Returns
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1638](https://github.com/juspay/neurolink/blob/release
 
 > **stop**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1639)
+Defined in: [types/cli.ts:1653](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1653)
 
 #### Returns
 
@@ -54,7 +54,7 @@ Defined in: [types/cli.ts:1639](https://github.com/juspay/neurolink/blob/release
 
 > **registerRouteGroup**: (`group`) => `void`
 
-Defined in: [types/cli.ts:1640](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1640)
+Defined in: [types/cli.ts:1654](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1654)
 
 #### Parameters
 
@@ -72,7 +72,7 @@ Defined in: [types/cli.ts:1640](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **listRoutes?**: () => [`RouteDefinition`](RouteDefinition.md)[]
 
-Defined in: [types/cli.ts:1641](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1641)
+Defined in: [types/cli.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1655)
 
 #### Returns
 

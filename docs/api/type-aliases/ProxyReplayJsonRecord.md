@@ -8,6 +8,6 @@
 
 > **ProxyReplayJsonRecord** = `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:2438](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2438)
+Defined in: [types/proxy.ts:2547](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2547)
 
 JSON object retained in deterministic proxy replay artifacts.

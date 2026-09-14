@@ -6,8 +6,8 @@
 
 # Type Alias: ProxyTelemetryAction
 
-> **ProxyTelemetryAction** = `"setup"` \| `"start"` \| `"stop"` \| `"status"` \| `"logs"` \| `"import-dashboard"`
+> **ProxyTelemetryAction** = `"doctor"` \| `"query"` \| `"setup"` \| `"start"` \| `"stop"` \| `"status"` \| `"logs"` \| `"import-dashboard"`
 
-Defined in: [types/proxy.ts:3389](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3389)
+Defined in: [types/proxy.ts:3498](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3498)
 
 Sub-action of the `proxy telemetry` CLI command.

@@ -8,6 +8,6 @@
 
 > **ProxyRuntimeConfigReloadSource** = `"startup"` \| `"watch"` \| `"sighup"` \| `"manual"`
 
-Defined in: [types/proxy.ts:3245](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3245)
+Defined in: [types/proxy.ts:3354](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3354)
 
 Source that requested a runtime configuration reload.

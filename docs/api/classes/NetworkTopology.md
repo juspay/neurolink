@@ -66,7 +66,7 @@ Add a node to the topology
 
 ##### role?
 
-`"coordinator"` \| `"supervisor"` \| `"worker"` \| `"peer"`
+`"worker"` \| `"coordinator"` \| `"supervisor"` \| `"peer"`
 
 #### Returns
 
@@ -294,7 +294,7 @@ Get nodes by role
 
 ##### role
 
-`"coordinator"` \| `"supervisor"` \| `"worker"` \| `"peer"`
+`"worker"` \| `"coordinator"` \| `"supervisor"` \| `"peer"`
 
 #### Returns
 

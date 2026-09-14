@@ -8,7 +8,7 @@
 
 > **ProxyShareReceipt** = `object`
 
-Defined in: [types/proxy.ts:3918](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3918)
+Defined in: [types/proxy.ts:4029](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4029)
 
 A lender's signed statement that one borrowed request was settled, and for
 how much.
@@ -23,7 +23,7 @@ response it actually received, rather than taking the coin figure on faith.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:3919](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3919)
+Defined in: [types/proxy.ts:4030](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4030)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/proxy.ts:3919](https://github.com/juspay/neurolink/blob/relea
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:3920](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3920)
+Defined in: [types/proxy.ts:4031](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4031)
 
 ---
 
@@ -39,7 +39,7 @@ Defined in: [types/proxy.ts:3920](https://github.com/juspay/neurolink/blob/relea
 
 > **sequence**: `number`
 
-Defined in: [types/proxy.ts:3922](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3922)
+Defined in: [types/proxy.ts:4033](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4033)
 
 Monotonic, contiguous, per grant.
 
@@ -49,7 +49,7 @@ Monotonic, contiguous, per grant.
 
 > **settledAt**: `number`
 
-Defined in: [types/proxy.ts:3923](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3923)
+Defined in: [types/proxy.ts:4034](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4034)
 
 ---
 
@@ -57,7 +57,7 @@ Defined in: [types/proxy.ts:3923](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/proxy.ts:3924](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3924)
+Defined in: [types/proxy.ts:4035](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4035)
 
 ---
 
@@ -65,7 +65,7 @@ Defined in: [types/proxy.ts:3924](https://github.com/juspay/neurolink/blob/relea
 
 > **usage**: [`ProxyShareUsage`](ProxyShareUsage.md)
 
-Defined in: [types/proxy.ts:3925](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3925)
+Defined in: [types/proxy.ts:4036](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4036)
 
 ---
 
@@ -73,7 +73,7 @@ Defined in: [types/proxy.ts:3925](https://github.com/juspay/neurolink/blob/relea
 
 > **coins**: `number`
 
-Defined in: [types/proxy.ts:3926](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3926)
+Defined in: [types/proxy.ts:4037](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4037)
 
 ---
 
@@ -81,7 +81,7 @@ Defined in: [types/proxy.ts:3926](https://github.com/juspay/neurolink/blob/relea
 
 > **balanceAfter**: `number` \| `null`
 
-Defined in: [types/proxy.ts:3928](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3928)
+Defined in: [types/proxy.ts:4039](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4039)
 
 Remaining balance after this charge; null on an unlimited grant.
 
@@ -91,4 +91,4 @@ Remaining balance after this charge; null on an unlimited grant.
 
 > **signature**: `string`
 
-Defined in: [types/proxy.ts:3929](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3929)
+Defined in: [types/proxy.ts:4040](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4040)

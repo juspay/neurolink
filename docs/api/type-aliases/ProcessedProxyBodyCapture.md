@@ -8,7 +8,7 @@
 
 > **ProcessedProxyBodyCapture** = `object`
 
-Defined in: [types/proxy.ts:750](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L750)
+Defined in: [types/proxy.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L758)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:750](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/proxy.ts:751](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L751)
+Defined in: [types/proxy.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L759)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:751](https://github.com/juspay/neurolink/blob/releas
 
 > **stored**: [`StoredBodyArtifact`](StoredBodyArtifact.md)
 
-Defined in: [types/proxy.ts:752](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L752)
+Defined in: [types/proxy.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L760)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:752](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **error?**: `string`
 
-Defined in: [types/proxy.ts:753](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L753)
+Defined in: [types/proxy.ts:761](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L761)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:753](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **queueWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:754](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L754)
+Defined in: [types/proxy.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L762)
 
 ---
 
@@ -48,4 +48,12 @@ Defined in: [types/proxy.ts:754](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **processingMs?**: `number`
 
-Defined in: [types/proxy.ts:755](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L755)
+Defined in: [types/proxy.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L763)
+
+---
+
+### admission?
+
+> `optional` **admission?**: [`ProxyBodyCaptureAdmission`](ProxyBodyCaptureAdmission.md)
+
+Defined in: [types/proxy.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L764)

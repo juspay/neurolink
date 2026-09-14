@@ -8,7 +8,7 @@
 
 > **ProxyBodyCaptureWorkerSnapshot** = `object`
 
-Defined in: [types/proxy.ts:757](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L757)
+Defined in: [types/proxy.ts:775](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L775)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:757](https://github.com/juspay/neurolink/blob/releas
 
 > **attempted**: `number`
 
-Defined in: [types/proxy.ts:758](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L758)
+Defined in: [types/proxy.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L776)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:758](https://github.com/juspay/neurolink/blob/releas
 
 > **completed**: `number`
 
-Defined in: [types/proxy.ts:759](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L759)
+Defined in: [types/proxy.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L777)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:759](https://github.com/juspay/neurolink/blob/releas
 
 > **rejected**: `number`
 
-Defined in: [types/proxy.ts:760](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L760)
+Defined in: [types/proxy.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L778)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:760](https://github.com/juspay/neurolink/blob/releas
 
 > **failed**: `number`
 
-Defined in: [types/proxy.ts:761](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L761)
+Defined in: [types/proxy.ts:779](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L779)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/proxy.ts:761](https://github.com/juspay/neurolink/blob/releas
 
 > **pending**: `number`
 
-Defined in: [types/proxy.ts:762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L762)
+Defined in: [types/proxy.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L780)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/proxy.ts:762](https://github.com/juspay/neurolink/blob/releas
 
 > **pendingBytes**: `number`
 
-Defined in: [types/proxy.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L763)
+Defined in: [types/proxy.ts:781](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L781)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/proxy.ts:763](https://github.com/juspay/neurolink/blob/releas
 
 > **maxPending**: `number`
 
-Defined in: [types/proxy.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L764)
+Defined in: [types/proxy.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L782)
 
 ---
 
@@ -72,7 +72,23 @@ Defined in: [types/proxy.ts:764](https://github.com/juspay/neurolink/blob/releas
 
 > **maxPendingBytes**: `number`
 
-Defined in: [types/proxy.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L765)
+Defined in: [types/proxy.ts:783](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L783)
+
+---
+
+### highWaterPending
+
+> **highWaterPending**: `number`
+
+Defined in: [types/proxy.ts:784](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L784)
+
+---
+
+### highWaterBytes
+
+> **highWaterBytes**: `number`
+
+Defined in: [types/proxy.ts:785](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L785)
 
 ---
 
@@ -80,7 +96,7 @@ Defined in: [types/proxy.ts:765](https://github.com/juspay/neurolink/blob/releas
 
 > **rejectionReasons**: `Record`\<`string`, `number`\>
 
-Defined in: [types/proxy.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L767)
+Defined in: [types/proxy.ts:787](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L787)
 
 Admission failures by exact guard, independent of processing failures.
 
@@ -90,4 +106,12 @@ Admission failures by exact guard, independent of processing failures.
 
 > `optional` **lastError?**: `string`
 
-Defined in: [types/proxy.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L768)
+Defined in: [types/proxy.ts:788](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L788)
+
+---
+
+### lastRejectedAt?
+
+> `optional` **lastRejectedAt?**: `string`
+
+Defined in: [types/proxy.ts:789](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L789)

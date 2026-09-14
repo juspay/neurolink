@@ -8,7 +8,7 @@
 
 > **TaskUpdateArgs** = `object`
 
-Defined in: [types/cli.ts:1741](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1741)
+Defined in: [types/cli.ts:1755](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1755)
 
 Arguments for `neurolink task update`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink task update`.
 
 > **taskId**: `string`
 
-Defined in: [types/cli.ts:1742](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1742)
+Defined in: [types/cli.ts:1756](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1756)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1742](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **prompt?**: `string`
 
-Defined in: [types/cli.ts:1743](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1743)
+Defined in: [types/cli.ts:1757](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1757)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1743](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **cron?**: `string`
 
-Defined in: [types/cli.ts:1744](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1744)
+Defined in: [types/cli.ts:1758](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1758)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1744](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **every?**: `string`
 
-Defined in: [types/cli.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1745)
+Defined in: [types/cli.ts:1759](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1759)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/cli.ts:1745](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **at?**: `string`
 
-Defined in: [types/cli.ts:1746](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1746)
+Defined in: [types/cli.ts:1760](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1760)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/cli.ts:1746](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **mode?**: `string`
 
-Defined in: [types/cli.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1747)
+Defined in: [types/cli.ts:1761](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1761)

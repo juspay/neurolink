@@ -8,6 +8,6 @@
 
 > **ObservabilityStatusArgs** = [`ObservabilityCommandArgs`](ObservabilityCommandArgs.md)
 
-Defined in: [types/cli.ts:1229](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1229)
+Defined in: [types/cli.ts:1243](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1243)
 
 Observability status sub-command args

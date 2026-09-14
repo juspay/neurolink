@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /** Bounded, deterministic OpenObserve history queries; never accept partial data. */
 import { pathToFileURL } from "node:url";
+import {
+  resolveProxyTelemetryBackend,
+  validateProxyTelemetryBackend,
+} from "./proxy-telemetry-backend.mjs";
 
 const KINDS = new Set([
   "request_final",
@@ -9,11 +13,13 @@ const KINDS = new Set([
   "supervisor",
   "body_capture_index",
   "stream_error",
+  "telemetry_delivery",
+  "console",
 ]);
 
 /**
  * Query metadata in small windows; body chunks require a targeted lookup.
- * @param {{ baseUrl: string, organization?: string, stream?: string, authorization?: string, startTime: number, endTime: number, kind?: string, maxRows?: number, fetchImpl?: typeof fetch }} options
+ * @param {{ baseUrl: string, organization?: string, stream?: string, authorization?: string, startTime: number, endTime: number, kind?: string, maxRows?: number, budget?: import("../../src/lib/types/index.js").ProxyTelemetryQueryBudget, fetchImpl?: typeof fetch }} options
  */
 export async function queryProxyHistory({
   baseUrl,
@@ -25,6 +31,7 @@ export async function queryProxyHistory({
   kind = "request_final",
   maxRows = 10_000,
   fetchImpl = fetch,
+  budget = { used: 0, limit: 512 },
 }) {
   if (
     !/^[a-zA-Z0-9_-]+$/.test(organization) ||
@@ -45,12 +52,24 @@ export async function queryProxyHistory({
       "Provide an increasing microsecond time range and maxRows between 1 and 100000",
     );
   }
+  validateProxyTelemetryBackend({
+    baseUrl,
+    organization,
+    stream,
+    authorization,
+  });
   const endpoint = new URL(`/api/${organization}/_search?type=logs`, baseUrl);
-  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(endpoint.hostname);
-  if (authorization && endpoint.protocol !== "https:" && !(
-    endpoint.protocol === "http:" && loopback
-  )) {
-    throw new Error("Credentialed OpenObserve queries require HTTPS outside loopback");
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(
+    endpoint.hostname,
+  );
+  if (
+    authorization &&
+    endpoint.protocol !== "https:" &&
+    !(endpoint.protocol === "http:" && loopback)
+  ) {
+    throw new Error(
+      "Credentialed OpenObserve queries require HTTPS outside loopback",
+    );
   }
   /** @type {Array<{start: number, endExclusive: number, offset: number, partial: boolean, tookMs?: number}>} */
   const queries = [];
@@ -59,14 +78,15 @@ export async function queryProxyHistory({
   async function readWindow(start, end) {
     const rows = [];
     for (let offset = 0; ; offset += 200) {
-      if (queries.length >= 512) {
+      if (budget.used >= budget.limit) {
         throw new Error(
           "History exceeds the 512-query budget; narrow the interval",
         );
       }
+      budget.used++;
       const response = await fetchImpl(endpoint, {
         method: "POST",
-        redirect: authorization ? "error" : "follow",
+        redirect: "error",
         signal: globalThis.AbortSignal.timeout(30_000),
         headers: {
           "Content-Type": "application/json",
@@ -162,18 +182,9 @@ async function main() {
   const since = Date.parse(value("--since") ?? "");
   const untilValue = value("--until");
   const until = untilValue ? Date.parse(untilValue) : Date.now();
-  const user = process.env.NEUROLINK_OPENOBSERVE_USER;
-  const password = process.env.NEUROLINK_OPENOBSERVE_PASSWORD;
-  const authorization =
-    process.env.NEUROLINK_OPENOBSERVE_BASIC_AUTH ??
-    (user && password
-      ? `Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`
-      : undefined);
+  const backend = await resolveProxyTelemetryBackend();
   const report = await queryProxyHistory({
-    baseUrl: process.env.NEUROLINK_OPENOBSERVE_URL ?? "http://127.0.0.1:5080",
-    organization: process.env.NEUROLINK_OPENOBSERVE_ORG ?? "default",
-    stream: process.env.NEUROLINK_PROXY_STREAM_HEADER ?? "neurolink_proxy",
-    authorization,
+    ...backend,
     startTime: since * 1000,
     endTime: until * 1000,
     kind: value("--kind") ?? "request_final",

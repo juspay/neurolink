@@ -300,6 +300,7 @@ export const DiagConsoleLogger=class{};
 export const DiagLogLevel={NONE:0,ERROR:30,WARN:50,INFO:60,DEBUG:70,VERBOSE:80,ALL:9999};
 export const ValueType={INT:0,DOUBLE:1};
 export const isSpanContextValid=()=>false;
+export const ROOT_CONTEXT=ROOT_CTX;
 export const isValidTraceId=()=>false;
 export const isValidSpanId=()=>false;
 export const INVALID_SPAN_CONTEXT={traceId:'0',spanId:'0',traceFlags:0};

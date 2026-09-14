@@ -8,7 +8,7 @@
 
 > **ProxyLifecycleEventInput** = `object`
 
-Defined in: [types/proxy.ts:1997](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1997)
+Defined in: [types/proxy.ts:2096](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2096)
 
 Content-free lifecycle event accepted by the bounded metadata logger.
 
@@ -18,7 +18,7 @@ Content-free lifecycle event accepted by the bounded metadata logger.
 
 > **event**: [`ProxyLifecycleEventName`](ProxyLifecycleEventName.md)
 
-Defined in: [types/proxy.ts:1998](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1998)
+Defined in: [types/proxy.ts:2097](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2097)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1998](https://github.com/juspay/neurolink/blob/relea
 
 > **requestId**: `string`
 
-Defined in: [types/proxy.ts:1999](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1999)
+Defined in: [types/proxy.ts:2098](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2098)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1999](https://github.com/juspay/neurolink/blob/relea
 
 > **method**: `string`
 
-Defined in: [types/proxy.ts:2000](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2000)
+Defined in: [types/proxy.ts:2099](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2099)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2000](https://github.com/juspay/neurolink/blob/relea
 
 > **path**: `string`
 
-Defined in: [types/proxy.ts:2001](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2001)
+Defined in: [types/proxy.ts:2100](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2100)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2001](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **model?**: `string`
 
-Defined in: [types/proxy.ts:2002](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2002)
+Defined in: [types/proxy.ts:2101](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2101)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2002](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **stream?**: `boolean`
 
-Defined in: [types/proxy.ts:2003](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2003)
+Defined in: [types/proxy.ts:2102](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2102)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:2003](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **toolCount?**: `number`
 
-Defined in: [types/proxy.ts:2004](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2004)
+Defined in: [types/proxy.ts:2103](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2103)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:2004](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sessionHash?**: `string`
 
-Defined in: [types/proxy.ts:2005](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2005)
+Defined in: [types/proxy.ts:2104](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2104)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:2005](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **requestBytes?**: `number`
 
-Defined in: [types/proxy.ts:2006](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2006)
+Defined in: [types/proxy.ts:2105](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2105)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/proxy.ts:2006](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **responseStatus?**: `number`
 
-Defined in: [types/proxy.ts:2007](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2007)
+Defined in: [types/proxy.ts:2106](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2106)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/proxy.ts:2007](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **finalStatus?**: `number`
 
-Defined in: [types/proxy.ts:2009](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2009)
+Defined in: [types/proxy.ts:2108](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2108)
 
 Semantic final status; the HTTP status may already have been committed.
 
@@ -108,7 +108,7 @@ Semantic final status; the HTTP status may already have been committed.
 
 > `optional` **telemetryStatus?**: `"complete"` \| `"timeout"` \| `"observer_error"` \| `"missing_final"`
 
-Defined in: [types/proxy.ts:2011](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2011)
+Defined in: [types/proxy.ts:2110](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2110)
 
 Terminal bookkeeping health, separate from the model outcome.
 
@@ -118,7 +118,7 @@ Terminal bookkeeping health, separate from the model outcome.
 
 > `optional` **transportOutcome?**: [`ProxyResponseTerminalOutcome`](ProxyResponseTerminalOutcome.md)
 
-Defined in: [types/proxy.ts:2013](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2013)
+Defined in: [types/proxy.ts:2112](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2112)
 
 Transport completion is independent of successful model completion.
 
@@ -128,7 +128,7 @@ Transport completion is independent of successful model completion.
 
 > `optional` **outcomeSource?**: `"final_request"` \| `"transport_error"` \| `"http_status"` \| `"unknown"`
 
-Defined in: [types/proxy.ts:2014](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2014)
+Defined in: [types/proxy.ts:2113](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2113)
 
 ---
 
@@ -136,7 +136,7 @@ Defined in: [types/proxy.ts:2014](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **observedBodyBytes?**: `number`
 
-Defined in: [types/proxy.ts:2020](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2020)
+Defined in: [types/proxy.ts:2119](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2119)
 
 Decoded response-body bytes observed by the adapter.
 
@@ -146,7 +146,7 @@ Decoded response-body bytes observed by the adapter.
 
 > `optional` **responseChunks?**: `number`
 
-Defined in: [types/proxy.ts:2021](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2021)
+Defined in: [types/proxy.ts:2120](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2120)
 
 ---
 
@@ -154,7 +154,7 @@ Defined in: [types/proxy.ts:2021](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **elapsedMs?**: `number`
 
-Defined in: [types/proxy.ts:2022](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2022)
+Defined in: [types/proxy.ts:2121](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2121)
 
 ---
 
@@ -162,7 +162,7 @@ Defined in: [types/proxy.ts:2022](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **terminalOutcome?**: [`ProxyLifecycleTerminalOutcome`](ProxyLifecycleTerminalOutcome.md)
 
-Defined in: [types/proxy.ts:2023](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2023)
+Defined in: [types/proxy.ts:2122](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2122)
 
 ---
 
@@ -170,7 +170,7 @@ Defined in: [types/proxy.ts:2023](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorType?**: `string`
 
-Defined in: [types/proxy.ts:2024](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2024)
+Defined in: [types/proxy.ts:2123](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2123)
 
 ---
 
@@ -178,7 +178,7 @@ Defined in: [types/proxy.ts:2024](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorCode?**: `string`
 
-Defined in: [types/proxy.ts:2025](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2025)
+Defined in: [types/proxy.ts:2124](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2124)
 
 ---
 
@@ -186,7 +186,7 @@ Defined in: [types/proxy.ts:2025](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **timestampMs?**: `number`
 
-Defined in: [types/proxy.ts:2026](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2026)
+Defined in: [types/proxy.ts:2125](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2125)
 
 ---
 
@@ -194,7 +194,7 @@ Defined in: [types/proxy.ts:2026](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **monotonicMs?**: `number`
 
-Defined in: [types/proxy.ts:2027](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2027)
+Defined in: [types/proxy.ts:2126](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2126)
 
 ---
 
@@ -202,7 +202,7 @@ Defined in: [types/proxy.ts:2027](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **supervisorEvent?**: [`RollingWorkerSupervisorEvent`](RollingWorkerSupervisorEvent.md)
 
-Defined in: [types/proxy.ts:2029](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2029)
+Defined in: [types/proxy.ts:2128](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2128)
 
 Parent-owned evidence, independent of the serving worker's journal tail.
 
@@ -212,4 +212,4 @@ Parent-owned evidence, independent of the serving worker's journal tail.
 
 > `optional` **runtimeSample?**: [`ProxyRuntimeSample`](ProxyRuntimeSample.md)
 
-Defined in: [types/proxy.ts:2030](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2030)
+Defined in: [types/proxy.ts:2129](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2129)

@@ -8,7 +8,7 @@
 
 > **ProxyTranslationPlan** = `object`
 
-Defined in: [types/proxy.ts:1749](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1749)
+Defined in: [types/proxy.ts:1846](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1846)
 
 Ordered plan of provider attempts for a proxy request.
 
@@ -18,7 +18,7 @@ Ordered plan of provider attempts for a proxy request.
 
 > **requestedModel**: `string`
 
-Defined in: [types/proxy.ts:1750](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1750)
+Defined in: [types/proxy.ts:1847](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1847)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1750](https://github.com/juspay/neurolink/blob/relea
 
 > **modelTier**: [`ClaudeProxyModelTier`](ClaudeProxyModelTier.md)
 
-Defined in: [types/proxy.ts:1751](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1751)
+Defined in: [types/proxy.ts:1848](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1848)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1751](https://github.com/juspay/neurolink/blob/relea
 
 > **attempts**: [`ProxyTranslationAttempt`](ProxyTranslationAttempt.md)[]
 
-Defined in: [types/proxy.ts:1752](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1752)
+Defined in: [types/proxy.ts:1849](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1849)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:1752](https://github.com/juspay/neurolink/blob/relea
 
 > **skipped**: `never`[]
 
-Defined in: [types/proxy.ts:1753](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1753)
+Defined in: [types/proxy.ts:1850](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1850)

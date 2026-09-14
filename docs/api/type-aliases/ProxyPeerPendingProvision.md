@@ -8,7 +8,7 @@
 
 > **ProxyPeerPendingProvision** = `object`
 
-Defined in: [types/proxy.ts:4058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4058)
+Defined in: [types/proxy.ts:4169](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4169)
 
 The verifier a borrower is holding while it waits to be authorized.
 
@@ -18,7 +18,7 @@ The verifier a borrower is holding while it waits to be authorized.
 
 > **codeVerifier**: `string`
 
-Defined in: [types/proxy.ts:4059](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4059)
+Defined in: [types/proxy.ts:4170](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4170)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4059](https://github.com/juspay/neurolink/blob/relea
 
 > **state**: `string`
 
-Defined in: [types/proxy.ts:4060](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4060)
+Defined in: [types/proxy.ts:4171](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4171)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:4060](https://github.com/juspay/neurolink/blob/relea
 
 > **requestedAt**: `number`
 
-Defined in: [types/proxy.ts:4061](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4061)
+Defined in: [types/proxy.ts:4172](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4172)

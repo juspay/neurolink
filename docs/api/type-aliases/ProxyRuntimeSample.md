@@ -8,7 +8,7 @@
 
 > **ProxyRuntimeSample** = `object`
 
-Defined in: [types/proxy.ts:2034](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2034)
+Defined in: [types/proxy.ts:2133](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2133)
 
 Process CPU and event-loop evidence; host load is not a request count.
 
@@ -18,7 +18,7 @@ Process CPU and event-loop evidence; host load is not a request count.
 
 > **intervalMs**: `number`
 
-Defined in: [types/proxy.ts:2035](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2035)
+Defined in: [types/proxy.ts:2134](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2134)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2035](https://github.com/juspay/neurolink/blob/relea
 
 > **cpuPercentOneCore**: `number`
 
-Defined in: [types/proxy.ts:2036](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2036)
+Defined in: [types/proxy.ts:2135](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2135)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2036](https://github.com/juspay/neurolink/blob/relea
 
 > **rssBytes**: `number`
 
-Defined in: [types/proxy.ts:2037](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2037)
+Defined in: [types/proxy.ts:2136](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2136)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2037](https://github.com/juspay/neurolink/blob/relea
 
 > **heapUsedBytes**: `number`
 
-Defined in: [types/proxy.ts:2038](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2038)
+Defined in: [types/proxy.ts:2137](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2137)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2038](https://github.com/juspay/neurolink/blob/relea
 
 > **eventLoopDelayP99Ms**: `number`
 
-Defined in: [types/proxy.ts:2039](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2039)
+Defined in: [types/proxy.ts:2138](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2138)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2039](https://github.com/juspay/neurolink/blob/relea
 
 > **eventLoopDelayMaxMs**: `number`
 
-Defined in: [types/proxy.ts:2040](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2040)
+Defined in: [types/proxy.ts:2139](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2139)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:2040](https://github.com/juspay/neurolink/blob/relea
 
 > **hostLoad1m**: `number`
 
-Defined in: [types/proxy.ts:2041](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2041)
+Defined in: [types/proxy.ts:2140](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2140)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/proxy.ts:2041](https://github.com/juspay/neurolink/blob/relea
 
 > **availableParallelism**: `number`
 
-Defined in: [types/proxy.ts:2042](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2042)
+Defined in: [types/proxy.ts:2141](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2141)

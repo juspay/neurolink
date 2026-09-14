@@ -8,7 +8,7 @@
 
 > **AnthropicUpstreamBodyBuilder** = (`token`) => [`AnthropicUpstreamBody`](AnthropicUpstreamBody.md)
 
-Defined in: [types/proxy.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1012)
+Defined in: [types/proxy.ts:1109](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1109)
 
 ## Parameters
 

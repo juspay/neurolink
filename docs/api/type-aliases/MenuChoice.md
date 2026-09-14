@@ -8,6 +8,6 @@
 
 > **MenuChoice** = [`ConversationChoice`](ConversationChoice.md) \| \{ `type`: `"separator"`; `line?`: `string`; \}
 
-Defined in: [types/cli.ts:1374](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1374)
+Defined in: [types/cli.ts:1388](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1388)
 
 Menu choice type for conversation selector (includes separators).
