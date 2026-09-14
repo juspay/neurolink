@@ -10,6 +10,62 @@ permissions:
   contents: read
 
 jobs:
+  # The parity suite between generate() and stream() reasoning. It is
+  # registered in ci.yml's `extended-suites`, but that tier runs with no
+  # provider credentials by design, so `skipUnlessProviderAvailable` makes
+  # every live leg SKIP there — registered, never exercised. This job is the
+  # only place in CI that holds DEEPSEEK_API_KEY, which is the one credential
+  # the suite reads.
+  #
+  # A separate job rather than a step on the sweep below. The sweep's steps
+  # carry forty provider secrets and this suite needs exactly one, and the
+  # sweep is long enough that appending to it would queue the parity run
+  # behind every other provider. The cost is a second build per nightly run.
+  reasoning-parity:
+    name: 🧠 Live Reasoning Parity
+    runs-on: ubuntu-latest
+    # Not a required check, for the same reason as the sweep below: it spends
+    # a real provider credential against a real API and must not block a merge
+    # on a transient upstream outage or a rotated-out secret.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Nothing after this step touches git, so the checkout token has no
+          # reason to sit in .git/config where every later step can read it.
+          persist-credentials: false
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: 🔄 SvelteKit Sync
+        run: pnpm exec svelte-kit sync
+
+      # The suite calls assertDistFresh() and drives the built CLI, so the
+      # build is a precondition, not a convenience.
+      - name: Build package
+        run: pnpm run build
+
+      # Bounded because the generate leg samples repeatedly rather than
+      # treating one quiet turn as the defect, so its worst case is several
+      # live round trips instead of one.
+      - name: Live reasoning parity — generate() vs stream() (SKIPs cleanly without the key)
+        run: pnpm run test:reasoning-parity-live
+        timeout-minutes: 15
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+
   live-matrix:
     name: 🌐 Live Provider Matrix Sweep
     runs-on: ubuntu-latest
@@ -20,6 +76,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # Nothing after this step touches git, so the checkout token has no
+          # reason to sit in .git/config where every later step can read it.
+          persist-credentials: false
 
       - name: Setup PNPM
         uses: pnpm/action-setup@v4

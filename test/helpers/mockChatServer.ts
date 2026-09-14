@@ -378,3 +378,158 @@ export function startPacedChatServer(): Promise<PacedChatServer> {
     });
   });
 }
+
+/**
+ * The SSE twin of {@link startScriptedChatServer}: same script, same
+ * request-indexed replies, but every reply is delivered as a
+ * `chat.completion.chunk` stream instead of one JSON body.
+ *
+ * WHY A SEPARATE HELPER rather than a flag on the scripted server. Two suites
+ * already drive `sdk.stream()` against `startScriptedChatServer` and get JSON
+ * back (`continuous-test-suite-stream-middleware.ts` does it twice). Teaching
+ * that helper to answer SSE would change what those green suites exercise as a
+ * side effect of a change made for a different test. So this is additive: the
+ * scripted server keeps answering JSON for everyone who has one.
+ *
+ * The script entries are ordinary `chat.completion` bodies — the exact shape
+ * {@link chatCompletion} produces — so one script can be handed to both servers
+ * and the two surfaces compared on identical scripted content. That is the
+ * point: a parity assertion is only worth writing if both sides are answering
+ * from the same source.
+ *
+ * Reasoning is deliberately split across TWO deltas. A single-delta stream
+ * would pass even if the consumer replaced rather than accumulated reasoning,
+ * which is precisely the defect class under test.
+ */
+export function startScriptedStreamingChatServer(
+  script: ReadonlyArray<ScriptedReply>,
+): Promise<ScriptedChatServer> {
+  if (script.length === 0) {
+    throw new Error(
+      "startScriptedStreamingChatServer: script must not be empty",
+    );
+  }
+  const bodies: string[] = [];
+
+  const server: Server = createServer((req, res) => {
+    readBody(req)
+      .then((bodyStr) => {
+        bodies.push(bodyStr);
+        const reply = script[Math.min(bodies.length - 1, script.length - 1)];
+        const status = replyStatus(reply);
+        const body = replyBody(reply);
+
+        // A non-200 never reaches the SSE parser — the client rejects on the
+        // status first — so an error reply stays a JSON body, exactly as the
+        // real endpoints answer it.
+        if (status !== 200) {
+          res.writeHead(status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(body));
+          return;
+        }
+
+        const choice = (
+          body.choices as ReadonlyArray<Record<string, unknown>> | undefined
+        )?.[0];
+        const message = choice?.message as Record<string, unknown> | undefined;
+        const content =
+          typeof message?.content === "string" ? message.content : "";
+        const reasoning =
+          typeof message?.reasoning_content === "string"
+            ? message.reasoning_content
+            : typeof message?.reasoning === "string"
+              ? message.reasoning
+              : "";
+        const toolCalls = message?.tool_calls as
+          | ReadonlyArray<Record<string, unknown>>
+          | undefined;
+        const finishReason =
+          typeof choice?.finish_reason === "string"
+            ? choice.finish_reason
+            : "stop";
+        const envelope = {
+          id: typeof body.id === "string" ? body.id : "chatcmpl-scripted",
+          object: "chat.completion.chunk",
+          model: typeof body.model === "string" ? body.model : "scripted",
+        };
+
+        res.writeHead(200, {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        });
+
+        const frame = (delta: Record<string, unknown>, finish: string | null) =>
+          res.write(
+            sseChunk({
+              ...envelope,
+              choices: [{ index: 0, delta, finish_reason: finish }],
+            }),
+          );
+
+        frame({ role: "assistant" }, null);
+        if (reasoning) {
+          // Split on a character boundary, never mid-surrogate: `slice` on a
+          // lone half would emit an unpaired surrogate that JSON.stringify
+          // escapes and the consumer cannot rejoin.
+          const points = [...reasoning];
+          const cut = Math.max(1, Math.floor(points.length / 2));
+          frame({ reasoning_content: points.slice(0, cut).join("") }, null);
+          frame({ reasoning_content: points.slice(cut).join("") }, null);
+        }
+        if (content) {
+          frame({ content }, null);
+        }
+        if (toolCalls?.length) {
+          toolCalls.forEach((tc, index) => {
+            const fn = tc.function as Record<string, unknown> | undefined;
+            frame(
+              {
+                tool_calls: [
+                  {
+                    index,
+                    id: tc.id,
+                    type: "function",
+                    function: {
+                      name: fn?.name,
+                      arguments: fn?.arguments,
+                    },
+                  },
+                ],
+              },
+              null,
+            );
+          });
+        }
+        res.write(
+          sseChunk({
+            ...envelope,
+            choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+            usage: body.usage,
+          }),
+        );
+        res.write("data: [DONE]\n\n");
+        res.end();
+      })
+      .catch(() => {
+        res.writeHead(500);
+        res.end();
+      });
+  });
+
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      resolve({
+        baseURL: `http://127.0.0.1:${port}/v1`,
+        getLastRequestBody: () =>
+          bodies.length > 0 ? bodies[bodies.length - 1] : null,
+        getAllRequestBodies: () => [...bodies],
+        wasCalled: () => bodies.length > 0,
+        requestCount: () => bodies.length,
+        close: () => new Promise((r) => server.close(() => r())),
+      });
+    });
+  });
+}

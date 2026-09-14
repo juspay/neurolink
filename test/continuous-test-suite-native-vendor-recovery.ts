@@ -41,6 +41,7 @@ import { assertDistFresh } from "./helpers/distFreshness.js";
 import {
   chatCompletion,
   startScriptedChatServer,
+  startScriptedStreamingChatServer,
 } from "./helpers/mockChatServer.js";
 import { NeuroLink, tool } from "../dist/index.js";
 
@@ -1099,6 +1100,245 @@ await test("a reasoning part with no Anthropic metadata is not replayed", async 
     } else {
       process.env.ANTHROPIC_API_KEY = saved.key;
     }
+  }
+});
+
+// The two-step reasoner fixture, shared by the generate() and stream() tests
+// below. Both surfaces must answer from the SAME scripted content or a parity
+// assertion between them proves nothing — a mismatch would be explained by the
+// scripts differing rather than by the surfaces differing. A factory, not a
+// shared constant: each server gets its own objects, so neither run can observe
+// a mutation the other made.
+const STEP_ONE = "I need the lookup table first.";
+const STEP_TWO = "The table says 42, so that is the answer.";
+
+const reasonerScript = () => [
+  {
+    id: "reasoner-step-1",
+    object: "chat.completion",
+    created: 1,
+    model: "scripted-reasoner",
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: null,
+          reasoning_content: STEP_ONE,
+          tool_calls: [
+            {
+              id: "call_7",
+              type: "function",
+              function: { name: "lookup", arguments: '{"value":7}' },
+            },
+          ],
+        },
+        finish_reason: "tool_calls",
+      },
+    ],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  },
+  {
+    id: "reasoner-step-2",
+    object: "chat.completion",
+    created: 2,
+    model: "scripted-reasoner",
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: "assistant",
+          content: "42",
+          reasoning_content: STEP_TWO,
+        },
+        finish_reason: "stop",
+      },
+    ],
+    usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+  },
+];
+
+const lookupTool = (onExecute: () => void) => ({
+  lookup: tool({
+    description: "Looks a value up",
+    inputSchema: z.object({ value: z.number() }),
+    execute: async () => {
+      onExecute();
+      return { answer: 42 };
+    },
+  }),
+});
+
+await test("generate() keeps the reasoning from every step, not just the last", async () => {
+  // generate() replaced its `reasoning` each step, so the caller saw only
+  // whatever the final step happened to think — usually the shortest part, and
+  // often nothing at all when the model simply answers after the tool returns.
+  // The fix is to accumulate: every step's reasoning, in order, concatenated
+  // with nothing between them. That is the shape asserted below.
+  //
+  // This test covers generate() only — the scripted server here replies with
+  // plain JSON, so there is no SSE turn in it. The stream() half of the same
+  // contract is the sibling test directly below, which replays this identical
+  // script over SSE and compares the two surfaces to each other.
+  let executions = 0;
+  const server = await startScriptedChatServer(reasonerScript());
+  const sdk = new NeuroLink();
+  try {
+    const result = await sdk.generate({
+      input: { text: "what is the answer?" },
+      provider: "openai",
+      model: "scripted-reasoner",
+      disableInternalFallback: true,
+      credentials: credentialsFor(server.baseURL),
+      maxSteps: 3,
+      tools: lookupTool(() => {
+        executions += 1;
+      }),
+    });
+    // Preconditions: a single-step turn would make the assertion vacuous —
+    // the last step's reasoning is trivially all of it.
+    if (executions !== 1) {
+      throw new Error("precondition: the tool did not execute exactly once");
+    }
+    if (server.requestCount() < 2) {
+      throw new Error("precondition: the loop never took a second step");
+    }
+    if (result.content !== "42") {
+      throw new Error("precondition: the final answer did not reach content");
+    }
+    const reasoning = result.reasoning ?? "";
+    if (!reasoning.includes(STEP_ONE)) {
+      throw new Error("the first step's reasoning was dropped");
+    }
+    if (!reasoning.includes(STEP_TWO)) {
+      throw new Error("the final step's reasoning was dropped");
+    }
+    // Exact concatenation, not merely "contains both": the includes() guards
+    // above already catch a dropped step, so what this adds is ordering and
+    // the absence of any injected separator.
+    if (reasoning !== `${STEP_ONE}${STEP_TWO}`) {
+      throw new Error(
+        "generate() reasoning is not the steps concatenated in order",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await server.close();
+  }
+});
+
+await test("stream() accumulates the same reasoning generate() reports for the identical turn", async () => {
+  // The sibling of the test above, and the reason the headline claim is about
+  // the CONTRACT rather than about generate() alone: the two surfaces replay
+  // one script and must agree on the reasoning it yields. generate() returns
+  // the whole string at the end; stream() hands it over in per-step chunks the
+  // consumer concatenates. If either surface dropped a step — or inserted a
+  // separator the other does not — these two values would differ.
+  //
+  // Both servers are fed `reasonerScript()`, so the only difference between the
+  // legs is the wire format: one answers with a JSON body, the other with the
+  // SSE frames the native client parses. That makes a mismatch attributable to
+  // the surface and nothing else.
+  let generateExecutions = 0;
+  let streamExecutions = 0;
+  const jsonServer = await startScriptedChatServer(reasonerScript());
+  const sseServer = await startScriptedStreamingChatServer(reasonerScript());
+  const sdk = new NeuroLink();
+  try {
+    const generated = await sdk.generate({
+      input: { text: "what is the answer?" },
+      provider: "openai",
+      model: "scripted-reasoner",
+      disableInternalFallback: true,
+      credentials: credentialsFor(jsonServer.baseURL),
+      maxSteps: 3,
+      tools: lookupTool(() => {
+        generateExecutions += 1;
+      }),
+    });
+
+    const streamed = await sdk.stream({
+      input: { text: "what is the answer?" },
+      provider: "openai",
+      model: "scripted-reasoner",
+      disableInternalFallback: true,
+      credentials: credentialsFor(sseServer.baseURL),
+      maxSteps: 3,
+      tools: lookupTool(() => {
+        streamExecutions += 1;
+      }),
+    });
+    let streamedReasoning = "";
+    let streamedContent = "";
+    for await (const chunk of streamed.stream) {
+      const part = (chunk as { reasoning?: unknown }).reasoning;
+      if (typeof part === "string") {
+        streamedReasoning += part;
+      }
+      const text = (chunk as { content?: unknown }).content;
+      if (typeof text === "string") {
+        streamedContent += text;
+      }
+    }
+
+    // PRECONDITIONS. Every one of these asserts that the thing under test
+    // actually happened: a leg that never looped, never ran the tool, or never
+    // reached the answer would make the comparison below vacuously true —
+    // two empty strings are equal.
+    if (generateExecutions !== 1) {
+      throw new Error(
+        "precondition: the generate() leg did not run the tool once",
+      );
+    }
+    if (streamExecutions !== 1) {
+      throw new Error(
+        "precondition: the stream() leg did not run the tool once",
+      );
+    }
+    if (jsonServer.requestCount() < 2) {
+      throw new Error(
+        "precondition: the generate() leg never took a second step",
+      );
+    }
+    if (sseServer.requestCount() < 2) {
+      throw new Error(
+        "precondition: the stream() leg never took a second step",
+      );
+    }
+    if (generated.content !== "42") {
+      throw new Error(
+        "precondition: the generate() leg did not reach the answer",
+      );
+    }
+    if (streamedContent !== "42") {
+      throw new Error(
+        "precondition: the stream() leg did not reach the answer",
+      );
+    }
+    if (streamedReasoning.length === 0) {
+      throw new Error(
+        "precondition: the stream() leg surfaced no reasoning at all",
+      );
+    }
+
+    // The parity claim itself.
+    if (streamedReasoning !== (generated.reasoning ?? "")) {
+      throw new Error(
+        "the reasoning stream() accumulates differs from what generate() returns for the same scripted turn",
+      );
+    }
+    // ...pinned to the expected value, so the two surfaces agreeing on the
+    // WRONG string cannot pass. Equality alone would be satisfied by both
+    // dropping the first step.
+    if (streamedReasoning !== `${STEP_ONE}${STEP_TWO}`) {
+      throw new Error(
+        "both surfaces agree, but not on the steps concatenated in order",
+      );
+    }
+  } finally {
+    await sdk.shutdown();
+    await jsonServer.close();
+    await sseServer.close();
   }
 });
 
