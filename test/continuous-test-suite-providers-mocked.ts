@@ -2753,6 +2753,284 @@ async function runCloudflareContentFormatSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: tool-free structured-output re-ask billing.
+// Every upstream request is billed, including the ones whose ANSWER this
+// provider discards. The rejection path is the one that hides: the re-ask
+// runs, the vendor charges for it, and the answer is thrown away because it
+// still is not the object — so a turn that made four requests must not
+// report the cost of two.
+// ───────────────────────────────────────────────────────────────────────
+
+const REASK_PROMPT_TOKENS = 10;
+const REASK_COMPLETION_TOKENS = 1;
+
+function billedChatReply(
+  model: string,
+  message: Record<string, unknown>,
+  finishReason: string,
+): unknown {
+  return {
+    id: "chatcmpl-mock",
+    object: "chat.completion",
+    created: 0,
+    model,
+    choices: [{ index: 0, message, finish_reason: finishReason }],
+    usage: {
+      prompt_tokens: REASK_PROMPT_TOKENS,
+      completion_tokens: REASK_COMPLETION_TOKENS,
+      total_tokens: REASK_PROMPT_TOKENS + REASK_COMPLETION_TOKENS,
+    },
+  };
+}
+
+async function runStructuredReaskBillingSection(): Promise<void> {
+  const section = "LLM deepseek (structured re-ask billing)";
+  console.log(`\n=== ${section} ===`);
+
+  // DeepSeek, not OpenAI: the re-ask only exists on providers that suppress
+  // response_format while tools ride along. OpenAI and Azure override
+  // suppressResponseFormatWithTools() to false and send the schema with the
+  // tools, so this whole branch is unreachable there — a test driven through
+  // them would assert nothing.
+  const model = "deepseek-chat";
+  setEnv("DEEPSEEK_API_KEY", "test-fake-deepseek-credential");
+  setEnv("DEEPSEEK_BASE_URL", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const { z } = await import("zod");
+
+  // Four scripted turns, each billed identically, driving the path where the
+  // re-ask is REJECTED rather than accepted:
+  //   1. tools ride along, so response_format is suppressed → tool call
+  //   2. the tool result comes back as prose — not the object
+  //   3. the tools-free re-ask answers JSON of a shape it invented, so the
+  //      schema never reached the model (the DeepSeek shape)
+  //   4. the schema-in-the-prompt retry still answers prose
+  // Turn 4 fails the acceptance check, the prose answer from turn 2 is kept,
+  // and all four requests have been paid for.
+  const turns: Array<{ message: Record<string, unknown>; finish: string }> = [
+    {
+      message: {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "multiply",
+              arguments: JSON.stringify({ a: 17, b: 4 }),
+            },
+          },
+        ],
+      },
+      finish: "tool_calls",
+    },
+    { message: { role: "assistant", content: "It is 68." }, finish: "stop" },
+    {
+      message: {
+        role: "assistant",
+        content: JSON.stringify({ type: "json_object" }),
+      },
+      finish: "stop",
+    },
+    {
+      message: { role: "assistant", content: "Still 68, in words." },
+      finish: "stop",
+    },
+  ];
+
+  try {
+    let turn = 0;
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.deepseek.com",
+          respond: () => {
+            const scripted = turns[Math.min(turn, turns.length - 1)];
+            turn += 1;
+            return {
+              status: 200,
+              json: billedChatReply(model, scripted.message, scripted.finish),
+            };
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "deepseek",
+          model,
+          input: { text: "What is 17 times 4? Use the multiply tool." },
+          schema: z.object({ answer: z.string() }),
+          tools: {
+            multiply: {
+              description: "Multiply two numbers",
+              inputSchema: jsonSchema<{ a: number; b: number }>({
+                type: "object",
+                properties: { a: { type: "number" }, b: { type: "number" } },
+                required: ["a", "b"],
+              }),
+              execute: async ({ a, b }) => ({ result: a * b }),
+            },
+          },
+        });
+
+        // Precondition: without this the usage assertion below is vacuous —
+        // a run where the re-ask never fired would satisfy it trivially.
+        expect(
+          calls.length > 2,
+          `expected the tool-free re-ask to run — saw ${calls.length} upstream request(s)`,
+        );
+
+        // Every scripted reply bills the same, so the reported total is a
+        // request count in disguise. That is the whole assertion: a discarded
+        // answer is still a paid request.
+        expectEq(
+          result.usage?.input,
+          REASK_PROMPT_TOKENS * calls.length,
+          `reported input tokens across ${calls.length} upstream request(s)`,
+        );
+        expectEq(
+          result.usage?.output,
+          REASK_COMPLETION_TOKENS * calls.length,
+          `reported output tokens across ${calls.length} upstream request(s)`,
+        );
+      },
+    );
+    record(results, `${section}: a rejected re-ask is still billed`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: a rejected re-ask is still billed`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// Section: the schema-in-the-prompt retry is billed on top of the turn.
+//
+// The sibling of the section above, on the branch taken by the providers
+// that do NOT suppress response_format — OpenAI and Azure. There the schema
+// rides along with the tools, so there is no tool-free re-ask; the recovery
+// is a single retry with the schema spelled into the prompt, fired when the
+// answer comes back off-schema. That retry REPLACED the turn's result, and
+// with it the tool phase's token counts: a three-request turn reported one
+// request's usage. The tool phase's call had already returned successfully,
+// so its usage was in hand at the moment it was dropped.
+// ───────────────────────────────────────────────────────────────────────
+
+async function runSchemaRetryBillingSection(): Promise<void> {
+  const section = "LLM openai (schema-retry billing)";
+  console.log(`\n=== ${section} ===`);
+
+  const model = "gpt-4o-mini";
+  setEnv("OPENAI_API_KEY", "test-fake-openai-credential");
+  setEnv("OPENAI_BASE_URL", undefined);
+
+  const { NeuroLink } = await import("../dist/index.js");
+  const { z } = await import("zod");
+
+  // 1. response_format rides along with the tools → tool call
+  // 2. the tool result comes back as prose, not the object → outcome retry
+  // 3. the schema-in-the-prompt retry answers prose as well
+  // The turn keeps turn 3's answer and has paid for all three requests.
+  const turns: Array<{ message: Record<string, unknown>; finish: string }> = [
+    {
+      message: {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "multiply",
+              arguments: JSON.stringify({ a: 17, b: 4 }),
+            },
+          },
+        ],
+      },
+      finish: "tool_calls",
+    },
+    { message: { role: "assistant", content: "It is 68." }, finish: "stop" },
+    {
+      message: { role: "assistant", content: "Still 68, in words." },
+      finish: "stop",
+    },
+  ];
+
+  try {
+    let turn = 0;
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.openai.com/v1/chat/completions",
+          respond: () => {
+            const scripted = turns[Math.min(turn, turns.length - 1)];
+            turn += 1;
+            return {
+              status: 200,
+              json: billedChatReply(model, scripted.message, scripted.finish),
+            };
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        const result = await nl.generate({
+          provider: "openai",
+          model,
+          input: { text: "What is 17 times 4? Use the multiply tool." },
+          schema: z.object({ answer: z.string() }),
+          tools: {
+            multiply: {
+              description: "Multiply two numbers",
+              inputSchema: jsonSchema<{ a: number; b: number }>({
+                type: "object",
+                properties: { a: { type: "number" }, b: { type: "number" } },
+                required: ["a", "b"],
+              }),
+              execute: async ({ a, b }) => ({ result: a * b }),
+            },
+          },
+        });
+
+        // Precondition: the tool phase alone is two requests. Without a third
+        // the retry never fired and the assertion below proves nothing.
+        expect(
+          calls.length > 2,
+          `expected the schema-in-the-prompt retry to run — saw ${calls.length} upstream request(s)`,
+        );
+
+        expectEq(
+          result.usage?.input,
+          REASK_PROMPT_TOKENS * calls.length,
+          `reported input tokens across ${calls.length} upstream request(s)`,
+        );
+        expectEq(
+          result.usage?.output,
+          REASK_COMPLETION_TOKENS * calls.length,
+          `reported output tokens across ${calls.length} upstream request(s)`,
+        );
+      },
+    );
+    record(results, `${section}: the retry is billed on top of the turn`, true);
+  } catch (err) {
+    record(
+      results,
+      `${section}: the retry is billed on top of the turn`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: invalid-model fallback (anti-rot "survive" layer).
 //
 // Vendors retire models without warning. An InvalidModelError is classified
@@ -3742,6 +4020,8 @@ async function main(): Promise<void> {
     await runAzureSection();
     await runAnthropicSection();
     await runCloudflareContentFormatSection();
+    await runStructuredReaskBillingSection();
+    await runSchemaRetryBillingSection();
     await runInvalidModelFallbackSection();
     await runVertexSection();
     await runBedrockSection();
