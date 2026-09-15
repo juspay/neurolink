@@ -28,7 +28,10 @@ import {
 } from "./helpers/harness.js";
 import { startRollingProxyServer } from "../dist/proxy/rollingProxyServer.js";
 import { spawnProxySocketWorker } from "../dist/proxy/rollingWorkerProcess.js";
-import { startProxyRestartControl } from "../dist/proxy/restartControl.js";
+import {
+  startProxyRestartControl,
+  requestProxySupervisorTelemetry,
+} from "../dist/proxy/restartControl.js";
 import { createProxyStartApp } from "../dist/cli/commands/proxy.js";
 import { markProxyReady } from "../dist/proxy/proxyHealth.js";
 
@@ -83,6 +86,27 @@ async function withService(
   const controlMessages: string[] = [];
   const control = await startProxyRestartControl({
     stateDir,
+    getTelemetry:
+      mode === "telemetry-missing"
+        ? undefined
+        : () => {
+            if (mode === "telemetry-unavailable") {
+              throw new Error("recorded diagnostics failure");
+            }
+            return {
+              pid: process.pid,
+              checkedAt: new Date().toISOString(),
+              configuredSink: "otel",
+              lifecycleSink: mode === "supervisor-file" ? "file" : "otel",
+              otelInitialized: true,
+              exportDropped: 0,
+              exportUnconfirmed: 0,
+              stdio: {
+                stdout: mode === "supervisor-descriptors" ? "file" : "non_file",
+                stderr: "non_file",
+              },
+            };
+          },
     log: (message) => controlMessages.push(message),
     server: {
       ...server,
@@ -640,6 +664,104 @@ await test("rolling workers reject the legacy global drain without changing admi
       process.env.NEUROLINK_PROXY_SOCKET_WORKER = previous;
     }
   }
+});
+
+await test("supervisor telemetry is read from the private control without replacing a worker", async () => {
+  await withService("healthy", async ({ control, server }) => {
+    const before = server.snapshot();
+    const evidence = await requestProxySupervisorTelemetry(
+      control.identity,
+      process.pid,
+    );
+    assertEqual(
+      evidence.status,
+      "available",
+      "supervisor evidence was not returned",
+    );
+    if (evidence.status === "available") {
+      assertEqual(
+        evidence.process.pid,
+        process.pid,
+        "supervisor identity was lost",
+      );
+      assertEqual(
+        evidence.process.lifecycleSink,
+        "otel",
+        "supervisor sink was not observed",
+      );
+    }
+    assertEqual(
+      server.snapshot().active?.pid,
+      before.active?.pid,
+      "telemetry read replaced worker",
+    );
+    const missing = await requestProxySupervisorTelemetry(
+      undefined,
+      process.pid,
+    );
+    assertEqual(
+      missing.status,
+      "unavailable",
+      "legacy supervisor inferred a healthy sink",
+    );
+  });
+});
+
+await test("worker-only restart refuses file logging, inherited disk descriptors or unavailable supervisor evidence", async () => {
+  for (const mode of [
+    "supervisor-file",
+    "supervisor-descriptors",
+    "telemetry-missing",
+  ]) {
+    await withService(mode, async ({ command, server }) => {
+      const before = server.snapshot().active?.pid;
+      const result = await command(true);
+      assertEqual(
+        result.exitCode,
+        1,
+        "incomplete logging cutover passed preflight",
+      );
+      const resultBody = JSON.parse(result.stdout);
+      assertEqual(
+        resultBody.ok,
+        false,
+        "incomplete supervisor logging reported success",
+      );
+      assertEqual(
+        server.snapshot().active?.pid,
+        before,
+        "logging preflight replaced worker",
+      );
+    });
+  }
+});
+
+await test("supervisor diagnostic failure remains unavailable without interrupting the worker", async () => {
+  await withService(
+    "telemetry-unavailable",
+    async ({ control, server, url }) => {
+      const before = server.snapshot().active?.pid;
+      const evidence = await requestProxySupervisorTelemetry(
+        control.identity,
+        process.pid,
+      );
+      assertEqual(
+        evidence.status,
+        "unavailable",
+        "diagnostic failure claimed healthy evidence",
+      );
+      assertEqual(
+        server.snapshot().active?.pid,
+        before,
+        "diagnostic failure replaced worker",
+      );
+      assertEqual(
+        (await fetch(`${url}/health`)).status,
+        200,
+        "diagnostic failure interrupted serving",
+      );
+    },
+  );
 });
 
 await runSuite();

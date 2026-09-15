@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { mkdir, chmod, writeFile } from "node:fs/promises";
 import { createHash, randomUUID } from "node:crypto";
 import { promisify } from "node:util";
+import { sanitizeForLog } from "../utils/logSanitize.js";
 import { gzip as gzipCallback } from "node:zlib";
 import type {
   ProxyBodyCaptureEntry,
@@ -60,6 +61,19 @@ function redactHeaders(
 const SENSITIVE_BODY_KEY =
   /^(?:password|access_token|refresh_token|api_key|apiKey|secret|authorization|token|credential|x-api-key)$/i;
 
+/** Error messages may contain nested JSON encoded as a string. */
+function redactNestedValue(key: string, value: unknown): unknown {
+  if (SENSITIVE_BODY_KEY.test(key)) {
+    return "[REDACTED]";
+  }
+  return typeof value === "string"
+    ? sanitizeForLog(
+        value.replace(SENSITIVE_BODY_KEYS, '$1"[REDACTED]"'),
+        value.length,
+      )
+    : value;
+}
+
 /** Redact every value under a sensitive key, including objects and arrays. */
 function redactBody(body: unknown): string | undefined {
   if (body === undefined || body === null) {
@@ -70,13 +84,46 @@ function redactBody(body: unknown): string | undefined {
     try {
       value = JSON.parse(body);
     } catch {
-      // Non-JSON bodies (including SSE transcripts) keep the legacy fallback.
-      return body.replace(SENSITIVE_BODY_KEYS, '$1"[REDACTED]"');
+      if (/^(?:event|data):/m.test(body)) {
+        // Redact whole SSE data values, including nested credentials. Never
+        // retain a truncated/invalid JSON tail whose secret cannot be parsed.
+        return body
+          .split(/\r\n\r\n|\n\n|\r\r/)
+          .map((frame) => {
+            const lines = frame.split(/\r\n|\n|\r/);
+            const data = lines
+              .filter((line) => line.startsWith("data:"))
+              .map((line) => line.slice(5).trimStart())
+              .join("\n");
+            if (!data || data === "[DONE]") {
+              return frame;
+            }
+            let redacted: string;
+            try {
+              redacted = JSON.stringify(JSON.parse(data), redactNestedValue);
+            } catch {
+              redacted = "[UNPARSEABLE DATA REDACTED]";
+            }
+            return [
+              ...lines.filter((line) => !line.startsWith("data:")),
+              `data: ${redacted}`,
+            ].join("\n");
+          })
+          .join("\n\n");
+      }
+      // Invalid or truncated structured JSON must not expose an unterminated
+      // credential value that a quoted-string regex cannot safely redact.
+      if (/^\s*[[{]/.test(body)) {
+        return "[UNPARSEABLE DATA REDACTED]";
+      }
+      // Plain-text bodies retain the existing credential-field redaction.
+      return sanitizeForLog(
+        body.replace(SENSITIVE_BODY_KEYS, '$1"[REDACTED]"'),
+        body.length,
+      );
     }
   }
-  return JSON.stringify(value, (key, nested) =>
-    SENSITIVE_BODY_KEY.test(key) ? "[REDACTED]" : nested,
-  );
+  return JSON.stringify(value, redactNestedValue);
 }
 
 /**
@@ -276,6 +323,7 @@ export async function processProxyBodyCapture(
   const limit =
     logDir === null ? MAX_OTEL_CAPTURED_BODY_BYTES : MAX_CAPTURED_BODY_BYTES;
   const prepared = prepareRedactedBody(entry.body, limit);
+  prepared.truncated ||= entry.sourceTruncated === true;
   if (logDir === null) {
     return {
       headers,

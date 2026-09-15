@@ -5,11 +5,15 @@ import type {
 
 /** Maximum bytes to capture before stopping accumulation (1 MB). */
 const MAX_CAPTURE_BYTES = 1024 * 1024;
+// Payload accounting across concurrent stream observers, independent of the
+// worker's clone/publication pool. Never retain an unbounded number of prefixes.
+const MAX_PENDING_CAPTURE_BYTES = 16 * 1024 * 1024;
+let pendingCaptureBytes = 0;
 const TRUNCATION_MARKER = "\n...[TRUNCATED]";
 
 export function createRawStreamCapture(): RawStreamCaptureResult {
   const decoder = new TextDecoder();
-  const chunks: string[] = [];
+  const chunks: Uint8Array[] = [];
   let totalBytes = 0;
   let capturedBytes = 0;
   let truncated = false;
@@ -25,20 +29,14 @@ export function createRawStreamCapture(): RawStreamCaptureResult {
       return;
     }
     resolved = true;
-    const finalChunk = decoder.decode();
-    if (finalChunk) {
-      if (capturedBytes < MAX_CAPTURE_BYTES) {
-        const remainingBytes = MAX_CAPTURE_BYTES - capturedBytes;
-        chunks.push(finalChunk.slice(0, remainingBytes));
-        capturedBytes += Math.min(finalChunk.length, remainingBytes);
-      } else if (!truncated) {
-        chunks.push(TRUNCATION_MARKER);
-        truncated = true;
-      }
-    }
+    const text =
+      chunks.map((chunk) => decoder.decode(chunk, { stream: true })).join("") +
+      (truncated ? "" : decoder.decode());
+    pendingCaptureBytes -= capturedBytes;
+    chunks.length = 0;
     resolveCapture({
       totalBytes,
-      text: chunks.join(""),
+      text: text + (truncated ? TRUNCATION_MARKER : ""),
       truncated,
     });
   }
@@ -47,20 +45,19 @@ export function createRawStreamCapture(): RawStreamCaptureResult {
     transform(chunk, controller) {
       controller.enqueue(chunk);
       totalBytes += chunk.byteLength;
-      if (capturedBytes < MAX_CAPTURE_BYTES) {
-        const decoded = decoder.decode(chunk, { stream: true });
-        const remainingBytes = MAX_CAPTURE_BYTES - capturedBytes;
-        const slice = decoded.slice(0, remainingBytes);
+      if (!truncated && capturedBytes < MAX_CAPTURE_BYTES) {
+        const remainingBytes = Math.min(
+          MAX_CAPTURE_BYTES - capturedBytes,
+          Math.max(0, MAX_PENDING_CAPTURE_BYTES - pendingCaptureBytes),
+        );
+        // Buffer.slice is a view; copy to avoid retaining the whole wire chunk.
+        const slice = Uint8Array.from(chunk.subarray(0, remainingBytes));
         chunks.push(slice);
-        capturedBytes += Math.min(decoded.length, remainingBytes);
-        if (decoded.length > remainingBytes && !truncated) {
-          chunks.push(TRUNCATION_MARKER);
-          truncated = true;
-        }
-      } else if (!truncated) {
-        chunks.push(TRUNCATION_MARKER);
-        truncated = true;
+        capturedBytes += slice.byteLength;
+        pendingCaptureBytes += slice.byteLength;
+        truncated = slice.byteLength < chunk.byteLength;
       }
+      truncated ||= totalBytes > MAX_CAPTURE_BYTES;
     },
     flush() {
       settle();

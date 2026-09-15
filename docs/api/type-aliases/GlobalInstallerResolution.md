@@ -8,7 +8,7 @@
 
 > **GlobalInstallerResolution** = `object`
 
-Defined in: [types/proxy.ts:2910](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2910)
+Defined in: [types/proxy.ts:2924](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2924)
 
 Selected package manager plus all candidates considered.
 
@@ -18,7 +18,7 @@ Selected package manager plus all candidates considered.
 
 > `optional` **installer?**: [`GlobalInstallerProbe`](GlobalInstallerProbe.md)
 
-Defined in: [types/proxy.ts:2911](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2911)
+Defined in: [types/proxy.ts:2925](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2925)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:2911](https://github.com/juspay/neurolink/blob/relea
 
 > **tried**: [`GlobalInstallerProbe`](GlobalInstallerProbe.md)[]
 
-Defined in: [types/proxy.ts:2912](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2912)
+Defined in: [types/proxy.ts:2926](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2926)

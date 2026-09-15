@@ -8,6 +8,6 @@
 
 > **ProxyModelRouterConfig** = [`ProxyRoutingConfig`](ProxyRoutingConfig.md)
 
-Defined in: [types/proxy.ts:3318](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3318)
+Defined in: [types/proxy.ts:3332](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3332)
 
 Alias for the model router's constructor configuration.

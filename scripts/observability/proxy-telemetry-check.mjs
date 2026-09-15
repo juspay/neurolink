@@ -85,6 +85,19 @@ export async function checkProxyTelemetry({
     logs?.otel?.initialized && logs.diskEnabled === false ? "pass" : "fail",
     { initialized: logs?.otel?.initialized, diskEnabled: logs?.diskEnabled },
   );
+  const supervisor = runtime.observability?.supervisor;
+  const supervisorProcess = supervisor?.process;
+  const workerProcess = runtime.observability?.process;
+  /** @param {import("../../src/lib/types/index.js").ProxyProcessTelemetrySnapshot | undefined} process */
+  const otelProcess = (process) => process?.configuredSink === "otel" &&
+    process.lifecycleSink === "otel" && process.otelInitialized &&
+    process.stdio?.stdout === "non_file" && process.stdio?.stderr === "non_file";
+  add("worker_process_logging", !workerProcess ? "unverified" : otelProcess(workerProcess) ? "pass" : "fail", workerProcess ?? { reason: "process_telemetry_missing" });
+  add("supervisor_logging",
+    supervisor?.status === "not_applicable" && !runtime.autoUpdate?.supervisorPid ? "pass" :
+    supervisor?.status !== "available" ? "unverified" :
+    supervisorProcess?.pid === runtime.autoUpdate?.supervisorPid && otelProcess(supervisorProcess) ? "pass" : "fail",
+    supervisor ?? { status: "unavailable", reason: "supervisor_telemetry_missing" });
   /** @type {Array<{kind: string, dropped: number, exportUnconfirmed: number, outstanding: number, capacity: number, recentFailures?: unknown, failureHistoryEvicted?: number}>} */
   const failures = (logs?.otel?.queues ?? []).map(
     (
@@ -101,7 +114,7 @@ export async function checkProxyTelemetry({
   );
   add(
     "producer_delivery",
-    ["metadata", "body"].every((kind) =>
+    ["metadata", "bodies"].every((kind) =>
       failures.some((q) => q.kind === kind),
     ) &&
       failures.every(
@@ -155,8 +168,10 @@ export async function checkProxyTelemetry({
   for (const kind of ["request_final", "body_capture_index", "lifecycle"]) {
     const result = await queryProxyHistory({
       ...backend,
-      startTime,
-      endTime,
+      // Capture publication is asynchronous. Include its bounded settling
+      // window, and a request-start margin, when reconciling phases to finals.
+      startTime: kind === "body_capture_index" ? Math.max(0, startTime - 120e6) : startTime,
+      endTime: kind === "body_capture_index" ? Math.min(Date.now() * 1000, endTime + 120e6) : endTime,
       kind,
       maxRows,
       fetchImpl,
@@ -175,7 +190,7 @@ export async function checkProxyTelemetry({
       ) {
         throw new Error("Stored telemetry metadata has an invalid schema");
       }
-      return value;
+      return { ...value, recordedAtMicroseconds: Number(row._timestamp) };
     });
   }
   const finals = history.request_final,
@@ -291,7 +306,26 @@ export async function checkProxyTelemetry({
         : "fail",
     coverage,
   );
-  const indexes = history.body_capture_index;
+  const indexes = history.body_capture_index.filter((row) =>
+    (row.recordedAtMicroseconds ?? -1) >= startTime &&
+    (row.recordedAtMicroseconds ?? Infinity) < endTime);
+  /** @type {Map<string | undefined, Set<string | undefined>>} */
+  const phasesByRequest = new Map();
+  for (const index of history.body_capture_index) {
+    let phases = phasesByRequest.get(index.requestId);
+    if (!phases) { phases = new Set(); phasesByRequest.set(index.requestId, phases); }
+    phases.add(index.phase);
+  }
+  const captureFinals = finals.filter((row) => row.path && ["/v1/messages", "/backend-api/codex/responses", "/v1/responses"].includes(row.path));
+  const missingCapturePhases = captureFinals.flatMap((row) => {
+    // A request may have started outside the selected interval. Its response
+    // capture still has to be present when this final is inside the interval.
+    return phasesByRequest.get(row.requestId)?.has("client_response") ? [] : [{ requestId: row.requestId, missingPhase: "client_response" }];
+  });
+  add("request_capture_coverage", !captureFinals.length ? "unverified" : missingCapturePhases.length ? "fail" : "pass", {
+    finals: finals.length, eligibleFinals: captureFinals.length, missing: missingCapturePhases.length,
+    examples: missingCapturePhases.slice(0, 50), omitted: Math.max(0, missingCapturePhases.length - 50),
+  });
   /** @type {Record<string, number>} */
   const byDelivery = Object.create(null);
   for (const row of indexes) {

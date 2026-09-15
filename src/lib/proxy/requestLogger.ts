@@ -646,11 +646,16 @@ function emitOtlpBodyLogRecord(
     });
 }
 
+/** Cheap gate for response observers; avoid copying diagnostics on the serving path. */
+export function isProxyBodyCaptureEnabled(): boolean {
+  return logEnabled && (Boolean(logDir) || isProxyOtelOnly());
+}
+
 /** Capture an owned request body with bounded processing and tracked index/export publication. */
 export async function logBodyCapture(
   entry: ProxyBodyCaptureEntry,
 ): Promise<void> {
-  if (!logEnabled || (!logDir && !isProxyOtelOnly())) {
+  if (!isProxyBodyCaptureEnabled()) {
     return;
   }
   // Borrowed traffic is somebody else's conversation. Capturing it would leave

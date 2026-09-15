@@ -423,12 +423,15 @@ one-minute stall cooldown. Actual worker exits use the normal recovery backoff.
 ### Bounded body capture
 
 Bulk body serialization, redaction, hashing, compression and artifact writes run
-in a separate worker thread. The queue admits at most 16 captures and 32 MiB of
-estimated clone data, with an 8 MiB per-entry ceiling and a 20-second deadline.
-The estimate conservatively accounts for UTF-8 strings and object traversal;
-oversized or unsupported values are explicitly rejected. Persisted redacted
-bodies retain the 1 MiB cap and UTF-8 boundaries. Borrowed traffic still excludes
-body capture.
+in a separate worker thread. The queue admits at most 64 captures and 32 MiB of
+estimated clone data with a 20-second deadline. OTel-only mode permits one entry
+to use the 32 MiB pool; file mode retains a 16 MiB per-entry ceiling. The estimate
+accounts for UTF-16 strings and object traversal without serializing on the
+serving thread. Oversized or unsupported values are explicitly rejected.
+Redacted bodies retain an 8 MiB OTel-only cap or a 1 MiB file cap. Stream captures
+retain at most 1 MiB per observer within a separate 16 MiB aggregate byte pool;
+indexes flag truncated prefixes. Borrowed traffic excludes body capture. See
+[OTel logging](../proxy-otel-logging.md) for delivery and supervisor verification.
 
 `observability.requestLogs.bodyCapture` reconciles:
 

@@ -16,6 +16,7 @@
  *   const data = await telemetry; // resolves on stream end
  */
 
+import { hasUsefulClaudeContent } from "./claudeOutputObservation.js";
 import type {
   SSEContentBlock,
   SSEInterceptorOptions,
@@ -215,6 +216,8 @@ function finalize(acc: TelemetryAccumulator): SSETelemetry {
     messageId: acc.messageId,
     messageStopReceived: acc.messageStopReceived,
     firstUsefulOutputAt: acc.firstUsefulOutputAt,
+    firstUsefulOutputEvent: acc.firstUsefulOutputEvent,
+    observationIncomplete: acc.observationIncomplete,
     model: acc.model,
     usage: {
       inputTokens: acc.inputTokens,
@@ -234,6 +237,7 @@ function finalize(acc: TelemetryAccumulator): SSETelemetry {
       ? { streamErrorMessage: acc.streamErrorMessage }
       : {}),
     ...(acc.rawTextChunks ? { rawText: acc.rawTextChunks.join("") } : {}),
+    rawTextTruncated: acc.rawTextTruncated,
   };
 }
 
@@ -403,12 +407,17 @@ function processEvent(
   if (!event.data) {
     return;
   }
+  if (event.data.length > 1024 * 1024) {
+    acc.observationIncomplete = true;
+    return;
+  }
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(event.data);
   } catch {
     // Malformed JSON — skip silently, bytes already forwarded to client
+    acc.observationIncomplete = true;
     return;
   }
 
@@ -449,12 +458,65 @@ function processEvent(
       typeof delta === "object" &&
       (("text" in delta &&
         typeof delta.text === "string" &&
-        delta.text.length > 0) ||
+        delta.text.trim().length > 0) ||
         ("partial_json" in delta &&
           typeof delta.partial_json === "string" &&
-          delta.partial_json.length > 0))
+          delta.partial_json.trim().length > 0) ||
+        ("refusal" in delta &&
+          typeof delta.refusal === "string" &&
+          delta.refusal.trim().length > 0))
     ) {
-      acc.firstUsefulOutputAt ??= Date.now();
+      if (acc.firstUsefulOutputAt === undefined) {
+        acc.firstUsefulOutputAt = now;
+        acc.firstUsefulOutputEvent = `content_block_delta.${"text" in delta ? "text" : "refusal" in delta ? "refusal" : "partial_json"}`;
+      }
+    }
+  }
+  if (
+    acc.firstUsefulOutputAt === undefined &&
+    parsed &&
+    typeof parsed === "object"
+  ) {
+    const payload = parsed as Record<string, unknown>;
+    if (
+      eventType === "message_start" &&
+      hasUsefulClaudeContent(payload.message)
+    ) {
+      acc.firstUsefulOutputAt = now;
+      acc.firstUsefulOutputEvent = "message_start.content";
+    }
+    const block = payload.content_block;
+    if (
+      eventType === "content_block_start" &&
+      block &&
+      typeof block === "object"
+    ) {
+      const content = block as Record<string, unknown>;
+      if (
+        (typeof content.text === "string" && content.text.trim().length > 0) ||
+        (typeof content.refusal === "string" &&
+          content.refusal.trim().length > 0) ||
+        ((content.type === "tool_use" || content.type === "server_tool_use") &&
+          content.input &&
+          typeof content.input === "object" &&
+          Object.keys(content.input).length > 0)
+      ) {
+        acc.firstUsefulOutputAt = now;
+        acc.firstUsefulOutputEvent = "content_block_start";
+      }
+    }
+    // A completed zero-argument tool call is useful even when no input delta was sent.
+    if (
+      eventType === "content_block_stop" &&
+      typeof payload.index === "number"
+    ) {
+      const content = acc.contentBlocks.find(
+        (block) => block.index === payload.index,
+      );
+      if (content?.type === "tool_use" && content.toolName) {
+        acc.firstUsefulOutputAt = now;
+        acc.firstUsefulOutputEvent = "content_block_stop.tool_use";
+      }
     }
   }
   switch (eventType) {
@@ -500,6 +562,7 @@ export function createSSEInterceptor(
   const captureRawText = options.captureRawText ?? false;
   const acc = createAccumulator(captureRawText);
   let sseBuffer = "";
+  let discardingFrame = false;
   let resolved = false;
   const decoder = new TextDecoder();
 
@@ -514,6 +577,9 @@ export function createSSEInterceptor(
       return;
     }
     resolved = true;
+    if (sseBuffer.trim()) {
+      acc.observationIncomplete = true;
+    }
     resolveTelemetry(finalize(acc));
   }
 
@@ -530,8 +596,23 @@ export function createSSEInterceptor(
       appendRawTextChunk(acc, decodedChunk);
       sseBuffer += decodedChunk;
 
+      if (discardingFrame) {
+        const boundary = /\r\n\r\n|\n\n|\r\r/.exec(sseBuffer);
+        if (!boundary) {
+          sseBuffer = sseBuffer.slice(-4);
+          return;
+        }
+        sseBuffer = sseBuffer.slice(boundary.index + boundary[0].length);
+        discardingFrame = false;
+      }
+
       const { events, remainder } = extractSSEEvents(sseBuffer);
       sseBuffer = remainder;
+      if (sseBuffer.length > 1024 * 1024) {
+        acc.observationIncomplete = true;
+        discardingFrame = true;
+        sseBuffer = sseBuffer.slice(-4);
+      }
 
       for (const event of events) {
         processEvent(acc, event);

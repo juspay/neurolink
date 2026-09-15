@@ -8,7 +8,7 @@
 
 > **ValidateInstalledVersionOptions** = `object`
 
-Defined in: [types/proxy.ts:2928](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2928)
+Defined in: [types/proxy.ts:2942](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2942)
 
 Options for validating a newly installed CLI through its stable executable.
 
@@ -18,7 +18,7 @@ Options for validating a newly installed CLI through its stable executable.
 
 > **binPath**: `string`
 
-Defined in: [types/proxy.ts:2929](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2929)
+Defined in: [types/proxy.ts:2943](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2943)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2929](https://github.com/juspay/neurolink/blob/relea
 
 > **expectedVersion**: `string`
 
-Defined in: [types/proxy.ts:2930](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2930)
+Defined in: [types/proxy.ts:2944](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2944)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2930](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/proxy.ts:2931](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2931)
+Defined in: [types/proxy.ts:2945](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2945)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2931](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **delayMs?**: `number`
 
-Defined in: [types/proxy.ts:2932](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2932)
+Defined in: [types/proxy.ts:2946](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2946)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2932](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **timeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:2933](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2933)
+Defined in: [types/proxy.ts:2947](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2947)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2933](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **execFileSync?**: [`GlobalInstallerExecFile`](GlobalInstallerExecFile.md)
 
-Defined in: [types/proxy.ts:2934](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2934)
+Defined in: [types/proxy.ts:2948](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2948)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:2934](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sleep?**: (`ms`) => `Promise`\<`void`\>
 
-Defined in: [types/proxy.ts:2935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2935)
+Defined in: [types/proxy.ts:2949](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2949)
 
 #### Parameters
 

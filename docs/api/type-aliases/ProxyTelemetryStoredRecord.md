@@ -8,11 +8,15 @@
 
 > **ProxyTelemetryStoredRecord** = `Partial`\<[`RequestLogEntry`](RequestLogEntry.md)\> & `object`
 
-Defined in: [types/proxy.ts:868](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L868)
+Defined in: [types/proxy.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L872)
 
 Small stored metadata used by the doctor; bodies are queried separately.
 
 ## Type Declaration
+
+### recordedAtMicroseconds?
+
+> `optional` **recordedAtMicroseconds?**: `number`
 
 ### captureId?
 

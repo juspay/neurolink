@@ -8,7 +8,7 @@
 
 > **OpenAIToolMessage** = `object`
 
-Defined in: [types/proxy.ts:3553](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3553)
+Defined in: [types/proxy.ts:3567](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3567)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3553](https://github.com/juspay/neurolink/blob/relea
 
 > **role**: `"tool"`
 
-Defined in: [types/proxy.ts:3554](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3554)
+Defined in: [types/proxy.ts:3568](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3568)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:3554](https://github.com/juspay/neurolink/blob/relea
 
 > **tool_call_id**: `string`
 
-Defined in: [types/proxy.ts:3555](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3555)
+Defined in: [types/proxy.ts:3569](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3569)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:3555](https://github.com/juspay/neurolink/blob/relea
 
 > **content**: `string`
 
-Defined in: [types/proxy.ts:3556](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3556)
+Defined in: [types/proxy.ts:3570](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3570)

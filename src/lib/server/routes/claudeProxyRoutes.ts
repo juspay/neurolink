@@ -1,3 +1,8 @@
+import {
+  claudeOutputLogFields,
+  observeClaudeJsonOutput,
+  observeClaudeStreamOutput,
+} from "../../proxy/claudeOutputObservation.js";
 /**
  * Claude-Compatible Proxy Routes
  *
@@ -3499,7 +3504,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             data.streamErrorMessage,
             data.messageStopReceived,
           );
-          ctx.metadata.firstUsefulOutputAt = data.firstUsefulOutputAt;
+          observeClaudeStreamOutput(ctx.metadata, data);
           const failure = getStreamFailureDetails(terminalOutcome);
           capturedTracer.setUsage({
             inputTokens: data.usage.inputTokens,
@@ -3566,6 +3571,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             phase: "upstream_response",
             headers: responseHeaders,
             body: data.rawText ?? "",
+            sourceTruncated: data.rawTextTruncated,
             bodySize: data.totalBytesReceived,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: "passthrough",
@@ -3578,6 +3584,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             phase: "client_response",
             headers: responseHeaders,
             body: clientBody.text,
+            sourceTruncated: clientBody.truncated,
             bodySize: clientBody.totalBytes,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: "passthrough",
@@ -3633,7 +3640,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             data.streamErrorMessage,
             data.messageStopReceived,
           );
-          ctx.metadata.firstUsefulOutputAt = data.firstUsefulOutputAt;
+          observeClaudeStreamOutput(ctx.metadata, data);
           const failure = getStreamFailureDetails(terminalOutcome);
           finalizeStream(
             failure?.status ?? response.status,
@@ -3650,6 +3657,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             phase: "upstream_response",
             headers: responseHeaders,
             body: data.rawText ?? "",
+            sourceTruncated: data.rawTextTruncated,
             bodySize: data.totalBytesReceived,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: "passthrough",
@@ -3662,6 +3670,7 @@ async function handleClaudePassthroughStreamResponse(args: {
             phase: "client_response",
             headers: responseHeaders,
             body: clientBody.text,
+            sourceTruncated: clientBody.truncated,
             bodySize: clientBody.totalBytes,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: "passthrough",
@@ -3724,6 +3733,7 @@ async function handleClaudePassthroughJsonResponse(args: {
   logFinalRequest: ClaudeFinalRequestLogger;
 }): Promise<unknown> {
   const {
+    ctx,
     bodyStr,
     response,
     tracer,
@@ -3761,6 +3771,7 @@ async function handleClaudePassthroughJsonResponse(args: {
   });
 
   const responseJson = JSON.parse(responseText);
+  observeClaudeJsonOutput(ctx.metadata, responseJson);
   if (tracer && responseJson && typeof responseJson === "object") {
     const usage = (responseJson as Record<string, unknown>).usage as
       | Record<string, number>
@@ -5038,6 +5049,8 @@ async function executeClaudeFallbackTranslation(args: {
       frames.push(frame);
     }
 
+    ctx.metadata.firstUsefulOutputAt = Date.now();
+    ctx.metadata.firstUsefulOutputEvent = "translated_response.ready";
     // Telemetry AFTER validation — not before like the old lazy path
     tracer?.end(200, Date.now() - requestStartTime);
     logFinalRequest(200, "", providerLabel, undefined, undefined, {
@@ -5084,6 +5097,7 @@ async function executeClaudeFallbackTranslation(args: {
   };
   tracer?.end(200, Date.now() - requestStartTime);
   const clientResponse = serializeClaudeResponse(internal, body.model);
+  observeClaudeJsonOutput(ctx.metadata, clientResponse);
   logFinalRequest(200, "", providerLabel, undefined, undefined, {
     inputTokens: internal.usage?.input,
     outputTokens: internal.usage?.output,
@@ -5399,6 +5413,7 @@ async function executeClaudeCodexFallback(args: {
 
   tracer?.end(200, Date.now() - requestStartTime);
   const clientResponse = serializeClaudeResponse(internal, body.model);
+  observeClaudeJsonOutput(ctx.metadata, clientResponse);
   logFinalRequest(200, accountLabel, accountType, undefined, undefined, {
     inputTokens: parsed.usage?.input,
     outputTokens: parsed.usage?.output,
@@ -6352,6 +6367,7 @@ async function handleAnthropicSuccessfulResponse(args: {
   }
 
   return handleAnthropicJsonSuccessResponse({
+    ctx,
     account,
     response,
     responseHeaders,
@@ -6779,7 +6795,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             data.streamErrorMessage,
             data.messageStopReceived,
           );
-          ctx.metadata.firstUsefulOutputAt = data.firstUsefulOutputAt;
+          observeClaudeStreamOutput(ctx.metadata, data);
           recordCommittedAnthropicStreamAttemptFailure(
             terminalOutcome,
             account,
@@ -6873,6 +6889,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             phase: "upstream_response",
             headers: responseHeaders,
             body: data.rawText ?? "",
+            sourceTruncated: data.rawTextTruncated,
             bodySize: data.totalBytesReceived,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: capturedAccountLabel,
@@ -6885,6 +6902,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             phase: "client_response",
             headers: responseHeaders,
             body: clientBody.text,
+            sourceTruncated: clientBody.truncated,
             bodySize: clientBody.totalBytes,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: capturedAccountLabel,
@@ -6959,7 +6977,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             data.streamErrorMessage,
             data.messageStopReceived,
           );
-          ctx.metadata.firstUsefulOutputAt = data.firstUsefulOutputAt;
+          observeClaudeStreamOutput(ctx.metadata, data);
           recordCommittedAnthropicStreamAttemptFailure(
             terminalOutcome,
             account,
@@ -6999,6 +7017,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             phase: "upstream_response",
             headers: responseHeaders,
             body: data.rawText ?? "",
+            sourceTruncated: data.rawTextTruncated,
             bodySize: data.totalBytesReceived,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: capturedAccountLabel,
@@ -7011,6 +7030,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             phase: "client_response",
             headers: responseHeaders,
             body: clientBody.text,
+            sourceTruncated: clientBody.truncated,
             bodySize: clientBody.totalBytes,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: capturedAccountLabel,
@@ -7038,6 +7058,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
             phase: "client_response",
             headers: responseHeaders,
             body: clientBody.text,
+            sourceTruncated: clientBody.truncated,
             bodySize: clientBody.totalBytes,
             contentType: responseHeaders["content-type"] ?? "text/event-stream",
             account: account.label,
@@ -7101,6 +7122,7 @@ function attachAnthropicSuccessStreamTelemetry(args: {
 }
 
 async function handleAnthropicJsonSuccessResponse(args: {
+  ctx: ServerContext;
   account: ProxyPassthroughAccount;
   response: Response;
   responseHeaders: Record<string, string>;
@@ -7127,6 +7149,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
   ) => void;
 }): Promise<AnthropicSuccessResult> {
   const {
+    ctx,
     account,
     response,
     responseHeaders,
@@ -7170,6 +7193,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
     durationMs: Date.now() - requestStartTime,
   });
   const responseJson = JSON.parse(responseText);
+  observeClaudeJsonOutput(ctx.metadata, responseJson);
 
   // Settlement is not diagnostics. It ran inside the tracer branch, so a node
   // with tracing off served every borrowed request for free and the lender's
@@ -7258,6 +7282,7 @@ async function handleAnthropicJsonSuccessResponse(args: {
 }
 
 async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
+  ctx: ServerContext;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
   requestedModel?: string;
@@ -7285,6 +7310,7 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   ) => void;
 }): Promise<Response | unknown> {
   const {
+    ctx,
     account,
     accountState,
     requestedModel,
@@ -7367,6 +7393,7 @@ async function handleAnthropicSuccessfulNonStreamRetryResponse(args: {
   });
 
   const retryJson = JSON.parse(retryText);
+  observeClaudeJsonOutput(ctx.metadata, retryJson);
   // A response served after an auth retry is a served response: it costs the
   // lender's account exactly what any other one does.
   settleFromResponseUsage(account, retryJson);
@@ -7586,6 +7613,7 @@ async function handleAnthropicAuthRetry(args: {
             })
           : {
               response: await handleAnthropicSuccessfulNonStreamRetryResponse({
+                ctx,
                 account,
                 accountState,
                 requestedModel: body.model,
@@ -8665,14 +8693,7 @@ function createClaudeRequestRuntimeContext(args: {
       ...buildClientAttribution(ctx.headers),
       responseStatus: status,
       responseTimeMs: Date.now() - requestStartTime,
-      ...(typeof ctx.metadata.firstUsefulOutputAt === "number"
-        ? {
-            firstUsefulOutputMs: Math.max(
-              0,
-              ctx.metadata.firstUsefulOutputAt - requestStartTime,
-            ),
-          }
-        : {}),
+      ...claudeOutputLogFields(ctx.metadata, requestStartTime),
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
       ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),

@@ -8,7 +8,7 @@
 
 > **SpawnProxySocketWorkerOptions** = `object`
 
-Defined in: [types/proxy.ts:3048](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3048)
+Defined in: [types/proxy.ts:3062](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3062)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3048](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **spawn?**: `spawn`
 
-Defined in: [types/proxy.ts:3050](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3050)
+Defined in: [types/proxy.ts:3064](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3064)
 
 Injectable process boundary for deterministic IPC fault tests.
 
@@ -26,7 +26,7 @@ Injectable process boundary for deterministic IPC fault tests.
 
 > **generation**: `number`
 
-Defined in: [types/proxy.ts:3051](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3051)
+Defined in: [types/proxy.ts:3065](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3065)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3051](https://github.com/juspay/neurolink/blob/relea
 
 > **expectedVersion**: `string`
 
-Defined in: [types/proxy.ts:3052](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3052)
+Defined in: [types/proxy.ts:3066](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3066)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:3052](https://github.com/juspay/neurolink/blob/relea
 
 > **command**: `string`
 
-Defined in: [types/proxy.ts:3053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3053)
+Defined in: [types/proxy.ts:3067](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3067)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:3053](https://github.com/juspay/neurolink/blob/relea
 
 > **args**: `string`[]
 
-Defined in: [types/proxy.ts:3054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3054)
+Defined in: [types/proxy.ts:3068](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3068)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:3054](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **env?**: `NodeJS.ProcessEnv`
 
-Defined in: [types/proxy.ts:3055](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3055)
+Defined in: [types/proxy.ts:3069](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3069)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:3055](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **stdout?**: `"inherit"` \| `"ignore"`
 
-Defined in: [types/proxy.ts:3056](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3056)
+Defined in: [types/proxy.ts:3070](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3070)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/proxy.ts:3056](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **stderr?**: `"inherit"` \| `"ignore"`
 
-Defined in: [types/proxy.ts:3057](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3057)
+Defined in: [types/proxy.ts:3071](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3071)
 
 ---
 
@@ -82,4 +82,4 @@ Defined in: [types/proxy.ts:3057](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **socketAckTimeoutMs?**: `number`
 
-Defined in: [types/proxy.ts:3058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3058)
+Defined in: [types/proxy.ts:3072](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3072)

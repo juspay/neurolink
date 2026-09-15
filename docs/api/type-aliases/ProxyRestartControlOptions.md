@@ -66,11 +66,25 @@ Defined in: [types/proxyRestart.ts:58](https://github.com/juspay/neurolink/blob/
 
 ---
 
+### getTelemetry?
+
+> `optional` **getTelemetry?**: () => [`ProxyProcessTelemetrySnapshot`](ProxyProcessTelemetrySnapshot.md)
+
+Defined in: [types/proxyRestart.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L60)
+
+Current supervisor process evidence; never infer it from a worker/plist.
+
+#### Returns
+
+[`ProxyProcessTelemetrySnapshot`](ProxyProcessTelemetrySnapshot.md)
+
+---
+
 ### log?
 
 > `optional` **log?**: (`message`) => `void`
 
-Defined in: [types/proxyRestart.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L60)
+Defined in: [types/proxyRestart.ts:62](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyRestart.ts#L62)
 
 Report control-server errors without stopping the serving listener.
 
