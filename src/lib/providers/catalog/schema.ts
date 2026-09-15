@@ -258,6 +258,48 @@ const catalogModelsSchema = z
       });
     }
 
+    // A fallback that resolves to the default model cannot fall back.
+    //
+    // `loader.ts` derives it positionally as
+    // `fallbackModelName ?? fallbacks[1] ?? fallbacks[0]`, and nothing checked
+    // the result. A provider with one model has no choice and is left alone;
+    // a provider with alternatives that still lands on its own default has
+    // silently disabled its retry path — the primary fails, the SDK retries
+    // the same model, and it fails again for the same reason.
+    //
+    // This is not hypothetical. `mistral.json` ships 32 models and explicitly
+    // sets `fallbackModelName` to its own default, overriding a perfectly good
+    // `fallbacks[1]`. Two single-model catalogs also resolve this way and are
+    // correctly exempt.
+    const derivedFallback =
+      models.fallbackModelName ?? models.fallbacks[1] ?? models.fallbacks[0];
+    // Count only entries that could actually serve as a fallback. The whole
+    // `catalog` map also carries retired ids, so its size both over-reports in
+    // the message below and could fire this rule on a catalog whose only other
+    // entries are unusable — the mirror of the single-model exemption.
+    const selectableModels = Object.values(models.catalog).filter(
+      (spec) => (spec as { status?: string }).status !== "retired",
+    ).length;
+    if (
+      derivedFallback !== undefined &&
+      derivedFallback === models.default &&
+      selectableModels > 1
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path:
+          models.fallbackModelName !== undefined
+            ? ["fallbackModelName"]
+            : ["fallbacks"],
+        message:
+          `the fallback model resolves to "${derivedFallback}", which is also models.default — ` +
+          `a fallback identical to the primary cannot fall back. This catalog declares ` +
+          `${selectableModels} selectable models, so name a different one (or drop ` +
+          `fallbackModelName to ` +
+          `let fallbacks[1] apply). Single-model catalogs are exempt.`,
+      });
+    }
+
     if (
       models.registryDefaultModel !== undefined &&
       !catalogKeys.has(models.registryDefaultModel)
