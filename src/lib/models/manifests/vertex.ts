@@ -13,8 +13,12 @@ export const vertexManifest: ProviderModelManifest = {
       aliases: [],
       contextWindow: 1048576,
       maxOutputTokens: 64000,
-      vision: false,
-      functionCalling: false,
+      // Measured against live Vertex, every served model in this project —
+      // gemini-2.5-flash / -pro / -flash-lite, claude-sonnet-4-6 and
+      // claude-sonnet-4-5@20250929 — accepted image and PDF input and
+      // returned tool calls. Declaring false here contradicted the wire.
+      vision: true,
+      functionCalling: true,
     },
   },
 };
