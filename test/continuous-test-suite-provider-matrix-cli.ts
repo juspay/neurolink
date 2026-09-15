@@ -27,6 +27,18 @@ import {
   isExpectedProviderError,
 } from "./helpers/harness.js";
 import { PROVIDERS, hasProviderEnv } from "./helpers/providerMatrix.js";
+import { assertDistFresh } from "./helpers/distFreshness.js";
+
+// This suite spawns `dist/cli/index.js`, so a stale dist means it silently
+// exercises an old binary — and the whole point of the suite is to catch
+// CLI-only drift between the library and that binary, which is exactly what a
+// stale dist hides. Its SDK sibling (continuous-test-suite-provider-matrix.ts)
+// has always guarded this; this one did not.
+// The CLI bundle is named explicitly: the directory-wide check takes the
+// newest mtime anywhere under dist/, so a freshly written dist/index.js would
+// keep it quiet while dist/cli/index.js — the thing this suite actually
+// spawns — stayed stale from a partial build.
+assertDistFresh({ entrypoints: ["dist/cli/index.js"] });
 
 const { test, runSuite, opts } = defineSuite(
   "Provider Capability Matrix (CLI)",
@@ -61,6 +73,16 @@ type CliResult = {
   timedOut: boolean;
 };
 
+/**
+ * Deliberately NOT `runCLI` from helpers/harness.js. That helper returns
+ * `ProcessResult`, which is `{ stdout, stderr, exitCode }` and has no way to
+ * say a run was killed for exceeding its deadline. This suite needs that
+ * distinction: a provider that hangs is a SKIP in a nightly sweep, not a
+ * failure, and folding it into a plain non-zero exit would turn every wedged
+ * upstream into red. Deduplicating these means teaching `runCommand` to
+ * surface a timeout flag — a shared-helper change affecting every suite that
+ * uses it, not a local import swap.
+ */
 function runCli(args: string[]): Promise<CliResult> {
   return new Promise((resolve) => {
     const child = spawn("node", [CLI_BIN, ...args], {
@@ -109,6 +131,26 @@ function skipIfProviderError(err: unknown): never {
   throw err as Error;
 }
 
+/**
+ * WHY THE PAYLOAD IN THE FINAL THROW IS SAFE HERE, AND WHAT WOULD BREAK IT.
+ *
+ * CLAUDE.md warns that quoting provider output into a thrown message can turn
+ * a real failure into a silent SKIP, because `isExpectedProviderError()` is
+ * applied to the message text. That hazard is real in general and does not
+ * bite here, for two reasons worth stating so nobody "fixes" it by guesswork:
+ *
+ *   1. The check below runs first on the FULL `combined` text. By the time the
+ *      payload is embedded, the predicate has already answered false for a
+ *      superset of what gets embedded.
+ *   2. `slice()` produces a prefix, and none of the predicate's patterns use
+ *      an end anchor or a lookahead, so truncation can only remove a match,
+ *      never create one. Verified: a marker past 400 chars matches the full
+ *      string and not the slice — the safe direction.
+ *
+ * What would break it: a future pattern anchored with `$`, or embedding text
+ * the earlier check never saw. If either happens, drop the payload and report
+ * byte counts instead.
+ */
 function classifyCliFailure(args: string[], result: CliResult): never {
   const combined = `${result.stdout}\n${result.stderr}`;
   if (result.timedOut) {

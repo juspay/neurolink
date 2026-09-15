@@ -69,23 +69,42 @@ function describeAge(mtimeMs: number): string {
   return hours < 48 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 }
 
-let checked = false;
+/** Memoised directory walk; the mtimes cannot change usefully mid-run. */
+let cachedWalk: { newestSrc: number; newestDist: number } | null = null;
+
+export type DistFreshnessOptions = {
+  /**
+   * Repo-relative bundles that must individually be newer than `src/`.
+   *
+   * The directory-wide comparison below takes the newest mtime found ANYWHERE
+   * under `dist/`, so one freshly written file satisfies it for the whole
+   * tree. That is the right default — it catches the case that actually bites,
+   * a `dist/` left over from another checkout — but it cannot see a PARTIAL
+   * build, where one bundle is rewritten and another is not. A suite that
+   * spawns `dist/cli/index.js` can therefore be handed a stale CLI while a
+   * fresh `dist/index.js` keeps the guard quiet.
+   *
+   * Naming an entrypoint here checks that file's own mtime as well.
+   */
+  entrypoints?: readonly string[];
+};
 
 /**
  * Throw when `dist/` is missing or older than the newest file in `src/`.
  *
- * Idempotent: only the first call does the walk, so suites that call it from
- * several places pay for it once.
+ * The expensive directory walk runs once per process and is reused; the
+ * per-entrypoint checks are a `stat` each and run on every call, so a suite
+ * naming a bundle is never silently skipped because another suite called this
+ * first.
  *
  * Set `NEUROLINK_SKIP_DIST_FRESHNESS_CHECK=1` to bypass — intended for CI jobs
  * that build in a separate step where mtimes may not survive artifact
  * restoration, not for local use.
  */
-export function assertDistFresh(): void {
-  if (checked || process.env.NEUROLINK_SKIP_DIST_FRESHNESS_CHECK === "1") {
+export function assertDistFresh(options: DistFreshnessOptions = {}): void {
+  if (process.env.NEUROLINK_SKIP_DIST_FRESHNESS_CHECK === "1") {
     return;
   }
-  checked = true;
 
   const distDir = join(REPO_ROOT, "dist");
   if (!existsSync(join(distDir, "index.js"))) {
@@ -95,10 +114,15 @@ export function assertDistFresh(): void {
     );
   }
 
-  // node_modules is not under src/, but skip defensively in case of nesting.
-  const skip = new Set(["node_modules", ".DS_Store"]);
-  const newestSrc = newestMtimeMs(join(REPO_ROOT, "src"), skip);
-  const newestDist = newestMtimeMs(distDir, skip);
+  if (!cachedWalk) {
+    // node_modules is not under src/, but skip defensively in case of nesting.
+    const skip = new Set(["node_modules", ".DS_Store"]);
+    cachedWalk = {
+      newestSrc: newestMtimeMs(join(REPO_ROOT, "src"), skip),
+      newestDist: newestMtimeMs(distDir, skip),
+    };
+  }
+  const { newestSrc, newestDist } = cachedWalk;
 
   if (newestSrc > newestDist) {
     throw new Error(
@@ -108,5 +132,25 @@ export function assertDistFresh(): void {
         `failures that look exactly like real regressions.\n` +
         `Run \`pnpm run build\` first.`,
     );
+  }
+
+  for (const relative of options.entrypoints ?? []) {
+    const full = join(REPO_ROOT, relative);
+    if (!existsSync(full)) {
+      throw new Error(
+        `This suite drives ${relative}, but that file does not exist.\n` +
+          "Run `pnpm run build` first.",
+      );
+    }
+    const { mtimeMs } = statSync(full);
+    if (newestSrc > mtimeMs) {
+      throw new Error(
+        `${relative} is stale — src/ has changed since that bundle was built ` +
+          `(newest src ${describeAge(newestSrc)}, ${relative} ${describeAge(mtimeMs)}).\n` +
+          `The directory-wide check passed because some other file under dist/ is ` +
+          `newer, which is exactly how a partial build hides.\n` +
+          `Run \`pnpm run build\` first.`,
+      );
+    }
   }
 }
