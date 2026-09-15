@@ -2440,6 +2440,8 @@ console.log(result.content);
 - [CliProxyRestartError](type-aliases/CliProxyRestartError.md)
 - [CliProxyRestartOutput](type-aliases/CliProxyRestartOutput.md)
 - [ProxyRestartControlOptions](type-aliases/ProxyRestartControlOptions.md)
+- [ProxyProcessTelemetrySnapshot](type-aliases/ProxyProcessTelemetrySnapshot.md)
+- [ProxySupervisorTelemetry](type-aliases/ProxySupervisorTelemetry.md)
 - [CitationFormat](type-aliases/CitationFormat.md)
 - [Chunker](type-aliases/Chunker.md)
 - [ContextAssemblyOptions](type-aliases/ContextAssemblyOptions.md)

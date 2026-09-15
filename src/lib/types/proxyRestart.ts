@@ -56,6 +56,28 @@ export type ProxyRestartControlOptions = {
   getInstalledVersion: () => Promise<string | undefined>;
   isUpdatePending: () => boolean;
   getStatus: () => Promise<unknown>;
+  /** Current supervisor process evidence; never infer it from a worker/plist. */
+  getTelemetry?: () => ProxyProcessTelemetrySnapshot;
   /** Report control-server errors without stopping the serving listener. */
   log?: (message: string) => void;
 };
+
+/** Small read-only process evidence, excluding environment variables and log content. */
+export type ProxyProcessTelemetrySnapshot = {
+  pid: number;
+  checkedAt: string;
+  configuredSink: "otel" | "file";
+  lifecycleSink: string;
+  otelInitialized: boolean;
+  stdio: {
+    stdout: "file" | "non_file" | "unavailable";
+    stderr: "file" | "non_file" | "unavailable";
+  };
+  exportDropped: number;
+  exportUnconfirmed: number;
+};
+
+export type ProxySupervisorTelemetry =
+  | { status: "available"; process: ProxyProcessTelemetrySnapshot }
+  | { status: "unavailable"; reason: string }
+  | { status: "not_applicable" };

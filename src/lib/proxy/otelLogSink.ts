@@ -45,7 +45,7 @@ const bodyDelivery = {
   pendingBytes: 0,
   highWaterPending: 0,
   highWaterBytes: 0,
-  maxPending: 16,
+  maxPending: 64,
   maxPendingBytes: 32 * 1024 * 1024,
 };
 

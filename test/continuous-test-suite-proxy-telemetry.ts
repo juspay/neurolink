@@ -349,6 +349,7 @@ async function withHttpFixture(
   requestPath?: string,
   additionalCodexAccount = false,
   requestHeaders: Record<string, string> = {},
+  bodyOverrides: Record<string, unknown> = {},
 ): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "telemetry-http-"));
   const key = `${provider === "fallback" ? "codex" : provider}:telemetry@example.test`;
@@ -463,7 +464,7 @@ async function withHttpFixture(
     const response = await app.request(`http://localhost${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", ...requestHeaders },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, ...bodyOverrides }),
     });
     await run(response, dir);
   } finally {
@@ -1468,8 +1469,9 @@ await test("capture pressure and worker failure preserve exact accounting and vi
     new URL("./fixtures/missing-body-worker.js", import.meta.url),
   );
   initRequestLogger(true, dir);
+  const limit = getRequestLoggerSnapshot().bodyCapture!.maxPending;
   try {
-    const tasks = Array.from({ length: 24 }, (_, i) =>
+    const tasks = Array.from({ length: limit + 8 }, (_, i) =>
       logBodyCapture({
         timestamp: new Date().toISOString(),
         requestId: `pressure-${i}`,
@@ -1480,9 +1482,9 @@ await test("capture pressure and worker failure preserve exact accounting and vi
       }),
     );
     const queued = getRequestLoggerSnapshot().bodyCapture!;
-    assertEqual(queued.pending, 16);
+    assertEqual(queued.pending, limit);
     assertEqual(queued.rejected, 8);
-    assertEqual(queued.highWaterPending, 16);
+    assertEqual(queued.highWaterPending, limit);
     assertEqual(queued.highWaterBytes, queued.pendingBytes);
     assert(Boolean(queued.lastRejectedAt), "rejection timestamp absent");
     assert(
@@ -1496,9 +1498,9 @@ await test("capture pressure and worker failure preserve exact accounting and vi
       state.attempted,
       state.completed + state.failed + state.rejected + state.pending,
     );
-    assertEqual(state.failed, 16);
+    assertEqual(state.failed, limit);
     const indexes = await lines(dir, "proxy-debug");
-    assertEqual(indexes.length, 24);
+    assertEqual(indexes.length, limit + 8);
     for (const row of indexes.filter(
       (r) => r.captureError === "body_capture_queue_full",
     )) {
@@ -1973,7 +1975,8 @@ await test("capture slots stay reserved while completed bodies await a slow debu
     await gate;
     return writeFile(...args);
   });
-  const tasks = Array.from({ length: 16 }, (_, index) =>
+  const limit = getRequestLoggerSnapshot().bodyCapture!.maxPending;
+  const tasks = Array.from({ length: limit }, (_, index) =>
     logBodyCapture({
       timestamp: new Date().toISOString(),
       requestId: `retained-${index}`,
@@ -1985,11 +1988,11 @@ await test("capture slots stay reserved while completed bodies await a slow debu
   );
   try {
     await eventually(
-      () => getRequestLoggerSnapshot().debug.attempted - before === 16,
+      () => getRequestLoggerSnapshot().debug.attempted - before === limit,
     );
     assertEqual(
       getRequestLoggerSnapshot().bodyCapture?.pending,
-      16,
+      limit,
       "completed worker results escaped the memory budget",
     );
     // The metadata caller deadline must not release capture ownership while
@@ -1997,7 +2000,7 @@ await test("capture slots stay reserved while completed bodies await a slow debu
     await pause(5_100);
     assertEqual(
       getRequestLoggerSnapshot().bodyCapture?.pending,
-      16,
+      limit,
       "metadata timeout released capture capacity before the index write settled",
     );
     tasks.push(
@@ -2014,10 +2017,10 @@ await test("capture slots stay reserved while completed bodies await a slow debu
     release();
     await Promise.all(tasks);
     await flushRequestLogs();
-    assertEqual(getRequestLoggerSnapshot().bodyCapture?.completed, 16);
+    assertEqual(getRequestLoggerSnapshot().bodyCapture?.completed, limit);
     assertEqual(getRequestLoggerSnapshot().bodyCapture?.pending, 0);
     const indexes = await lines(dir, "proxy-debug");
-    assertEqual(indexes.length, 17);
+    assertEqual(indexes.length, limit + 1);
     assertEqual(
       indexes.filter(
         (record) => record.captureError === "body_capture_queue_full",
@@ -3021,7 +3024,7 @@ await test("capture rejection indexes distinguish size, unsupported values and t
       let getterCalls = 0;
       const fixtures = [
         {
-          body: { message: "x".repeat(9 * 1024 * 1024) },
+          body: { message: "x".repeat(17 * 1024 * 1024) },
           reason: "body_capture_entry_too_large",
         },
         {
@@ -3324,6 +3327,7 @@ await test("OTLP Codex text, tool and control-only streams carry native trace co
         { response: { output: [{ type: "function_call", arguments: "{}" }] } },
       ],
       ["response.output_text.delta", { delta: "text" }],
+      ["response.output_text.delta", { delta: " \n" }],
       ["response.function_call_arguments.delta", { delta: "{}" }],
       ["response.custom_tool_call_input.delta", { delta: "patch" }],
       [
@@ -3366,6 +3370,26 @@ await test("OTLP Codex text, tool and control-only streams carry native trace co
               );
               assertEqual(finals.length, 1, "OTLP final was not unique");
               const body = JSON.parse(finals[0].body.stringValue);
+              const capturePhases = new Set(
+                received
+                  .filter(
+                    (record) =>
+                      otelAttribute(record, "proxy.record_kind") ===
+                      "body_capture_index",
+                  )
+                  .map((record) => JSON.parse(record.body.stringValue).phase),
+              );
+              for (const phase of [
+                "client_request",
+                "upstream_request",
+                "upstream_response",
+                "client_response",
+              ]) {
+                assert(
+                  capturePhases.has(phase),
+                  "direct Codex capture phase missing",
+                );
+              }
               assertEqual(
                 body.reasoningEffort,
                 "xhigh",
@@ -3407,10 +3431,16 @@ await test("OTLP Codex text, tool and control-only streams carry native trace co
               }
               assertEqual(
                 body.firstUsefulOutputStatus,
-                event === "response.created" ? "no_useful_output" : "observed",
+                event === "response.created" ||
+                  ("delta" in payload && !payload.delta.trim())
+                  ? "no_useful_output"
+                  : "observed",
                 "timing availability was invented or omitted",
               );
-              if (event !== "response.created") {
+              if (
+                event !== "response.created" &&
+                !("delta" in payload && !payload.delta.trim())
+              ) {
                 assert(
                   Number.isFinite(body.firstUsefulOutputMs),
                   "useful output timing is absent",
@@ -3553,11 +3583,38 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
   const { checkProxyTelemetry } =
     await import("../scripts/observability/proxy-telemetry-check.mjs");
   const { createHash } = await import("node:crypto");
+  const { getProxyOtelLogSnapshot } =
+    await import("../src/lib/proxy/otelLogSink.js");
+  let runtimeQueues = getProxyOtelLogSnapshot().queues;
+  await withBodyCollector(
+    (_records, response) => {
+      response.writeHead(200).end("{}");
+    },
+    async () => {
+      runtimeQueues = getProxyOtelLogSnapshot().queues;
+      assertEqual(
+        runtimeQueues.length,
+        2,
+        "real sink did not initialize both queues",
+      );
+    },
+  );
+  const processEvidence = {
+    pid: 1,
+    checkedAt: new Date().toISOString(),
+    configuredSink: "otel",
+    lifecycleSink: "otel",
+    otelInitialized: true,
+    stdio: { stdout: "non_file", stderr: "non_file" },
+    exportDropped: 0,
+    exportUnconfirmed: 0,
+  };
   const traceId = "1".repeat(32),
     captureId = "12345678-1234-1234-1234-123456789abc";
   const final = {
     requestId: "fixture",
     model: "fixture-model",
+    path: "/backend-api/codex/responses",
     terminalOutcome: "completed",
     responseTimeMs: 10,
     firstUsefulOutputMs: 1,
@@ -3566,6 +3623,7 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
   const index = {
     requestId: "fixture",
     captureId,
+    phase: "client_response",
     bodySha256: createHash("sha256").update("{}").digest("hex"),
     redactedBodyBytes: 2,
     bodyDelivery: { status: "transport_acknowledged" },
@@ -3578,27 +3636,29 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
         ready: true,
         acceptingConnections: true,
         pid: 1,
+        autoUpdate: { supervisorPid: 2 },
         observability: {
+          process: processEvidence,
+          supervisor:
+            mode === "supervisor_unknown"
+              ? { status: "unavailable" }
+              : {
+                  status: "available",
+                  process: {
+                    ...processEvidence,
+                    pid: 2,
+                    lifecycleSink: mode === "supervisor_file" ? "file" : "otel",
+                    stdio:
+                      mode === "supervisor_descriptors"
+                        ? { stdout: "file", stderr: "file" }
+                        : processEvidence.stdio,
+                  },
+                },
           requestLogs: {
             diskEnabled: false,
             otel: {
               initialized: true,
-              queues: [
-                {
-                  kind: "metadata",
-                  dropped: 0,
-                  exportUnconfirmed: 0,
-                  outstanding: 0,
-                  capacity: 2048,
-                },
-                {
-                  kind: "body",
-                  dropped: 0,
-                  exportUnconfirmed: 0,
-                  outstanding: 0,
-                  capacity: 256,
-                },
-              ],
+              queues: runtimeQueues,
             },
             bodyCapture: { rejected: 0, failed: 0 },
           },
@@ -3659,13 +3719,16 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
         };
         hits = mode === "duplicate" ? [row, row] : [row];
       } else if (query.sql.includes("proxy_record_kind='body_capture_index'")) {
-        hits = [
-          {
-            _timestamp: 2_000_000,
-            request_id: "fixture",
-            body: JSON.stringify(index),
-          },
-        ];
+        hits =
+          mode === "missing_captures"
+            ? []
+            : [
+                {
+                  _timestamp: 2_000_000,
+                  request_id: "fixture",
+                  body: JSON.stringify(index),
+                },
+              ];
       } else if (query.sql.includes("proxy_record_kind='lifecycle'")) {
         hits = [
           {
@@ -3722,6 +3785,10 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
     "no_collector_metrics",
     "bad_collector_metrics",
     "collector_failure",
+    "missing_captures",
+    "supervisor_file",
+    "supervisor_descriptors",
+    "supervisor_unknown",
   ]) {
     assert(
       (await checkProxyTelemetry(options)).status !== "pass",
@@ -3916,6 +3983,679 @@ await test("detached OTLP logs preserve both sampled and unsampled trace context
           "detached log changed original sampling flags",
         );
       }
+    },
+  );
+});
+
+await test("Claude JSON and populated or empty SSE content have explicit output observations", async () => {
+  const cases = [
+    {
+      stream: false,
+      content: [{ type: "text", text: "hello" }],
+      expected: "observed",
+    },
+    {
+      stream: false,
+      content: [{ type: "tool_use", id: "tool", name: "clock", input: {} }],
+      expected: "observed",
+    },
+    {
+      stream: false,
+      content: [{ type: "thinking", thinking: "private" }],
+      expected: "no_useful_output",
+    },
+    {
+      stream: true,
+      content: [{ type: "text", text: "hello" }],
+      expected: "observed",
+    },
+    {
+      stream: true,
+      content: [{ type: "tool_use", id: "tool", name: "clock", input: {} }],
+      expected: "observed",
+    },
+    {
+      stream: true,
+      content: [{ type: "thinking", thinking: "private" }],
+      expected: "no_useful_output",
+    },
+    {
+      stream: false,
+      content: [{ type: "text", text: " \n" }],
+      expected: "no_useful_output",
+    },
+    {
+      stream: true,
+      content: [{ type: "text", text: " \n" }],
+      expected: "no_useful_output",
+    },
+  ];
+  for (const fixture of cases) {
+    await withBodyCollector(
+      (_records, res) => {
+        res.writeHead(200).end("{}");
+      },
+      async (received) => {
+        const json = {
+          id: "message",
+          type: "message",
+          role: "assistant",
+          model: "claude-sonnet-5",
+          content: fixture.content,
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 2 },
+        };
+        const wire = fixture.stream
+          ? sse("message_start", { message: { ...json, content: [] } }) +
+            sse("content_block_start", {
+              index: 7,
+              content_block: fixture.content[0],
+            }) +
+            sse("content_block_stop", { index: 7 }) +
+            sse("message_stop", {})
+          : JSON.stringify(json);
+        await withHttpFixture(
+          "anthropic",
+          () =>
+            new Response(wire, {
+              headers: {
+                "content-type": fixture.stream
+                  ? "text/event-stream"
+                  : "application/json",
+              },
+            }),
+          async (response) => {
+            const returned = await response.text();
+            assertEqual(response.status, 200, "recorded Claude request failed");
+            if (fixture.stream) {
+              assertEqual(
+                returned,
+                wire,
+                "Claude observation changed stream bytes",
+              );
+            }
+            await eventually(
+              () => getProxyActivitySnapshot().activeRequests === 0,
+            );
+            await flushRequestLogs();
+            const { flushProxyOtelLogs } =
+              await import("../src/lib/proxy/otelLogSink.js");
+            await flushProxyOtelLogs();
+            const finals = received.filter(
+              (r) => otelAttribute(r, "proxy.record_kind") === "request_final",
+            );
+            assertEqual(finals.length, 1, "Claude final count changed");
+            const final = JSON.parse(finals[0].body.stringValue);
+            assertEqual(
+              final.firstUsefulOutputStatus,
+              fixture.expected,
+              "Claude output availability is wrong",
+            );
+            if (fixture.expected === "observed") {
+              assert(
+                Number.isFinite(final.firstUsefulOutputMs) &&
+                  final.firstUsefulOutputMs <= final.responseTimeMs,
+                "Claude useful output timing is invalid",
+              );
+              assert(
+                typeof final.firstUsefulOutputEvent === "string",
+                "Claude timing source is absent",
+              );
+            } else {
+              assertEqual(
+                final.firstUsefulOutputMs,
+                undefined,
+                "thinking became useful output",
+              );
+            }
+          },
+          undefined,
+          false,
+          {},
+          { stream: fixture.stream },
+        );
+      },
+    );
+  }
+});
+
+await test("OTel captures accept a large redacted input within the unchanged byte pool and a twenty-capture burst", async () => {
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(200).end("{}");
+    },
+    async (received) => {
+      await logBodyCapture({
+        timestamp: new Date().toISOString(),
+        requestId: "large-redaction",
+        phase: "client_request",
+        model: "fixture",
+        stream: false,
+        body: {
+          access_token: "s".repeat(9 * 1024 * 1024),
+          text: "keep this evidence",
+        },
+      });
+      await flushRequestLogs();
+      const { flushProxyOtelLogs } =
+        await import("../src/lib/proxy/otelLogSink.js");
+      await flushProxyOtelLogs();
+      const first = received.find(
+        (r) => otelAttribute(r, "proxy.record_kind") === "body_capture_index",
+      );
+      assert(Boolean(first), "large capture was not indexed");
+      assertEqual(
+        JSON.parse(first!.body.stringValue).bodyDelivery.status,
+        "transport_acknowledged",
+        "large redacted input was rejected",
+      );
+      for (let i = 0; i < 20; i++) {
+        void logBodyCapture({
+          timestamp: new Date().toISOString(),
+          requestId: `burst-${i}`,
+          phase: "client_request",
+          model: "fixture",
+          stream: false,
+          body: { text: "x".repeat(1000) },
+        });
+      }
+      const snapshot = getRequestLoggerSnapshot().bodyCapture!;
+      assertEqual(
+        snapshot.rejected,
+        0,
+        "twenty small captures hit a count limit despite spare bytes",
+      );
+      assertEqual(
+        snapshot.maxPendingBytes,
+        32 * 1024 * 1024,
+        "aggregate capture memory bound grew",
+      );
+      assert(
+        snapshot.pendingBytes <= snapshot.maxPendingBytes,
+        "burst exceeded retained memory bound",
+      );
+      await flushRequestLogs();
+      await flushProxyOtelLogs();
+      assertEqual(
+        received.filter(
+          (r) => otelAttribute(r, "proxy.record_kind") === "body_capture_index",
+        ).length,
+        21,
+        "burst capture index was lost",
+      );
+      assert(
+        !JSON.stringify(received).includes("s".repeat(100)),
+        "large credential entered telemetry",
+      );
+    },
+  );
+});
+
+await test("Codex error responses retain capture phases without leaking credentials", async () => {
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(200).end("{}");
+    },
+    async (received) => {
+      await withHttpFixture(
+        "codex",
+        () =>
+          new Response(
+            JSON.stringify({
+              error: {
+                message: "recorded rejection",
+                api_key: "secret-upstream",
+              },
+            }),
+            {
+              status: 400,
+              headers: {
+                "content-type": "application/json",
+                "x-secret": "secret-header",
+              },
+            },
+          ),
+        async (response) => {
+          await response.text();
+          await eventually(
+            () => getProxyActivitySnapshot().activeRequests === 0,
+          );
+          await flushRequestLogs();
+          const { flushProxyOtelLogs } =
+            await import("../src/lib/proxy/otelLogSink.js");
+          await flushProxyOtelLogs();
+          const phases = new Set(
+            received
+              .filter(
+                (r) =>
+                  otelAttribute(r, "proxy.record_kind") ===
+                  "body_capture_index",
+              )
+              .map((r) => JSON.parse(r.body.stringValue).phase),
+          );
+          for (const phase of [
+            "client_request",
+            "upstream_request",
+            "upstream_response",
+            "client_response",
+          ]) {
+            assert(phases.has(phase), "Codex error capture phase missing");
+          }
+          const captureRecords = received.filter((r) =>
+            ["body", "body_capture_index"].includes(
+              String(otelAttribute(r, "proxy.record_kind")),
+            ),
+          );
+          assert(
+            !JSON.stringify(captureRecords).includes("secret-upstream") &&
+              !JSON.stringify(captureRecords).includes("secret-header"),
+            "Codex capture leaked a credential",
+          );
+        },
+      );
+    },
+  );
+});
+
+// These observer fixtures require deterministic byte splits and held-open
+// streams to verify pressure and cancellation without generating model traffic.
+await test("raw stream captures preserve UTF-8 and release the aggregate pool on cancellation", async () => {
+  const { createRawStreamCapture } =
+    await import("../src/lib/proxy/rawStreamCapture.js");
+  const limit = 1024 * 1024;
+  const wire = new TextEncoder().encode("€".repeat(Math.ceil(limit / 3) + 1));
+  const observed = createRawStreamCapture();
+  const returned = await new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(wire);
+        controller.close();
+      },
+    }).pipeThrough(observed.stream),
+  ).arrayBuffer();
+  assertEqual(
+    Buffer.compare(Buffer.from(returned), wire),
+    0,
+    "capture changed transport bytes",
+  );
+  const captured = await observed.capture;
+  assert(captured.truncated, "large capture did not report its bound");
+  assertEqual(
+    captured.totalBytes,
+    wire.byteLength,
+    "wire byte count was truncated",
+  );
+  assertEqual(
+    captured.text,
+    "€".repeat(Math.floor(limit / 3)) + "\n...[TRUNCATED]",
+    "UTF-8 prefix was split or replaced",
+  );
+
+  const buffered = createRawStreamCapture();
+  const inputBuffer = Buffer.from("original wire bytes");
+  let finishBuffer!: () => void;
+  const bufferedReader = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(inputBuffer);
+      finishBuffer = () => controller.close();
+    },
+  })
+    .pipeThrough(buffered.stream)
+    .getReader();
+  await bufferedReader.read();
+  inputBuffer.fill(120);
+  finishBuffer();
+  await bufferedReader.read();
+  assertEqual(
+    (await buffered.capture).text,
+    "original wire bytes",
+    "observer retained a mutable Buffer view",
+  );
+
+  const held = Array.from({ length: 17 }, () => {
+    const observer = createRawStreamCapture();
+    const reader = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(limit).fill(97));
+      },
+    })
+      .pipeThrough(observer.stream)
+      .getReader();
+    return { observer, reader };
+  });
+  try {
+    for (const entry of held) {
+      await entry.reader.read();
+    }
+    for (const entry of held) {
+      await entry.reader.cancel();
+    }
+    const snapshots = await Promise.all(
+      held.map((entry) => entry.observer.capture),
+    );
+    assertEqual(
+      snapshots.filter((entry) => !entry.truncated).length,
+      16,
+      "raw observer exceeded its aggregate budget",
+    );
+    assertEqual(
+      snapshots[16].text,
+      "\n...[TRUNCATED]",
+      "exhausted pool retained bytes",
+    );
+  } finally {
+    await Promise.allSettled(held.map((entry) => entry.reader.cancel()));
+  }
+  const after = createRawStreamCapture();
+  await new Response(
+    new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(limit).fill(98));
+        controller.close();
+      },
+    }).pipeThrough(after.stream),
+  ).arrayBuffer();
+  assertEqual(
+    (await after.capture).truncated,
+    false,
+    "cancelled captures leaked pool capacity",
+  );
+});
+
+await test("malformed and oversized Claude events remain unavailable observations without changing delivery", async () => {
+  for (const middle of [
+    "event: content_block_delta\ndata: {invalid}\n\n",
+    sse("content_block_start", {
+      index: 0,
+      content_block: { type: "text", text: "a".repeat(1024 * 1024 + 1) },
+    }),
+  ]) {
+    await withBodyCollector(
+      (_records, res) => {
+        res.writeHead(200).end("{}");
+      },
+      async (received) => {
+        const wire =
+          sse("message_start", {
+            message: { id: "message", model: "fixture", usage: {} },
+          }) +
+          middle +
+          sse("message_stop", {});
+        await withHttpFixture(
+          "anthropic",
+          () =>
+            new Response(wire, {
+              headers: { "content-type": "text/event-stream" },
+            }),
+          async (response) => {
+            assertEqual(
+              await response.text(),
+              wire,
+              "observation changed malformed stream bytes",
+            );
+            await eventually(
+              () => getProxyActivitySnapshot().activeRequests === 0,
+            );
+            await flushRequestLogs();
+            const { flushProxyOtelLogs } =
+              await import("../src/lib/proxy/otelLogSink.js");
+            await flushProxyOtelLogs();
+            const finals = received.filter(
+              (r) => otelAttribute(r, "proxy.record_kind") === "request_final",
+            );
+            assertEqual(finals.length, 1, "stream final count changed");
+            const final = JSON.parse(finals[0].body.stringValue);
+            assertEqual(
+              final.firstUsefulOutputStatus,
+              "not_observed",
+              "incomplete observation became no output",
+            );
+            assertEqual(
+              final.firstUsefulOutputUnavailableReason,
+              "incomplete_observation",
+              "missing observation reason",
+            );
+            if (wire.length > 1024 * 1024) {
+              const indexes = received
+                .filter(
+                  (r) =>
+                    otelAttribute(r, "proxy.record_kind") ===
+                    "body_capture_index",
+                )
+                .map((r) => JSON.parse(r.body.stringValue));
+              for (const phase of ["upstream_response", "client_response"]) {
+                assert(
+                  indexes.some(
+                    (r) => r.phase === phase && r.bodyTruncated === true,
+                  ),
+                  "bounded stream prefix was reported complete",
+                );
+              }
+            }
+          },
+        );
+      },
+    );
+  }
+});
+
+await test("cancelled Claude and Codex streams retain distinct upstream and client capture prefixes", async () => {
+  for (const provider of ["anthropic", "codex"] as const) {
+    await withBodyCollector(
+      (_records, res) => {
+        res.writeHead(200).end("{}");
+      },
+      async (received) => {
+        let sequence = 0;
+        await withHttpFixture(
+          provider,
+          () =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                pull(controller) {
+                  const first = sequence++ === 0;
+                  const text = `part-${sequence}`;
+                  const frame =
+                    provider === "anthropic"
+                      ? (first
+                          ? sse("message_start", {
+                              message: {
+                                id: "fixture",
+                                model: "fixture",
+                                usage: {},
+                              },
+                            }) +
+                            sse("content_block_start", {
+                              index: 0,
+                              content_block: { type: "text", text: "" },
+                            })
+                          : "") +
+                        sse("content_block_delta", {
+                          index: 0,
+                          delta: { type: "text_delta", text },
+                        })
+                      : sse("response.output_text.delta", {
+                          type: "response.output_text.delta",
+                          delta: text,
+                        });
+                  controller.enqueue(new TextEncoder().encode(frame));
+                  if (sequence === 100) {
+                    controller.close();
+                  }
+                },
+              }),
+              { headers: { "content-type": "text/event-stream" } },
+            ),
+          async (response) => {
+            const reader = response.body!.getReader();
+            await reader.read();
+            await pause(20);
+            await reader.cancel("recorded client disconnect");
+            await eventually(
+              () => getProxyActivitySnapshot().activeRequests === 0,
+            );
+            await flushRequestLogs();
+            const { flushProxyOtelLogs } =
+              await import("../src/lib/proxy/otelLogSink.js");
+            await flushProxyOtelLogs();
+            const indexes = received
+              .filter(
+                (r) =>
+                  otelAttribute(r, "proxy.record_kind") ===
+                  "body_capture_index",
+              )
+              .map((r) => JSON.parse(r.body.stringValue));
+            const upstream = indexes.find(
+              (r) => r.phase === "upstream_response",
+            );
+            const client = indexes.find((r) => r.phase === "client_response");
+            assert(
+              upstream && client,
+              "cancelled response capture phase missing",
+            );
+            assert(
+              upstream.observedBodyBytes > client.observedBodyBytes,
+              "fixture did not expose separate observation boundaries",
+            );
+            assert(
+              upstream.bodySha256 !== client.bodySha256,
+              "one phase reused a different observed prefix",
+            );
+          },
+        );
+      },
+    );
+  }
+});
+
+await test("leading whitespace cannot establish useful-output timing before visible Claude or Codex text", async () => {
+  for (const provider of ["anthropic", "codex"] as const) {
+    await withBodyCollector(
+      (_records, res) => {
+        res.writeHead(200).end("{}");
+      },
+      async (received) => {
+        await withHttpFixture(
+          provider,
+          () =>
+            new Response(
+              new ReadableStream<Uint8Array>({
+                async start(controller) {
+                  const delta = (text: string) =>
+                    provider === "anthropic"
+                      ? sse("content_block_delta", {
+                          index: 0,
+                          delta: { type: "text_delta", text },
+                        })
+                      : sse("response.output_text.delta", { delta: text });
+                  const start =
+                    provider === "anthropic"
+                      ? sse("message_start", {
+                          message: {
+                            id: "fixture",
+                            model: "fixture",
+                            usage: {},
+                          },
+                        }) +
+                        sse("content_block_start", {
+                          index: 0,
+                          content_block: { type: "text", text: "" },
+                        })
+                      : "";
+                  controller.enqueue(
+                    new TextEncoder().encode(start + delta(" \n")),
+                  );
+                  await pause(80);
+                  controller.enqueue(
+                    new TextEncoder().encode(
+                      delta("visible") +
+                        (provider === "anthropic"
+                          ? sse("message_stop", {})
+                          : sse("response.completed", { response: {} })),
+                    ),
+                  );
+                  controller.close();
+                },
+              }),
+              { headers: { "content-type": "text/event-stream" } },
+            ),
+          async (response) => {
+            await response.text();
+            await eventually(
+              () => getProxyActivitySnapshot().activeRequests === 0,
+            );
+            await flushRequestLogs();
+            const { flushProxyOtelLogs } =
+              await import("../src/lib/proxy/otelLogSink.js");
+            await flushProxyOtelLogs();
+            const final = received.find(
+              (r) => otelAttribute(r, "proxy.record_kind") === "request_final",
+            );
+            if (!final) {
+              throw new Error("final missing for whitespace fixture");
+            }
+            const record = JSON.parse(final.body.stringValue);
+            assertEqual(
+              record.firstUsefulOutputStatus,
+              "observed",
+              "visible output was not observed",
+            );
+            assert(
+              record.firstUsefulOutputMs >= 70,
+              "leading whitespace was timed as useful output",
+            );
+          },
+        );
+      },
+    );
+  }
+});
+
+await test("plain text and embedded error strings use shared credential redaction without losing the body tail", async () => {
+  await withBodyCollector(
+    (_records, res) => {
+      res.writeHead(200).end("{}");
+    },
+    async (received) => {
+      const text =
+        "context ".repeat(100) +
+        " Bearer sk-plaintext-secret-123 api_key=plaintext-api-secret-123 tail-evidence";
+      for (const [index, body] of [
+        text,
+        { message: text },
+        sse("error", { error: { message: text } }),
+      ].entries()) {
+        await logBodyCapture({
+          timestamp: new Date().toISOString(),
+          requestId: `plaintext-${index}`,
+          phase: "upstream_response",
+          model: "fixture",
+          stream: false,
+          body,
+        });
+      }
+      await flushRequestLogs();
+      const { flushProxyOtelLogs } =
+        await import("../src/lib/proxy/otelLogSink.js");
+      await flushProxyOtelLogs();
+      const serialized = JSON.stringify(received);
+      assert(
+        !serialized.includes("plaintext-secret-123") &&
+          !serialized.includes("plaintext-api-secret-123"),
+        "plain credential entered captured telemetry",
+      );
+      const bodies = received.filter(
+        (r) => otelAttribute(r, "proxy.record_kind") === "body",
+      );
+      assertEqual(
+        bodies.length,
+        3,
+        "plain or embedded error capture disappeared",
+      );
+      assert(
+        bodies.every((r) => r.body.stringValue.includes("tail-evidence")),
+        "diagnostic-text truncation removed the body tail",
+      );
     },
   );
 });

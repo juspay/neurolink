@@ -36,7 +36,7 @@ In this mode:
 
 Metadata has a 2,048-record queue; redacted body chunks have an independent
 256-record queue. Outstanding counts include exports in flight. A separate
-publication queue owns up to 16 captures / 32 MiB of redacted payloads. It sends
+publication queue owns up to 64 captures / 32 MiB of redacted payloads. It sends
 one capture at a time, at most 64 chunks per batch, and waits for actual exporter
 callbacks before submitting more. Slow or failed collectors cannot make a burst
 silently drop the tail of an otherwise accepted capture. Metadata uses its own
@@ -71,8 +71,10 @@ count and digest. The index is emitted after publication settles:
   resource (`entry`, `captures`, `bytes`, or `worker`) and the admission-time
   pending count/bytes and configured limits. `no_body` means no body was present.
 
-The worker uses a 16 MiB per-entry estimate of retained clone memory and a
-32 MiB aggregate pool. Its estimate accounts for UTF-16 strings without
+The worker admits up to 64 pending captures within a 32 MiB aggregate pool.
+OTel-only mode permits a single entry to use that pool; file mode retains its
+16 MiB per-entry estimate. `captureAdmission.maxEntryBytes` reports the active
+entry limit, including rejected inputs. Its estimate accounts for UTF-16 strings without
 serializing on the serving thread. Admission reasons distinguish
 `body_capture_entry_too_large`, `body_capture_unsupported_value`,
 `body_capture_traversal_limit`, `body_capture_queue_full` and
@@ -87,8 +89,14 @@ policy and does not truncate the request sent to the model. Borrowed traffic
 still excludes body capture and emits a metadata-only `policy_excluded` index
 with reason `borrowed_traffic`; it does not expose the borrowed body.
 
-`/status` exposes the selected sink and per-process export counters under request
-logging observability. `submitted` means admitted to the memory queue;
+`/status.observability.process` reports the worker's actual lifecycle sink,
+OTel initialization and stdout/stderr descriptor types. The `supervisor` field
+queries the current supervisor through its authenticated private control socket;
+missing support in an older supervisor is explicitly unavailable. Doctor checks
+both processes. A worker-only restart refuses an incomplete supervisor logging
+cutover; replacing a worker cannot close the supervisor's inherited log files.
+The selected sink and per-process export counters remain under request logging
+observability. `submitted` means admitted to the memory queue;
 `transportAcknowledged` means the SDK reported HTTP export success. It does not
 prove individual record acceptance or backend persistence. `exportUnconfirmed`
 means an export failed or could not be confirmed; it may have reached the
@@ -156,7 +164,8 @@ endpoint; native discovery defaults to `http://127.0.0.1:14388/metrics`.
 The doctor defaults to the last fifteen minutes ending thirty seconds ago to
 allow export/ingestion to settle. It verifies:
 
-- Runtime readiness and explicitly selected OTel-only logging.
+- Runtime readiness and actual worker/supervisor OTel-only logging, including
+  inherited stdout/stderr file descriptors.
 - Producer queue failures and capture admission failures, including bounded
   record identities and high-water counts/bytes.
 - Stored logs, traces and request metrics with a latest timestamp no more than
@@ -166,6 +175,9 @@ allow export/ingestion to settle. It verifies:
   timing, grouped by model. `not_observed` cannot pass timing coverage.
 - Stored terminal-event/final reconciliation. In-flight admissions and requests
   spanning the query boundaries are not assumed to have failed.
+- Client-response capture phase coverage for Claude and direct Codex finals.
+  Capture queries include a two-minute settling margin; delivery checks retain
+  the requested interval. Missing route evidence cannot pass phase coverage.
 - Capture rejection/truncation/policy status for every queried index, plus count,
   contiguous chunk indexes, UTF-8 bytes and SHA-256 for up to three largest
   acknowledged captures (8 MiB per sample). This is explicitly a sample check.
@@ -193,8 +205,28 @@ and request metrics path, including selected account and requested reasoning
 effort. Internal fallback traces do not increment independent request/token
 metrics; their parent request owns those metrics.
 
+Claude JSON, native streams and translated fallbacks record useful-output
+availability and its source. Populated content starts and completed zero-argument
+tool calls count as useful output; thinking and whitespace alone do not. Malformed or oversized
+frames report `not_observed` with a reason rather than implying an empty result.
+JSON timing measures when the complete parsed body becomes available. Buffered
+translations use `translated_response.ready` after the full output is validated;
+upstream text arrival cannot establish output latency visible to the client.
+
+Direct Codex routes capture client request, each upstream request/response, and
+client response, including HTTP errors. Internal fallbacks retain the parent's
+client phases. Raw stream observers keep at most 1 MiB each and share a 16 MiB
+retained-byte pool, releasing it on completion, abort or cancellation. The Claude
+SSE parser retains a separate bounded 1 MiB prefix outside that pool so upstream
+and client observations remain distinct across cancellation boundaries.
+UTF-8 prefixes, original wire byte counts and `bodyTruncated` stay explicit.
+These limits do not alter client bytes or the model context. SSE data is redacted
+structurally; malformed structured data is replaced with a redaction marker.
+Plain text and embedded strings use the shared credential-pattern sanitizer
+without its short diagnostic-text limit.
+
 Codex `firstUsefulOutputStatus` is `observed`, `no_useful_output`, or
-`not_observed`. Timing recognizes nonempty text/refusal, populated function and
+`not_observed`. Timing recognizes non-whitespace text/refusal, populated function and
 custom-tool calls, content parts and completion-only output. Empty tool shells,
 reasoning and control events are not useful output. Malformed, oversized or
 undispatched frames make an absence claim unavailable. These observations never

@@ -676,6 +676,8 @@ export type RequestLogEntry = {
   firstUsefulOutputStatus?: "observed" | "no_useful_output" | "not_observed";
   /** Native protocol event that established the first useful output. */
   firstUsefulOutputEvent?: string;
+  /** Why first-output timing could not be established for this response. */
+  firstUsefulOutputUnavailableReason?: string;
   /** Requested reasoning effort retained independently of body capture. */
   reasoningEffort?: string;
   /** Small routing evidence retained even when response bodies are pruned. */
@@ -767,6 +769,8 @@ export type ProcessedProxyBodyCapture = {
 export type ProxyBodyCaptureAdmission = {
   limitingResource: "entry" | "captures" | "bytes" | "worker";
   estimatedBytes?: number;
+  /** Per-entry clone ceiling, independent of the aggregate queue ceiling. */
+  maxEntryBytes?: number;
   pending: number;
   pendingBytes: number;
   maxPending: number;
@@ -866,6 +870,7 @@ export type ProxyTelemetryCheck = {
 };
 /** Small stored metadata used by the doctor; bodies are queried separately. */
 export type ProxyTelemetryStoredRecord = Partial<RequestLogEntry> & {
+  recordedAtMicroseconds?: number;
   captureId?: string;
   bodySha256?: string;
   redactedBodyBytes?: number;
@@ -1002,6 +1007,8 @@ export type CodexTokenRefresher = (refreshToken: string) => Promise<{
 
 export type ProxyBodyCaptureInput = {
   phase: string;
+  /** The stream observer retained only a bounded prefix. */
+  sourceTruncated?: boolean;
   headers?: Record<string, string>;
   body?: unknown;
   bodySize?: number;
@@ -2530,6 +2537,8 @@ export type ProxyBodyCaptureEntry = {
   headers?: Record<string, string>;
   body?: unknown;
   bodySize?: number;
+  /** The bounded stream observer omitted a suffix before redaction/processing. */
+  sourceTruncated?: boolean;
   contentType?: string;
   responseStatus?: number;
   durationMs?: number;
@@ -2714,6 +2723,8 @@ export type SSEContentBlock = {
 export type SSETelemetry = {
   messageStopReceived: boolean;
   firstUsefulOutputAt?: number;
+  firstUsefulOutputEvent?: string;
+  observationIncomplete?: boolean;
   messageId: string;
   model: string;
   usage: {
@@ -2733,6 +2744,7 @@ export type SSETelemetry = {
   /** Error carried as a terminal SSE `event: error`, if one was observed. */
   streamErrorMessage?: string;
   rawText?: string;
+  rawTextTruncated?: boolean;
 };
 
 /** Terminal outcome of a response body after the HTTP headers were sent. */
@@ -2753,6 +2765,8 @@ export type StreamTerminalOutcomeTracker = {
 export type TelemetryAccumulator = {
   messageStopReceived: boolean;
   firstUsefulOutputAt?: number;
+  firstUsefulOutputEvent?: string;
+  observationIncomplete?: boolean;
   messageId: string;
   model: string;
   inputTokens: number;

@@ -45,7 +45,15 @@ import {
 } from "../../proxy/codexAccountUsage.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { registerProxyResponseObserver } from "../../proxy/proxyActivity.js";
-import { logRequest, logRequestAttempt } from "../../proxy/requestLogger.js";
+import {
+  logRequest,
+  logRequestAttempt,
+  logBodyCapture,
+  isProxyBodyCaptureEnabled,
+} from "../../proxy/requestLogger.js";
+import { createRawStreamCapture } from "../../proxy/rawStreamCapture.js";
+import { resolveProxyLogTraceContext } from "../../proxy/proxyTraceContext.js";
+import { isBorrowedRequest } from "../../proxy/shareContext.js";
 import { ProxyTracer } from "../../proxy/proxyTracer.js";
 import { parseRetryAfterMs } from "../../proxy/routingPolicy.js";
 import {
@@ -380,6 +388,81 @@ function publishCodexHeaders(
 export async function handleCodexResponsesRequest(
   ctx: ServerContext,
 ): Promise<Response> {
+  if (ctx.metadata?.[CODEX_FALLBACK_METADATA_KEY] !== true) {
+    void logBodyCapture({
+      timestamp: new Date().toISOString(),
+      requestId: ctx.requestId,
+      phase: "client_request",
+      model: codexCaptureModel(ctx),
+      stream: true,
+      headers: ctx.headers,
+      body: ctx.body,
+      contentType: "application/json",
+      ...resolveProxyLogTraceContext({ requestId: ctx.requestId }),
+    });
+  }
+  const response = await executeCodexResponsesRequest(ctx);
+  return ctx.metadata?.[CODEX_FALLBACK_METADATA_KEY] === true
+    ? response
+    : captureCodexResponse(ctx, response, "client_response");
+}
+
+function codexCaptureModel(ctx: ServerContext): string {
+  const body = ctx.body as Record<string, unknown> | undefined;
+  return typeof body?.model === "string" ? body.model : "-";
+}
+
+/** Observe bytes through the existing bounded pass-through; cancellation still reaches upstream. */
+function captureCodexResponse(
+  ctx: ServerContext,
+  response: Response,
+  phase: string,
+  account?: CodexRuntimeAccount,
+  attempt?: number,
+): Response {
+  if (!isProxyBodyCaptureEnabled()) {
+    return response;
+  }
+  const metadata = {
+    timestamp: new Date().toISOString(),
+    requestId: ctx.requestId,
+    phase,
+    model: codexCaptureModel(ctx),
+    stream: true,
+    headers: Object.fromEntries(response.headers.entries()),
+    contentType: response.headers.get("content-type") ?? undefined,
+    responseStatus: response.status,
+    account: account?.label,
+    accountType: account ? CODEX_ACCOUNT_TYPE : undefined,
+    attempt,
+    ...resolveProxyLogTraceContext({ requestId: ctx.requestId }),
+  };
+  if (!response.body || isBorrowedRequest()) {
+    void logBodyCapture(metadata);
+    return response;
+  }
+  const observed = createRawStreamCapture();
+  void observed.capture
+    .then((capture) =>
+      logBodyCapture({
+        ...metadata,
+        timestamp: new Date().toISOString(),
+        body: capture.text,
+        bodySize: capture.totalBytes,
+        sourceTruncated: capture.truncated,
+      }),
+    )
+    .catch(() => undefined);
+  return new Response(response.body.pipeThrough(observed.stream), {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+async function executeCodexResponsesRequest(
+  ctx: ServerContext,
+): Promise<Response> {
   const requestStartTime = Date.now();
   const body = ctx.body ?? {};
   const bodyStr = JSON.stringify(body);
@@ -633,9 +716,27 @@ export async function handleCodexResponsesRequest(
         recordAttempt(account.label, CODEX_ACCOUNT_TYPE);
         let upstream: Response;
         try {
+          const upstreamHeaders = buildCodexUpstreamHeaders(
+            ctx.headers,
+            account,
+          );
+          void logBodyCapture({
+            timestamp: new Date().toISOString(),
+            requestId: ctx.requestId,
+            phase: "upstream_request",
+            model,
+            stream: true,
+            body: bodyStr,
+            headers: upstreamHeaders,
+            contentType: "application/json",
+            account: account.label,
+            accountType: CODEX_ACCOUNT_TYPE,
+            attempt,
+            ...tracer?.getTraceContext(),
+          });
           upstream = await fetch(CODEX_RESPONSES_URL, {
             method: "POST",
-            headers: buildCodexUpstreamHeaders(ctx.headers, account),
+            headers: upstreamHeaders,
             body: bodyStr,
             signal: ctx.abortSignal
               ? AbortSignal.any([
@@ -711,6 +812,13 @@ export async function handleCodexResponsesRequest(
           break; // rotate to next account
         }
 
+        upstream = captureCodexResponse(
+          ctx,
+          upstream,
+          "upstream_response",
+          account,
+          attempt,
+        );
         if (upstream.ok) {
           const quota = parseCodexRateLimitHeaders(upstream.headers);
           if (quota) {

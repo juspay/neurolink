@@ -1,5 +1,5 @@
 import { createServer, request } from "node:http";
-import { chmod, mkdir, rm } from "node:fs/promises";
+import { chmod, mkdir, rm, lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -7,7 +7,45 @@ import type {
   ProxyRestartControlIdentity,
   ProxyRestartControlOptions,
   ProxyRestartResult,
+  ProxyProcessTelemetrySnapshot,
+  ProxySupervisorTelemetry,
 } from "../types/index.js";
+
+const processTelemetrySchema = z.object({
+  pid: z.number().int().positive(),
+  checkedAt: z.string().datetime(),
+  configuredSink: z.enum(["otel", "file"]),
+  lifecycleSink: z.string(),
+  otelInitialized: z.boolean(),
+  stdio: z.object({
+    stdout: z.enum(["file", "non_file", "unavailable"]),
+    stderr: z.enum(["file", "non_file", "unavailable"]),
+  }),
+  exportDropped: z.number().int().nonnegative(),
+  exportUnconfirmed: z.number().int().nonnegative(),
+});
+
+/** A worker-only restart cannot repair inherited supervisor log descriptors. */
+function assertSupervisorLogging(
+  status: z.infer<typeof statusSchema>,
+  snapshot?: ProxyProcessTelemetrySnapshot,
+): void {
+  if (
+    status.observability.requestLogs.diskEnabled === false &&
+    (!snapshot ||
+      snapshot.configuredSink !== "otel" ||
+      snapshot.lifecycleSink !== "otel" ||
+      !snapshot.otelInitialized ||
+      snapshot.stdio.stdout !== "non_file" ||
+      snapshot.stdio.stderr !== "non_file")
+  ) {
+    throw new Error(
+      snapshot
+        ? "Supervisor logging is not OTel-only. Worker replacement cannot complete the logging cutover; activate the configured supervisor service first."
+        : "Supervisor telemetry is unavailable, so OTel-only logging cannot be proven. Activate the configured supervisor service first.",
+    );
+  }
+}
 
 const statusSchema = z.object({
   pid: z.number().int().positive(),
@@ -130,6 +168,7 @@ export async function startProxyRestartControl(
       }
       previousWorkerPid = active.pid;
       const status = statusSchema.parse(await options.getStatus());
+      assertSupervisorLogging(status, options.getTelemetry?.());
       if (
         status.pid !== previousWorkerPid ||
         status.version !== active.version
@@ -240,6 +279,25 @@ export async function startProxyRestartControl(
       res.writeHead(400, { connection: "close" }).end();
       return;
     }
+    if (req.method === "GET" && req.url === "/telemetry") {
+      req.resume();
+      try {
+        const snapshot = options.getTelemetry?.();
+        if (!snapshot) {
+          res.writeHead(404).end();
+          return;
+        }
+        const payload = JSON.stringify(snapshot);
+        res.writeHead(200, {
+          "content-type": "application/json",
+          connection: "close",
+        });
+        res.end(payload);
+      } catch {
+        res.writeHead(503, { connection: "close" }).end();
+      }
+      return;
+    }
     if (
       !(
         (req.method === "GET" && req.url === "/check") ||
@@ -301,6 +359,87 @@ export async function startProxyRestartControl(
       await rm(socketPath, { force: true });
     },
   };
+}
+
+/** Query the private supervisor endpoint with a short, bounded read; never restart. */
+export async function requestProxySupervisorTelemetry(
+  identity: ProxyRestartControlIdentity | undefined,
+  expectedPid: number,
+): Promise<ProxySupervisorTelemetry> {
+  if (!identity) {
+    return { status: "unavailable", reason: "supervisor_upgrade_required" };
+  }
+  try {
+    if (
+      !identity.socketPath.endsWith(
+        `/restart-${expectedPid}-${identity.instanceId}.sock`,
+      )
+    ) {
+      throw new Error("identity");
+    }
+    const socket = await lstat(identity.socketPath);
+    if (
+      !socket.isSocket() ||
+      (socket.mode & 0o077) !== 0 ||
+      (process.getuid && socket.uid !== process.getuid())
+    ) {
+      throw new Error("socket");
+    }
+    const snapshot = await new Promise<ProxyProcessTelemetrySnapshot>(
+      (resolve, reject) => {
+        const req = request({
+          socketPath: identity.socketPath,
+          path: "/telemetry",
+          method: "GET",
+          headers: {
+            "x-neurolink-instance": identity.instanceId,
+            connection: "close",
+          },
+        });
+        const timer = setTimeout(() => req.destroy(new Error("timeout")), 1000);
+        req.once("error", (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+        req.once("response", (res) => {
+          let body = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk: string) => {
+            body += chunk;
+            if (body.length > 8192) {
+              req.destroy(new Error("size"));
+            }
+          });
+          res.once("error", (error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+          res.once("end", () => {
+            clearTimeout(timer);
+            try {
+              if (res.statusCode !== 200) {
+                throw new Error("unsupported");
+              }
+              const value = processTelemetrySchema.parse(JSON.parse(body));
+              if (
+                value.pid !== expectedPid ||
+                Math.abs(Date.now() - Date.parse(value.checkedAt)) > 5000
+              ) {
+                throw new Error("stale");
+              }
+              resolve(value);
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+        req.end();
+      },
+    );
+    return { status: "available", process: snapshot };
+  } catch {
+    return { status: "unavailable", reason: "supervisor_telemetry_unverified" };
+  }
 }
 
 /** Perform one local control operation; never fall back to killing a process. */

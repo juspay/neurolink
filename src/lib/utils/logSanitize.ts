@@ -51,7 +51,7 @@ const SECRET_PATTERN = new RegExp(
     // Bare tokens by known prefix (e.g. `sk-abc…`, `r8_xyz…`)
     `|\\b(?:${PREFIX_PATTERN})[_\\-][A-Za-z0-9_\\-\\.]{8,}\\b` +
     // Generic key=value pairs (URL params, JSON bodies, header dumps)
-    "|\\b(?:api[_-]?key|access[_-]?token|secret[_-]?key|refresh[_-]?token)\\s*[:=]\\s*['\"]?[^\\s,;'\"&]+",
+    "|\\b(?:api[_-]?key|access[_-]?token|secret[_-]?key|refresh[_-]?token)['\"]?\\s*[:=]\\s*['\"]?[^\\s,;'\"&]+",
   "gi",
 );
 

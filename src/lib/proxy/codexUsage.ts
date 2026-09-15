@@ -64,26 +64,28 @@ function usefulOutputItem(item: unknown): boolean {
       return (
         "arguments" in item &&
         typeof item.arguments === "string" &&
-        item.arguments.length > 0
+        item.arguments.trim().length > 0
       );
     }
     if (item.type === "custom_tool_call") {
       return (
         "input" in item &&
         typeof item.input === "string" &&
-        item.input.length > 0
+        item.input.trim().length > 0
       );
     }
     if (item.type === "output_text") {
       return (
-        "text" in item && typeof item.text === "string" && item.text.length > 0
+        "text" in item &&
+        typeof item.text === "string" &&
+        item.text.trim().length > 0
       );
     }
     if (item.type === "refusal") {
       return (
         "refusal" in item &&
         typeof item.refusal === "string" &&
-        item.refusal.length > 0
+        item.refusal.trim().length > 0
       );
     }
   }
@@ -255,7 +257,7 @@ export function createCodexUsageTap(): {
             type === "response.refusal.delta" ||
             type === "response.function_call_arguments.delta") &&
           typeof event.delta === "string" &&
-          event.delta.length > 0
+          event.delta.trim().length > 0
         ) {
           if (evidence.firstUsefulOutputAt === undefined) {
             evidence.firstUsefulOutputAt = Date.now();
@@ -277,23 +279,23 @@ export function createCodexUsageTap(): {
         const usefulDone =
           (type === "response.output_text.done" &&
             typeof event.text === "string" &&
-            event.text.length > 0) ||
+            event.text.trim().length > 0) ||
           (type === "response.refusal.done" &&
             typeof event.refusal === "string" &&
-            event.refusal.length > 0) ||
+            event.refusal.trim().length > 0) ||
           (type === "response.function_call_arguments.done" &&
             typeof event.arguments === "string" &&
-            event.arguments.length > 0) ||
+            event.arguments.trim().length > 0) ||
           (type === "response.custom_tool_call_input.done" &&
             typeof event.input === "string" &&
-            event.input.length > 0) ||
+            event.input.trim().length > 0) ||
           ((type === "response.content_part.added" ||
             type === "response.content_part.done") &&
             usefulOutputItem(event.part));
         const usefulToolDelta =
           type === "response.custom_tool_call_input.delta" &&
           typeof event.delta === "string" &&
-          event.delta.length > 0;
+          event.delta.trim().length > 0;
         if (
           evidence.firstUsefulOutputAt === undefined &&
           (usefulDone ||

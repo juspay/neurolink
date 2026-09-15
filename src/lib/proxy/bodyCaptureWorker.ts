@@ -5,7 +5,7 @@ import type {
   ProxyBodyCaptureWorkerSnapshot,
 } from "../types/index.js";
 
-const MAX_PENDING = 16;
+const MAX_PENDING = 64;
 const MAX_PENDING_BYTES = 32 * 1024 * 1024;
 // Bound retained UTF-16 strings rather than a 3x UTF-8 guess. This accommodates
 // the observed 7.3 MB JSON requests while retaining a 32 MiB aggregate pool.
@@ -42,7 +42,7 @@ const pending = new Map<
  * Conservatively bound clone size and traversal work without invoking
  * getters or serializers.
  */
-function estimateCloneBytes(value: unknown): number {
+function estimateCloneBytes(value: unknown, maxEntryBytes: number): number {
   const stack = [value];
   const seen = new Set<object>();
   let bytes = 0,
@@ -51,8 +51,8 @@ function estimateCloneBytes(value: unknown): number {
     if (++nodes > 100_000) {
       throw new Error("body_capture_traversal_limit");
     }
-    if (bytes > MAX_ENTRY_BYTES) {
-      throw new Error("body_capture_entry_too_large");
+    if (bytes > maxEntryBytes) {
+      return bytes;
     }
     const item = stack.pop();
     if (typeof item === "string") {
@@ -84,8 +84,8 @@ function estimateCloneBytes(value: unknown): number {
       if (stack.length > 100_000) {
         throw new Error("body_capture_traversal_limit");
       }
-      if (bytes > MAX_ENTRY_BYTES) {
-        throw new Error("body_capture_entry_too_large");
+      if (bytes > maxEntryBytes) {
+        return bytes;
       }
     }
   }
@@ -167,10 +167,13 @@ export async function captureProxyBody(
   consume: (result: ProcessedProxyBodyCapture) => Promise<void>,
 ): Promise<void> {
   snapshot.attempted += 1;
+  // An OTel capture can use the existing byte pool when it is otherwise idle.
+  // Raising the slot count does not raise the aggregate retained-memory bound.
+  const maxEntryBytes = logDir === null ? MAX_PENDING_BYTES : MAX_ENTRY_BYTES;
   let bytes: number;
   let admissionError: string | undefined;
   try {
-    bytes = estimateCloneBytes(entry);
+    bytes = estimateCloneBytes(entry, maxEntryBytes);
   } catch (error) {
     bytes = Infinity;
     admissionError =
@@ -184,14 +187,14 @@ export async function captureProxyBody(
         : "body_capture_unsupported_value";
   }
   if (
-    bytes > MAX_ENTRY_BYTES ||
+    bytes > maxEntryBytes ||
     snapshot.pending >= MAX_PENDING ||
     snapshot.pendingBytes + bytes > MAX_PENDING_BYTES ||
     Date.now() < retryAfter
   ) {
     snapshot.rejected += 1;
     const error =
-      bytes > MAX_ENTRY_BYTES
+      bytes > maxEntryBytes
         ? (admissionError ?? "body_capture_entry_too_large")
         : Date.now() < retryAfter
           ? "body_worker_backoff"
@@ -205,7 +208,7 @@ export async function captureProxyBody(
       stored: { bodyWriteFailed: true },
       admission: {
         limitingResource:
-          bytes > MAX_ENTRY_BYTES
+          bytes > maxEntryBytes
             ? "entry"
             : Date.now() < retryAfter
               ? "worker"
@@ -213,6 +216,7 @@ export async function captureProxyBody(
                 ? "captures"
                 : "bytes",
         estimatedBytes: Number.isFinite(bytes) ? bytes : undefined,
+        maxEntryBytes,
         pending: snapshot.pending,
         pendingBytes: snapshot.pendingBytes,
         maxPending: MAX_PENDING,

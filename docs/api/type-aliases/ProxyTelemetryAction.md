@@ -8,6 +8,6 @@
 
 > **ProxyTelemetryAction** = `"doctor"` \| `"query"` \| `"setup"` \| `"start"` \| `"stop"` \| `"status"` \| `"logs"` \| `"import-dashboard"`
 
-Defined in: [types/proxy.ts:3498](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3498)
+Defined in: [types/proxy.ts:3512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3512)
 
 Sub-action of the `proxy telemetry` CLI command.

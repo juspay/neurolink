@@ -118,7 +118,11 @@ import {
 import { startUpdaterWorkerSupervisor } from "../../lib/proxy/updaterSupervisor.js";
 import { openProxyWorkerLog } from "../../lib/proxy/workerLog.js";
 import { startRollingProxyServer } from "../../lib/proxy/rollingProxyServer.js";
-import { startProxyRestartControl } from "../../lib/proxy/restartControl.js";
+import {
+  startProxyRestartControl,
+  requestProxySupervisorTelemetry,
+} from "../../lib/proxy/restartControl.js";
+import { getProxyProcessTelemetry } from "../../lib/proxy/processTelemetry.js";
 import { isProxyAuxiliaryRequest } from "../../lib/proxy/proxyRequestKind.js";
 import { spawnProxySocketWorker } from "../../lib/proxy/rollingWorkerProcess.js";
 import {
@@ -2708,6 +2712,13 @@ export async function createProxyStartApp(params: {
         };
       })(),
       observability: {
+        process: getProxyProcessTelemetry(),
+        supervisor: supervisorState?.pid
+          ? await requestProxySupervisorTelemetry(
+              supervisorState.restartControl,
+              supervisorState.pid,
+            )
+          : { status: "not_applicable" },
         lifecycle: getProxyLifecycleLoggerSnapshot(),
         requestLogs: getRequestLoggerSnapshot(),
       },
@@ -3741,6 +3752,7 @@ async function runLaunchdProxySupervisor(
     restartControl = await startProxyRestartControl({
       stateDir: join(homedir(), ".neurolink"),
       server: rollingServer,
+      getTelemetry: getProxyProcessTelemetry,
       log: (message) => logger.warn(message),
       isUpdatePending: () =>
         !!rollingReplacement || !!loadUpdateState()?.pendingRestartVersion,
