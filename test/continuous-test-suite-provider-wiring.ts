@@ -579,4 +579,323 @@ await test("catalog-provider enum surfaces are byte-identical to the pre-JSON-mi
   }
 });
 
+await test("Bedrock carries the caller's text on the wire across all four public surfaces", async () => {
+  // The defect this guards: the native generate path built its user message
+  // from `options.prompt` alone, so a caller using the documented
+  // `input.text` shape sent Bedrock an empty user message — no error, just a
+  // model answering a blank turn.
+  //
+  // Driving the provider directly would not catch a regression between the
+  // caller and the provider, and that gap is most of the distance: option
+  // normalization, middleware, tool injection and context handling all sit
+  // in between. So these cases go through `NeuroLink` and through the built
+  // CLI, and assert on the bytes a local Bedrock endpoint actually receives.
+  // Nothing reaches AWS.
+  const { startLocalBedrock, userTextOnWire, PLACEHOLDER_AWS_ENV } =
+    await import("./helpers/bedrockLocalEndpoint.js");
+  const { NeuroLink } = await import("../dist/index.js");
+  const { spawn } = await import("node:child_process");
+
+  const PROMPT = "Reply with exactly OK.";
+  const MODEL = "amazon.nova-micro-v1:0";
+  const local = await startLocalBedrock("OK");
+
+  const savedEnv = { ...process.env };
+  Object.assign(process.env, PLACEHOLDER_AWS_ENV, {
+    AWS_ENDPOINT_URL_BEDROCK_RUNTIME: local.endpoint,
+  });
+  delete process.env.AWS_SESSION_TOKEN;
+
+  // The CLI is a separate process, so it needs the same pointing.
+  const childEnv = { ...process.env };
+  delete childEnv.AWS_SESSION_TOKEN;
+
+  // spawn, never spawnSync: this process is also the endpoint, and a
+  // synchronous child blocks the event loop so the request is never served.
+  const runCli = (command: string) =>
+    new Promise<{ code: number | null; stdout: string; stderr: string }>(
+      (resolve) => {
+        const child = spawn(
+          process.execPath,
+          [
+            "dist/cli/index.js",
+            command,
+            PROMPT,
+            "--provider",
+            "bedrock",
+            "--model",
+            MODEL,
+          ],
+          { env: childEnv },
+        );
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (d) => (stdout += String(d)));
+        child.stderr.on("data", (d) => (stderr += String(d)));
+        const kill = setTimeout(() => child.kill("SIGKILL"), 90_000);
+        child.on("close", (code) => {
+          clearTimeout(kill);
+          resolve({ code, stdout, stderr });
+        });
+      },
+    );
+
+  try {
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+
+    // 1 — SDK generate.
+    //
+    // Only the `input.text` shape is asserted here because it is the only
+    // one the facade accepts: `generate({ prompt })` is rejected up front
+    // with "Input text is required". `prompt` survives as a provider-level
+    // alias, which is exactly why the defect hid for so long — the field the
+    // Bedrock path read was the one no facade caller can set.
+    {
+      const before = local.requests.length;
+      const result = await nl.generate({
+        input: { text: PROMPT },
+        provider: "bedrock",
+        model: MODEL,
+      });
+      const sent = local.requests.slice(before);
+      assert(
+        sent.length === 1,
+        `sdk-generate sent an unexpected number of requests (${sent.length})`,
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `sdk-generate user text on the wire did not equal the caller's prompt (length ${userTextOnWire(sent[0].body).length})`,
+      );
+      assert(
+        String(result?.content ?? "").includes("OK"),
+        "sdk-generate did not return the endpoint's reply",
+      );
+    }
+
+    // 2 — the provider called directly with `input.text`.
+    //
+    // This is the only case that actually reproduces the defect, and the
+    // reason it is here rather than folded into the facade cases above: the
+    // facade normalizes `input.text` into `prompt` before the provider ever
+    // sees it, so a facade caller could never have hit the empty-message bug.
+    // A caller reaching for `AIProviderFactory.createProvider()` and passing
+    // the documented `input.text` shape could, and did. Reverting the fix
+    // must fail here even though every surface above still passes.
+    {
+      const { ProviderRegistry } = await import("../dist/index.js");
+      await ProviderRegistry.registerAllProviders();
+      const { ProviderFactory } =
+        await import("../dist/factories/providerFactory.js");
+      const provider = await ProviderFactory.createProvider(
+        "bedrock",
+        MODEL,
+        undefined,
+        undefined,
+        {
+          bedrock: {
+            accessKeyId: PLACEHOLDER_AWS_ENV.AWS_ACCESS_KEY_ID,
+            secretAccessKey: PLACEHOLDER_AWS_ENV.AWS_SECRET_ACCESS_KEY,
+            region: PLACEHOLDER_AWS_ENV.AWS_REGION,
+          },
+        },
+      );
+      const before = local.requests.length;
+      await provider.generate({ input: { text: PROMPT } });
+      const sent = local.requests.slice(before);
+      assert(
+        sent.length === 1,
+        `provider-level input.text sent an unexpected number of requests (${sent.length})`,
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `provider-level input.text did not reach the wire (length ${userTextOnWire(sent[0].body).length})`,
+      );
+    }
+
+    // 3 — the provider's own `prompt` alias, which no facade call can reach.
+    {
+      const { ProviderRegistry } = await import("../dist/index.js");
+      await ProviderRegistry.registerAllProviders();
+      const { ProviderFactory } =
+        await import("../dist/factories/providerFactory.js");
+      const provider = await ProviderFactory.createProvider(
+        "bedrock",
+        MODEL,
+        undefined,
+        undefined,
+        {
+          bedrock: {
+            accessKeyId: PLACEHOLDER_AWS_ENV.AWS_ACCESS_KEY_ID,
+            secretAccessKey: PLACEHOLDER_AWS_ENV.AWS_SECRET_ACCESS_KEY,
+            region: PLACEHOLDER_AWS_ENV.AWS_REGION,
+          },
+        },
+      );
+      const before = local.requests.length;
+      await provider.generate({ prompt: PROMPT });
+      const sent = local.requests.slice(before);
+      assert(
+        sent.length === 1,
+        `provider-level prompt alias sent an unexpected number of requests (${sent.length})`,
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `provider-level prompt alias did not reach the wire (length ${userTextOnWire(sent[0].body).length})`,
+      );
+    }
+
+    // 3b — both shapes supplied, each with different text. The base contract
+    // resolves `prompt` first, so `prompt` must win. This case passes under
+    // either `??` or `||` and is a guard, not a discriminator: it fails only
+    // if someone later inverts the order to read `input.text` first.
+    {
+      const { ProviderRegistry } = await import("../dist/index.js");
+      await ProviderRegistry.registerAllProviders();
+      const { ProviderFactory } =
+        await import("../dist/factories/providerFactory.js");
+      const provider = await ProviderFactory.createProvider(
+        "bedrock",
+        MODEL,
+        undefined,
+        undefined,
+        {
+          bedrock: {
+            accessKeyId: PLACEHOLDER_AWS_ENV.AWS_ACCESS_KEY_ID,
+            secretAccessKey: PLACEHOLDER_AWS_ENV.AWS_SECRET_ACCESS_KEY,
+            region: PLACEHOLDER_AWS_ENV.AWS_REGION,
+          },
+        },
+      );
+      const before = local.requests.length;
+      await provider.generate({
+        prompt: PROMPT,
+        input: { text: "different-text-that-must-lose" },
+      });
+      const sent = local.requests.slice(before);
+      assert(
+        sent.length === 1,
+        `both-shapes precedence sent an unexpected number of requests (${sent.length})`,
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `both-shapes precedence did not send the expected text on the wire (length ${userTextOnWire(sent[0].body).length})`,
+      );
+    }
+
+    // 3c — an EMPTY `prompt` alongside a populated `input.text`. This is the
+    // case that discriminates. `Utilities.normalizeTextOptions` resolves with
+    // `||`, so an empty prompt falls through to `input.text`; this provider
+    // overrides `generate()` outright, so normalization never runs and the raw
+    // options land here. Written with `??` the empty string is not nullish, so
+    // it won and an empty user message went to the vendor while the base
+    // contract would have sent the caller's text.
+    {
+      const { ProviderRegistry } = await import("../dist/index.js");
+      await ProviderRegistry.registerAllProviders();
+      const { ProviderFactory } =
+        await import("../dist/factories/providerFactory.js");
+      const provider = await ProviderFactory.createProvider(
+        "bedrock",
+        MODEL,
+        undefined,
+        undefined,
+        {
+          bedrock: {
+            accessKeyId: PLACEHOLDER_AWS_ENV.AWS_ACCESS_KEY_ID,
+            secretAccessKey: PLACEHOLDER_AWS_ENV.AWS_SECRET_ACCESS_KEY,
+            region: PLACEHOLDER_AWS_ENV.AWS_REGION,
+          },
+        },
+      );
+      const before = local.requests.length;
+      await provider.generate({
+        prompt: "",
+        input: { text: PROMPT },
+      });
+      const sent = local.requests.slice(before);
+      assert(
+        sent.length === 1,
+        `empty-prompt fallthrough sent an unexpected number of requests (${sent.length})`,
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `empty-prompt fallthrough did not send the expected text on the wire (length ${userTextOnWire(sent[0].body).length})`,
+      );
+    }
+
+    // 4 — SDK stream, drained.
+    {
+      const before = local.requests.length;
+      const streamed = await nl.stream({
+        input: { text: PROMPT },
+        provider: "bedrock",
+        model: MODEL,
+      });
+      // Chunks are a union — text, audio, sentinels. Narrow rather than cast:
+      // the cast that was here did not overlap the union and only compiled
+      // because `pnpm run check` does not typecheck tests. CI's types shard
+      // does, and caught it.
+      let text = "";
+      for await (const chunk of streamed.stream) {
+        if (
+          typeof chunk === "object" &&
+          chunk !== null &&
+          "content" in chunk &&
+          typeof chunk.content === "string"
+        ) {
+          text += chunk.content;
+        }
+      }
+      const sent = local.requests.slice(before);
+      assert(
+        sent.length === 1 && sent[0].path.includes("converse-stream"),
+        "sdk-stream did not reach the streaming operation exactly once",
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `sdk-stream user text on the wire did not equal the caller's prompt (length ${userTextOnWire(sent[0].body).length})`,
+      );
+      assert(
+        text.includes("OK"),
+        "sdk-stream did not drain the endpoint's reply",
+      );
+    }
+
+    // 5 & 6 — the built CLI, generate and stream.
+    for (const [command, operation] of [
+      ["generate", "converse"],
+      ["stream", "converse-stream"],
+    ] as const) {
+      const before = local.requests.length;
+      const run = await runCli(command);
+      const sent = local.requests.slice(before);
+      assert(run.code === 0, `cli-${command} exited non-zero (${run.code})`);
+      assert(
+        sent.length === 1,
+        `cli-${command} sent an unexpected number of requests (${sent.length})`,
+      );
+      assert(
+        sent[0].path.includes(operation),
+        `cli-${command} did not reach the expected Bedrock operation`,
+      );
+      assert(
+        userTextOnWire(sent[0].body) === PROMPT,
+        `cli-${command} user text on the wire did not equal the caller's prompt (length ${userTextOnWire(sent[0].body).length})`,
+      );
+      assert(
+        run.stdout.includes("OK"),
+        `cli-${command} did not print the endpoint's reply`,
+      );
+    }
+  } finally {
+    await local.close();
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
+});
+
 await runSuite();
