@@ -17,9 +17,12 @@ import { createAnalytics } from "../../core/analytics.js";
 import { BaseProvider } from "../../core/baseProvider.js";
 import { DEFAULT_MAX_STEPS } from "../../core/constants.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
+import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js";
+import { transformToolExecutions } from "../../utils/transformationUtils.js";
 import { createBedrockLoopAdapter } from "./loopAdapter.js";
 import type { NeuroLink } from "../../neurolink.js";
 import type {
+  AgenticLoopResult,
   AgenticLoopStepRequest,
   AgenticLoopUsage,
   JsonValue,
@@ -297,10 +300,19 @@ export class AmazonBedrockProvider extends BaseProvider {
         `[AmazonBedrockProvider] Text-only input in generate(), using simple message builder`,
       );
 
-      // Add user message to conversation - simple text-only case
+      // Add user message to conversation - simple text-only case.
+      // The public generate contract accepts either `prompt` or `input.text`
+      // (see BaseProvider); reading only `prompt` here sent an empty user
+      // message whenever a caller used the `input.text` shape.
+      //
+      // `||`, not `??`, to match the canonical resolution in
+      // `Utilities.normalizeTextOptions`. This provider overrides `generate()`
+      // outright, so normalization never runs and the caller's raw options
+      // land here — an empty `prompt` must fall through to `input.text`
+      // rather than win by virtue of not being nullish.
       const userMessage: BedrockMessage = {
         role: "user",
-        content: [{ text: options.prompt }],
+        content: [{ text: options.prompt || input?.text || "" }],
       };
       this.conversationHistory.push(userMessage);
     }
@@ -314,8 +326,9 @@ export class AmazonBedrockProvider extends BaseProvider {
     let usage: { input: number; output: number; total: number };
     let finishReason: string | undefined;
     let rawFinishReason: string | undefined;
+    let toolExecutions: AgenticLoopResult<BedrockMessage[]>["toolExecutions"];
     try {
-      ({ text, usage, finishReason, rawFinishReason } =
+      ({ text, usage, finishReason, rawFinishReason, toolExecutions } =
         await this.conversationLoop(options));
     } catch (error) {
       // Emit failure generation:end so Pipeline B records the failed generation
@@ -359,6 +372,11 @@ export class AmazonBedrockProvider extends BaseProvider {
       });
     }
 
+    // Tool telemetry, mirroring the other `runAgenticLoop` consumers
+    // (anthropic, vertex, google-ai). Bedrock forwarded none of it, so
+    // `baseProvider` fell back to `result.toolsUsed || []` and every turn
+    // reported zero tools while running them correctly — leaving analytics,
+    // cost attribution and audit blind on this path.
     return {
       content: text, // CLI expects 'content' not 'text'
       usage,
@@ -366,6 +384,17 @@ export class AmazonBedrockProvider extends BaseProvider {
       provider: this.getProviderName(),
       ...(finishReason !== undefined && { finishReason }),
       ...(rawFinishReason !== undefined && { rawFinishReason }),
+      toolsUsed: toolExecutions.map((execution) => execution.name),
+      toolCalls: toolExecutions.map((execution) => ({
+        toolCallId: execution.id,
+        toolName: execution.name,
+        args: execution.input,
+      })),
+      toolExecutions: resolveToolExecutionRecords(
+        options,
+        transformToolExecutions(toolExecutions),
+      ),
+      enhancedWithTools: toolExecutions.length > 0,
     };
   }
 
@@ -380,6 +409,12 @@ export class AmazonBedrockProvider extends BaseProvider {
     };
     finishReason?: string;
     rawFinishReason?: string;
+    /**
+     * Every tool the loop actually dispatched, in order. The engine has
+     * always computed this; it used to stop here, so `generate()` reported
+     * no tools for turns that ran them.
+     */
+    toolExecutions: AgenticLoopResult<BedrockMessage[]>["toolExecutions"];
   }> {
     // The step cap is now the same `maxSteps || DEFAULT_MAX_STEPS` the
     // streaming path has always used. It used to be a hardcoded 10 that
@@ -464,6 +499,7 @@ export class AmazonBedrockProvider extends BaseProvider {
         // kept alongside rather than dropped.
         finishReason: result.finishReason,
         rawFinishReason: result.rawStopReason,
+        toolExecutions: result.toolExecutions,
       };
     } catch (error) {
       logger.error(
@@ -1302,7 +1338,16 @@ export class AmazonBedrockProvider extends BaseProvider {
         createAnalytics(
           this.providerName,
           this.modelName || this.getDefaultModel(),
-          { usage: usageFromOutcome(outcome.result?.usage) },
+          {
+            usage: usageFromOutcome(outcome.result?.usage),
+            // createAnalytics derives toolCallCount from these. Passing usage
+            // alone left every streamed Bedrock turn reporting no tool calls,
+            // however many it made.
+            toolExecutions: outcome.result?.toolExecutions ?? [],
+            toolsUsed: (outcome.result?.toolExecutions ?? []).map(
+              (execution) => execution.name,
+            ),
+          },
           Date.now() - startTime,
           {
             requestId: `bedrock-stream-${Date.now()}`,
