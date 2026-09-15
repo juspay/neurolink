@@ -2182,6 +2182,40 @@ async function testGrokCatalogWindowsAndBackends(): Promise<boolean> {
     log("claude-sonnet-4-thinking used the alias window instead of 1M", "red");
     return false;
   }
+  // `providerFromMapping` recognises anthropic/claude, openai and
+  // vertex/google/google-ai/gemini; any other string falls through to
+  // inferring the backend from the *target* id. That branch is reachable from
+  // a real config: `ModelMapping.provider` is a required string and
+  // `parseRoutingConfig` coerces an absent or empty one to "anthropic", so
+  // neither ever arrives here — but any other value is passed through
+  // verbatim, so a mapping naming a provider this writer does not know about
+  // lands in the fallback intact. The alias name carries no clue on its own:
+  // "enterprise-sonnet" says nothing about Anthropic.
+  const unknownProvider = __grokTestHooks.classifyGrokProxyModel(
+    "enterprise-sonnet",
+    {
+      from: "enterprise-sonnet",
+      to: "claude-sonnet-4-6",
+      provider: "bedrock",
+    },
+  );
+  if (unknownProvider.apiBackend !== "messages") {
+    log("an unrecognised provider did not fall back to the target id", "red");
+    return false;
+  }
+  if (unknownProvider.supportsReasoningEffort !== true) {
+    log("an unrecognised provider lost the target's adaptive thinking", "red");
+    return false;
+  }
+  // The window is deliberately NOT derived the same way. `windowProvider`
+  // prefers the declared provider precisely so a Bedrock-hosted Claude gets
+  // Bedrock's 200K window rather than Anthropic-direct's 1M — the backend
+  // comes from the target, the window from where it is actually served.
+  // Asserting it here pins that split, which is the surprising half.
+  if (unknownProvider.contextWindow !== 200_000) {
+    log("the window was not looked up under the declared provider", "red");
+    return false;
+  }
   return true;
 }
 
