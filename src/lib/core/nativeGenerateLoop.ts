@@ -161,6 +161,20 @@ export async function runNativeGenerateLoop(
 
   for (let step = 0; step < args.maxSteps; step++) {
     steps = step + 1;
+    // Per-step context reclaim. The pre-dispatch budget check runs ONCE and
+    // never sees the assistant turns and tool results this loop appends, which
+    // is how a long agentic run overflows the model window mid-loop and loses
+    // every completed step to a provider 400. The streaming paths have guarded
+    // this for a while; generate() did not, so the identical turn reclaimed on
+    // stream() and overflowed on generate().
+    //
+    // The provider supplies the guard because only it knows its wire shape.
+    // Returning undefined leaves the conversation byte-identical, so a turn
+    // that fits never pays a prompt-cache invalidation.
+    const guarded = args.guardConversation?.(args.conversation);
+    if (guarded) {
+      args.conversation.splice(0, args.conversation.length, ...guarded);
+    }
     const runThisStep = () =>
       args.runStep(() =>
         args.doGenerate({
@@ -219,6 +233,8 @@ export async function runNativeGenerateLoop(
       throw stepError;
     }
     reaskPending = false;
+
+    args.observeUsage?.(res.usage);
 
     const parts = asParts(res.content);
     // Each step REPLACES the text rather than appending: the final step's

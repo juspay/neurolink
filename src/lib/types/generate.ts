@@ -1781,6 +1781,17 @@ export type GenerateOptionsNormalized = GenerateOptions & {
  * `doGenerate`; the provider supplies the wire details.
  */
 export type NativeGenerateLoopArgs = {
+  /** Observed usage for calibrating the next step against the last request. */
+  observeUsage?: (usage: unknown) => void;
+  /**
+   * Per-step context reclaim, called before every model call with the
+   * conversation as it now stands. Return a replacement to have the loop adopt
+   * it, or undefined to leave it untouched. The provider owns this because the
+   * reclaim has to understand its wire shape.
+   */
+  guardConversation?: (
+    conversation: Array<Record<string, unknown>>,
+  ) => Array<Record<string, unknown>> | undefined;
   doGenerate: (
     options: Record<string, unknown>,
   ) => Promise<Record<string, unknown>>;

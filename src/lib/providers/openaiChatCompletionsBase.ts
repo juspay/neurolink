@@ -28,6 +28,11 @@ import {
 } from "../constants/contextWindows.js";
 import { guardOpenAICompatConversation } from "../context/openaiCompatLoopGuard.js";
 import {
+  estimateTokens,
+  serializeForEstimate,
+} from "../utils/tokenEstimation.js";
+import { createNativeGenerateGuard } from "../context/nativeGenerateGuard.js";
+import {
   isContextOverflowError,
   parseProviderOverflowDetails,
 } from "../context/errorDetection.js";
@@ -1189,6 +1194,27 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       runNativeGenerateLoop(
         {
           doGenerate,
+          ...createNativeGenerateGuard({
+            provider: this.providerName,
+            availableInputTokens: getAvailableInputTokens(
+              this.providerName,
+              modelId,
+              options.maxTokens ?? undefined,
+            ),
+            // Runs on every step of the generate loop, so a cyclic or
+            // oversized tool schema must not throw the turn away. Shares the
+            // estimator's own serializer: its fallback over-reports, which
+            // makes the guard fire rather than silently size the overhead at
+            // nothing.
+            getFixedOverheadTokens: () =>
+              estimateTokens(
+                serializeForEstimate({
+                  tools: v3Tools,
+                  responseFormat: format,
+                }),
+                this.providerName,
+              ),
+          }),
           conversation: conv,
           ...(v3Tools ? { tools: v3Tools } : {}),
           toolsRecord,
