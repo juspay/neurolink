@@ -368,7 +368,7 @@ const CELLS: Cell[] = [
 // Deliberately narrow: only infra-shaped statuses (429/5xx) are skippable —
 // generic 4xx / "bad request" would mask real request-construction bugs.
 function isInfraError(message: string): boolean {
-  return /api key|apikey|credential|security token|unauthor|permission|quota|rate.?limit|too many requests|429|not found|unknown model|model.*not|region|ENOTFOUND|ECONNREFUSED|ECONNRESET|socket hang|fetch failed|network|timeout|deadline|unavailable|overloaded|throttl|capacity|exhausted|billing|credits|insufficient|payment|402|access|forbidden|invalid.*model|does not exist|status (429|500|502|503|504)|internal server|service unavailable|max_tokens is too large|supports at most|completion tokens|maximum context|context length/i.test(
+  return /api key|apikey|credential|security token|unauthor|permission|quota|rate.?limit|too many requests|429|not found|unknown model|model.*not|timed.?out|region|ENOTFOUND|ECONNREFUSED|ECONNRESET|socket hang|fetch failed|network|timeout|deadline|unavailable|overloaded|throttl|capacity|exhausted|billing|credits|insufficient|payment|402|access|forbidden|invalid.*model|does not exist|status (429|500|502|503|504)|internal server|service unavailable|max_tokens is too large|supports at most|completion tokens|maximum context|context length/i.test(
     message,
   );
 }
@@ -712,6 +712,65 @@ await test("azure — an optional field survives on a second family member", asy
     "structuredData must be produced on the shared family path too",
   );
   console.log("      · optional field honoured on a second family member");
+});
+
+// This suite sets NEUROLINK_DISABLE_BUILTIN_TOOLS at the top, so the case below
+// spells its tool out explicitly: every OpenAI-compatible provider except
+// OpenAI and Azure suppresses `response_format` when the request carries tools,
+// and the caller's schema then never reaches the wire at all. That suppressed
+// turn used to come back as prose with `structuredData` undefined, silently
+// breaking the documented generate({ schema }) contract.
+//
+// Cohere, and only cohere, because the defect was never provider-specific: it
+// lives in the shared native generate loop the whole OpenAI-compatible family
+// rides. deepseek is already a breadth cell in CELLS above and runs the same
+// path through `plain-prose-prompt`, so repeating it here would buy a second
+// live call and no extra signal. Cohere is in no cell of that matrix, and it is
+// a separate vendor family: CohereProvider extends the same
+// OpenAIChatCompletionsProvider base and does not override
+// suppressResponseFormatWithTools, so it takes the suppressing default.
+await test("cohere:command-r-plus-08-2024 — a schema survives a request that also carries tools", async () => {
+  let res: SchemaResult;
+  try {
+    res = (await nl.generate({
+      input: { text: "Capital of France and its population." },
+      provider: "cohere",
+      model: "command-r-plus-08-2024",
+      maxTokens: 300,
+      tools: pingTool,
+      // Explicit, as in every other tools-bearing call in this file. The tool
+      // has to actually ride along for the suppression path to be reached; a
+      // turn that quietly dropped it would take the ordinary response_format
+      // route and pass while testing nothing.
+      disableTools: false,
+      schema: z.object({ capital: z.string(), population: z.number() }),
+    })) as SchemaResult;
+  } catch (e) {
+    if (isInfraError(String((e as Error)?.message ?? e))) {
+      throw new Skip("cohere unavailable for provider reasons");
+    }
+    throw new Error("schema request with tools present failed outright", {
+      cause: e,
+    });
+  }
+  const data = res.structuredData as Record<string, unknown> | undefined;
+  assert(
+    !!data && typeof data === "object" && !Array.isArray(data),
+    "structuredData must be produced even when tools suppress response_format",
+  );
+  // Assert the WHOLE declared schema, not just one field. The recovery path
+  // can publish a syntactically valid object that still fails the schema, so
+  // checking only `capital` would let a half-restored contract pass — the
+  // schema declares both properties required.
+  assert(
+    typeof data?.capital === "string" &&
+      (data.capital as string).length > 0 &&
+      typeof data?.population === "number",
+    "both required schema properties must be present and correctly typed",
+  );
+  console.log(
+    "      · schema honoured on a tools-bearing request (prompt fallback)",
+  );
 });
 
 await runSuite();
