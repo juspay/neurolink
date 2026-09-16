@@ -1679,8 +1679,20 @@ export class AnthropicProvider extends BaseProvider {
             // stop_reason "tool_use", but no tool call is surfaced, so
             // reporting "tool-calls" would misread as a step-capped turn.
             // `raw` still carries the provider's verbatim stop_reason.
+            //
+            // Only "tool-calls" is substituted, never every reason. The turn
+            // can also end at stop_reason "max_tokens" — the model was still
+            // writing the final_result arguments when the output ceiling hit,
+            // so the structured payload is cut mid-JSON. Reporting that as
+            // "stop" told the caller the response was complete: neurolink.ts's
+            // `finishReason === "length"` check never fired, so `jsonTruncated`
+            // stayed unset and no truncation warning was logged, leaving a
+            // partial object indistinguishable from a whole one. This mirrors
+            // the streaming path, which already narrows the same substitution
+            // to a "tool-calls" reason.
             unified:
-              finalResultText !== undefined
+              finalResultText !== undefined &&
+              mapAnthropicStopReason(response.stop_reason) === "tool-calls"
                 ? ("stop" as const)
                 : mapAnthropicStopReason(response.stop_reason),
             raw: response.stop_reason ?? "stop",
