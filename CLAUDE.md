@@ -497,9 +497,11 @@ probe designs agreed with each other and were all wrong for the same reason,
 because they shared an unstated assumption about the transport. Assert the
 precondition first, in the probe, and make it fail loudly when it does not hold.
 
-**7. A pull request's check rollup can describe the PREVIOUS head.** The four
-above are about a check that has not appeared yet. This is the mirror image: a
-check that appeared, passed, and belongs to a commit you have just replaced.
+**7. A pull request's check rollup can describe the PREVIOUS head.** Incident 2
+above is the one about a check that has not appeared yet — 1, 3 and 4 are a
+cancelled run, a duplicated context and a command that printed nothing. This is
+incident 2's mirror image: a check that appeared, passed, and belongs to a commit
+you have just replaced.
 Immediately after an amend-and-force-push, `gh pr view <N> --json
 statusCheckRollup` can still serve the outgoing head's runs — so the gate reads
 a clean `5/5 SUCCESS` for a SHA that no longer exists on the branch, seconds
