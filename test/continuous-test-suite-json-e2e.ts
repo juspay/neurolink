@@ -29,6 +29,66 @@
  *       npx tsx test/continuous-test-suite-json-e2e.ts --only=vertex,openai
  */
 process.env.NEUROLINK_DISABLE_BUILTIN_TOOLS = "true";
+
+// ── Outbound request capture ────────────────────────────────────────────────
+// Installed BEFORE the `dist/` import below, so a provider that binds fetch at
+// module load still sees this wrapper. The real request is always forwarded —
+// this is instrumentation, never a mock.
+//
+// It exists for one assertion. Whether a model OMITS an optional property is a
+// statement about the MODEL, and no retry budget makes it reliable: the turn
+// either volunteers the field or it does not, so N attempts only move the flake
+// probability to p^N rather than removing it. What this SDK actually owns is
+// the JSON Schema it PUTS ON THE WIRE — an optional Zod property must never be
+// promoted into the schema's `required` list. That is deterministic, observable
+// once per request, and is the contract the test below is really about.
+let captureRequests = false;
+const capturedBodies: string[] = [];
+{
+  const realFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = (async (
+    input: Parameters<typeof realFetch>[0],
+    init?: Parameters<typeof realFetch>[1],
+  ) => {
+    if (captureRequests && typeof init?.body === "string") {
+      capturedBodies.push(init.body);
+    }
+    return realFetch(input, init);
+  }) as typeof globalThis.fetch;
+}
+
+/**
+ * Every `required` array anywhere inside a captured request body, regardless of
+ * where the vendor nests the schema (`response_format.json_schema.schema`,
+ * a tool's `parameters`, …). Walking for it keeps the assertion independent of
+ * one vendor's envelope shape.
+ */
+function requiredListsIn(body: string): string[][] {
+  const out: string[][] = [];
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    if (!node || typeof node !== "object") {
+      return;
+    }
+    const rec = node as Record<string, unknown>;
+    if (
+      Array.isArray(rec.required) &&
+      rec.required.every((k) => typeof k === "string")
+    ) {
+      out.push(rec.required as string[]);
+    }
+    Object.values(rec).forEach(walk);
+  };
+  try {
+    walk(JSON.parse(body));
+  } catch {
+    // Not JSON (multipart upload, form post) — nothing to inspect.
+  }
+  return out;
+}
 import "dotenv/config";
 import { z } from "zod";
 import { tool } from "../dist/index.js";
@@ -632,6 +692,20 @@ await test("anthropic:claude-sonnet-4-6 — forced truncation yields a partial o
 // regressed to forcing `required` would still pass, because the model would
 // return both fields and every other assertion would hold.
 await test("openai:gpt-4o-mini — an optional Zod field stays optional, and is absent when unset", async () => {
+  // Two different contracts are checked here, and only one of them is this
+  // SDK's to keep.
+  //
+  // The SDK's: an optional Zod property must not be promoted into the JSON
+  // Schema's `required` list on the way to the provider. That is asserted from
+  // the captured request body, so it is deterministic — it does not depend on
+  // what the model chose to answer.
+  //
+  // The model's: whether gpt-4o-mini honours "do not include a population
+  // figure". That is genuinely outside our control, so it is reported, not
+  // asserted. An earlier revision asserted it and was intermittently red; a
+  // retry budget only moves that flake to p^N instead of removing it.
+  capturedBodies.length = 0;
+  captureRequests = true;
   let res: SchemaResult;
   try {
     res = (await nl.generate({
@@ -654,7 +728,29 @@ await test("openai:gpt-4o-mini — an optional Zod field stays optional, and is 
       "a schema with an optional property was rejected outright",
       { cause: e },
     );
+  } finally {
+    captureRequests = false;
   }
+
+  // Precondition: the assertion below is about a schema that actually reached
+  // the wire, so prove one did. Without this, a turn served from anywhere but
+  // an HTTP request would make the `required` check vacuously true.
+  const schemaRequireds = capturedBodies
+    .flatMap(requiredListsIn)
+    .filter((req) => req.includes("capital"));
+  assert(
+    schemaRequireds.length > 0,
+    "no outbound request carried the declared schema — nothing to assert against",
+  );
+  // THE contract: `population` is optional, so it must appear in no `required`
+  // list the SDK emitted. Forcing it in is the defect this test exists for, and
+  // it is visible here whatever the model later chooses to answer.
+  const forced = schemaRequireds.filter((req) => req.includes("population"));
+  assert(
+    forced.length === 0,
+    `the optional property was promoted into the schema's required list (${forced.length} of ${schemaRequireds.length} schema(s) on the wire)`,
+  );
+
   const data = res.structuredData as Record<string, unknown> | undefined;
   assert(
     !!data && typeof data === "object" && !Array.isArray(data),
@@ -664,12 +760,19 @@ await test("openai:gpt-4o-mini — an optional Zod field stays optional, and is 
     typeof data?.capital === "string" && (data.capital as string).length > 0,
     "the required property must be present and non-empty",
   );
-  assert(
-    data !== undefined && !("population" in data),
-    "the optional property must be absent, proving it was not forced into required",
-  );
+  // When the model DOES volunteer it, it must still be schema-correct — a null
+  // or a string there would mean the property was injected rather than
+  // answered, which is the same defect wearing a disguise.
+  if (data && "population" in data) {
+    assert(
+      typeof data.population === "number",
+      "the optional property, when present, must match its declared type",
+    );
+  }
   console.log(
-    "      · optional Zod field honoured and absent — request not rejected",
+    `      · optional Zod field absent from the wire schema's required list; model ${
+      data && "population" in data ? "volunteered" : "omitted"
+    } it`,
   );
 });
 
