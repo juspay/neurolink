@@ -27,7 +27,7 @@ Embeddings convert text into dense numerical vectors that capture semantic meani
 - **Similarity comparison** -- measure how related two pieces of text are
 - **Clustering and classification** -- group or categorize text automatically
 
-NeuroLink exposes embeddings through two provider methods (`embed()` and `embedMany()`), two server endpoints, and indirectly through the CLI's RAG commands. All implementations delegate to the Vercel AI SDK or native provider APIs.
+NeuroLink exposes embeddings through two provider methods (`embed()` and `embedMany()`), two server endpoints, and indirectly through the CLI's RAG commands. Every implementation calls its provider's embeddings API directly.
 
 ## Quick Start
 
@@ -86,7 +86,7 @@ const embedding2 = await provider.embed(
 
 ### `provider.embedMany(texts, modelName?)`
 
-Generate embedding vectors for multiple texts in a single batch. The Vercel AI SDK automatically handles chunking for models that impose batch-size limits. Amazon Bedrock processes each text individually via `Promise.all` because the Titan Embed API accepts one input at a time.
+Generate embedding vectors for multiple texts in a single batch. Each provider implementation handles its own batching, so a model that imposes a batch-size limit is chunked to fit it. Amazon Bedrock processes each text individually via `Promise.all` because the Titan Embed API accepts one input at a time.
 
 **Parameters:**
 

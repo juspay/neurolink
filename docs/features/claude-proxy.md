@@ -1138,7 +1138,7 @@ Features explored during the CLIProxyAPI comparison analysis and deferred for fu
 
 Add an OpenAI-compatible API endpoint so any tool that speaks the OpenAI format (Cursor, Continue, Aider, Open Interpreter, etc.) can route through the proxy to Claude accounts.
 
-- **What exists:** NeuroLink SDK already translates between all providers via Vercel AI SDK. The Claude proxy (`claudeFormat.ts` + `claudeProxyRoutes.ts`) is the production template.
+- **What exists:** the NeuroLink SDK already translates between all providers through its own native provider layer. The Claude proxy (`claudeFormat.ts` + `claudeProxyRoutes.ts`) is the production template.
 - **What's needed:**
   - `openaiFormat.ts` — parse OpenAI requests, serialize OpenAI responses, streaming SSE state machine (mirror of `claudeFormat.ts`)
   - `openaiProxyRoutes.ts` — `POST /v1/chat/completions`, `GET /v1/models`, `POST /v1/embeddings` endpoints

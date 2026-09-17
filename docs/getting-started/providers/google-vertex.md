@@ -419,7 +419,7 @@ If the timeout fires mid-stream, NeuroLink surfaces a `TimeoutError` rather than
 ### Constraints
 
 - **No tools + JSON schema simultaneously** — Gemini 3 cannot use function calling and `structuredOutput` with a JSON schema at the same time. NeuroLink automatically disables tools when a JSON schema output is requested and logs a warning.
-- **Gemini 3 only** — This native path activates only for model names matching the Gemini 3 pattern. All other Vertex AI models continue to use the standard Vercel AI SDK path.
+- **Gemini 3 only** — This particular branch activates only for model names matching the Gemini 3 pattern. Every other Vertex model is also served natively: Gemini through `@google/genai` and Claude through `@anthropic-ai/vertex-sdk`.
 
 ---
 

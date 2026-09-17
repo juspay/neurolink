@@ -18,7 +18,7 @@ NeuroLink's middleware system provides a powerful and flexible way to intercept,
 - Factory pattern for easy middleware management
 - Priority-based execution ordering
 - Provider-specific conditional execution
-- Built on top of Vercel AI SDK's middleware system
+- Built on NeuroLink's own `wrapLanguageModel` (`src/lib/middleware/wrapLanguageModel.ts`), which keeps the familiar wrap-a-model shape without depending on a third-party SDK
 
 ## Architecture Diagram
 

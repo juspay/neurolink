@@ -385,7 +385,7 @@ The proxy sets `NEUROLINK_SKIP_MCP=true` before creating the NeuroLink instance.
 
 ### WHY tools are passed through in translation/fallback mode
 
-When falling back to non-Anthropic providers, the proxy passes tools, thinking configuration, and conversation history through to `ctx.neurolink.stream()` with `maxSteps: 1`. This enables fallback providers to see the full request context and produce tool_use blocks if supported. The `maxSteps: 1` limit prevents the proxy from running a multi-step agent loop (that is Claude Code's responsibility). Tool schemas are wrapped via `jsonSchema()` from the Vercel AI SDK to ensure compatibility across providers.
+When falling back to non-Anthropic providers, the proxy passes tools, thinking configuration, and conversation history through to `ctx.neurolink.stream()` with `maxSteps: 1`. This enables fallback providers to see the full request context and produce tool_use blocks if supported. The `maxSteps: 1` limit prevents the proxy from running a multi-step agent loop (that is Claude Code's responsibility). Tool schemas are wrapped via NeuroLink's own `jsonSchema()` (`src/lib/utils/tool.ts`) to ensure compatibility across providers.
 
 ---
 

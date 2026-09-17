@@ -505,7 +505,16 @@ The `AnthropicModel` enum in `src/lib/models/anthropicModels.ts` defines these m
 
 #### 4. Provider Integration Tests (16 tests)
 
-Tests the `AnthropicProvider` class from `src/lib/providers/anthropic.ts`.
+> **Superseded — kept as a record of what this suite once covered.**
+> The mock-based vitest suite described below no longer exists. It mocked
+> `@ai-sdk/anthropic`, which is not a dependency any more, and it targeted
+> `src/lib/providers/anthropic.ts`, a path that no longer exists — the Anthropic
+> provider is now native, at `src/lib/providers/anthropic/client.ts`. Per
+> `CLAUDE.md` rule 15 the suites in `test/` are end-to-end: they construct
+> `NeuroLink` and call `generate()` / `stream()`, or drive the built CLI. Treat
+> the mock patterns in this section as history, not as a pattern to copy.
+
+Tested the `AnthropicProvider` class, then at `src/lib/providers/anthropic.ts`.
 
 | Sub-describe                             | Tests | What It Covers                                                                      |
 | ---------------------------------------- | ----- | ----------------------------------------------------------------------------------- |
@@ -517,7 +526,7 @@ Tests the `AnthropicProvider` class from `src/lib/providers/anthropic.ts`.
 | Error Handling                           | 4     | Auth errors, rate limit errors, network errors (ECONNREFUSED), server errors (500)  |
 | Usage Tracking                           | 1     | Initializes with zeroed usage info                                                  |
 
-Mock pattern: `vi.mock("@ai-sdk/anthropic", ...)`, `vi.mock("../../src/lib/utils/providerConfig.js", ...)`, `vi.mock("fs", ...)` (sync fs operations mocked to prevent reading real `~/.neurolink/anthropic-credentials.json`).
+Mock pattern (historical): `vi.mock("@ai-sdk/anthropic", ...)`, `vi.mock("../../src/lib/utils/providerConfig.js", ...)`, `vi.mock("fs", ...)` (sync fs operations mocked to prevent reading real `~/.neurolink/anthropic-credentials.json`).
 
 #### 5. Configuration Tests (11 tests)
 

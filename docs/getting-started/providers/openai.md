@@ -12,7 +12,7 @@ keywords: openai, gpt, gpt-5.4, gpt-5, gpt-4o, o3, o4-mini, embeddings, function
 
 ## Overview
 
-OpenAI provides API access to the GPT model family, including the latest GPT-5.4 series, GPT-5 series, GPT-4o multimodal models, and o-series reasoning models. NeuroLink integrates with OpenAI via the `@ai-sdk/openai` package, providing generation, streaming, tool calling, vision, and embedding capabilities.
+OpenAI provides API access to the GPT model family, including the latest GPT-5.4 series, GPT-5 series, GPT-4o multimodal models, and o-series reasoning models. NeuroLink talks to the OpenAI HTTP API directly — generation, streaming, tool calling, vision and embeddings are all served by NeuroLink's own client, with no third-party model SDK in the path.
 
 ### Key Benefits
 
