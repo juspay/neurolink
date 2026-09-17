@@ -1009,6 +1009,98 @@ await test("Bedrock reports the tools it actually ran", async () => {
   }
 });
 
+await test("Bedrock does not report a tool the model asked for but never ran", async () => {
+  // Follow-up to #1697. Forwarding the loop's tool telemetry fixed the "zero
+  // tools" lie, but it forwarded EVERY dispatch — including the ones that
+  // never reached a tool. `runAgenticLoop` records a name the model invented
+  // as an entry with `error` set, so mapping the list verbatim reported an
+  // invented tool as used, re-inflating the very counts #1697 existed to make
+  // honest: analytics, cost attribution, audit.
+  //
+  // Scripted so the model "calls" a tool that was never registered. The
+  // dispatch is real, the lookup miss is real, the error goes back to the
+  // model on the wire. Nothing reaches AWS.
+  const { startLocalBedrock, toolResultsOnWire, PLACEHOLDER_AWS_ENV } =
+    await import("./helpers/bedrockLocalEndpoint.js");
+  const { NeuroLink } = await import("../dist/index.js");
+
+  const REAL_TOOL = "get_vault_code";
+  const INVENTED_TOOL = "open_the_vault";
+  const MODEL = "amazon.nova-micro-v1:0";
+  const local = await startLocalBedrock("Done.", {
+    toolUse: { name: INVENTED_TOOL, input: {} },
+  });
+
+  const savedEnv = { ...process.env };
+  Object.assign(process.env, PLACEHOLDER_AWS_ENV, {
+    AWS_ENDPOINT_URL_BEDROCK_RUNTIME: local.endpoint,
+  });
+  delete process.env.AWS_SESSION_TOKEN;
+
+  let executed = 0;
+  try {
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    nl.registerTool(REAL_TOOL, {
+      name: REAL_TOOL,
+      description: "Return the secret vault code.",
+      inputSchema: { type: "object", properties: {}, required: [] },
+      execute: async () => {
+        executed += 1;
+        return { vault_code: "VLT4QX9R2K" };
+      },
+    });
+
+    const result = await nl.generate({
+      input: { text: "Call the tool, then report the code." },
+      provider: "bedrock",
+      model: MODEL,
+    });
+
+    // PRECONDITIONS. An empty `toolsUsed` is also what a turn that never
+    // called anything produces, so without these the contract below would
+    // pass for the wrong reason.
+    const delivered = local.requests.flatMap((request) =>
+      toolResultsOnWire(request.body),
+    );
+    assert(
+      delivered.some((value) => value.includes(INVENTED_TOOL)),
+      "precondition failed: no tool-result for the invented name went back to the model, so nothing was dispatched",
+    );
+    assert(
+      executed === 0,
+      `precondition failed: the registered tool ran on a turn that never called it (runs: ${executed})`,
+    );
+    assert(
+      (result.toolExecutions ?? []).length > 0,
+      "precondition failed: the failed dispatch was dropped from toolExecutions, which must stay complete",
+    );
+
+    // The contract: asked for is not the same as ran.
+    assert(
+      !(result.toolsUsed ?? []).includes(INVENTED_TOOL),
+      "toolsUsed reports a tool the turn never executed",
+    );
+
+    // `enhancedWithTools` is deliberately NOT asserted here. The provider sets
+    // it, but `NeuroLink.generate()` overwrites it with
+    // `Boolean(result.toolExecutions?.length)` before the caller sees it, so on
+    // this surface it means "a tool was dispatched", not "a tool ran". That the
+    // same field carries one meaning through the SDK and another through a
+    // provider handle is a pre-existing, cross-provider inconsistency — not
+    // something to redefine from inside a Bedrock fix. The provider-level value
+    // is aligned with `toolsUsed` in client.ts so the two stop disagreeing
+    // there.
+  } finally {
+    await local.close();
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
+});
+
 await test("a Vertex model-unavailable error never suggests the model that just failed", async () => {
   // Found by sweeping every feature across Vertex: asking for
   // `gemini-3-pro-preview-11-2025` in a project without access produced

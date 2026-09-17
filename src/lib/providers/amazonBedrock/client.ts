@@ -384,7 +384,23 @@ export class AmazonBedrockProvider extends BaseProvider {
       provider: this.getProviderName(),
       ...(finishReason !== undefined && { finishReason }),
       ...(rawFinishReason !== undefined && { rawFinishReason }),
-      toolsUsed: toolExecutions.map((execution) => execution.name),
+      // `toolsUsed` means RAN, not "was asked for". `runAgenticLoop` records
+      // every dispatch it performed, including the ones that never reached a
+      // tool: a name the model invented (TOOL_NOT_FOUND), one the breaker had
+      // already given up on (TOOL_PERMANENTLY_FAILED), and one that threw.
+      // Exactly those carry `error`; a call that reached the tool and got a
+      // value back does not. That is the same line `nativeGenerateLoop` draws
+      // — its `toolsUsed.push(name)` sits inside the try, after the guarded
+      // call returns — so filtering here makes Bedrock's generate path report
+      // what every other generate path reports, instead of inflating
+      // analytics, cost attribution and audit with calls that never ran.
+      //
+      // `toolCalls` and `toolExecutions` stay complete on purpose: they are
+      // the record of what the turn ATTEMPTED, and a failed attempt is
+      // precisely what a caller debugging a turn needs to see.
+      toolsUsed: toolExecutions
+        .filter((execution) => execution.error === undefined)
+        .map((execution) => execution.name),
       toolCalls: toolExecutions.map((execution) => ({
         toolCallId: execution.id,
         toolName: execution.name,
@@ -394,7 +410,9 @@ export class AmazonBedrockProvider extends BaseProvider {
         options,
         transformToolExecutions(toolExecutions),
       ),
-      enhancedWithTools: toolExecutions.length > 0,
+      enhancedWithTools: toolExecutions.some(
+        (execution) => execution.error === undefined,
+      ),
     };
   }
 
@@ -1344,9 +1362,15 @@ export class AmazonBedrockProvider extends BaseProvider {
             // alone left every streamed Bedrock turn reporting no tool calls,
             // however many it made.
             toolExecutions: outcome.result?.toolExecutions ?? [],
-            toolsUsed: (outcome.result?.toolExecutions ?? []).map(
-              (execution) => execution.name,
-            ),
+            // Same "ran, not asked for" rule as the generate path above.
+            // `toolCallCount` still derives from the unfiltered
+            // `toolExecutions`, which is correct — a dispatch that failed was
+            // still a call — so this list is a fallback today rather than an
+            // observable surface. It is filtered anyway so that the moment
+            // anything does surface it, it is not surfacing the same lie.
+            toolsUsed: (outcome.result?.toolExecutions ?? [])
+              .filter((execution) => execution.error === undefined)
+              .map((execution) => execution.name),
           },
           Date.now() - startTime,
           {
