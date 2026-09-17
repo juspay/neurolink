@@ -382,8 +382,9 @@ await test("a Claude-on-Vertex turn can be answered by a local endpoint", async 
   const restore = withVertexEnv();
   let text = "";
   let failure = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.stream({
       input: { text: "say hello" },
       provider: "vertex",
@@ -405,6 +406,7 @@ await test("a Claude-on-Vertex turn can be answered by a local endpoint", async 
     failure =
       error instanceof Error ? error.message.slice(0, 160) : String(error);
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -435,8 +437,9 @@ await test("the generate path reaches the same endpoint with the same credential
   const restore = withVertexEnv();
   let content = "";
   let failure = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.generate({
       input: { text: "say hello" },
       provider: "vertex",
@@ -450,6 +453,7 @@ await test("the generate path reaches the same endpoint with the same credential
     failure =
       error instanceof Error ? error.message.slice(0, 160) : String(error);
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -476,8 +480,9 @@ await test("a caller's tool is declared, executed, and its result returns to the
   const restore = withVertexEnv();
   const counter = { calls: 0 };
   let text = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.stream({
       input: { text: "look something up" },
       provider: "vertex",
@@ -495,6 +500,7 @@ await test("a caller's tool is declared, executed, and its result returns to the
   } catch {
     // Counts are what is pinned, not the outcome.
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -522,8 +528,9 @@ await test("a model that never stops calling tools is bounded by maxSteps", asyn
   const server = await startStandIn(() => toolTurn("lookup", { q: "x" }));
   const restore = withVertexEnv();
   const counter = { calls: 0 };
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.stream({
       input: { text: "loop forever" },
       provider: "vertex",
@@ -541,6 +548,7 @@ await test("a model that never stops calling tools is bounded by maxSteps", asyn
   } catch {
     // The dispatch count is what is pinned.
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -565,8 +573,9 @@ await test("a tool that always throws is dispatched a bounded number of times", 
   const server = await startStandIn(() => toolTurn("flaky", {}));
   const restore = withVertexEnv();
   let attempts = 0;
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.stream({
       input: { text: "keep trying" },
       provider: "vertex",
@@ -597,6 +606,7 @@ await test("a tool that always throws is dispatched a bounded number of times", 
   } catch {
     // The dispatch count is what is pinned.
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -622,8 +632,9 @@ await test("a structured turn that never calls final_result is forced to", async
   const restore = withVertexEnv();
   const counter = { calls: 0 };
   let reservedFailure = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.stream({
       input: { text: "answer with structure" },
       provider: "vertex",
@@ -643,6 +654,7 @@ await test("a structured turn that never calls final_result is forced to", async
     reservedFailure =
       error instanceof Error ? error.message.slice(0, 200) : String(error);
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -675,8 +687,9 @@ await test("the generate path declares and executes a caller's tools", async () 
   const restore = withVertexEnv();
   const counter = { calls: 0 };
   let content = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.generate({
       input: { text: "look something up" },
       provider: "vertex",
@@ -691,6 +704,7 @@ await test("the generate path declares and executes a caller's tools", async () 
   } catch {
     // Counts are what is pinned.
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -735,8 +749,9 @@ await test("a stream turn with a caller tool AND a schema declares both and retu
   const counter = { calls: 0 };
   let aggregated = "";
   let streamFailure = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.stream({
       input: { text: "look it up, then answer with structure" },
       provider: "vertex",
@@ -758,6 +773,7 @@ await test("a stream turn with a caller tool AND a schema declares both and retu
     streamFailure =
       error instanceof Error ? error.message.slice(0, 200) : String(error);
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -810,8 +826,9 @@ await test("a generate turn with a caller tool AND a schema declares both and re
   let structuredData: unknown;
   let jsonTruncated: unknown;
   let generateFailure = "";
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink();
+    nl = new NeuroLink();
     const result = await nl.generate({
       input: { text: "look it up, then answer with structure" },
       provider: "vertex",
@@ -830,6 +847,7 @@ await test("a generate turn with a caller tool AND a schema declares both and re
     generateFailure =
       error instanceof Error ? error.message.slice(0, 200) : String(error);
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
   }
@@ -991,8 +1009,9 @@ await test("a deferred tool hydrated mid-turn is executed and observed with a to
   const mcp = await startMockMcpServer();
   const restore = withVertexEnv();
   let externalToolCount = 0;
+  let nl: InstanceType<typeof NeuroLink> | undefined;
   try {
-    const nl = new NeuroLink({ tools: { discovery: true } });
+    nl = new NeuroLink({ tools: { discovery: true } });
     await nl.addExternalMCPServer("late-server", {
       id: "late-server",
       name: "late-server",
@@ -1026,6 +1045,7 @@ await test("a deferred tool hydrated mid-turn is executed and observed with a to
   } catch {
     // Counts and spans are what is pinned, not the outcome.
   } finally {
+    await nl?.shutdown();
     restore();
     await server.close();
     await mcp.close();

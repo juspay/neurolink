@@ -102,9 +102,14 @@ await test("mapThinkingLevelToBudget pins the level->budget fractions (no live c
     minimal === range.min && high === range.max,
     "precondition failed: minimal/high did not pin the range's floor/ceiling",
   );
+  // Pin the exact budgets, not merely their order. A changed low/medium
+  // fraction — or a changed rounding rule — still lands strictly between the
+  // endpoints, so an ordering assertion passes while the mapping has moved
+  // underneath it. These four integers are what the 0 / 0.25 / 0.55 / 1
+  // fractions produce over [128, 24576].
   assert(
-    minimal < low && low < medium && medium < high,
-    "thinkingLevel fractions did not produce a strictly increasing budget across minimal/low/medium/high",
+    minimal === 128 && low === 6240 && medium === 13574 && high === 24576,
+    "thinkingLevel fractions no longer map to the pinned minimal/low/medium/high budgets",
   );
 });
 
@@ -189,7 +194,7 @@ await test("gemini-2.5-flash accepts thinkingLevel:high and thinks (non-regressi
   );
 });
 
-await test("gemini-2.5-flash-lite:minimal uses a smaller budget than :high", async () => {
+await test("gemini-2.5-flash-lite accepts both thinkingLevel extremes and thinks on high", async () => {
   skipUnlessProviderAvailable(PROVIDER);
 
   // Confirms the fix is genuinely per-level, not a fixed budget dressed up as
@@ -223,10 +228,16 @@ await test("gemini-2.5-flash-lite:minimal uses a smaller budget than :high", asy
     "precondition failed: reasoningTokens was not a number on one of the two flash-lite turns",
   );
 
+  // Deliberately NOT comparing the two turns' reasoningTokens. Gemini
+  // documents thinkingBudget as a SOFT upper limit — the model spends what the
+  // prompt needs and routinely spends less — so live usage is not monotonic in
+  // the requested budget, and that comparison can fail on a turn whose emitted
+  // budgets were entirely correct. The mapping itself is pinned exactly by the
+  // no-live-call test at the top of this file. What a live turn can honestly
+  // prove is that the request was accepted and the model actually thought.
   assert(
-    (minimalResult.reasoningTokens ?? Infinity) <
-      (highResult.reasoningTokens ?? -1),
-    "flash-lite thinkingLevel minimal did not use a smaller budget than high",
+    (highResult.reasoningTokens ?? 0) > 0,
+    "the flash-lite high-thinkingLevel turn reported no reasoning tokens",
   );
 });
 

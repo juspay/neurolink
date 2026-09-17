@@ -428,7 +428,7 @@ const CELLS: Cell[] = [
 // Deliberately narrow: only infra-shaped statuses (429/5xx) are skippable —
 // generic 4xx / "bad request" would mask real request-construction bugs.
 function isInfraError(message: string): boolean {
-  return /api key|apikey|credential|security token|unauthor|permission|quota|rate.?limit|too many requests|429|not found|unknown model|model.*not|timed.?out|region|ENOTFOUND|ECONNREFUSED|ECONNRESET|socket hang|fetch failed|network|timeout|deadline|unavailable|overloaded|throttl|capacity|exhausted|billing|credits|insufficient|payment|402|access|forbidden|invalid.*model|does not exist|status (429|500|502|503|504)|internal server|service unavailable|max_tokens is too large|supports at most|completion tokens|maximum context|context length/i.test(
+  return /api key|apikey|credential|security token|unauthor|permission|quota|rate.?limit|too many requests|429|not found|unknown model|model.*not|timed[ -]?out|region|ENOTFOUND|ECONNREFUSED|ECONNRESET|socket hang|fetch failed|network|timeout|deadline|unavailable|overloaded|throttl|capacity|exhausted|billing|credits|insufficient|payment|402|access|forbidden|invalid.*model|does not exist|status (429|500|502|503|504)|internal server|service unavailable|max_tokens is too large|supports at most|completion tokens|maximum context|context length/i.test(
     message,
   );
 }

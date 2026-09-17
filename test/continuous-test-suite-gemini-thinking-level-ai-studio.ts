@@ -132,7 +132,7 @@ await test("gemini-2.5-pro accepts thinkingLevel:high and thinks (non-regression
   );
 });
 
-await test("gemini-2.5-flash:minimal uses a smaller budget than :high (AI Studio)", async () => {
+await test("gemini-2.5-flash accepts both thinkingLevel extremes and thinks on high (AI Studio)", async () => {
   skipUnlessProviderAvailable(PROVIDER);
 
   // Confirms the fix is genuinely per-level, not a fixed budget dressed up
@@ -166,10 +166,13 @@ await test("gemini-2.5-flash:minimal uses a smaller budget than :high (AI Studio
     "precondition failed: reasoningTokens was not a number on one of the two flash turns (AI Studio)",
   );
 
+  // Same reason as the Vertex suite: thinkingBudget is a soft upper limit, so
+  // comparing two live turns' reasoningTokens tests the model's appetite, not
+  // the budget this fix emits. The mapping is pinned deterministically in
+  // test/continuous-test-suite-gemini-thinking-level.ts.
   assert(
-    (minimalResult.reasoningTokens ?? Infinity) <
-      (highResult.reasoningTokens ?? -1),
-    "gemini-2.5-flash (AI Studio) thinkingLevel minimal did not use a smaller budget than high",
+    (highResult.reasoningTokens ?? 0) > 0,
+    "the flash high-thinkingLevel turn (AI Studio) reported no reasoning tokens",
   );
 });
 
