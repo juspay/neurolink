@@ -8,7 +8,7 @@
 
 > **SocketWorkerRuntimeOptions** = `object`
 
-Defined in: [types/proxy.ts:3218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3218)
+Defined in: [types/proxy.ts:3222](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3222)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3218](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **onDrained?**: () => `void`
 
-Defined in: [types/proxy.ts:3219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3219)
+Defined in: [types/proxy.ts:3223](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3223)
 
 #### Returns
 

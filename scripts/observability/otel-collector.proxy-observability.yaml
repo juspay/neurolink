@@ -38,8 +38,26 @@ exporters:
       stream-name: ${env:NEUROLINK_PROXY_STREAM_HEADER}
     tls:
       insecure: true
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 4096
+      storage: file_storage
 
 extensions:
+  file_storage:
+    directory: /var/lib/otelcol/storage
+    create_directory: true
+    compaction:
+      directory: /var/lib/otelcol/compaction
+      on_start: true
+      on_rebound: true
+
   health_check:
     endpoint: 0.0.0.0:13133
 
@@ -47,7 +65,7 @@ extensions:
     endpoint: 0.0.0.0:1777
 
 service:
-  extensions: [health_check, pprof]
+  extensions: [file_storage, health_check, pprof]
 
   pipelines:
     traces:

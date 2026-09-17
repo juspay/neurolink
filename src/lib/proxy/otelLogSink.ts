@@ -33,8 +33,16 @@ let provider: LoggerProvider | undefined;
 let restoreConsole: (() => void) | undefined;
 const queues: Array<ReturnType<typeof createTrackedProcessor>> = [];
 const bodyPublications = new Map<string, ProxyBodyPublicationProgress>();
+const bodyPublicationDeadlines = new WeakMap<
+  ProxyBodyPublicationProgress,
+  number
+>();
 let bodyPublicationChain = Promise.resolve();
 let shuttingDown = false;
+const BODY_OTLP_CHUNK_SIZE = 128 * 1024;
+const OTLP_EXPORT_TIMEOUT_MS = 30_000;
+const OTLP_EXPORT_CALLBACK_DEADLINE_MS = OTLP_EXPORT_TIMEOUT_MS + 1_000;
+const BODY_PUBLICATION_ACTIVE_DEADLINE_MS = 20_000;
 const bodyDelivery = {
   attempted: 0,
   transportAcknowledged: 0,
@@ -131,7 +139,10 @@ function createTrackedProcessor(
       }
     });
   };
-  const transport = new OTLPLogExporter({ url, timeoutMillis: 5000 });
+  const transport = new OTLPLogExporter({
+    url,
+    timeoutMillis: OTLP_EXPORT_TIMEOUT_MS,
+  });
   const exporter: LogRecordExporter = {
     export(records, callback) {
       let settled = false;
@@ -141,7 +152,7 @@ function createTrackedProcessor(
             code: ExportResultCode.FAILED,
             error: new Error("OTLP export callback deadline exceeded"),
           }),
-        6_000,
+        OTLP_EXPORT_CALLBACK_DEADLINE_MS,
       );
       deadline.unref();
       const settle = (result: ExportResult): void => {
@@ -166,7 +177,11 @@ function createTrackedProcessor(
           const publication =
             typeof id === "string" ? bodyPublications.get(id) : undefined;
           if (publication) {
-            if (result.code === ExportResultCode.SUCCESS) {
+            const activeDeadline = bodyPublicationDeadlines.get(publication);
+            if (
+              result.code === ExportResultCode.SUCCESS &&
+              (activeDeadline === undefined || Date.now() < activeDeadline)
+            ) {
               publication.acknowledged++;
             } else {
               publication.unconfirmed++;
@@ -194,7 +209,7 @@ function createTrackedProcessor(
     maxQueueSize: capacity,
     maxExportBatchSize: 64,
     scheduledDelayMillis: 1000,
-    exportTimeoutMillis: 6000,
+    exportTimeoutMillis: OTLP_EXPORT_CALLBACK_DEADLINE_MS,
   });
   const processor: LogRecordProcessor = {
     onEmit(record) {
@@ -301,22 +316,26 @@ export async function publishProxyOtelBody(
     emitted: 0,
   };
   bodyPublications.set(captureId, progress);
-  const deadline = Date.now() + 20_000;
+  let deferredRelease: Promise<void> | undefined;
   const operation = bodyPublicationChain.then(
     async (): Promise<ProxyBodyDeliveryResult> => {
       const queue = queues.find((candidate) => candidate.kind === "bodies");
-      if (!queue || Date.now() >= deadline) {
+      if (!queue) {
         return {
           status: "rejected",
           acknowledgedChunks: 0,
           unconfirmedChunks: 0,
           droppedChunks: 0,
-          reason: !queue
-            ? "body_exporter_unavailable"
-            : "body_publication_deadline",
+          reason: "body_exporter_unavailable",
         };
       }
-      const chunks = splitUtf8StringByBytes(body, 16_000);
+      // A capture owns bounded publication memory while waiting behind earlier
+      // captures. Start its active deadline only when it reaches the head of
+      // the chain; healthy queued captures must not expire solely because an
+      // earlier export used its transport timeout.
+      const deadline = Date.now() + BODY_PUBLICATION_ACTIVE_DEADLINE_MS;
+      bodyPublicationDeadlines.set(progress, deadline);
+      const chunks = splitUtf8StringByBytes(body, BODY_OTLP_CHUNK_SIZE);
       const awaitSettlement = () =>
         new Promise<void>((resolve) => {
           const check = () => {
@@ -331,6 +350,78 @@ export async function publishProxyOtelBody(
           progress.notify = check;
           check();
         });
+      const resultFromProgress = (
+        snapshot: Pick<
+          ProxyBodyPublicationProgress,
+          "acknowledged" | "unconfirmed" | "dropped" | "emitted"
+        >,
+        reason?: string,
+      ): ProxyBodyDeliveryResult => {
+        const pending = Math.max(
+          0,
+          snapshot.emitted -
+            snapshot.acknowledged -
+            snapshot.unconfirmed -
+            snapshot.dropped,
+        );
+        const unconfirmedChunks = snapshot.unconfirmed + pending;
+        const status =
+          snapshot.emitted === 0 && chunks.length > 0
+            ? "rejected"
+            : snapshot.dropped || snapshot.emitted !== chunks.length
+              ? "partial"
+              : unconfirmedChunks
+                ? "export_unconfirmed"
+                : "transport_acknowledged";
+        return {
+          status,
+          expectedChunks: chunks.length,
+          acknowledgedChunks: snapshot.acknowledged,
+          unconfirmedChunks,
+          droppedChunks: snapshot.dropped,
+          notSubmittedChunks: chunks.length - snapshot.emitted,
+          ...(reason ? { reason } : {}),
+        };
+      };
+      const settleCurrentBatch = async (): Promise<
+        ProxyBodyDeliveryResult | undefined
+      > => {
+        const currentProgress = () => ({
+          acknowledged: progress.acknowledged,
+          unconfirmed: progress.unconfirmed,
+          dropped: progress.dropped,
+          emitted: progress.emitted,
+        });
+        const settlement = queue.processor.forceFlush().then(awaitSettlement);
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) {
+          deferredRelease = settlement.catch(() => undefined);
+          return resultFromProgress(
+            currentProgress(),
+            "body_publication_deadline",
+          );
+        }
+        let timer: NodeJS.Timeout | undefined;
+        const completed = await Promise.race([
+          settlement.then(() => true),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => resolve(false), remainingMs);
+            timer.unref?.();
+          }),
+        ]).finally(() => clearTimeout(timer));
+        if (!completed || Date.now() >= deadline) {
+          if (!completed) {
+            // The exporter callback owns the submitted records until it settles.
+            // Keep the capture identity and memory reservation alive meanwhile.
+            deferredRelease = settlement.catch(() => undefined);
+          }
+          return resultFromProgress(
+            currentProgress(),
+            "body_publication_deadline",
+          );
+        }
+        return undefined;
+      };
       let reason: string | undefined;
       try {
         for (let offset = 0; offset < chunks.length; offset += 64) {
@@ -341,16 +432,18 @@ export async function publishProxyOtelBody(
           // Ordinary body records from an external logger may share this queue.
           // Wait for them before admitting any part of this batch.
           while (queue.state.outstanding > queue.capacity - 64) {
-            await queue.processor.forceFlush();
-            if (Date.now() >= deadline) {
-              throw new Error("body_publication_deadline");
+            const deadlineResult = await settleCurrentBatch();
+            if (deadlineResult) {
+              return deadlineResult;
             }
           }
           for (let i = offset; i < Math.min(offset + 64, chunks.length); i++) {
             emit(chunks[i], i, chunks.length);
           }
-          await queue.processor.forceFlush();
-          await awaitSettlement();
+          const deadlineResult = await settleCurrentBatch();
+          if (deadlineResult) {
+            return deadlineResult;
+          }
           if (progress.unconfirmed || progress.dropped) {
             reason = "body_export_unconfirmed";
             break;
@@ -363,27 +456,31 @@ export async function publishProxyOtelBody(
           error.message === "body_publication_deadline"
             ? "body_publication_deadline"
             : "body_publication_failed";
-        // Retain ownership of already submitted chunks until their callbacks settle.
-        await queue.processor.forceFlush().catch(() => undefined);
-        await awaitSettlement();
+        // Do not let error cleanup hold the serial publication chain past this
+        // capture's deadline. Exporter callbacks still own submitted chunks, so
+        // retain the capture identity and memory reservation until they settle.
+        const settlement = queue.processor
+          .forceFlush()
+          .catch(() => undefined)
+          .then(awaitSettlement);
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) {
+          deferredRelease = settlement;
+        } else {
+          let timer: NodeJS.Timeout | undefined;
+          const completed = await Promise.race([
+            settlement.then(() => true),
+            new Promise<boolean>((resolve) => {
+              timer = setTimeout(() => resolve(false), remainingMs);
+              timer.unref?.();
+            }),
+          ]).finally(() => clearTimeout(timer));
+          if (!completed) {
+            deferredRelease = settlement;
+          }
+        }
       }
-      const status =
-        progress.emitted === 0 && chunks.length > 0
-          ? "rejected"
-          : progress.dropped || progress.emitted !== chunks.length
-            ? "partial"
-            : progress.unconfirmed
-              ? "export_unconfirmed"
-              : "transport_acknowledged";
-      return {
-        status,
-        expectedChunks: chunks.length,
-        acknowledgedChunks: progress.acknowledged,
-        unconfirmedChunks: progress.unconfirmed,
-        droppedChunks: progress.dropped,
-        notSubmittedChunks: chunks.length - progress.emitted,
-        ...(reason ? { reason } : {}),
-      };
+      return resultFromProgress(progress, reason);
     },
   );
   bodyPublicationChain = operation.then(
@@ -403,9 +500,16 @@ export async function publishProxyOtelBody(
     }
     return result;
   } finally {
-    bodyPublications.delete(captureId);
-    bodyDelivery.pending--;
-    bodyDelivery.pendingBytes -= bytes;
+    const release = () => {
+      bodyPublications.delete(captureId);
+      bodyDelivery.pending--;
+      bodyDelivery.pendingBytes -= bytes;
+    };
+    if (deferredRelease) {
+      void deferredRelease.finally(release);
+    } else {
+      release();
+    }
   }
 }
 

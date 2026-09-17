@@ -42,6 +42,7 @@ let processInstanceId = randomUUID();
 let sessionHashKey: Buffer = randomBytes(32);
 let nextSequence = 1;
 let attempted = 0;
+let otelSubmitted = 0;
 let enqueued = 0;
 let written = 0;
 let dropped = 0;
@@ -504,6 +505,7 @@ function enqueueLifecycleEvent(
         filePrefix === "proxy-supervisor" ? "supervisor" : "lifecycle",
         record,
       );
+      otelSubmitted += 1;
       return;
     }
     queue.push({
@@ -592,6 +594,7 @@ export function getProxyLifecycleLoggerSnapshot(): ProxyLifecycleLoggerSnapshot 
     processInstanceId,
     nextSequence,
     attempted,
+    otelSubmitted,
     enqueued,
     written,
     dropped,
@@ -627,6 +630,7 @@ export function resetProxyLifecycleLoggerForTests(): void {
   sessionHashKey = randomBytes(32);
   nextSequence = 1;
   attempted = 0;
+  otelSubmitted = 0;
   enqueued = 0;
   written = 0;
   dropped = 0;

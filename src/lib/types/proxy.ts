@@ -871,6 +871,8 @@ export type ProxyTelemetryCheck = {
 /** Small stored metadata used by the doctor; bodies are queried separately. */
 export type ProxyTelemetryStoredRecord = Partial<RequestLogEntry> & {
   recordedAtMicroseconds?: number;
+  id?: string;
+  at?: string;
   captureId?: string;
   bodySha256?: string;
   redactedBodyBytes?: number;
@@ -2157,6 +2159,8 @@ export type ProxyLifecycleLoggerSnapshot = {
   processInstanceId: string;
   nextSequence: number;
   attempted: number;
+  /** Records delegated to the OTel sink; delivery is reported by its queues. */
+  otelSubmitted: number;
   enqueued: number;
   written: number;
   dropped: number;

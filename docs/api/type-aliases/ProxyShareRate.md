@@ -8,7 +8,7 @@
 
 > **ProxyShareRate** = `object`
 
-Defined in: [types/proxy.ts:3785](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3785)
+Defined in: [types/proxy.ts:3789](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3789)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3785](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **perMinute?**: `number`
 
-Defined in: [types/proxy.ts:3786](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3786)
+Defined in: [types/proxy.ts:3790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3790)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:3786](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **concurrency?**: `number`
 
-Defined in: [types/proxy.ts:3787](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3787)
+Defined in: [types/proxy.ts:3791](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3791)

@@ -8,7 +8,7 @@
 
 > **ClaudeFinalRequestLogger** = (`status`, `accountLabel`, `accountType`, `errorType?`, `errorMessage?`, `extra?`) => `void`
 
-Defined in: [types/proxy.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1026)
+Defined in: [types/proxy.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1028)
 
 ## Parameters
 

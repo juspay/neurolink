@@ -8,7 +8,7 @@
 
 > **AnthropicUsageWindow** = `object`
 
-Defined in: [types/proxy.ts:1568](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1568)
+Defined in: [types/proxy.ts:1570](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1570)
 
 One utilization window from the OAuth usage endpoint (wire shape, loose).
 
@@ -18,7 +18,7 @@ One utilization window from the OAuth usage endpoint (wire shape, loose).
 
 > `optional` **utilization?**: `number` \| `null`
 
-Defined in: [types/proxy.ts:1570](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1570)
+Defined in: [types/proxy.ts:1572](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1572)
 
 0-100 percent (note: NOT the 0-1 fraction used by headers).
 
@@ -28,6 +28,6 @@ Defined in: [types/proxy.ts:1570](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **resets_at?**: `string` \| `null`
 
-Defined in: [types/proxy.ts:1572](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1572)
+Defined in: [types/proxy.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1574)
 
 ISO-8601 timestamp.

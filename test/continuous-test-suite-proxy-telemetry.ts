@@ -2390,6 +2390,12 @@ await test("OTel-only exports finals, attempts, lifecycle, redacted bodies and c
       getProxyLifecycleLoggerSnapshot().admissionPolicy,
       "best-effort",
     );
+    assert(
+      getProxyLifecycleLoggerSnapshot().otelSubmitted >= 3,
+      "OTel lifecycle delegation was not counted",
+    );
+    assertEqual(getProxyLifecycleLoggerSnapshot().enqueued, 0);
+    assertEqual(getProxyLifecycleLoggerSnapshot().written, 0);
     const { proxyGuardCommand } = await import("../src/cli/commands/proxy.js");
     const guardHandler = proxyGuardCommand.handler;
     if (typeof guardHandler !== "function") {
@@ -2816,6 +2822,10 @@ await test("the observed 7.3 MB JSON request is admitted, redacted and delivered
       const chunks = received.filter(
         (r) => otelAttribute(r, "proxy.record_kind") === "body",
       );
+      assert(
+        chunks.length <= 64,
+        "large capture used excessive small OTel records",
+      );
       const body = JSON.parse(chunks.map((r) => r.body.stringValue).join(""));
       assertEqual(body.message, message);
       assertEqual(body.secret, "[REDACTED]");
@@ -2929,7 +2939,7 @@ await test("shutdown waits for an automatic metadata export already in flight", 
   );
 });
 
-await test("publication expires without false partial delivery when shared body capacity is occupied", async () => {
+await test("late export is unconfirmed while the next queued capture gets a fresh active deadline", async () => {
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -2940,30 +2950,202 @@ await test("publication expires without false partial delivery when shared body 
       response.writeHead(200, { "content-type": "application/json" }).end("{}");
     },
     async (received) => {
-      const {
-        emitProxyOtelEvent,
-        publishProxyOtelBody,
-        getProxyOtelLogSnapshot,
-      } = await import("../src/lib/proxy/otelLogSink.js");
-      for (let i = 0; i < 200; i++) {
-        emitProxyOtelEvent("body", { requestId: `shared-${i}` });
-      }
+      const { flushProxyOtelLogs, getProxyOtelLogSnapshot } =
+        await import("../src/lib/proxy/otelLogSink.js");
       const now = Date.now;
-      let emitted = 0;
       try {
-        const publication = publishProxyOtelBody("expired", "fixture", () => {
-          emitted++;
+        await logBodyCapture({
+          timestamp: new Date().toISOString(),
+          requestId: "deadline-first",
+          phase: "client_request",
+          model: "fixture",
+          stream: false,
+          body: { message: "first" },
         });
-        await eventually(() => received.length === 200);
-        const expiredAt = now() + 21_000;
-        Date.now = () => expiredAt;
+        await eventually(() =>
+          received.some(
+            (record) => otelAttribute(record, "proxy.record_kind") === "body",
+          ),
+        );
+        await logBodyCapture({
+          timestamp: new Date().toISOString(),
+          requestId: "deadline-second",
+          phase: "client_request",
+          model: "fixture",
+          stream: false,
+          body: { message: "second" },
+        });
+        Date.now = () => now() + 21_000;
         release();
-        const result = await publication;
-        assertEqual(result.status, "rejected");
-        assertEqual(result.reason, "body_publication_deadline");
-        assertEqual(result.notSubmittedChunks, 1);
-        assertEqual(emitted, 0);
+        await flushRequestLogs();
+        await flushProxyOtelLogs();
+        const indexes = received
+          .filter(
+            (record) =>
+              otelAttribute(record, "proxy.record_kind") ===
+              "body_capture_index",
+          )
+          .map((record) => JSON.parse(record.body.stringValue));
+        assertEqual(indexes.length, 2);
+        const first = indexes.find(
+          (index) => index.requestId === "deadline-first",
+        );
+        const second = indexes.find(
+          (index) => index.requestId === "deadline-second",
+        );
+        assertEqual(first?.bodyDelivery.status, "export_unconfirmed");
+        assertEqual(first?.bodyDelivery.reason, "body_publication_deadline");
+        assertEqual(second?.bodyDelivery.status, "transport_acknowledged");
+        assert(
+          (first?.bodyDelivery.unconfirmedChunks ?? 0) > 0,
+          "late exporter acknowledgement was reported as timely delivery",
+        );
         assertEqual(getProxyOtelLogSnapshot().bodyDelivery.pendingBytes, 0);
+      } finally {
+        Date.now = now;
+        release();
+      }
+    },
+  );
+});
+
+await test("deadline results preserve chunks acknowledged while other exports remain pending", async () => {
+  let requests = 0;
+  let releasePending = () => {};
+  const pending = new Promise<void>((resolve) => {
+    releasePending = resolve;
+  });
+  await withBodyCollector(
+    async (_records, response) => {
+      requests++;
+      if (requests > 1) {
+        await pending;
+      }
+      response.writeHead(200, { "content-type": "application/json" }).end("{}");
+    },
+    async () => {
+      const { initializeProxyOtelLogs, publishProxyOtelBody } =
+        await import("../src/lib/proxy/otelLogSink.js");
+      const logger = initializeProxyOtelLogs()!.getLogger(
+        "body-publication-partial-deadline-fixture",
+      );
+      const now = Date.now;
+      const emit = (
+        captureId: string | undefined,
+        chunk: string,
+        chunkIndex: number,
+        totalChunks: number,
+      ) =>
+        logger.emit({
+          body: chunk,
+          attributes: {
+            "proxy.record_kind": "body",
+            ...(captureId ? { "body.capture_id": captureId } : {}),
+            "body.chunk_index": chunkIndex,
+            "body.chunk_count": totalChunks,
+          },
+        });
+      try {
+        const result = await publishProxyOtelBody(
+          "partial-deadline",
+          "x".repeat(128 * 1024 + 1),
+          (chunk, chunkIndex, totalChunks) => {
+            emit("partial-deadline", chunk, chunkIndex, totalChunks);
+            if (chunkIndex === 0) {
+              // Fill the first SDK batch so its acknowledgement can settle
+              // independently while the capture's second chunk stays pending.
+              for (let i = 0; i < 63; i++) {
+                emit(undefined, `filler-${i}`, i, 63);
+              }
+              Date.now = () => now() + 19_000;
+            }
+          },
+        );
+        assertEqual(result.status, "export_unconfirmed");
+        assertEqual(result.reason, "body_publication_deadline");
+        assertEqual(
+          result.acknowledgedChunks,
+          1,
+          "a settled chunk was reported as unconfirmed at the deadline",
+        );
+        assertEqual(result.unconfirmedChunks, 1);
+      } finally {
+        Date.now = now;
+        releasePending();
+      }
+    },
+  );
+});
+
+await test("publication error cleanup releases the serial chain at the active deadline", async () => {
+  let release = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await withBodyCollector(
+    async (_records, response) => {
+      await gate;
+      response.writeHead(200, { "content-type": "application/json" }).end("{}");
+    },
+    async () => {
+      const {
+        getProxyOtelLogSnapshot,
+        initializeProxyOtelLogs,
+        publishProxyOtelBody,
+      } = await import("../src/lib/proxy/otelLogSink.js");
+      const logger = initializeProxyOtelLogs()!.getLogger(
+        "body-publication-error-fixture",
+      );
+      const now = Date.now;
+      const emit = (
+        captureId: string,
+        chunk: string,
+        chunkIndex: number,
+        totalChunks: number,
+      ) =>
+        logger.emit({
+          body: chunk,
+          attributes: {
+            "proxy.record_kind": "body",
+            "body.capture_id": captureId,
+            "body.chunk_index": chunkIndex,
+            "body.chunk_count": totalChunks,
+          },
+        });
+      let secondEmitted = false;
+      try {
+        const first = publishProxyOtelBody(
+          "error-deadline-first",
+          "first",
+          (chunk, chunkIndex, totalChunks) => {
+            emit("error-deadline-first", chunk, chunkIndex, totalChunks);
+            Date.now = () => now() + 21_000;
+            throw new Error("fixture publication error");
+          },
+        );
+        const second = publishProxyOtelBody(
+          "error-deadline-second",
+          "second",
+          (chunk, chunkIndex, totalChunks) => {
+            secondEmitted = true;
+            emit("error-deadline-second", chunk, chunkIndex, totalChunks);
+          },
+        );
+        const firstResult = await first;
+        assertEqual(firstResult.status, "export_unconfirmed");
+        assertEqual(firstResult.reason, "body_publication_failed");
+        assertEqual(firstResult.unconfirmedChunks, 1);
+        await eventually(() => secondEmitted);
+        assert(
+          getProxyOtelLogSnapshot().bodyDelivery.pendingBytes > 0,
+          "late exporter callback lost capture ownership",
+        );
+        Date.now = now;
+        release();
+        assertEqual((await second).status, "transport_acknowledged");
+        await eventually(
+          () => getProxyOtelLogSnapshot().bodyDelivery.pendingBytes === 0,
+        );
       } finally {
         Date.now = now;
         release();
@@ -3658,9 +3840,44 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
             diskEnabled: false,
             otel: {
               initialized: true,
-              queues: runtimeQueues,
+              queues: [
+                "historical_runtime_failure",
+                "interval_runtime_failure",
+                "evicted_runtime_history",
+                "evicted_before_interval",
+              ].includes(mode)
+                ? runtimeQueues.map((queue, index) => ({
+                    ...queue,
+                    dropped: index === 0 ? 3 : queue.dropped,
+                    exportUnconfirmed:
+                      index === 0 ? 2 : queue.exportUnconfirmed,
+                    failureHistoryEvicted:
+                      index === 0 && mode.startsWith("evicted_")
+                        ? 3
+                        : queue.failureHistoryEvicted,
+                    recentFailures:
+                      index === 0
+                        ? [
+                            {
+                              id: "old-runtime-failure",
+                              at:
+                                mode === "interval_runtime_failure"
+                                  ? "1970-01-01T00:00:02.000Z"
+                                  : mode === "evicted_runtime_history"
+                                    ? "1970-01-01T00:00:04.000Z"
+                                    : "1970-01-01T00:00:00.500Z",
+                              reason: "queue_full",
+                              records: [],
+                            },
+                          ]
+                        : queue.recentFailures,
+                  }))
+                : runtimeQueues,
             },
-            bodyCapture: { rejected: 0, failed: 0 },
+            bodyCapture: {
+              rejected: mode === "historical_runtime_failure" ? 4 : 0,
+              failed: 0,
+            },
           },
         },
       });
@@ -3740,6 +3957,44 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
             }),
           },
         ];
+      } else if (query.sql.includes("proxy_record_kind='telemetry_delivery'")) {
+        hits =
+          mode === "interval_delivery_failure"
+            ? [
+                {
+                  _timestamp: 2_500_000,
+                  request_id: "",
+                  body: JSON.stringify({
+                    id: "interval-failure",
+                    at: "1970-01-01T00:00:02.000Z",
+                    reason: "queue_full",
+                    queue: "metadata",
+                  }),
+                },
+              ]
+            : mode.startsWith("malformed_delivery_")
+              ? [
+                  {
+                    _timestamp: 2_500_000,
+                    request_id: "",
+                    body: JSON.stringify({
+                      ...(mode === "malformed_delivery_missing_id"
+                        ? {}
+                        : { id: "malformed-failure" }),
+                      ...(mode === "malformed_delivery_missing_at"
+                        ? {}
+                        : {
+                            at:
+                              mode === "malformed_delivery_invalid_at"
+                                ? "not-a-timestamp"
+                                : "1970-01-01T00:00:02.000Z",
+                          }),
+                      reason: "queue_full",
+                      queue: "metadata",
+                    }),
+                  },
+                ]
+              : [];
       } else if (query.sql.includes("body_chunk_index")) {
         hits = [
           {
@@ -3789,13 +4044,21 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
     "supervisor_file",
     "supervisor_descriptors",
     "supervisor_unknown",
+    "interval_delivery_failure",
+    "interval_runtime_failure",
+    "evicted_runtime_history",
   ]) {
     assert(
       (await checkProxyTelemetry(options)).status !== "pass",
       "incomplete evidence passed the doctor",
     );
   }
-  for (mode of ["busy_collector", "sparse_collector"]) {
+  for (mode of [
+    "busy_collector",
+    "sparse_collector",
+    "historical_runtime_failure",
+    "evicted_before_interval",
+  ]) {
     assertEqual(
       (await checkProxyTelemetry(options)).status,
       "pass",
@@ -3810,6 +4073,22 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
     rejected = true;
   }
   assert(rejected, "partial backend query was accepted");
+  for (mode of [
+    "malformed_delivery_missing_id",
+    "malformed_delivery_missing_at",
+    "malformed_delivery_invalid_at",
+  ]) {
+    let malformedRejected = false;
+    try {
+      await checkProxyTelemetry(options);
+    } catch {
+      malformedRejected = true;
+    }
+    assert(
+      malformedRejected,
+      `${mode} allowed the telemetry doctor to produce a result`,
+    );
+  }
   let contacted = false;
   try {
     await checkProxyTelemetry({
@@ -4657,6 +4936,61 @@ await test("plain text and embedded error strings use shared credential redactio
         "diagnostic-text truncation removed the body tail",
       );
     },
+  );
+});
+
+await test("the shipped collector persists retries and OpenObserve has bounded retention", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const yaml = (await import("js-yaml")).default;
+  type CollectorConfig = {
+    exporters?: Record<
+      string,
+      {
+        sending_queue?: { storage?: string };
+        retry_on_failure?: { max_elapsed_time?: string };
+      }
+    >;
+    service?: { extensions?: string[] };
+  };
+  type ComposeConfig = {
+    services?: {
+      "otel-collector"?: { volumes?: string[] };
+      openobserve?: {
+        environment?: { ZO_COMPACT_DATA_RETENTION_DAYS?: string };
+      };
+    };
+  };
+  const collector = yaml.load(
+    await readFile(
+      "scripts/observability/otel-collector.proxy-observability.yaml",
+      "utf8",
+    ),
+  ) as CollectorConfig;
+  const exporter = collector.exporters?.["otlphttp/openobserve"];
+  assertEqual(exporter?.sending_queue?.storage, "file_storage");
+  assertEqual(exporter?.retry_on_failure?.max_elapsed_time, "0s");
+  assert(
+    collector.service?.extensions?.includes("file_storage") ?? false,
+    "file storage extension is not active",
+  );
+  const compose = yaml.load(
+    await readFile(
+      "scripts/observability/docker-compose.proxy-observability.yaml",
+      "utf8",
+    ),
+  ) as ComposeConfig;
+  assert(
+    compose.services?.["otel-collector"]?.volumes?.some((volume: string) =>
+      volume.includes("otel-collector-data:/var/lib/otelcol"),
+    ) ?? false,
+    "collector file storage is not on a persistent volume",
+  );
+  assert(
+    String(
+      compose.services?.openobserve?.environment
+        ?.ZO_COMPACT_DATA_RETENTION_DAYS,
+    ).includes("NEUROLINK_OPENOBSERVE_RETENTION_DAYS"),
+    "OpenObserve retention is not configurable",
   );
 });
 

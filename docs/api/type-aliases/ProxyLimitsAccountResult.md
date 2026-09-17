@@ -8,7 +8,7 @@
 
 > **ProxyLimitsAccountResult** = `object`
 
-Defined in: [types/proxy.ts:1640](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1640)
+Defined in: [types/proxy.ts:1642](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1642)
 
 Per-account result inside a GET /limits response.
 
@@ -18,7 +18,7 @@ Per-account result inside a GET /limits response.
 
 > **account**: `string`
 
-Defined in: [types/proxy.ts:1642](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1642)
+Defined in: [types/proxy.ts:1644](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1644)
 
 Account label (quota-store key).
 
@@ -28,7 +28,7 @@ Account label (quota-store key).
 
 > **key**: `string`
 
-Defined in: [types/proxy.ts:1644](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1644)
+Defined in: [types/proxy.ts:1646](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1646)
 
 Token-store key ("anthropic:<label>" or "codex:<label>").
 
@@ -38,7 +38,7 @@ Token-store key ("anthropic:<label>" or "codex:<label>").
 
 > **provider**: [`ProxyAccountProvider`](ProxyAccountProvider.md)
 
-Defined in: [types/proxy.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1650)
+Defined in: [types/proxy.ts:1652](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1652)
 
 Which pool engine owns this login. Two logins can share a label — an
 operator may use one email for both — so the key, not the label, is the
@@ -50,7 +50,7 @@ identity, and this names the engine without parsing the key's prefix.
 
 > **type**: [`ProxyAccountType`](ProxyAccountType.md)
 
-Defined in: [types/proxy.ts:1651](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1651)
+Defined in: [types/proxy.ts:1653](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1653)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:1651](https://github.com/juspay/neurolink/blob/relea
 
 > **status**: `"refreshed"` \| `"throttled"` \| `"skipped_api_key"` \| `"snapshot"` \| `"error"`
 
-Defined in: [types/proxy.ts:1652](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1652)
+Defined in: [types/proxy.ts:1654](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1654)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/proxy.ts:1652](https://github.com/juspay/neurolink/blob/relea
 
 > **quota**: [`AccountQuota`](AccountQuota.md) \| `null`
 
-Defined in: [types/proxy.ts:1654](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1654)
+Defined in: [types/proxy.ts:1656](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1656)
 
 Fresh quota on "refreshed"; last known snapshot otherwise (may be null).
 
@@ -76,7 +76,7 @@ Fresh quota on "refreshed"; last known snapshot otherwise (may be null).
 
 > `optional` **error?**: `string`
 
-Defined in: [types/proxy.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1655)
+Defined in: [types/proxy.ts:1657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1657)
 
 ---
 
@@ -84,7 +84,7 @@ Defined in: [types/proxy.ts:1655](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **coolingUntil?**: `number`
 
-Defined in: [types/proxy.ts:1656](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1656)
+Defined in: [types/proxy.ts:1658](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1658)
 
 ---
 
@@ -92,4 +92,4 @@ Defined in: [types/proxy.ts:1656](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **coolingReason?**: [`AccountCoolingReason`](AccountCoolingReason.md)
 
-Defined in: [types/proxy.ts:1657](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1657)
+Defined in: [types/proxy.ts:1659](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1659)

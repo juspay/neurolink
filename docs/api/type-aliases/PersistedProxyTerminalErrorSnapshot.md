@@ -8,7 +8,7 @@
 
 > **PersistedProxyTerminalErrorSnapshot** = `object`
 
-Defined in: [types/proxy.ts:1417](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1417)
+Defined in: [types/proxy.ts:1419](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1419)
 
 Versioned terminal-error snapshot isolated from rolling-worker counter writes.
 
@@ -18,7 +18,7 @@ Versioned terminal-error snapshot isolated from rolling-worker counter writes.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:1418](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1418)
+Defined in: [types/proxy.ts:1420](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1420)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1418](https://github.com/juspay/neurolink/blob/relea
 
 > **revision**: `number`
 
-Defined in: [types/proxy.ts:1419](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1419)
+Defined in: [types/proxy.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1421)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1419](https://github.com/juspay/neurolink/blob/relea
 
 > **updatedAt**: `number`
 
-Defined in: [types/proxy.ts:1420](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1420)
+Defined in: [types/proxy.ts:1422](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1422)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:1420](https://github.com/juspay/neurolink/blob/relea
 
 > **journal**: [`ProxyTerminalErrorJournal`](ProxyTerminalErrorJournal.md)
 
-Defined in: [types/proxy.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1421)
+Defined in: [types/proxy.ts:1423](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1423)

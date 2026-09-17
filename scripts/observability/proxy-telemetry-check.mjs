@@ -112,30 +112,6 @@ export async function checkProxyTelemetry({
       failureHistoryEvicted: q.failureHistoryEvicted,
     }),
   );
-  add(
-    "producer_delivery",
-    ["metadata", "bodies"].every((kind) =>
-      failures.some((q) => q.kind === kind),
-    ) &&
-      failures.every(
-        (q) =>
-          q.dropped === 0 &&
-          q.exportUnconfirmed === 0 &&
-          q.outstanding < q.capacity,
-      )
-      ? "pass"
-      : "warn",
-    failures,
-  );
-  add(
-    "capture_admission",
-    logs?.bodyCapture &&
-      logs.bodyCapture.rejected === 0 &&
-      logs.bodyCapture.failed === 0
-      ? "pass"
-      : "warn",
-    logs?.bodyCapture ?? { status: "unavailable" },
-  );
   for (const [signal, table] of [
     ["logs", backend.stream],
     ["traces", backend.stream],
@@ -165,13 +141,24 @@ export async function checkProxyTelemetry({
   }
   /** @type {Record<string, import("../../src/lib/types/index.js").ProxyTelemetryStoredRecord[]>} */
   const history = Object.create(null);
-  for (const kind of ["request_final", "body_capture_index", "lifecycle"]) {
+  for (const kind of [
+    "request_final",
+    "body_capture_index",
+    "lifecycle",
+    "telemetry_delivery",
+  ]) {
     const result = await queryProxyHistory({
       ...backend,
       // Capture publication is asynchronous. Include its bounded settling
       // window, and a request-start margin, when reconciling phases to finals.
-      startTime: kind === "body_capture_index" ? Math.max(0, startTime - 120e6) : startTime,
-      endTime: kind === "body_capture_index" ? Math.min(Date.now() * 1000, endTime + 120e6) : endTime,
+      startTime:
+        kind === "body_capture_index"
+          ? Math.max(0, startTime - 120e6)
+          : startTime,
+      endTime:
+        kind === "body_capture_index" || kind === "telemetry_delivery"
+          ? Math.min(Date.now() * 1000, endTime + 120e6)
+          : endTime,
       kind,
       maxRows,
       fetchImpl,
@@ -186,13 +173,143 @@ export async function checkProxyTelemetry({
       if (
         !value ||
         typeof value !== "object" ||
-        typeof value.requestId !== "string"
+        (kind === "telemetry_delivery"
+          ? typeof value.id !== "string" ||
+            typeof value.at !== "string" ||
+            !Number.isFinite(Date.parse(value.at))
+          : typeof value.requestId !== "string")
       ) {
         throw new Error("Stored telemetry metadata has an invalid schema");
       }
       return { ...value, recordedAtMicroseconds: Number(row._timestamp) };
     });
   }
+  /** @param {{at?: unknown}} row */
+  const failedInsideInterval = (row) => {
+    const at = Date.parse(typeof row.at === "string" ? row.at : "");
+    return (
+      Number.isFinite(at) &&
+      at * 1000 >= startTime &&
+      at * 1000 < endTime
+    );
+  };
+  const storedDeliveryFailures = history.telemetry_delivery.filter(
+    failedInsideInterval,
+  );
+  const runtimeDeliveryFailures = failures.flatMap((queue) =>
+    Array.isArray(queue.recentFailures)
+      ? queue.recentFailures.filter(
+          (failure) =>
+            failure &&
+            typeof failure === "object" &&
+            failedInsideInterval(failure),
+        )
+      : [],
+  );
+  const deliveryFailures = [
+    ...new Map(
+      [...storedDeliveryFailures, ...runtimeDeliveryFailures].map(
+        (failure, index) => [
+          typeof failure.id === "string"
+            ? failure.id
+            : `unidentified-${index}`,
+          failure,
+        ],
+      ),
+    ).values(),
+  ];
+  const currentProducerPressure = failures.some(
+    (queue) => queue.outstanding >= queue.capacity,
+  );
+  const runtimeFailureHistoryIncomplete = failures.some((queue) => {
+    if (!(Number(queue.failureHistoryEvicted) > 0)) {
+      return false;
+    }
+    if (!Array.isArray(queue.recentFailures) || !queue.recentFailures.length) {
+      return true;
+    }
+    const oldestRetainedFailure = Math.min(
+      ...queue.recentFailures.map((failure) =>
+        Date.parse(typeof failure?.at === "string" ? failure.at : ""),
+      ),
+    );
+    // The bounded runtime buffer proves absence only from its oldest retained
+    // failure onward. Older selected windows need stored recovery diagnostics;
+    // if those are missing, report uncertainty instead of a false pass.
+    return (
+      !Number.isFinite(oldestRetainedFailure) ||
+      startTime < oldestRetainedFailure * 1000
+    );
+  });
+  add(
+    "producer_delivery",
+    !["metadata", "bodies"].every((kind) =>
+      failures.some((queue) => queue.kind === kind),
+    )
+      ? "unverified"
+      : currentProducerPressure || deliveryFailures.length
+        ? "warn"
+        : runtimeFailureHistoryIncomplete
+          ? "unverified"
+          : "pass",
+    {
+      scope: "selected_interval",
+      deliveryFailures: deliveryFailures.length,
+      failureIds: deliveryFailures.slice(0, 50).map((row) => row.id),
+      sources: {
+        storedRecoveryDiagnostics: storedDeliveryFailures.length,
+        runtimeRecentFailures: runtimeDeliveryFailures.length,
+      },
+      currentPressure: currentProducerPressure,
+      runtimeFailureHistoryComplete: !runtimeFailureHistoryIncomplete,
+      workerLifetime: {
+        scope: "worker_lifetime",
+        queues: failures,
+      },
+    },
+  );
+  const captureIndexes = history.body_capture_index.filter((row) => {
+    const eventTime = Date.parse(
+      typeof row.timestamp === "string" ? row.timestamp : "",
+    );
+    const atMicroseconds = Number.isFinite(eventTime)
+      ? eventTime * 1000
+      : row.recordedAtMicroseconds;
+    return (
+      Number.isFinite(atMicroseconds) &&
+      (atMicroseconds ?? 0) >= startTime &&
+      (atMicroseconds ?? Infinity) < endTime
+    );
+  });
+  const unhealthyCaptures = captureIndexes.filter(
+    (row) =>
+      row.captureError !== undefined ||
+      ![
+        "transport_acknowledged",
+        "no_body",
+        "policy_excluded",
+      ].includes(row.bodyDelivery?.status ?? ""),
+  );
+  add(
+    "capture_admission",
+    !captureIndexes.length
+      ? "unverified"
+      : unhealthyCaptures.length
+        ? "warn"
+        : "pass",
+    {
+      scope: "selected_interval",
+      captures: captureIndexes.length,
+      unhealthy: unhealthyCaptures.length,
+      requestIds: unhealthyCaptures
+        .slice(0, 50)
+        .map((row) => row.requestId),
+      workerLifetime: {
+        scope: "worker_lifetime",
+        counters: logs?.bodyCapture ?? { status: "unavailable" },
+      },
+    },
+  );
   const finals = history.request_final,
     unique = new Set(finals.map((r) => r.requestId));
   add(

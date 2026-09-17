@@ -8,7 +8,7 @@
 
 > **ParsedSSEBuffer** = `object`
 
-Defined in: [types/proxy.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1177)
+Defined in: [types/proxy.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1179)
 
 Complete SSE events plus the trailing partial frame.
 
@@ -18,7 +18,7 @@ Complete SSE events plus the trailing partial frame.
 
 > **events**: [`ParsedSSEEvent`](ParsedSSEEvent.md)[]
 
-Defined in: [types/proxy.ts:1178](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1178)
+Defined in: [types/proxy.ts:1180](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1180)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:1178](https://github.com/juspay/neurolink/blob/relea
 
 > **remainder**: `string`
 
-Defined in: [types/proxy.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1179)
+Defined in: [types/proxy.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1181)

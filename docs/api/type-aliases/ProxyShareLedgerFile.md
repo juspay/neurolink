@@ -8,7 +8,7 @@
 
 > **ProxyShareLedgerFile** = `object`
 
-Defined in: [types/proxy.ts:4284](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4284)
+Defined in: [types/proxy.ts:4288](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4288)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4284](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4285](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4285)
+Defined in: [types/proxy.ts:4289](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4289)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:4285](https://github.com/juspay/neurolink/blob/relea
 
 > **buckets**: `Record`\<`string`, [`ProxyShareLedgerBucket`](ProxyShareLedgerBucket.md)\>
 
-Defined in: [types/proxy.ts:4286](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4286)
+Defined in: [types/proxy.ts:4290](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4290)

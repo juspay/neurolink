@@ -8,7 +8,7 @@
 
 > **RateLimitCoolingReason** = `Exclude`\<[`AccountCoolingReason`](AccountCoolingReason.md), `"auth"`\>
 
-Defined in: [types/proxy.ts:1228](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1228)
+Defined in: [types/proxy.ts:1230](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1230)
 
 How to cool an account after a genuine (non-anti-abuse) 429, derived from
 the response's quota headers + retry-after.

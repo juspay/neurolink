@@ -18,6 +18,14 @@ Small stored metadata used by the doctor; bodies are queried separately.
 
 > `optional` **recordedAtMicroseconds?**: `number`
 
+### id?
+
+> `optional` **id?**: `string`
+
+### at?
+
+> `optional` **at?**: `string`
+
 ### captureId?
 
 > `optional` **captureId?**: `string`

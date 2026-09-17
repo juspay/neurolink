@@ -8,7 +8,7 @@
 
 > **SuppressedVersion** = `object`
 
-Defined in: [types/proxy.ts:2830](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2830)
+Defined in: [types/proxy.ts:2834](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2834)
 
 Entry describing a version suppressed from auto-update.
 
@@ -18,7 +18,7 @@ Entry describing a version suppressed from auto-update.
 
 > **suppressedAt**: `string`
 
-Defined in: [types/proxy.ts:2831](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2831)
+Defined in: [types/proxy.ts:2835](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2835)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:2831](https://github.com/juspay/neurolink/blob/relea
 
 > **reason**: `string`
 
-Defined in: [types/proxy.ts:2832](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2832)
+Defined in: [types/proxy.ts:2836](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2836)

@@ -783,6 +783,46 @@ async function fetchProxyHealthVersion(
   }
 }
 
+/** Read both serving generations so an updated worker cannot hide a stale parent. */
+async function fetchProxyRuntimeVersions(
+  host: string,
+  port: number,
+): Promise<{
+  workerVersion?: string;
+  supervisorVersion?: string;
+  supervisorPid?: number;
+}> {
+  try {
+    const response = await fetch(`http://${host}:${port}/status`, {
+      headers: { connection: "close" },
+      signal: AbortSignal.timeout(3_000),
+    });
+    if (!response.ok) {
+      return {};
+    }
+    const data = (await response.json()) as {
+      version?: string;
+      autoUpdate?: {
+        supervisorVersion?: string | null;
+        supervisorPid?: number | null;
+      };
+    };
+    return {
+      ...(typeof data.version === "string"
+        ? { workerVersion: data.version }
+        : {}),
+      ...(typeof data.autoUpdate?.supervisorVersion === "string"
+        ? { supervisorVersion: data.autoUpdate.supervisorVersion }
+        : {}),
+      ...(typeof data.autoUpdate?.supervisorPid === "number"
+        ? { supervisorPid: data.autoUpdate.supervisorPid }
+        : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
 /**
  * After a failed rolling update, re-point the live supervisor at the reinstalled
  * running version (mirroring the forward path: record the pending target, then
@@ -824,6 +864,7 @@ async function setProxyUpdateDrain(
   host: string,
   port: number,
   draining: boolean,
+  supervisorRefresh = false,
 ): Promise<boolean> {
   const confirmState = async (): Promise<boolean> => {
     try {
@@ -850,7 +891,13 @@ async function setProxyUpdateDrain(
           "content-type": "application/json",
           "x-neurolink-update-token": PROXY_UPDATE_CONTROL_TOKEN,
         },
-        body: JSON.stringify({ action: draining ? "drain" : "resume" }),
+        body: JSON.stringify({
+          action: draining
+            ? supervisorRefresh
+              ? "drain_for_supervisor_refresh"
+              : "drain"
+            : "resume",
+        }),
         signal: AbortSignal.timeout(5_000),
       },
     );
@@ -1902,6 +1949,22 @@ export async function createProxyStartApp(params: {
     );
   });
 
+  let supervisorRefreshDrainLease: NodeJS.Timeout | undefined;
+  const scheduleSupervisorRefreshResume = (delayMs: number): void => {
+    clearTimeout(supervisorRefreshDrainLease);
+    const resumeWhenReady = (): void => {
+      if (resumeProxyConnections(readiness)) {
+        supervisorRefreshDrainLease = undefined;
+        return;
+      }
+      // Readiness can be transiently false during worker replacement. Keep a
+      // recovery lease until admission has actually reopened.
+      supervisorRefreshDrainLease = setTimeout(resumeWhenReady, 30_000);
+      supervisorRefreshDrainLease.unref?.();
+    };
+    supervisorRefreshDrainLease = setTimeout(resumeWhenReady, delayMs);
+    supervisorRefreshDrainLease.unref?.();
+  };
   app.post("/internal/update-control", async (c) => {
     const suppliedToken = c.req.header("x-neurolink-update-token");
     const expectedToken =
@@ -1912,11 +1975,17 @@ export async function createProxyStartApp(params: {
     const payload = await c.req
       .json<{ action?: string }>()
       .catch(() => ({ action: undefined }));
-    if (payload.action === "drain") {
+    if (
+      payload.action === "drain" ||
+      payload.action === "drain_for_supervisor_refresh"
+    ) {
       // A rolling worker must keep admitting until the supervisor has a ready
       // replacement. The legacy global drain can otherwise strand the listener
       // behind maintenance responses when its caller stalls or disappears.
-      if (isProxySocketWorkerProcess()) {
+      if (
+        isProxySocketWorkerProcess() &&
+        payload.action !== "drain_for_supervisor_refresh"
+      ) {
         return c.json(
           {
             error: "rolling_restart_required",
@@ -1929,10 +1998,17 @@ export async function createProxyStartApp(params: {
       if (!markProxyDrainingForUpdate(readiness)) {
         return c.json({ error: "proxy_not_ready" }, 409);
       }
+      if (payload.action === "drain_for_supervisor_refresh") {
+        // A crashed updater must not strand the current rolling worker in
+        // maintenance mode. A successful launchd refresh replaces this process.
+        scheduleSupervisorRefreshResume(35 * 60 * 1000);
+      }
     } else if (payload.action === "resume") {
       if (!resumeProxyConnections(readiness)) {
         return c.json({ error: "proxy_not_ready" }, 409);
       }
+      clearTimeout(supervisorRefreshDrainLease);
+      supervisorRefreshDrainLease = undefined;
     } else {
       return c.json({ error: "invalid_action" }, 400);
     }
@@ -5173,8 +5249,6 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           persistUpdaterState("record installed update", () =>
             recordUpdateInstalled(result.latestVersion),
           );
-          updateRetryAttempts = 0;
-          updateRetryVersion = null;
           logger.always(
             `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
           );
@@ -5201,24 +5275,31 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
         updateRestartInProgress = true;
         if (rollingSupervisor) {
-          logger.always(
-            `[updater] requesting rolling activation of v${result.latestVersion}`,
-          );
-          try {
-            process.kill(parentPid, "SIGUSR2");
-          } catch (activationError) {
-            updateRestartInProgress = false;
-            const message =
-              activationError instanceof Error
-                ? activationError.message
-                : String(activationError);
+          const activeVersions = await fetchProxyRuntimeVersions(host, port);
+          if (activeVersions.workerVersion === result.latestVersion) {
             logger.always(
-              `[updater] WARNING: rolling activation request failed: ${message}`,
+              `[updater] worker v${result.latestVersion} is already active; resuming supervisor refresh without another worker replacement`,
             );
-            persistUpdaterState("record update failure", () =>
-              recordUpdateFailure(result.latestVersion, "restart", message),
+          } else {
+            logger.always(
+              `[updater] requesting rolling activation of v${result.latestVersion}`,
             );
-            return;
+            try {
+              process.kill(parentPid, "SIGUSR2");
+            } catch (activationError) {
+              updateRestartInProgress = false;
+              const message =
+                activationError instanceof Error
+                  ? activationError.message
+                  : String(activationError);
+              logger.always(
+                `[updater] WARNING: rolling activation request failed: ${message}`,
+              );
+              persistUpdaterState("record update failure", () =>
+                recordUpdateFailure(result.latestVersion, "restart", message),
+              );
+              return;
+            }
           }
         } else {
           // Compatibility fallback for services installed before rolling
@@ -5283,6 +5364,158 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           }
         }
 
+        if (healthy && rollingSupervisor) {
+          const beforeRefresh = await fetchProxyRuntimeVersions(host, port);
+          if (beforeRefresh.supervisorVersion !== result.latestVersion) {
+            logger.always(
+              `[updater] worker v${result.latestVersion} is healthy; waiting for a safe supervisor refresh (supervisor v${beforeRefresh.supervisorVersion ?? "unknown"})`,
+            );
+            let lastRefreshDeferral = "";
+            const waitForSupervisorRefresh = async (quietWaitMs: number) => {
+              const window = await waitForProxyUpdateWindow({
+                quietThresholdMs: QUIET_THRESHOLD_MS,
+                quietWaitMs,
+                drainWaitMs: UPDATE_DRAIN_TIMEOUT_MS,
+                pollIntervalMs: UPDATE_ACTIVITY_POLL_MS,
+                getActivity: () => getProxyRuntimeActivity(host, port),
+                setDraining: async (draining) => {
+                  const changed = await setProxyUpdateDrain(
+                    host,
+                    port,
+                    draining,
+                    true,
+                  );
+                  if (changed) {
+                    logger.always(
+                      `[updater] ${draining ? "draining new inference requests for supervisor refresh" : "inference admission resumed"}`,
+                    );
+                  }
+                  return changed;
+                },
+                isStopping: () => guardStopping,
+                isParentAlive: () =>
+                  getProcessStatus(parentPid) !== "not_running",
+                onPhase: (phase, activity) => {
+                  const signature = `${phase}:${activity?.activeRequests ?? "unknown"}`;
+                  if (signature !== lastRefreshDeferral) {
+                    lastRefreshDeferral = signature;
+                    persistUpdaterState(
+                      "record supervisor refresh deferral",
+                      () =>
+                        recordUpdateDeferred(
+                          result.latestVersion,
+                          phase,
+                          activity?.activeRequests ?? null,
+                        ),
+                    );
+                  }
+                  logger.debug(
+                    `[updater] supervisor refresh ${phase} (${activity?.activeRequests ?? "unknown"} active requests)`,
+                  );
+                },
+              });
+              drainActive = drainActive || window.draining;
+              return window;
+            };
+
+            let refreshWindow = await waitForSupervisorRefresh(
+              NATURAL_WINDOW_WAIT_MS,
+            );
+            // A naturally quiet result still needs a short admission fence to
+            // close the race between the last activity poll and launchd.
+            if (refreshWindow.ready && !refreshWindow.draining) {
+              refreshWindow = await waitForSupervisorRefresh(0);
+            }
+            if (!refreshWindow.ready) {
+              logger.always(
+                `[updater] supervisor refresh deferred: ${refreshWindow.reason ?? "safe window unavailable"}`,
+              );
+              persistUpdaterState("record supervisor refresh deferral", () =>
+                recordUpdateDeferred(
+                  result.latestVersion,
+                  refreshWindow.reason === "drain_timeout"
+                    ? "drain_timeout"
+                    : "drain_unavailable",
+                  null,
+                ),
+              );
+              updateRestartInProgress = false;
+              scheduleUpdateRetry(
+                "supervisor refresh window unavailable",
+                result.latestVersion,
+              );
+              return;
+            }
+
+            logger.always(
+              `[updater] refreshing launchd supervisor at v${result.latestVersion}`,
+            );
+            const uid = process.getuid?.() ?? 501;
+            try {
+              execFileSync(
+                "launchctl",
+                ["kickstart", "-k", `gui/${uid}/${PLIST_LABEL}`],
+                { timeout: 10_000, stdio: "pipe" },
+              );
+              // The drained worker belongs to the replaced service. The new
+              // supervisor starts with admission open.
+              drainActive = false;
+            } catch (refreshError) {
+              const message =
+                refreshError instanceof Error
+                  ? refreshError.message
+                  : String(refreshError);
+              logger.always(
+                `[updater] WARNING: supervisor refresh failed: ${message}`,
+              );
+              persistUpdaterState("record supervisor refresh failure", () =>
+                recordUpdateFailure(
+                  result.latestVersion,
+                  "restart",
+                  `supervisor refresh failed: ${message}`,
+                ),
+              );
+              updateRestartInProgress = false;
+              scheduleUpdateRetry(
+                "supervisor refresh failed",
+                result.latestVersion,
+              );
+              return;
+            }
+
+            const refreshStartedAt = Date.now();
+            const previousSupervisorPid =
+              beforeRefresh.supervisorPid ?? parentPid;
+            healthy = false;
+            while (Date.now() - refreshStartedAt < 120_000) {
+              await sleep(2_000);
+              const versions = await fetchProxyRuntimeVersions(host, port);
+              if (
+                versions.workerVersion === result.latestVersion &&
+                versions.supervisorVersion === result.latestVersion &&
+                versions.supervisorPid !== undefined &&
+                versions.supervisorPid !== previousSupervisorPid
+              ) {
+                healthy = true;
+                break;
+              }
+            }
+            if (!healthy) {
+              const message = `supervisor did not report v${result.latestVersion} with a new process within 120000ms`;
+              logger.always(`[updater] WARNING: ${message}`);
+              persistUpdaterState("record supervisor refresh failure", () =>
+                recordUpdateFailure(result.latestVersion, "health", message),
+              );
+              updateRestartInProgress = false;
+              scheduleUpdateRetry(
+                "supervisor refresh health unavailable",
+                result.latestVersion,
+              );
+              return;
+            }
+          }
+        }
+
         if (healthy) {
           logger.always(
             `[updater] update successful: now running ${result.latestVersion}`,
@@ -5290,6 +5523,8 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           persistUpdaterState("record successful update", () =>
             recordSuccessfulUpdate(result.latestVersion),
           );
+          updateRetryAttempts = 0;
+          updateRetryVersion = null;
           // The replacement proxy starts a worker running the new version.
           await flushProxyOtelLogs().catch(() => undefined);
           await shutdownProxyOtelLogs().catch(() => undefined);

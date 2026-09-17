@@ -8,7 +8,7 @@
 
 > **ProxyStartApp** = `object`
 
-Defined in: [types/proxy.ts:3458](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3458)
+Defined in: [types/proxy.ts:3462](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3462)
 
 Hono app + readiness state created by the proxy start command.
 
@@ -18,7 +18,7 @@ Hono app + readiness state created by the proxy start command.
 
 > **app**: `Hono`
 
-Defined in: [types/proxy.ts:3459](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3459)
+Defined in: [types/proxy.ts:3463](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3463)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3459](https://github.com/juspay/neurolink/blob/relea
 
 > **readiness**: [`ProxyReadinessState`](ProxyReadinessState.md)
 
-Defined in: [types/proxy.ts:3460](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3460)
+Defined in: [types/proxy.ts:3464](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3464)

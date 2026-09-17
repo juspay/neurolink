@@ -8,7 +8,7 @@
 
 > **OpenAIContentPartImage** = `object`
 
-Defined in: [types/proxy.ts:3550](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3550)
+Defined in: [types/proxy.ts:3554](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3554)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3550](https://github.com/juspay/neurolink/blob/relea
 
 > **type**: `"image_url"`
 
-Defined in: [types/proxy.ts:3551](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3551)
+Defined in: [types/proxy.ts:3555](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3555)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:3551](https://github.com/juspay/neurolink/blob/relea
 
 > **image_url**: `object`
 
-Defined in: [types/proxy.ts:3552](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3552)
+Defined in: [types/proxy.ts:3556](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3556)
 
 #### url
 

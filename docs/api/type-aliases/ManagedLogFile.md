@@ -8,7 +8,7 @@
 
 > **ManagedLogFile** = `object`
 
-Defined in: [types/proxy.ts:2696](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2696)
+Defined in: [types/proxy.ts:2700](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2700)
 
 File the proxy logger tracks for rotation and cleanup.
 
@@ -18,7 +18,7 @@ File the proxy logger tracks for rotation and cleanup.
 
 > **path**: `string`
 
-Defined in: [types/proxy.ts:2697](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2697)
+Defined in: [types/proxy.ts:2701](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2701)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2697](https://github.com/juspay/neurolink/blob/relea
 
 > **mtime**: `number`
 
-Defined in: [types/proxy.ts:2698](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2698)
+Defined in: [types/proxy.ts:2702](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2702)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2698](https://github.com/juspay/neurolink/blob/relea
 
 > **size**: `number`
 
-Defined in: [types/proxy.ts:2699](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2699)
+Defined in: [types/proxy.ts:2703](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2703)

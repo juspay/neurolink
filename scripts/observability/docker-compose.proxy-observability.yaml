@@ -18,6 +18,7 @@ services:
       NEUROLINK_PROXY_STREAM_HEADER: ${NEUROLINK_PROXY_STREAM_HEADER:-neurolink-proxy}
     volumes:
       - ./otel-collector.proxy-observability.yaml:/etc/otelcol/config.yaml:ro
+      - otel-collector-data:/var/lib/otelcol
     ports:
       - "${NEUROLINK_OTLP_GRPC_PORT:-14317}:4317"
       - "${NEUROLINK_OTLP_HTTP_PORT:-14318}:4318"
@@ -41,6 +42,7 @@ services:
       ZO_DATA_DIR: /data
       RUST_LOG: ${NEUROLINK_OPENOBSERVE_LOG_LEVEL:-info}
       ZO_INGEST_ALLOWED_UPTO: ${NEUROLINK_OPENOBSERVE_INGEST_HOURS:-720}
+      ZO_COMPACT_DATA_RETENTION_DAYS: ${NEUROLINK_OPENOBSERVE_RETENTION_DAYS:-30}
     volumes:
       - openobserve-data:/data
     networks:
@@ -51,5 +53,7 @@ networks:
     driver: bridge
 
 volumes:
+  otel-collector-data:
+    name: ${NEUROLINK_OTEL_COLLECTOR_VOLUME_NAME:-neurolink-otel-collector-data}
   openobserve-data:
     name: ${NEUROLINK_OPENOBSERVE_VOLUME_NAME:-neurolink-openobserve-data}

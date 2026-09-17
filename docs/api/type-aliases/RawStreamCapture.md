@@ -8,7 +8,7 @@
 
 > **RawStreamCapture** = `object`
 
-Defined in: [types/proxy.ts:2512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2512)
+Defined in: [types/proxy.ts:2516](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2516)
 
 Accumulated upstream body capture from a raw stream.
 
@@ -18,7 +18,7 @@ Accumulated upstream body capture from a raw stream.
 
 > **totalBytes**: `number`
 
-Defined in: [types/proxy.ts:2513](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2513)
+Defined in: [types/proxy.ts:2517](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2517)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2513](https://github.com/juspay/neurolink/blob/relea
 
 > **text**: `string`
 
-Defined in: [types/proxy.ts:2514](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2514)
+Defined in: [types/proxy.ts:2518](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2518)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2514](https://github.com/juspay/neurolink/blob/relea
 
 > **truncated**: `boolean`
 
-Defined in: [types/proxy.ts:2515](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2515)
+Defined in: [types/proxy.ts:2519](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2519)

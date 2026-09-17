@@ -8,7 +8,7 @@
 
 > **ProxyRuntimeActivity** = `object`
 
-Defined in: [types/proxy.ts:2058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2058)
+Defined in: [types/proxy.ts:2060](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2060)
 
 Activity payload exposed by the running proxy status endpoint.
 
@@ -18,7 +18,7 @@ Activity payload exposed by the running proxy status endpoint.
 
 > **activeRequests**: `number`
 
-Defined in: [types/proxy.ts:2059](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2059)
+Defined in: [types/proxy.ts:2061](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2061)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:2059](https://github.com/juspay/neurolink/blob/relea
 
 > **lastActivityAt**: `string` \| `null`
 
-Defined in: [types/proxy.ts:2060](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2060)
+Defined in: [types/proxy.ts:2062](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2062)

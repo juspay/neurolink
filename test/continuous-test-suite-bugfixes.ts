@@ -3676,6 +3676,79 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "updater: a target worker already active resumes parent refresh without another replacement",
+    category: "launchd-regression",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
+        "utf-8",
+      );
+      const activation = src.slice(
+        src.indexOf("updateRestartInProgress = true"),
+        src.indexOf("// 5. Wait for healthy restart"),
+      );
+      const activeCheck = activation.indexOf(
+        "activeVersions.workerVersion === result.latestVersion",
+      );
+      const signal = activation.indexOf('process.kill(parentPid, "SIGUSR2")');
+      return (
+        activeCheck >= 0 &&
+        signal > activeCheck &&
+        activation.includes(
+          "resuming supervisor refresh without another worker replacement",
+        )
+      );
+    },
+  },
+  {
+    name: "updater: supervisor refresh retries preserve backoff until activation succeeds",
+    category: "launchd-regression",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
+        "utf-8",
+      );
+      const installed = src.indexOf(
+        "recordUpdateInstalled(result.latestVersion)",
+      );
+      const healthy = src.indexOf("if (healthy) {", installed);
+      const success = src.slice(healthy, src.indexOf("} else {", healthy));
+      return (
+        installed >= 0 &&
+        healthy > installed &&
+        !src.slice(installed, healthy).includes("updateRetryAttempts = 0") &&
+        success.includes("updateRetryAttempts = 0") &&
+        success.includes("updateRetryVersion = null")
+      );
+    },
+  },
+  {
+    name: "updater: supervisor refresh requires a new reported parent pid",
+    category: "launchd-regression",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
+        "utf-8",
+      );
+      const refresh = src.slice(
+        src.indexOf("const refreshStartedAt = Date.now()"),
+        src.indexOf("if (!healthy)", src.indexOf("const refreshStartedAt")),
+      );
+      return (
+        refresh.includes("beforeRefresh.supervisorPid ?? parentPid") &&
+        refresh.includes("versions.supervisorPid !== undefined") &&
+        refresh.includes("versions.supervisorPid !== previousSupervisorPid") &&
+        !refresh.includes("beforeRefresh.supervisorPid === undefined ||")
+      );
+    },
+  },
+  {
     name: "installer: resolver probes pnpm and npm global roots and bin paths",
     category: "launchd-regression",
     fn: async () => {

@@ -35,17 +35,20 @@ In this mode:
   supervisor state are operational persistence and continue to be stored.
 
 Metadata has a 2,048-record queue; redacted body chunks have an independent
-256-record queue. Outstanding counts include exports in flight. A separate
-publication queue owns up to 64 captures / 32 MiB of redacted payloads. It sends
-one capture at a time, at most 64 chunks per batch, and waits for actual exporter
-callbacks before submitting more. Slow or failed collectors cannot make a burst
-silently drop the tail of an otherwise accepted capture. Metadata uses its own
-queue and continues independently. Transport timeouts are five seconds, with a
-six-second callback guard. Capture publication has a 20-second deadline including
-queue wait; a failed batch stops further publication and produces an explicit
-unconfirmed or partial result. These bounds still permit rejected captures
-during a prolonged outage. They are payload/queue limits, not total process RSS
-limits: objects, serialization buffers and the capture worker add overhead.
+256-record queue. Bodies use 128 KiB OTLP records, so an 8 MiB capture fits in
+one 64-record export batch. Outstanding counts include exports in flight. A
+separate publication queue owns up to 64 captures / 32 MiB of redacted payloads.
+It sends one capture at a time, at most 64 chunks per batch, and waits for actual
+exporter callbacks before submitting more. Slow or failed collectors cannot make
+a burst silently drop the tail of an otherwise accepted capture. Metadata uses
+its own queue and continues independently. Transport timeouts are 30 seconds,
+with a 31-second callback guard. Capture publication has a 20-second active
+deadline that starts when the capture reaches the head of the bounded queue;
+queue wait alone does not expire an accepted capture. A failed batch stops
+further publication and produces an explicit unconfirmed or partial result.
+These bounds still permit rejected captures during a prolonged outage. They are
+payload/queue limits, not total process RSS limits: objects, serialization
+buffers and the capture worker add overhead.
 
 OTel-only body capture submission returns without waiting for the collector,
 even when an HTTP handler awaits the logging function. Shutdown calls
@@ -104,11 +107,14 @@ collector before a connection failed. `dropped` counts local queue overflow.
 Reconcile these with collector counters and queries for correlated request IDs
 in the backend. Do not claim exactly-once or lossless delivery from HTTP success.
 
-An in-memory pipeline can lose evidence during an outage or abrupt process exit.
 Native runtime output emitted outside application console methods is discarded
-by `/dev/null`; the supervisor still records worker exits. Set collector queue,
-retry, memory and backend retention limits deliberately. A collector/backend may
-still persist telemetry; this mode removes proxy log files, not backend storage.
+by `/dev/null`; the supervisor still records worker exits. The shipped collector
+uses a disk-backed 4,096-entry sending queue and unbounded retry with a 30-second
+maximum backoff. Its `file_storage` directory must be on persistent storage. The
+local OpenObserve stack defaults to 30 days of retention through
+`NEUROLINK_OPENOBSERVE_RETENTION_DAYS`; size the volume for the actual capture
+rate. A collector/backend can still lose telemetry after storage exhaustion or
+corruption; this mode removes proxy log files, not backend storage.
 
 The local `proxy analyze`, `proxy replay` and file-based account ledger commands
 read historical files. They do not query the collector and cannot describe new
@@ -166,8 +172,9 @@ allow export/ingestion to settle. It verifies:
 
 - Runtime readiness and actual worker/supervisor OTel-only logging, including
   inherited stdout/stderr file descriptors.
-- Producer queue failures and capture admission failures, including bounded
-  record identities and high-water counts/bytes.
+- Producer delivery diagnostics and capture admission failures for the selected
+  interval. Worker-lifetime counters remain in evidence with an explicit scope,
+  but an older incident does not make every later interval warn.
 - Stored logs, traces and request metrics with a latest timestamp no more than
   120 seconds behind the **selected window end**. Historical windows therefore
   measure historical freshness, not current service health.

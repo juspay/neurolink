@@ -8,7 +8,7 @@
 
 > **SSEInterceptorResult** = `object`
 
-Defined in: [types/proxy.ts:2792](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2792)
+Defined in: [types/proxy.ts:2796](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2796)
 
 Result of createSSEInterceptor: the pass-through stream and a telemetry promise.
 
@@ -18,7 +18,7 @@ Result of createSSEInterceptor: the pass-through stream and a telemetry promise.
 
 > **stream**: `TransformStream`\<`Uint8Array`, `Uint8Array`\>
 
-Defined in: [types/proxy.ts:2793](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2793)
+Defined in: [types/proxy.ts:2797](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2797)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:2793](https://github.com/juspay/neurolink/blob/relea
 
 > **telemetry**: `Promise`\<[`SSETelemetry`](SSETelemetry.md)\>
 
-Defined in: [types/proxy.ts:2794](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2794)
+Defined in: [types/proxy.ts:2798](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2798)

@@ -8,7 +8,7 @@
 
 > **PersistedAccountCooldown** = `object`
 
-Defined in: [types/proxy.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1745)
+Defined in: [types/proxy.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1747)
 
 Restart-safe cooldown snapshot for one account.
 
@@ -18,7 +18,7 @@ Restart-safe cooldown snapshot for one account.
 
 > **coolingUntil**: `number`
 
-Defined in: [types/proxy.ts:1746](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1746)
+Defined in: [types/proxy.ts:1748](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1748)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1746](https://github.com/juspay/neurolink/blob/relea
 
 > **reason**: [`AccountCoolingReason`](AccountCoolingReason.md)
 
-Defined in: [types/proxy.ts:1747](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1747)
+Defined in: [types/proxy.ts:1749](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1749)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:1747](https://github.com/juspay/neurolink/blob/relea
 
 > **updatedAt**: `number`
 
-Defined in: [types/proxy.ts:1748](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1748)
+Defined in: [types/proxy.ts:1750](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1750)

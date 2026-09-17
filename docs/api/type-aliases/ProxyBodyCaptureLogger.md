@@ -8,7 +8,7 @@
 
 > **ProxyBodyCaptureLogger** = (`capture`) => `void`
 
-Defined in: [types/proxy.ts:1024](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1024)
+Defined in: [types/proxy.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1026)
 
 ## Parameters
 

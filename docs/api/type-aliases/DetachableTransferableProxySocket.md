@@ -8,6 +8,6 @@
 
 > **DetachableTransferableProxySocket** = [`TransferableProxySocket`](TransferableProxySocket.md) & `Pick`\<`Socket`, `"off"`\>
 
-Defined in: [types/proxy.ts:3042](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3042)
+Defined in: [types/proxy.ts:3046](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3046)
 
 A transferred socket whose temporary handoff listeners can be detached.

@@ -657,7 +657,133 @@ await test("rolling workers reject the legacy global drain without changing admi
       false,
       "legacy drain changed readiness",
     );
+    const refreshDrain = await app.request("/internal/update-control", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-neurolink-update-token": "isolated-restart-fixture",
+      },
+      body: JSON.stringify({ action: "drain_for_supervisor_refresh" }),
+    });
+    assertEqual(
+      refreshDrain.status,
+      200,
+      "bounded supervisor refresh drain was rejected",
+    );
+    assertEqual(readiness.drainingForUpdate, true);
+    const resume = await app.request("/internal/update-control", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-neurolink-update-token": "isolated-restart-fixture",
+      },
+      body: JSON.stringify({ action: "resume" }),
+    });
+    assertEqual(resume.status, 200);
+    assertEqual(readiness.drainingForUpdate, false);
   } finally {
+    if (previous === undefined) {
+      delete process.env.NEUROLINK_PROXY_SOCKET_WORKER;
+    } else {
+      process.env.NEUROLINK_PROXY_SOCKET_WORKER = previous;
+    }
+  }
+});
+
+await test("supervisor refresh drain retries recovery until admission resumes", async () => {
+  const previous = process.env.NEUROLINK_PROXY_SOCKET_WORKER;
+  const realSetTimeout = globalThis.setTimeout;
+  const realClearTimeout = globalThis.clearTimeout;
+  const timers: Array<{
+    callback: () => void;
+    delay: number;
+    handle: NodeJS.Timeout;
+  }> = [];
+  const cleared = new Set<NodeJS.Timeout>();
+  process.env.NEUROLINK_PROXY_SOCKET_WORKER = "1";
+  try {
+    const { app, readiness } = await createProxyStartApp({
+      neurolink: { getToolRegistry: () => ({}) } as Parameters<
+        typeof createProxyStartApp
+      >[0]["neurolink"],
+      modelRouter: undefined,
+      strategy: "fill-first",
+      passthrough: false,
+      port: 0,
+      host: "127.0.0.1",
+      proxyConfig: null,
+      primaryAccountKey: undefined,
+      accountAllowlist: undefined,
+      updateControlToken: "isolated-restart-fixture",
+    });
+    markProxyReady(readiness);
+    globalThis.setTimeout = ((
+      callback: (...args: unknown[]) => void,
+      delay?: number,
+      ...args: unknown[]
+    ) => {
+      const handle = realSetTimeout(() => undefined, 2_147_000_000);
+      timers.push({
+        callback: () => callback(...args),
+        delay: Number(delay),
+        handle,
+      });
+      return handle;
+    }) as typeof setTimeout;
+    globalThis.clearTimeout = ((handle?: NodeJS.Timeout) => {
+      if (handle) {
+        cleared.add(handle);
+      }
+      realClearTimeout(handle);
+    }) as typeof clearTimeout;
+    const control = (action: string) =>
+      app.request("/internal/update-control", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-neurolink-update-token": "isolated-restart-fixture",
+        },
+        body: JSON.stringify({ action }),
+      });
+
+    assertEqual((await control("drain_for_supervisor_refresh")).status, 200);
+    assertEqual(timers[0]?.delay, 35 * 60 * 1000);
+    readiness.ready = false;
+    assertEqual((await control("resume")).status, 409);
+    assert(
+      !cleared.has(timers[0].handle),
+      "failed explicit resume discarded the recovery lease",
+    );
+    assertEqual(readiness.drainingForUpdate, true);
+
+    readiness.ready = true;
+    assertEqual((await control("resume")).status, 200);
+    assert(
+      cleared.has(timers[0].handle),
+      "successful explicit resume retained the recovery lease",
+    );
+    assertEqual(readiness.drainingForUpdate, false);
+
+    assertEqual((await control("drain_for_supervisor_refresh")).status, 200);
+    assertEqual(timers[1]?.delay, 35 * 60 * 1000);
+    readiness.ready = false;
+    realClearTimeout(timers[1].handle);
+    timers[1].callback();
+    assertEqual(timers[2]?.delay, 30_000);
+    assertEqual(readiness.drainingForUpdate, true);
+
+    readiness.ready = true;
+    realClearTimeout(timers[2].handle);
+    timers[2].callback();
+    assertEqual(readiness.drainingForUpdate, false);
+    assertEqual(readiness.acceptingConnections, true);
+    assertEqual(timers.length, 3, "successful timer recovery rearmed itself");
+  } finally {
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.clearTimeout = realClearTimeout;
+    for (const timer of timers) {
+      realClearTimeout(timer.handle);
+    }
     if (previous === undefined) {
       delete process.env.NEUROLINK_PROXY_SOCKET_WORKER;
     } else {

@@ -8,7 +8,7 @@
 
 > **RollingManagedWorker** = `object`
 
-Defined in: [types/proxy.ts:3186](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3186)
+Defined in: [types/proxy.ts:3190](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3190)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3186](https://github.com/juspay/neurolink/blob/relea
 
 > **handle**: [`RollingWorkerHandle`](RollingWorkerHandle.md)
 
-Defined in: [types/proxy.ts:3187](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3187)
+Defined in: [types/proxy.ts:3191](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3191)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:3187](https://github.com/juspay/neurolink/blob/relea
 
 > **generation**: `number`
 
-Defined in: [types/proxy.ts:3188](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3188)
+Defined in: [types/proxy.ts:3192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3192)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:3188](https://github.com/juspay/neurolink/blob/relea
 
 > **version**: `string`
 
-Defined in: [types/proxy.ts:3189](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3189)
+Defined in: [types/proxy.ts:3193](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3193)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:3189](https://github.com/juspay/neurolink/blob/relea
 
 > **dispose**: () => `void`
 
-Defined in: [types/proxy.ts:3190](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3190)
+Defined in: [types/proxy.ts:3194](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3194)
 
 #### Returns
 
@@ -52,7 +52,7 @@ Defined in: [types/proxy.ts:3190](https://github.com/juspay/neurolink/blob/relea
 
 > **pendingTransfers**: `number`
 
-Defined in: [types/proxy.ts:3191](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3191)
+Defined in: [types/proxy.ts:3195](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3195)
 
 ---
 
@@ -60,4 +60,4 @@ Defined in: [types/proxy.ts:3191](https://github.com/juspay/neurolink/blob/relea
 
 > **drainRequested**: `boolean`
 
-Defined in: [types/proxy.ts:3192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3192)
+Defined in: [types/proxy.ts:3196](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3196)

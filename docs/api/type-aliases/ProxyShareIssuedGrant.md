@@ -8,7 +8,7 @@
 
 > **ProxyShareIssuedGrant** = `object`
 
-Defined in: [types/proxy.ts:3934](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3934)
+Defined in: [types/proxy.ts:3938](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3938)
 
 What `share create` returns — the only moment the raw token exists.
 
@@ -18,7 +18,7 @@ What `share create` returns — the only moment the raw token exists.
 
 > **grant**: [`ProxyShareGrant`](ProxyShareGrant.md)
 
-Defined in: [types/proxy.ts:3935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3935)
+Defined in: [types/proxy.ts:3939](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3939)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3935](https://github.com/juspay/neurolink/blob/relea
 
 > **token**: `string`
 
-Defined in: [types/proxy.ts:3936](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3936)
+Defined in: [types/proxy.ts:3940](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3940)

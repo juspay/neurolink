@@ -8,6 +8,6 @@
 
 > **CodexFinalLogExtra** = `Partial`\<`Pick`\<[`RequestLogEntry`](RequestLogEntry.md), `"errorType"` \| `"errorMessage"` \| `"errorCode"` \| `"transportScope"` \| `"inputTokens"` \| `"outputTokens"` \| `"cacheReadTokens"` \| `"cacheCreationTokens"` \| `"terminalOutcome"` \| `"firstUsefulOutputMs"` \| `"firstUsefulOutputStatus"` \| `"firstUsefulOutputEvent"`\>\>
 
-Defined in: [types/proxy.ts:963](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L963)
+Defined in: [types/proxy.ts:965](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L965)
 
 Additional fields recorded when a Codex response becomes client-final.
