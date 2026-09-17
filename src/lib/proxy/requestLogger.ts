@@ -65,6 +65,11 @@ let logDir: string | null = null;
 let logEnabled = false;
 const pendingLogOperations = new Set<Promise<unknown>>();
 const REQUEST_LOG_IO_TIMEOUT_MS = 5_000;
+// launchd gives the service 45 seconds after SIGTERM. Leave fifteen seconds
+// for listener drain and exporter shutdown instead of advertising a flush
+// deadline the service manager can terminate before it reaches.
+const REQUEST_LOG_FLUSH_TIMEOUT_MS =
+  PROXY_BODY_CAPTURE_DEADLINE_MS + 2 * REQUEST_LOG_IO_TIMEOUT_MS;
 const MAX_PENDING_METADATA_RECORDS = 4_096;
 const appendChains = new Map<string, Promise<void>>();
 let appendMetadataFile: typeof writeFile = writeFile;
@@ -169,10 +174,12 @@ function trackLogOperation<T>(operation: Promise<T>): Promise<T> {
   return operation;
 }
 
-/** Wait, up to a bounded deadline, for admitted request/body writes to settle. */
+/**
+ * Wait through bounded OTel admission, worker processing, and publication
+ * deadlines so a clean shutdown does not abandon an accepted overflow capture.
+ */
 export async function flushRequestLogs(
-  timeoutMs: number = PROXY_BODY_CAPTURE_DEADLINE_MS +
-    2 * REQUEST_LOG_IO_TIMEOUT_MS,
+  timeoutMs: number = REQUEST_LOG_FLUSH_TIMEOUT_MS,
 ): Promise<void> {
   const deadline = Date.now() + Math.max(1, timeoutMs);
   while (pendingLogOperations.size > 0) {
@@ -194,6 +201,7 @@ export async function flushRequestLogs(
 
 /** @internal Test-only hook for exercising shutdown behavior without real I/O. */
 export const __requestLoggerTestHooks = {
+  defaultFlushTimeoutMs: REQUEST_LOG_FLUSH_TIMEOUT_MS,
   pendingOperationCount: () => pendingLogOperations.size,
   trackLogOperation,
   setAppendFileForTests: (writer: typeof writeFile) => {

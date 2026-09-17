@@ -130,7 +130,10 @@ import {
   PROXY_SOCKET_WORKER_ENV,
 } from "../../lib/proxy/rollingWorkerProtocol.js";
 import { attachSocketWorkerProcess } from "../../lib/proxy/socketWorkerRuntime.js";
-import { waitForProxyUpdateWindow } from "../../lib/proxy/updateCoordinator.js";
+import {
+  shouldRefreshStaleSupervisor,
+  waitForProxyUpdateWindow,
+} from "../../lib/proxy/updateCoordinator.js";
 import {
   abandonPendingUpdate,
   clearUpdateDeferral,
@@ -5012,17 +5015,49 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           recordCheck(result.latestVersion),
         );
 
+        let supervisorRefreshOnly = false;
         if (!result.updateAvailable) {
-          updateRetryAttempts = 0;
-          updateRetryVersion = null;
-          persistUpdaterState("clear update deferral", () =>
-            clearUpdateDeferral(),
+          const activeVersions: Awaited<
+            ReturnType<typeof fetchProxyRuntimeVersions>
+          > = rollingSupervisor
+            ? await fetchProxyRuntimeVersions(host, port).catch(() => ({}))
+            : {};
+          if (
+            rollingSupervisor &&
+            (!activeVersions.workerVersion || !activeVersions.supervisorVersion)
+          ) {
+            logger.always(
+              `[updater] WARNING: runtime version probe incomplete (worker=${activeVersions.workerVersion ?? "unknown"}, supervisor=${activeVersions.supervisorVersion ?? "unknown"}); stale-supervisor reconciliation deferred`,
+            );
+            scheduleUpdateRetry(
+              "runtime version probe incomplete",
+              result.latestVersion,
+            );
+            return;
+          }
+          supervisorRefreshOnly = shouldRefreshStaleSupervisor({
+            updateAvailable: result.updateAvailable,
+            rollingSupervisor,
+            runningVersion,
+            workerVersion: activeVersions.workerVersion,
+            supervisorVersion: activeVersions.supervisorVersion,
+          });
+          if (!supervisorRefreshOnly) {
+            updateRetryAttempts = 0;
+            updateRetryVersion = null;
+            persistUpdaterState("clear update deferral", () =>
+              clearUpdateDeferral(),
+            );
+            return;
+          }
+          logger.always(
+            `[updater] worker v${runningVersion} is current; reconciling stale supervisor v${activeVersions.supervisorVersion}`,
           );
-          return;
         }
         const initiallyPendingRestart =
           loadUpdateState()?.pendingRestartVersion === result.latestVersion;
         if (
+          !supervisorRefreshOnly &&
           isVersionSuppressed(result.latestVersion) &&
           !initiallyPendingRestart
         ) {
@@ -5115,7 +5150,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               return;
             }
           }
-        } else {
+        } else if (!supervisorRefreshOnly) {
           logger.always(
             `[updater] rolling supervisor will keep v${runningVersion} serving during installation`,
           );
@@ -5123,31 +5158,34 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
         // Refresh after waiting so a long deferral can never install a stale
         // target while a newer release is already available.
-        const refreshedResult = await checkForUpdate(runningVersion);
-        result = refreshedResult;
-        updateVersion = result.latestVersion;
-        persistUpdaterState("record refreshed update check", () =>
-          recordCheck(result.latestVersion),
-        );
-        if (!result.updateAvailable) {
-          persistUpdaterState("clear update deferral", () =>
-            clearUpdateDeferral(),
+        let pendingRestart = initiallyPendingRestart;
+        if (!supervisorRefreshOnly) {
+          const refreshedResult = await checkForUpdate(runningVersion);
+          result = refreshedResult;
+          updateVersion = result.latestVersion;
+          persistUpdaterState("record refreshed update check", () =>
+            recordCheck(result.latestVersion),
           );
-          return;
-        }
-        const pendingRestart =
-          loadUpdateState()?.pendingRestartVersion === result.latestVersion;
-        if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
-          logger.debug(
-            `[guard] refreshed version ${result.latestVersion} is suppressed, skipping`,
-          );
-          return;
+          if (!result.updateAvailable) {
+            persistUpdaterState("clear update deferral", () =>
+              clearUpdateDeferral(),
+            );
+            return;
+          }
+          pendingRestart =
+            loadUpdateState()?.pendingRestartVersion === result.latestVersion;
+          if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
+            logger.debug(
+              `[guard] refreshed version ${result.latestVersion} is suppressed, skipping`,
+            );
+            return;
+          }
         }
         persistUpdaterState("clear update deferral", () =>
           clearUpdateDeferral(),
         );
         logger.always(
-          `[updater] ${rollingSupervisor ? "rolling activation prepared" : "safe update window acquired"} for v${result.latestVersion}`,
+          `[updater] ${supervisorRefreshOnly ? "supervisor reconciliation prepared" : rollingSupervisor ? "rolling activation prepared" : "safe update window acquired"} for v${result.latestVersion}`,
         );
 
         // 3. Install update (validate version string before passing to shell)
@@ -5163,7 +5201,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         }
 
         const { execFileSync } = await import("node:child_process");
-        if (!pendingRestart) {
+        if (!supervisorRefreshOnly && !pendingRestart) {
           const installerResolution = resolveGlobalInstaller({
             entryScript: process.argv[1],
           });
@@ -5219,7 +5257,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             }
             return;
           }
-        } else {
+        } else if (!supervisorRefreshOnly) {
           logger.always(
             `[updater] resuming pending restart for already-installed v${result.latestVersion}`,
           );
@@ -5227,16 +5265,44 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
 
         // 4. Refresh and validate the stable trampoline. The plist already
         // points at this path, so it must not be unloaded or rewritten here.
-        try {
-          writeTrampoline();
+        if (!supervisorRefreshOnly) {
+          try {
+            writeTrampoline();
 
-          const validation = await validateInstalledVersion({
-            binPath: TRAMPOLINE_PATH,
-            expectedVersion: result.latestVersion,
-          });
-          if (validation.version !== result.latestVersion) {
-            const message = `trampoline validation failed after ${validation.attempts} attempts: ${validation.failure ?? "unknown failure"}`;
-            logger.always(`[updater] WARNING: ${message}; restart deferred`);
+            const validation = await validateInstalledVersion({
+              binPath: TRAMPOLINE_PATH,
+              expectedVersion: result.latestVersion,
+            });
+            if (validation.version !== result.latestVersion) {
+              const message = `trampoline validation failed after ${validation.attempts} attempts: ${validation.failure ?? "unknown failure"}`;
+              logger.always(`[updater] WARNING: ${message}; restart deferred`);
+              persistUpdaterState("record update failure", () =>
+                recordUpdateFailure(
+                  result.latestVersion,
+                  "validation",
+                  message,
+                ),
+              );
+              persistUpdaterState("abandon invalid pending update", () =>
+                abandonPendingUpdate(result.latestVersion),
+              );
+              return;
+            }
+
+            persistUpdaterState("record installed update", () =>
+              recordUpdateInstalled(result.latestVersion),
+            );
+            logger.always(
+              `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
+            );
+          } catch (trampolineError) {
+            const message =
+              trampolineError instanceof Error
+                ? trampolineError.message
+                : String(trampolineError);
+            logger.always(
+              `[updater] WARNING: failed to refresh trampoline; refusing restart: ${message}`,
+            );
             persistUpdaterState("record update failure", () =>
               recordUpdateFailure(result.latestVersion, "validation", message),
             );
@@ -5245,28 +5311,6 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             );
             return;
           }
-
-          persistUpdaterState("record installed update", () =>
-            recordUpdateInstalled(result.latestVersion),
-          );
-          logger.always(
-            `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
-          );
-        } catch (trampolineError) {
-          const message =
-            trampolineError instanceof Error
-              ? trampolineError.message
-              : String(trampolineError);
-          logger.always(
-            `[updater] WARNING: failed to refresh trampoline; refusing restart: ${message}`,
-          );
-          persistUpdaterState("record update failure", () =>
-            recordUpdateFailure(result.latestVersion, "validation", message),
-          );
-          persistUpdaterState("abandon invalid pending update", () =>
-            abandonPendingUpdate(result.latestVersion),
-          );
-          return;
         }
 
         if (guardStopping || getProcessStatus(parentPid) === "not_running") {
@@ -5531,12 +5575,12 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           process.exit(0);
         } else {
           logger.always(
-            `[updater] WARNING: proxy unhealthy after update to ${result.latestVersion}`,
+            `[updater] WARNING: proxy unhealthy after ${supervisorRefreshOnly ? "supervisor reconciliation at" : "update to"} ${result.latestVersion}`,
           );
           let failureMessage = rollingFailure
             ? `rolling candidate failed: ${rollingFailure}`
             : `proxy did not report v${result.latestVersion} healthy within ${UPDATE_TIMEOUT_MS}ms`;
-          if (rollingSupervisor) {
+          if (rollingSupervisor && !supervisorRefreshOnly) {
             try {
               const rollbackResolution = resolveGlobalInstaller({
                 entryScript: process.argv[1],
@@ -5601,12 +5645,19 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           persistUpdaterState("record update failure", () =>
             recordUpdateFailure(result.latestVersion, "health", failureMessage),
           );
-          persistUpdaterState("abandon unhealthy pending update", () =>
-            abandonPendingUpdate(result.latestVersion),
-          );
-          persistUpdaterState("suppress unhealthy update", () =>
-            suppressVersion(result.latestVersion, "unhealthy_after_restart"),
-          );
+          if (supervisorRefreshOnly) {
+            scheduleUpdateRetry(
+              "stale supervisor reconciliation health unavailable",
+              result.latestVersion,
+            );
+          } else {
+            persistUpdaterState("abandon unhealthy pending update", () =>
+              abandonPendingUpdate(result.latestVersion),
+            );
+            persistUpdaterState("suppress unhealthy update", () =>
+              suppressVersion(result.latestVersion, "unhealthy_after_restart"),
+            );
+          }
           updateRestartInProgress = false;
         }
       } catch (err) {

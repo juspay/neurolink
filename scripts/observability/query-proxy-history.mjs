@@ -96,7 +96,7 @@ export async function queryProxyHistory({
           query: {
             // The body is small metadata, not arbitrary request/response chunks.
             // Include a secondary key: timestamp-only paging loses equal-time events.
-            sql: `SELECT _timestamp, service_instance_id, request_id, body FROM "${stream}" WHERE proxy_record_kind='${kind}' ORDER BY _timestamp ASC, service_instance_id ASC, request_id ASC, body ASC`,
+            sql: `SELECT _timestamp, proxy_event_id, service_instance_id, request_id, body FROM "${stream}" WHERE proxy_record_kind='${kind}' ORDER BY _timestamp ASC, proxy_event_id ASC, service_instance_id ASC, request_id ASC, body ASC`,
             start_time: start,
             end_time: end - 1,
             from: offset,

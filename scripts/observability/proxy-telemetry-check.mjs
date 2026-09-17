@@ -7,6 +7,229 @@ import {
   validateProxyTelemetryBackend,
 } from "./proxy-telemetry-backend.mjs";
 
+/** @param {string} kind @param {Record<string, unknown>} value @param {string | undefined} eventId */
+function logicalMetadataIdentity(kind, value, eventId) {
+  if (kind === "request_final") {
+    return typeof value.requestId === "string" && value.requestId
+      ? `request:${value.requestId}`
+      : undefined;
+  }
+  if (kind === "body_capture_index") {
+    return typeof value.captureId === "string" && value.captureId
+      ? `capture:${value.captureId}`
+      : undefined;
+  }
+  if (kind === "telemetry_delivery") {
+    return typeof value.id === "string" && value.id
+      ? `delivery:${value.id}`
+      : undefined;
+  }
+  if (
+    kind === "lifecycle" &&
+    typeof value.processInstanceId === "string" &&
+    value.processInstanceId &&
+    Number.isSafeInteger(value.sequence)
+  ) {
+    return `lifecycle:${value.processInstanceId}:${value.sequence}`;
+  }
+  return eventId ? `event:${eventId}` : undefined;
+}
+
+/**
+ * Collapse only exact OTLP retries. A reused event identity with changed data,
+ * or two producer events for one logical record, remains a hard diagnostic.
+ * @param {string} kind
+ * @param {Array<Record<string, unknown>>} rows
+ */
+function normalizeMetadataRows(kind, rows) {
+  const byEvent = new Map();
+  const byPhysicalRow = new Map();
+  const parsed = [];
+  const conflicts = [];
+  let exactRetryDuplicates = 0;
+  let missingEventIds = 0;
+  for (const row of rows) {
+    if (typeof row.body !== "string") {
+      throw new Error("Invalid stored metadata body");
+    }
+    const value = JSON.parse(row.body);
+    if (
+      !value ||
+      typeof value !== "object" ||
+      (kind === "telemetry_delivery"
+        ? typeof value.id !== "string" ||
+          typeof value.at !== "string" ||
+          !Number.isFinite(Date.parse(value.at))
+        : typeof value.requestId !== "string")
+    ) {
+      throw new Error("Stored telemetry metadata has an invalid schema");
+    }
+    const eventId =
+      typeof row.proxy_event_id === "string" && row.proxy_event_id
+        ? row.proxy_event_id
+        : undefined;
+    const physicalIdentity = JSON.stringify([
+      row._timestamp,
+      row.service_instance_id,
+      row.request_id,
+      row.body,
+    ]);
+    const priorEvent = eventId ? byEvent.get(eventId) : undefined;
+    if (priorEvent) {
+      if (priorEvent.physicalIdentity === physicalIdentity) {
+        exactRetryDuplicates++;
+      } else {
+        conflicts.push({
+          identity: `event:${eventId}`,
+          reason: "event_identity_conflict",
+        });
+      }
+      continue;
+    }
+    if (!eventId) {
+      missingEventIds++;
+      if (byPhysicalRow.has(physicalIdentity)) {
+        exactRetryDuplicates++;
+        continue;
+      }
+      byPhysicalRow.set(physicalIdentity, true);
+    } else {
+      byEvent.set(eventId, { physicalIdentity });
+    }
+    parsed.push({
+      eventId,
+      rawBody: row.body,
+      value: {
+        ...value,
+        recordedAtMicroseconds: Number(row._timestamp),
+        ...(eventId ? { proxyEventId: eventId } : {}),
+      },
+    });
+  }
+
+  const byLogicalIdentity = new Map();
+  const records = [];
+  let invalidLogicalIdentities = 0;
+  for (const item of parsed) {
+    const identity = logicalMetadataIdentity(kind, item.value, item.eventId);
+    if (!identity) {
+      invalidLogicalIdentities++;
+      continue;
+    }
+    const prior = byLogicalIdentity.get(identity);
+    if (prior) {
+      conflicts.push({
+        identity,
+        reason:
+          prior.rawBody === item.rawBody
+            ? "producer_duplicate"
+            : "logical_identity_conflict",
+        firstEventId: prior.eventId,
+        duplicateEventId: item.eventId,
+      });
+      continue;
+    }
+    byLogicalIdentity.set(identity, item);
+    records.push(item.value);
+  }
+  return {
+    records,
+    diagnostics: {
+      rawRecords: rows.length,
+      logicalRecords: records.length,
+      exactRetryDuplicates,
+      missingEventIds,
+      invalidLogicalIdentities,
+      conflicts,
+    },
+  };
+}
+
+/** @param {Array<Record<string, unknown>>} rows */
+function normalizeBodyChunkRows(rows) {
+  const byEvent = new Map();
+  const byPhysicalRow = new Map();
+  const parsed = [];
+  const conflicts = [];
+  let exactRetryDuplicates = 0;
+  let missingEventIds = 0;
+  for (const row of rows) {
+    const eventId =
+      typeof row.proxy_event_id === "string" && row.proxy_event_id
+        ? row.proxy_event_id
+        : undefined;
+    const physicalIdentity = JSON.stringify([
+      row._timestamp,
+      row.body_capture_id,
+      row.body_chunk_index,
+      row.body_chunk_count,
+      row.body,
+    ]);
+    const priorEvent = eventId ? byEvent.get(eventId) : undefined;
+    if (priorEvent) {
+      if (priorEvent === physicalIdentity) {
+        exactRetryDuplicates++;
+      } else {
+        conflicts.push({
+          identity: `event:${eventId}`,
+          reason: "event_identity_conflict",
+        });
+      }
+      continue;
+    }
+    if (!eventId) {
+      missingEventIds++;
+      if (byPhysicalRow.has(physicalIdentity)) {
+        exactRetryDuplicates++;
+        continue;
+      }
+      byPhysicalRow.set(physicalIdentity, true);
+    } else {
+      byEvent.set(eventId, physicalIdentity);
+    }
+    parsed.push({ eventId, physicalIdentity, row });
+  }
+
+  const byChunkIndex = new Map();
+  const chunks = [];
+  for (const item of parsed) {
+    const index = Number(item.row.body_chunk_index);
+    if (!Number.isSafeInteger(index) || index < 0) {
+      conflicts.push({ identity: String(index), reason: "invalid_chunk_index" });
+      continue;
+    }
+    const prior = byChunkIndex.get(index);
+    if (prior) {
+      conflicts.push({
+        identity: `chunk:${index}`,
+        reason:
+          prior.physicalIdentity === item.physicalIdentity
+            ? "producer_duplicate"
+            : "logical_identity_conflict",
+        firstEventId: prior.eventId,
+        duplicateEventId: item.eventId,
+      });
+      continue;
+    }
+    byChunkIndex.set(index, item);
+    chunks.push(item.row);
+  }
+  chunks.sort(
+    (left, right) =>
+      Number(left.body_chunk_index) - Number(right.body_chunk_index),
+  );
+  return {
+    chunks,
+    diagnostics: {
+      rawChunks: rows.length,
+      storedChunks: chunks.length,
+      exactRetryDuplicates,
+      missingEventIds,
+      conflicts,
+    },
+  };
+}
+
 /** Empty traffic, unavailable evidence, and partial queries cannot become a green check.
  * @param {import("../../src/lib/types/index.js").ProxyTelemetryDoctorOptions} options
  */
@@ -141,6 +364,8 @@ export async function checkProxyTelemetry({
   }
   /** @type {Record<string, import("../../src/lib/types/index.js").ProxyTelemetryStoredRecord[]>} */
   const history = Object.create(null);
+  /** @type {Record<string, {rawRecords: number, logicalRecords: number, exactRetryDuplicates: number, missingEventIds: number, invalidLogicalIdentities: number, conflicts: unknown[]}>} */
+  const historyDiagnostics = Object.create(null);
   for (const kind of [
     "request_final",
     "body_capture_index",
@@ -165,25 +390,37 @@ export async function checkProxyTelemetry({
       budget,
     });
     queries.push(...result.queries.map((q) => ({ ...q, kind })));
-    history[kind] = result.records.map((row) => {
-      if (typeof row.body !== "string") {
-        throw new Error("Invalid stored metadata body");
-      }
-      const value = JSON.parse(row.body);
-      if (
-        !value ||
-        typeof value !== "object" ||
-        (kind === "telemetry_delivery"
-          ? typeof value.id !== "string" ||
-            typeof value.at !== "string" ||
-            !Number.isFinite(Date.parse(value.at))
-          : typeof value.requestId !== "string")
-      ) {
-        throw new Error("Stored telemetry metadata has an invalid schema");
-      }
-      return { ...value, recordedAtMicroseconds: Number(row._timestamp) };
-    });
+    const normalized = normalizeMetadataRows(kind, result.records);
+    history[kind] = normalized.records;
+    historyDiagnostics[kind] = normalized.diagnostics;
   }
+  const identityConflicts = Object.values(historyDiagnostics).reduce(
+    (sum, diagnostic) =>
+      sum + diagnostic.conflicts.length + diagnostic.invalidLogicalIdentities,
+    0,
+  );
+  const missingEventIds = Object.values(historyDiagnostics).reduce(
+    (sum, diagnostic) => sum + diagnostic.missingEventIds,
+    0,
+  );
+  add(
+    "backend_row_identity",
+    identityConflicts
+      ? "fail"
+      : missingEventIds
+        ? "unverified"
+        : "pass",
+    {
+      scope: "selected metadata and bounded capture-settling windows",
+      exactRetryDuplicates: Object.values(historyDiagnostics).reduce(
+        (sum, diagnostic) => sum + diagnostic.exactRetryDuplicates,
+        0,
+      ),
+      missingEventIds,
+      conflicts: identityConflicts,
+      byKind: historyDiagnostics,
+    },
+  );
   /** @param {{at?: unknown}} row */
   const failedInsideInterval = (row) => {
     const at = Date.parse(typeof row.at === "string" ? row.at : "");
@@ -312,14 +549,23 @@ export async function checkProxyTelemetry({
   );
   const finals = history.request_final,
     unique = new Set(finals.map((r) => r.requestId));
+  const finalDiagnostics = historyDiagnostics.request_final;
   add(
     "final_uniqueness",
     !finals.length
       ? "unverified"
-      : unique.size === finals.length
+      : unique.size === finals.length &&
+          !finalDiagnostics.conflicts.length &&
+          !finalDiagnostics.invalidLogicalIdentities
         ? "pass"
         : "fail",
-    { records: finals.length, uniqueRequestIds: unique.size },
+    {
+      records: finals.length,
+      rawRecords: finalDiagnostics.rawRecords,
+      exactRetryDuplicates: finalDiagnostics.exactRetryDuplicates,
+      uniqueRequestIds: unique.size,
+      producerOrConflictingDuplicates: finalDiagnostics.conflicts.length,
+    },
   );
   const terminalEvents = history.lifecycle.filter(
     (row) => row.event === "request_terminal",
@@ -493,8 +739,8 @@ export async function checkProxyTelemetry({
     ) {
       throw new Error("Capture verification exceeds the 8 MiB per-body bound");
     }
-    const chunks = await query(
-      `SELECT body_chunk_index, body_chunk_count, body FROM "${backend.stream}" WHERE proxy_record_kind='body' AND body_capture_id='${index.captureId}' ORDER BY body_chunk_index ASC`,
+    const rawChunks = await query(
+      `SELECT _timestamp, proxy_event_id, body_capture_id, body_chunk_index, body_chunk_count, body FROM "${backend.stream}" WHERE proxy_record_kind='body' AND body_capture_id='${index.captureId}' ORDER BY body_chunk_index ASC, proxy_event_id ASC`,
       "logs",
       {
         startTime: startTime - 120e6,
@@ -502,9 +748,11 @@ export async function checkProxyTelemetry({
         size: 1000,
       },
     );
-    if (chunks.length >= 1000) {
+    if (rawChunks.length >= 1000) {
       throw new Error("Capture verification exceeded its chunk budget");
     }
+    const normalizedChunks = normalizeBodyChunkRows(rawChunks);
+    const chunks = normalizedChunks.chunks;
     const bytes = chunks.reduce(
       (sum, r) =>
         sum +
@@ -526,10 +774,17 @@ export async function checkProxyTelemetry({
       captureId: index.captureId,
       expectedChunks: expected,
       storedChunks: chunks.length,
+      rawStoredChunks: rawChunks.length,
+      exactRetryDuplicates:
+        normalizedChunks.diagnostics.exactRetryDuplicates,
+      missingEventIds: normalizedChunks.diagnostics.missingEventIds,
+      identityConflicts: normalizedChunks.diagnostics.conflicts,
       verified:
         expected > 0 &&
         expected === chunks.length &&
         contiguous &&
+        normalizedChunks.diagnostics.missingEventIds === 0 &&
+        normalizedChunks.diagnostics.conflicts.length === 0 &&
         Buffer.byteLength(raw) === index.redactedBodyBytes &&
         actualSha256 === index.bodySha256,
     });
@@ -601,6 +856,26 @@ export async function checkProxyTelemetry({
           return [match?.[1] ?? "invalid_sample", Number(match?.[2])];
         }),
     );
+    const counterEntries = Object.entries(counters);
+    const invalidCounters = counterEntries.filter(
+      ([, value]) => !Number.isFinite(value) || value < 0,
+    );
+    const consequentialFailures = counterEntries.filter(
+      ([key, value]) =>
+        value > 0 &&
+        (/^otelcol_(exporter_enqueue_failed|receiver_(refused|failed))/.test(
+          key,
+        ) ||
+          (/^otelcol_exporter_send_failed/.test(key) &&
+            !/error_permanent="false"/.test(key))),
+    );
+    const transientRetryAttempts = counterEntries
+      .filter(
+        ([key]) =>
+          /^otelcol_exporter_send_failed/.test(key) &&
+          /error_permanent="false"/.test(key),
+      )
+      .reduce((sum, [, value]) => sum + value, 0);
     add(
       "collector_delivery",
       ["log_records", "spans", "metric_points"].every((signal) =>
@@ -610,21 +885,19 @@ export async function checkProxyTelemetry({
             key.startsWith(`otelcol_exporter_sent_${signal}`),
         ),
       )
-        ? Object.entries(counters).some(
-            ([key, value]) =>
-              !Number.isFinite(value) ||
-              value < 0 ||
-              (/^otelcol_(exporter_(send_failed|enqueue_failed)|receiver_(refused|failed))/.test(
-                key,
-              ) &&
-                value > 0),
-          )
+        ? invalidCounters.length || consequentialFailures.length
           ? "warn"
           : "pass"
         : "unverified",
       {
         scope:
-          "collector lifetime delivery/failure counters; absent failure series are not required when sent series identify that signal; queue_size is an instantaneous gauge and a nonzero queue alone is not a failure",
+          "collector lifetime delivery/failure counters; transient retry attempts are historical pressure rather than proof of loss, while permanent, enqueue, receiver, and invalid counters remain warnings; selected-interval loss is checked against stored request and capture identities",
+        transientRetryAttempts,
+        consequentialFailures: consequentialFailures.map(([key, value]) => ({
+          key,
+          value,
+        })),
+        invalidCounters: invalidCounters.map(([key, value]) => ({ key, value })),
         counters,
       },
     );

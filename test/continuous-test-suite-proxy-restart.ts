@@ -34,11 +34,63 @@ import {
 } from "../dist/proxy/restartControl.js";
 import { createProxyStartApp } from "../dist/cli/commands/proxy.js";
 import { markProxyReady } from "../dist/proxy/proxyHealth.js";
+import { shouldRefreshStaleSupervisor } from "../dist/proxy/updateCoordinator.js";
 
 const { test, runSuite } = defineSuite("Safe Proxy Restart", { offline: true });
 const fixture = fileURLToPath(
   new URL("./fixtures/proxyRestartWorker.mjs", import.meta.url),
 );
+
+await test("current worker reconciles a stale rolling supervisor without a registry update", async () => {
+  assertEqual(
+    shouldRefreshStaleSupervisor({
+      updateAvailable: false,
+      rollingSupervisor: true,
+      runningVersion: "12.14.14",
+      workerVersion: "12.14.14",
+      supervisorVersion: "12.14.11",
+    }),
+    true,
+  );
+  for (const options of [
+    {
+      updateAvailable: true,
+      rollingSupervisor: true,
+      runningVersion: "12.14.14",
+      workerVersion: "12.14.14",
+      supervisorVersion: "12.14.11",
+    },
+    {
+      updateAvailable: false,
+      rollingSupervisor: false,
+      runningVersion: "12.14.14",
+      workerVersion: "12.14.14",
+      supervisorVersion: "12.14.11",
+    },
+    {
+      updateAvailable: false,
+      rollingSupervisor: true,
+      runningVersion: "12.14.14",
+      workerVersion: "12.14.13",
+      supervisorVersion: "12.14.11",
+    },
+    {
+      updateAvailable: false,
+      rollingSupervisor: true,
+      runningVersion: "12.14.14",
+      workerVersion: "12.14.14",
+      supervisorVersion: "12.14.14",
+    },
+    {
+      updateAvailable: false,
+      rollingSupervisor: true,
+      runningVersion: "12.14.14",
+      workerVersion: "12.14.14",
+    },
+  ]) {
+    assertEqual(shouldRefreshStaleSupervisor(options), false);
+  }
+});
 
 async function withService(
   mode: string,

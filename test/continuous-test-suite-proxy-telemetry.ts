@@ -2174,6 +2174,11 @@ await test("size retention preserves the current supervisor journal and still re
 });
 
 await test("default shutdown flush waits for a capture beyond the metadata-only five-second budget", async () => {
+  assertEqual(
+    __requestLoggerTestHooks.defaultFlushTimeoutMs,
+    30_000,
+    "request-log flush no longer fits inside launchd's 45-second exit budget",
+  );
   const { pathToFileURL } = await import("node:url");
   const dir = await mkdtemp(join(tmpdir(), "capture-shutdown-"));
   const fixture = join(dir, "delayed-worker.mjs");
@@ -2703,7 +2708,7 @@ function otelAttribute(
   return value?.stringValue ?? value?.intValue ?? value?.boolValue;
 }
 
-await test("a burst exceeding the old body queue reconstructs every capture after delayed collector acknowledgements", async () => {
+await test("OTel admission waits through byte pressure and reconstructs every capture", async () => {
   await withBodyCollector(
     async (_records, response) => {
       await pause(20);
@@ -2713,7 +2718,10 @@ await test("a burst exceeding the old body queue reconstructs every capture afte
       const { flushProxyOtelLogs, getProxyOtelLogSnapshot } =
         await import("../src/lib/proxy/otelLogSink.js");
       const { createHash } = await import("node:crypto");
-      const bodies = Array.from({ length: 8 }, (_, i) => ({
+      // Each clone is roughly 3 MiB because strings are retained as UTF-16.
+      // Twelve captures cross the 32 MiB active pool and exercise the bounded
+      // OTel overflow queue seen in production without increasing that pool.
+      const bodies = Array.from({ length: 12 }, (_, i) => ({
         message: String(i) + "x".repeat(1_555_211),
         api_key: "must-be-redacted",
         nested: { password: { private: "not-exported" } },
@@ -2737,7 +2745,7 @@ await test("a burst exceeding the old body queue reconstructs every capture afte
           (r) => otelAttribute(r, "proxy.record_kind") === "body_capture_index",
         )
         .map((r) => JSON.parse(r.body.stringValue));
-      assertEqual(indexes.length, 8);
+      assertEqual(indexes.length, 12);
       for (const index of indexes) {
         assertEqual(index.bodyDelivery.status, "transport_acknowledged");
         assertEqual(
@@ -2775,7 +2783,7 @@ await test("a burst exceeding the old body queue reconstructs every capture afte
         assertEqual(body.nested.password, "[REDACTED]");
       }
       const snapshot = getProxyOtelLogSnapshot();
-      assertEqual(snapshot.bodyDelivery.transportAcknowledged, 8);
+      assertEqual(snapshot.bodyDelivery.transportAcknowledged, 12);
       assertEqual(snapshot.bodyDelivery.pending, 0);
       assertEqual(
         snapshot.queues[1].dropped,
@@ -2786,6 +2794,161 @@ await test("a burst exceeding the old body queue reconstructs every capture afte
         snapshot.queues[1].highWaterOutstanding <= 64,
         "capture pacing exceeded one batch",
       );
+      const worker = getRequestLoggerSnapshot().bodyCapture!;
+      assert(
+        worker.admissionWaits > 0,
+        "fixture did not exercise the OTel overflow admission queue",
+      );
+      assertEqual(worker.admissionTimeouts, 0);
+      assertEqual(worker.rejected, 0);
+      assertEqual(worker.waiting, 0);
+      assert(
+        worker.pendingBytes <= worker.maxPendingBytes,
+        "active capture pool exceeded its byte bound",
+      );
+      assert(
+        worker.highWaterWaitingBytes <= worker.maxWaitingBytes,
+        "overflow queue exceeded its byte bound",
+      );
+    },
+  );
+});
+
+await test("OTel admission absorbs the observed 64-slot publication burst", async () => {
+  await withBodyCollector(
+    async (_records, response) => {
+      await pause(20);
+      response.writeHead(200, { "content-type": "application/json" }).end("{}");
+    },
+    async (received) => {
+      const { flushProxyOtelLogs, getProxyOtelLogSnapshot } =
+        await import("../src/lib/proxy/otelLogSink.js");
+      const captures = Array.from({ length: 80 }, (_, index) => ({
+        timestamp: new Date().toISOString(),
+        requestId: `slot-burst-${index}`,
+        phase: "client_request" as const,
+        model: "fixture",
+        stream: false,
+        body: {
+          message: `${index}:${"x".repeat(2_048)}`,
+          api_key: "must-be-redacted",
+        },
+      }));
+
+      await Promise.all(captures.map((capture) => logBodyCapture(capture)));
+      await flushRequestLogs();
+      await flushProxyOtelLogs();
+
+      const indexes = received
+        .filter(
+          (record) =>
+            otelAttribute(record, "proxy.record_kind") === "body_capture_index",
+        )
+        .map((record) => JSON.parse(record.body.stringValue));
+      assertEqual(indexes.length, captures.length);
+      assertEqual(
+        indexes.filter(
+          (index) => index.bodyDelivery.status === "transport_acknowledged",
+        ).length,
+        captures.length,
+      );
+
+      const worker = getRequestLoggerSnapshot().bodyCapture!;
+      assertEqual(worker.highWaterPending, worker.maxPending);
+      assert(
+        worker.highWaterWaiting >= captures.length - worker.maxPending,
+        "fixture did not queue captures beyond the active 64-slot pool",
+      );
+      assertEqual(worker.admissionTimeouts, 0);
+      assertEqual(worker.rejected, 0);
+      assertEqual(worker.waiting, 0);
+      assertEqual(worker.pending, 0);
+
+      const otel = getProxyOtelLogSnapshot();
+      assertEqual(otel.bodyDelivery.transportAcknowledged, captures.length);
+      assertEqual(otel.bodyDelivery.rejected, 0);
+      assertEqual(otel.queues[1].dropped, 0);
+    },
+  );
+});
+
+await test("OTel admission lets a compatible small capture bypass a byte-blocked waiter", async () => {
+  let collectorOpen = false;
+  const blockedCollectorResponses: Array<() => void> = [];
+  const openCollector = () => {
+    collectorOpen = true;
+    for (const release of blockedCollectorResponses.splice(0)) {
+      release();
+    }
+  };
+  await withBodyCollector(
+    async (_records, response) => {
+      if (!collectorOpen) {
+        await new Promise<void>((resolve) => {
+          blockedCollectorResponses.push(resolve);
+        });
+      }
+      response.writeHead(200, { "content-type": "application/json" }).end("{}");
+    },
+    async () => {
+      const operations: Array<Promise<unknown>> = [];
+      try {
+        const active = Array.from({ length: 64 }, (_, index) =>
+          logBodyCapture({
+            timestamp: new Date().toISOString(),
+            requestId: `mixed-active-${index}`,
+            phase: "client_request",
+            model: "fixture",
+            stream: false,
+            body: { message: `${index}:${"x".repeat(240_000)}` },
+          }),
+        );
+        operations.push(...active);
+        await eventually(
+          () => getRequestLoggerSnapshot().bodyCapture?.pending === 64,
+        );
+
+        const large = logBodyCapture({
+          timestamp: new Date().toISOString(),
+          requestId: "mixed-waiter-large",
+          phase: "client_request",
+          model: "fixture",
+          stream: false,
+          body: { message: "x".repeat(5_000_000) },
+        });
+        const small = logBodyCapture({
+          timestamp: new Date().toISOString(),
+          requestId: "mixed-waiter-small",
+          phase: "client_request",
+          model: "fixture",
+          stream: false,
+          body: { message: "small" },
+        });
+        operations.push(large, small);
+        await eventually(
+          () => getRequestLoggerSnapshot().bodyCapture?.waiting === 2,
+        );
+        await eventually(() => blockedCollectorResponses.length > 0);
+
+        blockedCollectorResponses.shift()?.();
+        await eventually(
+          () =>
+            blockedCollectorResponses.length > 0 &&
+            getRequestLoggerSnapshot().bodyCapture?.waiting === 1,
+        );
+        openCollector();
+        await Promise.all(operations);
+        await flushRequestLogs();
+
+        const worker = getRequestLoggerSnapshot().bodyCapture!;
+        assertEqual(worker.admissionTimeouts, 0);
+        assertEqual(worker.rejected, 0);
+        assertEqual(worker.waiting, 0);
+        assertEqual(worker.pending, 0);
+      } finally {
+        openCollector();
+        await Promise.allSettled(operations);
+      }
     },
   );
 });
@@ -3460,6 +3623,10 @@ await test("history queries bound time and pages, preserve equal-time ordering a
       queries.every((q) => q.sql.includes("request_id ASC, body ASC")),
       "equal-time pagination has no tie breaker",
     );
+    assert(
+      queries.every((q) => q.sql.includes("proxy_event_id")),
+      "history queries omitted the stable OTLP event identity",
+    );
     mode = "split";
     assertEqual((await queryProxyHistory(options)).complete, true);
     mode = "partial";
@@ -3761,7 +3928,7 @@ await test("failed OTLP batches retain record identities and publish bounded rec
   );
 });
 
-await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bodies, empty traffic and partial backend data", async () => {
+await test("the OTel doctor normalizes exact backend retries and rejects producer duplicates, identity conflicts, missing fields, corrupt bodies, empty traffic and partial data", async () => {
   const { checkProxyTelemetry } =
     await import("../scripts/observability/proxy-telemetry-check.mjs");
   const { createHash } = await import("node:crypto");
@@ -3890,7 +4057,7 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
               .map((signal) =>
                 mode === "sparse_collector"
                   ? `otelcol_exporter_sent_${signal}{exporter="fixture"} 20`
-                  : `otelcol_exporter_send_failed_${signal}_total{exporter="fixture"} ${mode === "bad_collector_metrics" ? "NaN" : mode === "collector_failure" ? 1 : 0}`,
+                  : `otelcol_exporter_send_failed_${signal}_total{exporter="fixture"${mode === "transient_collector_retry" ? ',error_permanent="false"' : ""}} ${mode === "bad_collector_metrics" ? "NaN" : ["collector_failure", "transient_collector_retry"].includes(mode) ? 1 : 0}`,
               )
               .join("\n") +
               (mode === "busy_collector"
@@ -3911,6 +4078,7 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
       } else if (query.sql.includes("proxy_record_kind='request_final'")) {
         const row = {
           _timestamp: 2_000_000,
+          proxy_event_id: "final-event",
           service_instance_id: "worker-1",
           request_id: "fixture",
           body: JSON.stringify(
@@ -3934,22 +4102,41 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
                       : final,
           ),
         };
-        hits = mode === "duplicate" ? [row, row] : [row];
+        hits =
+          mode === "retry_duplicate"
+            ? [row, row]
+            : mode === "duplicate"
+              ? [row, { ...row, proxy_event_id: "final-event-2" }]
+              : mode === "conflicting_duplicate"
+                ? [
+                    row,
+                    {
+                      ...row,
+                      body: JSON.stringify({ ...final, model: "other-model" }),
+                    },
+                  ]
+                : [row];
       } else if (query.sql.includes("proxy_record_kind='body_capture_index'")) {
+        const row = {
+          _timestamp: 2_000_000,
+          proxy_event_id: "capture-event",
+          request_id: "fixture",
+          body: JSON.stringify(index),
+        };
         hits =
           mode === "missing_captures"
             ? []
-            : [
-                {
-                  _timestamp: 2_000_000,
-                  request_id: "fixture",
-                  body: JSON.stringify(index),
-                },
-              ];
+            : mode === "capture_retry_duplicate"
+              ? [row, row]
+              : [row];
       } else if (query.sql.includes("proxy_record_kind='lifecycle'")) {
         hits = [
           {
+            _timestamp: 2_000_000,
+            proxy_event_id: "lifecycle-event",
             body: JSON.stringify({
+              processInstanceId: "process-1",
+              sequence: 1,
               requestId: mode === "missing_final" ? "lost-final" : "fixture",
               event: "request_terminal",
               telemetryStatus: "complete",
@@ -3963,6 +4150,7 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
             ? [
                 {
                   _timestamp: 2_500_000,
+                  proxy_event_id: "delivery-event",
                   request_id: "",
                   body: JSON.stringify({
                     id: "interval-failure",
@@ -3976,6 +4164,7 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
               ? [
                   {
                     _timestamp: 2_500_000,
+                    proxy_event_id: "malformed-delivery-event",
                     request_id: "",
                     body: JSON.stringify({
                       ...(mode === "malformed_delivery_missing_id"
@@ -3996,13 +4185,20 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
                 ]
               : [];
       } else if (query.sql.includes("body_chunk_index")) {
-        hits = [
-          {
-            body_chunk_index: 0,
-            body_chunk_count: 1,
-            body: mode === "corrupt" ? "x" : "{}",
-          },
-        ];
+        const row = {
+          _timestamp: 2_000_000,
+          proxy_event_id: "chunk-event",
+          body_capture_id: captureId,
+          body_chunk_index: 0,
+          body_chunk_count: 1,
+          body: mode === "corrupt" ? "x" : "{}",
+        };
+        hits =
+          mode === "chunk_retry_duplicate"
+            ? [row, row]
+            : mode === "chunk_conflict"
+              ? [row, { ...row, body: "x" }]
+              : [row];
       } else if (query.sql.includes("trace_id IN")) {
         hits = [{ trace_id: traceId, spans: 1 }];
       }
@@ -4026,9 +4222,33 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
     "pass",
     "complete recorded telemetry did not pass",
   );
+  mode = "retry_duplicate";
+  const retryReport = await checkProxyTelemetry(options);
+  assertEqual(
+    retryReport.status,
+    "pass",
+    "an exact OTLP retry failed coverage",
+  );
+  const retryIdentity = retryReport.checks.find(
+    (check) => check.name === "backend_row_identity",
+  )?.evidence as {
+    exactRetryDuplicates?: number;
+  };
+  assertEqual(
+    retryIdentity.exactRetryDuplicates,
+    1,
+    "the exact OTLP retry was not reported",
+  );
+  const retryFinals = retryReport.checks.find(
+    (check) => check.name === "final_uniqueness",
+  )?.evidence as { records?: number; rawRecords?: number };
+  assertEqual(retryFinals.rawRecords, 2, "raw retry evidence was lost");
+  assertEqual(retryFinals.records, 1, "the retry inflated request totals");
   for (mode of [
     "missing",
     "duplicate",
+    "conflicting_duplicate",
+    "chunk_conflict",
     "corrupt",
     "empty",
     "stale",
@@ -4054,6 +4274,10 @@ await test("the OTel doctor rejects missing fields, duplicate finals, corrupt bo
     );
   }
   for (mode of [
+    "retry_duplicate",
+    "capture_retry_duplicate",
+    "chunk_retry_duplicate",
+    "transient_collector_retry",
     "busy_collector",
     "sparse_collector",
     "historical_runtime_failure",

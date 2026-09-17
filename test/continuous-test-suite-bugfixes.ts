@@ -3703,6 +3703,35 @@ const tests: TestFunction[] = [
     },
   },
   {
+    name: "updater: no-newer-version checks still reconcile a stale supervisor",
+    category: "launchd-regression",
+    fn: async () => {
+      const { readFileSync } = await import("fs");
+      const { join: pathJoin } = await import("path");
+      const src = readFileSync(
+        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
+        "utf-8",
+      );
+      const start = src.indexOf("let supervisorRefreshOnly = false");
+      const end = src.indexOf("const initiallyPendingRestart", start);
+      const noUpdate = src.slice(start, end);
+      const incompleteProbe = noUpdate.indexOf(
+        "runtime version probe incomplete",
+      );
+      const refreshDecision = noUpdate.indexOf("shouldRefreshStaleSupervisor");
+      return (
+        start >= 0 &&
+        end > start &&
+        noUpdate.includes("fetchProxyRuntimeVersions") &&
+        noUpdate.includes(".catch(() => ({}))") &&
+        incompleteProbe >= 0 &&
+        noUpdate.includes("scheduleUpdateRetry(") &&
+        refreshDecision > incompleteProbe &&
+        refreshDecision < noUpdate.lastIndexOf("return;")
+      );
+    },
+  },
+  {
     name: "updater: supervisor refresh retries preserve backoff until activation succeeds",
     category: "launchd-regression",
     fn: async () => {

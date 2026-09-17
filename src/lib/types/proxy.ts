@@ -791,7 +791,7 @@ export type ProxyBodyCaptureWorkerSnapshot = {
   rejectionReasons: Record<string, number>;
   lastError?: string;
   lastRejectedAt?: string;
-};
+} & ProxyBodyCaptureWaitingSnapshot;
 
 /** Collector transport evidence; acknowledgement does not prove backend storage. */
 export type ProxyBodyDeliveryResult = {
@@ -4624,4 +4624,16 @@ export type ProxyLogTraceContext = {
   traceId: string;
   spanId: string;
   traceFlags: number;
+};
+
+/** OTel-only captures waiting for bounded worker capacity. */
+type ProxyBodyCaptureWaitingSnapshot = {
+  waiting: number;
+  waitingBytes: number;
+  maxWaiting: number;
+  maxWaitingBytes: number;
+  highWaterWaiting: number;
+  highWaterWaitingBytes: number;
+  admissionWaits: number;
+  admissionTimeouts: number;
 };

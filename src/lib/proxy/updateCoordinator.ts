@@ -4,6 +4,28 @@ import type {
   ProxyUpdateWindowResult,
 } from "../types/index.js";
 
+/**
+ * A replacement updater starts from the newly installed package. The registry
+ * then reports no newer version even when its launchd parent still runs the
+ * old package, so parent reconciliation must be decided from both live
+ * generations instead of `updateAvailable` alone.
+ */
+export function shouldRefreshStaleSupervisor(options: {
+  updateAvailable: boolean;
+  rollingSupervisor: boolean;
+  runningVersion: string;
+  workerVersion?: string;
+  supervisorVersion?: string;
+}): boolean {
+  return (
+    !options.updateAvailable &&
+    options.rollingSupervisor &&
+    options.workerVersion === options.runningVersion &&
+    typeof options.supervisorVersion === "string" &&
+    options.supervisorVersion !== options.runningVersion
+  );
+}
+
 function isQuiet(
   activity: ProxyRuntimeActivity,
   quietThresholdMs: number,

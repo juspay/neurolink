@@ -7,6 +7,12 @@ import type {
 
 const MAX_PENDING = 64;
 const MAX_PENDING_BYTES = 32 * 1024 * 1024;
+// OTel publication is asynchronous. Absorb one additional bounded burst
+// without expanding the active structured-clone pool or blocking model
+// responses; sustained overload still expires with an explicit index failure.
+const MAX_OTEL_WAITING = 64;
+const MAX_OTEL_WAITING_BYTES = 32 * 1024 * 1024;
+const OTEL_ADMISSION_WAIT_MS = 20_000;
 // Bound retained UTF-16 strings rather than a 3x UTF-8 guess. This accommodates
 // the observed 7.3 MB JSON requests while retaining a 32 MiB aggregate pool.
 const MAX_ENTRY_BYTES = 16 * 1024 * 1024;
@@ -26,6 +32,14 @@ const snapshot: ProxyBodyCaptureWorkerSnapshot = {
   maxPendingBytes: MAX_PENDING_BYTES,
   highWaterPending: 0,
   highWaterBytes: 0,
+  waiting: 0,
+  waitingBytes: 0,
+  maxWaiting: MAX_OTEL_WAITING,
+  maxWaitingBytes: MAX_OTEL_WAITING_BYTES,
+  highWaterWaiting: 0,
+  highWaterWaitingBytes: 0,
+  admissionWaits: 0,
+  admissionTimeouts: 0,
   rejectionReasons: {},
 };
 const pending = new Map<
@@ -35,6 +49,119 @@ const pending = new Map<
     timer: NodeJS.Timeout;
   }
 >();
+const otelAdmissionWaiters: Array<{
+  bytes: number;
+  resolve: (result: "admitted" | "queue_full" | "timeout") => void;
+  timer: NodeJS.Timeout;
+}> = [];
+let admissionRetryTimer: NodeJS.Timeout | undefined;
+
+/** Atomically reserve the active clone/publication lease. */
+function reserveCapture(bytes: number): boolean {
+  if (
+    Date.now() < retryAfter ||
+    snapshot.pending >= MAX_PENDING ||
+    snapshot.pendingBytes + bytes > MAX_PENDING_BYTES
+  ) {
+    return false;
+  }
+  snapshot.pending += 1;
+  snapshot.pendingBytes += bytes;
+  snapshot.highWaterPending = Math.max(
+    snapshot.highWaterPending,
+    snapshot.pending,
+  );
+  snapshot.highWaterBytes = Math.max(
+    snapshot.highWaterBytes,
+    snapshot.pendingBytes,
+  );
+  return true;
+}
+
+/** Admit every compatible OTel waiter as active leases settle. */
+function drainOtelAdmissionWaiters(): void {
+  if (!otelAdmissionWaiters.length) {
+    return;
+  }
+  if (Date.now() < retryAfter) {
+    if (!admissionRetryTimer) {
+      admissionRetryTimer = setTimeout(
+        () => {
+          admissionRetryTimer = undefined;
+          drainOtelAdmissionWaiters();
+        },
+        Math.max(1, retryAfter - Date.now()),
+      );
+      admissionRetryTimer.unref?.();
+    }
+    return;
+  }
+  for (let index = 0; index < otelAdmissionWaiters.length; ) {
+    if (snapshot.pending >= MAX_PENDING) {
+      break;
+    }
+    const waiter = otelAdmissionWaiters[index];
+    if (!reserveCapture(waiter.bytes)) {
+      // Byte pressure can block a large capture while a later small capture
+      // still fits. Keep the large capture's original timeout and scan the
+      // rest of the bounded queue once.
+      index += 1;
+      continue;
+    }
+    otelAdmissionWaiters.splice(index, 1);
+    clearTimeout(waiter.timer);
+    snapshot.waiting -= 1;
+    snapshot.waitingBytes -= waiter.bytes;
+    waiter.resolve("admitted");
+  }
+}
+
+/** Retain bounded OTel overflow instead of dropping a transient burst. */
+function waitForOtelAdmission(
+  bytes: number,
+): Promise<"admitted" | "queue_full" | "timeout"> {
+  if (
+    snapshot.waiting >= MAX_OTEL_WAITING ||
+    snapshot.waitingBytes + bytes > MAX_OTEL_WAITING_BYTES
+  ) {
+    return Promise.resolve("queue_full");
+  }
+  snapshot.admissionWaits += 1;
+  snapshot.waiting += 1;
+  snapshot.waitingBytes += bytes;
+  snapshot.highWaterWaiting = Math.max(
+    snapshot.highWaterWaiting,
+    snapshot.waiting,
+  );
+  snapshot.highWaterWaitingBytes = Math.max(
+    snapshot.highWaterWaitingBytes,
+    snapshot.waitingBytes,
+  );
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      const index = otelAdmissionWaiters.findIndex(
+        (waiter) => waiter.timer === timer,
+      );
+      if (index < 0) {
+        return;
+      }
+      otelAdmissionWaiters.splice(index, 1);
+      snapshot.waiting -= 1;
+      snapshot.waitingBytes -= bytes;
+      snapshot.admissionTimeouts += 1;
+      resolve("timeout");
+      drainOtelAdmissionWaiters();
+    }, OTEL_ADMISSION_WAIT_MS);
+    timer.unref?.();
+    otelAdmissionWaiters.push({ bytes, resolve, timer });
+  });
+}
+
+function releaseCapture(bytes: number): void {
+  snapshot.pending -= 1;
+  snapshot.pendingBytes -= bytes;
+  drainOtelAdmissionWaiters();
+}
 
 // Bound traversal as well as the structured clone sent to the worker. Never
 // invoke getters/toJSON or stringify a large body on the serving event loop.
@@ -167,6 +294,7 @@ export async function captureProxyBody(
   consume: (result: ProcessedProxyBodyCapture) => Promise<void>,
 ): Promise<void> {
   snapshot.attempted += 1;
+  const queuedAt = Date.now();
   // An OTel capture can use the existing byte pool when it is otherwise idle.
   // Raising the slot count does not raise the aggregate retained-memory bound.
   const maxEntryBytes = logDir === null ? MAX_PENDING_BYTES : MAX_ENTRY_BYTES;
@@ -186,19 +314,24 @@ export async function captureProxyBody(
         ? error.message
         : "body_capture_unsupported_value";
   }
-  if (
-    bytes > maxEntryBytes ||
-    snapshot.pending >= MAX_PENDING ||
-    snapshot.pendingBytes + bytes > MAX_PENDING_BYTES ||
-    Date.now() < retryAfter
-  ) {
+  let admission: "admitted" | "queue_full" | "timeout" = "queue_full";
+  if (bytes <= maxEntryBytes && Date.now() >= retryAfter) {
+    admission = reserveCapture(bytes)
+      ? "admitted"
+      : logDir === null
+        ? await waitForOtelAdmission(bytes)
+        : "queue_full";
+  }
+  if (admission !== "admitted") {
     snapshot.rejected += 1;
     const error =
       bytes > maxEntryBytes
         ? (admissionError ?? "body_capture_entry_too_large")
         : Date.now() < retryAfter
           ? "body_worker_backoff"
-          : "body_capture_queue_full";
+          : admission === "timeout"
+            ? "body_capture_admission_timeout"
+            : "body_capture_queue_full";
     snapshot.lastError = error;
     snapshot.lastRejectedAt = new Date().toISOString();
     snapshot.rejectionReasons[error] =
@@ -228,8 +361,9 @@ export async function captureProxyBody(
   try {
     current = getWorker();
   } catch {
-    snapshot.failed += 1;
     retryAfter = Date.now() + 5_000;
+    releaseCapture(bytes);
+    snapshot.failed += 1;
     return consume({
       error: "body_worker_start_failed",
       stored: { bodyWriteFailed: true },
@@ -252,8 +386,7 @@ export async function captureProxyBody(
             result.error ??= "body_capture_publication_failed";
           })
           .finally(() => {
-            snapshot.pending -= 1;
-            snapshot.pendingBytes -= bytes;
+            releaseCapture(bytes);
             if (result.error || result.stored.bodyWriteFailed) {
               snapshot.failed += 1;
             } else {
@@ -266,19 +399,9 @@ export async function captureProxyBody(
           });
       },
     });
-    snapshot.pending += 1;
-    snapshot.highWaterPending = Math.max(
-      snapshot.highWaterPending,
-      snapshot.pending,
-    );
-    snapshot.pendingBytes += bytes;
-    snapshot.highWaterBytes = Math.max(
-      snapshot.highWaterBytes,
-      snapshot.pendingBytes,
-    );
     current.ref();
     try {
-      current.postMessage({ id, entry, logDir, queuedAt: Date.now() });
+      current.postMessage({ id, entry, logDir, queuedAt });
     } catch {
       settle(id, {
         error: "body_capture_clone_failed",
@@ -302,6 +425,11 @@ export const __bodyCaptureWorkerTestHooks = {
    * Reset an isolated worker after capture publications drain, optionally selecting a fixture entry.
    */
   async reset(url?: URL): Promise<void> {
+    if (otelAdmissionWaiters.length) {
+      throw new Error(
+        "Cannot reset body capture worker with admission waiters",
+      );
+    }
     if (worker) {
       const current = worker;
       failWorker(current, "body_worker_test_reset");
@@ -309,6 +437,10 @@ export const __bodyCaptureWorkerTestHooks = {
     }
     workerUrl = url;
     retryAfter = 0;
+    if (admissionRetryTimer) {
+      clearTimeout(admissionRetryTimer);
+      admissionRetryTimer = undefined;
+    }
     Object.assign(snapshot, {
       attempted: 0,
       completed: 0,
@@ -320,6 +452,12 @@ export const __bodyCaptureWorkerTestHooks = {
       lastRejectedAt: undefined,
       highWaterPending: 0,
       highWaterBytes: 0,
+      waiting: 0,
+      waitingBytes: 0,
+      highWaterWaiting: 0,
+      highWaterWaitingBytes: 0,
+      admissionWaits: 0,
+      admissionTimeouts: 0,
       rejectionReasons: {},
     });
   },
