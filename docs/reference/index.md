@@ -235,6 +235,6 @@ When reporting issues, include:
 
 ### Related Projects
 
-- **[Vercel AI SDK](https://github.com/vercel/ai)** - Underlying provider implementations
+- **[Vercel AI SDK](https://github.com/vercel/ai)** - Separate framework NeuroLink interoperates with via the client SDK's `LanguageModelV1` adapter
 - **[Model Context Protocol](https://modelcontextprotocol.io)** - Tool integration standard
 - **[TypeScript](https://www.typescriptlang.org/)** - Type safety and development

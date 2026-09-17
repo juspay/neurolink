@@ -30,9 +30,9 @@ const result = await neurolink.generate({
 });
 ```
 
-### `turnTimeoutMs` vs `timeout` on the AI-SDK loop path
+### `turnTimeoutMs` vs `timeout` on the native loop path
 
-On the AI-SDK loop path (direct Anthropic, litellm, OpenAI-compatible), an
+On the native loop path (direct Anthropic, LiteLLM, OpenAI-compatible), an
 explicit `turnTimeoutMs` owns the whole-turn hard abort, and `timeout` keeps
 its per-model-call meaning. Historically `timeout` alone bounded the ENTIRE
 multi-step loop there, so `{ timeout: 300_000, turnTimeoutMs: 2_400_000 }`

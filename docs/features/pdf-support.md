@@ -849,7 +849,7 @@ See `examples/pdf-analysis.ts` for complete working examples:
    ↓
 5. Pass Buffer to messageBuilder
    ↓
-6. Format as Vercel AI SDK file type
+6. Format as the provider's native file/document part
    ↓
 7. Send to provider's native PDF API
    ↓

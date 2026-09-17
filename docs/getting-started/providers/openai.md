@@ -331,7 +331,7 @@ for await (const chunk of stream.stream) {
 }
 ```
 
-The streaming implementation uses the Vercel AI SDK `streamText` with `fullStream` for handling both text and tool call chunks. Multi-step tool execution is supported with configurable `maxSteps`.
+The streaming implementation is NeuroLink's own HTTP + SSE client (`src/lib/providers/openaiChatCompletionsBase.ts`), which parses the server-sent event stream directly and handles both text and tool-call chunks. Multi-step tool execution is supported with configurable `maxSteps`.
 
 ### CLI Streaming
 

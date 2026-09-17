@@ -220,7 +220,7 @@ await neurolink.generate({
 Error: Invalid Value: 'file'. This model does not support file content types.
 ```
 
-**Technical Explanation:** Azure OpenAI models do not support the file content type required for PDF processing in the Vercel AI SDK. This is a **model architecture limitation**, not a configuration issue.
+**Technical Explanation:** Azure OpenAI models reject the `file` content type that PDF processing requires — the error above comes from the model API itself. This is a **model architecture limitation**, not a configuration issue.
 
 **Production Recommendation:**
 

@@ -346,7 +346,7 @@ for await (const chunk of stream) {
 
 ## Gemini 3 Multi-Turn Tool Calling (Agentic Loops)
 
-Gemini 3 models use a **native `@google/genai` SDK path** inside NeuroLink that bypasses the Vercel AI SDK. This is required because the Vercel layer strips the `thoughtSignature` token that Gemini 3 attaches to every tool-calling response — without it, conversation history replays break after the first agentic step.
+Gemini 3 models use a **native `@google/genai` SDK path** inside NeuroLink. It exists because of `thoughtSignature`: Gemini 3 attaches that token to every tool-calling response, and it has to survive into the replayed conversation history or agentic turns break after the first step. The generic adapter layer NeuroLink used to run on (the Vercel AI SDK, since removed) stripped it; the native path carries it through.
 
 ### How It Works
 
