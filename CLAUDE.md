@@ -422,12 +422,13 @@ Consequences worth knowing before you go looking for them:
 directly.** If it does, it will be rejected, and the failure appears as a
 release-job error rather than anything resembling a permissions problem.
 
-### ⚠️ Reading a CI result: six ways this repo has misread one
+### ⚠️ Reading a CI result: seven ways this repo has misread one
 
 Every incident below produced a confident wrong answer. The first four are the
-same mistake — treating the _absence_ of a signal as a signal. The last two are
-its close relatives: reading a signal the tool never emitted, and getting the
-same wrong answer twice from two passes that shared an input. They are recorded
+same mistake — treating the _absence_ of a signal as a signal. The last three
+are its close relatives: reading a signal the tool never emitted, getting the
+same wrong answer twice from two passes that shared an input, and reading a
+signal that belongs to a commit you have already replaced. They are recorded
 together because each one cost real time before it was spotted.
 
 **1. `CANCELLED` is not a failure.** Superseded runs report `CANCELLED`, and this
@@ -496,6 +497,30 @@ probe designs agreed with each other and were all wrong for the same reason,
 because they shared an unstated assumption about the transport. Assert the
 precondition first, in the probe, and make it fail loudly when it does not hold.
 
+**7. A pull request's check rollup can describe the PREVIOUS head.** The four
+above are about a check that has not appeared yet. This is the mirror image: a
+check that appeared, passed, and belongs to a commit you have just replaced.
+Immediately after an amend-and-force-push, `gh pr view <N> --json
+statusCheckRollup` can still serve the outgoing head's runs — so the gate reads
+a clean `5/5 SUCCESS` for a SHA that no longer exists on the branch, seconds
+after a push that has not started a single job. It was hit while merging a
+rebased stack: the rollup said five green, and `commits/<new-sha>/check-runs`
+said three present and all `in_progress`.
+
+Ask the commit, not the pull request:
+
+```bash
+SHA=$(gh api repos/juspay/neurolink/pulls/<N> --jq .head.sha)
+gh api "repos/juspay/neurolink/commits/$SHA/check-runs?per_page=100"
+```
+
+and re-read `.head.sha` on every poll, so a gate aborts rather than reports
+when the head moves underneath it. `mergeable_state` is not a substitute —
+it read `unknown` through the whole window. This is incident 6 again in a
+different costume: the stale object was a check run rather than a `FETCH_HEAD`,
+and a rollup that is merely _late_ is indistinguishable from one that is
+_right_ unless you pin the sha yourself.
+
 ### ⚠️ A "regenerate and diff" check needs a reproducible generator first
 
 `docs/api` currency works because typedoc is a pure function of the source.
@@ -549,6 +574,82 @@ membership.
 
 The general trap: a command that exits 0 is not evidence it did anything. Check
 that the work landed — a changed file, a written artifact — not the status code.
+
+### ⚠️ Merging a stack: `--delete-branch` closes the child
+
+The house recipe is `gh pr merge <n> --rebase --delete-branch`, and on a
+pull request that targets `release` it is correct. On a **stacked** pull request
+— one whose base is another open PR's branch — the `--delete-branch` half is
+actively destructive: GitHub does not always retarget a child onto the merged
+PR's base. It can simply **close** it, because the branch the child was opened
+against no longer exists.
+
+That happened to #1696 when #1649 landed. The child's own branch was untouched,
+so no work was lost, but the pull request went to `state=closed, merged=false`
+and could not be reopened — `PATCH /pulls/1696 -f state=open` returns
+
+```
+state cannot be changed. The fix/campaign-followups-closeout branch has been deleted.
+```
+
+Recovery is to recreate the base branch at the SHA it had before the merge,
+reopen the child, retarget it to `release`, and only then delete the temporary
+ref:
+
+```bash
+# The base ref is already deleted, so <pre-merge-sha> is not rev-parseable from
+# any branch — read it from the reflog, which still holds the deleted tip.
+deleted_base=<deleted-base>
+gh api -X POST repos/juspay/neurolink/git/refs \
+  -f ref="refs/heads/$deleted_base" \
+  -f sha="$(git reflog -1 --format=%H "$deleted_base")"
+gh api -X PATCH repos/juspay/neurolink/pulls/<child> -f state=open
+gh api -X PATCH repos/juspay/neurolink/pulls/<child> -f base=release
+```
+
+Approvals and review threads survive that round trip. Before deleting the
+recreated ref, confirm its content really landed — after a rebase-merge the SHA
+differs, so `git merge-base --is-ancestor` reports NOT_MERGED on a branch that
+is fully merged. Compare trees instead: `git rev-parse <branch>^{tree}` against
+`git rev-parse <merge-commit>^{tree}`.
+
+**So: omit `--delete-branch` for any PR that still has an open child**, and let
+it run only on the last link. The repository's own auto-delete-on-merge handles
+the rest.
+
+### ⚠️ Merging a stack: rebase-merge rewrites the parent, so rebase each child
+
+**Rebase and merge** replays the parent's commit onto `release` under a _new_
+SHA. The child's branch still carries the parent's _old_ commit, which is now on
+no branch — so the moment the child is retargeted to `release` it reports **two
+commits** and fails `🔒 Single Commit Policy Validation`, a policy it has not
+broken.
+
+Rebase each child onto the new tip between merges. Use `--onto` with the
+parent's old head, which replays only the child's own commit and never asks
+about the parent's:
+
+```bash
+git fetch origin release
+git switch <child>
+git rebase --onto origin/release <parent-old-head>
+```
+
+`git switch` first is not optional: `--onto` replays whatever is on `HEAD`, and
+between merges the operator is often standing on a sibling link of the stack.
+Without it the command silently rebases the wrong branch.
+
+A plain `git rebase origin/release` does **not** recognise the parent's commit
+as already landed — the rebase-merge rewrote it, and any regeneration folded in
+on top changed its tree — so it replays it and conflicts. `--onto` avoids the
+`--skip` dance entirely.
+
+Expect `docs-site/static/search-index.json` to conflict on every link of a
+stack: it is generated, committed, and touched by almost everything. Resolve it
+by regenerating rather than by picking a side — `pnpm run build`, `pnpm run
+docs:api`, then `pnpm --dir docs-site run build` — and fold the result into the
+single commit. See the reproducible-generator section above for why a second
+build must produce zero drift.
 
 ### ⚠️ ffmpeg is deliberately not installed in CI
 
