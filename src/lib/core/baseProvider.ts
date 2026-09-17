@@ -74,6 +74,7 @@ import {
 } from "../utils/async/withTimeout.js";
 import {
   composeAbortSignals,
+  composeAbortSignalsScoped,
   createTimeoutController,
   TimeoutError,
 } from "../utils/timeout.js";
@@ -360,203 +361,267 @@ export abstract class BaseProvider implements AIProvider {
     await this.ensureModelLimits();
     let options = this.normalizeStreamOptions(optionsOrPrompt);
 
-    // Before anything else, and before a single byte leaves the process: an
-    // execution policy this provider cannot honour is an error, and a policy
-    // whose shape could be read two ways is an error. Both are silent bugs at
-    // the point they would otherwise matter.
-    validateExecutionControl(
-      options.executionControl,
-      this.providerName,
-      this.supportsExecutionControl(),
-      {
-        turnTimeoutMs: options.turnTimeoutMs,
-        toolTimeoutMs: options.toolTimeoutMs,
-      },
-    );
-
-    logger.info(`Starting stream`, {
-      provider: this.providerName,
-      hasTools: !options.disableTools && this.supportsTools(),
-      disableTools: !!options.disableTools,
-      supportsTools: this.supportsTools(),
-      inputLength: options.input?.text?.length || 0,
-      maxTokens: options.maxTokens,
-      temperature: options.temperature,
-      timestamp: Date.now(),
-    });
-
-    // ===== EARLY MULTIMODAL DETECTION =====
-    // #1259: audioFiles was missing here while videoFiles was present, so an
-    // audio-only stream skipped this branch entirely.
-    const hasFileInput =
-      !!options.input?.files?.length ||
-      !!options.input?.videoFiles?.length ||
-      !!options.input?.audioFiles?.length;
-    if (hasFileInput) {
-      // ===== VIDEO ANALYSIS DETECTION =====
-      // Check if video frames are present and handle with fake streaming
-      const messages = await this.buildMessagesForStream(options);
-      if (hasVideoFrames(messages)) {
-        logger.info(
-          `Video frames detected in stream, using fake streaming for video analysis`,
-          {
-            provider: this.providerName,
-            model: this.modelName,
-          },
-        );
-        // Note: executeFakeStreaming() owns its own catch that fires the
-        // consumer-supplied onError before re-throwing through
-        // handleProviderError(), so we do not need to wrap again here —
-        // doing so would route the error through handleProviderError()
-        // twice (and risk a double-fire onError without the shared
-        // lifecycle-fired WeakSet mark).
-        const fakeResult = await this.executeFakeStreaming(
-          options,
-          analysisSchema,
-        );
-        return this.wrapStreamWithLifecycleCallbacks(fakeResult, options);
-      }
+    // Own an abort signal for this call so teardown can reach the transport.
+    //
+    // #1550 gave teardown a way to close the iterator chain, but closing an
+    // iterator does not cancel the HTTP request underneath it — the provider
+    // read stays pending and the connection stays open. Providers already
+    // honour `options.abortSignal` and pass it to their transport; nothing
+    // ever fired one on abandonment, because the only signal available was
+    // the caller's and the caller had simply walked away.
+    //
+    // Composed rather than substituted, so a caller's own signal keeps
+    // working exactly as before and either source can end the request.
+    // Scoped, not plain `composeAbortSignals`: that one is `AbortSignal.any`,
+    // whose registration on a source survives until the DERIVED signal is
+    // collected. A caller that reuses one long-lived `abortSignal` across many
+    // stream calls would accumulate a dependent per call on it, released only
+    // by GC — the exact hazard composeAbortSignalsScoped was written for (see
+    // its docstring: MaxListenersExceededWarning at 10+ compositions). It
+    // registers removable listeners and hands back a `dispose()`, which
+    // `teardown()` calls when the stream settles.
+    const teardownController = new AbortController();
+    const { signal: composedStreamSignal, dispose: disposeComposedSignal } =
+      composeAbortSignalsScoped(options.abortSignal, teardownController.signal);
+    if (composedStreamSignal !== options.abortSignal) {
+      options = { ...options, abortSignal: composedStreamSignal };
     }
 
-    // CRITICAL: Image generation models don't support real streaming
-    // Force fake streaming for image models to ensure image output is yielded.
-    // resolveRequestKind() skips this path when the caller explicitly requests
-    // non-image output (e.g. JSON analysis) so dual-mode models like
-    // gemini-3.1-flash-image-preview can still perform text/structured
-    // generation — see its doc comment for the full precedence table.
-    const requestKind = resolveRequestKind(options, this.modelName);
-
-    if (requestKind === "image") {
-      logger.info(`Image model detected, forcing fake streaming`, {
-        provider: this.providerName,
-        model: this.modelName,
-        reason:
-          "Image generation requires fake streaming to yield image output",
-      });
-
-      // Skip real streaming, go directly to fake streaming.
-      // executeFakeStreaming() owns its own catch + lifecycle fire, so
-      // wrapping again here would double-route through handleProviderError().
-      const fakeResult = await this.executeFakeStreaming(
-        options,
-        analysisSchema,
-      );
-      return this.wrapStreamWithLifecycleCallbacks(fakeResult, options);
-    }
-
-    // Central tool merge: Pre-merge base tools (MCP/built-in) with user-provided
-    // tools (e.g. RAG tools) into options.tools. This way, every provider's
-    // executeStream() can simply use options.tools (or getAllTools() + options.tools)
-    // and get the complete tool set without needing per-provider merge logic.
-    if (this.shouldUseTools(options, true)) {
-      const mergedTools = await this.getToolsForStream(options);
-      options = { ...options, tools: mergedTools };
-    } else {
-      options = { ...options, tools: {} };
-    }
-
-    // CRITICAL FIX: Always prefer real streaming over fake streaming
-    // Try real streaming first, use fake streaming only as fallback
+    // Ownership of the composed signal transfers to the returned wrapper,
+    // whose teardown() disposes it. Until that wrapper exists, this method
+    // owns it — and every throw between here and there (an execution-control
+    // rejection, a provider error with no tool fallback) would otherwise
+    // leave composeAbortSignalsScoped's once-listeners attached to a caller
+    // signal that may outlive this call by many more.
+    //
+    // catch, deliberately, not finally: dispose() only detaches listeners, so
+    // running it on the success path would sever the caller's abort from the
+    // composed signal the stream is still using.
     try {
-      logger.debug(`Attempting real streaming`, {
-        provider: this.providerName,
-        timestamp: Date.now(),
-      });
-
-      const realStreamResult = await this.executeStream(
-        options,
-        analysisSchema,
-      );
-
-      logger.info(`Real streaming succeeded`, {
-        provider: this.providerName,
-        timestamp: Date.now(),
-      });
-
-      // Wire lifecycle callbacks (onChunk/onFinish/onError) on the user-
-      // facing StreamResult.stream. The AI-SDK lifecycle middleware only
-      // sees AI-SDK-internal chunks via streamText/wrapLanguageModel, so
-      // providers with custom HTTP streaming (Ollama, llama.cpp's /api,
-      // anything that doesn't go through streamText) bypass it. Wrapping
-      // here makes the callbacks fire for every provider, regardless of
-      // streaming implementation.
-      return this.wrapStreamWithLifecycleCallbacks(
-        this.withStreamModelFallback(realStreamResult, options, analysisSchema),
-        options,
-      );
-    } catch (realStreamError) {
-      // Retired-model fallback runs FIRST, before any lifecycle callback has
-      // fired and before a single chunk has reached the consumer: onChunk and
-      // onFinish are only wired on the success path above, and onError fires
-      // further down this same catch. That ordering is what makes retrying a
-      // stream safe at all — nothing observable has happened yet.
-      const recovered = await this.retryStreamWithFallbackModel(
-        realStreamError,
-        options,
-        analysisSchema,
-      );
-      if (recovered) {
-        return recovered;
-      }
-
-      // The fallback is BROAD, not narrow: only the terminal errors listed
-      // below (abort, timeout, 401/403, quota, rate limit, authentication)
-      // re-throw. Every other failure — including a genuine configuration or
-      // programming error — is masked as a degraded fake stream whenever
-      // tools are enabled. Narrowing this to "streaming with tools is
-      // unsupported" failures would change behaviour for every provider at
-      // once, so it needs its own characterization PR first; until then this
-      // comment records what the code does, not what a narrower design would.
-      const errMsg =
-        realStreamError instanceof Error
-          ? realStreamError.message
-          : String(realStreamError);
-      const errName =
-        realStreamError instanceof Error ? realStreamError.name : "";
-      if (
-        errName === "AbortError" ||
-        errMsg.includes("abort") ||
-        errMsg.includes("timeout") ||
-        errMsg.includes("401") ||
-        errMsg.includes("403") ||
-        errMsg.includes("quota") ||
-        errMsg.includes("rate limit") ||
-        errMsg.includes("authentication")
-      ) {
-        await this.fireLifecycleErrorCallback(options, realStreamError);
-        throw this.handleProviderError(realStreamError);
-      }
-
-      logger.warn(
-        `Real streaming failed for ${this.providerName}, falling back to fake streaming:`,
+      // Before anything else, and before a single byte leaves the process: an
+      // execution policy this provider cannot honour is an error, and a policy
+      // whose shape could be read two ways is an error. Both are silent bugs at
+      // the point they would otherwise matter.
+      validateExecutionControl(
+        options.executionControl,
+        this.providerName,
+        this.supportsExecutionControl(),
         {
-          error: errMsg,
-          timestamp: Date.now(),
+          turnTimeoutMs: options.turnTimeoutMs,
+          toolTimeoutMs: options.toolTimeoutMs,
         },
       );
 
-      // Fallback to fake streaming only if real streaming fails AND tools
-      // are enabled. executeFakeStreaming() owns its own catch + lifecycle
-      // fire, so a fake-streaming failure here surfaces through that path
-      // without needing an outer wrap (which would double-route through
-      // handleProviderError()).
-      if (!options.disableTools && this.supportsTools()) {
+      logger.info(`Starting stream`, {
+        provider: this.providerName,
+        hasTools: !options.disableTools && this.supportsTools(),
+        disableTools: !!options.disableTools,
+        supportsTools: this.supportsTools(),
+        inputLength: options.input?.text?.length || 0,
+        maxTokens: options.maxTokens,
+        temperature: options.temperature,
+        timestamp: Date.now(),
+      });
+
+      // ===== EARLY MULTIMODAL DETECTION =====
+      // #1259: audioFiles was missing here while videoFiles was present, so an
+      // audio-only stream skipped this branch entirely.
+      const hasFileInput =
+        !!options.input?.files?.length ||
+        !!options.input?.videoFiles?.length ||
+        !!options.input?.audioFiles?.length;
+      if (hasFileInput) {
+        // ===== VIDEO ANALYSIS DETECTION =====
+        // Check if video frames are present and handle with fake streaming
+        const messages = await this.buildMessagesForStream(options);
+        if (hasVideoFrames(messages)) {
+          logger.info(
+            `Video frames detected in stream, using fake streaming for video analysis`,
+            {
+              provider: this.providerName,
+              model: this.modelName,
+            },
+          );
+          // Note: executeFakeStreaming() owns its own catch that fires the
+          // consumer-supplied onError before re-throwing through
+          // handleProviderError(), so we do not need to wrap again here —
+          // doing so would route the error through handleProviderError()
+          // twice (and risk a double-fire onError without the shared
+          // lifecycle-fired WeakSet mark).
+          const fakeResult = await this.executeFakeStreaming(
+            options,
+            analysisSchema,
+          );
+          return this.wrapStreamWithLifecycleCallbacks(
+            fakeResult,
+            options,
+            teardownController,
+            disposeComposedSignal,
+          );
+        }
+      }
+
+      // CRITICAL: Image generation models don't support real streaming
+      // Force fake streaming for image models to ensure image output is yielded.
+      // resolveRequestKind() skips this path when the caller explicitly requests
+      // non-image output (e.g. JSON analysis) so dual-mode models like
+      // gemini-3.1-flash-image-preview can still perform text/structured
+      // generation — see its doc comment for the full precedence table.
+      const requestKind = resolveRequestKind(options, this.modelName);
+
+      if (requestKind === "image") {
+        logger.info(`Image model detected, forcing fake streaming`, {
+          provider: this.providerName,
+          model: this.modelName,
+          reason:
+            "Image generation requires fake streaming to yield image output",
+        });
+
+        // Skip real streaming, go directly to fake streaming.
+        // executeFakeStreaming() owns its own catch + lifecycle fire, so
+        // wrapping again here would double-route through handleProviderError().
         const fakeResult = await this.executeFakeStreaming(
           options,
           analysisSchema,
         );
-        return this.wrapStreamWithLifecycleCallbacks(fakeResult, options);
-      } else {
-        // If real streaming failed and no tools are enabled, fire onError
-        // before re-throwing so consumer-supplied callbacks see the failure.
-        await this.fireLifecycleErrorCallback(options, realStreamError);
-        // If real streaming failed and no tools are enabled, re-throw the original error
-        logger.error(
-          `Real streaming failed for ${this.providerName}:`,
-          realStreamError,
+        return this.wrapStreamWithLifecycleCallbacks(
+          fakeResult,
+          options,
+          teardownController,
+          disposeComposedSignal,
         );
-        throw this.handleProviderError(realStreamError);
       }
+
+      // Central tool merge: Pre-merge base tools (MCP/built-in) with user-provided
+      // tools (e.g. RAG tools) into options.tools. This way, every provider's
+      // executeStream() can simply use options.tools (or getAllTools() + options.tools)
+      // and get the complete tool set without needing per-provider merge logic.
+      if (this.shouldUseTools(options, true)) {
+        const mergedTools = await this.getToolsForStream(options);
+        options = { ...options, tools: mergedTools };
+      } else {
+        options = { ...options, tools: {} };
+      }
+
+      // CRITICAL FIX: Always prefer real streaming over fake streaming
+      // Try real streaming first, use fake streaming only as fallback
+      try {
+        logger.debug(`Attempting real streaming`, {
+          provider: this.providerName,
+          timestamp: Date.now(),
+        });
+
+        const realStreamResult = await this.executeStream(
+          options,
+          analysisSchema,
+        );
+
+        logger.info(`Real streaming succeeded`, {
+          provider: this.providerName,
+          timestamp: Date.now(),
+        });
+
+        // Wire lifecycle callbacks (onChunk/onFinish/onError) on the user-
+        // facing StreamResult.stream. The AI-SDK lifecycle middleware only
+        // sees AI-SDK-internal chunks via streamText/wrapLanguageModel, so
+        // providers with custom HTTP streaming (Ollama, llama.cpp's /api,
+        // anything that doesn't go through streamText) bypass it. Wrapping
+        // here makes the callbacks fire for every provider, regardless of
+        // streaming implementation.
+        return this.wrapStreamWithLifecycleCallbacks(
+          this.withStreamModelFallback(
+            realStreamResult,
+            options,
+            analysisSchema,
+          ),
+          options,
+          teardownController,
+          disposeComposedSignal,
+        );
+      } catch (realStreamError) {
+        // Retired-model fallback runs FIRST, before any lifecycle callback has
+        // fired and before a single chunk has reached the consumer: onChunk and
+        // onFinish are only wired on the success path above, and onError fires
+        // further down this same catch. That ordering is what makes retrying a
+        // stream safe at all — nothing observable has happened yet.
+        const recovered = await this.retryStreamWithFallbackModel(
+          realStreamError,
+          options,
+          analysisSchema,
+          teardownController,
+          disposeComposedSignal,
+        );
+        if (recovered) {
+          return recovered;
+        }
+
+        // The fallback is BROAD, not narrow: only the terminal errors listed
+        // below (abort, timeout, 401/403, quota, rate limit, authentication)
+        // re-throw. Every other failure — including a genuine configuration or
+        // programming error — is masked as a degraded fake stream whenever
+        // tools are enabled. Narrowing this to "streaming with tools is
+        // unsupported" failures would change behaviour for every provider at
+        // once, so it needs its own characterization PR first; until then this
+        // comment records what the code does, not what a narrower design would.
+        const errMsg =
+          realStreamError instanceof Error
+            ? realStreamError.message
+            : String(realStreamError);
+        const errName =
+          realStreamError instanceof Error ? realStreamError.name : "";
+        if (
+          errName === "AbortError" ||
+          errMsg.includes("abort") ||
+          errMsg.includes("timeout") ||
+          errMsg.includes("401") ||
+          errMsg.includes("403") ||
+          errMsg.includes("quota") ||
+          errMsg.includes("rate limit") ||
+          errMsg.includes("authentication")
+        ) {
+          await this.fireLifecycleErrorCallback(options, realStreamError);
+          throw this.handleProviderError(realStreamError);
+        }
+
+        logger.warn(
+          `Real streaming failed for ${this.providerName}, falling back to fake streaming:`,
+          {
+            error: errMsg,
+            timestamp: Date.now(),
+          },
+        );
+
+        // Fallback to fake streaming only if real streaming fails AND tools
+        // are enabled. executeFakeStreaming() owns its own catch + lifecycle
+        // fire, so a fake-streaming failure here surfaces through that path
+        // without needing an outer wrap (which would double-route through
+        // handleProviderError()).
+        if (!options.disableTools && this.supportsTools()) {
+          const fakeResult = await this.executeFakeStreaming(
+            options,
+            analysisSchema,
+          );
+          return this.wrapStreamWithLifecycleCallbacks(
+            fakeResult,
+            options,
+            teardownController,
+            disposeComposedSignal,
+          );
+        } else {
+          // If real streaming failed and no tools are enabled, fire onError
+          // before re-throwing so consumer-supplied callbacks see the failure.
+          await this.fireLifecycleErrorCallback(options, realStreamError);
+          // If real streaming failed and no tools are enabled, re-throw the original error
+          logger.error(
+            `Real streaming failed for ${this.providerName}:`,
+            realStreamError,
+          );
+          throw this.handleProviderError(realStreamError);
+        }
+      }
+    } catch (streamSetupError) {
+      disposeComposedSignal();
+      throw streamSetupError;
     }
   }
 
@@ -748,6 +813,8 @@ export abstract class BaseProvider implements AIProvider {
     error: unknown,
     options: StreamOptions,
     analysisSchema: ValidationSchema | undefined,
+    teardownController?: AbortController,
+    disposeComposedSignal?: () => void,
   ): Promise<StreamResult | undefined> {
     if (options.disableInternalFallback === true) {
       return undefined;
@@ -769,7 +836,12 @@ export abstract class BaseProvider implements AIProvider {
       this.refreshHandlersForModel(candidate);
       try {
         const result = await this.executeStream(options, analysisSchema);
-        return this.wrapStreamWithLifecycleCallbacks(result, options);
+        return this.wrapStreamWithLifecycleCallbacks(
+          result,
+          options,
+          teardownController,
+          disposeComposedSignal,
+        );
       } catch {
         // Any failure on a candidate — stale id or otherwise — just moves to
         // the next one. Nothing is reported from here: if none succeed the
@@ -794,10 +866,20 @@ export abstract class BaseProvider implements AIProvider {
    * over /api/chat, custom OpenAI-compatible servers, etc). Wrapping the
    * user-facing stream here ensures the callbacks fire regardless of the
    * underlying transport.
+   *
+   * `teardownController`, when supplied, is the call's own abort source (see
+   * `stream()`): the cancel hook fires it on abandonment so the transport's
+   * in-flight HTTP request is cancelled, not just this iterator chain.
    */
   private wrapStreamWithLifecycleCallbacks(
     result: StreamResult,
     options: StreamOptions,
+    teardownController?: AbortController,
+    // Releases the scoped composition in stream() that put this call's
+    // teardown signal alongside the caller's. Runs from teardown(), so the
+    // listeners come off the caller's (possibly long-lived) signal the
+    // moment this stream settles rather than whenever GC gets to it.
+    disposeComposedSignal?: () => void,
   ): StreamResult {
     const lifecycle = getLifecycleMiddlewareConfig(options);
 
@@ -854,6 +936,31 @@ export abstract class BaseProvider implements AIProvider {
       [Symbol.asyncIterator]: () => upstreamIterator,
     };
 
+    // Set by teardown, read by the generator's catch. Distinguishes "the
+    // provider failed" from "we aborted the provider because the consumer
+    // abandoned this stream", which must not be reported as a failure.
+    let teardownRequested = false;
+    let teardownDone = false;
+
+    // Shared by both teardown entry points below (native `.return()` via the
+    // `finally`, and the `attachStreamCancel` hook for a consumer parked
+    // mid-`await` that a queued `.return()` cannot reach promptly). Guarded
+    // so whichever fires first does the work exactly once.
+    const teardown = (): void => {
+      if (teardownDone) {
+        return;
+      }
+      teardownDone = true;
+      teardownRequested = true;
+      // Abort before closing the iterators. The iterator close releases our
+      // side of the chain; this releases the provider's — the in-flight HTTP
+      // request that a closed iterator leaves running.
+      teardownController?.abort();
+      disposeComposedSignal?.();
+      cancelStream(originalStream);
+      releaseIterator(upstreamIterator);
+    };
+
     const wrappedStream = (async function* () {
       let accumulated = "";
       let seq = 0;
@@ -898,6 +1005,14 @@ export abstract class BaseProvider implements AIProvider {
         }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        if (teardownRequested) {
+          // Our own abort, from a consumer that already broke out of this
+          // stream. Firing onError would report cleanup as a provider failure,
+          // and rethrowing would surface an error nobody is left to catch —
+          // an unhandled rejection, which terminates the process. Ending the
+          // generator quietly is the correct outcome for an abandoned stream.
+          return;
+        }
         if (onError && !hasLifecycleErrorFired(err)) {
           // Mark before firing so a higher layer that also routes through
           // fireLifecycleErrorCallback (or its own lifecycle wrapper) with
@@ -915,6 +1030,21 @@ export abstract class BaseProvider implements AIProvider {
           );
         }
         throw classifyStreamError(err);
+      } finally {
+        // Unconditional and safe: `teardown()` is idempotent (guarded by
+        // `teardownDone`), and `cancelStream`/`releaseIterator` are
+        // documented as no-ops on an already-finished stream/iterator, so
+        // calling it again after normal completion or a real provider error
+        // (both of which reach here too) costs nothing. The path that
+        // actually needs it is a consumer breaking out of `for await` while
+        // this generator is parked right after a `yield` — that unwinds
+        // straight here, bypassing both the rest of the `try` and the
+        // `catch` above, since a native `.return()` is a "return"
+        // completion, not a thrown error. Closing the iterator chain (done
+        // automatically by `for-await-of`'s own `IteratorClose` on
+        // `upstreamIterable`) does not cancel the HTTP request underneath
+        // it, so the transport is aborted here explicitly.
+        teardown();
       }
     })();
 
@@ -922,11 +1052,12 @@ export abstract class BaseProvider implements AIProvider {
     // through `.return()` while it is parked awaiting the provider — that
     // request queues behind the in-flight `next()`. The hook closes the
     // upstream directly and forwards the request to any wrapper below, so
-    // abandoning a stream really does release the provider connection.
-    attachStreamCancel(wrappedStream, () => {
-      cancelStream(originalStream);
-      releaseIterator(upstreamIterator);
-    });
+    // abandoning a stream really does release the provider connection. This
+    // is the fallback path for that case; the common case (a consumer that
+    // breaks right after receiving a chunk, so this generator is parked at
+    // the `yield` rather than mid-`await`) is handled by the `finally`
+    // above, which reaches `.return()` synchronously.
+    attachStreamCancel(wrappedStream, teardown);
 
     // See the comment in withStreamModelFallback above: this spread must not
     // be allowed to freeze a provider's lazy toolsUsed/toolExecutions getters.

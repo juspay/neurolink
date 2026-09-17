@@ -199,6 +199,45 @@ Defined in: [types/stream.ts:926](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **stepsUsed?**: `number`
 
+#### structuredData?
+
+> `optional` **structuredData?**: `unknown`
+
+Parsed structured output for a `stream({ schema })` turn, available
+AFTER the stream has been drained.
+
+Lives on metadata for the same reason `finishReason` above does: it is a
+mutable reference the loop fills in, so result-object spreads in stream
+wrappers cannot snapshot it before it resolves. A plain field rather than
+a promise, deliberately — when a middleware short-circuits the request
+and the loop never runs, an unresolved promise would hang every reader,
+whereas an absent field is simply absent. Readers must tolerate that:
+absence means the model never produced the object.
+
+#### structuredDataUsage?
+
+> `optional` **structuredDataUsage?**: `object`
+
+Tokens spent by the tool-free re-ask that produced `structuredData`,
+when one was needed.
+
+That re-ask is a second, separately-billed model call, and the stream's
+own `usage` has already resolved by the time it runs — so folding these
+tokens into it would mutate a value a caller may have read, and leaving
+them out entirely would under-report what the turn cost. Reported here
+instead: same delivery as `structuredData`, filled at the same moment,
+read at the same moment. Absent when no re-ask was needed, which is the
+common case. The generate path accounts for its equivalent re-ask
+inline, since there the usage has not been handed out yet.
+
+##### structuredDataUsage.inputTokens
+
+> **inputTokens**: `number`
+
+##### structuredDataUsage.outputTokens
+
+> **outputTokens**: `number`
+
 #### thoughtSignature?
 
 > `optional` **thoughtSignature?**: `string`
@@ -213,7 +252,7 @@ Defined in: [types/stream.ts:926](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **analytics?**: [`AnalyticsData`](AnalyticsData.md) \| `Promise`\<[`AnalyticsData`](AnalyticsData.md)\>
 
-Defined in: [types/stream.ts:956](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L956)
+Defined in: [types/stream.ts:986](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L986)
 
 ---
 
@@ -221,7 +260,7 @@ Defined in: [types/stream.ts:956](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **evaluation?**: [`EvaluationData`](EvaluationData.md) \| `Promise`\<[`EvaluationData`](EvaluationData.md)\>
 
-Defined in: [types/stream.ts:957](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L957)
+Defined in: [types/stream.ts:987](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L987)
 
 ---
 
@@ -229,7 +268,7 @@ Defined in: [types/stream.ts:957](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **events?**: `object`[]
 
-Defined in: [types/stream.ts:960](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L960)
+Defined in: [types/stream.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L990)
 
 #### Index Signature
 
@@ -253,7 +292,7 @@ Defined in: [types/stream.ts:960](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **workflow?**: `object`
 
-Defined in: [types/stream.ts:968](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L968)
+Defined in: [types/stream.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L998)
 
 #### originalResponse
 
@@ -321,7 +360,7 @@ Defined in: [types/stream.ts:968](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **transcription?**: [`STTResult`](STTResult.md)
 
-Defined in: [types/stream.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L996)
+Defined in: [types/stream.ts:1026](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1026)
 
 STT transcription result (when stt option is used)
 
@@ -331,7 +370,7 @@ STT transcription result (when stt option is used)
 
 > `optional` **audio?**: `Promise`\<[`TTSResult`](TTSResult.md) \| `undefined`\>
 
-Defined in: [types/stream.ts:1022](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1022)
+Defined in: [types/stream.ts:1052](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1052)
 
 Streaming TTS result (when `tts.enabled`). `stream()` synthesizes the AI
 response incrementally; `useAiResponse` continues to select input vs
@@ -362,7 +401,7 @@ buffers when each segment must be a valid container file.
 
 > `optional` **ttsMetadata?**: [`TTSMetadata`](TTSMetadata.md)
 
-Defined in: [types/stream.ts:1029](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1029)
+Defined in: [types/stream.ts:1059](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L1059)
 
 Outcome metadata for streaming TTS synthesis. This is a mutable reference
 whose success and latency fields are finalized asynchronously; read it

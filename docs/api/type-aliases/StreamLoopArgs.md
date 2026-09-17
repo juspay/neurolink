@@ -201,3 +201,15 @@ Defined in: [types/openaiCompatible.ts:322](https://github.com/juspay/neurolink/
 #### Returns
 
 `void`
+
+---
+
+### responseFormat?
+
+> `optional` **responseFormat?**: [`OpenAICompatResponseFormat`](OpenAICompatResponseFormat.md)
+
+Defined in: [types/openaiCompatible.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/openaiCompatible.ts#L328)
+
+`response_format` for this turn's requests, computed once up front from
+`options.schema` (see `suppressResponseFormatWithTools`). Absent when no
+schema was requested, or when tools suppress it.

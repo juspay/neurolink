@@ -6,7 +6,7 @@
 
 # Class: WebSocketMessageRouter
 
-Defined in: [server/websocket/WebSocketHandler.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L396)
+Defined in: [server/websocket/WebSocketHandler.ts:419](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L419)
 
 WebSocket message router for handling different message types
 
@@ -26,7 +26,7 @@ WebSocket message router for handling different message types
 
 > **route**(`type`, `handler`): `void`
 
-Defined in: [server/websocket/WebSocketHandler.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L405)
+Defined in: [server/websocket/WebSocketHandler.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L428)
 
 Register a message route
 
@@ -50,7 +50,7 @@ Register a message route
 
 > **handle**(`connection`, `message`): `Promise`\<`unknown`\>
 
-Defined in: [server/websocket/WebSocketHandler.ts:418](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L418)
+Defined in: [server/websocket/WebSocketHandler.ts:441](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L441)
 
 Handle incoming message
 
@@ -74,7 +74,7 @@ Handle incoming message
 
 > **getRoutes**(): `string`[]
 
-Defined in: [server/websocket/WebSocketHandler.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L450)
+Defined in: [server/websocket/WebSocketHandler.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/server/websocket/WebSocketHandler.ts#L473)
 
 Get registered routes
 

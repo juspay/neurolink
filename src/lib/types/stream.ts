@@ -947,6 +947,36 @@ export type StreamResult = {
     stopReason?: GenerateStopReason;
     rawFinishReason?: string;
     stepsUsed?: number;
+    /**
+     * Parsed structured output for a `stream({ schema })` turn, available
+     * AFTER the stream has been drained.
+     *
+     * Lives on metadata for the same reason `finishReason` above does: it is a
+     * mutable reference the loop fills in, so result-object spreads in stream
+     * wrappers cannot snapshot it before it resolves. A plain field rather than
+     * a promise, deliberately — when a middleware short-circuits the request
+     * and the loop never runs, an unresolved promise would hang every reader,
+     * whereas an absent field is simply absent. Readers must tolerate that:
+     * absence means the model never produced the object.
+     */
+    structuredData?: unknown;
+    /**
+     * Tokens spent by the tool-free re-ask that produced `structuredData`,
+     * when one was needed.
+     *
+     * That re-ask is a second, separately-billed model call, and the stream's
+     * own `usage` has already resolved by the time it runs — so folding these
+     * tokens into it would mutate a value a caller may have read, and leaving
+     * them out entirely would under-report what the turn cost. Reported here
+     * instead: same delivery as `structuredData`, filled at the same moment,
+     * read at the same moment. Absent when no re-ask was needed, which is the
+     * common case. The generate path accounts for its equivalent re-ask
+     * inline, since there the usage has not been handed out yet.
+     */
+    structuredDataUsage?: {
+      inputTokens: number;
+      outputTokens: number;
+    };
     // Thought/reasoning metadata
     thoughtSignature?: string;
     thoughts?: Array<{ id?: string; type?: string; content?: string }>;
