@@ -928,6 +928,7 @@ console.log(result.content);
 - [CodexRateLimits](type-aliases/CodexRateLimits.md)
 - [CodexUsageResponse](type-aliases/CodexUsageResponse.md)
 - [CodexUsageFetchResult](type-aliases/CodexUsageFetchResult.md)
+- [CodexQuotaError](type-aliases/CodexQuotaError.md)
 - [CodexRuntimeAccount](type-aliases/CodexRuntimeAccount.md)
 - [CodexProxyStatusAccountIdentity](type-aliases/CodexProxyStatusAccountIdentity.md)
 - [CodexContentPart](type-aliases/CodexContentPart.md)

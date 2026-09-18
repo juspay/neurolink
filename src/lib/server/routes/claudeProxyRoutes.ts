@@ -5165,6 +5165,7 @@ async function executeClaudeCodexFallback(args: {
       outputTokens?: number;
       cacheCreationTokens?: number;
       cacheReadTokens?: number;
+      reasoningTokens?: number;
     },
   ) => void;
 }): Promise<unknown> {
@@ -5219,6 +5220,27 @@ async function executeClaudeCodexFallback(args: {
   registerProxyResponseObserver(ctx.metadata, {
     onTerminal: () => childAccounting,
   });
+  const recordCodexUsage = (result?: CodexFallbackResult): void => {
+    ctx.metadata.codexFallbackModel = model;
+    try {
+      tracer?.setModelSubstitution(body.model, model, "openai");
+      tracer?.setServedAccount(
+        codexHeaders["x-neurolink-account"] ?? "unknown",
+        "codex-oauth",
+      );
+      if (result?.usage) {
+        tracer?.setUsage({
+          inputTokens: result.usage.input,
+          outputTokens: result.usage.output,
+          cacheReadTokens: result.usage.cacheReadTokens ?? 0,
+          cacheCreationTokens: result.usage.cacheCreationTokens ?? 0,
+          reasoningTokens: result.usage.reasoning,
+        });
+      }
+    } catch {
+      // Instrumentation must never turn completed output into a failed stream.
+    }
+  };
   const codexHeaders = { ...(codexCtx.responseHeaders ?? {}) };
 
   if (body.stream) {
@@ -5245,12 +5267,14 @@ async function executeClaudeCodexFallback(args: {
       if (status >= 400) {
         ctx.metadata.terminalErrorType = errorType;
       }
+      recordCodexUsage(result);
       tracer?.end(status, Date.now() - requestStartTime);
       logFinalRequest(status, account, accountType, errorType, message, {
         inputTokens: result?.usage?.input,
         outputTokens: result?.usage?.output,
         cacheCreationTokens: result?.usage?.cacheCreationTokens,
         cacheReadTokens: result?.usage?.cacheReadTokens,
+        reasoningTokens: result?.usage?.reasoning,
       });
       recordFallbackAttempt({
         provider: "codex",
@@ -5411,6 +5435,7 @@ async function executeClaudeCodexFallback(args: {
     toolCalls: parsed.toolCalls,
   };
 
+  recordCodexUsage(parsed);
   tracer?.end(200, Date.now() - requestStartTime);
   const clientResponse = serializeClaudeResponse(internal, body.model);
   observeClaudeJsonOutput(ctx.metadata, clientResponse);
@@ -5419,6 +5444,7 @@ async function executeClaudeCodexFallback(args: {
     outputTokens: parsed.usage?.output,
     cacheCreationTokens: parsed.usage?.cacheCreationTokens,
     cacheReadTokens: parsed.usage?.cacheReadTokens,
+    reasoningTokens: parsed.usage?.reasoning,
   });
   const clientResponseText = JSON.stringify(clientResponse);
   logProxyBody({
@@ -8679,7 +8705,16 @@ function createClaudeRequestRuntimeContext(args: {
       requestId: ctx.requestId,
       method: ctx.method,
       path: ctx.path,
-      model: body.model,
+      model:
+        typeof ctx.metadata.codexFallbackModel === "string"
+          ? ctx.metadata.codexFallbackModel
+          : body.model,
+      ...(typeof ctx.metadata.codexFallbackModel === "string"
+        ? {
+            requestedModel: body.model,
+            inputIncludesCachedTokens: false,
+          }
+        : {}),
       stream: !!body.stream,
       toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
       account: finalAccountLabel ?? "",
@@ -8711,6 +8746,9 @@ function createClaudeRequestRuntimeContext(args: {
         : {}),
       ...(extra?.cacheReadTokens !== undefined
         ? { cacheReadTokens: extra.cacheReadTokens }
+        : {}),
+      ...(extra?.reasoningTokens !== undefined
+        ? { reasoningTokens: extra.reasoningTokens }
         : {}),
       ...(traceCtx
         ? { traceId: traceCtx.traceId, spanId: traceCtx.spanId }

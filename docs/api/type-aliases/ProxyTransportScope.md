@@ -8,4 +8,4 @@
 
 > **ProxyTransportScope** = `"shared_provider_transport"` \| `"connection_transport"` \| `"account_specific"`
 
-Defined in: [types/proxy.ts:541](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L541)
+Defined in: [types/proxy.ts:542](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L542)

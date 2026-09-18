@@ -139,6 +139,10 @@ export function extractCodexUsage(payload: unknown): CodexStreamUsage | null {
     cacheReadTokens: nonNegativeInt(inputDetails?.cached_tokens),
     cacheCreationTokens: nonNegativeInt(inputDetails?.cache_write_tokens),
     reasoningTokens: nonNegativeInt(outputDetails?.reasoning_tokens),
+    reasoningTokensObserved:
+      typeof outputDetails?.reasoning_tokens === "number" &&
+      Number.isFinite(outputDetails.reasoning_tokens) &&
+      outputDetails.reasoning_tokens >= 0,
   };
 }
 

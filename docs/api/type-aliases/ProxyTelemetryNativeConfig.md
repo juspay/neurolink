@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryNativeConfig** = `object`
 
-Defined in: [types/proxy.ts:843](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L843)
+Defined in: [types/proxy.ts:850](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L850)
 
 ## Properties
 
@@ -16,4 +16,4 @@ Defined in: [types/proxy.ts:843](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **exporters?**: `Record`\<`string`, \{ `endpoint?`: `string`; `headers?`: `Record`\<`string`, `string`\>; \}\>
 
-Defined in: [types/proxy.ts:844](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L844)
+Defined in: [types/proxy.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L851)

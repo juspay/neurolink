@@ -980,8 +980,10 @@ export function calculateCost(
     // priced providers still get the cheaper cacheRead rate.
     cost += usage.cacheReadTokens * (rates.cacheRead ?? rates.input);
   }
-  if (usage.cacheCreationTokens && rates.cacheCreation) {
-    cost += usage.cacheCreationTokens * rates.cacheCreation;
+  if (usage.cacheCreationTokens) {
+    // Like cache reads, disjoint cache writes must not silently become free
+    // when a model has no separate creation rate. Preserve explicit zero rates.
+    cost += usage.cacheCreationTokens * (rates.cacheCreation ?? rates.input);
   }
 
   return Math.round(cost * 1_000_000) / 1_000_000; // Round to 6 decimal places

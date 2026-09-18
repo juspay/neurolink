@@ -258,6 +258,7 @@ export type InternalResult = {
     total: number;
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
+    reasoning?: number;
   };
   toolCalls?: Array<{
     toolCallId: string;
@@ -691,6 +692,8 @@ export type RequestLogEntry = {
   method: string;
   path: string;
   model: string;
+  /** Client model when a different upstream model served the request. */
+  requestedModel?: string;
   stream: boolean;
   toolCount: number;
   account: string;
@@ -705,10 +708,14 @@ export type RequestLogEntry = {
   errorCode?: string;
   /** Whether changing credentials can affect this transport failure. */
   transportScope?: ProxyTransportScope;
+  /** True when input includes the cache breakdown (native Codex wire usage). */
+  inputIncludesCachedTokens?: boolean;
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /** Reasoning tokens are a subset of output, never additional usage. */
+  reasoningTokens?: number;
   /**
    * Provider that actually served the request, for costing. Absent on records
    * written before this field existed; `proxyAnalysis` then falls back to a
@@ -947,6 +954,10 @@ export type RequestAttemptLogEntry = {
   rateLimitKind?: "transient" | "quota";
   /** Reset-aware cooldown reason selected for a rate-limited attempt. */
   cooldownReason?: "transient" | "session" | "weekly" | "unified";
+  /** Reset reported by a structured quota rejection, epoch milliseconds. */
+  quotaResetAt?: number;
+  /** Unknown scope never implies an account-wide long-window rejection. */
+  quotaScope?: "session" | "weekly" | "unknown";
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
@@ -973,6 +984,7 @@ export type CodexFinalLogExtra = Partial<
     | "outputTokens"
     | "cacheReadTokens"
     | "cacheCreationTokens"
+    | "reasoningTokens"
     | "terminalOutcome"
     | "firstUsefulOutputMs"
     | "firstUsefulOutputStatus"
@@ -991,6 +1003,8 @@ export type CodexAttemptLogExtra = Partial<
     | "retryable"
     | "rateLimitKind"
     | "cooldownReason"
+    | "quotaResetAt"
+    | "quotaScope"
   >
 >;
 
@@ -1036,6 +1050,7 @@ export type ClaudeFinalRequestLogger = (
     outputTokens?: number;
     cacheCreationTokens?: number;
     cacheReadTokens?: number;
+    reasoningTokens?: number;
     errorCode?: string;
     transportScope?: ProxyTransportScope;
   },
@@ -1478,15 +1493,15 @@ export type AccountQuota = {
   /** Top-level unified status. A rejected value can be authoritative even
    *  while both 5h and 7d sub-window statuses still report allowed. */
   unifiedStatus?: string;
-  /** 0.0-1.0  (from unified-5h-utilization) */
+  /** 0.0-1.0 utilization; ignore the numeric placeholder when status is unknown. */
   sessionUsed: number;
-  /** "allowed" | "throttled" | "rejected" */
+  /** "allowed" | "throttled" | "rejected" | "unknown" */
   sessionStatus: string;
   /** Unix timestamp (seconds) when the 5h window resets */
   sessionResetAt: number;
-  /** 0.0-1.0  (from unified-7d-utilization) */
+  /** 0.0-1.0 utilization; ignore the numeric placeholder when status is unknown. */
   weeklyUsed: number;
-  /** "allowed" | "throttled" | "rejected" */
+  /** "allowed" | "throttled" | "rejected" | "unknown" */
   weeklyStatus: string;
   /** Unix timestamp (seconds) when the 7d window resets */
   weeklyResetAt: number;
@@ -1989,6 +2004,8 @@ export type UpstreamAttemptContext = {
 
 /** Token usage and rate-limit utilisation recorded at end of request. */
 export type UsageContext = {
+  /** True when input includes the cache breakdown (native Codex wire usage). */
+  inputIncludesCachedTokens?: boolean;
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens: number;
@@ -2354,6 +2371,7 @@ export type ProxyAnalysisReport = {
     requestsWithCacheRead: number;
     cacheReadTokens: number;
     cacheCreationTokens: number;
+    /** Ordinary input, excluding the separately reported cache read/write buckets. */
     inputTokens: number;
     outputTokens: number;
     requestHitRate: number | null;
@@ -2417,6 +2435,7 @@ export type ProxyAnalysisFinalRequestRecord = {
   accountType: string;
   model: string | null;
   provider: string | null;
+  inputIncludesCachedTokens?: boolean;
   inputTokens: number | null;
   outputTokens: number | null;
   cacheReadTokens: number | null;
@@ -2455,6 +2474,8 @@ export type CodexStreamUsage = {
   /** Cache writes, which bill at a premium over both reads and plain input. */
   cacheCreationTokens: number;
   reasoningTokens: number;
+  /** Whether the provider supplied a valid reasoning breakdown. */
+  reasoningTokensObserved?: boolean;
 };
 
 /** Semantic completion evidence observed in native Codex SSE bytes. */

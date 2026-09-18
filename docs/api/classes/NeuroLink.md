@@ -977,7 +977,7 @@ bounded by evicting the least-recently-used session past 1000 sessions.
 
 #### checkCredentials()
 
-> **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"expired"` \| `"unknown"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
+> **checkCredentials**(`input`): `Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"expired"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
 
 Defined in: [neurolink.ts:12643](https://github.com/juspay/neurolink/blob/release/src/lib/neurolink.ts#L12643)
 
@@ -1005,7 +1005,7 @@ the provider to check
 
 ##### Returns
 
-`Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"expired"` \| `"unknown"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
+`Promise`\<\{ `provider`: `string`; `status`: `"network"` \| `"unknown"` \| `"expired"` \| `"ok"` \| `"missing"` \| `"denied"`; `detail`: `string`; \}\>
 
 `{ provider, status, detail }`. Possible status values:
 

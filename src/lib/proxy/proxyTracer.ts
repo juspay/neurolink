@@ -31,6 +31,7 @@ import {
   setLangfuseContext,
 } from "../services/server/ai/observability/instrumentation.js";
 import { OtelBridge } from "../observability/otelBridge.js";
+import { proxyTokenUsage } from "./proxyTokenUsage.js";
 import { calculateCost } from "../utils/pricing.js";
 import { TelemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
@@ -489,20 +490,25 @@ class ProxyTracer {
     });
   }
 
+  /** Attribute fallback metrics to the account that actually served them. */
+  setServedAccount(account: string, accountType: string): void {
+    this.accountEmail = account;
+    this.rootSpan.setAttributes({
+      "proxy.account.served": account,
+      "proxy.account.served_type": accountType,
+    });
+  }
+
   /** Record token usage and cost on the root span. */
   setUsage(ctx: UsageContext): void {
     this.usage = ctx;
 
-    const totalTokens =
-      ctx.inputTokens +
-      ctx.outputTokens +
-      ctx.cacheCreationTokens +
-      ctx.cacheReadTokens +
-      (ctx.reasoningTokens ?? 0);
+    const billingUsage = proxyTokenUsage(ctx);
+    const totalTokens = billingUsage.total;
 
-    // NeuroLink-format token attributes (from SpanAttributes)
+    // Custom token buckets are disjoint; standard GenAI input includes cache.
     this.rootSpan.setAttributes({
-      "ai.tokens.input": ctx.inputTokens,
+      "ai.tokens.input": billingUsage.input,
       "ai.tokens.output": ctx.outputTokens,
       "ai.tokens.total": totalTokens,
       "ai.tokens.cache_creation": ctx.cacheCreationTokens,
@@ -515,19 +521,13 @@ class ProxyTracer {
 
     // GenAI semantic convention attributes (for Langfuse compatibility)
     this.rootSpan.setAttributes({
-      "gen_ai.usage.input_tokens": ctx.inputTokens,
+      "gen_ai.usage.input_tokens": totalTokens - ctx.outputTokens,
       "gen_ai.usage.output_tokens": ctx.outputTokens,
       "gen_ai.usage.total_tokens": totalTokens,
     });
 
     // Cost calculation via pricing.ts
-    const cost = calculateCost(this.billingProvider, this.model, {
-      input: ctx.inputTokens,
-      output: ctx.outputTokens,
-      total: totalTokens,
-      cacheCreationTokens: ctx.cacheCreationTokens,
-      cacheReadTokens: ctx.cacheReadTokens,
-    });
+    const cost = calculateCost(this.billingProvider, this.model, billingUsage);
 
     if (cost > 0) {
       this.rootSpan.setAttributes({
@@ -856,7 +856,7 @@ class ProxyTracer {
         account: this.accountEmail ?? "unknown",
       };
 
-      m.tokensInput.add(this.usage.inputTokens, tokenLabels);
+      m.tokensInput.add(proxyTokenUsage(this.usage).input, tokenLabels);
       m.tokensOutput.add(this.usage.outputTokens, tokenLabels);
       m.tokensCacheRead.add(this.usage.cacheReadTokens, tokenLabels);
       m.tokensCacheCreation.add(this.usage.cacheCreationTokens, tokenLabels);
@@ -866,20 +866,13 @@ class ProxyTracer {
       }
 
       // Cost
-      const totalTokens =
-        this.usage.inputTokens +
-        this.usage.outputTokens +
-        this.usage.cacheCreationTokens +
-        this.usage.cacheReadTokens +
-        (this.usage.reasoningTokens ?? 0);
+      const billingUsage = proxyTokenUsage(this.usage);
 
-      const cost = calculateCost(this.billingProvider, this.model, {
-        input: this.usage.inputTokens,
-        output: this.usage.outputTokens,
-        total: totalTokens,
-        cacheCreationTokens: this.usage.cacheCreationTokens,
-        cacheReadTokens: this.usage.cacheReadTokens,
-      });
+      const cost = calculateCost(
+        this.billingProvider,
+        this.model,
+        billingUsage,
+      );
 
       if (cost > 0) {
         m.costTotal.add(cost, tokenLabels);
@@ -912,22 +905,12 @@ class ProxyTracer {
       return;
     }
 
-    const totalTokens =
-      this.usage.inputTokens +
-      this.usage.outputTokens +
-      this.usage.cacheCreationTokens +
-      this.usage.cacheReadTokens +
-      (this.usage.reasoningTokens ?? 0);
+    const billingUsage = proxyTokenUsage(this.usage);
+    const totalTokens = billingUsage.total;
 
     const durationMs = Date.now() - this.startTime;
 
-    const cost = calculateCost(this.billingProvider, this.model, {
-      input: this.usage.inputTokens,
-      output: this.usage.outputTokens,
-      total: totalTokens,
-      cacheCreationTokens: this.usage.cacheCreationTokens,
-      cacheReadTokens: this.usage.cacheReadTokens,
-    });
+    const cost = calculateCost(this.billingProvider, this.model, billingUsage);
 
     TelemetryService.getInstance().recordAIRequest(
       this.billingProvider,

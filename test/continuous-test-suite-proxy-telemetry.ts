@@ -921,6 +921,110 @@ await test("slow final metadata I/O cannot inflate relay latency or change model
   }
 });
 
+await test("built analysis reconciles native inclusive and translated disjoint usage equally", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "telemetry-cost-"));
+  try {
+    const variants = [
+      { path: "/backend-api/codex/responses", inputTokens: 100 },
+      { path: "/proxy/backend-api/codex/responses", inputTokens: 100 },
+      { path: "/api/proxy/backend-api/codex/responses", inputTokens: 100 },
+      {
+        path: "/proxy/backend-api/codex/responses",
+        inputTokens: 40,
+        inputIncludesCachedTokens: false,
+      },
+      { path: "/v1/messages", inputTokens: 40 },
+      {
+        path: "/v1/messages",
+        inputTokens: 40,
+        inputIncludesCachedTokens: false,
+      },
+      {
+        path: "/v1/responses",
+        inputTokens: 100,
+        inputIncludesCachedTokens: true,
+      },
+    ];
+    const entries = variants.map((usage, index) => ({
+      timestamp: "2026-01-01T00:00:05.000Z",
+      requestId: `cost-${index}`,
+      method: "POST",
+      model: "gpt-4o-mini",
+      provider: "openai",
+      account: "fixture",
+      accountType: "codex-oauth",
+      responseStatus: 200,
+      responseTimeMs: 10,
+      outputTokens: 20,
+      cacheReadTokens: 50,
+      cacheCreationTokens: 10,
+      reasoningTokens: 15,
+      ...usage,
+    }));
+    await writeFile(
+      join(dir, "proxy-2026-01-01.jsonl"),
+      entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
+    );
+    const result = await runCLI([
+      "proxy",
+      "analyze",
+      "--logs-dir",
+      dir,
+      "--since",
+      "2026-01-01T00:00:00Z",
+      "--until",
+      "2026-01-01T00:01:00Z",
+      "--format",
+      "json",
+    ]);
+    assertEqual(result.exitCode, 0, "built cost analysis failed");
+    const report = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
+    const { calculateCost } = await import("../src/lib/utils/pricing.js");
+    const expected = calculateCost("openai", "gpt-4o-mini", {
+      input: 50,
+      output: 20,
+      total: 120,
+      cacheReadTokens: 50,
+    });
+    assert(expected > 0, "fixture model has no pricing evidence");
+    assertEqual(
+      report.cache.estimatedCostUsd,
+      Number((expected * entries.length).toFixed(6)),
+      "analysis counted cache input incorrectly",
+    );
+    assertEqual(
+      report.cache.inputTokens,
+      40 * entries.length,
+      "analysis input includes cache",
+    );
+    assertEqual(
+      report.cache.outputTokens,
+      20 * entries.length,
+      "analysis lost output tokens",
+    );
+    assertEqual(
+      report.cache.cacheReadTokens,
+      50 * entries.length,
+      "analysis lost cache reads",
+    );
+    assertEqual(
+      report.cache.cacheCreationTokens,
+      10 * entries.length,
+      "analysis lost cache writes",
+    );
+    assertEqual(
+      report.cache.inputTokens +
+        report.cache.outputTokens +
+        report.cache.cacheReadTokens +
+        report.cache.cacheCreationTokens,
+      120 * entries.length,
+      "analysis token buckets do not reconcile to provider totals",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 await test("built analyze reconciles failures, deduplicates timings, and joins fallback attempts", async () => {
   const dir = await mkdtemp(join(tmpdir(), "telemetry-analysis-"));
   const timestamp = "2026-01-01T00:00:05.000Z";
@@ -3650,6 +3754,227 @@ await test("history queries bound time and pages, preserve equal-time ordering a
   }
 });
 
+for (const stream of [true, false]) {
+  await test(`OTLP translated Codex usage stays disjoint and retains reasoning (stream=${stream})`, async () => {
+    await withBodyCollector(
+      (_records, response) => {
+        response.writeHead(200).end("{}");
+      },
+      async (received) => {
+        const wire = sse("response.completed", {
+          response: {
+            status: "completed",
+            output: [
+              {
+                type: "message",
+                content: [{ type: "output_text", text: "ok" }],
+              },
+            ],
+            usage: {
+              input_tokens: 100,
+              output_tokens: 20,
+              input_tokens_details: { cached_tokens: 50 },
+              output_tokens_details: { reasoning_tokens: 15 },
+            },
+          },
+        });
+        await withHttpFixture(
+          "fallback",
+          () =>
+            new Response(wire, {
+              headers: { "content-type": "text/event-stream" },
+            }),
+          async (response) => {
+            const text = await response.text();
+            assert(
+              text.includes('"input_tokens":50'),
+              "translated input still includes cache",
+            );
+            await eventually(
+              () => getProxyActivitySnapshot().activeRequests === 0,
+            );
+            await flushRequestLogs();
+            const { flushProxyOtelLogs } =
+              await import("../src/lib/proxy/otelLogSink.js");
+            await flushProxyOtelLogs();
+            const finals = received.filter(
+              (record) =>
+                otelAttribute(record, "proxy.record_kind") === "request_final",
+            );
+            assertEqual(
+              finals.length,
+              1,
+              "translated request emitted duplicate finals",
+            );
+            const entry = JSON.parse(finals[0].body.stringValue);
+            assertEqual(
+              entry.inputTokens,
+              50,
+              "translated input was counted twice",
+            );
+            assertEqual(entry.cacheReadTokens, 50, "cache evidence was lost");
+            assertEqual(
+              entry.reasoningTokens,
+              15,
+              "translated reasoning was lost",
+            );
+            assertEqual(
+              entry.model,
+              "gpt-6-astra",
+              "cost attribution retained the client alias",
+            );
+            assertEqual(
+              entry.requestedModel,
+              "claude-sonnet-5",
+              "client model attribution was lost",
+            );
+            assertEqual(
+              entry.inputIncludesCachedTokens,
+              false,
+              "translated usage semantics missing",
+            );
+          },
+          undefined,
+          false,
+          {},
+          { stream },
+        );
+      },
+    );
+  });
+}
+
+await test("Codex unknown headers never advertise full capacity and body quota errors retain evidence", async () => {
+  const { clearAccountCooldown } =
+    await import("../src/lib/proxy/accountCooldown.js");
+  await withHttpFixture(
+    "codex",
+    () =>
+      new Response(
+        sse("response.completed", { response: { status: "completed" } }),
+        {
+          headers: { "x-codex-ratelimit": "{}" },
+        },
+      ),
+    async (response) => {
+      await response.text();
+      assertEqual(
+        response.headers.get("x-neurolink-quota-session-left-pct"),
+        null,
+        "unknown capacity became full",
+      );
+      assertEqual(
+        response.headers.get("x-neurolink-quota-weekly-left-pct"),
+        null,
+        "unknown canonical weekly capacity became full",
+      );
+      assertEqual(
+        response.headers.get("x-neurolink-weekly-left-pct"),
+        null,
+        "unknown weekly capacity became full",
+      );
+    },
+  );
+  await withHttpFixture(
+    "codex",
+    () =>
+      new Response(
+        sse("response.completed", { response: { status: "completed" } }),
+        {
+          headers: {
+            "x-codex-ratelimit": JSON.stringify({
+              primary: { used_percent: 25 },
+              secondary: { used_percent: 70 },
+            }),
+          },
+        },
+      ),
+    async (response) => {
+      await response.text();
+      assertEqual(
+        response.headers.get("x-neurolink-quota-session-left-pct"),
+        "75",
+        "canonical session header missing",
+      );
+      assertEqual(
+        response.headers.get("x-neurolink-quota-weekly-left-pct"),
+        "30",
+        "canonical weekly header missing",
+      );
+      assertEqual(
+        response.headers.get("x-neurolink-weekly-left-pct"),
+        "30",
+        "legacy weekly alias changed",
+      );
+    },
+  );
+  const resetAt = Math.floor(Date.now() / 1000) + 86400;
+  try {
+    await withBodyCollector(
+      (_records, response) => {
+        response.writeHead(200).end("{}");
+      },
+      async (received) => {
+        await withHttpFixture(
+          "codex",
+          () =>
+            new Response(
+              JSON.stringify({
+                error: { type: "usage_limit_reached", resets_at: resetAt },
+              }),
+              { status: 429 },
+            ),
+          async (response) => {
+            await response.text();
+            await flushRequestLogs();
+            const { flushProxyOtelLogs } =
+              await import("../src/lib/proxy/otelLogSink.js");
+            await flushProxyOtelLogs();
+            const attempt = received
+              .filter(
+                (record) =>
+                  otelAttribute(record, "proxy.record_kind") === "attempt",
+              )
+              .map((record) => JSON.parse(record.body.stringValue))
+              .find((entry) => entry.responseStatus === 429);
+            assert(
+              attempt !== undefined,
+              "structured rejection attempt missing",
+            );
+            assertEqual(
+              attempt.rateLimitKind,
+              "quota",
+              "plan exhaustion became burst pressure",
+            );
+            assertEqual(
+              attempt.retryable,
+              false,
+              "exhausted quota advertised an unchanged retry",
+            );
+            assertEqual(
+              attempt.quotaResetAt,
+              resetAt * 1000,
+              "provider reset evidence was lost",
+            );
+            assertEqual(
+              attempt.quotaScope,
+              "unknown",
+              "error body invented account scope",
+            );
+            assertEqual(
+              attempt.errorCode,
+              "usage_limit_reached",
+              "structured error code was lost",
+            );
+          },
+        );
+      },
+    );
+  } finally {
+    await clearAccountCooldown("codex:telemetry@example.test");
+  }
+});
+
 await test("OTLP Codex text, tool and control-only streams carry native trace context and explicit timing evidence", async () => {
   const { NodeTracerProvider } = await import("@opentelemetry/sdk-trace-node");
   const { InMemorySpanExporter, SimpleSpanProcessor } =
@@ -3689,7 +4014,14 @@ await test("OTLP Codex text, tool and control-only streams carry native trace co
       const wire =
         sse(event, payload) +
         sse("response.completed", {
-          response: { usage: { input_tokens: 3, output_tokens: 1 } },
+          response: {
+            usage: {
+              input_tokens: 100,
+              output_tokens: 20,
+              input_tokens_details: { cached_tokens: 50 },
+              output_tokens_details: { reasoning_tokens: 15 },
+            },
+          },
         });
       await withBodyCollector(
         (_records, res) => {
@@ -3719,6 +4051,17 @@ await test("OTLP Codex text, tool and control-only streams carry native trace co
               );
               assertEqual(finals.length, 1, "OTLP final was not unique");
               const body = JSON.parse(finals[0].body.stringValue);
+              assertEqual(
+                body.reasoningTokens,
+                15,
+                "final log lost reasoning usage",
+              );
+              assertEqual(
+                body.inputIncludesCachedTokens,
+                true,
+                "native usage accounting was ambiguous",
+              );
+
               const capturePhases = new Set(
                 received
                   .filter(
@@ -3838,6 +4181,22 @@ await test("OTLP Codex text, tool and control-only streams carry native trace co
                 requestSpan?.attributes["proxy.account.selected"],
                 "telemetry@example.test",
                 "trace lost account attribution",
+              );
+
+              assertEqual(
+                requestSpan?.attributes["ai.tokens.total"],
+                120,
+                "native span counted subsets twice",
+              );
+              assertEqual(
+                requestSpan?.attributes["ai.tokens.input"],
+                50,
+                "native custom input bucket still includes cached tokens",
+              );
+              assertEqual(
+                requestSpan?.attributes["gen_ai.usage.input_tokens"],
+                100,
+                "native input usage changed",
               );
               exporter.reset();
             },

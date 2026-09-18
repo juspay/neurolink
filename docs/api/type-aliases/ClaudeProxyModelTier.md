@@ -8,6 +8,6 @@
 
 > **ClaudeProxyModelTier** = `"opus"` \| `"sonnet"` \| `"haiku"` \| `"other"`
 
-Defined in: [types/proxy.ts:1844](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1844)
+Defined in: [types/proxy.ts:1859](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1859)
 
 Model tier classification for proxy routing decisions.

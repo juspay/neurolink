@@ -66,6 +66,7 @@ import type {
   AccountQuota,
   CodexAttemptLogExtra,
   CodexFinalLogExtra,
+  CodexQuotaError,
   CodexRefreshTokenStore,
   CodexRuntimeAccount,
   CodexTokenRefresher,
@@ -273,9 +274,9 @@ async function loadCodexProxyAccounts(): Promise<CodexRuntimeAccount[]> {
 }
 
 /**
- * Order accounts fill-first by quota: eligible (not cooling) first, then least
- * session utilization, treating unknown quota as "probe first" so a fresh
- * account gets observed rather than starved.
+ * Order non-cooling accounts ahead of cooling ones, then defer rejected quota.
+ * Within each group, probe unknown quota first and otherwise fill the least-used
+ * session so fresh accounts get observed rather than starved.
  */
 function orderCodexAccounts(
   accounts: CodexRuntimeAccount[],
@@ -287,8 +288,15 @@ function orderCodexAccounts(
     if (aCooling !== bCooling) {
       return aCooling ? 1 : -1;
     }
-    const aUsed = a.quota ? a.quota.sessionUsed : -1;
-    const bUsed = b.quota ? b.quota.sessionUsed : -1;
+    const aRejected = a.quota?.unifiedStatus === "rejected";
+    const bRejected = b.quota?.unifiedStatus === "rejected";
+    if (aRejected !== bRejected) {
+      return aRejected ? 1 : -1;
+    }
+    const aUsed =
+      a.quota && a.quota.sessionStatus !== "unknown" ? a.quota.sessionUsed : -1;
+    const bUsed =
+      b.quota && b.quota.sessionStatus !== "unknown" ? b.quota.sessionUsed : -1;
     return aUsed - bUsed;
   });
 }
@@ -324,15 +332,62 @@ function buildCodexUpstreamHeaders(
   return headers;
 }
 
-/**
- * Classify a 429 into a cooldown plan. Codex reports primary (session) and
- * secondary (weekly) windows; a rejected window cools until its reset, a plain
- * burst limit cools briefly and clamps to 15 min.
- */
+/** Extract explicit plan-exhaustion evidence without guessing account-wide scope. */
+function parseCodexQuotaError(
+  errorText: string,
+  now: number,
+): CodexQuotaError | null {
+  try {
+    const payload = JSON.parse(errorText);
+    const error = payload?.error;
+    if (
+      !error ||
+      typeof error !== "object" ||
+      (error.type !== "usage_limit_reached" &&
+        error.code !== "usage_limit_reached")
+    ) {
+      return null;
+    }
+    const absolute = error.resets_at ?? error.reset_at;
+    const relative = error.resets_in_seconds ?? error.reset_after_seconds;
+    const resetAt =
+      typeof absolute === "number" && Number.isFinite(absolute) && absolute > 0
+        ? absolute > 4_102_444_800
+          ? absolute
+          : absolute * 1000
+        : typeof relative === "number" &&
+            Number.isFinite(relative) &&
+            relative > 0
+          ? now + relative * 1000
+          : 0;
+    // Only explicit account-wide window evidence permits a long cooldown.
+    // A model/surface-scoped or unscoped rejection must not park the entire pool.
+    const window = error.limit_type;
+    const scoped =
+      error.model || (error.scope !== undefined && error.scope !== "account");
+    const scope = scoped
+      ? "unknown"
+      : window === "primary" || window === "session"
+        ? "session"
+        : window === "secondary" || window === "weekly"
+          ? "weekly"
+          : "unknown";
+    return {
+      errorCode: "usage_limit_reached",
+      resetAt: Number.isFinite(resetAt) ? resetAt : 0,
+      scope,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Honor known quota resets while bounding unscoped or transient account cooldowns. */
 function planCodexCooldown(
   quota: AccountQuota | null,
   retryAfterMs: number,
   now: number,
+  errorText = "",
 ): { coolingUntil: number; reason: RateLimitCoolingReason } {
   // A reported reset can already be in the past — a stale header, or a clock
   // skew. Taken literally the account is eligible again immediately and the
@@ -352,11 +407,36 @@ function planCodexCooldown(
       };
     }
   }
+  const bodyQuota = parseCodexQuotaError(errorText, now);
+  if (bodyQuota) {
+    if (bodyQuota.scope !== "unknown" && bodyQuota.resetAt > 0) {
+      return {
+        coolingUntil: Math.max(bodyQuota.resetAt, floor),
+        reason: bodyQuota.scope,
+      };
+    }
+    return {
+      coolingUntil:
+        now +
+        Math.min(
+          MAX_TRANSIENT_COOLDOWN_MS,
+          Math.max(
+            bodyQuota.resetAt - now,
+            retryAfterMs,
+            DEFAULT_TRANSIENT_COOLDOWN_MS,
+          ),
+        ),
+      reason: "unified",
+    };
+  }
   const delay = Math.min(
     MAX_TRANSIENT_COOLDOWN_MS,
     Math.max(retryAfterMs, DEFAULT_TRANSIENT_COOLDOWN_MS),
   );
-  return { coolingUntil: now + delay, reason: "transient" };
+  return {
+    coolingUntil: now + delay,
+    reason: quota?.unifiedStatus === "rejected" ? "unified" : "transient",
+  };
 }
 
 /** Set the x-neurolink-* attribution headers on the context. */
@@ -374,13 +454,16 @@ function publishCodexHeaders(
   ctx.responseHeaders["x-neurolink-served-by"] = "codex";
   ctx.responseHeaders["x-neurolink-attempt"] = String(attempt);
   ctx.responseHeaders["x-neurolink-quota-source"] = quota ? "live" : "none";
-  if (quota) {
+  if (quota && quota.sessionStatus !== "unknown") {
     ctx.responseHeaders["x-neurolink-quota-session-left-pct"] = String(
       Math.round((1 - quota.sessionUsed) * 100),
     );
-    ctx.responseHeaders["x-neurolink-weekly-left-pct"] = String(
-      Math.round((1 - quota.weeklyUsed) * 100),
-    );
+  }
+  if (quota && quota.weeklyStatus !== "unknown") {
+    const remaining = String(Math.round((1 - quota.weeklyUsed) * 100));
+    ctx.responseHeaders["x-neurolink-quota-weekly-left-pct"] = remaining;
+    // Preserve the original Codex header for existing clients.
+    ctx.responseHeaders["x-neurolink-weekly-left-pct"] = remaining;
   }
 }
 
@@ -528,6 +611,7 @@ async function executeCodexResponsesRequest(
       // This is the cost provider. accountKey and the response header identify
       // the actual Codex pool that supplied the credential.
       provider: "openai",
+      inputIncludesCachedTokens: true,
       ...tracer?.getTraceContext(),
       ...(reasoningEffort ? { reasoningEffort } : {}),
       firstUsefulOutputStatus:
@@ -887,11 +971,20 @@ async function executeCodexResponsesRequest(
                         outputTokens: usage.outputTokens,
                         cacheReadTokens: usage.cacheReadTokens,
                         cacheCreationTokens: usage.cacheCreationTokens,
+                        reasoningTokens: usage.reasoningTokensObserved
+                          ? usage.reasoningTokens
+                          : undefined,
                       }
                     : {};
                   if (usage) {
                     try {
-                      tracer?.setUsage(usage);
+                      tracer?.setUsage({
+                        ...usage,
+                        reasoningTokens: usage.reasoningTokensObserved
+                          ? usage.reasoningTokens
+                          : undefined,
+                        inputIncludesCachedTokens: true,
+                      });
                     } catch {
                       // Pricing/metrics must never change the stream outcome.
                     }
@@ -1082,7 +1175,9 @@ async function executeCodexResponsesRequest(
           const retryAfterMs = parseRetryAfterMs(
             upstream.headers.get("retry-after"),
           );
-          const plan = planCodexCooldown(quota, retryAfterMs, Date.now());
+          const now = Date.now();
+          const bodyQuota = parseCodexQuotaError(errText, now);
+          const plan = planCodexCooldown(quota, retryAfterMs, now, errText);
           await saveAccountCooldown(
             account.key,
             plan.coolingUntil,
@@ -1103,11 +1198,21 @@ async function executeCodexResponsesRequest(
           writeAttempt(account, attempt, attemptStartedAt, upstream.status, {
             errorType: "rate_limit_error",
             errorMessage,
-            retryable: true,
+            retryable: rateLimitKind === "transient",
             rateLimitKind,
             cooldownReason: plan.reason,
+            ...(bodyQuota
+              ? {
+                  errorCode: bodyQuota.errorCode,
+                  quotaResetAt: bodyQuota.resetAt || undefined,
+                  quotaScope: bodyQuota.scope,
+                }
+              : {}),
           });
-          lastFailure = { errorType: "rate_limit_error" };
+          lastFailure = {
+            errorType: "rate_limit_error",
+            errorCode: bodyQuota?.errorCode,
+          };
           lastErrorStatus = 429;
           lastErrorMessage = "Codex account rate-limited";
           break; // rotate

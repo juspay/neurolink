@@ -19,6 +19,7 @@ import {
  */
 
 import type { CommandModule, Argv } from "yargs";
+import { registerCliShutdownOwner } from "../lifecycle.js";
 import { writeFileAtomic } from "../proxy-clients/snapshot.js";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
@@ -184,6 +185,9 @@ const PROXY_TELEMETRY_SCRIPT_PATH = fileURLToPath(
 const gatedShareRequests = new WeakSet<Request>();
 
 const PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS = 5_000;
+// Allow the normal 30-second worker drain plus startup settlement, leaving
+// telemetry and scheduling headroom inside launchd's 45-second stop budget.
+const PROXY_SUPERVISOR_DRAIN_TIMEOUT_MS = 35_000;
 /** How long shutdown waits on the share listener before moving on. */
 const SHARE_LISTENER_CLOSE_TIMEOUT_MS = 10_000;
 const PROXY_STATUS_RECONCILE_TIMEOUT_MS = 750;
@@ -3282,10 +3286,16 @@ function registerProxyShutdownHandlers(params: {
     try {
       const { flushOpenTelemetry, shutdownOpenTelemetry } =
         await import("../../lib/services/server/ai/observability/instrumentation.js");
-      await flushProxyOtelLogs();
-      await shutdownProxyOtelLogs();
-      await flushOpenTelemetry();
-      await shutdownOpenTelemetry();
+      await withShutdownDeadline(
+        (async () => {
+          await flushProxyOtelLogs();
+          await shutdownProxyOtelLogs();
+          await flushOpenTelemetry();
+          await shutdownOpenTelemetry();
+        })(),
+        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+        "telemetry shutdown",
+      );
     } catch {
       // non-fatal — proxy shutdown must not block on OTel
     }
@@ -3320,12 +3330,9 @@ function registerProxyShutdownHandlers(params: {
   };
 
   if (params.registerSignals ?? true) {
-    process.on("SIGTERM", () => {
-      void shutdown("SIGTERM").catch(forceExitAfterShutdownFailure);
-    });
-    process.on("SIGINT", () => {
-      void shutdown("SIGINT").catch(forceExitAfterShutdownFailure);
-    });
+    registerCliShutdownOwner((signal) =>
+      shutdown(signal).catch(forceExitAfterShutdownFailure),
+    );
   }
   return shutdown;
 }
@@ -3726,10 +3733,99 @@ async function runLaunchdProxySupervisor(
   argv: ProxyStartArgs,
   spinner: ProxySpinner,
 ): Promise<void> {
+  let stopping = false;
+  let activeWorkerPid: (() => number | undefined) | undefined;
+  let rollingServerTask: ReturnType<typeof startRollingProxyServer> | undefined;
+  let restartControlTask:
+    | ReturnType<typeof startProxyRestartControl>
+    | undefined;
+  let updaterSupervisor:
+    | ReturnType<typeof startUpdaterWorkerSupervisor>
+    | undefined;
+  let activatePendingUpdate: (() => void) | undefined;
+  let otelInitialized = false;
+
+  /** Own startup as well as serving: await resources already being created,
+   * then drain each independently so one cleanup failure cannot skip the rest. */
+  const shutdown = async (signal: string): Promise<void> => {
+    if (stopping) {
+      return;
+    }
+    stopping = true;
+    logger.always(`[proxy-supervisor] shutting down (${signal})`);
+    if (activatePendingUpdate) {
+      process.off("SIGUSR2", activatePendingUpdate);
+    }
+    let exitCode = process.exitCode ?? 0;
+    const reportCleanupFailure = (error: unknown): void => {
+      exitCode = 1;
+      logger.warn(`[proxy-supervisor] cleanup failed: ${String(error)}`);
+    };
+    const cleanup = async (
+      operation: () => unknown,
+      timeoutMs = PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+      timeoutMessage = "supervisor resource shutdown deadline exceeded",
+    ): Promise<void> => {
+      try {
+        await withTimeout(
+          Promise.resolve().then(operation),
+          timeoutMs,
+          timeoutMessage,
+        );
+      } catch (error) {
+        reportCleanupFailure(error);
+      }
+    };
+    // Close independently: a stalled control must not delay the worker drain.
+    // The operations retain their continuations after a deadline, so a resource
+    // returned during telemetry cleanup is still closed without extending exit.
+    await Promise.all([
+      cleanup(async () => {
+        // Setup errors are already reported by the control-plane startup path.
+        const control = await restartControlTask?.catch(() => undefined);
+        await control?.close();
+      }),
+      cleanup(() => updaterSupervisor?.stop()),
+      cleanup(async () => {
+        const server = await rollingServerTask;
+        await server?.close();
+      }, PROXY_SUPERVISOR_DRAIN_TIMEOUT_MS),
+    ]);
+    if (otelInitialized) {
+      await cleanup(
+        async () => {
+          await flushProxyLifecycleEvents().catch(reportCleanupFailure);
+          await flushProxyOtelLogs().catch(reportCleanupFailure);
+          await shutdownProxyOtelLogs();
+        },
+        PROXY_LIFECYCLE_SHUTDOWN_TIMEOUT_MS,
+        "supervisor telemetry shutdown deadline exceeded",
+      );
+    }
+    await cleanup(() => {
+      const supervisorState = loadProxySupervisorState();
+      if (supervisorState?.pid === process.pid) {
+        clearProxySupervisorState();
+      }
+    });
+    process.exit(exitCode);
+  };
+  registerCliShutdownOwner(shutdown);
+  // Protect every startup await; a worker loads fresh config before readiness.
+  registerProxySupervisorReload(() =>
+    stopping ? undefined : activeWorkerPid?.(),
+  );
   await loadProxyStartEnv(argv, spinner);
+  if (stopping) {
+    return;
+  }
   initializeProxyOtelLogs("supervisor");
+  otelInitialized = true;
   routeProxyConsoleToOtel();
   await ensureProxyStartAllowed(spinner);
+  if (stopping) {
+    return;
+  }
   const entryScript = process.argv[1];
   if (!entryScript) {
     throw new Error("proxy supervisor cannot resolve the CLI entry script");
@@ -3747,7 +3843,7 @@ async function runLaunchdProxySupervisor(
   let restartControl:
     | Awaited<ReturnType<typeof startProxyRestartControl>>
     | undefined;
-  const rollingServer = await startRollingProxyServer({
+  rollingServerTask = startRollingProxyServer({
     onEvent: (event) =>
       logProxyLifecycleEvent({
         event: "supervisor_event",
@@ -3784,10 +3880,21 @@ async function runLaunchdProxySupervisor(
     },
     log: (message) => logger.always(message),
   });
+  // Retain the creation promise before awaiting it so shutdown owns late results.
+  const rollingServer = await rollingServerTask.catch((error) => {
+    if (!stopping) {
+      throw error;
+    }
+    return undefined;
+  });
+  if (stopping || !rollingServer) {
+    return;
+  }
+  activeWorkerPid = () => rollingServer.snapshot().active?.pid;
 
   let rollingReplacement: Promise<void> | null = null;
-  const activatePendingUpdate = (): void => {
-    if (rollingReplacement) {
+  activatePendingUpdate = (): void => {
+    if (stopping || rollingReplacement) {
       return;
     }
     let pendingVersion: string | undefined;
@@ -3828,7 +3935,7 @@ async function runLaunchdProxySupervisor(
 
   const readinessHost = host === "0.0.0.0" ? "127.0.0.1" : host;
   try {
-    restartControl = await startProxyRestartControl({
+    restartControlTask = startProxyRestartControl({
       stateDir: join(homedir(), ".neurolink"),
       server: rollingServer,
       getTelemetry: getProxyProcessTelemetry,
@@ -3860,11 +3967,15 @@ async function runLaunchdProxySupervisor(
         return response.json();
       },
     });
+    restartControl = await restartControlTask;
   } catch (error) {
     // A control-plane setup failure must not stop an otherwise serving proxy.
     logger.warn(
       `[proxy-supervisor] safe restart control unavailable: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+  if (stopping) {
+    return;
   }
   const updatePersistedUpdaterPid = (updaterPid: number | undefined): void => {
     currentUpdaterPid = updaterPid;
@@ -3878,7 +3989,7 @@ async function runLaunchdProxySupervisor(
       restartControl: restartControl?.identity,
     });
   };
-  const updaterSupervisor = startUpdaterWorkerSupervisor({
+  updaterSupervisor = startUpdaterWorkerSupervisor({
     spawnWorker: () =>
       spawnProxyUpdater(
         readinessHost,
@@ -3902,36 +4013,33 @@ async function runLaunchdProxySupervisor(
     `[proxy-supervisor] listening on ${host}:${rollingServer.address.port} workerPid=${rollingServer.snapshot().active?.pid ?? "unknown"} version=${PROXY_VERSION}`,
   );
 
-  let stopping = false;
-  /** Drain the rolling workers and flush the supervisor journal before clearing ownership. */
-  const shutdown = async (signal: string): Promise<void> => {
-    if (stopping) {
+  await new Promise<void>(() => undefined);
+}
+
+/** Reload only the ready serving worker. A candidate still starting must not
+ * receive SIGHUP before it has installed its handlers. It loads fresh config
+ * during startup; draining workers already hold their request snapshots. */
+export function registerProxySupervisorReload(
+  activeWorkerPid: () => number | undefined,
+): () => void {
+  const reload = (): void => {
+    const pid = activeWorkerPid();
+    if (!pid) {
       return;
     }
-    stopping = true;
-    logger.always(`[proxy-supervisor] shutting down (${signal})`);
-    process.off("SIGUSR2", activatePendingUpdate);
-    await restartControl?.close();
-    updaterSupervisor.stop();
-    await rollingServer.close();
-    await flushProxyLifecycleEvents().catch((error) =>
-      logger.warn(String(error)),
-    );
-    await flushProxyOtelLogs().catch(() => undefined);
-    await shutdownProxyOtelLogs().catch(() => undefined);
-    const supervisorState = loadProxySupervisorState();
-    if (supervisorState?.pid === process.pid) {
-      clearProxySupervisorState();
+    try {
+      process.kill(pid, "SIGHUP");
+      logger.always(
+        `[proxy-supervisor] forwarded configuration reload to worker pid=${pid}`,
+      );
+    } catch (error) {
+      logger.warn(
+        `[proxy-supervisor] configuration reload failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-    process.exit(0);
   };
-  process.once("SIGTERM", () => {
-    void shutdown("SIGTERM");
-  });
-  process.once("SIGINT", () => {
-    void shutdown("SIGINT");
-  });
-  await new Promise<void>(() => undefined);
+  process.on("SIGHUP", reload);
+  return () => process.off("SIGHUP", reload);
 }
 
 async function startProxyCommandHandler(argv: ProxyStartArgs): Promise<void> {

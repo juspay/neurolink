@@ -76,13 +76,17 @@ Defined in: [types/proxy.ts:255](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **cacheReadTokens?**: `number`
 
+#### reasoning?
+
+> `optional` **reasoning?**: `number`
+
 ---
 
 ### toolCalls?
 
 > `optional` **toolCalls?**: `object`[]
 
-Defined in: [types/proxy.ts:262](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L262)
+Defined in: [types/proxy.ts:263](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L263)
 
 #### toolCallId
 

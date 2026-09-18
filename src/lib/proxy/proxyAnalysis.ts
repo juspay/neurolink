@@ -1,3 +1,4 @@
+import { proxyTokenUsage } from "./proxyTokenUsage.js";
 import { createReadStream } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { isProxyAuxiliaryRequest } from "./proxyRequestKind.js";
@@ -522,8 +523,15 @@ function summarizeFinalRequests(
       request.cacheReadTokens !== null ||
       request.cacheCreationTokens !== null
     ) {
+      const billingUsage = proxyTokenUsage({
+        inputIncludesCachedTokens: request.inputIncludesCachedTokens,
+        inputTokens: request.inputTokens ?? 0,
+        outputTokens: request.outputTokens ?? 0,
+        cacheCreationTokens: request.cacheCreationTokens ?? 0,
+        cacheReadTokens: request.cacheReadTokens ?? 0,
+      });
       requestsWithUsage += 1;
-      inputTokens += request.inputTokens ?? 0;
+      inputTokens += billingUsage.input;
       outputTokens += request.outputTokens ?? 0;
       cacheReadTokens += request.cacheReadTokens ?? 0;
       cacheCreationTokens += request.cacheCreationTokens ?? 0;
@@ -537,17 +545,7 @@ function summarizeFinalRequests(
         const cost = calculateCost(
           request.provider ?? "openai-compatible",
           request.model,
-          {
-            input: request.inputTokens ?? 0,
-            output: request.outputTokens ?? 0,
-            total:
-              (request.inputTokens ?? 0) +
-              (request.outputTokens ?? 0) +
-              (request.cacheCreationTokens ?? 0) +
-              (request.cacheReadTokens ?? 0),
-            cacheCreationTokens: request.cacheCreationTokens ?? 0,
-            cacheReadTokens: request.cacheReadTokens ?? 0,
-          },
+          billingUsage,
         );
         // Ask the table directly rather than inferring from cost > 0: a real
         // request with trivial usage can round to $0.000000 and is priced, not
@@ -1206,6 +1204,11 @@ export async function analyzeProxyLogs(
           accountType: stringValue(record.accountType) ?? "unknown",
           model: stringValue(record.model),
           provider: stringValue(record.provider),
+          inputIncludesCachedTokens:
+            typeof record.inputIncludesCachedTokens === "boolean"
+              ? record.inputIncludesCachedTokens
+              : typeof record.path === "string" &&
+                record.path.includes("/backend-api/codex/"),
           inputTokens: finiteNumber(record.inputTokens),
           outputTokens: finiteNumber(record.outputTokens),
           cacheReadTokens: finiteNumber(record.cacheReadTokens),

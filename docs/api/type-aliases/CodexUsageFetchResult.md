@@ -8,6 +8,6 @@
 
 > **CodexUsageFetchResult** = \{ `ok`: `true`; `quota`: [`AccountQuota`](AccountQuota.md); \} \| \{ `ok`: `false`; `reason`: `"not_oauth"` \| `"auth"` \| `"rate_limited"` \| `"http"` \| `"network"` \| `"parse"`; \}
 
-Defined in: [types/codex.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L95)
+Defined in: [types/codex.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L99)
 
 Result of a single Codex usage fetch.

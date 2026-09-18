@@ -8,7 +8,7 @@
 
 > **CodexUsageResponse** = `object`
 
-Defined in: [types/codex.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L83)
+Defined in: [types/codex.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L85)
 
 Loose shape of the Codex usage endpoint response.
 
@@ -18,7 +18,7 @@ Loose shape of the Codex usage endpoint response.
 
 > `optional` **rate_limits?**: [`CodexRateLimits`](CodexRateLimits.md) \| `null`
 
-Defined in: [types/codex.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L85)
+Defined in: [types/codex.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L87)
 
 Legacy Codex usage payload.
 
@@ -26,9 +26,9 @@ Legacy Codex usage payload.
 
 ### rate_limit?
 
-> `optional` **rate_limit?**: \{ `primary_window?`: [`CodexRateLimitWindow`](CodexRateLimitWindow.md) \| `null`; `secondary_window?`: [`CodexRateLimitWindow`](CodexRateLimitWindow.md) \| `null`; \} \| `null`
+> `optional` **rate_limit?**: \{ `allowed?`: `boolean`; `limit_reached?`: `boolean`; `primary_window?`: [`CodexRateLimitWindow`](CodexRateLimitWindow.md) \| `null`; `secondary_window?`: [`CodexRateLimitWindow`](CodexRateLimitWindow.md) \| `null`; \} \| `null`
 
-Defined in: [types/codex.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L87)
+Defined in: [types/codex.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L89)
 
 Current ChatGPT WHAM account-usage payload.
 
@@ -38,4 +38,4 @@ Current ChatGPT WHAM account-usage payload.
 
 > `optional` **plan_type?**: `string` \| `null`
 
-Defined in: [types/codex.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L91)
+Defined in: [types/codex.ts:95](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L95)

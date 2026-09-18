@@ -335,8 +335,14 @@ function formatQuotaColumns(quota: AccountQuota): {
   };
 
   return {
-    sessionText: colorize(sessionRemaining, `${sessionRemaining}% left`),
-    weeklyText: colorize(weeklyRemaining, `${weeklyRemaining}% left`),
+    sessionText:
+      quota.sessionStatus === "unknown"
+        ? chalk.gray("unknown")
+        : colorize(sessionRemaining, `${sessionRemaining}% left`),
+    weeklyText:
+      quota.weeklyStatus === "unknown"
+        ? chalk.gray("unknown")
+        : colorize(weeklyRemaining, `${weeklyRemaining}% left`),
     sessionReset:
       quota.sessionResetAt > 0
         ? chalk.gray(`resets ${formatTimeUntil(quota.sessionResetAt)}`)

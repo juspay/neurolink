@@ -8,4 +8,4 @@
 
 > **TransferableProxySocket** = `Pick`\<`Socket`, `"destroy"` \| `"end"` \| `"pause"` \| `"resume"` \| `"once"`\>
 
-Defined in: [types/proxy.ts:3040](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3040)
+Defined in: [types/proxy.ts:3061](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3061)

@@ -8,6 +8,6 @@
 
 > **OpenAIToolChoice** = `"auto"` \| `"required"` \| `"none"` \| \{ `type`: `"function"`; `function`: \{ `name`: `string`; \}; \}
 
-Defined in: [types/proxy.ts:3600](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3600)
+Defined in: [types/proxy.ts:3621](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3621)
 
 OpenAI tool_choice options.

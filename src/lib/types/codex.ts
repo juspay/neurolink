@@ -75,6 +75,8 @@ export type CodexRateLimitWindow = {
 
 /** Codex rate-limit block: a primary (short) and secondary (long) window. */
 export type CodexRateLimits = {
+  allowed?: boolean;
+  limit_reached?: boolean;
   primary?: CodexRateLimitWindow | null;
   secondary?: CodexRateLimitWindow | null;
 };
@@ -85,6 +87,8 @@ export type CodexUsageResponse = {
   rate_limits?: CodexRateLimits | null;
   /** Current ChatGPT WHAM account-usage payload. */
   rate_limit?: {
+    allowed?: boolean;
+    limit_reached?: boolean;
     primary_window?: CodexRateLimitWindow | null;
     secondary_window?: CodexRateLimitWindow | null;
   } | null;
@@ -104,6 +108,13 @@ export type CodexUsageFetchResult =
         | "network"
         | "parse";
     };
+
+/** Explicit plan-exhaustion evidence from a Codex error response. */
+export type CodexQuotaError = {
+  errorCode: string;
+  resetAt: number;
+  scope: "session" | "weekly" | "unknown";
+};
 
 /** A Codex account with its runtime cooldown/quota state hydrated from disk. */
 export type CodexRuntimeAccount = {

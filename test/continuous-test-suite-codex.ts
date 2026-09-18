@@ -100,6 +100,208 @@ const BORROWED_REQUEST_CONTEXT: ProxyShareRequestContext = {
   ledger: "unlimited",
 };
 
+await test("absent and malformed Codex quota windows remain unknown", () => {
+  for (const limits of [
+    undefined,
+    {},
+    { primary: {} },
+    { primary: { used_percent: Number.NaN } },
+    { primary: { used_percent: -1 }, secondary: { used_percent: -20 } },
+  ]) {
+    const quota = codexRateLimitsToQuota(limits, NOW);
+    assertEqual(
+      quota.sessionStatus,
+      "unknown",
+      "missing session evidence became permission",
+    );
+    assertEqual(
+      quota.weeklyStatus,
+      "unknown",
+      "missing weekly evidence became permission",
+    );
+    assert(
+      quota.windows?.every((window) => window.status === "unknown") ?? true,
+      "a missing window measurement became available capacity",
+    );
+  }
+  const known = codexRateLimitsToQuota({ primary: { used_percent: 0 } }, NOW);
+  assertEqual(known.sessionStatus, "allowed", "an explicit zero was lost");
+  assertEqual(
+    known.weeklyStatus,
+    "unknown",
+    "a partial snapshot invented weekly evidence",
+  );
+});
+
+await test("Codex fallback preserves reasoning in buffered and streaming usage", async () => {
+  const sse = `event: response.completed\ndata: ${JSON.stringify({
+    type: "response.completed",
+    response: {
+      status: "completed",
+      output: [
+        { type: "message", content: [{ type: "output_text", text: "ok" }] },
+      ],
+      usage: {
+        input_tokens: 100,
+        output_tokens: 20,
+        input_tokens_details: { cached_tokens: 50 },
+        output_tokens_details: { reasoning_tokens: 15 },
+      },
+    },
+  })}\n\n`;
+  const buffered = parseCodexFallbackSSE(sse);
+  assertEqual(
+    buffered.usage?.reasoning,
+    15,
+    "buffered reasoning usage was lost",
+  );
+  assertEqual(buffered.usage?.total, 120, "reasoning was charged twice");
+  const bridge = await createCodexFallbackStream(
+    new Response(sse, { headers: { "content-type": "text/event-stream" } }),
+    "claude-test",
+  );
+  try {
+    let next = await bridge.frames.next();
+    while (!next.done) {
+      next = await bridge.frames.next();
+    }
+    assertEqual(
+      next.value.usage?.reasoning,
+      15,
+      "streaming reasoning usage was lost",
+    );
+    assertEqual(
+      next.value.usage?.total,
+      120,
+      "streaming reasoning was charged twice",
+    );
+  } finally {
+    await bridge.cancel();
+  }
+});
+
+await test("proxy spans count Codex cache and reasoning subsets exactly once", async () => {
+  const { NodeTracerProvider } = await import("@opentelemetry/sdk-trace-node");
+  const { InMemorySpanExporter, SimpleSpanProcessor } =
+    await import("@opentelemetry/sdk-trace-base");
+  const { trace } = await import("@opentelemetry/api");
+  const { ProxyTracer } = await import("../src/lib/proxy/proxyTracer.js");
+  const exporter = new InMemorySpanExporter();
+  const provider = new NodeTracerProvider({
+    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  });
+  trace.disable();
+  provider.register();
+  try {
+    for (const billingProvider of ["openai", "anthropic"]) {
+      const tracer = ProxyTracer.startRequest({
+        requestId: `usage-${billingProvider}`,
+        method: "POST",
+        path: "/fixture",
+        model: billingProvider === "openai" ? "gpt-6-astra" : "claude-sonnet-5",
+        stream: true,
+        toolCount: 0,
+        provider: billingProvider,
+      });
+      tracer.setUsage({
+        inputIncludesCachedTokens: billingProvider === "openai",
+        inputTokens: 100,
+        outputTokens: 20,
+        cacheReadTokens: 50,
+        cacheCreationTokens: 10,
+        reasoningTokens: 15,
+      });
+      tracer.end(200, 1);
+    }
+    await provider.forceFlush();
+    const spans = exporter.getFinishedSpans();
+    assertEqual(
+      spans[0]?.attributes["ai.tokens.total"],
+      120,
+      "Codex subsets inflated total usage",
+    );
+    assertEqual(
+      spans[1]?.attributes["ai.tokens.total"],
+      180,
+      "Anthropic separate cache input was lost",
+    );
+    assertEqual(
+      spans[0]?.attributes["ai.tokens.reasoning"],
+      15,
+      "reasoning breakdown was lost",
+    );
+    for (const [index, span] of spans.entries()) {
+      const attrs = span.attributes;
+      assertEqual(
+        attrs["ai.tokens.input"],
+        index === 0 ? 40 : 100,
+        "custom input attribute still includes cache tokens",
+      );
+      assertEqual(
+        Number(attrs["ai.tokens.input"]) +
+          Number(attrs["ai.tokens.output"]) +
+          Number(attrs["ai.tokens.cache_read"]) +
+          Number(attrs["ai.tokens.cache_creation"]),
+        attrs["ai.tokens.total"],
+        "custom token buckets do not reconcile with the total",
+      );
+      assertEqual(
+        attrs["gen_ai.usage.input_tokens"],
+        index === 0 ? 100 : 160,
+        "standard input attribute lost cache-inclusive semantics",
+      );
+    }
+  } finally {
+    await provider.shutdown();
+    trace.disable();
+  }
+});
+
+await test("body-only Codex quota exhaustion retains reset evidence without guessing scope", () => {
+  const text = JSON.stringify({
+    error: { type: "usage_limit_reached", resets_at: NOW_SECONDS + 3 * 86400 },
+  });
+  const plan = __testHooks.planCodexCooldown(null, 0, NOW, text);
+  assertEqual(
+    plan.reason,
+    "unified",
+    "plan exhaustion became a burst throttle",
+  );
+  assertEqual(
+    plan.coolingUntil,
+    NOW + 15 * 60_000,
+    "ambiguous quota scope parked the whole account indefinitely",
+  );
+  const session = __testHooks.planCodexCooldown(
+    null,
+    0,
+    NOW,
+    JSON.stringify({
+      error: {
+        type: "usage_limit_reached",
+        limit_type: "primary",
+        resets_in_seconds: 7200,
+      },
+    }),
+  );
+  assertEqual(
+    session.reason,
+    "session",
+    "explicit short-window scope was lost",
+  );
+  assertEqual(
+    session.coolingUntil,
+    NOW + 7200_000,
+    "explicit window reset was lost",
+  );
+  const invalid = __testHooks.planCodexCooldown(null, 0, NOW, "{broken");
+  assertEqual(
+    invalid.reason,
+    "transient",
+    "malformed error invented quota evidence",
+  );
+});
+
 function account(
   label: string,
   over: Partial<CodexRuntimeAccount> = {},
@@ -215,6 +417,35 @@ await test("orderCodexAccounts probes an account with no quota first", () => {
     order.join(","),
     "unknown,known",
     "an unobserved account must be probed ahead of a known one",
+  );
+});
+
+await test("orderCodexAccounts defers rejected quota without starving fresh accounts", () => {
+  const rejected = account("rejected", {
+    quota: codexRateLimitsToQuota(
+      { allowed: false, primary: { used_percent: 0 } },
+      NOW,
+    ),
+  });
+  const rejectedUnknown = account("rejected-unknown", {
+    quota: codexRateLimitsToQuota({ limit_reached: true }, NOW),
+  });
+  const usable = account("usable", {
+    quota: codexRateLimitsToQuota(
+      { allowed: true, primary: { used_percent: 60 } },
+      NOW,
+    ),
+  });
+  const fresh = account("fresh");
+  const cooling = account("cooling", { coolingUntil: NOW + 60_000 });
+  const ordered = __testHooks.orderCodexAccounts(
+    [rejected, usable, rejectedUnknown, fresh, cooling],
+    NOW,
+  );
+  assertEqual(
+    ordered.map((entry) => entry.label).join(","),
+    "fresh,usable,rejected-unknown,rejected,cooling",
+    "rejected quota outranked usable capacity or excluded recovery probes",
   );
 });
 
@@ -1735,7 +1966,7 @@ await test("Codex fallback parses text SSE and usage only after completion", () 
   );
   assertEqual(parsed.text, "Hello world", "text deltas were not joined");
   assertEqual(parsed.finishReason, "end_turn", "text finish reason changed");
-  assertEqual(parsed.usage?.input, 12, "input usage was not read");
+  assertEqual(parsed.usage?.input, 7, "input usage was not read");
   assertEqual(parsed.usage?.output, 5, "output usage was not read");
   assertEqual(
     parsed.usage?.cacheReadTokens,
@@ -2283,7 +2514,7 @@ await test("Codex bridge emits text before upstream completion and preserves spl
       "a mirrored tool call was emitted twice",
     );
     assert(
-      rest.includes('"input_tokens":123') &&
+      rest.includes('"input_tokens":23') &&
         rest.includes('"cache_read_input_tokens":100'),
       "final input/cache usage was lost",
     );

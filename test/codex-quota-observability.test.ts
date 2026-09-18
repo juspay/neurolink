@@ -92,7 +92,10 @@ async function logEntries(prefix: string): Promise<Record<string, unknown>[]> {
     (candidate) =>
       candidate.startsWith(prefix) &&
       candidate.endsWith(".jsonl") &&
-      (prefix !== "proxy-" || !candidate.startsWith("proxy-attempts-")),
+      // Body-capture indexes also start with proxy-. They are evidence of an
+      // upstream attempt, not a duplicate client-final request.
+      (prefix !== "proxy-" ||
+        /^proxy-\d{4}-\d{2}-\d{2}\.jsonl$/.test(candidate)),
   );
   if (!file) {
     return [];

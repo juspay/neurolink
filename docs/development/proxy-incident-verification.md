@@ -58,6 +58,44 @@ they do not certify a latency ceiling under arbitrary host contention.
 
 ## Interpretation limits
 
+The CLI has one signal owner. Proxy workers and supervisors own their drain and
+exit; the ordinary CLI telemetry cleanup cannot exit alongside them. Repeated
+SIGINT/SIGTERM signals reuse that shutdown. Ordinary command cleanup catches
+flush failures and uses a five-second deadline. Worker and supervisor telemetry
+cleanup also has a deadline after request draining. Supervisor SIGHUP forwards a
+reload to the ready serving worker, while a candidate loads configuration during
+startup. Isolated subprocess fixtures in `test:proxy-restart` exercise reload,
+duplicate signals, failed flushes, stalled flushes and drain failures. If startup
+registers a shutdown owner during ordinary cleanup, the original signal is
+delegated to that owner after cleanup settles, including rejection or timeout.
+Signal-triggered ordinary cleanup preserves an existing command failure code.
+Supervisor SIGHUP handling is installed before startup awaits, ignores reloads
+until a serving worker is ready, and forwards them during control-plane setup.
+Supervisor shutdown ownership is also registered before startup awaits. A stop
+prevents later setup stages, waits for already-started resource creation, and
+closes the resulting resources before exiting. Cleanup continues after an
+individual close failure and exits unsuccessfully when a resource cannot close.
+Isolated child-process regressions signal bootstrap, pending worker startup,
+pending restart-control setup, and updater startup, including duplicate signals
+and a rejected control close.
+Resource cleanup runs concurrently: worker creation and drain have a 35-second
+deadline, and control cleanup has a 5-second deadline. Telemetry then has its
+5-second budget, leaving headroom inside the launchd service's 45-second stop
+timeout. A stalled resource is reported and causes an unsuccessful exit; a late
+resource returned while telemetry is flushing is still closed without extending
+the exit deadline. Fixtures cover permanently pending worker/control setup and a
+worker returned after the resource deadline.
+Lifecycle and OTel flush rejections, exporter shutdown rejections, and telemetry
+deadlines also produce an unsuccessful supervisor exit. State cleanup still
+runs, and a rejected flush does not skip the subsequent exporter shutdown.
+Child diagnostics are printed separately from assertion errors so provider-like
+text cannot turn a local lifecycle failure into a skipped test.
+
+`test:codex` and `test:proxy-telemetry` cover unknown quota, body-only quota
+rejections, native and translated cache/reasoning accounting, actual-model
+attribution, and exported OTLP records. These deterministic checks do not prove
+provider allowance accounting or deployed collector durability.
+
 Admission durability means an OS-acknowledged append survives serving-process
 death. It is not an fsync, machine-failure, or end-client-delivery guarantee.
 Terminal tails, retention, full disks, backend export failures and upstream

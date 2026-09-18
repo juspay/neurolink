@@ -29,7 +29,40 @@ Codex CLI  →  proxy /backend-api/codex/responses
                  └─ relays the SSE stream back unchanged
 ```
 
-On a 429 or usage-limit the account is cooled until its real reset and the next account is tried — the same behaviour the Claude pool has.
+On a 429 the proxy rotates accounts. An explicitly exhausted session or weekly
+window cools until its reset. A structured `usage_limit_reached` response is
+classified as quota exhaustion even without quota headers. Its reported reset
+and scope are retained in attempt telemetry. When the scope is unknown or
+model-specific, the account cooldown is bounded to 15 minutes; the proxy does
+not infer an account-wide multi-day limit from a reset timestamp alone.
+
+Missing utilization is `unknown`, not zero usage or permission to send. Unknown
+windows remain eligible for probing, but do not advertise remaining percentages.
+Numeric quota fields retain their legacy shape; consumers must check the window
+status before interpreting those fields. Header snapshots identify their source
+as `headers`, and explicit usage refreshes use `usage-api`.
+
+### Usage accounting
+
+Native Codex input includes cached input, and output includes reasoning tokens.
+Final OTel records mark native usage with `inputIncludesCachedTokens: true` and
+retain the reasoning breakdown only when the provider reports it. Totals and
+cost estimates count these subsets once. Dollar values are API-price estimates,
+not a measurement of ChatGPT subscription credits or remaining allowance.
+Custom span fields use disjoint buckets: `ai.tokens.input` excludes cache reads
+and writes, which have separate attributes. The standard
+`gen_ai.usage.input_tokens` includes both cache buckets. Reasoning remains a
+breakdown of output and is not added to the total again.
+The offline `proxy analyze` report also uses disjoint buckets:
+`cache.inputTokens` excludes its separate `cacheReadTokens` and
+`cacheCreationTokens` columns, so their sum with output matches total usage.
+
+The Claude fallback translates input into Claude's separate uncached-input and
+cache buckets, for both JSON and streaming responses. Its final record identifies
+the upstream model in `model`, the client alias in `requestedModel`, and disjoint
+usage with `inputIncludesCachedTokens: false`. Native Codex SSE bytes remain
+unchanged. The offline analyzer also recognizes legacy native Codex paths when
+the accounting marker is absent.
 
 ---
 
@@ -93,8 +126,9 @@ Codex reports two rate-limit windows — **primary** (short) and **secondary** (
 Account ordering is fill-first and quota-aware:
 
 1. Accounts on cooldown sort last.
-2. Accounts with **no quota data sort first** — they get probed so they become comparable, rather than being starved.
-3. Otherwise, least session utilization first.
+2. Within the same cooldown state, accounts with a rejected unified quota sort after accounts without known rejection, even when their session usage is low or unknown.
+3. Within each group, accounts with **no session quota measurement sort first** — they get probed so they become comparable, rather than being starved.
+4. Otherwise, least session utilization first. Rejected accounts remain eligible after preferred accounts so stale rejection evidence cannot permanently prevent a recovery probe.
 
 Cooldown reasons map to the shared vocabulary: a rejected weekly window cools until its real reset (`weekly`), a rejected primary window until its reset (`session`), and a plain burst limit gets a bounded `transient` cooldown (60 s floor, 15 min ceiling).
 
@@ -114,7 +148,8 @@ Every pooled Codex response carries attribution headers:
 | `x-neurolink-attempt`                | Which attempt succeeded (1 = first account tried)   |
 | `x-neurolink-quota-source`           | `live` when the backend reported quota, else `none` |
 | `x-neurolink-quota-session-left-pct` | Remaining primary-window headroom                   |
-| `x-neurolink-weekly-left-pct`        | Remaining secondary-window headroom                 |
+| `x-neurolink-quota-weekly-left-pct`  | Canonical remaining secondary-window headroom       |
+| `x-neurolink-weekly-left-pct`        | Compatibility alias for the canonical weekly header |
 
 ---
 

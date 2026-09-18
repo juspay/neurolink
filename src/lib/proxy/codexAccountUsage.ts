@@ -142,10 +142,15 @@ function windowResetEpochSeconds(
   return 0;
 }
 
-function deriveWindowStatus(usedFraction: number): string {
-  return usedFraction >= 1 ? "rejected" : "allowed";
+/** Classify only finite, nonnegative utilization; invalid measurements stay unknown. */
+function deriveWindowStatus(percent: number | null | undefined): string {
+  if (typeof percent !== "number" || !Number.isFinite(percent) || percent < 0) {
+    return "unknown";
+  }
+  return percent >= 100 ? "rejected" : "allowed";
 }
 
+/** Normalize a reported window while retaining uncertainty in its status. */
 function toQuotaWindow(
   kind: string,
   group: string,
@@ -160,7 +165,7 @@ function toQuotaWindow(
     kind,
     group,
     used,
-    status: deriveWindowStatus(used),
+    status: deriveWindowStatus(window.used_percent),
     resetsAt: windowResetEpochSeconds(window, nowSeconds),
     isActive: true,
   };
@@ -196,11 +201,17 @@ export function codexRateLimitsToQuota(
     windows.push(secondaryWindow);
   }
   return {
+    unifiedStatus:
+      rateLimits?.limit_reached === true || rateLimits?.allowed === false
+        ? "rejected"
+        : rateLimits?.allowed === true
+          ? "allowed"
+          : "unknown",
     sessionUsed,
-    sessionStatus: deriveWindowStatus(sessionUsed),
+    sessionStatus: deriveWindowStatus(primary?.used_percent),
     sessionResetAt: windowResetEpochSeconds(primary, nowSeconds),
     weeklyUsed,
-    weeklyStatus: deriveWindowStatus(weeklyUsed),
+    weeklyStatus: deriveWindowStatus(secondary?.used_percent),
     weeklyResetAt: windowResetEpochSeconds(secondary, nowSeconds),
     // Codex has no overage/fallback concept; keep neutral defaults.
     fallbackPercentage: 0,
@@ -234,7 +245,7 @@ export function parseCodexRateLimitHeaders(
       "rate_limits" in parsed && parsed.rate_limits
         ? parsed.rate_limits
         : (parsed as CodexRateLimits);
-    return codexRateLimitsToQuota(rateLimits, now);
+    return { ...codexRateLimitsToQuota(rateLimits, now), source: "headers" };
   } catch {
     return null;
   }
@@ -272,6 +283,8 @@ export async function fetchCodexAccountUsage(
     const usage = (await response.json()) as CodexUsageResponse;
     const rateLimits = usage.rate_limit
       ? {
+          allowed: usage.rate_limit.allowed,
+          limit_reached: usage.rate_limit.limit_reached,
           primary: usage.rate_limit.primary_window,
           secondary: usage.rate_limit.secondary_window,
         }

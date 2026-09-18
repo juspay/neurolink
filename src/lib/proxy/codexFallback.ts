@@ -9,6 +9,7 @@
 
 import { ClaudeStreamSerializer, generateToolUseId } from "./claudeFormat.js";
 import { extractCodexUsage } from "./codexUsage.js";
+import { proxyTokenUsage } from "./proxyTokenUsage.js";
 import type {
   ClaudeContentBlock,
   ClaudeRequest,
@@ -435,13 +436,16 @@ export function parseCodexFallbackSSE(sse: string): CodexFallbackResult {
     }
     const parsedUsage = extractCodexUsage(payload);
     if (parsedUsage) {
-      usage = {
-        input: parsedUsage.inputTokens,
-        output: parsedUsage.outputTokens,
-        total: parsedUsage.inputTokens + parsedUsage.outputTokens,
+      usage = proxyTokenUsage({
+        inputTokens: parsedUsage.inputTokens,
+        outputTokens: parsedUsage.outputTokens,
+        reasoningTokens: parsedUsage.reasoningTokensObserved
+          ? parsedUsage.reasoningTokens
+          : undefined,
         cacheReadTokens: parsedUsage.cacheReadTokens,
         cacheCreationTokens: parsedUsage.cacheCreationTokens,
-      };
+        inputIncludesCachedTokens: true,
+      });
     }
     textFromResponse = outputTextFromResponse(payload);
   }
@@ -610,13 +614,16 @@ export async function createCodexFallbackStream(
           completed = true;
           const parsedUsage = extractCodexUsage(payload);
           if (parsedUsage) {
-            usage = {
-              input: parsedUsage.inputTokens,
-              output: parsedUsage.outputTokens,
-              total: parsedUsage.inputTokens + parsedUsage.outputTokens,
+            usage = proxyTokenUsage({
+              inputTokens: parsedUsage.inputTokens,
+              outputTokens: parsedUsage.outputTokens,
+              reasoningTokens: parsedUsage.reasoningTokensObserved
+                ? parsedUsage.reasoningTokens
+                : undefined,
               cacheReadTokens: parsedUsage.cacheReadTokens,
               cacheCreationTokens: parsedUsage.cacheCreationTokens,
-            };
+              inputIncludesCachedTokens: true,
+            });
           }
           const responseBody = payload.response;
           if (isRecord(responseBody) && Array.isArray(responseBody.output)) {

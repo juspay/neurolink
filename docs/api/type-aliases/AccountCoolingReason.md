@@ -8,7 +8,7 @@
 
 > **AccountCoolingReason** = _typeof_ `ACCOUNT_COOLING_REASONS`\[`number`\]
 
-Defined in: [types/proxy.ts:1744](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1744)
+Defined in: [types/proxy.ts:1759](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1759)
 
 Why an account is currently cooling. Drives cooldown duration and logging.
 

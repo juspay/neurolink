@@ -18,6 +18,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { request, Server } from "node:http";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
   assert,
@@ -40,6 +41,246 @@ const { test, runSuite } = defineSuite("Safe Proxy Restart", { offline: true });
 const fixture = fileURLToPath(
   new URL("./fixtures/proxyRestartWorker.mjs", import.meta.url),
 );
+
+for (const mode of [
+  "normal",
+  "reject",
+  "timeout",
+  "normal-timeout",
+  "normal-timeout-error",
+  "before-exit-timeout",
+  "signal-error",
+  "signal-reject-error",
+  "signal-timeout-error",
+  "owner",
+  "owner-error",
+  "late-owner",
+  "late-owner-reject",
+  "late-owner-timeout",
+  "reload",
+  "reload-startup",
+  "reload-bootstrap",
+  "supervisor-stop-bootstrap",
+  "supervisor-stop-worker",
+  "supervisor-stop-control",
+  "supervisor-stop-updater",
+  "supervisor-stop-cleanup-error",
+  "supervisor-stop-worker-timeout",
+  "supervisor-stop-control-timeout",
+  "supervisor-stop-worker-late",
+  "supervisor-stop-lifecycle-reject",
+  "supervisor-stop-otel-flush-reject",
+  "supervisor-stop-telemetry-reject",
+  "supervisor-stop-telemetry-timeout",
+]) {
+  await test(`built CLI lifecycle handles ${mode} without competing shutdowns`, async () => {
+    const result = await new Promise<{
+      code: number | null;
+      signal: string | null;
+      stdout: string;
+      stderr: string;
+    }>((resolve, reject) => {
+      const child = spawn(
+        process.execPath,
+        [
+          ...(mode === "reload-startup" ||
+          mode === "reload-bootstrap" ||
+          mode.startsWith("supervisor-stop-")
+            ? ["--experimental-test-module-mocks"]
+            : []),
+          fileURLToPath(
+            new URL("./fixtures/proxyCliLifecycle.mjs", import.meta.url),
+          ),
+          mode,
+        ],
+        {
+          env: { ...process.env },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      let stdout = "",
+        stderr = "";
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        reject(
+          new Error("isolated lifecycle remained alive after shutdown budget"),
+        );
+      }, 15_000);
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk;
+      });
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk;
+      });
+      child.on("error", (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+      child.on("close", (code, signal) => {
+        clearTimeout(timer);
+        resolve({ code, signal, stdout, stderr });
+      });
+    });
+    const expectedCode =
+      mode === "owner-error" ||
+      (mode.startsWith("supervisor-stop-") &&
+        (mode.includes("error") ||
+          mode.includes("reject") ||
+          mode.includes("timeout") ||
+          mode.endsWith("late")))
+        ? 1
+        : mode === "normal-timeout-error" || mode.startsWith("signal-")
+          ? 7
+          : 0;
+    if (result.signal !== null || result.code !== expectedCode) {
+      // Retain child diagnostics without letting provider-like words in stderr
+      // turn a local lifecycle assertion into the harness's provider skip.
+      console.error(`stdout=${result.stdout}\nstderr=${result.stderr}`);
+    }
+    assertEqual(result.signal, null, "a handled signal terminated the fixture");
+    assertEqual(result.code, expectedCode, "lifecycle exit status changed");
+    if (mode.startsWith("supervisor-stop-")) {
+      assert(result.stdout.includes("signal-sent"), "fixture never signalled");
+      assert(
+        !result.stdout.includes("flush\n"),
+        "global cleanup raced supervisor startup",
+      );
+      const stage = mode.slice("supervisor-stop-".length);
+      const count = (marker: string) =>
+        result.stdout.split(`${marker}\n`).length - 1;
+      assertEqual(
+        count("worker-closed"),
+        stage === "bootstrap" || stage === "worker-timeout" ? 0 : 1,
+      );
+      assertEqual(count("state-cleared"), stage === "bootstrap" ? 0 : 1);
+      assertEqual(
+        count("otel-stopped"),
+        stage === "bootstrap" || stage.startsWith("telemetry-") ? 0 : 1,
+      );
+      assertEqual(
+        count("control-closed"),
+        stage === "bootstrap" ||
+          stage.startsWith("worker") ||
+          stage === "control-timeout"
+          ? 0
+          : 1,
+      );
+      assertEqual(
+        count("updater-stopped"),
+        stage === "updater" ||
+          stage === "cleanup-error" ||
+          stage.includes("reject") ||
+          stage.startsWith("telemetry-")
+          ? 1
+          : 0,
+      );
+      if (stage === "bootstrap") {
+        assertEqual(count("worker-created"), 0, "startup continued after stop");
+      } else if (stage.startsWith("worker")) {
+        assertEqual(
+          count("control-created"),
+          0,
+          "startup continued after stop",
+        );
+      } else if (stage.startsWith("control")) {
+        assertEqual(
+          count("updater-created"),
+          0,
+          "startup continued after stop",
+        );
+      }
+      if (stage.includes("timeout") || stage === "worker-late") {
+        assert(
+          result.stdout.includes("shutdown-budget=35000") &&
+            result.stdout.includes("shutdown-budget=5000"),
+          "resource shutdown budgets changed",
+        );
+        assert(
+          `${result.stdout}\n${result.stderr}`.includes(
+            stage === "telemetry-timeout"
+              ? "supervisor telemetry shutdown deadline exceeded"
+              : "supervisor resource shutdown deadline exceeded",
+          ),
+          "stalled resource was not reported",
+        );
+      }
+    } else if (mode.startsWith("owner")) {
+      assertEqual(
+        (result.stdout.match(/draining/g) ?? []).length,
+        1,
+        "duplicate signal started another drain",
+      );
+      assert(
+        !result.stdout.includes("flush"),
+        "global cleanup raced the proxy owner",
+      );
+      if (mode === "owner") {
+        assert(
+          result.stdout.includes("drained"),
+          "process exited before drain completed",
+        );
+      } else {
+        assert(
+          result.stderr.includes("shutdown failed"),
+          "owner rejection was unhandled",
+        );
+      }
+    } else if (mode.startsWith("late-owner")) {
+      assertEqual(
+        (result.stdout.match(/flush/g) ?? []).length,
+        1,
+        "startup race ran cleanup more than once",
+      );
+      assertEqual(
+        (result.stdout.match(/draining/g) ?? []).length,
+        1,
+        "late shutdown owner was skipped or invoked twice",
+      );
+      assert(
+        result.stdout.includes("draining signal=SIGTERM") &&
+          result.stdout.includes("drained"),
+        "late owner did not finish draining with the original signal",
+      );
+      if (mode !== "late-owner") {
+        assert(
+          result.stderr.includes("cleanup failed"),
+          "failed or stalled startup cleanup was not reported",
+        );
+      }
+    } else if (mode === "reload-startup" || mode === "reload-bootstrap") {
+      assert(
+        result.stdout.includes("restart-control-starting") &&
+          result.stdout.includes("startup-worker-reloaded") &&
+          result.stdout.includes("supervisor-startup-alive"),
+        "SIGHUP interrupted supervisor startup before control setup finished",
+      );
+      if (mode === "reload-bootstrap") {
+        assert(
+          result.stdout.includes("supervisor-bootstrap-alive"),
+          "SIGHUP interrupted supervisor bootstrap before a worker was ready",
+        );
+      }
+    } else if (mode === "reload") {
+      assert(
+        result.stdout.includes("worker-reloaded") &&
+          result.stdout.includes("supervisor-alive"),
+        "reload interrupted the supervisor",
+      );
+    } else {
+      assertEqual(
+        (result.stdout.match(/flush/g) ?? []).length,
+        1,
+        "cleanup ran more than once",
+      );
+      if (mode !== "normal" && mode !== "signal-error") {
+        assert(
+          result.stderr.includes("cleanup failed"),
+          "failed or stalled flush was not reported",
+        );
+      }
+    }
+  });
+}
 
 await test("current worker reconciles a stale rolling supervisor without a registry update", async () => {
   assertEqual(

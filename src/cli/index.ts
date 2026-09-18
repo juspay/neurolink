@@ -12,6 +12,7 @@ process.env.DOTENV_CONFIG_QUIET = "true";
 
 import { initializeCliParser } from "./parser.js";
 import chalk from "chalk";
+import { initializeCliLifecycle, cleanupCliLifecycle } from "./lifecycle.js";
 
 // Clean up pnpm-specific environment variables that cause npm warnings
 // These variables are set by pnpm but cause "Unknown env config" warnings in npm
@@ -35,40 +36,25 @@ try {
 
 // Enhanced CLI with Professional UX
 const cli = initializeCliParser();
+initializeCliLifecycle(async () => {
+  const { flushOpenTelemetry } =
+    await import("../lib/services/server/ai/observability/instrumentation.js");
+  await flushOpenTelemetry();
+});
 
 // Execute CLI
 (async () => {
   try {
     // Parse and execute commands
     await cli.parse();
-    await cleanup();
+    await cleanupCliLifecycle();
   } catch (error) {
     // Global error handler - should not reach here due to fail() handler
     process.stderr.write(
       chalk.red(`Unexpected CLI _error: ${(error as Error).message}\n`),
     );
-    await cleanup();
+    process.exitCode = 1;
+    await cleanupCliLifecycle();
     process.exit(1);
   }
 })();
-
-// Cleanup on exit
-process.on("SIGINT", async () => {
-  await cleanup();
-  process.exit(0);
-});
-
-process.on("SIGTERM", async () => {
-  await cleanup();
-  process.exit(0);
-});
-
-process.on("beforeExit", async () => {
-  await cleanup();
-});
-
-async function cleanup() {
-  const { flushOpenTelemetry } =
-    await import("../lib/services/server/ai/observability/instrumentation.js");
-  await flushOpenTelemetry();
-}

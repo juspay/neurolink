@@ -8,7 +8,7 @@
 
 > **ProxyBodyDeliveryResult** = `object`
 
-Defined in: [types/proxy.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L797)
+Defined in: [types/proxy.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L804)
 
 Collector transport evidence; acknowledgement does not prove backend storage.
 
@@ -18,7 +18,7 @@ Collector transport evidence; acknowledgement does not prove backend storage.
 
 > **status**: `"transport_acknowledged"` \| `"export_unconfirmed"` \| `"rejected"` \| `"partial"`
 
-Defined in: [types/proxy.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L798)
+Defined in: [types/proxy.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L805)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:798](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **expectedChunks?**: `number`
 
-Defined in: [types/proxy.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L804)
+Defined in: [types/proxy.ts:811](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L811)
 
 Absent when publication was rejected before chunking.
 
@@ -36,7 +36,7 @@ Absent when publication was rejected before chunking.
 
 > **acknowledgedChunks**: `number`
 
-Defined in: [types/proxy.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L805)
+Defined in: [types/proxy.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L812)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/proxy.ts:805](https://github.com/juspay/neurolink/blob/releas
 
 > **unconfirmedChunks**: `number`
 
-Defined in: [types/proxy.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L806)
+Defined in: [types/proxy.ts:813](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L813)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/proxy.ts:806](https://github.com/juspay/neurolink/blob/releas
 
 > **droppedChunks**: `number`
 
-Defined in: [types/proxy.ts:807](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L807)
+Defined in: [types/proxy.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L814)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/proxy.ts:807](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **notSubmittedChunks?**: `number`
 
-Defined in: [types/proxy.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L808)
+Defined in: [types/proxy.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L815)
 
 ---
 
@@ -68,4 +68,4 @@ Defined in: [types/proxy.ts:808](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/proxy.ts:809](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L809)
+Defined in: [types/proxy.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L816)
