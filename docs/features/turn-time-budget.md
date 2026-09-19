@@ -1,11 +1,11 @@
 # Turn Time Budget
 
 Turn-lifecycle limits for agentic (multi-step tool-calling) turns, enforced
-inside NeuroLink's native Vertex loops (Gemini and Claude-on-Vertex, both
-`generate()` and `stream()`). NeuroLink sees every model call, every tool
-start/finish, and every stream chunk — so it is the layer that can tell a
-productive long turn from a wedged one, and end each with an honest message
-and a machine-readable reason.
+inside NeuroLink's native Gemini and Claude loops — Vertex (Gemini and
+Claude-on-Vertex) and Google AI Studio, both `generate()` and `stream()` in
+each case. NeuroLink sees every model call, every tool start/finish, and every
+stream chunk — so it is the layer that can tell a productive long turn from a
+wedged one, and end each with an honest message and a machine-readable reason.
 
 ## Options
 
@@ -52,6 +52,11 @@ When `turnTimeoutMs` is **unset**, each loop keeps its pre-existing behavior:
 - **Vertex Claude generate**: historically had no whole-turn bound (only the
   per-call `timeout`), and still has none — long multi-step turns keep
   running. Set `turnTimeoutMs` explicitly to bound them.
+- **Google AI Studio (generate + stream)**: the pre-existing per-request
+  timeout controller (`timeout`, defaulting to the provider's own budget)
+  remains the whole-turn bound, and no second deadline is armed alongside it.
+  Its firing is now reported as `stopReason: "time-limit"` rather than as a
+  bare abort. An explicit `turnTimeoutMs` adds a tighter deadline on top.
 
 ## `stopReason` — the turn-exit discriminator
 
@@ -66,7 +71,12 @@ Branch on `result.stopReason` instead:
 | `time-limit`     | The `turnTimeoutMs` (or defensive) wall-clock deadline passed      |
 | `stalled`        | No progress for `stallTimeoutMs`                                   |
 | `aborted`        | The caller's `abortSignal` ended the turn                          |
+| `context-cap`    | The in-loop context guard stopped the turn (Vertex loops only)     |
 | `provider-error` | Provider/model failure (e.g. persistent `MALFORMED_FUNCTION_CALL`) |
+
+A loop only reports what it can observe. The AI Studio loops never report
+`context-cap`, because their context guard reclaims room or does nothing — it
+has no stop-the-turn branch to report.
 
 Also on the result: `rawFinishReason` (the verbatim provider value, e.g.
 `MALFORMED_FUNCTION_CALL`, `max_tokens`) and `stepsUsed`. On `stream()`
