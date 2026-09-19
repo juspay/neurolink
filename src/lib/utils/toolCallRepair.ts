@@ -1,4 +1,5 @@
 import { logger } from "./logger.js";
+import { levenshtein } from "./stringDistance.js";
 import type { ToolCallRepairFunction, ToolSet } from "../types/index.js";
 import type {
   JSONSchema7,
@@ -388,51 +389,4 @@ export function coerceType(
   }
 
   return value;
-}
-
-// ─── Levenshtein Distance ──────────────────────────────────────────
-
-/**
- * Compute Levenshtein edit distance between two strings.
- * Uses the iterative matrix approach — O(m*n) time, O(min(m,n)) space.
- */
-function levenshtein(a: string, b: string): number {
-  if (a === b) {
-    return 0;
-  }
-  if (a.length === 0) {
-    return b.length;
-  }
-  if (b.length === 0) {
-    return a.length;
-  }
-
-  // Use shorter string as column to minimize space
-  if (a.length > b.length) {
-    [a, b] = [b, a];
-  }
-
-  const aLen = a.length;
-  const bLen = b.length;
-  let prev = new Array<number>(aLen + 1);
-  let curr = new Array<number>(aLen + 1);
-
-  for (let i = 0; i <= aLen; i++) {
-    prev[i] = i;
-  }
-
-  for (let j = 1; j <= bLen; j++) {
-    curr[0] = j;
-    for (let i = 1; i <= aLen; i++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[i] = Math.min(
-        prev[i] + 1, // deletion
-        curr[i - 1] + 1, // insertion
-        prev[i - 1] + cost, // substitution
-      );
-    }
-    [prev, curr] = [curr, prev];
-  }
-
-  return prev[aLen];
 }
