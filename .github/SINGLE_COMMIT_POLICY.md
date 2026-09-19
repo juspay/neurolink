@@ -86,20 +86,36 @@ git rebase -i HEAD~3
 git push --force-with-lease
 ```
 
-### Method 2: Soft Reset
+### Method 2: Rebase, Then Soft Reset
+
+⚠️ **`git reset --soft origin/release` is only safe once your branch is
+already rebased onto the current base.** Running it against a stale tree —
+i.e. resetting straight onto a base your branch predates, then committing —
+silently reverts every change `release` gained since your branch point: the
+new commit's parent becomes the current base, but its tree is still the old
+one, so git records the gap as a plain deletion with no conflict to flag it.
+See CLAUDE.md's "`reset --soft` onto a newer base reverts everything in
+between" section for a real incident this produced. Rebase onto the current
+base **first**, so your tree already contains it, and only then soft-reset to
+squash:
 
 ```bash
-# Reset to base branch but keep changes staged
+# 1. Update your tree so it already contains everything release has gained
+git fetch origin release
+git rebase origin/release
+
+# 2. Move the branch pointer to the current base; the index/working tree
+#    already reflect the rebase, so nothing in between is reverted
 git reset --soft origin/release
 
-# Create single commit with combined changes
+# 3. Create single commit with combined changes
 git commit -m "feat(auth): add OAuth2 authentication system
 
 - Add OAuth2 base configuration
 - Add login component with validation
 - Add comprehensive test coverage"
 
-# Force push
+# 4. Force push
 git push --force-with-lease
 ```
 
