@@ -668,9 +668,32 @@ Two separate causes, and the second is the one that hides:
    `sortSections` had the same defect: every section outside `SECTION_ORDER`
    scores 999, so their ties came from Map insertion order.
 
-Both are fixed, and the artifacts are now byte-identical across runs. When
-adding any generator whose output is committed: prove it by building twice and
-`cmp`-ing, before writing a check that assumes it. Tiebreak with a codepoint
+Both are fixed **in the llms generator**, and those two artifacts are now
+byte-identical across runs.
+
+**`search-index.json` was never fixed, and this file said otherwise for
+months.** The fix commit `ef125b2bd` touched five paths — the workflow, this
+file, `build-llms-txt.ts`, and the two llms artifacts. `grep -c search-index`
+over that file list returns 0. Its generator,
+`docs-site/plugins/docusaurus-plugin-search-index/index.js`, still walks
+`fs.readdirSync` with **no sort at all**, and still numbers entries with a
+positional counter (`objectID: String(id++)`), so any reordering rewrites every
+subsequent id and amplifies a one-file change into a whole-file diff. A rebuild
+on an unchanged tree differs by ~1,640 positions, and the entry count moves —
+which a reorder alone cannot do, and which the sync-docs collision below
+explains. Tracked in issue #1749.
+
+Note what that leaves: the only one of the three artifacts still committed, and
+therefore the only one a currency check actually diffs, is the one whose
+generator was never made reproducible.
+
+The reason the claim survived is the lesson restated. `ef125b2bd`'s message said
+the change "leaves search-index.json byte-identical" — true of the run that was
+observed, and never a property established in code. An observation from one run
+was written down as an invariant, in the very section warning against exactly
+that. So: when adding any generator whose output is committed, prove it by
+building twice and `cmp`-ing, before writing a check that assumes it — and
+before writing down that it holds. Tiebreak with a codepoint
 comparison, not `localeCompare` — collation depends on the Node ICU build, so
 it can order CI and a laptop differently.
 
@@ -797,6 +820,110 @@ by regenerating rather than by picking a side — `pnpm run build`, `pnpm run
 docs:api`, then `pnpm --dir docs-site run build` — and fold the result into the
 single commit. See the reproducible-generator section above for why a second
 build must produce zero drift.
+
+### ⚠️ `reset --soft` onto a newer base reverts everything in between
+
+Squashing a branch to one commit is routine here — the single-commit policy
+requires it. This is the wrong way to do it, and it produced **three silent
+reversions in a single day**:
+
+```bash
+git reset --hard origin/<branch>     # take the branch's tree
+git reset --soft origin/release      # move the pointer to the new base
+git commit                           # <- reverts everything in between
+```
+
+No conflict is involved, which is what makes it so easy to do. The sequence
+**reparents** a stale tree onto a new base instead of replaying content onto
+it, so git faithfully records the difference: every line `release` gained
+since the branch point becomes a **deletion** in a commit whose parent is
+`release` itself. A squash has to replay — `git rebase -i`, or rebase then
+squash. `reset --soft` onto a newer base is a reversion generator.
+
+One such commit was **206 files, +1316, -3390**: whole test suites
+(`tools-manager-truncation` -568, `native-vendor-recovery` -443),
+`nativeGenerateGuard.ts` -234, `ToolsManager.ts` -241, 156 lines of this file.
+Its actual purpose was to add two catalog JSON files.
+
+**Nothing on the pull request catches it.** It reported `mergeable: clean`,
+zero conflicts, 5/5 required checks green, one commit, valid subject. Each
+gate is blind for a structural reason: `git merge-tree` finds no conflict
+because the deletions are the commit's own content; CI passes because
+**deleting a test suite does not fail a test run**; the single-commit check
+counts commits, not damage. The only signal is the diffstat.
+
+**A tree-hash check does not save you either**, and this is the part worth
+carrying, because it is a real check, correctly executed, answering the
+adjacent question. Comparing `HEAD^{tree}` before and after the squash and
+getting an exact match proves the squash preserved the _pre-squash tip's_
+tree. It says nothing about whether that tip was stale relative to the new
+base. It cannot detect this failure, and it reads as reassuring.
+
+The check that does work, before pushing any squashed or rebased branch:
+
+```bash
+git diff --numstat "$(git merge-base HEAD origin/release)" HEAD \
+  | awk -F'\t' '$2 > 0 && $3 !~ /^docs\/api(\/|$)/ { print $3 }'
+# must print nothing
+```
+
+**Measure against the merge base, never against `release`.** On a branch cut
+weeks ago a release-relative diff reports every commit since as a deletion:
+one audit that way reported 50,787 deletions and 117 deleted files on a branch
+that deleted nothing, and 14 of 16 pull requests were wrongly flagged as
+reverting work before the error was spotted. Against the merge base, 12 of
+those 16 deleted nothing at all. The same trap catches a **stacked** pull
+request from the other direction — diff a child against `release` rather than
+against its parent branch and a clean single commit reads as a large revert.
+
+When a rebase touches generated files, **regenerate instead of resolving**:
+`pnpm run codegen:catalog`, `pnpm run docs:api`, the docs-site build. Reset to
+the new tip, re-apply only the branch's own hand-written changes, re-run the
+generators. There is then nothing to resolve, which removes the failure mode
+rather than avoiding it one more time.
+
+### ⚠️ The stash list is shared by every worktree, so `stash@{0}` is a race
+
+`git stash` writes to the **shared** `.git` directory. The stash list is
+therefore common to every worktree of a repository, not per-worktree — which
+makes every index-based reference (`stash@{0}`, `stash@{1}`) a race against
+whatever else is running.
+
+This is not hypothetical. With nine agents working in parallel across separate
+worktrees of this repository, one pushed a stash, another pushed one before the
+first popped, and the first agent's `git stash pop` applied **someone else's**
+five files into its worktree and dropped that entry from the list. The victim
+was mid-change on an unrelated branch.
+
+It recovered only because a stash commit is an ordinary immutable commit: the
+SHA was still reachable, so `git stash store -m "<original message>" <sha>`
+put it back with its content intact. Had the SHA not been captured, the entry
+would have been unreferenced and the work gone at the next `gc`.
+
+What makes it dangerous is that nothing looks wrong at the time. `git stash
+pop` succeeds, reports files restored, and exits 0. The applying worktree gets
+extra modified files that may look like its own half-finished work, and the
+owning worktree's stash simply is not in the list any more.
+
+So, whenever more than one worktree is in play:
+
+- **Never address a stash by index.** And do not capture the SHA as a second
+  command either — `git stash push` followed by `git rev-parse "stash@{0}"`
+  is the same race in miniature: another worktree's `stash push` can land in
+  the gap between the two, and `stash@{0}` then resolves to _that_ stash, not
+  yours. Capture it atomically instead: `git stash create` builds the stash
+  commit and prints its SHA on its own, without reading or writing the shared
+  stash list, so there is no gap for another worktree to land in —
+  `sha=$(git stash create)` — then register it under that known SHA with
+  `git stash store -m "<message>" "$sha"` and clear the working tree with
+  `git reset --hard`. Use that SHA for every later `apply`/`drop`. A SHA
+  identifies one specific stash; an index identifies whatever happens to be
+  on top when you get there.
+- **Prefer not stashing at all.** Reading one file's other version is what
+  `git show <sha>:<path>` is for, and a scratch copy outside the repository
+  costs nothing. Neither touches shared state.
+- Note the same sharing applies to other `.git`-level state — refs, the reflog,
+  `gc` — so a worktree is not the isolation boundary it looks like.
 
 ### ⚠️ The advisory gate is time-dependent: a green run expires
 
