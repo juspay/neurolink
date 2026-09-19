@@ -388,6 +388,19 @@ export default [
             // deliberately outside the exception.
             "test/continuous-test-suite-codex.ts",
             "test/continuous-test-suite-proxy-telemetry.ts",
+            // Exact isolated transport, cancellation, batching, budget and updater failures.
+            "test/continuous-test-suite-proxy-request-lifecycle.ts",
+            "test/continuous-test-suite-proxy-http-disconnect.ts",
+            "test/continuous-test-suite-proxy-route-accounting.ts",
+            "test/continuous-test-suite-proxy-capture-pipeline.ts",
+            "test/continuous-test-suite-proxy-update-staging.ts",
+            "test/continuous-test-suite-proxy-token-budget.ts",
+            "test/fixtures/proxyTokenBudgetWorker.mts",
+            "test/continuous-test-suite-proxy-context-preflight.ts",
+            "test/continuous-test-suite-proxy-telemetry-reconciliation.ts",
+            "test/continuous-test-suite-proxy-fallback-errors.ts",
+            "test/continuous-test-suite-proxy-fallback-parent.ts",
+
             // Isolated rolling workers inject startup stalls and crashes while
             // the built restart CLI and real streaming sockets are exercised.
             "test/continuous-test-suite-proxy-restart.ts",

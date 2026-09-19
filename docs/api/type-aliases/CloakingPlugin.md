@@ -8,7 +8,7 @@
 
 > **CloakingPlugin** = `object`
 
-Defined in: [types/proxy.ts:388](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L388)
+Defined in: [types/proxy.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L393)
 
 Plugin interface for cloaking pipeline.
 
@@ -18,7 +18,7 @@ Plugin interface for cloaking pipeline.
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:390](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L390)
+Defined in: [types/proxy.ts:395](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L395)
 
 Human-readable name for logging / debugging.
 
@@ -28,7 +28,7 @@ Human-readable name for logging / debugging.
 
 > **order**: `number`
 
-Defined in: [types/proxy.ts:393](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L393)
+Defined in: [types/proxy.ts:398](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L398)
 
 Execution order -- lower numbers run first in processRequest.
 
@@ -38,7 +38,7 @@ Execution order -- lower numbers run first in processRequest.
 
 > **enabled**: `boolean`
 
-Defined in: [types/proxy.ts:396](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L396)
+Defined in: [types/proxy.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L401)
 
 Whether this plugin is active. Disabled plugins are skipped.
 
@@ -48,7 +48,7 @@ Whether this plugin is active. Disabled plugins are skipped.
 
 > **transformRequest**: (`ctx`) => `Promise`\<[`CloakingContext`](CloakingContext.md)\>
 
-Defined in: [types/proxy.ts:402](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L402)
+Defined in: [types/proxy.ts:407](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L407)
 
 Transform the outgoing request before it reaches the upstream API.
 Must return a (possibly mutated) context.
@@ -69,7 +69,7 @@ Must return a (possibly mutated) context.
 
 > `optional` **transformResponse?**: (`ctx`) => `Promise`\<[`CloakingContext`](CloakingContext.md)\>
 
-Defined in: [types/proxy.ts:408](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L408)
+Defined in: [types/proxy.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L413)
 
 Transform the incoming response before it reaches the client.
 Optional -- plugins that only touch requests can skip this.

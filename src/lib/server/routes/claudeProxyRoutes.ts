@@ -69,17 +69,20 @@ import {
 import {
   buildClaudeError,
   ClaudeStreamSerializer,
-  generateToolUseId,
   parseClaudeRequest,
   serializeClaudeResponse,
 } from "../../proxy/claudeFormat.js";
+import { getProxyUpstreamFailure } from "../../proxy/proxyFailureDetails.js";
 import {
   CodexFallbackResponseError,
+  CodexFallbackStreamError,
   consumeCodexFallbackResponse,
   createCodexFallbackStream,
   convertClaudeRequestToCodex,
 } from "../../proxy/codexFallback.js";
 import {
+  isProxyRequestFinalized,
+  getProxyRequestAccounting,
   registerProxyResponseObserver,
   takeProxyResponseObservers,
   trackProxyResponse,
@@ -87,12 +90,8 @@ import {
 import {
   buildAnthropicModelsListResponse,
   buildTranslationOptions,
-  extractText,
-  extractToolArgs,
-  extractUsageFromStreamResult,
   handleTranslatedJsonRequest,
   handleTranslatedStreamRequest,
-  hasTranslatedOutput,
 } from "../../proxy/proxyTranslationEngine.js";
 import { tracers } from "../../telemetry/tracers.js";
 import { withSpan } from "../../telemetry/withSpan.js";
@@ -211,6 +210,7 @@ import type {
   AnthropicScopedExhaustion,
   AnthropicNonOkResult,
   AnthropicSuccessResult,
+  AnthropicUpstreamBody,
   AnthropicUpstreamBodyBuilder,
   AnthropicUpstreamFetchResult,
   ClaudeFinalRequestLogger,
@@ -228,6 +228,7 @@ import type {
   ParsedClaudeError,
   ParsedClaudeRequest,
   PreparedAnthropicAccountAttempt,
+  RequestLogEntry,
   ProxyAccountRoutingCandidate,
   ProxyAccountRoutingDecision,
   ProxyAccountRoutingReason,
@@ -245,7 +246,6 @@ import type {
   RoutedClaudeRequestRuntimeContext,
   RuntimeAccountState,
   ServerContext,
-  StreamResult,
   StreamTerminalOutcome,
   TransientRateLimitRetryBudget,
   ProxyPeerAuthOutcome,
@@ -364,12 +364,69 @@ const AUTH_REFRESH_MAX_COOLDOWN_MS = 5 * 60 * 1000;
  *  thinking from Opus models (which can exceed 5 minutes for large contexts). */
 const UPSTREAM_FETCH_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
+// Context checks and spending reservations belong immediately before dispatch.
+import {
+  prepareProxyRequestContext,
+  ProxyContextPreflightError,
+} from "../../proxy/proxyContextPreflight.js";
+import {
+  reserveProxyTokenBudget,
+  getProxyTokenBudgetError,
+  getProxyTokenBudgetSessionKey,
+} from "../../proxy/proxyTokenBudget.js";
+import { observeAnthropicBudgetResponse } from "../../proxy/anthropicBudgetResponse.js";
+
+function prepareAnthropicWire(
+  ctx: ServerContext,
+  bodyStr: string,
+): AnthropicUpstreamBody {
+  const body = JSON.parse(bodyStr) as ClaudeRequest;
+  const prepared = prepareProxyRequestContext({
+    provider: "anthropic",
+    model: body.model,
+    body,
+  });
+  ctx.metadata.contextPreflight = prepared.evidence;
+  return {
+    bodyStr: prepared.body === body ? bodyStr : JSON.stringify(prepared.body),
+    preparedContext: prepared,
+  };
+}
+
 let anthropicUpstreamDispatcher: Agent | undefined;
 
-function fetchAnthropicUpstream(
+async function fetchAnthropicUpstream(
   url: string,
   init: RequestInit,
+  ctx: ServerContext,
+  accountKey: string,
+  dispatch: {
+    logProxyBody: ProxyBodyCaptureLogger;
+    tracer?: ProxyTracer;
+    attemptNumber: number;
+    accountLabel: string;
+    accountType: string;
+    preparedContext: AnthropicUpstreamBody["preparedContext"];
+  },
 ): Promise<Response> {
+  clearClaudeFallbackTerminalEvidence(ctx);
+  const prepared = dispatch.preparedContext;
+  const lease = await reserveProxyTokenBudget({
+    provider: "anthropic",
+    accountKey,
+    requestId: ctx.requestId,
+    sessionKey: getProxyTokenBudgetSessionKey({
+      get: (name) => ctx.headers[name] ?? null,
+    }),
+    reservationTokens: prepared.totalTokensReservation,
+    estimateProvenance: "estimated_input_plus_output_reserve",
+  });
+  ctx.metadata.tokenBudget = lease.snapshot;
+  if (init.signal?.aborted || ctx.abortSignal?.aborted) {
+    await lease.cancelBeforeDispatch();
+    ctx.metadata.tokenBudget = lease.snapshot;
+    throw init.signal?.reason ?? ctx.abortSignal?.reason;
+  }
   // Node's global fetch applies Undici's 300s default headers timeout before
   // the route's 15-minute abort signal. Keep both transport deadlines aligned
   // with the proxy contract and instantiate lazily so importing routes has no
@@ -378,10 +435,42 @@ function fetchAnthropicUpstream(
     headersTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
     bodyTimeout: UPSTREAM_FETCH_TIMEOUT_MS,
   });
-  return fetch(url, {
-    ...init,
-    dispatcher: anthropicUpstreamDispatcher,
-  } as RequestInit);
+  try {
+    const dispatchedBody = String(init.body);
+    recordAttempt(dispatch.accountLabel, dispatch.accountType);
+    dispatch.tracer?.logUpstreamRequestHeaders(
+      init.headers as Record<string, string>,
+    );
+    dispatch.tracer?.logUpstreamRequestBody(dispatchedBody);
+    dispatch.logProxyBody({
+      phase: "upstream_request",
+      headers: init.headers as Record<string, string>,
+      body: dispatchedBody,
+      bodySize: Buffer.byteLength(dispatchedBody, "utf8"),
+      contentType: "application/json",
+      account: dispatch.accountLabel,
+      accountType: dispatch.accountType,
+      attempt: dispatch.attemptNumber,
+      metadata: { upstreamMethod: "POST", upstreamUrl: url },
+    });
+    const response = await fetch(url, {
+      ...init,
+      body: dispatchedBody,
+      dispatcher: anthropicUpstreamDispatcher,
+    } as RequestInit);
+    return observeAnthropicBudgetResponse(
+      response,
+      lease,
+      () => {
+        ctx.metadata.tokenBudget = lease.snapshot;
+      },
+      init.signal ?? undefined,
+    );
+  } catch (error) {
+    await lease.settle().catch(() => undefined);
+    ctx.metadata.tokenBudget = lease.snapshot;
+    throw error;
+  }
 }
 
 const accountRuntimeState = new Map<string, RuntimeAccountState>();
@@ -3195,7 +3284,10 @@ async function handleClaudePassthroughRequest(args: {
     logFinalRequest,
   } = args;
   tracer?.setMode("passthrough-cli");
-  const bodyStr = clientRequestBody;
+  const { bodyStr, preparedContext } = prepareAnthropicWire(
+    ctx,
+    clientRequestBody,
+  );
   const toolCount = Array.isArray(body.tools) ? body.tools.length : 0;
   const upstreamHeaders: Record<string, string> = {};
   for (const [key, value] of Object.entries(ctx.headers)) {
@@ -3214,23 +3306,6 @@ async function handleClaudePassthroughRequest(args: {
     polyfillBody: false,
     upstreamUrl: "https://api.anthropic.com/v1/messages?beta=true",
   });
-  tracer?.logUpstreamRequestHeaders(upstreamHeaders);
-  tracer?.logUpstreamRequestBody(bodyStr);
-  logProxyBody({
-    phase: "upstream_request",
-    headers: upstreamHeaders,
-    body: bodyStr,
-    bodySize: Buffer.byteLength(bodyStr, "utf8"),
-    contentType: upstreamHeaders["content-type"] ?? "application/json",
-    account: "passthrough",
-    accountType: "passthrough",
-    attempt: 1,
-    metadata: {
-      upstreamMethod: "POST",
-      upstreamUrl: "https://api.anthropic.com/v1/messages?beta=true",
-    },
-  });
-  recordAttempt("passthrough", "passthrough");
 
   let response: Response;
   try {
@@ -3240,10 +3315,31 @@ async function handleClaudePassthroughRequest(args: {
         method: "POST",
         headers: upstreamHeaders,
         body: bodyStr,
-        signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+        signal: AbortSignal.any([
+          ...(ctx.abortSignal ? [ctx.abortSignal] : []),
+          AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+        ]),
+      },
+      ctx,
+      "anthropic:passthrough",
+      {
+        logProxyBody,
+        tracer,
+        attemptNumber: 1,
+        accountLabel: "passthrough",
+        accountType: "passthrough",
+        preparedContext,
       },
     );
   } catch (fetchErr) {
+    if (
+      fetchErr instanceof ProxyContextPreflightError ||
+      getProxyTokenBudgetError(fetchErr) ||
+      ctx.abortSignal?.aborted
+    ) {
+      upstreamSpan?.end();
+      throw fetchErr;
+    }
     const errMsg =
       fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
     recordAttemptError("passthrough", "passthrough", 502);
@@ -4912,6 +5008,19 @@ async function loadClaudeProxyAccounts(args: {
   };
 }
 
+function clearClaudeFallbackTerminalEvidence(ctx: ServerContext): void {
+  for (const key of [
+    "codexFallbackAccount",
+    "codexFallbackAccountType",
+    "codexFallbackModel",
+    "codexFallbackFailureUsage",
+    "codexFallbackDeferredFailure",
+    "sdkFallbackFailure",
+  ]) {
+    delete ctx.metadata[key];
+  }
+}
+
 async function executeClaudeFallbackTranslation(args: {
   ctx: ServerContext;
   body: ClaudeRequest;
@@ -4953,166 +5062,38 @@ async function executeClaudeFallbackTranslation(args: {
     body,
     tracer,
     requestStartTime,
-    logProxyBody,
-    logFinalRequest,
     options,
     providerLabel,
     idleTimeoutMs = FALLBACK_STREAM_IDLE_TIMEOUT_MS,
   } = args;
-  const fallbackAbortController = new AbortController();
-  let streamResult: StreamResult;
-  try {
-    streamResult = await withTimeout(
-      ctx.neurolink.stream({
-        ...options,
-        abortSignal: fallbackAbortController.signal,
-      }),
-      idleTimeoutMs,
-      `Fallback ${providerLabel} initialization timed out after ${idleTimeoutMs}ms`,
-    );
-  } catch (error) {
-    fallbackAbortController.abort(error);
-    throw error;
-  }
-  const consumeFallbackStream = async (
-    onText?: (text: string) => void,
-  ): Promise<string> => {
-    const iterator = streamResult.stream[Symbol.asyncIterator]();
-    let collectedText = "";
-    try {
-      while (true) {
-        const { value: chunk, done } = await withTimeout(
-          iterator.next(),
-          idleTimeoutMs,
-          `Fallback ${providerLabel} stream timed out after ${idleTimeoutMs}ms of inactivity`,
-        );
-        if (done) {
-          return collectedText;
-        }
-        const text = extractText(chunk);
-        if (text) {
-          collectedText += text;
-          onText?.(text);
-        }
-      }
-    } catch (error) {
-      fallbackAbortController.abort(error);
-      void iterator.return?.().catch(() => {
-        // Timeout/error already determines the request outcome.
-      });
-      throw error;
-    }
+  clearClaudeFallbackTerminalEvidence(ctx);
+  const parsed = parseClaudeRequest(body);
+  const provider =
+    typeof options.provider === "string" ? options.provider : undefined;
+  const model = typeof options.model === "string" ? options.model : undefined;
+  const shared = {
+    ctx,
+    format: "claude" as const,
+    requestModel: body.model,
+    parsed,
+    attempts: [{ provider, model, label: providerLabel }],
+    tracer,
+    requestStartTime,
+    options,
+    attemptTimeoutMs: idleTimeoutMs,
   };
-
   if (body.stream) {
-    const serializer = new ClaudeStreamSerializer(body.model, 0);
-
-    // Eagerly consume stream so errors fire synchronously and the
-    // fallback loop in tryConfiguredClaudeFallbackChain can catch them.
-    const frames: string[] = [];
-    for (const frame of serializer.start()) {
-      frames.push(frame);
-    }
-    const collectedText = await consumeFallbackStream((text) => {
-      for (const frame of serializer.pushDelta(text)) {
-        frames.push(frame);
-      }
+    // Prime only the first actual upstream output. Errors before it still reach
+    // the configured fallback chain; after return no delivered output is replayed.
+    return handleTranslatedStreamRequest({
+      ...shared,
+      prefetchFirstOutput: true,
     });
-
-    const toolCalls = streamResult.toolCalls ?? [];
-
-    if (!hasTranslatedOutput(collectedText, toolCalls)) {
-      throw new Error(
-        `Translated provider ${providerLabel} returned no content or tool calls`,
-      );
-    }
-
-    if (toolCalls.length) {
-      for (const toolCall of toolCalls) {
-        const toolName =
-          (toolCall as { toolName?: string }).toolName ??
-          (toolCall as { name?: string }).name ??
-          "unknown";
-        for (const frame of serializer.pushToolUse(
-          generateToolUseId(),
-          toolName,
-          extractToolArgs(toolCall),
-        )) {
-          frames.push(frame);
-        }
-      }
-    }
-
-    const reason = streamResult.finishReason ?? "end_turn";
-    const resolvedUsage = extractUsageFromStreamResult(streamResult.usage);
-    for (const frame of serializer.finish(resolvedUsage.output, reason)) {
-      frames.push(frame);
-    }
-
-    ctx.metadata.firstUsefulOutputAt = Date.now();
-    ctx.metadata.firstUsefulOutputEvent = "translated_response.ready";
-    // Telemetry AFTER validation — not before like the old lazy path
-    tracer?.end(200, Date.now() - requestStartTime);
-    logFinalRequest(200, "", providerLabel, undefined, undefined, {
-      inputTokens: resolvedUsage.input,
-      outputTokens: resolvedUsage.output,
-    });
-
-    const bufferedBody = frames.join("");
-    logProxyBody({
-      phase: "client_response",
-      headers: { "content-type": "text/event-stream" },
-      body: bufferedBody,
-      bodySize: Buffer.byteLength(bufferedBody, "utf8"),
-      contentType: "text/event-stream",
-      responseStatus: 200,
-      durationMs: Date.now() - requestStartTime,
-    });
-
-    // Return generator that yields pre-buffered frames
-    async function* sseGenerator(): AsyncIterable<string> {
-      for (const frame of frames) {
-        yield frame;
-      }
-    }
-    return sseGenerator();
   }
-
-  const collectedText = await consumeFallbackStream();
-  if (!hasTranslatedOutput(collectedText, streamResult.toolCalls)) {
-    throw new Error(
-      `Translated provider ${providerLabel} returned no content or tool calls`,
-    );
-  }
-
-  const internal: InternalResult = {
-    content: collectedText,
-    model: streamResult.model,
-    finishReason: streamResult.finishReason ?? "end_turn",
-    reasoning: undefined,
-    usage: streamResult.usage
-      ? extractUsageFromStreamResult(streamResult.usage)
-      : undefined,
-    toolCalls: streamResult.toolCalls as InternalResult["toolCalls"],
-  };
-  tracer?.end(200, Date.now() - requestStartTime);
-  const clientResponse = serializeClaudeResponse(internal, body.model);
-  observeClaudeJsonOutput(ctx.metadata, clientResponse);
-  logFinalRequest(200, "", providerLabel, undefined, undefined, {
-    inputTokens: internal.usage?.input,
-    outputTokens: internal.usage?.output,
+  return handleTranslatedJsonRequest({
+    ...shared,
+    deferFinalOnError: true,
   });
-  const clientResponseText = JSON.stringify(clientResponse);
-  logProxyBody({
-    phase: "client_response",
-    headers: { "content-type": "application/json" },
-    body: clientResponseText,
-    bodySize: Buffer.byteLength(clientResponseText, "utf8"),
-    contentType: "application/json",
-    responseStatus: 200,
-    durationMs: Date.now() - requestStartTime,
-  });
-  return clientResponse;
 }
 
 async function executeClaudeFallbackWithRetry(
@@ -5125,6 +5106,7 @@ async function executeClaudeFallbackWithRetry(
     } catch (error) {
       lastError = error;
       if (
+        getProxyUpstreamFailure(error)?.retryable === false ||
         !isRetryableNetworkError(error) ||
         retry === MAX_FALLBACK_NETWORK_RETRIES
       ) {
@@ -5154,20 +5136,7 @@ async function executeClaudeCodexFallback(args: {
   tracer?: ProxyTracer;
   requestStartTime: number;
   logProxyBody: ProxyBodyCaptureLogger;
-  logFinalRequest: (
-    status: number,
-    accountLabel: string,
-    accountType: string,
-    errorType?: string,
-    errorMessage?: string,
-    extra?: {
-      inputTokens?: number;
-      outputTokens?: number;
-      cacheCreationTokens?: number;
-      cacheReadTokens?: number;
-      reasoningTokens?: number;
-    },
-  ) => void;
+  logFinalRequest: ClaudeFinalRequestLogger;
 }): Promise<unknown> {
   const {
     ctx,
@@ -5179,12 +5148,14 @@ async function executeClaudeCodexFallback(args: {
     logProxyBody,
     logFinalRequest,
   } = args;
+  clearClaudeFallbackTerminalEvidence(ctx);
   const codexCtx: ServerContext = {
     ...ctx,
     requestId: `${ctx.requestId}:codex-fallback`,
     method: "POST",
     path: "/backend-api/codex/responses",
     headers: {
+      ...ctx.headers,
       "content-type": "application/json",
       accept: "text/event-stream",
     },
@@ -5220,28 +5191,43 @@ async function executeClaudeCodexFallback(args: {
   registerProxyResponseObserver(ctx.metadata, {
     onTerminal: () => childAccounting,
   });
-  const recordCodexUsage = (result?: CodexFallbackResult): void => {
+  const recordCodexUsage = (
+    result?: CodexFallbackResult,
+    terminal = true,
+  ): void => {
     ctx.metadata.codexFallbackModel = model;
+    if (!terminal) {
+      return;
+    }
     try {
       tracer?.setModelSubstitution(body.model, model, "openai");
       tracer?.setServedAccount(
         codexHeaders["x-neurolink-account"] ?? "unknown",
         "codex-oauth",
       );
-      if (result?.usage) {
-        tracer?.setUsage({
-          inputTokens: result.usage.input,
-          outputTokens: result.usage.output,
-          cacheReadTokens: result.usage.cacheReadTokens ?? 0,
-          cacheCreationTokens: result.usage.cacheCreationTokens ?? 0,
-          reasoningTokens: result.usage.reasoning,
-        });
+      if (
+        result?.usage?.inputTokensObserved &&
+        result.usage.outputTokensObserved
+      ) {
+        tracer?.setUsage(
+          {
+            inputTokens: result.usage.input,
+            outputTokens: result.usage.output,
+            cacheReadTokens: result.usage.cacheReadTokens ?? 0,
+            cacheCreationTokens: result.usage.cacheCreationTokens ?? 0,
+            reasoningTokens: result.usage.reasoning,
+          },
+          { recordMetrics: false },
+        );
       }
     } catch {
       // Instrumentation must never turn completed output into a failed stream.
     }
   };
   const codexHeaders = { ...(codexCtx.responseHeaders ?? {}) };
+  ctx.metadata.codexFallbackAccount = codexHeaders["x-neurolink-account"];
+  ctx.metadata.codexFallbackAccountType =
+    codexHeaders["x-neurolink-account-type"] ?? "codex-oauth";
 
   if (body.stream) {
     const bridge = await createCodexFallbackStream(codexResponse, body.model);
@@ -5253,11 +5239,13 @@ async function executeClaudeCodexFallback(args: {
     let settled = false;
     let captured = "";
     let responseBytes = 0;
+    let captureTruncated = false;
     const finish = (
       status: number,
       result?: CodexFallbackResult,
       errorType?: string,
       message?: string,
+      failure?: CodexFallbackStreamError,
     ): void => {
       if (settled) {
         return;
@@ -5270,11 +5258,17 @@ async function executeClaudeCodexFallback(args: {
       recordCodexUsage(result);
       tracer?.end(status, Date.now() - requestStartTime);
       logFinalRequest(status, account, accountType, errorType, message, {
-        inputTokens: result?.usage?.input,
-        outputTokens: result?.usage?.output,
+        inputTokens: result?.usage?.inputTokensObserved
+          ? result.usage.input
+          : undefined,
+        outputTokens: result?.usage?.outputTokensObserved
+          ? result.usage.output
+          : undefined,
         cacheCreationTokens: result?.usage?.cacheCreationTokens,
         cacheReadTokens: result?.usage?.cacheReadTokens,
         reasoningTokens: result?.usage?.reasoning,
+        errorCode: failure?.code,
+        retryable: failure?.retryable,
       });
       recordFallbackAttempt({
         provider: "codex",
@@ -5288,6 +5282,7 @@ async function executeClaudeCodexFallback(args: {
         contentType: "text/event-stream",
         body: captured,
         bodySize: responseBytes,
+        sourceTruncated: captureTruncated,
         responseStatus: status,
         durationMs: Date.now() - requestStartTime,
       });
@@ -5319,6 +5314,9 @@ async function executeClaudeCodexFallback(args: {
     });
     const capture = (frame: string): string => {
       responseBytes += Buffer.byteLength(frame);
+      if (captured.length + frame.length > 1024 * 1024) {
+        captureTruncated = true;
+      }
       if (captured.length < 1024 * 1024) {
         captured += frame.slice(0, 1024 * 1024 - captured.length);
       }
@@ -5386,11 +5384,31 @@ async function executeClaudeCodexFallback(args: {
             describeTransportError(error),
           );
           logger.always(`[proxy] Codex fallback stream failed: ${detail}`);
-          const serializer = new ClaudeStreamSerializer(body.model);
+          const failure =
+            error instanceof CodexFallbackStreamError ? error : undefined;
+          const status = failure?.status ?? 502;
+          const errorBody = buildClaudeError(status, detail);
+          Object.assign(errorBody.error, {
+            code: failure?.code,
+            retryable: failure?.retryable,
+          });
           const frames = [
-            ...serializer.emitError(502, "Codex fallback stream failed"),
-          ].map(capture);
-          finish(502, undefined, "stream_error", detail);
+            capture(`event: error\ndata: ${JSON.stringify(errorBody)}\n\n`),
+          ];
+          finish(
+            status,
+            failure?.usage
+              ? {
+                  text: "",
+                  toolCalls: [],
+                  finishReason: "end_turn",
+                  usage: failure.usage,
+                }
+              : undefined,
+            "stream_error",
+            detail,
+            failure,
+          );
           yield* frames;
         }
       } finally {
@@ -5411,10 +5429,26 @@ async function executeClaudeCodexFallback(args: {
   try {
     parsed = await consumeCodexFallbackResponse(codexResponse);
   } catch (error) {
+    ctx.metadata.codexFallbackModel = model;
+    ctx.metadata.codexFallbackDeferredFailure = true;
     if (error instanceof CodexFallbackResponseError) {
       logger.always(
         `[proxy] Codex fallback returned ${error.status}: ${sanitizeForLog(error.responseBody, 500)}`,
       );
+    }
+    if (error instanceof CodexFallbackStreamError) {
+      recordCodexUsage(
+        error.usage
+          ? {
+              text: "",
+              toolCalls: [],
+              finishReason: "end_turn",
+              usage: error.usage,
+            }
+          : undefined,
+        false,
+      );
+      ctx.metadata.codexFallbackFailureUsage = error.usage;
     }
     throw error;
   }
@@ -5440,8 +5474,12 @@ async function executeClaudeCodexFallback(args: {
   const clientResponse = serializeClaudeResponse(internal, body.model);
   observeClaudeJsonOutput(ctx.metadata, clientResponse);
   logFinalRequest(200, accountLabel, accountType, undefined, undefined, {
-    inputTokens: parsed.usage?.input,
-    outputTokens: parsed.usage?.output,
+    inputTokens: parsed.usage?.inputTokensObserved
+      ? parsed.usage.input
+      : undefined,
+    outputTokens: parsed.usage?.outputTokensObserved
+      ? parsed.usage.output
+      : undefined,
     cacheCreationTokens: parsed.usage?.cacheCreationTokens,
     cacheReadTokens: parsed.usage?.cacheReadTokens,
     reasoningTokens: parsed.usage?.reasoning,
@@ -5571,7 +5609,13 @@ async function tryConfiguredClaudeFallbackChain(args: {
   response: unknown | null;
   lastErrorMessage?: string;
   invalidRequestFailure?: AnthropicInvalidRequestFailure;
-  terminalFailure?: { status: number; message: string; errorType: string };
+  terminalFailure?: {
+    status: number;
+    message: string;
+    errorType: string;
+    errorCode?: string;
+    retryable?: boolean;
+  };
 }> {
   const {
     ctx,
@@ -5615,7 +5659,13 @@ async function tryConfiguredClaudeFallbackChain(args: {
   });
   let lastFallbackError: string | undefined;
   let terminalFailure:
-    | { status: number; message: string; errorType: string }
+    | {
+        status: number;
+        message: string;
+        errorType: string;
+        errorCode?: string;
+        retryable?: boolean;
+      }
     | undefined;
   let invalidRequestFailure: AnthropicInvalidRequestFailure | undefined;
 
@@ -5708,26 +5758,39 @@ async function tryConfiguredClaudeFallbackChain(args: {
       }
       return { response };
     } catch (fallbackErr) {
-      const status = ctx.abortSignal?.aborted
-        ? 499
-        : fallbackErr instanceof CodexFallbackResponseError
-          ? fallbackErr.status
-          : 502;
+      if (
+        fallbackErr instanceof ProxyContextPreflightError ||
+        getProxyTokenBudgetError(fallbackErr)
+      ) {
+        throw fallbackErr;
+      }
+      const failure = getProxyUpstreamFailure(fallbackErr);
+      const status = ctx.abortSignal?.aborted ? 499 : (failure?.status ?? 502);
       terminalFailure = {
         status,
-        message: `Configured fallback ${fallback.provider}/${fallback.model} failed (HTTP ${status})`,
+        message: failure?.message
+          ? sanitizeForLog(
+              `Configured fallback ${fallback.provider}/${fallback.model} failed: ${failure.message}`,
+              500,
+            )
+          : `Configured fallback ${fallback.provider}/${fallback.model} failed (HTTP ${status})`,
+        ...(failure
+          ? { errorCode: failure.code, retryable: failure.retryable }
+          : {}),
         errorType:
           status === 499
             ? "client_cancelled"
-            : status === 429
-              ? "rate_limit_error"
-              : status === 401
-                ? "authentication_error"
-                : status === 403
-                  ? "permission_error"
-                  : status === 400
-                    ? "invalid_request_error"
-                    : "api_error",
+            : status === 504
+              ? "upstream_timeout"
+              : status === 429
+                ? "rate_limit_error"
+                : status === 401
+                  ? "authentication_error"
+                  : status === 403
+                    ? "permission_error"
+                    : status === 400
+                      ? "invalid_request_error"
+                      : "api_error",
       };
       invalidRequestFailure =
         getCodexFallbackInvalidRequestFailure(fallbackErr) ?? undefined;
@@ -5774,7 +5837,7 @@ async function tryConfiguredClaudeFallbackChain(args: {
         durationMs: Date.now() - fallbackStart,
       });
       lastFallbackError = `[${fallback.provider}/${fallback.model}] ${redactProviderErrorMessage(describeTransportError(fallbackErr))}`;
-      if (ctx.abortSignal?.aborted) {
+      if (ctx.abortSignal?.aborted || terminalFailure.retryable === false) {
         break;
       }
     }
@@ -5790,19 +5853,30 @@ async function tryConfiguredClaudeFallbackChain(args: {
 
 /** Preserve the final fallback status through every HTTP route adapter. */
 function buildConfiguredClaudeFallbackFailure(args: {
-  failure: { status: number; message: string; errorType: string };
+  failure: {
+    status: number;
+    message: string;
+    errorType: string;
+    errorCode?: string;
+    retryable?: boolean;
+  };
   buildLoggedClaudeError: ClaudeLoggedErrorBuilder;
   tracer?: ProxyTracer;
   requestStartTime: number;
 }): Response {
   const { failure, buildLoggedClaudeError, tracer, requestStartTime } = args;
   tracer?.setError(failure.errorType, failure.message);
-  tracer?.end(failure.status, Date.now() - requestStartTime);
   const body = buildLoggedClaudeError(
     failure.status,
     failure.message,
     failure.errorType,
+    { errorCode: failure.errorCode, retryable: failure.retryable },
   );
+  tracer?.end(failure.status, Date.now() - requestStartTime);
+  Object.assign(body.error, {
+    code: failure.errorCode,
+    retryable: failure.retryable,
+  });
   return new Response(JSON.stringify(body), {
     status: failure.status,
     headers: { "content-type": "application/json" },
@@ -5828,7 +5902,7 @@ async function tryAutoClaudeFallback(args: {
       cacheReadTokens?: number;
     },
   ) => void;
-}): Promise<{ response: unknown | null; lastErrorMessage?: string }> {
+}): ReturnType<typeof tryConfiguredClaudeFallbackChain> {
   const { ctx, body, tracer, requestStartTime, logProxyBody, logFinalRequest } =
     args;
   const fallbackStart = Date.now();
@@ -5882,6 +5956,13 @@ async function tryAutoClaudeFallback(args: {
     });
     return { response };
   } catch (fallbackErr) {
+    if (
+      fallbackErr instanceof ProxyContextPreflightError ||
+      getProxyTokenBudgetError(fallbackErr) ||
+      ctx.abortSignal?.aborted
+    ) {
+      throw fallbackErr;
+    }
     const errorMessage = redactProviderErrorMessage(
       describeTransportError(fallbackErr),
     );
@@ -5900,7 +5981,33 @@ async function tryAutoClaudeFallback(args: {
       attemptCount: 1,
       reason: "fallback_failure",
     });
-    return { response: null, lastErrorMessage: errorMessage };
+    const failure = getProxyUpstreamFailure(fallbackErr);
+    const status = failure?.status ?? 502;
+    return {
+      response: null,
+      lastErrorMessage: errorMessage,
+      terminalFailure: {
+        status,
+        message: sanitizeForLog(
+          `Automatic fallback failed: ${failure?.message ?? errorMessage}`,
+          500,
+        ),
+        errorCode: failure?.code,
+        retryable: failure?.retryable,
+        errorType:
+          status === 504
+            ? "upstream_timeout"
+            : status === 429
+              ? "rate_limit_error"
+              : status === 401
+                ? "authentication_error"
+                : status === 403
+                  ? "permission_error"
+                  : status === 400
+                    ? "invalid_request_error"
+                    : "api_error",
+      },
+    };
   }
 }
 
@@ -7468,7 +7575,7 @@ async function handleAnthropicAuthRetry(args: {
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
   headers: Record<string, string>;
-  buildUpstreamBody: (token: string) => { bodyStr: string; sessionId?: string };
+  buildUpstreamBody: AnthropicUpstreamBodyBuilder;
   url: string;
   enabledAccounts: ProxyPassthroughAccount[];
   orderedAccounts: ProxyPassthroughAccount[];
@@ -7579,7 +7686,6 @@ async function handleAnthropicAuthRetry(args: {
     headers.authorization = `Bearer ${account.token}`;
     const retryAttemptNumber = allocateAttemptNumber();
     const retryAttemptStartedAt = Date.now();
-    recordAttempt(account.label, account.type);
     const retryLogAttempt: AnthropicAttemptLogger = (
       status,
       errorType,
@@ -7592,27 +7698,32 @@ async function handleAnthropicAuthRetry(args: {
         attemptDurationMs:
           extra?.attemptDurationMs ?? Date.now() - retryAttemptStartedAt,
       });
-    const retryBodyStr = buildUpstreamBody(account.token).bodyStr;
+    const preparedRetryBody = buildUpstreamBody(account.token);
     const retryFetchStartMs = Date.now();
-    logProxyBody({
-      phase: "upstream_request",
-      headers,
-      body: retryBodyStr,
-      bodySize: Buffer.byteLength(retryBodyStr, "utf8"),
-      contentType: headers["content-type"] ?? "application/json",
-      account: account.label,
-      accountType: account.type,
-      attempt: retryAttemptNumber,
-      metadata: { upstreamMethod: "POST", upstreamUrl: url },
-    });
 
     try {
-      const retryResp = await fetchAnthropicUpstream(url, {
-        method: "POST",
-        headers,
-        body: retryBodyStr,
-        signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
-      });
+      const retryResp = await fetchAnthropicUpstream(
+        url,
+        {
+          method: "POST",
+          headers,
+          body: preparedRetryBody.bodyStr,
+          signal: AbortSignal.any([
+            ...(ctx.abortSignal ? [ctx.abortSignal] : []),
+            AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+          ]),
+        },
+        ctx,
+        account.key,
+        {
+          logProxyBody,
+          tracer,
+          attemptNumber: retryAttemptNumber,
+          accountLabel: account.label,
+          accountType: account.type,
+          preparedContext: preparedRetryBody.preparedContext,
+        },
+      );
       if (retryResp.ok) {
         authRetrySucceeded = true;
         accountState.consecutiveRefreshFailures = 0;
@@ -7630,7 +7741,7 @@ async function handleAnthropicAuthRetry(args: {
               requestStartTime,
               fetchStartMs: retryFetchStartMs,
               attemptNumber: retryAttemptNumber,
-              finalBodyStr: retryBodyStr,
+              finalBodyStr: preparedRetryBody.bodyStr,
               upstreamSpan: currentUpstreamSpan,
               logAttempt: retryLogAttempt,
               logProxyBody,
@@ -7648,7 +7759,7 @@ async function handleAnthropicAuthRetry(args: {
                 requestStartTime,
                 fetchStartMs: retryFetchStartMs,
                 attemptNumber: retryAttemptNumber,
-                finalBodyStr: retryBodyStr,
+                finalBodyStr: preparedRetryBody.bodyStr,
                 upstreamSpan: currentUpstreamSpan,
                 logAttempt: retryLogAttempt,
                 logProxyBody,
@@ -7935,6 +8046,23 @@ async function handleAnthropicAuthRetry(args: {
         };
       }
     } catch (retryFetchErr) {
+      if (
+        retryFetchErr instanceof ProxyContextPreflightError ||
+        getProxyTokenBudgetError(retryFetchErr)
+      ) {
+        currentUpstreamSpan?.end();
+        throw retryFetchErr;
+      }
+      if (ctx.abortSignal?.aborted) {
+        retryLogAttempt(
+          499,
+          "client_cancelled",
+          "Client cancelled upstream request",
+          { retryable: false },
+        );
+        currentUpstreamSpan?.end();
+        throw retryFetchErr;
+      }
       currentSawNetworkError = true;
       recordAttemptError(account.label, account.type, 502);
       const message =
@@ -8597,6 +8725,10 @@ function createClaudeRequestRuntimeContext(args: {
   try {
     tracer = ProxyTracer.startRequest(
       {
+        recordRequestMetrics:
+          getProxyRequestAccounting(ctx.requestId)?.accountingScope !==
+          "internal",
+        recordUsageMetrics: true,
         requestId: ctx.requestId,
         method: ctx.method,
         path: ctx.path,
@@ -8661,13 +8793,100 @@ function createClaudeRequestRuntimeContext(args: {
     errorMessage,
     extra,
   ) => {
-    if (finalRequestLogged) {
+    if (finalRequestLogged || isProxyRequestFinalized(ctx.requestId)) {
       logger.debug(
         `[claude-proxy] ignored duplicate finalization for request ${ctx.requestId}`,
       );
       return;
     }
     finalRequestLogged = true;
+    if (ctx.abortSignal?.aborted) {
+      status = 499;
+      errorType = "client_cancelled";
+      errorMessage = "Client cancelled request";
+    }
+    const sdkFallbackFailure = ctx.metadata.sdkFallbackFailure as
+      | Partial<RequestLogEntry>
+      | undefined;
+    if (sdkFallbackFailure) {
+      accountLabel = "unknown";
+      accountType = "translation";
+      tracer?.setServedAccount(accountLabel, accountType);
+      if (sdkFallbackFailure.model) {
+        tracer?.setModelSubstitution(
+          body.model,
+          sdkFallbackFailure.model,
+          sdkFallbackFailure.provider,
+        );
+      }
+      if (
+        sdkFallbackFailure.inputTokens !== undefined &&
+        sdkFallbackFailure.outputTokens !== undefined
+      ) {
+        tracer?.setUsage({
+          inputTokens: sdkFallbackFailure.inputTokens,
+          outputTokens: sdkFallbackFailure.outputTokens,
+          cacheReadTokens: sdkFallbackFailure.cacheReadTokens ?? 0,
+          cacheCreationTokens: sdkFallbackFailure.cacheCreationTokens ?? 0,
+          inputIncludesCachedTokens:
+            sdkFallbackFailure.inputIncludesCachedTokens,
+          reasoningTokens: sdkFallbackFailure.reasoningTokens,
+        });
+      }
+    }
+    const fallbackFailureUsage = ctx.metadata
+      .codexFallbackFailureUsage as CodexFallbackResult["usage"];
+    if (fallbackFailureUsage) {
+      extra = {
+        inputTokens: fallbackFailureUsage.inputTokensObserved
+          ? fallbackFailureUsage.input
+          : undefined,
+        outputTokens: fallbackFailureUsage.outputTokensObserved
+          ? fallbackFailureUsage.output
+          : undefined,
+        cacheReadTokens: fallbackFailureUsage.cacheReadTokens,
+        cacheCreationTokens: fallbackFailureUsage.cacheCreationTokens,
+        reasoningTokens: fallbackFailureUsage.reasoning,
+        ...extra,
+      };
+    }
+    if (
+      !accountLabel &&
+      typeof ctx.metadata.codexFallbackAccount === "string" &&
+      ctx.metadata.codexFallbackAccount
+    ) {
+      accountLabel = ctx.metadata.codexFallbackAccount;
+      if (typeof ctx.metadata.codexFallbackAccountType === "string") {
+        accountType = ctx.metadata.codexFallbackAccountType;
+      }
+    }
+    if (
+      !sdkFallbackFailure &&
+      ctx.metadata.codexFallbackDeferredFailure === true &&
+      typeof ctx.metadata.codexFallbackModel === "string"
+    ) {
+      tracer?.setModelSubstitution(
+        body.model,
+        ctx.metadata.codexFallbackModel,
+        "openai",
+      );
+      tracer?.setServedAccount(accountLabel || "unknown", accountType);
+      if (
+        fallbackFailureUsage?.inputTokensObserved &&
+        fallbackFailureUsage.outputTokensObserved
+      ) {
+        tracer?.setUsage(
+          {
+            inputTokens: fallbackFailureUsage.input,
+            outputTokens: fallbackFailureUsage.output,
+            cacheReadTokens: fallbackFailureUsage.cacheReadTokens ?? 0,
+            cacheCreationTokens: fallbackFailureUsage.cacheCreationTokens ?? 0,
+            reasoningTokens: fallbackFailureUsage.reasoning,
+          },
+          { recordMetrics: false },
+        );
+      }
+    }
     const finalAccountLabel =
       accountLabel ||
       (status >= 400 ? PROXY_INTERNAL_ACCOUNT_LABEL : undefined);
@@ -8676,11 +8895,15 @@ function createClaudeRequestRuntimeContext(args: {
       : status >= 400
         ? PROXY_INTERNAL_ACCOUNT_TYPE
         : undefined;
-    const finalAccountIdentity = resolveRequestLogAccountIdentity(
-      finalAccountLabel,
-      finalAccountType,
-    );
-    if (status >= 400) {
+    const finalAccountIdentity = sdkFallbackFailure
+      ? {
+          accountKey: sdkFallbackFailure.accountKey,
+          provider: sdkFallbackFailure.provider,
+        }
+      : resolveRequestLogAccountIdentity(finalAccountLabel, finalAccountType);
+    const ownsClientOutcome =
+      getProxyRequestAccounting(ctx.requestId)?.accountingScope !== "internal";
+    if (ownsClientOutcome && status >= 400) {
       recordFinalError(status, finalAccountLabel, finalAccountType, {
         requestId: ctx.requestId,
         ...(finalAccountIdentity.accountKey
@@ -8696,7 +8919,7 @@ function createClaudeRequestRuntimeContext(args: {
         message: errorMessage,
         errorCode: extra?.errorCode,
       });
-    } else {
+    } else if (ownsClientOutcome) {
       recordFinalSuccess(finalAccountLabel, finalAccountType);
     }
     const traceCtx = tracer?.getTraceContext();
@@ -8715,6 +8938,18 @@ function createClaudeRequestRuntimeContext(args: {
             inputIncludesCachedTokens: false,
           }
         : {}),
+      ...(ctx.metadata.contextPreflight
+        ? {
+            contextPreflight: ctx.metadata
+              .contextPreflight as import("../../types/index.js").ProxyContextEvidence,
+          }
+        : {}),
+      ...(ctx.metadata.tokenBudget
+        ? {
+            tokenBudget: ctx.metadata
+              .tokenBudget as import("../../types/index.js").ProxyTokenBudgetSnapshot,
+          }
+        : {}),
       stream: !!body.stream,
       toolCount: Array.isArray(body.tools) ? body.tools.length : 0,
       account: finalAccountLabel ?? "",
@@ -8725,6 +8960,7 @@ function createClaudeRequestRuntimeContext(args: {
       ...(finalAccountIdentity.provider
         ? { provider: finalAccountIdentity.provider }
         : {}),
+      ...sdkFallbackFailure,
       ...buildClientAttribution(ctx.headers),
       responseStatus: status,
       responseTimeMs: Date.now() - requestStartTime,
@@ -8732,6 +8968,7 @@ function createClaudeRequestRuntimeContext(args: {
       ...(errorType ? { errorType } : {}),
       ...(errorMessage ? { errorMessage } : {}),
       ...(extra?.errorCode ? { errorCode: extra.errorCode } : {}),
+      ...(extra?.retryable !== undefined ? { retryable: extra.retryable } : {}),
       ...(extra?.transportScope
         ? { transportScope: extra.transportScope }
         : {}),
@@ -8832,6 +9069,18 @@ function createAnthropicAttemptLogger(args: {
       method: ctx.method,
       path: ctx.path,
       model: body.model,
+      ...(ctx.metadata.contextPreflight
+        ? {
+            contextPreflight: ctx.metadata
+              .contextPreflight as import("../../types/index.js").ProxyContextEvidence,
+          }
+        : {}),
+      ...(ctx.metadata.tokenBudget
+        ? {
+            tokenBudget: ctx.metadata
+              .tokenBudget as import("../../types/index.js").ProxyTokenBudgetSnapshot,
+          }
+        : {}),
       stream: !!body.stream,
       toolCount,
       account: account.label,
@@ -8878,6 +9127,7 @@ function createAnthropicAttemptLogger(args: {
 }
 
 async function prepareAnthropicAccountAttempt(args: {
+  ctx: ServerContext;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
   bodyStr: string;
@@ -8892,6 +9142,7 @@ async function prepareAnthropicAccountAttempt(args: {
   logProxyBody: ProxyBodyCaptureLogger;
 }): Promise<PreparedAnthropicAccountAttempt> {
   const {
+    ctx,
     account,
     accountState,
     bodyStr,
@@ -8903,7 +9154,7 @@ async function prepareAnthropicAccountAttempt(args: {
     currentLastError,
     currentAuthFailureMessage,
     logAttempt,
-    logProxyBody,
+    logProxyBody: _logProxyBody,
   } = args;
   let lastError = currentLastError;
   let authFailureMessage = currentAuthFailureMessage;
@@ -9029,8 +9280,8 @@ async function prepareAnthropicAccountAttempt(args: {
     }
   }
 
-  const buildUpstreamBody: AnthropicUpstreamBodyBuilder = (token) =>
-    isOAuth
+  const buildUpstreamBody: AnthropicUpstreamBodyBuilder = (token) => {
+    const built = isOAuth
       ? polyfillOAuthBody(
           bodyStr,
           token,
@@ -9039,6 +9290,8 @@ async function prepareAnthropicAccountAttempt(args: {
           headers["x-claude-code-session-id"],
         )
       : { bodyStr };
+    return { ...built, ...prepareAnthropicWire(ctx, built.bodyStr) };
+  };
   const polyfilledBody = buildUpstreamBody(account.token);
   if (
     isOAuth &&
@@ -9050,7 +9303,6 @@ async function prepareAnthropicAccountAttempt(args: {
   const finalBodyStr = polyfilledBody.bodyStr;
 
   logger.always(`[proxy] → account=${account.label} (${account.type})`);
-  recordAttempt(account.label, account.type);
   const fetchStartMs = Date.now();
   let upstreamSpan: import("@opentelemetry/api").Span | undefined;
   if (tracer) {
@@ -9061,21 +9313,8 @@ async function prepareAnthropicAccountAttempt(args: {
       polyfillBody: isOAuth,
       upstreamUrl: url,
     });
-    tracer.logUpstreamRequestHeaders(headers);
-    tracer.logUpstreamRequestBody(finalBodyStr);
     Object.assign(headers, tracer.getTraceHeaders());
   }
-  logProxyBody({
-    phase: "upstream_request",
-    headers,
-    body: finalBodyStr,
-    bodySize: Buffer.byteLength(finalBodyStr, "utf8"),
-    contentType: headers["content-type"] ?? "application/json",
-    account: account.label,
-    accountType: account.type,
-    attempt: attemptNumber,
-    metadata: { upstreamMethod: "POST", upstreamUrl: url },
-  });
 
   return {
     continueLoop: false,
@@ -9084,6 +9323,7 @@ async function prepareAnthropicAccountAttempt(args: {
     headers,
     buildUpstreamBody,
     finalBodyStr,
+    preparedContext: polyfilledBody.preparedContext,
     fetchStartMs,
     upstreamSpan,
   };
@@ -9133,9 +9373,11 @@ function buildAnthropicConstructionRejectionTerminalError(): NonNullable<
 }
 
 async function fetchAnthropicAccountResponse(args: {
+  ctx: ServerContext;
   url: string;
   headers: Record<string, string>;
   finalBodyStr: string;
+  preparedContext: AnthropicUpstreamBody["preparedContext"];
   requestedModel?: string;
   account: ProxyPassthroughAccount;
   accountState: RuntimeAccountState;
@@ -9152,9 +9394,11 @@ async function fetchAnthropicAccountResponse(args: {
   upstreamSpan?: import("@opentelemetry/api").Span;
 }): Promise<AnthropicUpstreamFetchResult> {
   const {
+    ctx,
     url,
     headers,
     finalBodyStr,
+    preparedContext,
     requestedModel,
     account,
     accountState: _accountState2,
@@ -9177,13 +9421,43 @@ async function fetchAnthropicAccountResponse(args: {
   let response: Response;
 
   try {
-    response = await fetchAnthropicUpstream(url, {
-      method: "POST",
-      headers,
-      body: finalBodyStr,
-      signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
-    });
+    response = await fetchAnthropicUpstream(
+      url,
+      {
+        method: "POST",
+        headers,
+        body: finalBodyStr,
+        signal: AbortSignal.any([
+          ...(ctx.abortSignal ? [ctx.abortSignal] : []),
+          AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
+        ]),
+      },
+      ctx,
+      account.key,
+      {
+        logProxyBody,
+        tracer,
+        attemptNumber,
+        accountLabel: account.label,
+        accountType: account.type,
+        preparedContext,
+      },
+    );
   } catch (fetchErr) {
+    if (
+      fetchErr instanceof ProxyContextPreflightError ||
+      getProxyTokenBudgetError(fetchErr)
+    ) {
+      currentUpstreamSpan?.end();
+      throw fetchErr;
+    }
+    if (ctx.abortSignal?.aborted) {
+      logAttempt(499, "client_cancelled", "Client cancelled upstream request", {
+        retryable: false,
+      });
+      currentUpstreamSpan?.end();
+      throw ctx.abortSignal.reason;
+    }
     const retryable = isRetryableNetworkError(fetchErr);
     const connectPhase = isConnectPhaseNetworkError(fetchErr);
     const transportScope = classifyNetworkTransportScope(fetchErr);
@@ -9578,492 +9852,500 @@ async function handleAnthropicRoutedClaudeRequest(args: {
   let queuedAccountAdmission:
     | { accountKey: string; lease: AccountAdmissionLease }
     | undefined;
-  if (
-    accountAdmissionCapacity !== undefined &&
-    effectiveAccounts.length > 0 &&
-    effectiveAccounts.every(
-      (account) =>
-        !isAccountAdmissionAvailable(account.key, accountAdmissionCapacity),
-    )
-  ) {
-    queuedAccountAdmission = await acquireFirstAvailableAccountAdmission(
-      effectiveAccounts.map((account) => account.key),
-      accountAdmissionCapacity,
-      ctx.abortSignal,
-    );
-  }
-
-  accountLoop: for (const [
-    accountIndex,
-    account,
-  ] of effectiveAccounts.entries()) {
-    const hasNextAccount = accountIndex < effectiveAccounts.length - 1;
-    const accountState = getOrCreateRuntimeState(account.key);
-    let transientSameAccountRetries = 0;
-    let rateLimitSameAccountRetries = 0;
-
-    while (true) {
-      const transportPermit = await providerTransportCoordinator.acquire(
+  try {
+    if (
+      accountAdmissionCapacity !== undefined &&
+      effectiveAccounts.length > 0 &&
+      effectiveAccounts.every(
+        (account) =>
+          !isAccountAdmissionAvailable(account.key, accountAdmissionCapacity),
+      )
+    ) {
+      queuedAccountAdmission = await acquireFirstAvailableAccountAdmission(
+        effectiveAccounts.map((account) => account.key),
+        accountAdmissionCapacity,
         ctx.abortSignal,
       );
-      if (transportPermit.allowed === false) {
-        loopState.sawNetworkError = true;
-        loopState.lastTransportErrorCode =
-          transportPermit.errorCode ?? undefined;
-        loopState.lastTransportScope = transportPermit.transportScope;
-        loopState.lastError = `Anthropic transport recovery probe failed (${transportPermit.errorCode ?? "unknown"})`;
-        // The probe that failed was another request's attempt; this one has
-        // sent nothing. Give it the same bounded same-account budget a direct
-        // transport failure gets, instead of failing every queued request the
-        // moment one probe times out.
-        const probeRetryBudget = transportPermit.connectPhase
-          ? MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES
-          : MAX_TRANSIENT_SAME_ACCOUNT_RETRIES;
-        if (transientSameAccountRetries < probeRetryBudget) {
-          transientSameAccountRetries += 1;
-          const delayMs = getTransientSameAccountRetryDelayMs(
-            transientSameAccountRetries,
-          );
-          logger.always(
-            `[proxy] retrying same account=${account.label} after failed transport recovery probe (${transientSameAccountRetries}/${probeRetryBudget}) in ${delayMs}ms`,
-          );
-          await sleep(delayMs);
-          continue;
-        }
-        break accountLoop;
-      }
-      loopState.attemptNumber += 1;
-      if (tracer && loopState.attemptNumber === 1 && acctSelectionSpan) {
-        tracer.setAccountSelection({
-          strategy: accountStrategy,
-          accountsTotal: accounts.length,
-          accountsHealthy: enabledAccounts.length,
-          selectedAccount: account.label,
-          accountType: account.type,
-        });
-        acctSelectionSpan.end();
-      }
+    }
 
-      const logAttempt = createAnthropicAttemptLogger({
-        ctx,
-        body,
-        toolCount,
-        requestStart,
-        tracer,
-        account,
-        attemptNumber: loopState.attemptNumber,
-      });
-      const preparedAttempt = await prepareAnthropicAccountAttempt({
-        account,
-        accountState,
-        bodyStr,
-        clientHeaders,
-        isClaudeClientRequest,
-        url,
-        tracer,
-        attemptNumber: loopState.attemptNumber,
-        currentLastError: loopState.lastError,
-        currentAuthFailureMessage: loopState.authFailureMessage,
-        logAttempt,
-        logProxyBody,
-      });
-      loopState.lastError = preparedAttempt.lastError;
-      loopState.authFailureMessage = preparedAttempt.authFailureMessage;
-      if (
-        preparedAttempt.continueLoop ||
-        !preparedAttempt.headers ||
-        !preparedAttempt.buildUpstreamBody ||
-        !preparedAttempt.finalBodyStr ||
-        preparedAttempt.fetchStartMs === undefined
-      ) {
-        if (transportPermit.probe) {
-          providerTransportCoordinator.reportProbeAbandoned(transportPermit);
-        }
-        continue accountLoop;
-      }
+    accountLoop: for (const [
+      accountIndex,
+      account,
+    ] of effectiveAccounts.entries()) {
+      const hasNextAccount = accountIndex < effectiveAccounts.length - 1;
+      const accountState = getOrCreateRuntimeState(account.key);
+      let transientSameAccountRetries = 0;
+      let rateLimitSameAccountRetries = 0;
 
-      let admissionLease: AccountAdmissionLease | undefined;
-      if (queuedAccountAdmission?.accountKey === account.key) {
-        admissionLease = queuedAccountAdmission.lease;
-        queuedAccountAdmission = undefined;
-      } else {
-        admissionLease = tryAcquireAccountAdmission(
-          account.key,
-          accountAdmissionCapacity,
+      while (true) {
+        const transportPermit = await providerTransportCoordinator.acquire(
+          ctx.abortSignal,
         );
-        if (admissionLease && queuedAccountAdmission) {
-          // A preferred account became available while the race was being
-          // established; release the lower-priority reservation.
-          queuedAccountAdmission.lease.release();
-          queuedAccountAdmission = undefined;
-        }
-      }
-      if (!admissionLease) {
-        // A later account may be immediately available. Preserve the routing
-        // order but do not leave a request queued behind a busy first choice.
-        if (transportPermit.probe) {
-          providerTransportCoordinator.reportProbeAbandoned(transportPermit);
-        }
-        continue accountLoop;
-      }
-      let admissionTransferredToStream = false;
-      try {
-        let fetchResult: AnthropicUpstreamFetchResult;
-        try {
-          fetchResult = await fetchAnthropicAccountResponse({
-            url,
-            headers: preparedAttempt.headers,
-            finalBodyStr: preparedAttempt.finalBodyStr,
-            requestedModel: body.model,
-            account,
-            accountState,
-            enabledAccounts,
-            orderedAccounts,
-            tracer,
-            logAttempt,
-            logProxyBody,
-            fetchStartMs: preparedAttempt.fetchStartMs,
-            attemptNumber: loopState.attemptNumber,
-            currentLastError: loopState.lastError,
-            currentSawRateLimit: loopState.sawRateLimit,
-            currentSawNetworkError: loopState.sawNetworkError,
-            upstreamSpan: preparedAttempt.upstreamSpan,
-          });
-        } catch (error) {
-          if (transportPermit.probe) {
-            providerTransportCoordinator.reportProbeAbandoned(transportPermit);
-          }
-          throw error;
-        }
-        if (fetchResult.transportScope) {
-          providerTransportCoordinator.reportTransportFailure(
-            fetchResult.errorCode,
-            fetchResult.transportScope,
-            transportPermit,
-            fetchResult.connectPhase === true,
-          );
-        } else {
-          providerTransportCoordinator.reportSuccess(transportPermit);
-        }
-        loopState.lastError = fetchResult.lastError;
-        loopState.sawRateLimit = fetchResult.sawRateLimit;
-        loopState.sawNetworkError = fetchResult.sawNetworkError;
-        if (fetchResult.transportScope) {
-          loopState.lastTransportScope = fetchResult.transportScope;
-          loopState.lastTransportErrorCode = fetchResult.errorCode;
-        }
-        if (fetchResult.terminalError) {
-          return finalizeAnthropicTerminalFetchError({
-            terminalError: fetchResult.terminalError,
-            account,
-            tracer,
-            requestStartTime,
-            attemptNumber: loopState.attemptNumber,
-            logProxyBody,
-            logFinalRequest,
-          });
-        }
-        if (fetchResult.continueLoop || !fetchResult.response) {
-          // Genuine 429 (carries a cooldown plan derived from quota headers).
-          if (fetchResult.cooldownPlan) {
-            const plan = fetchResult.cooldownPlan;
-            // Refresh the account's quota snapshot for proactive selection.
-            if (fetchResult.quota) {
-              accountState.quota = mergeQuotaSnapshot(
-                accountState.quota,
-                fetchResult.quota,
-              );
-              saveAccountQuota(account.key, fetchResult.quota).catch(() => {
-                // Non-fatal: routing already has the in-memory snapshot.
-              });
-            }
-            // Publish the cooldown before retrying so requests arriving behind
-            // this one skip the throttled account instead of joining the burst.
-            let cooldownExtended = false;
-            if (
-              plan.scope === "account" &&
-              (!accountState.coolingUntil ||
-                plan.coolingUntil > accountState.coolingUntil)
-            ) {
-              accountState.coolingUntil = plan.coolingUntil;
-              accountState.coolingReason = plan.reason;
-              cooldownExtended = true;
-            }
-            if (cooldownExtended && plan.scope === "account") {
-              await saveAccountCooldown(
-                account.key,
-                accountState.coolingUntil ?? plan.coolingUntil,
-                accountState.coolingReason ?? plan.reason,
-              ).catch(() => {
-                // Non-fatal: routing already has the in-memory cooldown.
-              });
-            }
-
-            // Transient retries are budgeted across all concurrent requests for
-            // this account/window. Exhaustion plans rotate immediately and never
-            // claim this budget.
-            const sharedRetrySlot = fetchResult.retrySameAccount
-              ? claimTransientRateLimitRetry(account.key, plan.coolingUntil)
-              : undefined;
-            if (
-              fetchResult.retrySameAccount &&
-              fetchResult.retryAfterMs !== undefined &&
-              rateLimitSameAccountRetries <
-                MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES &&
-              sharedRetrySlot !== undefined
-            ) {
-              rateLimitSameAccountRetries += 1;
-              const base = Math.min(
-                fetchResult.retryAfterMs || 1_000,
-                MAX_RATE_LIMIT_RETRY_DELAY_MS,
-              );
-              // Stagger the two shared slots, then cap after jitter so the final
-              // sleep never exceeds the configured maximum.
-              const delayMs = Math.min(
-                MAX_RATE_LIMIT_RETRY_DELAY_MS,
-                jitteredDelay(base * sharedRetrySlot),
-              );
-              logger.always(
-                `[proxy] retrying same account=${account.label} after transient 429 (shared slot ${sharedRetrySlot}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
-              );
-              await sleep(delayMs);
-              continue;
-            }
-            // Exhaustion, or the shared transient retry budget being used up:
-            // rotate while the already-published cooldown remains active.
-            advancePrimaryIfCurrent(
-              account.key,
-              enabledAccounts.length,
-              orderedAccounts[0]?.key,
-            );
-            logger.always(
-              `[proxy] account=${account.label} rate-limited (${plan.reason}); cooling ~${minutesUntil(plan.coolingUntil, Date.now())}m until ${new Date(plan.coolingUntil).toISOString()}, rotating`,
-            );
-            if (plan.rotateImmediately) {
-              scheduleHandoffQuotaRefresh(
-                account,
-                effectiveAccounts[accountIndex + 1],
-                plan.coolingUntil,
-                sessionSoftLimit,
-              );
-            }
-            continue accountLoop;
-          }
-          // Transient error retry (network errors, 529 overloaded). A failure
-          // from the connect phase sent nothing, so it earns the larger budget.
-          const sameAccountRetryBudget = fetchResult.connectPhase
+        if (transportPermit.allowed === false) {
+          loopState.sawNetworkError = true;
+          loopState.lastTransportErrorCode =
+            transportPermit.errorCode ?? undefined;
+          loopState.lastTransportScope = transportPermit.transportScope;
+          loopState.lastError = `Anthropic transport recovery probe failed (${transportPermit.errorCode ?? "unknown"})`;
+          // The probe that failed was another request's attempt; this one has
+          // sent nothing. Give it the same bounded same-account budget a direct
+          // transport failure gets, instead of failing every queued request the
+          // moment one probe times out.
+          const probeRetryBudget = transportPermit.connectPhase
             ? MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES
             : MAX_TRANSIENT_SAME_ACCOUNT_RETRIES;
-          if (
-            fetchResult.retrySameAccount &&
-            transientSameAccountRetries < sameAccountRetryBudget
-          ) {
+          if (transientSameAccountRetries < probeRetryBudget) {
             transientSameAccountRetries += 1;
             const delayMs = getTransientSameAccountRetryDelayMs(
               transientSameAccountRetries,
             );
             logger.always(
-              `[proxy] retrying same account=${account.label} after transient network error (${transientSameAccountRetries}/${sameAccountRetryBudget}) in ${delayMs}ms`,
+              `[proxy] retrying same account=${account.label} after failed transport recovery probe (${transientSameAccountRetries}/${probeRetryBudget}) in ${delayMs}ms`,
             );
             await sleep(delayMs);
             continue;
           }
-          if (fetchResult.retrySameAccount && !fetchResult.transportScope) {
-            logger.always(
-              `[proxy] exhausted transient same-account retries for account=${account.label}; rotating`,
-            );
-          }
-          if (fetchResult.transportScope) {
-            logger.always(
-              `[proxy] Anthropic ${fetchResult.transportScope} failure code=${fetchResult.errorCode ?? "unknown"}; suppressing cross-account rotation after ${transientSameAccountRetries + 1} attempts`,
-            );
-            break accountLoop;
+          break accountLoop;
+        }
+        loopState.attemptNumber += 1;
+        if (tracer && loopState.attemptNumber === 1 && acctSelectionSpan) {
+          tracer.setAccountSelection({
+            strategy: accountStrategy,
+            accountsTotal: accounts.length,
+            accountsHealthy: enabledAccounts.length,
+            selectedAccount: account.label,
+            accountType: account.type,
+          });
+          acctSelectionSpan.end();
+        }
+
+        const logAttempt = createAnthropicAttemptLogger({
+          ctx,
+          body,
+          toolCount,
+          requestStart,
+          tracer,
+          account,
+          attemptNumber: loopState.attemptNumber,
+        });
+        const preparedAttempt = await prepareAnthropicAccountAttempt({
+          ctx,
+          account,
+          accountState,
+          bodyStr,
+          clientHeaders,
+          isClaudeClientRequest,
+          url,
+          tracer,
+          attemptNumber: loopState.attemptNumber,
+          currentLastError: loopState.lastError,
+          currentAuthFailureMessage: loopState.authFailureMessage,
+          logAttempt,
+          logProxyBody,
+        });
+        loopState.lastError = preparedAttempt.lastError;
+        loopState.authFailureMessage = preparedAttempt.authFailureMessage;
+        if (
+          preparedAttempt.continueLoop ||
+          !preparedAttempt.headers ||
+          !preparedAttempt.buildUpstreamBody ||
+          !preparedAttempt.finalBodyStr ||
+          !preparedAttempt.preparedContext ||
+          preparedAttempt.fetchStartMs === undefined
+        ) {
+          if (transportPermit.probe) {
+            providerTransportCoordinator.reportProbeAbandoned(transportPermit);
           }
           continue accountLoop;
         }
 
-        let upstreamSpan = fetchResult.upstreamSpan;
-        const response = fetchResult.response;
-        if (
-          response.status === 401 &&
-          account.type === "oauth" &&
-          account.refreshToken
-        ) {
-          const authRetryResult = await handleAnthropicAuthRetry({
-            ctx,
-            body,
-            account,
-            accountState,
-            headers: preparedAttempt.headers,
-            buildUpstreamBody: preparedAttempt.buildUpstreamBody,
-            url,
-            enabledAccounts,
-            orderedAccounts,
-            tracer,
-            requestStartTime,
-            allocateAttemptNumber: () => {
-              loopState.attemptNumber += 1;
-              return loopState.attemptNumber;
-            },
-            upstreamSpan,
-            logAttempt,
-            logProxyBody,
-            logFinalRequest,
-            onStreamTerminal: admissionLease.release,
-            lastError: loopState.lastError,
-            authFailureMessage: loopState.authFailureMessage,
-            entitlementFailure: loopState.entitlementFailure,
-            sawRateLimit: loopState.sawRateLimit,
-            sawTransientFailure: loopState.sawTransientFailure,
-            sawNetworkError: loopState.sawNetworkError,
-          });
-          loopState.lastError = authRetryResult.lastError;
-          loopState.authFailureMessage = authRetryResult.authFailureMessage;
-          loopState.entitlementFailure = authRetryResult.entitlementFailure;
-          loopState.sawRateLimit = authRetryResult.sawRateLimit;
-          loopState.sawTransientFailure = authRetryResult.sawTransientFailure;
-          loopState.sawNetworkError = authRetryResult.sawNetworkError;
-          upstreamSpan = authRetryResult.upstreamSpan;
-          if (authRetryResult.response !== undefined) {
-            admissionTransferredToStream =
-              authRetryResult.holdsAccountAdmission === true;
-            return authRetryResult.response;
-          }
-          if (authRetryResult.continueLoop) {
-            if (hasNextAccount && authRetryResult.retryDelayMs) {
-              logger.always(
-                `[proxy] pacing cross-account SSE overload rotation for ${authRetryResult.retryDelayMs}ms after auth refresh`,
-              );
-              await sleep(authRetryResult.retryDelayMs);
-            }
-            continue accountLoop;
+        let admissionLease: AccountAdmissionLease | undefined;
+        if (queuedAccountAdmission?.accountKey === account.key) {
+          admissionLease = queuedAccountAdmission.lease;
+          queuedAccountAdmission = undefined;
+        } else {
+          admissionLease = tryAcquireAccountAdmission(
+            account.key,
+            accountAdmissionCapacity,
+          );
+          if (admissionLease && queuedAccountAdmission) {
+            // A preferred account became available while the race was being
+            // established; release the lower-priority reservation.
+            queuedAccountAdmission.lease.release();
+            queuedAccountAdmission = undefined;
           }
         }
-
-        if (!response.ok) {
-          const nonOkResult = await handleAnthropicNonOkResponse({
-            response,
-            account,
-            accountState,
-            enabledAccounts,
-            orderedAccounts,
-            tracer,
-            requestStartTime,
-            fetchStartMs: preparedAttempt.fetchStartMs,
-            attemptNumber: loopState.attemptNumber,
-            logAttempt,
-            logProxyBody,
-            logFinalRequest,
-            lastError: loopState.lastError,
-            authFailureMessage: loopState.authFailureMessage,
-            sawTransientFailure: loopState.sawTransientFailure,
-            invalidRequestFailure: loopState.invalidRequestFailure,
-            entitlementFailure: loopState.entitlementFailure,
-            allowConfiguredModelFallback: hasConfiguredFallback,
-          });
-          loopState.lastError = nonOkResult.lastError;
-          loopState.authFailureMessage = nonOkResult.authFailureMessage;
-          loopState.sawTransientFailure = nonOkResult.sawTransientFailure;
-          loopState.invalidRequestFailure = nonOkResult.invalidRequestFailure;
-          loopState.entitlementFailure = nonOkResult.entitlementFailure;
-          if (nonOkResult.response !== undefined) {
-            return nonOkResult.response;
+        if (!admissionLease) {
+          // A later account may be immediately available. Preserve the routing
+          // order but do not leave a request queued behind a busy first choice.
+          if (transportPermit.probe) {
+            providerTransportCoordinator.reportProbeAbandoned(transportPermit);
           }
-          if (nonOkResult.continueLoop) {
+          continue accountLoop;
+        }
+        let admissionTransferredToStream = false;
+        try {
+          let fetchResult: AnthropicUpstreamFetchResult;
+          try {
+            fetchResult = await fetchAnthropicAccountResponse({
+              ctx,
+              url,
+              headers: preparedAttempt.headers,
+              finalBodyStr: preparedAttempt.finalBodyStr,
+              preparedContext: preparedAttempt.preparedContext,
+              requestedModel: body.model,
+              account,
+              accountState,
+              enabledAccounts,
+              orderedAccounts,
+              tracer,
+              logAttempt,
+              logProxyBody,
+              fetchStartMs: preparedAttempt.fetchStartMs,
+              attemptNumber: loopState.attemptNumber,
+              currentLastError: loopState.lastError,
+              currentSawRateLimit: loopState.sawRateLimit,
+              currentSawNetworkError: loopState.sawNetworkError,
+              upstreamSpan: preparedAttempt.upstreamSpan,
+            });
+          } catch (error) {
+            if (transportPermit.probe) {
+              providerTransportCoordinator.reportProbeAbandoned(
+                transportPermit,
+              );
+            }
+            throw error;
+          }
+          if (fetchResult.transportScope) {
+            providerTransportCoordinator.reportTransportFailure(
+              fetchResult.errorCode,
+              fetchResult.transportScope,
+              transportPermit,
+              fetchResult.connectPhase === true,
+            );
+          } else {
+            providerTransportCoordinator.reportSuccess(transportPermit);
+          }
+          loopState.lastError = fetchResult.lastError;
+          loopState.sawRateLimit = fetchResult.sawRateLimit;
+          loopState.sawNetworkError = fetchResult.sawNetworkError;
+          if (fetchResult.transportScope) {
+            loopState.lastTransportScope = fetchResult.transportScope;
+            loopState.lastTransportErrorCode = fetchResult.errorCode;
+          }
+          if (fetchResult.terminalError) {
+            return finalizeAnthropicTerminalFetchError({
+              terminalError: fetchResult.terminalError,
+              account,
+              tracer,
+              requestStartTime,
+              attemptNumber: loopState.attemptNumber,
+              logProxyBody,
+              logFinalRequest,
+            });
+          }
+          if (fetchResult.continueLoop || !fetchResult.response) {
+            // Genuine 429 (carries a cooldown plan derived from quota headers).
+            if (fetchResult.cooldownPlan) {
+              const plan = fetchResult.cooldownPlan;
+              // Refresh the account's quota snapshot for proactive selection.
+              if (fetchResult.quota) {
+                accountState.quota = mergeQuotaSnapshot(
+                  accountState.quota,
+                  fetchResult.quota,
+                );
+                saveAccountQuota(account.key, fetchResult.quota).catch(() => {
+                  // Non-fatal: routing already has the in-memory snapshot.
+                });
+              }
+              // Publish the cooldown before retrying so requests arriving behind
+              // this one skip the throttled account instead of joining the burst.
+              let cooldownExtended = false;
+              if (
+                plan.scope === "account" &&
+                (!accountState.coolingUntil ||
+                  plan.coolingUntil > accountState.coolingUntil)
+              ) {
+                accountState.coolingUntil = plan.coolingUntil;
+                accountState.coolingReason = plan.reason;
+                cooldownExtended = true;
+              }
+              if (cooldownExtended && plan.scope === "account") {
+                await saveAccountCooldown(
+                  account.key,
+                  accountState.coolingUntil ?? plan.coolingUntil,
+                  accountState.coolingReason ?? plan.reason,
+                ).catch(() => {
+                  // Non-fatal: routing already has the in-memory cooldown.
+                });
+              }
+
+              // Transient retries are budgeted across all concurrent requests for
+              // this account/window. Exhaustion plans rotate immediately and never
+              // claim this budget.
+              const sharedRetrySlot = fetchResult.retrySameAccount
+                ? claimTransientRateLimitRetry(account.key, plan.coolingUntil)
+                : undefined;
+              if (
+                fetchResult.retrySameAccount &&
+                fetchResult.retryAfterMs !== undefined &&
+                rateLimitSameAccountRetries <
+                  MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES &&
+                sharedRetrySlot !== undefined
+              ) {
+                rateLimitSameAccountRetries += 1;
+                const base = Math.min(
+                  fetchResult.retryAfterMs || 1_000,
+                  MAX_RATE_LIMIT_RETRY_DELAY_MS,
+                );
+                // Stagger the two shared slots, then cap after jitter so the final
+                // sleep never exceeds the configured maximum.
+                const delayMs = Math.min(
+                  MAX_RATE_LIMIT_RETRY_DELAY_MS,
+                  jitteredDelay(base * sharedRetrySlot),
+                );
+                logger.always(
+                  `[proxy] retrying same account=${account.label} after transient 429 (shared slot ${sharedRetrySlot}/${MAX_RATE_LIMIT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+                );
+                await sleep(delayMs);
+                continue;
+              }
+              // Exhaustion, or the shared transient retry budget being used up:
+              // rotate while the already-published cooldown remains active.
+              advancePrimaryIfCurrent(
+                account.key,
+                enabledAccounts.length,
+                orderedAccounts[0]?.key,
+              );
+              logger.always(
+                `[proxy] account=${account.label} rate-limited (${plan.reason}); cooling ~${minutesUntil(plan.coolingUntil, Date.now())}m until ${new Date(plan.coolingUntil).toISOString()}, rotating`,
+              );
+              if (plan.rotateImmediately) {
+                scheduleHandoffQuotaRefresh(
+                  account,
+                  effectiveAccounts[accountIndex + 1],
+                  plan.coolingUntil,
+                  sessionSoftLimit,
+                );
+              }
+              continue accountLoop;
+            }
+            // Transient error retry (network errors, 529 overloaded). A failure
+            // from the connect phase sent nothing, so it earns the larger budget.
+            const sameAccountRetryBudget = fetchResult.connectPhase
+              ? MAX_CONNECT_PHASE_SAME_ACCOUNT_RETRIES
+              : MAX_TRANSIENT_SAME_ACCOUNT_RETRIES;
             if (
-              nonOkResult.retrySameAccount &&
-              transientSameAccountRetries < MAX_TRANSIENT_SAME_ACCOUNT_RETRIES
+              fetchResult.retrySameAccount &&
+              transientSameAccountRetries < sameAccountRetryBudget
             ) {
               transientSameAccountRetries += 1;
               const delayMs = getTransientSameAccountRetryDelayMs(
                 transientSameAccountRetries,
               );
               logger.always(
-                `[proxy] retrying same account=${account.label} after transient upstream ${response.status} (${transientSameAccountRetries}/${MAX_TRANSIENT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+                `[proxy] retrying same account=${account.label} after transient network error (${transientSameAccountRetries}/${sameAccountRetryBudget}) in ${delayMs}ms`,
               );
               await sleep(delayMs);
               continue;
             }
-            if (nonOkResult.retrySameAccount) {
+            if (fetchResult.retrySameAccount && !fetchResult.transportScope) {
               logger.always(
                 `[proxy] exhausted transient same-account retries for account=${account.label}; rotating`,
               );
             }
-            if (hasNextAccount && nonOkResult.retryDelayMs) {
+            if (fetchResult.transportScope) {
               logger.always(
-                `[proxy] pacing cross-account overload rotation for ${nonOkResult.retryDelayMs}ms`,
+                `[proxy] Anthropic ${fetchResult.transportScope} failure code=${fetchResult.errorCode ?? "unknown"}; suppressing cross-account rotation after ${transientSameAccountRetries + 1} attempts`,
               );
-              await sleep(nonOkResult.retryDelayMs);
+              break accountLoop;
             }
             continue accountLoop;
           }
-          break accountLoop;
-        }
 
-        // Clear cooling on success — but only if the stored cooldown has already
-        // expired, so an older in-flight success can't wipe an active exhaustion
-        // cooldown just set by a concurrent 429. The success handler re-applies a
-        // cooldown via reconcileCooldownFromQuota when fresh quota headers
-        // report a rejected window without explicit overage availability.
-        if (
-          accountState.coolingUntil &&
-          Date.now() >= accountState.coolingUntil
-        ) {
-          const expiredCooldown = accountState.coolingUntil;
-          accountState.coolingUntil = undefined;
-          accountState.coolingReason = undefined;
-          clearAccountCooldown(account.key, expiredCooldown).catch(() => {
-            // Best-effort cleanup; expired entries are ignored during seeding.
-          });
-        }
-
-        const successResult = await handleAnthropicSuccessfulResponse({
-          ctx,
-          body,
-          account,
-          accountState,
-          response,
-          tracer,
-          requestStartTime,
-          fetchStartMs: preparedAttempt.fetchStartMs,
-          attemptNumber: loopState.attemptNumber,
-          finalBodyStr: preparedAttempt.finalBodyStr,
-          upstreamSpan,
-          logAttempt,
-          logProxyBody,
-          logFinalRequest,
-          onStreamTerminal: admissionLease.release,
-          poolAccounts: enabledAccounts,
-        });
-        if ("retryNextAccount" in successResult) {
-          if (successResult.failure) {
-            loopState.lastError = successResult.failure.message;
-            loopState.sawRateLimit ||= successResult.failure.rateLimit;
-            loopState.sawTransientFailure ||= !successResult.failure.rateLimit;
-            if (hasNextAccount && successResult.failure.retryDelayMs) {
-              logger.always(
-                `[proxy] pacing cross-account SSE overload rotation for ${successResult.failure.retryDelayMs}ms`,
-              );
-              await sleep(successResult.failure.retryDelayMs);
+          let upstreamSpan = fetchResult.upstreamSpan;
+          const response = fetchResult.response;
+          if (
+            response.status === 401 &&
+            account.type === "oauth" &&
+            account.refreshToken
+          ) {
+            const authRetryResult = await handleAnthropicAuthRetry({
+              ctx,
+              body,
+              account,
+              accountState,
+              headers: preparedAttempt.headers,
+              buildUpstreamBody: preparedAttempt.buildUpstreamBody,
+              url,
+              enabledAccounts,
+              orderedAccounts,
+              tracer,
+              requestStartTime,
+              allocateAttemptNumber: () => {
+                loopState.attemptNumber += 1;
+                return loopState.attemptNumber;
+              },
+              upstreamSpan,
+              logAttempt,
+              logProxyBody,
+              logFinalRequest,
+              onStreamTerminal: admissionLease.release,
+              lastError: loopState.lastError,
+              authFailureMessage: loopState.authFailureMessage,
+              entitlementFailure: loopState.entitlementFailure,
+              sawRateLimit: loopState.sawRateLimit,
+              sawTransientFailure: loopState.sawTransientFailure,
+              sawNetworkError: loopState.sawNetworkError,
+            });
+            loopState.lastError = authRetryResult.lastError;
+            loopState.authFailureMessage = authRetryResult.authFailureMessage;
+            loopState.entitlementFailure = authRetryResult.entitlementFailure;
+            loopState.sawRateLimit = authRetryResult.sawRateLimit;
+            loopState.sawTransientFailure = authRetryResult.sawTransientFailure;
+            loopState.sawNetworkError = authRetryResult.sawNetworkError;
+            upstreamSpan = authRetryResult.upstreamSpan;
+            if (authRetryResult.response !== undefined) {
+              admissionTransferredToStream =
+                authRetryResult.holdsAccountAdmission === true;
+              return authRetryResult.response;
+            }
+            if (authRetryResult.continueLoop) {
+              if (hasNextAccount && authRetryResult.retryDelayMs) {
+                logger.always(
+                  `[proxy] pacing cross-account SSE overload rotation for ${authRetryResult.retryDelayMs}ms after auth refresh`,
+                );
+                await sleep(authRetryResult.retryDelayMs);
+              }
+              continue accountLoop;
             }
           }
-          continue accountLoop;
-        }
-        admissionTransferredToStream =
-          successResult.holdsAccountAdmission === true;
-        return successResult.response;
-      } finally {
-        if (!admissionTransferredToStream) {
-          admissionLease.release();
+
+          if (!response.ok) {
+            const nonOkResult = await handleAnthropicNonOkResponse({
+              response,
+              account,
+              accountState,
+              enabledAccounts,
+              orderedAccounts,
+              tracer,
+              requestStartTime,
+              fetchStartMs: preparedAttempt.fetchStartMs,
+              attemptNumber: loopState.attemptNumber,
+              logAttempt,
+              logProxyBody,
+              logFinalRequest,
+              lastError: loopState.lastError,
+              authFailureMessage: loopState.authFailureMessage,
+              sawTransientFailure: loopState.sawTransientFailure,
+              invalidRequestFailure: loopState.invalidRequestFailure,
+              entitlementFailure: loopState.entitlementFailure,
+              allowConfiguredModelFallback: hasConfiguredFallback,
+            });
+            loopState.lastError = nonOkResult.lastError;
+            loopState.authFailureMessage = nonOkResult.authFailureMessage;
+            loopState.sawTransientFailure = nonOkResult.sawTransientFailure;
+            loopState.invalidRequestFailure = nonOkResult.invalidRequestFailure;
+            loopState.entitlementFailure = nonOkResult.entitlementFailure;
+            if (nonOkResult.response !== undefined) {
+              return nonOkResult.response;
+            }
+            if (nonOkResult.continueLoop) {
+              if (
+                nonOkResult.retrySameAccount &&
+                transientSameAccountRetries < MAX_TRANSIENT_SAME_ACCOUNT_RETRIES
+              ) {
+                transientSameAccountRetries += 1;
+                const delayMs = getTransientSameAccountRetryDelayMs(
+                  transientSameAccountRetries,
+                );
+                logger.always(
+                  `[proxy] retrying same account=${account.label} after transient upstream ${response.status} (${transientSameAccountRetries}/${MAX_TRANSIENT_SAME_ACCOUNT_RETRIES}) in ${delayMs}ms`,
+                );
+                await sleep(delayMs);
+                continue;
+              }
+              if (nonOkResult.retrySameAccount) {
+                logger.always(
+                  `[proxy] exhausted transient same-account retries for account=${account.label}; rotating`,
+                );
+              }
+              if (hasNextAccount && nonOkResult.retryDelayMs) {
+                logger.always(
+                  `[proxy] pacing cross-account overload rotation for ${nonOkResult.retryDelayMs}ms`,
+                );
+                await sleep(nonOkResult.retryDelayMs);
+              }
+              continue accountLoop;
+            }
+            break accountLoop;
+          }
+
+          // Clear cooling on success — but only if the stored cooldown has already
+          // expired, so an older in-flight success can't wipe an active exhaustion
+          // cooldown just set by a concurrent 429. The success handler re-applies a
+          // cooldown via reconcileCooldownFromQuota when fresh quota headers
+          // report a rejected window without explicit overage availability.
+          if (
+            accountState.coolingUntil &&
+            Date.now() >= accountState.coolingUntil
+          ) {
+            const expiredCooldown = accountState.coolingUntil;
+            accountState.coolingUntil = undefined;
+            accountState.coolingReason = undefined;
+            clearAccountCooldown(account.key, expiredCooldown).catch(() => {
+              // Best-effort cleanup; expired entries are ignored during seeding.
+            });
+          }
+
+          const successResult = await handleAnthropicSuccessfulResponse({
+            ctx,
+            body,
+            account,
+            accountState,
+            response,
+            tracer,
+            requestStartTime,
+            fetchStartMs: preparedAttempt.fetchStartMs,
+            attemptNumber: loopState.attemptNumber,
+            finalBodyStr: preparedAttempt.finalBodyStr,
+            upstreamSpan,
+            logAttempt,
+            logProxyBody,
+            logFinalRequest,
+            onStreamTerminal: admissionLease.release,
+            poolAccounts: enabledAccounts,
+          });
+          if ("retryNextAccount" in successResult) {
+            if (successResult.failure) {
+              loopState.lastError = successResult.failure.message;
+              loopState.sawRateLimit ||= successResult.failure.rateLimit;
+              loopState.sawTransientFailure ||=
+                !successResult.failure.rateLimit;
+              if (hasNextAccount && successResult.failure.retryDelayMs) {
+                logger.always(
+                  `[proxy] pacing cross-account SSE overload rotation for ${successResult.failure.retryDelayMs}ms`,
+                );
+                await sleep(successResult.failure.retryDelayMs);
+              }
+            }
+            continue accountLoop;
+          }
+          admissionTransferredToStream =
+            successResult.holdsAccountAdmission === true;
+          return successResult.response;
+        } finally {
+          if (!admissionTransferredToStream) {
+            admissionLease.release();
+          }
         }
       }
     }
-  }
-
-  queuedAccountAdmission?.lease.release();
-
-  if (loopState.attemptNumber === 0) {
-    acctSelectionSpan?.end();
+  } finally {
+    queuedAccountAdmission?.lease.release();
+    if (loopState.attemptNumber === 0) {
+      acctSelectionSpan?.end();
+    }
   }
 
   // Deterministic invalid requests (for example, prompt-too-long) cannot be
@@ -10115,12 +10397,15 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       });
     }
     fallbackFailureMessage = configuredFallbackResult.lastErrorMessage;
+    let terminalFallbackFailure = configuredFallbackResult.terminalFailure;
 
     // A translation-layer-selected provider is only permitted by an explicit
     // routing setting. Empty fallback chains otherwise stay within OAuth.
     if (
       loopState.invalidRequestFailure === null &&
       !loopState.sawRateLimit &&
+      !ctx.abortSignal?.aborted &&
+      terminalFallbackFailure?.retryable !== false &&
       modelRouter?.isAutoFallbackEnabled?.()
     ) {
       const autoFallbackResult = await tryAutoClaudeFallback({
@@ -10136,15 +10421,13 @@ async function handleAnthropicRoutedClaudeRequest(args: {
       }
       fallbackFailureMessage =
         autoFallbackResult.lastErrorMessage ?? fallbackFailureMessage;
+      terminalFallbackFailure =
+        autoFallbackResult.terminalFailure ?? terminalFallbackFailure;
     }
 
-    if (
-      configuredFallbackResult.terminalFailure &&
-      !configuredFallbackResult.invalidRequestFailure
-    ) {
-      const failure = configuredFallbackResult.terminalFailure;
+    if (terminalFallbackFailure) {
       return buildConfiguredClaudeFallbackFailure({
-        failure,
+        failure: terminalFallbackFailure,
         buildLoggedClaudeError,
         tracer,
         requestStartTime,
@@ -10216,6 +10499,9 @@ function buildEarlyClaudeRequestError(args: {
   errorType: string;
 }): unknown {
   const { ctx, body, status, message, errorType } = args;
+  if (isProxyRequestFinalized(ctx.requestId)) {
+    return buildClaudeError(status, message);
+  }
   recordFinalError(
     status,
     PROXY_INTERNAL_ACCOUNT_LABEL,
@@ -10422,7 +10708,7 @@ export function createClaudeProxyRoutes(
               tracer?.setMode("passthrough");
 
               if (requestRouting.passthrough) {
-                return handleClaudePassthroughRequest({
+                return await handleClaudePassthroughRequest({
                   ctx,
                   body,
                   clientRequestBody,
@@ -10433,7 +10719,7 @@ export function createClaudeProxyRoutes(
                 });
               }
 
-              return handleAnthropicRoutedClaudeRequest({
+              return await handleAnthropicRoutedClaudeRequest({
                 ctx,
                 body,
                 modelRouter: requestModelRouter,
@@ -10451,7 +10737,7 @@ export function createClaudeProxyRoutes(
                 setRoutingDecision,
               });
             } else {
-              return handleTranslatedClaudeRequest({
+              return await handleTranslatedClaudeRequest({
                 ctx,
                 body,
                 route: {
@@ -10465,6 +10751,53 @@ export function createClaudeProxyRoutes(
               });
             }
           } catch (error) {
+            if (ctx.abortSignal?.aborted) {
+              return new Response(
+                JSON.stringify(
+                  buildLoggedClaudeError(
+                    499,
+                    "Client cancelled request",
+                    "client_cancelled",
+                  ),
+                ),
+                {
+                  status: 499,
+                  headers: { "content-type": "application/json" },
+                },
+              );
+            }
+            const localRefusal =
+              error instanceof ProxyContextPreflightError
+                ? error
+                : getProxyTokenBudgetError(error);
+            if (localRefusal) {
+              if (
+                error instanceof ProxyContextPreflightError &&
+                error.evidence
+              ) {
+                ctx.metadata.contextPreflight = error.evidence;
+              }
+              const refusal = buildLoggedClaudeError(
+                localRefusal.status,
+                localRefusal.message,
+                localRefusal.code,
+                { errorCode: localRefusal.code, retryable: false },
+              );
+              return new Response(
+                JSON.stringify({
+                  ...(refusal as object),
+                  error: {
+                    ...(refusal as { error: object }).error,
+                    code: localRefusal.code,
+                    retryable: false,
+                  },
+                }),
+                {
+                  status: localRefusal.status,
+                  headers: { "content-type": "application/json" },
+                },
+              );
+            }
             const errMsg =
               error instanceof Error ? error.message : String(error);
             logger.error(
@@ -10472,6 +10805,12 @@ export function createClaudeProxyRoutes(
             );
             tracer?.setError("generation_error", errMsg.slice(0, 500));
             tracer?.end(502, Date.now() - requestStartTime);
+            // Native transport errors retain their original code/cause and
+            // last-attempt account through the runtime error boundary. Only
+            // explicit local admission refusals are converted above.
+            if (route.provider === "anthropic") {
+              throw error;
+            }
             return buildLoggedClaudeError(
               502,
               `Generation failed: ${error instanceof Error ? error.message : "unknown error"}`,

@@ -2812,6 +2812,134 @@ function otelAttribute(
   return value?.stringValue ?? value?.intValue ?? value?.boolValue;
 }
 
+for (const sink of ["file", "otel"] as const) {
+  await test(`${sink} lifecycle sink preserves admission deadline and internal ownership for reconciliation`, async () => {
+    const { reconcileProxyAdmissions } =
+      await import("../scripts/observability/proxy-telemetry-check.mjs");
+    const asOf = Date.now();
+    const acceptedAt = asOf - 18 * 60_000;
+    const emitAdmissions = async () => {
+      for (const input of [
+        {
+          requestId: "internal-admission",
+          parentRequestId: "client-parent",
+          accountingScope: "internal" as const,
+          requestTimeoutMs: 30 * 60_000,
+        },
+        {
+          requestId: "client-admission",
+          accountingScope: "client" as const,
+          requestTimeoutMs: 5 * 60_000,
+        },
+        { requestId: "unspecified-admission" },
+      ]) {
+        await persistProxyLifecycleAcceptance({
+          ...input,
+          timestampMs: acceptedAt,
+          method: "POST",
+          path: "/v1/messages",
+        });
+      }
+      await flushProxyLifecycleEvents();
+    };
+    const verify = (
+      records: import("../src/lib/types/index.js").ProxyTelemetryStoredRecord[],
+    ) => {
+      assertEqual(
+        records.length,
+        3,
+        "admission records were lost or duplicated",
+      );
+      const internal = records.find(
+        (row) => row.requestId === "internal-admission",
+      )!;
+      assertEqual(
+        internal.parentRequestId,
+        "client-parent",
+        "parent link was lost",
+      );
+      assertEqual(
+        internal.accountingScope,
+        "internal",
+        "internal scope was lost",
+      );
+      assertEqual(
+        internal.requestTimeoutMs,
+        30 * 60_000,
+        "recorded deadline was lost",
+      );
+      const unspecified = records.find(
+        (row) => row.requestId === "unspecified-admission",
+      )!;
+      assertEqual(unspecified.parentRequestId, undefined);
+      assertEqual(unspecified.accountingScope, undefined);
+      assertEqual(unspecified.requestTimeoutMs, undefined);
+      const report = reconcileProxyAdmissions(records, {
+        asOfMicroseconds: asOf * 1000,
+        requestTimeoutMs: 60 * 60_000,
+        ingestionGraceMs: 0,
+      });
+      assertEqual(
+        report.internalAdmissions,
+        1,
+        "internal request counted as a client",
+      );
+      assertEqual(report.clientAdmissions, 2);
+      assertEqual(
+        report.pending.length,
+        2,
+        "recorded deadline changed pending state",
+      );
+      assertEqual(
+        report.overdue.length,
+        1,
+        "short actual deadline was hidden by default",
+      );
+      assertEqual(report.overdue[0].requestId, "client-admission");
+      assertEqual(report.overdue[0].requestTimeoutMs, 5 * 60_000);
+    };
+    if (sink === "file") {
+      await withWriter(async (dir) => {
+        await emitAdmissions();
+        const raw = await readFile(
+          join(
+            dir,
+            `proxy-lifecycle-${new Date(acceptedAt).toISOString().slice(0, 10)}.jsonl`,
+          ),
+          "utf8",
+        );
+        verify(
+          raw
+            .trim()
+            .split("\n")
+            .map((line) => JSON.parse(line)),
+        );
+      });
+    } else {
+      await withBodyCollector(
+        (_records, response) => {
+          response.writeHead(200).end("{}");
+        },
+        async (received) => {
+          await emitAdmissions();
+          const { flushProxyOtelLogs } =
+            await import("../src/lib/proxy/otelLogSink.js");
+          await flushProxyOtelLogs();
+          verify(
+            received
+              .filter(
+                (record) =>
+                  otelAttribute(record, "proxy.record_kind") === "lifecycle",
+              )
+              .map((record) => JSON.parse(record.body.stringValue))
+              .filter((record) => record.event === "request_accepted"),
+          );
+        },
+      );
+    }
+  });
+}
+
 await test("OTel admission waits through byte pressure and reconstructs every capture", async () => {
   await withBodyCollector(
     async (_records, response) => {
@@ -2895,8 +3023,8 @@ await test("OTel admission waits through byte pressure and reconstructs every ca
         "healthy-collector burst lost body chunks",
       );
       assert(
-        snapshot.queues[1].highWaterOutstanding <= 64,
-        "capture pacing exceeded one batch",
+        snapshot.queues[1].highWaterOutstanding <= snapshot.queues[1].capacity,
+        "capture pacing exceeded the bounded shared queue",
       );
       const worker = getRequestLoggerSnapshot().bodyCapture!;
       assert(
@@ -2994,10 +3122,10 @@ await test("OTel admission lets a compatible small capture bypass a byte-blocked
       }
       response.writeHead(200, { "content-type": "application/json" }).end("{}");
     },
-    async () => {
+    async (received) => {
       const operations: Array<Promise<unknown>> = [];
       try {
-        const active = Array.from({ length: 64 }, (_, index) =>
+        const captureActive = (index: number) =>
           logBodyCapture({
             timestamp: new Date().toISOString(),
             requestId: `mixed-active-${index}`,
@@ -3005,7 +3133,22 @@ await test("OTel admission lets a compatible small capture bypass a byte-blocked
             model: "fixture",
             stream: false,
             body: { message: `${index}:${"x".repeat(240_000)}` },
-          }),
+          });
+        // Hold the first capture's complete batch before filling the pool.
+        // Shared OTLP batching can otherwise acknowledge several captures at
+        // once, freeing enough bytes for both waiters and skipping waiting=1.
+        operations.push(captureActive(0));
+        await eventually(() => blockedCollectorResponses.length === 1);
+        assert(
+          received.length > 0 &&
+            received.every(
+              (record) =>
+                otelAttribute(record, "request.id") === "mixed-active-0",
+            ),
+          "first held batch did not isolate exactly one active capture",
+        );
+        const active = Array.from({ length: 63 }, (_, index) =>
+          captureActive(index + 1),
         );
         operations.push(...active);
         await eventually(
@@ -3039,6 +3182,10 @@ await test("OTel admission lets a compatible small capture bypass a byte-blocked
           () =>
             blockedCollectorResponses.length > 0 &&
             getRequestLoggerSnapshot().bodyCapture?.waiting === 1,
+        );
+        assert(
+          getRequestLoggerSnapshot().bodyCapture!.waitingBytes > 5_000_000,
+          "the large waiter was admitted instead of the compatible small capture",
         );
         openCollector();
         await Promise.all(operations);
@@ -3344,7 +3491,7 @@ await test("deadline results preserve chunks acknowledged while other exports re
   );
 });
 
-await test("publication error cleanup releases the serial chain at the active deadline", async () => {
+await test("publication error cleanup retains ownership without blocking another capture", async () => {
   let release = () => {};
   const gate = new Promise<void>((resolve) => {
     release = resolve;
@@ -4491,6 +4638,18 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
       } else if (query.sql.includes("proxy_record_kind='lifecycle'")) {
         hits = [
           {
+            _timestamp: 1_500_000,
+            proxy_event_id: "acceptance-event",
+            body: JSON.stringify({
+              processInstanceId: "process-1",
+              sequence: 0,
+              requestId: "fixture",
+              timestamp: "1970-01-01T00:00:01.500Z",
+              event: "request_accepted",
+              requestTimeoutMs: 1000,
+            }),
+          },
+          {
             _timestamp: 2_000_000,
             proxy_event_id: "lifecycle-event",
             body: JSON.stringify({
@@ -4573,6 +4732,10 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
     },
     startTime: 1_000_000,
     endTime: 3_000_000,
+    // Keep the default and recorded deadlines observable inside this tiny
+    // epoch-based fixture window, which clamps the lookback to three seconds.
+    requestTimeoutMs: 1000,
+    ingestionGraceMs: 1000,
     proxyUrl: "http://127.0.0.1:1",
     fetchImpl,
   };
@@ -4727,6 +4890,12 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
     "1970-01-01T00:00:01Z",
     "--until",
     "1970-01-01T00:00:03Z",
+    "--admission-lookback-minutes",
+    "0.05",
+    "--request-timeout-ms",
+    "1000",
+    "--ingestion-grace-ms",
+    "1000",
   ];
   try {
     mode = "healthy";
@@ -4736,6 +4905,25 @@ await test("the OTel doctor normalizes exact backend retries and rejects produce
       JSON.parse(good.stdout).status,
       "pass",
       "shipped doctor did not return structured JSON",
+    );
+    const narrowArgs = [...args];
+    narrowArgs[narrowArgs.indexOf("--admission-lookback-minutes") + 1] = "0.02";
+    const narrow = await runCLI(narrowArgs, { env });
+    assertEqual(
+      narrow.exitCode,
+      1,
+      "shipped doctor ignored an unusable lookback",
+    );
+    const narrowReport = JSON.parse(narrow.stdout);
+    assertEqual(narrowReport.status, "incomplete");
+    assertEqual(narrowReport.completeQuery, false);
+    assertEqual(narrowReport.checks[0].name, "verification");
+    assertEqual(narrowReport.checks[0].status, "unverified");
+    assert(
+      narrowReport.checks[0].evidence.reason.includes(
+        "admission lookback must exceed the request timeout plus ingestion grace",
+      ),
+      "shipped doctor did not forward the admission lookback option",
     );
     mode = "missing";
     const bad = await runCLI(args, { env });

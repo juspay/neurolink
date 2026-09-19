@@ -8,7 +8,7 @@
 
 > **CliRedisClient** = `object`
 
-Defined in: [types/cli.ts:1419](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1419)
+Defined in: [types/cli.ts:1422](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1422)
 
 Redis client type (awaited return of createRedisClient).
 
@@ -22,7 +22,7 @@ Redis client type (awaited return of createRedisClient).
 
 > **get**: (`key`) => `Promise`\<`string` \| `null`\>
 
-Defined in: [types/cli.ts:1420](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1420)
+Defined in: [types/cli.ts:1423](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1423)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:1420](https://github.com/juspay/neurolink/blob/release
 
 > **set**: (`key`, `value`, `options?`) => `Promise`\<`unknown`\>
 
-Defined in: [types/cli.ts:1421](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1421)
+Defined in: [types/cli.ts:1424](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1424)
 
 #### Parameters
 
@@ -66,7 +66,7 @@ Defined in: [types/cli.ts:1421](https://github.com/juspay/neurolink/blob/release
 
 > **del**: (`key`) => `Promise`\<`number`\>
 
-Defined in: [types/cli.ts:1422](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1422)
+Defined in: [types/cli.ts:1425](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1425)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [types/cli.ts:1422](https://github.com/juspay/neurolink/blob/release
 
 > **keys**: (`pattern`) => `Promise`\<`string`[]\>
 
-Defined in: [types/cli.ts:1423](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1423)
+Defined in: [types/cli.ts:1426](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1426)
 
 #### Parameters
 
@@ -102,7 +102,7 @@ Defined in: [types/cli.ts:1423](https://github.com/juspay/neurolink/blob/release
 
 > **quit**: () => `Promise`\<`void`\>
 
-Defined in: [types/cli.ts:1424](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1424)
+Defined in: [types/cli.ts:1427](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1427)
 
 #### Returns
 

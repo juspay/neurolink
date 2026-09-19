@@ -8,7 +8,7 @@
 
 > **ProxyBodyCaptureAdmission** = `object`
 
-Defined in: [types/proxy.ts:776](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L776)
+Defined in: [types/proxy.ts:812](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L812)
 
 Exact bounded-admission state; records no request content.
 
@@ -18,7 +18,7 @@ Exact bounded-admission state; records no request content.
 
 > **limitingResource**: `"entry"` \| `"captures"` \| `"bytes"` \| `"worker"`
 
-Defined in: [types/proxy.ts:777](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L777)
+Defined in: [types/proxy.ts:813](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L813)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:777](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **estimatedBytes?**: `number`
 
-Defined in: [types/proxy.ts:778](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L778)
+Defined in: [types/proxy.ts:814](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L814)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:778](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **maxEntryBytes?**: `number`
 
-Defined in: [types/proxy.ts:780](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L780)
+Defined in: [types/proxy.ts:816](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L816)
 
 Per-entry clone ceiling, independent of the aggregate queue ceiling.
 
@@ -44,7 +44,7 @@ Per-entry clone ceiling, independent of the aggregate queue ceiling.
 
 > **pending**: `number`
 
-Defined in: [types/proxy.ts:781](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L781)
+Defined in: [types/proxy.ts:817](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L817)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/proxy.ts:781](https://github.com/juspay/neurolink/blob/releas
 
 > **pendingBytes**: `number`
 
-Defined in: [types/proxy.ts:782](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L782)
+Defined in: [types/proxy.ts:818](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L818)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/proxy.ts:782](https://github.com/juspay/neurolink/blob/releas
 
 > **maxPending**: `number`
 
-Defined in: [types/proxy.ts:783](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L783)
+Defined in: [types/proxy.ts:819](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L819)
 
 ---
 
@@ -68,4 +68,4 @@ Defined in: [types/proxy.ts:783](https://github.com/juspay/neurolink/blob/releas
 
 > **maxPendingBytes**: `number`
 
-Defined in: [types/proxy.ts:784](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L784)
+Defined in: [types/proxy.ts:820](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L820)

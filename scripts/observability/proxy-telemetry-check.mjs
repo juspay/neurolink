@@ -69,7 +69,6 @@ function normalizeMetadataRows(kind, rows) {
         ? row.proxy_event_id
         : undefined;
     const physicalIdentity = JSON.stringify([
-      row._timestamp,
       row.service_instance_id,
       row.request_id,
       row.body,
@@ -195,7 +194,10 @@ function normalizeBodyChunkRows(rows) {
   for (const item of parsed) {
     const index = Number(item.row.body_chunk_index);
     if (!Number.isSafeInteger(index) || index < 0) {
-      conflicts.push({ identity: String(index), reason: "invalid_chunk_index" });
+      conflicts.push({
+        identity: String(index),
+        reason: "invalid_chunk_index",
+      });
       continue;
     }
     const prior = byChunkIndex.get(index);
@@ -230,6 +232,221 @@ function normalizeBodyChunkRows(rows) {
   };
 }
 
+/**
+ * Reconcile admissions against endings in an explicit bounded history window.
+ * A missing ending is a telemetry/lifecycle gap, not proof of an upstream failure.
+ * @param {import("../../src/lib/types/index.js").ProxyTelemetryStoredRecord[]} lifecycle
+ * @param {{asOfMicroseconds: number, requestTimeoutMs: number, ingestionGraceMs: number, effectiveLookbackMs?: number}} options
+ */
+export function reconcileProxyAdmissions(
+  lifecycle,
+  {
+    asOfMicroseconds,
+    requestTimeoutMs,
+    ingestionGraceMs,
+    effectiveLookbackMs = Infinity,
+  },
+) {
+  const terminals = new Set(
+    lifecycle
+      .filter(
+        (row) =>
+          row.event === "request_terminal" &&
+          !(Date.parse(row.timestamp ?? row.at ?? "") > asOfMicroseconds / 1000),
+      )
+      .map((row) => row.requestId),
+  );
+  const admissions = lifecycle.filter(
+    (row) =>
+      row.event === "request_accepted" &&
+      !(Date.parse(row.timestamp ?? row.at ?? "") > asOfMicroseconds / 1000),
+  );
+  const overdue = [];
+  const pending = [];
+  const invalid = [];
+  const insufficientWindow = [];
+  for (const row of admissions) {
+    const timeout = row.requestTimeoutMs ?? requestTimeoutMs;
+    if (
+      Number.isFinite(timeout) &&
+      timeout > 0 &&
+      effectiveLookbackMs <= timeout + ingestionGraceMs
+    ) {
+      insufficientWindow.push({
+        requestId: row.requestId,
+        requestTimeoutMs: timeout,
+        ingestionGraceMs,
+        effectiveLookbackMs,
+      });
+    }
+    if (terminals.has(row.requestId)) {continue;}
+    const acceptedAt = Date.parse(row.timestamp ?? row.at ?? "");
+    if (
+      !row.requestId ||
+      !Number.isFinite(acceptedAt) ||
+      !Number.isFinite(timeout) ||
+      timeout <= 0
+    ) {
+      invalid.push(row.requestId);
+      continue;
+    }
+    const ageMs = asOfMicroseconds / 1000 - acceptedAt;
+    const evidence = {
+      requestId: row.requestId,
+      acceptedAt: new Date(acceptedAt).toISOString(),
+      ageMs,
+      requestTimeoutMs: timeout,
+    };
+    if (ageMs > timeout + ingestionGraceMs) {overdue.push(evidence);}
+    else {pending.push(evidence);}
+  }
+  return {
+    admissions: admissions.length,
+    clientAdmissions: admissions.filter(
+      (row) => row.accountingScope !== "internal",
+    ).length,
+    internalAdmissions: admissions.filter(
+      (row) => row.accountingScope === "internal",
+    ).length,
+    ended: admissions.length - overdue.length - pending.length - invalid.length,
+    overdue,
+    pending,
+    invalid,
+    insufficientWindow,
+  };
+}
+
+/** Verify both ends of bridge accounting inside the selected final-record window.
+ * A missing linked final may be outside the window or not yet ingested; it is
+ * inconclusive, never proof that the designated usage owner was recorded.
+ * @param {import("../../src/lib/types/index.js").ProxyTelemetryStoredRecord[]} finals
+ */
+export function reconcileProxyUsageOwnership(finals) {
+  const byId = new Map(finals.map((row) => [row.requestId, row]));
+  const duplicateOwnerUsage = finals.filter(
+    (row) =>
+      row.usageOwnerRequestId &&
+      row.usageOwnerRequestId !== row.requestId &&
+      [
+        row.inputTokens,
+        row.outputTokens,
+        row.cacheReadTokens,
+        row.cacheCreationTokens,
+        row.reasoningTokens,
+      ].some((value) => value !== undefined),
+  );
+  const missingOwners = [];
+  const missingParents = [];
+  const mismatches = [];
+  for (const row of finals) {
+    if (row.usageOwnerRequestId && row.usageOwnerRequestId !== row.requestId) {
+      const owner = byId.get(row.usageOwnerRequestId);
+      if (!owner) {
+        missingOwners.push({
+          requestId: row.requestId,
+          usageOwnerRequestId: row.usageOwnerRequestId,
+        });
+      } else if (
+        owner.accountingScope !== "internal" ||
+        owner.parentRequestId !== row.requestId ||
+        (owner.usageOwnerRequestId &&
+          owner.usageOwnerRequestId !== owner.requestId)
+      ) {
+        mismatches.push({
+          requestId: row.requestId,
+          linkedRequestId: owner.requestId,
+          reason: "invalid_usage_owner_link",
+        });
+      }
+    }
+    if (row.accountingScope === "internal") {
+      if (!row.parentRequestId) {
+        mismatches.push({
+          requestId: row.requestId,
+          reason: "internal_request_has_no_parent",
+        });
+        continue;
+      }
+      const parent = byId.get(row.parentRequestId);
+      if (!parent) {
+        missingParents.push({
+          requestId: row.requestId,
+          parentRequestId: row.parentRequestId,
+        });
+      } else if (parent.usageOwnerRequestId !== row.requestId) {
+        mismatches.push({
+          requestId: row.requestId,
+          linkedRequestId: parent.requestId,
+          reason: "parent_does_not_designate_child",
+        });
+      }
+    }
+  }
+  /** @type {import("../../src/lib/types/index.js").ProxyTelemetryCheck["status"]} */
+  const status =
+    duplicateOwnerUsage.length || mismatches.length
+      ? "fail"
+      : missingOwners.length || missingParents.length || !finals.length
+        ? "unverified"
+        : "pass";
+  return {
+    status,
+    clientFinals: finals.filter((row) => row.accountingScope !== "internal")
+      .length,
+    internalFinals: finals.filter((row) => row.accountingScope === "internal")
+      .length,
+    duplicateOwnerUsage: duplicateOwnerUsage.length,
+    requestIds: duplicateOwnerUsage.slice(0, 50).map((row) => row.requestId),
+    missingOwnerCount: missingOwners.length,
+    missingParentCount: missingParents.length,
+    mismatchCount: mismatches.length,
+    missingOwners: missingOwners.slice(0, 50),
+    missingParents: missingParents.slice(0, 50),
+    mismatches: mismatches.slice(0, 50),
+    boundary:
+      "Both linked finals must be present and reciprocal in this bounded selected window. Missing owners/parents may be outside it or not ingested; widen the interval or rerun before claiming complete usage accounting.",
+  };
+}
+
+/** All shipped generation routes require a client-response capture outcome.
+ * @param {import("../../src/lib/types/index.js").ProxyTelemetryStoredRecord[]} finals
+ * @param {import("../../src/lib/types/index.js").ProxyTelemetryStoredRecord[]} indexes
+ */
+export function reconcileProxyCaptureCoverage(finals, indexes) {
+  const responseCaptures = new Set(
+    indexes
+      .filter((row) => row.phase === "client_response")
+      .map((row) => row.requestId),
+  );
+  const eligible = finals.filter(
+    (row) =>
+      row.path &&
+      ([
+        "/v1/messages",
+        "/backend-api/codex/responses",
+        "/v1/responses",
+        "/v1/chat/completions",
+      ].includes(row.path) ||
+        /^\/v1beta\/models\/[^/]+:(?:generateContent|streamGenerateContent)$/.test(
+          row.path,
+        )),
+  );
+  const missing = eligible
+    .filter((row) => !responseCaptures.has(row.requestId))
+    .map((row) => ({
+      requestId: row.requestId,
+      path: row.path,
+      missingPhase: "client_response",
+    }));
+  /** @type {import("../../src/lib/types/index.js").ProxyTelemetryCheck["status"]} */
+  const status = !eligible.length
+    ? "unverified"
+    : missing.length
+      ? "fail"
+      : "pass";
+  return { status, eligibleFinals: eligible.length, missing };
+}
+
 /** Empty traffic, unavailable evidence, and partial queries cannot become a green check.
  * @param {import("../../src/lib/types/index.js").ProxyTelemetryDoctorOptions} options
  */
@@ -239,6 +456,9 @@ export async function checkProxyTelemetry({
   endTime,
   proxyUrl = "http://127.0.0.1:55669",
   maxRows = 10000,
+  admissionLookbackMs = 24 * 60 * 60 * 1000,
+  requestTimeoutMs = 15 * 60 * 1000,
+  ingestionGraceMs = 120000,
   fetchImpl = fetch,
 }) {
   validateProxyTelemetryBackend(backend);
@@ -249,12 +469,25 @@ export async function checkProxyTelemetry({
     startTime >= endTime ||
     !Number.isSafeInteger(maxRows) ||
     maxRows < 1 ||
-    maxRows > 100000
+    maxRows > 100000 ||
+    !Number.isSafeInteger(admissionLookbackMs) ||
+    admissionLookbackMs < 1 ||
+    admissionLookbackMs > 7 * 24 * 60 * 60 * 1000 ||
+    !Number.isSafeInteger(requestTimeoutMs) ||
+    requestTimeoutMs < 1 ||
+    !Number.isSafeInteger(ingestionGraceMs) ||
+    ingestionGraceMs < 0
   ) {
     throw new Error(
       "Provide an increasing microsecond time range and maxRows between 1 and 100000",
     );
   }
+  if (admissionLookbackMs <= requestTimeoutMs + ingestionGraceMs) {
+    throw new Error(
+      "The admission lookback must exceed the request timeout plus ingestion grace",
+    );
+  }
+  const checkedAtMicroseconds = Date.now() * 1000;
   const budget = { used: 0, limit: 512 };
   /** @type {import("../../src/lib/types/index.js").ProxyTelemetryCheck[]} */
   const checks = [];
@@ -312,15 +545,37 @@ export async function checkProxyTelemetry({
   const supervisorProcess = supervisor?.process;
   const workerProcess = runtime.observability?.process;
   /** @param {import("../../src/lib/types/index.js").ProxyProcessTelemetrySnapshot | undefined} process */
-  const otelProcess = (process) => process?.configuredSink === "otel" &&
-    process.lifecycleSink === "otel" && process.otelInitialized &&
-    process.stdio?.stdout === "non_file" && process.stdio?.stderr === "non_file";
-  add("worker_process_logging", !workerProcess ? "unverified" : otelProcess(workerProcess) ? "pass" : "fail", workerProcess ?? { reason: "process_telemetry_missing" });
-  add("supervisor_logging",
-    supervisor?.status === "not_applicable" && !runtime.autoUpdate?.supervisorPid ? "pass" :
-    supervisor?.status !== "available" ? "unverified" :
-    supervisorProcess?.pid === runtime.autoUpdate?.supervisorPid && otelProcess(supervisorProcess) ? "pass" : "fail",
-    supervisor ?? { status: "unavailable", reason: "supervisor_telemetry_missing" });
+  const otelProcess = (process) =>
+    process?.configuredSink === "otel" &&
+    process.lifecycleSink === "otel" &&
+    process.otelInitialized &&
+    process.stdio?.stdout === "non_file" &&
+    process.stdio?.stderr === "non_file";
+  add(
+    "worker_process_logging",
+    !workerProcess
+      ? "unverified"
+      : otelProcess(workerProcess)
+        ? "pass"
+        : "fail",
+    workerProcess ?? { reason: "process_telemetry_missing" },
+  );
+  add(
+    "supervisor_logging",
+    supervisor?.status === "not_applicable" &&
+      !runtime.autoUpdate?.supervisorPid
+      ? "pass"
+      : supervisor?.status !== "available"
+        ? "unverified"
+        : supervisorProcess?.pid === runtime.autoUpdate?.supervisorPid &&
+            otelProcess(supervisorProcess)
+          ? "pass"
+          : "fail",
+    supervisor ?? {
+      status: "unavailable",
+      reason: "supervisor_telemetry_missing",
+    },
+  );
   /** @type {Array<{kind: string, dropped: number, exportUnconfirmed: number, outstanding: number, capacity: number, recentFailures?: unknown, failureHistoryEvicted?: number}>} */
   const failures = (logs?.otel?.queues ?? []).map(
     (
@@ -392,6 +647,8 @@ export async function checkProxyTelemetry({
     queries.push(...result.queries.map((q) => ({ ...q, kind })));
     const normalized = normalizeMetadataRows(kind, result.records);
     history[kind] = normalized.records;
+    normalized.diagnostics.rawRecords = result.rawRecordCount;
+    normalized.diagnostics.exactRetryDuplicates += result.exactRetryDuplicates;
     historyDiagnostics[kind] = normalized.diagnostics;
   }
   const identityConflicts = Object.values(historyDiagnostics).reduce(
@@ -405,11 +662,7 @@ export async function checkProxyTelemetry({
   );
   add(
     "backend_row_identity",
-    identityConflicts
-      ? "fail"
-      : missingEventIds
-        ? "unverified"
-        : "pass",
+    identityConflicts ? "fail" : missingEventIds ? "unverified" : "pass",
     {
       scope: "selected metadata and bounded capture-settling windows",
       exactRetryDuplicates: Object.values(historyDiagnostics).reduce(
@@ -424,15 +677,10 @@ export async function checkProxyTelemetry({
   /** @param {{at?: unknown}} row */
   const failedInsideInterval = (row) => {
     const at = Date.parse(typeof row.at === "string" ? row.at : "");
-    return (
-      Number.isFinite(at) &&
-      at * 1000 >= startTime &&
-      at * 1000 < endTime
-    );
+    return Number.isFinite(at) && at * 1000 >= startTime && at * 1000 < endTime;
   };
-  const storedDeliveryFailures = history.telemetry_delivery.filter(
-    failedInsideInterval,
-  );
+  const storedDeliveryFailures =
+    history.telemetry_delivery.filter(failedInsideInterval);
   const runtimeDeliveryFailures = failures.flatMap((queue) =>
     Array.isArray(queue.recentFailures)
       ? queue.recentFailures.filter(
@@ -447,9 +695,7 @@ export async function checkProxyTelemetry({
     ...new Map(
       [...storedDeliveryFailures, ...runtimeDeliveryFailures].map(
         (failure, index) => [
-          typeof failure.id === "string"
-            ? failure.id
-            : `unidentified-${index}`,
+          typeof failure.id === "string" ? failure.id : `unidentified-${index}`,
           failure,
         ],
       ),
@@ -521,11 +767,9 @@ export async function checkProxyTelemetry({
   const unhealthyCaptures = captureIndexes.filter(
     (row) =>
       row.captureError !== undefined ||
-      ![
-        "transport_acknowledged",
-        "no_body",
-        "policy_excluded",
-      ].includes(row.bodyDelivery?.status ?? ""),
+      !["transport_acknowledged", "no_body", "policy_excluded"].includes(
+        row.bodyDelivery?.status ?? "",
+      ),
   );
   add(
     "capture_admission",
@@ -538,9 +782,7 @@ export async function checkProxyTelemetry({
       scope: "selected_interval",
       captures: captureIndexes.length,
       unhealthy: unhealthyCaptures.length,
-      requestIds: unhealthyCaptures
-        .slice(0, 50)
-        .map((row) => row.requestId),
+      requestIds: unhealthyCaptures.slice(0, 50).map((row) => row.requestId),
       workerLifetime: {
         scope: "worker_lifetime",
         counters: logs?.bodyCapture ?? { status: "unavailable" },
@@ -561,12 +803,18 @@ export async function checkProxyTelemetry({
         : "fail",
     {
       records: finals.length,
+      clientFinals: finals.filter((row) => row.accountingScope !== "internal")
+        .length,
+      internalFinals: finals.filter((row) => row.accountingScope === "internal")
+        .length,
       rawRecords: finalDiagnostics.rawRecords,
       exactRetryDuplicates: finalDiagnostics.exactRetryDuplicates,
       uniqueRequestIds: unique.size,
       producerOrConflictingDuplicates: finalDiagnostics.conflicts.length,
     },
   );
+  const ownership = reconcileProxyUsageOwnership(finals);
+  add("bridge_usage_ownership", ownership.status, ownership);
   const terminalEvents = history.lifecycle.filter(
     (row) => row.event === "request_terminal",
   );
@@ -591,6 +839,80 @@ export async function checkProxyTelemetry({
       requestIds: missingFinals.slice(0, 50).map((row) => row.requestId),
       boundary:
         "Terminals inside the selected interval; admissions still in flight are not failures",
+    },
+  );
+  add(
+    "ingestion_boundary",
+    checkedAtMicroseconds - endTime >= ingestionGraceMs * 1000
+      ? "pass"
+      : "unverified",
+    {
+      endTimeExclusive: endTime,
+      queriedAtMicroseconds: checkedAtMicroseconds,
+      ingestionGraceMs,
+      boundary:
+        "A bounded event-time query cannot prove that no late records will arrive; rerun after the ingestion grace period",
+    },
+  );
+  const admissionStart = Math.max(0, endTime - admissionLookbackMs * 1000);
+  const effectiveLookbackMs = (endTime - admissionStart) / 1000;
+  const admissionHistory = await queryProxyHistory({
+    ...backend,
+    startTime: admissionStart,
+    endTime: Math.min(checkedAtMicroseconds, endTime + ingestionGraceMs * 1000),
+    kind: "lifecycle",
+    lifecycleEvents: ["request_accepted", "request_terminal"],
+    maxRows,
+    fetchImpl,
+    budget,
+  });
+  queries.push(
+    ...admissionHistory.queries.map((query) => ({
+      ...query,
+      kind: "admission_reconciliation",
+    })),
+  );
+  const normalizedAdmissions = normalizeMetadataRows(
+    "lifecycle",
+    admissionHistory.records,
+  );
+  const admissionResult = reconcileProxyAdmissions(
+    normalizedAdmissions.records,
+    {
+      asOfMicroseconds: endTime,
+      requestTimeoutMs,
+      ingestionGraceMs,
+      effectiveLookbackMs,
+    },
+  );
+  const windowSufficient =
+    effectiveLookbackMs > requestTimeoutMs + ingestionGraceMs &&
+    !admissionResult.insufficientWindow.length;
+  add(
+    "admission_reconciliation",
+    admissionResult.overdue.length ||
+      admissionResult.invalid.length ||
+      normalizedAdmissions.diagnostics.conflicts.length
+      ? "fail"
+      : admissionResult.admissions && windowSufficient
+        ? "pass"
+        : "unverified",
+    {
+      ...admissionResult,
+      overdue: admissionResult.overdue.slice(0, 50),
+      pending: admissionResult.pending.slice(0, 50),
+      overdueCount: admissionResult.overdue.length,
+      pendingCount: admissionResult.pending.length,
+      insufficientWindow: admissionResult.insufficientWindow.slice(0, 50),
+      insufficientWindowCount: admissionResult.insufficientWindow.length,
+      windowSufficient,
+      effectiveLookbackMs,
+      requestTimeoutMs,
+      ingestionGraceMs,
+      startTime: admissionStart,
+      endTimeExclusive: admissionHistory.endTimeExclusive,
+      boundary:
+        "Missing endings after the request deadline plus ingestion grace are lifecycle/telemetry gaps, not inferred provider failures. Admissions before this explicit lookback are unverified. A lookback that cannot exceed the default or an observed request deadline plus grace is insufficient for a pass.",
     },
   );
   /** @type {Record<string, import("../../src/lib/types/index.js").ProxyTelemetryFieldCoverage>} */
@@ -669,25 +991,18 @@ export async function checkProxyTelemetry({
         : "fail",
     coverage,
   );
-  const indexes = history.body_capture_index.filter((row) =>
-    (row.recordedAtMicroseconds ?? -1) >= startTime &&
-    (row.recordedAtMicroseconds ?? Infinity) < endTime);
-  /** @type {Map<string | undefined, Set<string | undefined>>} */
-  const phasesByRequest = new Map();
-  for (const index of history.body_capture_index) {
-    let phases = phasesByRequest.get(index.requestId);
-    if (!phases) { phases = new Set(); phasesByRequest.set(index.requestId, phases); }
-    phases.add(index.phase);
-  }
-  const captureFinals = finals.filter((row) => row.path && ["/v1/messages", "/backend-api/codex/responses", "/v1/responses"].includes(row.path));
-  const missingCapturePhases = captureFinals.flatMap((row) => {
-    // A request may have started outside the selected interval. Its response
-    // capture still has to be present when this final is inside the interval.
-    return phasesByRequest.get(row.requestId)?.has("client_response") ? [] : [{ requestId: row.requestId, missingPhase: "client_response" }];
-  });
-  add("request_capture_coverage", !captureFinals.length ? "unverified" : missingCapturePhases.length ? "fail" : "pass", {
-    finals: finals.length, eligibleFinals: captureFinals.length, missing: missingCapturePhases.length,
-    examples: missingCapturePhases.slice(0, 50), omitted: Math.max(0, missingCapturePhases.length - 50),
+  const indexes = captureIndexes;
+  const captureCoverage = reconcileProxyCaptureCoverage(
+    finals,
+    history.body_capture_index,
+  );
+  const missingCapturePhases = captureCoverage.missing;
+  add("request_capture_coverage", captureCoverage.status, {
+    finals: finals.length,
+    eligibleFinals: captureCoverage.eligibleFinals,
+    missing: missingCapturePhases.length,
+    examples: missingCapturePhases.slice(0, 50),
+    omitted: Math.max(0, missingCapturePhases.length - 50),
   });
   /** @type {Record<string, number>} */
   const byDelivery = Object.create(null);
@@ -721,6 +1036,20 @@ export async function checkProxyTelemetry({
       failuresOmitted: Math.max(0, captureFailures.length - 50),
     },
   );
+  const lossyCaptures = indexes.filter(
+    (row) => row.bodyTruncated || row.redactionLossy,
+  );
+  add(
+    "capture_content_completeness",
+    lossyCaptures.length ? "warn" : indexes.length ? "pass" : "unverified",
+    {
+      captures: indexes.length,
+      truncatedOrUnparseable: lossyCaptures.length,
+      captureIds: lossyCaptures.slice(0, 50).map((row) => row.captureId),
+      boundary:
+        "Transport acknowledgement does not restore source truncation, processing limits, or invalid frames removed by redaction",
+    },
+  );
   const bodyChecks = [];
   for (const index of indexes
     .filter(
@@ -740,7 +1069,7 @@ export async function checkProxyTelemetry({
       throw new Error("Capture verification exceeds the 8 MiB per-body bound");
     }
     const rawChunks = await query(
-      `SELECT _timestamp, proxy_event_id, body_capture_id, body_chunk_index, body_chunk_count, body FROM "${backend.stream}" WHERE proxy_record_kind='body' AND body_capture_id='${index.captureId}' ORDER BY body_chunk_index ASC, proxy_event_id ASC`,
+      `SELECT _timestamp, proxy_event_id, body_capture_id, body_chunk_index, body_chunk_count, body FROM "${backend.bodyStream ?? backend.stream}" WHERE proxy_record_kind='body' AND body_capture_id='${index.captureId}' ORDER BY body_chunk_index ASC, proxy_event_id ASC`,
       "logs",
       {
         startTime: startTime - 120e6,
@@ -775,8 +1104,7 @@ export async function checkProxyTelemetry({
       expectedChunks: expected,
       storedChunks: chunks.length,
       rawStoredChunks: rawChunks.length,
-      exactRetryDuplicates:
-        normalizedChunks.diagnostics.exactRetryDuplicates,
+      exactRetryDuplicates: normalizedChunks.diagnostics.exactRetryDuplicates,
       missingEventIds: normalizedChunks.diagnostics.missingEventIds,
       identityConflicts: normalizedChunks.diagnostics.conflicts,
       verified:
@@ -897,7 +1225,10 @@ export async function checkProxyTelemetry({
           key,
           value,
         })),
-        invalidCounters: invalidCounters.map(([key, value]) => ({ key, value })),
+        invalidCounters: invalidCounters.map(([key, value]) => ({
+          key,
+          value,
+        })),
         counters,
       },
     );
@@ -935,13 +1266,13 @@ export async function runProxyTelemetryDoctor() {
   };
   if (args.includes("--help")) {
     console.log(
-      "Usage: neurolink proxy telemetry doctor [--since ISO_DATE] [--until ISO_DATE] [--format json|text] [--proxy-url URL] [--max-rows 10000]",
+      "Usage: neurolink proxy telemetry doctor [--since ISO_DATE] [--until ISO_DATE] [--format json|text] [--proxy-url URL] [--max-rows 10000] [--admission-lookback-minutes 1440] [--request-timeout-ms 900000] [--ingestion-grace-ms 120000]",
     );
     return;
   }
   const until = value("--until")
     ? Date.parse(value("--until") ?? "")
-    : Date.now() - 30000;
+    : Date.now() - 120000;
   const since = value("--since")
     ? Date.parse(value("--since") ?? "")
     : until - 15 * 60000;
@@ -951,6 +1282,10 @@ export async function runProxyTelemetryDoctor() {
     endTime: until * 1000,
     proxyUrl: value("--proxy-url") ?? process.env.NEUROLINK_PROXY_URL,
     maxRows: Number(value("--max-rows") ?? 10000),
+    admissionLookbackMs:
+      Number(value("--admission-lookback-minutes") ?? 1440) * 60000,
+    requestTimeoutMs: Number(value("--request-timeout-ms") ?? 900000),
+    ingestionGraceMs: Number(value("--ingestion-grace-ms") ?? 120000),
   });
   if (value("--format") === "json") {
     console.log(JSON.stringify(report, null, 2));

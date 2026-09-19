@@ -8,7 +8,7 @@
 
 > **ProxyShareHeartbeatRequest** = `object`
 
-Defined in: [types/proxy.ts:4520](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4520)
+Defined in: [types/proxy.ts:4650](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4650)
 
 What a borrower sends when checking in.
 
@@ -18,7 +18,7 @@ What a borrower sends when checking in.
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4521](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4521)
+Defined in: [types/proxy.ts:4651](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4651)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4521](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **coinsSpent?**: `number`
 
-Defined in: [types/proxy.ts:4523](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4523)
+Defined in: [types/proxy.ts:4653](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4653)
 
 Coins the borrower believes it has spent since the last heartbeat.
 
@@ -36,7 +36,7 @@ Coins the borrower believes it has spent since the last heartbeat.
 
 > `optional` **requests?**: `number`
 
-Defined in: [types/proxy.ts:4524](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4524)
+Defined in: [types/proxy.ts:4654](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4654)
 
 ---
 
@@ -44,6 +44,6 @@ Defined in: [types/proxy.ts:4524](https://github.com/juspay/neurolink/blob/relea
 
 > **reportedAt**: `number`
 
-Defined in: [types/proxy.ts:4526](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4526)
+Defined in: [types/proxy.ts:4656](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4656)
 
 Borrower's clock, for drift diagnostics only.

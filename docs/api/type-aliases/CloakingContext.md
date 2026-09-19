@@ -8,7 +8,7 @@
 
 > **CloakingContext** = `object`
 
-Defined in: [types/proxy.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L377)
+Defined in: [types/proxy.ts:382](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L382)
 
 Context passed through the cloaking pipeline.
 
@@ -18,7 +18,7 @@ Context passed through the cloaking pipeline.
 
 > **request**: [`CloakingRequest`](CloakingRequest.md)
 
-Defined in: [types/proxy.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L378)
+Defined in: [types/proxy.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L383)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:378](https://github.com/juspay/neurolink/blob/releas
 
 > **account**: [`CloakingAccount`](CloakingAccount.md)
 
-Defined in: [types/proxy.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L379)
+Defined in: [types/proxy.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L384)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:379](https://github.com/juspay/neurolink/blob/releas
 
 > **config**: `object`
 
-Defined in: [types/proxy.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L380)
+Defined in: [types/proxy.ts:385](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L385)
 
 #### mode
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:380](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **response?**: `object`
 
-Defined in: [types/proxy.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L384)
+Defined in: [types/proxy.ts:389](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L389)
 
 #### headers
 

@@ -18,6 +18,12 @@ import { join } from "path";
 import { homedir } from "os";
 import { logger } from "../utils/logger.js";
 import {
+  calculateCost,
+  hasPricing,
+  isExactPricingMatch,
+} from "../utils/pricing.js";
+import { proxyTokenUsage } from "./proxyTokenUsage.js";
+import {
   chmodSync,
   existsSync,
   mkdirSync,
@@ -54,7 +60,11 @@ import { OtelBridge } from "../observability/otelBridge.js";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import type { LoggerProvider } from "@opentelemetry/sdk-logs";
 import { configureProxyLifecycleLogger } from "./proxyLifecycle.js";
-import { notifyProxyFinalLog, notifyProxyAttemptLog } from "./proxyActivity.js";
+import {
+  notifyProxyFinalLog,
+  notifyProxyAttemptLog,
+  getProxyRequestAccounting,
+} from "./proxyActivity.js";
 import { withTimeout } from "../utils/async/withTimeout.js";
 import {
   resolveProxyLogTraceContext,
@@ -266,7 +276,76 @@ export function initRequestLogger(
   }
 }
 
+/** Keep price-table estimates distinct from actual subscription billing. */
+function annotateRequestPricing(entry: RequestLogEntry): void {
+  entry.apiEquivalentCostUsd = null;
+  entry.apiEquivalentCacheSavingsUsd = null;
+  entry.pricingBasis = "api_price_table";
+  entry.pricingProvider = entry.provider ?? "openai-compatible";
+  if (
+    entry.usageOwnerRequestId &&
+    entry.usageOwnerRequestId !== entry.requestId
+  ) {
+    entry.pricingStatus = "owned_by_child";
+    return;
+  }
+  const input = entry.inputTokens;
+  const output = entry.outputTokens;
+  const cacheRead = entry.cacheReadTokens ?? 0;
+  const cacheCreation = entry.cacheCreationTokens ?? 0;
+  if (
+    input === undefined ||
+    output === undefined ||
+    !Number.isFinite(input) ||
+    input < 0 ||
+    !Number.isFinite(output) ||
+    output < 0 ||
+    !Number.isFinite(cacheRead) ||
+    cacheRead < 0 ||
+    !Number.isFinite(cacheCreation) ||
+    cacheCreation < 0 ||
+    (entry.inputIncludesCachedTokens === true &&
+      cacheRead + cacheCreation > input)
+  ) {
+    entry.pricingStatus = "usage_incomplete";
+    return;
+  }
+  if (!hasPricing(entry.pricingProvider, entry.model)) {
+    entry.pricingStatus = "unavailable";
+    return;
+  }
+  if (!isExactPricingMatch(entry.pricingProvider, entry.model)) {
+    entry.pricingStatus = "inferred";
+    return;
+  }
+  const usage = proxyTokenUsage({
+    inputTokens: input,
+    outputTokens: output,
+    cacheReadTokens: cacheRead,
+    cacheCreationTokens: cacheCreation,
+    inputIncludesCachedTokens: entry.inputIncludesCachedTokens,
+  });
+  entry.pricingStatus = "exact";
+  entry.apiEquivalentCostUsd = calculateCost(
+    entry.pricingProvider,
+    entry.model,
+    usage,
+  );
+  const uncachedCost = calculateCost(entry.pricingProvider, entry.model, {
+    ...usage,
+    input: usage.input + (usage.cacheReadTokens ?? 0),
+    cacheReadTokens: 0,
+  });
+  entry.apiEquivalentCacheSavingsUsd = Math.max(
+    0,
+    Math.round((uncachedCost - entry.apiEquivalentCostUsd) * 1_000_000) /
+      1_000_000,
+  );
+}
+
 export async function logRequest(entry: RequestLogEntry): Promise<void> {
+  Object.assign(entry, getProxyRequestAccounting(entry.requestId));
+  annotateRequestPricing(entry);
   if (!entry.traceId || entry.traceFlags === undefined) {
     const traceCtx = resolveProxyLogTraceContext(entry);
     if (traceCtx) {
@@ -281,7 +360,9 @@ export async function logRequest(entry: RequestLogEntry): Promise<void> {
         : entry.responseStatus >= 400 || entry.errorType
           ? "handler_error"
           : "completed";
-  notifyProxyFinalLog(entry);
+  if (!notifyProxyFinalLog(entry)) {
+    return;
+  }
   if (!logEnabled || (!logDir && !isProxyOtelOnly())) {
     return;
   }
@@ -323,6 +404,7 @@ export async function logRequestAttempt(
     }
   }
 
+  Object.assign(entry, getProxyRequestAccounting(entry.requestId));
   notifyProxyAttemptLog(entry);
   if (!logEnabled || (!logDir && !isProxyOtelOnly())) {
     return;
@@ -398,8 +480,14 @@ function emitOtlpLogRecord(entry: RequestLogEntry): Promise<void> {
 
       const otelLogger = provider.getLogger("neurolink-proxy", "1.0.0");
 
-      // Determine severity based on response status
-      const isError = (entry.responseStatus ?? 0) >= 400;
+      // A streaming response can fail after sending HTTP 200. Indexed fields
+      // and severity must agree with the final semantic outcome in the body.
+      const isError =
+        (entry.responseStatus ?? 0) >= 400 ||
+        Boolean(entry.errorType) ||
+        entry.terminalOutcome === "stream_error" ||
+        entry.terminalOutcome === "handler_error" ||
+        entry.terminalOutcome === "client_cancelled";
       const isRateLimit = entry.responseStatus === 429;
       const severityNumber = isError
         ? isRateLimit
@@ -417,6 +505,19 @@ function emitOtlpLogRecord(entry: RequestLogEntry): Promise<void> {
           : `${entry.method} ${entry.path} → ${entry.responseStatus} (${entry.responseTimeMs}ms)`,
         attributes: {
           "proxy.record_kind": "request_final",
+          "proxy.accounting_scope": entry.accountingScope ?? "client",
+          ...(entry.parentRequestId
+            ? { "proxy.parent_request_id": entry.parentRequestId }
+            : {}),
+          ...(entry.usageOwnerRequestId
+            ? { "proxy.usage_owner_request_id": entry.usageOwnerRequestId }
+            : {}),
+          ...(entry.inputIncludesCachedTokens !== undefined
+            ? {
+                "ai.input_includes_cached_tokens":
+                  entry.inputIncludesCachedTokens,
+              }
+            : {}),
           // Core request fields
           "request.id": entry.requestId,
           "http.method": entry.method,
@@ -428,6 +529,19 @@ function emitOtlpLogRecord(entry: RequestLogEntry): Promise<void> {
           "ai.model": entry.model,
           "ai.stream": entry.stream,
           "ai.tool_count": entry.toolCount,
+          "ai.pricing.status": entry.pricingStatus,
+          "ai.pricing.basis": entry.pricingBasis,
+          "ai.pricing.provider": entry.pricingProvider,
+          ...(entry.apiEquivalentCostUsd !== null &&
+          entry.apiEquivalentCostUsd !== undefined
+            ? { "ai.cost.api_equivalent_usd": entry.apiEquivalentCostUsd }
+            : {}),
+          ...(entry.apiEquivalentCacheSavingsUsd !== null &&
+          entry.apiEquivalentCacheSavingsUsd !== undefined
+            ? {
+                "ai.cost.cache_savings_usd": entry.apiEquivalentCacheSavingsUsd,
+              }
+            : {}),
 
           // Account info
           "account.name": entry.account,
@@ -472,7 +586,10 @@ function emitOtlpLogRecord(entry: RequestLogEntry): Promise<void> {
           ...(entry.spanId && { "span.id": entry.spanId }),
 
           // Derived fields for dashboards (matches backfill script)
-          is_success: entry.responseStatus === 200,
+          is_success:
+            !isError &&
+            entry.responseStatus >= 200 &&
+            entry.responseStatus < 400,
           is_rate_limited: entry.responseStatus === 429,
           is_overloaded: entry.responseStatus === 529,
           is_error: isError,
@@ -724,11 +841,19 @@ export async function logBodyCapture(
       bodyTruncated: stored.bodyTruncated,
       bodyCaptureLimitBytes: stored.bodyCaptureLimitBytes,
       originalRedactedBodyBytes: stored.originalRedactedBodyBytes,
+      inputRetainedBytes: stored.inputRetainedBytes,
+      inputEncoding: stored.inputEncoding,
+      sourceTruncated: stored.sourceTruncated,
+      processingTruncated: stored.processingTruncated,
+      redactionLossy: stored.redactionLossy,
+      unparseableRedactedFrames: stored.unparseableRedactedFrames,
       bodyWriteFailed: stored.bodyWriteFailed,
       captureError: processed.error,
       captureAdmission: processed.admission,
       captureQueueWaitMs: processed.queueWaitMs,
       captureProcessingMs: processed.processingMs,
+      captureAdmissionWaitMs: processed.admissionWaitMs,
+      captureWorkerQueueWaitMs: processed.workerQueueWaitMs,
       metadata: processed.error ? undefined : metadata.metadata,
     };
 

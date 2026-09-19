@@ -8,7 +8,7 @@
 
 > **SetupMistralArgs** = `object`
 
-Defined in: [types/cli.ts:1728](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1728)
+Defined in: [types/cli.ts:1731](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1731)
 
 Arguments for `neurolink setup mistral`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink setup mistral`.
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:1729](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1729)
+Defined in: [types/cli.ts:1732](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1732)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1729](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **non-interactive?**: `boolean`
 
-Defined in: [types/cli.ts:1730](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1730)
+Defined in: [types/cli.ts:1733](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1733)

@@ -452,6 +452,8 @@ function summarizeFinalRequests(
   attemptsByRequest: Map<string, ProxyAnalysisAttemptRecord>,
   accounts: Map<string, ProxyAnalysisAccount>,
 ) {
+  let clientFinals = 0;
+  let internalFinals = 0;
   let success = 0;
   let errors = 0;
   let finalRateLimits = 0;
@@ -474,48 +476,61 @@ function summarizeFinalRequests(
   const errorCodes: Record<string, number> = {};
 
   for (const [requestId, request] of finalRequests) {
-    const failed =
-      request.status >= 400 ||
-      !!request.errorType ||
-      terminalStreamErrors.has(requestId);
-    if (failed) {
-      errors += 1;
+    if (request.accountingScope === "internal") {
+      internalFinals++;
     } else {
-      success += 1;
-    }
-    finalRateLimits += request.status === 429 ? 1 : 0;
-    const accountStats = accountEntry(
-      accounts,
-      request.account,
-      request.accountType,
-    );
-    accountStats.finalRequests += 1;
-    accountStats.finalErrors += failed ? 1 : 0;
-    if (failed) {
-      increment(
-        errorTypes,
-        terminalStreamErrors.has(requestId)
-          ? "stream_error"
-          : (request.errorType ?? `http_${request.status}`),
+      clientFinals++;
+      const failed =
+        request.status >= 400 ||
+        !!request.errorType ||
+        terminalStreamErrors.has(requestId);
+      if (failed) {
+        errors += 1;
+      } else {
+        success += 1;
+      }
+      finalRateLimits += request.status === 429 ? 1 : 0;
+      const accountStats = accountEntry(
+        accounts,
+        request.account,
+        request.accountType,
       );
-      if (request.errorCode) {
-        increment(errorCodes, request.errorCode);
+      accountStats.finalRequests += 1;
+      accountStats.finalErrors += failed ? 1 : 0;
+      if (failed) {
+        increment(
+          errorTypes,
+          terminalStreamErrors.has(requestId)
+            ? "stream_error"
+            : (request.errorType ?? `http_${request.status}`),
+        );
+        if (request.errorCode) {
+          increment(errorCodes, request.errorCode);
+        }
+      }
+      if (request.durationMs !== null && request.durationMs >= 0) {
+        finalRequestLatency.push(request.durationMs);
+      }
+      const requestAttempts = attemptsByRequest.get(requestId);
+      recoveredAfterRetry += !failed && requestAttempts?.hadError ? 1 : 0;
+      if (
+        requestAttempts?.count === 1 &&
+        requestAttempts.durationCount === 1 &&
+        request.durationMs !== null &&
+        Number.isFinite(requestAttempts.totalDurationMs)
+      ) {
+        singleAttemptDelta.push(
+          request.durationMs - requestAttempts.totalDurationMs,
+        );
       }
     }
-    if (request.durationMs !== null && request.durationMs >= 0) {
-      finalRequestLatency.push(request.durationMs);
-    }
-    const requestAttempts = attemptsByRequest.get(requestId);
-    recoveredAfterRetry += !failed && requestAttempts?.hadError ? 1 : 0;
+    // Only the designated owner contributes provider usage. Client bridge
+    // records retain outcome/latency while their linked child owns token cost.
     if (
-      requestAttempts?.count === 1 &&
-      requestAttempts.durationCount === 1 &&
-      request.durationMs !== null &&
-      Number.isFinite(requestAttempts.totalDurationMs)
+      request.usageOwnerRequestId &&
+      request.usageOwnerRequestId !== requestId
     ) {
-      singleAttemptDelta.push(
-        request.durationMs - requestAttempts.totalDurationMs,
-      );
+      continue;
     }
     if (
       request.inputTokens !== null ||
@@ -579,7 +594,8 @@ function summarizeFinalRequests(
 
   return {
     requestTotals: {
-      completed: finalRequests.size,
+      completed: clientFinals,
+      internalCompleted: internalFinals,
       success,
       errors,
       finalRateLimits,
@@ -755,6 +771,7 @@ export async function analyzeProxyLogs(
   let malformedLines = 0;
   let unsupportedLifecycleLines = 0;
   const accepted = new Set<string>();
+  const internalRequests = new Set<string>();
   const auxiliaryRequests = new Set<string>();
   const headers = new Set<string>();
   const firstChunks = new Set<string>();
@@ -804,6 +821,9 @@ export async function analyzeProxyLogs(
         const requestId = stringValue(record.requestId);
         if (timestamp === null || !requestId) {
           return;
+        }
+        if (record.accountingScope === "internal") {
+          internalRequests.add(requestId);
         }
         const event = stringValue(record.event);
         if (
@@ -942,18 +962,6 @@ export async function analyzeProxyLogs(
           if (elapsed !== null && elapsed >= 0) {
             terminalLatencyByRequest.set(requestId, elapsed);
           }
-          increment(
-            terminalOutcomes,
-            stringValue(record.terminalOutcome) ?? "unknown",
-          );
-          const errorType = stringValue(record.errorType);
-          const errorCode = stringValue(record.errorCode);
-          if (errorType) {
-            increment(lifecycleErrorTypes, errorType);
-          }
-          if (errorCode) {
-            increment(lifecycleErrorCodes, errorCode);
-          }
         }
       },
       () => {
@@ -986,11 +994,10 @@ export async function analyzeProxyLogs(
   // quality count, but do not choose one timing arbitrarily.
   const verifiedLatencies = (values: Map<string, number>): number[] =>
     [...values]
-      .filter(([id]) => !conflictedRequests.has(id))
+      .filter(
+        ([id]) => !conflictedRequests.has(id) && !internalRequests.has(id),
+      )
       .map(([, ms]) => ms);
-  const headersLatency = verifiedLatencies(headersLatencyByRequest);
-  const firstChunkLatency = verifiedLatencies(firstChunkLatencyByRequest);
-  const terminalLatency = verifiedLatencies(terminalLatencyByRequest);
 
   let lifecycleSequenceGaps = 0;
   let lifecycleSequenceDuplicates = 0;
@@ -1195,7 +1202,16 @@ export async function analyzeProxyLogs(
         } else {
           absentRoutingDecisions += 1;
         }
+        if (record.accountingScope === "internal") {
+          internalRequests.add(requestId);
+        }
         const parsed: ProxyAnalysisFinalRequestRecord = {
+          accountingScope: internalRequests.has(requestId)
+            ? "internal"
+            : "client",
+          parentRequestId: stringValue(record.parentRequestId) ?? undefined,
+          usageOwnerRequestId:
+            stringValue(record.usageOwnerRequestId) ?? undefined,
           firstUsefulOutputMs: finiteNumber(record.firstUsefulOutputMs),
           timestamp: new Date(timestamp).toISOString(),
           status,
@@ -1293,7 +1309,17 @@ export async function analyzeProxyLogs(
     ) {
       finalOutcomeConflicts += 1;
     }
-    increment(terminalOutcomes, resolved);
+    if (!internalRequests.has(requestId)) {
+      increment(terminalOutcomes, resolved);
+      const errorType = stringValue(record.errorType);
+      const errorCode = stringValue(record.errorCode);
+      if (errorType) {
+        increment(lifecycleErrorTypes, errorType);
+      }
+      if (errorCode) {
+        increment(lifecycleErrorCodes, errorCode);
+      }
+    }
   }
 
   let capturesIndexed = 0;
@@ -1477,14 +1503,25 @@ export async function analyzeProxyLogs(
           },
         ];
       }),
-      accepted: accepted.size,
-      auxiliaryRequests: [...accepted].filter((id) => auxiliaryRequests.has(id))
+      accepted: [...accepted].filter((id) => !internalRequests.has(id)).length,
+      internalAccepted: [...accepted].filter((id) => internalRequests.has(id))
         .length,
-      headers: headers.size,
-      firstChunks: firstChunks.size,
-      terminal: terminal.size,
-      unsettled: [...accepted].filter((requestId) => !terminal.has(requestId))
+      auxiliaryRequests: [...accepted].filter(
+        (id) => auxiliaryRequests.has(id) && !internalRequests.has(id),
+      ).length,
+      headers: [...headers].filter((id) => !internalRequests.has(id)).length,
+      firstChunks: [...firstChunks].filter((id) => !internalRequests.has(id))
         .length,
+      terminal: [...terminal].filter((id) => !internalRequests.has(id)).length,
+      internalTerminal: [...terminal].filter((id) => internalRequests.has(id))
+        .length,
+      internalUnsettled: [...accepted].filter(
+        (id) => internalRequests.has(id) && !terminal.has(id),
+      ).length,
+      unsettled: [...accepted].filter(
+        (requestId) =>
+          !internalRequests.has(requestId) && !terminal.has(requestId),
+      ).length,
       terminalOutcomes,
       errorTypes: lifecycleErrorTypes,
       errorCodes: lifecycleErrorCodes,
@@ -1504,16 +1541,19 @@ export async function analyzeProxyLogs(
       unclassified: unclassifiedRateLimits,
     },
     latencyMs: {
-      headers: summarizeLatency(headersLatency),
-      firstChunk: summarizeLatency(firstChunkLatency),
+      headers: summarizeLatency(verifiedLatencies(headersLatencyByRequest)),
+      firstChunk: summarizeLatency(
+        verifiedLatencies(firstChunkLatencyByRequest),
+      ),
       firstUsefulOutput: summarizeLatency(
         [...finalRequests.values()].flatMap((record) =>
+          record.accountingScope === "internal" ||
           record.firstUsefulOutputMs === null
             ? []
             : [record.firstUsefulOutputMs],
         ),
       ),
-      terminal: summarizeLatency(terminalLatency),
+      terminal: summarizeLatency(verifiedLatencies(terminalLatencyByRequest)),
       finalRequest: summarizeLatency(finalSummary.finalRequestLatency),
       attempt: summarizeLatency(attemptLatency),
       singleAttemptDelta: summarizeLatency(finalSummary.singleAttemptDelta),

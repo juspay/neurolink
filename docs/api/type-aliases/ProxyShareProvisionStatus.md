@@ -8,4 +8,4 @@
 
 > **ProxyShareProvisionStatus** = `"pending"` \| `"authorized"` \| `"consumed"`
 
-Defined in: [types/proxy.ts:4053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4053)
+Defined in: [types/proxy.ts:4183](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4183)

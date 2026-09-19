@@ -62,6 +62,7 @@ export * from "./providerCatalog.generated.js";
 export * from "./providers.js";
 export * from "./proxy.js";
 export * from "./proxyClient.js";
+export * from "./proxyContext.js";
 export * from "./rag.js";
 export * from "./scorer.js";
 export * from "./sdk.js";
@@ -125,3 +126,4 @@ export * from "./localUsage.js";
 // resolveRequestKind() dispatch-decision types
 export * from "./dispatch.js";
 export * from "./proxyRestart.js";
+export * from "./proxyBudget.js";

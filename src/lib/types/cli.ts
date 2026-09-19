@@ -987,6 +987,9 @@ export type ProxyTelemetryArgs = {
   format?: "json" | "text";
   maxRows?: number;
   proxyUrl?: string;
+  admissionLookbackMinutes?: number;
+  requestTimeoutMs?: number;
+  ingestionGraceMs?: number;
 };
 
 /** A fallback chain entry (serialisable subset of FallbackEntry) */

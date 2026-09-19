@@ -8,4 +8,4 @@
 
 > **SSEEvent** = [`SSEMessageStart`](SSEMessageStart.md) \| [`SSEContentBlockStart`](SSEContentBlockStart.md) \| [`SSEContentBlockDelta`](SSEContentBlockDelta.md) \| [`SSEContentBlockStop`](SSEContentBlockStop.md) \| [`SSEMessageDelta`](SSEMessageDelta.md) \| [`SSEMessageStop`](SSEMessageStop.md) \| [`SSEPing`](SSEPing.md)
 
-Defined in: [types/proxy.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L231)
+Defined in: [types/proxy.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L236)

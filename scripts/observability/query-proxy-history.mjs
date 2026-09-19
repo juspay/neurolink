@@ -19,7 +19,7 @@ const KINDS = new Set([
 
 /**
  * Query metadata in small windows; body chunks require a targeted lookup.
- * @param {{ baseUrl: string, organization?: string, stream?: string, authorization?: string, startTime: number, endTime: number, kind?: string, maxRows?: number, budget?: import("../../src/lib/types/index.js").ProxyTelemetryQueryBudget, fetchImpl?: typeof fetch }} options
+ * @param {{ baseUrl: string, organization?: string, stream?: string, authorization?: string, startTime: number, endTime: number, kind?: string, lifecycleEvents?: string[], maxRows?: number, budget?: import("../../src/lib/types/index.js").ProxyTelemetryQueryBudget, fetchImpl?: typeof fetch }} options
  */
 export async function queryProxyHistory({
   baseUrl,
@@ -29,6 +29,7 @@ export async function queryProxyHistory({
   startTime,
   endTime,
   kind = "request_final",
+  lifecycleEvents,
   maxRows = 10_000,
   fetchImpl = fetch,
   budget = { used: 0, limit: 512 },
@@ -36,7 +37,12 @@ export async function queryProxyHistory({
   if (
     !/^[a-zA-Z0-9_-]+$/.test(organization) ||
     !/^[a-zA-Z0-9_]+$/.test(stream) ||
-    !KINDS.has(kind)
+    !KINDS.has(kind) ||
+    (lifecycleEvents !== undefined &&
+      (kind !== "lifecycle" ||
+        lifecycleEvents.some(
+          (event) => !["request_accepted", "request_terminal"].includes(event),
+        )))
   ) {
     throw new Error("Invalid organization, stream or metadata record kind");
   }
@@ -96,7 +102,7 @@ export async function queryProxyHistory({
           query: {
             // The body is small metadata, not arbitrary request/response chunks.
             // Include a secondary key: timestamp-only paging loses equal-time events.
-            sql: `SELECT _timestamp, proxy_event_id, service_instance_id, request_id, body FROM "${stream}" WHERE proxy_record_kind='${kind}' ORDER BY _timestamp ASC, proxy_event_id ASC, service_instance_id ASC, request_id ASC, body ASC`,
+            sql: `SELECT _timestamp, proxy_event_id, service_instance_id, request_id, body FROM "${stream}" WHERE proxy_record_kind='${kind}'${lifecycleEvents?.length ? ` AND proxy_lifecycle_event IN (${lifecycleEvents.map((event) => `'${event}'`).join(",")})` : ""} ORDER BY _timestamp ASC, proxy_event_id ASC, service_instance_id ASC, request_id ASC, body ASC`,
             start_time: start,
             end_time: end - 1,
             from: offset,
@@ -150,19 +156,42 @@ export async function queryProxyHistory({
     }
   }
   const records = [];
+  const queriedAt = Date.now() * 1000;
   for (let start = startTime; start < endTime; start += 600_000_000) {
     records.push(
       ...(await readWindow(start, Math.min(start + 600_000_000, endTime))),
     );
+  }
+  const unique = new Map();
+  let exactRetryDuplicates = 0;
+  const deduplicated = [];
+  for (const record of records) {
+    const key =
+      typeof record.proxy_event_id === "string" && record.proxy_event_id
+        ? JSON.stringify([record.service_instance_id, record.proxy_event_id])
+        : undefined;
+    // Ingestion may move _timestamp; event payload is the producer identity.
+    const payload = JSON.stringify([record.request_id, record.body]);
+    if (key && unique.get(key) === payload) {
+      exactRetryDuplicates++;
+      continue;
+    }
+    if (key && !unique.has(key)) {unique.set(key, payload);}
+    deduplicated.push(record); // Keep identity conflicts for the doctor to fail.
   }
   return {
     startTime,
     endTimeExclusive: endTime,
     kind,
     complete: true,
-    recordCount: records.length,
+    recordCount: deduplicated.length,
+    rawRecordCount: records.length,
+    exactRetryDuplicates,
+    queriedAtMicroseconds: queriedAt,
+    lateIngestionBoundary:
+      "Pagination is complete at query time; later ingestion can change this event-time interval",
     queries,
-    records,
+    records: deduplicated,
   };
 }
 

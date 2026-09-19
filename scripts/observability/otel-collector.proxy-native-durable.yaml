@@ -1,0 +1,93 @@
+# Opt-in native collector profile (otelcol-contrib >= 0.160.0).
+# This persists collector retry queues, never application log files. Configure a
+# private directory and a filesystem quota; queue byte bounds exclude DB overhead.
+receivers:
+  otlp/metadata:
+    protocols:
+      http:
+        endpoint: ${env:NEUROLINK_OTEL_METADATA_LISTEN:-127.0.0.1:14318}
+  otlp/bodies:
+    protocols:
+      http:
+        endpoint: ${env:NEUROLINK_OTEL_BODIES_LISTEN:-127.0.0.1:14319}
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+    spike_limit_mib: 64
+exporters:
+  otlphttp/openobserve:
+    endpoint: ${env:NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT}
+    encoding: json
+    headers:
+      Authorization: ${env:NEUROLINK_OPENOBSERVE_BASIC_AUTH}
+      stream-name: ${env:NEUROLINK_PROXY_STREAM_HEADER:-neurolink_proxy}
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      sizer: bytes
+      queue_size: 33554432
+      storage: file_storage
+  otlphttp/openobserve-bodies:
+    endpoint: ${env:NEUROLINK_OPENOBSERVE_OTLP_ENDPOINT}
+    encoding: json
+    headers:
+      Authorization: ${env:NEUROLINK_OPENOBSERVE_BASIC_AUTH}
+      stream-name: ${env:NEUROLINK_PROXY_BODY_STREAM_HEADER:-neurolink_proxy_bodies}
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 30s
+      max_elapsed_time: 0s
+    sending_queue:
+      enabled: true
+      num_consumers: 2
+      sizer: bytes
+      queue_size: 268435456
+      storage: file_storage
+extensions:
+  file_storage:
+    directory: ${env:NEUROLINK_OTEL_QUEUE_DIRECTORY}
+    create_directory: true
+    fsync: true
+    compaction:
+      on_start: true
+      on_rebound: true
+      directory: ${env:NEUROLINK_OTEL_COMPACTION_DIRECTORY}
+  health_check:
+    endpoint: ${env:NEUROLINK_OTEL_HEALTH_LISTEN:-127.0.0.1:14333}
+service:
+  extensions: [file_storage, health_check]
+  pipelines:
+    logs/metadata:
+      receivers: [otlp/metadata]
+      processors: [memory_limiter]
+      exporters: [otlphttp/openobserve]
+    logs/bodies:
+      receivers: [otlp/bodies]
+      processors: [memory_limiter]
+      exporters: [otlphttp/openobserve-bodies]
+    traces:
+      receivers: [otlp/metadata]
+      processors: [memory_limiter]
+      exporters: [otlphttp/openobserve]
+    metrics:
+      receivers: [otlp/metadata]
+      processors: [memory_limiter]
+      exporters: [otlphttp/openobserve]
+  telemetry:
+    logs:
+      level: warn
+    metrics:
+      level: detailed
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: "127.0.0.1"
+                port: ${env:NEUROLINK_OTEL_METRICS_PORT:-14388}

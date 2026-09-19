@@ -136,6 +136,10 @@ export function extractCodexUsage(payload: unknown): CodexStreamUsage | null {
   return {
     inputTokens: nonNegativeInt(input),
     outputTokens: nonNegativeInt(output),
+    inputTokensObserved:
+      typeof input === "number" && Number.isFinite(input) && input >= 0,
+    outputTokensObserved:
+      typeof output === "number" && Number.isFinite(output) && output >= 0,
     cacheReadTokens: nonNegativeInt(inputDetails?.cached_tokens),
     cacheCreationTokens: nonNegativeInt(inputDetails?.cache_write_tokens),
     reasoningTokens: nonNegativeInt(outputDetails?.reasoning_tokens),

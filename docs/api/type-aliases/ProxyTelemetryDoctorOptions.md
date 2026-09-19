@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryDoctorOptions** = `object`
 
-Defined in: [types/proxy.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L865)
+Defined in: [types/proxy.ts:917](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L917)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:865](https://github.com/juspay/neurolink/blob/releas
 
 > **backend**: [`ProxyTelemetryBackend`](ProxyTelemetryBackend.md)
 
-Defined in: [types/proxy.ts:866](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L866)
+Defined in: [types/proxy.ts:918](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L918)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:866](https://github.com/juspay/neurolink/blob/releas
 
 > **startTime**: `number`
 
-Defined in: [types/proxy.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L867)
+Defined in: [types/proxy.ts:919](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L919)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:867](https://github.com/juspay/neurolink/blob/releas
 
 > **endTime**: `number`
 
-Defined in: [types/proxy.ts:868](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L868)
+Defined in: [types/proxy.ts:920](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L920)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:868](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **proxyUrl?**: `string`
 
-Defined in: [types/proxy.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L869)
+Defined in: [types/proxy.ts:921](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L921)
 
 ---
 
@@ -48,7 +48,33 @@ Defined in: [types/proxy.ts:869](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **maxRows?**: `number`
 
-Defined in: [types/proxy.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L870)
+Defined in: [types/proxy.ts:922](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L922)
+
+---
+
+### admissionLookbackMs?
+
+> `optional` **admissionLookbackMs?**: `number`
+
+Defined in: [types/proxy.ts:924](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L924)
+
+Explicit age-search horizon; older admissions are outside this proof.
+
+---
+
+### requestTimeoutMs?
+
+> `optional` **requestTimeoutMs?**: `number`
+
+Defined in: [types/proxy.ts:925](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L925)
+
+---
+
+### ingestionGraceMs?
+
+> `optional` **ingestionGraceMs?**: `number`
+
+Defined in: [types/proxy.ts:926](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L926)
 
 ---
 
@@ -56,4 +82,4 @@ Defined in: [types/proxy.ts:870](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **fetchImpl?**: _typeof_ `fetch`
 
-Defined in: [types/proxy.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L871)
+Defined in: [types/proxy.ts:927](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L927)

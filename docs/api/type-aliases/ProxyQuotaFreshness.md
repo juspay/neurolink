@@ -8,4 +8,4 @@
 
 > **ProxyQuotaFreshness** = `"unknown"` \| `"fresh"` \| `"stale_known"` \| `"refresh_due"`
 
-Defined in: [types/proxy.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L528)
+Defined in: [types/proxy.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L533)

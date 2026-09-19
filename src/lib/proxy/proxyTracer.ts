@@ -32,7 +32,11 @@ import {
 } from "../services/server/ai/observability/instrumentation.js";
 import { OtelBridge } from "../observability/otelBridge.js";
 import { proxyTokenUsage } from "./proxyTokenUsage.js";
-import { calculateCost } from "../utils/pricing.js";
+import {
+  calculateCost,
+  hasPricing,
+  isExactPricingMatch,
+} from "../utils/pricing.js";
 import { TelemetryService } from "../telemetry/telemetryService.js";
 import { logger } from "../utils/logger.js";
 import {
@@ -46,6 +50,7 @@ import type {
   ResponseInfoContext,
   UpstreamAttemptContext,
   UsageContext,
+  ProxyUsageAttributionOptions,
   RuntimeRequestMetadata,
   ProxyLogTraceContext,
 } from "../types/index.js";
@@ -272,6 +277,7 @@ class ProxyTracer {
   private readonly isStream: boolean;
   private ended = false;
   private recordRequestMetrics = true;
+  private recordUsageMetrics = true;
 
   private accountEmail?: string;
   private usage?: UsageContext;
@@ -370,6 +376,8 @@ class ProxyTracer {
       ctx.provider ?? "anthropic",
     );
     instance.recordRequestMetrics = ctx.recordRequestMetrics !== false;
+    instance.recordUsageMetrics =
+      ctx.recordUsageMetrics ?? instance.recordRequestMetrics;
 
     // Set Langfuse context (fire-and-forget — non-blocking)
     // Prefer NeuroLink session/user from calling SDK over Claude Code session
@@ -500,7 +508,13 @@ class ProxyTracer {
   }
 
   /** Record token usage and cost on the root span. */
-  setUsage(ctx: UsageContext): void {
+  setUsage(
+    ctx: UsageContext,
+    options: ProxyUsageAttributionOptions = {},
+  ): void {
+    if (options.recordMetrics !== undefined) {
+      this.recordUsageMetrics = options.recordMetrics;
+    }
     this.usage = ctx;
 
     const billingUsage = proxyTokenUsage(ctx);
@@ -526,10 +540,23 @@ class ProxyTracer {
       "gen_ai.usage.total_tokens": totalTokens,
     });
 
-    // Cost calculation via pricing.ts
-    const cost = calculateCost(this.billingProvider, this.model, billingUsage);
-
-    if (cost > 0) {
+    // Prefix-inferred prices are not an observed model rate. Keep provenance,
+    // but emit an amount only when this model has an exact price-table entry.
+    const pricingStatus = !hasPricing(this.billingProvider, this.model)
+      ? "unavailable"
+      : isExactPricingMatch(this.billingProvider, this.model)
+        ? "exact"
+        : "inferred";
+    this.rootSpan.setAttributes({
+      "ai.cost.basis": "api-equivalent",
+      "ai.cost.pricing_status": pricingStatus,
+    });
+    if (pricingStatus === "exact") {
+      const cost = calculateCost(
+        this.billingProvider,
+        this.model,
+        billingUsage,
+      );
       this.rootSpan.setAttributes({
         "ai.cost.total": cost,
         "ai.cost.currency": "USD",
@@ -623,11 +650,13 @@ class ProxyTracer {
       "gen_ai.response.model": actualModel,
       ...(actualProvider ? { "proxy.actual_provider": actualProvider } : {}),
     });
-    const m = getProxyMetrics();
-    m.modelSubstitutionTotal.add(1, {
-      requested_model: requestedModel,
-      actual_model: actualModel,
-    });
+    if (this.recordRequestMetrics) {
+      const m = getProxyMetrics();
+      m.modelSubstitutionTotal.add(1, {
+        requested_model: requestedModel,
+        actual_model: actualModel,
+      });
+    }
   }
 
   setFallbackInfo(info: {
@@ -832,7 +861,7 @@ class ProxyTracer {
 
     this.rootSpan.end();
 
-    if (!this.recordRequestMetrics) {
+    if (!this.recordRequestMetrics && !this.recordUsageMetrics) {
       return;
     }
 
@@ -846,11 +875,13 @@ class ProxyTracer {
       mode: this.mode,
     };
 
-    m.requestsTotal.add(1, labels);
-    m.requestDuration.record(durationMs, labels);
+    if (this.recordRequestMetrics) {
+      m.requestsTotal.add(1, labels);
+      m.requestDuration.record(durationMs, labels);
+    }
 
     // Token metrics (only if usage was captured)
-    if (this.usage) {
+    if (this.recordUsageMetrics && this.usage) {
       const tokenLabels = {
         model: this.model,
         account: this.accountEmail ?? "unknown",
@@ -868,19 +899,19 @@ class ProxyTracer {
       // Cost
       const billingUsage = proxyTokenUsage(this.usage);
 
-      const cost = calculateCost(
-        this.billingProvider,
-        this.model,
-        billingUsage,
-      );
+      const cost =
+        isExactPricingMatch(this.billingProvider, this.model) &&
+        hasPricing(this.billingProvider, this.model)
+          ? calculateCost(this.billingProvider, this.model, billingUsage)
+          : undefined;
 
-      if (cost > 0) {
+      if (cost !== undefined) {
         m.costTotal.add(cost, tokenLabels);
       }
     }
 
     // Error metrics
-    if (responseStatus >= 400) {
+    if (this.recordRequestMetrics && responseStatus >= 400) {
       const errorType =
         responseStatus === 429
           ? "rate_limit"
@@ -901,7 +932,7 @@ class ProxyTracer {
 
   /** Record metrics via TelemetryService (call after setUsage). */
   recordMetrics(): void {
-    if (!this.usage) {
+    if (!this.recordUsageMetrics || !this.usage) {
       return;
     }
 
@@ -910,14 +941,18 @@ class ProxyTracer {
 
     const durationMs = Date.now() - this.startTime;
 
-    const cost = calculateCost(this.billingProvider, this.model, billingUsage);
+    const cost =
+      isExactPricingMatch(this.billingProvider, this.model) &&
+      hasPricing(this.billingProvider, this.model)
+        ? calculateCost(this.billingProvider, this.model, billingUsage)
+        : undefined;
 
     TelemetryService.getInstance().recordAIRequest(
       this.billingProvider,
       this.model,
       totalTokens,
       durationMs,
-      cost > 0 ? cost : undefined,
+      cost,
     );
   }
 

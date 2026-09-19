@@ -37,6 +37,7 @@ const otelPkgs = [
   '@opentelemetry/sdk-metrics','@opentelemetry/core',
   '@opentelemetry/exporter-trace-otlp-http','@opentelemetry/exporter-logs-otlp-http',
   '@opentelemetry/exporter-metrics-otlp-http',
+  '@opentelemetry/otlp-transformer',
   '@opentelemetry/semantic-conventions','@opentelemetry/context-async-hooks',
   '@opentelemetry/instrumentation','@opentelemetry/auto-instrumentations-node',
   '@opentelemetry/instrumentation-amqplib','@opentelemetry/instrumentation-aws-lambda',
@@ -71,6 +72,9 @@ export const webcrypto = globalThis.crypto;
 export const appendFileSync = () => { throw new Error('[NeuroLink:browser] fs.appendFileSync is not supported in browser runtime — use server-side execution'); };
 export const cpSync = () => { throw new Error('[NeuroLink:browser] fs.cpSync is not supported in browser runtime — use server-side execution'); };
 export const createServer = () => ({listen:noop,close:noop,on:noop});
+export const Agent = class { constructor(){throw new Error('[NeuroLink:browser] Node HTTP agents require a server runtime');} };
+export const validateHeaderName = noop;
+export const validateHeaderValue = noop;
 export const join = (...a) => a.join('/');
 export const resolve = (...a) => a.join('/');
 export const dirname = (p) => p || '';
@@ -293,6 +297,7 @@ export const propagation={inject(){},extract(c){return c},setGlobalPropagator(){
 export const metrics={getMeter(){return NOOP_METER},getMeterProvider(){return{getMeter(){return NOOP_METER}}},setGlobalMeterProvider(){}};
 export const diag={setLogger(){},verbose(){},debug(){},info(){},warn(){},error(){},createComponentLogger(){return diag}};
 export const ExportResultCode={SUCCESS:0,FAILED:1};
+export const parseKeyPairsIntoRecord=()=>({});
 export const SpanStatusCode={UNSET:0,OK:1,ERROR:2};
 export const SpanKind={INTERNAL:0,SERVER:1,CLIENT:2,PRODUCER:3,CONSUMER:4};
 export const TraceFlags={NONE:0,SAMPLED:1};
@@ -312,6 +317,7 @@ export const SimpleSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Pro
 export const BatchSpanProcessor=class{onStart(){}onEnd(){}shutdown(){return Promise.resolve()}forceFlush(){return Promise.resolve()}};
 export const OTLPTraceExporter=class{export(){}shutdown(){return Promise.resolve()}};
 export const OTLPLogExporter=class{export(){}shutdown(){return Promise.resolve()}};
+export const JsonLogsSerializer={serializeRequest(){throw new Error('[NeuroLink:browser] proxy OTLP log transport requires a server runtime');}};
 export const OTLPMetricExporter=class{constructor(){}export(){}shutdown(){return Promise.resolve()}};
 export const getNodeAutoInstrumentations=()=>[];
 export const registerInstrumentations=()=>{};

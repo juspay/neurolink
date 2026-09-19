@@ -44,7 +44,27 @@ import {
   parseCodexRateLimitHeaders,
 } from "../../proxy/codexAccountUsage.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
-import { registerProxyResponseObserver } from "../../proxy/proxyActivity.js";
+import {
+  registerProxyResponseObserver,
+  isProxyRequestFinalized,
+} from "../../proxy/proxyActivity.js";
+import {
+  prepareProxyRequestContext,
+  ProxyContextPreflightError,
+} from "../../proxy/proxyContextPreflight.js";
+import {
+  reserveProxyTokenBudget,
+  settleProxyTokenBudget,
+  getProxyTokenBudgetError,
+  getProxyTokenBudgetSessionKey,
+} from "../../proxy/proxyTokenBudget.js";
+import { emitProxyOtelEvent } from "../../proxy/otelLogSink.js";
+import {
+  getRuntimeContextWindow,
+  clearRuntimeOutputCeiling,
+  registerRuntimeContextWindow,
+  registerRuntimeOutputCeiling,
+} from "../../constants/contextWindows.js";
 import {
   logRequest,
   logRequestAttempt,
@@ -73,6 +93,9 @@ import type {
   RateLimitCoolingReason,
   RouteGroup,
   ServerContext,
+  ProxyContextEvidence,
+  ProxyPreparedContext,
+  ProxyTokenBudgetLease,
 } from "../../types/index.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
@@ -203,9 +226,19 @@ const BLOCKED_UPSTREAM_HEADERS = new Set([
 ]);
 
 /** Build a Codex error body as a Response with the intended status. */
-function buildCodexErrorResponse(status: number, message: string): Response {
+function buildCodexErrorResponse(
+  status: number,
+  message: string,
+  code?: string,
+): Response {
   return new Response(
-    JSON.stringify({ error: { type: "proxy_error", message } }),
+    JSON.stringify({
+      error: {
+        type: "proxy_error",
+        message,
+        ...(code ? { code, retryable: false } : {}),
+      },
+    }),
     { status, headers: { "content-type": "application/json" } },
   );
 }
@@ -547,8 +580,40 @@ async function executeCodexResponsesRequest(
   ctx: ServerContext,
 ): Promise<Response> {
   const requestStartTime = Date.now();
-  const body = ctx.body ?? {};
-  const bodyStr = JSON.stringify(body);
+  let body = (ctx.body ?? {}) as Record<string, unknown>;
+  let bodyStr: string;
+  let preparedContext:
+    | ProxyPreparedContext<Record<string, unknown>>
+    | undefined;
+  let contextPreflight: ProxyContextEvidence | undefined;
+  let budgetLease: ProxyTokenBudgetLease | undefined;
+  let budgetDispatched = false;
+  const settleBudget = async (actualTokens?: number): Promise<void> => {
+    if (!budgetLease) {
+      return;
+    }
+    try {
+      if (budgetDispatched) {
+        await settleProxyTokenBudget(budgetLease, actualTokens);
+        if (budgetLease.snapshot.settlement === "unconfirmed") {
+          emitProxyOtelEvent("token_budget", {
+            requestId: ctx.requestId,
+            event: "settlement_unconfirmed",
+          });
+        }
+      } else {
+        await budgetLease.cancelBeforeDispatch();
+      }
+    } catch (error) {
+      emitProxyOtelEvent("token_budget", {
+        requestId: ctx.requestId,
+        event: "settlement_unconfirmed",
+        errorCode:
+          getProxyTokenBudgetError(error)?.code ??
+          "PROXY_TOKEN_BUDGET_UNAVAILABLE",
+      });
+    }
+  };
   const model =
     typeof (body as Record<string, unknown>).model === "string"
       ? ((body as Record<string, unknown>).model as string)
@@ -583,6 +648,7 @@ async function executeCodexResponsesRequest(
         provider: "openai",
         userAgent: ctx.headers["user-agent"],
         recordRequestMetrics: !isFallbackRequest,
+        recordUsageMetrics: true,
       },
       ctx.headers,
     );
@@ -601,6 +667,9 @@ async function executeCodexResponsesRequest(
       method: ctx.method,
       path: ctx.path,
       model,
+      requestedModel: model,
+      contextPreflight,
+      tokenBudget: budgetLease ? { ...budgetLease.snapshot } : undefined,
       stream: true,
       toolCount: Array.isArray((body as Record<string, unknown>).tools)
         ? ((body as Record<string, unknown>).tools as unknown[]).length
@@ -628,10 +697,29 @@ async function executeCodexResponsesRequest(
     responseStatus: number,
     extra: CodexFinalLogExtra = {},
   ): Promise<void> => {
+    await settleBudget(
+      extra.inputTokens !== undefined && extra.outputTokens !== undefined
+        ? extra.inputTokens + extra.outputTokens
+        : undefined,
+    );
     if (finalOutcomeRecorded) {
       return;
     }
     finalOutcomeRecorded = true;
+    if (isProxyRequestFinalized(ctx.requestId)) {
+      // Runtime owns the client final, but this route still owns its span.
+      const status = ctx.abortSignal?.aborted
+        ? ctx.abortSignal.reason?.name === "TimeoutError"
+          ? 504
+          : 499
+        : responseStatus;
+      try {
+        tracer?.end(status, Date.now() - requestStartTime);
+      } catch {
+        /* best effort */
+      }
+      return;
+    }
     try {
       if (extra.errorType) {
         tracer?.setError(
@@ -688,6 +776,9 @@ async function executeCodexResponsesRequest(
       method: ctx.method,
       path: ctx.path,
       model,
+      requestedModel: model,
+      contextPreflight,
+      tokenBudget: budgetLease ? { ...budgetLease.snapshot } : undefined,
       stream: true,
       toolCount: Array.isArray((body as Record<string, unknown>).tools)
         ? ((body as Record<string, unknown>).tools as unknown[]).length
@@ -704,6 +795,29 @@ async function executeCodexResponsesRequest(
   };
 
   const dispatch = async (): Promise<Response> => {
+    try {
+      preparedContext = prepareProxyRequestContext({
+        provider: "codex",
+        model,
+        body,
+      });
+      contextPreflight = preparedContext.evidence;
+      body = preparedContext.body;
+      bodyStr = JSON.stringify(body);
+    } catch (error) {
+      if (!(error instanceof ProxyContextPreflightError)) {
+        throw error;
+      }
+      contextPreflight = error.evidence;
+      await recordFinalOutcome(undefined, error.status, {
+        errorType: "context_preflight",
+        errorCode: error.code,
+        errorMessage: error.message,
+        retryable: false,
+        terminalOutcome: "handler_error",
+      });
+      return buildCodexErrorResponse(error.status, error.message, error.code);
+    }
     const accounts = await loadCodexProxyAccounts();
     const cancelRequest = async (
       account?: CodexRuntimeAccount,
@@ -794,6 +908,40 @@ async function executeCodexResponsesRequest(
         if (ctx.abortSignal?.aborted) {
           return cancelRequest(lastAttemptedAccount);
         }
+        await settleBudget();
+        budgetLease = undefined;
+        budgetDispatched = false;
+        try {
+          budgetLease = await reserveProxyTokenBudget({
+            provider: "codex",
+            accountKey: account.key,
+            sessionKey: getProxyTokenBudgetSessionKey(new Headers(ctx.headers)),
+            requestId: ctx.requestId,
+            reservationTokens: preparedContext.totalTokensReservation,
+            estimateProvenance:
+              "estimated_input_plus_serving_model_output_reserve",
+          });
+        } catch (error) {
+          const budgetError = getProxyTokenBudgetError(error);
+          if (!budgetError) {
+            throw error;
+          }
+          await recordFinalOutcome(account, budgetError.status, {
+            errorType: "token_budget",
+            errorCode: budgetError.code,
+            errorMessage: budgetError.message,
+            retryable: false,
+            terminalOutcome: "handler_error",
+          });
+          return buildCodexErrorResponse(
+            budgetError.status,
+            budgetError.message,
+            budgetError.code,
+          );
+        }
+        if (ctx.abortSignal?.aborted) {
+          return cancelRequest(account);
+        }
         attempt += 1;
         const attemptStartedAt = Date.now();
         lastAttemptedAccount = account;
@@ -818,6 +966,7 @@ async function executeCodexResponsesRequest(
             attempt,
             ...tracer?.getTraceContext(),
           });
+          budgetDispatched = true;
           upstream = await fetch(CODEX_RESPONSES_URL, {
             method: "POST",
             headers: upstreamHeaders,
@@ -967,8 +1116,12 @@ async function executeCodexResponsesRequest(
                       !semantic.completed);
                   const usageExtra = usage
                     ? {
-                        inputTokens: usage.inputTokens,
-                        outputTokens: usage.outputTokens,
+                        inputTokens: usage.inputTokensObserved
+                          ? usage.inputTokens
+                          : undefined,
+                        outputTokens: usage.outputTokensObserved
+                          ? usage.outputTokens
+                          : undefined,
                         cacheReadTokens: usage.cacheReadTokens,
                         cacheCreationTokens: usage.cacheCreationTokens,
                         reasoningTokens: usage.reasoningTokensObserved
@@ -976,7 +1129,10 @@ async function executeCodexResponsesRequest(
                           : undefined,
                       }
                     : {};
-                  if (usage) {
+                  if (
+                    usage?.inputTokensObserved &&
+                    usage.outputTokensObserved
+                  ) {
                     try {
                       tracer?.setUsage({
                         ...usage,
@@ -1011,6 +1167,11 @@ async function executeCodexResponsesRequest(
                   if (failed) {
                     recordAttemptError(account.label, CODEX_ACCOUNT_TYPE, 502);
                     writeAttempt(account, attempt, attemptStartedAt, 502, {
+                      // An internal fallback has no separate final row. Keep
+                      // its observed usage on this attempt when a later
+                      // provider owns the client final.
+                      ...usageExtra,
+                      inputIncludesCachedTokens: true,
                       errorType: semantic.errorType ?? "incomplete_stream",
                       errorCode: semantic.errorCode,
                       errorMessage:
@@ -1259,12 +1420,60 @@ async function executeCodexResponsesRequest(
   try {
     return await dispatch();
   } catch (error) {
+    await settleBudget();
     try {
       tracer?.end(502, Date.now() - requestStartTime);
     } catch {
       // Shared HTTP error handling owns the client outcome and final log.
     }
     throw error;
+  }
+}
+
+/** Accept exact positive limits advertised by successful Codex model discovery. */
+function registerCodexDiscoveredLimits(body: string): void {
+  if (Buffer.byteLength(body, "utf8") > 2 * 1024 * 1024) {
+    return;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return;
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    !("models" in parsed) ||
+    !Array.isArray(parsed.models)
+  ) {
+    return;
+  }
+  for (const candidate of parsed.models.slice(0, 1024)) {
+    if (!candidate || typeof candidate !== "object") {
+      continue;
+    }
+    const model = candidate.slug ?? candidate.id;
+    if (typeof model !== "string" || model.length === 0 || model.length > 256) {
+      continue;
+    }
+    const context = candidate.context_window;
+    const output = candidate.max_output_tokens;
+    if (Number.isSafeInteger(context) && context > 0) {
+      registerRuntimeContextWindow("codex", model, context);
+    }
+    const knownContext = getRuntimeContextWindow("codex", model);
+    if (
+      Number.isSafeInteger(output) &&
+      output > 0 &&
+      (knownContext === undefined || output < knownContext)
+    ) {
+      registerRuntimeOutputCeiling("codex", model, output);
+    } else {
+      // Rediscovery may shrink the context or stop advertising an output cap.
+      // Do not preserve a stale ceiling that can make every input invalid.
+      clearRuntimeOutputCeiling("codex", model);
+    }
   }
 }
 
@@ -1339,7 +1548,10 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
           // Bound the upstream call, as the responses route does. Without a
           // signal a stalled connection holds the proxy request open with no
           // ceiling, and the CLI blocks on model discovery at startup.
-          signal: AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+          signal: AbortSignal.any([
+            ...(ctx.abortSignal ? [ctx.abortSignal] : []),
+            AbortSignal.timeout(CODEX_UPSTREAM_TIMEOUT_MS),
+          ]),
         });
       } catch (error) {
         lastErrorStatus = 502;
@@ -1384,6 +1596,9 @@ async function handleCodexModelsRequest(ctx: ServerContext): Promise<Response> {
       // query was not forwarded correctly, and hiding it behind a retry would
       // bury the exact regression this route was added to fix.
       const body = await upstream.text();
+      if (upstream.ok) {
+        registerCodexDiscoveredLimits(body);
+      }
       const contentType =
         upstream.headers.get("content-type") ?? "application/json";
       return new Response(body, {

@@ -8,8 +8,10 @@
  */
 
 import { ClaudeStreamSerializer, generateToolUseId } from "./claudeFormat.js";
+import { classifyProxyFailureCode } from "./proxyFailureDetails.js";
 import { extractCodexUsage } from "./codexUsage.js";
 import { proxyTokenUsage } from "./proxyTokenUsage.js";
+import { sanitizeForLog } from "../utils/logSanitize.js";
 import type {
   ClaudeContentBlock,
   ClaudeRequest,
@@ -25,13 +27,97 @@ import type {
 export class CodexFallbackResponseError extends Error {
   readonly status: number;
   readonly responseBody: string;
+  readonly code?: string;
+  readonly retryable?: boolean;
 
   constructor(status: number, responseBody: string) {
     super(`Codex fallback request returned HTTP ${status}`);
     this.name = "CodexFallbackResponseError";
     this.status = status;
     this.responseBody = responseBody;
+    try {
+      const payload: unknown = JSON.parse(responseBody);
+      if (isRecord(payload)) {
+        const detail = streamFailureDetails(payload, "http_error");
+        this.code = detail.code;
+        this.retryable = detail.retryable;
+        if (detail.message) {
+          this.message = detail.message;
+        }
+      }
+    } catch {
+      // Non-JSON upstream responses retain the HTTP status without exposing HTML.
+    }
   }
+}
+
+/** A provider terminal event, preserved through the format adapter. */
+export class CodexFallbackStreamError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly retryable?: boolean;
+  readonly usage?: CodexFallbackResult["usage"];
+
+  constructor(
+    payload: Record<string, unknown>,
+    eventType: string,
+    usage?: CodexFallbackResult["usage"],
+  ) {
+    const detail = streamFailureDetails(payload, eventType);
+    super(
+      detail.message ?? `Codex fallback stream terminated with ${eventType}`,
+    );
+    this.name = "CodexFallbackStreamError";
+    this.code = detail.code;
+    this.status = detail.status;
+    this.retryable = detail.retryable;
+    const observed = extractCodexUsage(payload);
+    this.usage = observed
+      ? {
+          ...proxyTokenUsage({
+            inputTokens: observed.inputTokens,
+            outputTokens: observed.outputTokens,
+            reasoningTokens: observed.reasoningTokensObserved
+              ? observed.reasoningTokens
+              : undefined,
+            cacheReadTokens: observed.cacheReadTokens,
+            cacheCreationTokens: observed.cacheCreationTokens,
+            inputIncludesCachedTokens: true,
+          }),
+          inputTokensObserved: observed.inputTokensObserved,
+          outputTokensObserved: observed.outputTokensObserved,
+        }
+      : usage;
+  }
+}
+
+function streamFailureDetails(
+  payload: Record<string, unknown>,
+  eventType: string,
+) {
+  const response = isRecord(payload.response) ? payload.response : payload;
+  const error = isRecord(response.error) ? response.error : response;
+  const incomplete = isRecord(response.incomplete_details)
+    ? response.incomplete_details
+    : {};
+  const code = sanitizeForLog(
+    asNonEmptyString(error.code) ??
+      asNonEmptyString(incomplete.reason) ??
+      eventType,
+    200,
+  );
+  const known = classifyProxyFailureCode(code);
+  return {
+    code,
+    status: known.status ?? 502,
+    retryable:
+      known.retryable ??
+      (typeof error.retryable === "boolean" ? error.retryable : undefined),
+    message:
+      typeof error.message === "string"
+        ? sanitizeForLog(error.message, 500)
+        : undefined,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -401,7 +487,7 @@ export function parseCodexFallbackSSE(sse: string): CodexFallbackResult {
       type === "response.failed" ||
       type === "response.incomplete"
     ) {
-      throw new Error(`Codex fallback stream terminated with ${type}`);
+      throw new CodexFallbackStreamError(payload, type, usage);
     }
     if (type === "response.output_text.delta") {
       if (typeof payload.delta !== "string") {
@@ -436,16 +522,20 @@ export function parseCodexFallbackSSE(sse: string): CodexFallbackResult {
     }
     const parsedUsage = extractCodexUsage(payload);
     if (parsedUsage) {
-      usage = proxyTokenUsage({
-        inputTokens: parsedUsage.inputTokens,
-        outputTokens: parsedUsage.outputTokens,
-        reasoningTokens: parsedUsage.reasoningTokensObserved
-          ? parsedUsage.reasoningTokens
-          : undefined,
-        cacheReadTokens: parsedUsage.cacheReadTokens,
-        cacheCreationTokens: parsedUsage.cacheCreationTokens,
-        inputIncludesCachedTokens: true,
-      });
+      usage = {
+        ...proxyTokenUsage({
+          inputTokens: parsedUsage.inputTokens,
+          outputTokens: parsedUsage.outputTokens,
+          reasoningTokens: parsedUsage.reasoningTokensObserved
+            ? parsedUsage.reasoningTokens
+            : undefined,
+          cacheReadTokens: parsedUsage.cacheReadTokens,
+          cacheCreationTokens: parsedUsage.cacheCreationTokens,
+          inputIncludesCachedTokens: true,
+        }),
+        inputTokensObserved: parsedUsage.inputTokensObserved,
+        outputTokensObserved: parsedUsage.outputTokensObserved,
+      };
     }
     textFromResponse = outputTextFromResponse(payload);
   }
@@ -456,7 +546,14 @@ export function parseCodexFallbackSSE(sse: string): CodexFallbackResult {
   const text = textFromDeltas || textFromCompletedItems || textFromResponse;
   const resolvedToolCalls = [...toolCalls.values()];
   if (!text && resolvedToolCalls.length === 0) {
-    throw new Error("Codex fallback returned no content or tool calls");
+    throw new CodexFallbackStreamError(
+      {
+        code: "empty_response",
+        message: "Codex fallback returned no content or tool calls",
+      },
+      "empty_response",
+      usage,
+    );
   }
   return {
     text,
@@ -593,7 +690,7 @@ export async function createCodexFallbackStream(
           type === "response.failed" ||
           type === "response.incomplete"
         ) {
-          throw new Error(`Codex fallback stream terminated with ${type}`);
+          throw new CodexFallbackStreamError(payload, type, usage);
         }
         const index =
           typeof payload.output_index === "number" ? payload.output_index : 0;
@@ -614,16 +711,20 @@ export async function createCodexFallbackStream(
           completed = true;
           const parsedUsage = extractCodexUsage(payload);
           if (parsedUsage) {
-            usage = proxyTokenUsage({
-              inputTokens: parsedUsage.inputTokens,
-              outputTokens: parsedUsage.outputTokens,
-              reasoningTokens: parsedUsage.reasoningTokensObserved
-                ? parsedUsage.reasoningTokens
-                : undefined,
-              cacheReadTokens: parsedUsage.cacheReadTokens,
-              cacheCreationTokens: parsedUsage.cacheCreationTokens,
-              inputIncludesCachedTokens: true,
-            });
+            usage = {
+              ...proxyTokenUsage({
+                inputTokens: parsedUsage.inputTokens,
+                outputTokens: parsedUsage.outputTokens,
+                reasoningTokens: parsedUsage.reasoningTokensObserved
+                  ? parsedUsage.reasoningTokens
+                  : undefined,
+                cacheReadTokens: parsedUsage.cacheReadTokens,
+                cacheCreationTokens: parsedUsage.cacheCreationTokens,
+                inputIncludesCachedTokens: true,
+              }),
+              inputTokensObserved: parsedUsage.inputTokensObserved,
+              outputTokensObserved: parsedUsage.outputTokensObserved,
+            };
           }
           const responseBody = payload.response;
           if (isRecord(responseBody) && Array.isArray(responseBody.output)) {
@@ -669,7 +770,14 @@ export async function createCodexFallbackStream(
         );
       }
       if (textLength === 0 && toolCalls.size === 0) {
-        throw new Error("Codex fallback returned no content or tool calls");
+        throw new CodexFallbackStreamError(
+          {
+            code: "empty_response",
+            message: "Codex fallback returned no content or tool calls",
+          },
+          "empty_response",
+          usage,
+        );
       }
       const finishReason = toolCalls.size > 0 ? "tool_use" : "end_turn";
       yield* serializer.finish(usage?.output, finishReason, {

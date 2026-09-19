@@ -38,8 +38,13 @@ import {
   parseRetryAfterMs,
 } from "../src/lib/proxy/routingPolicy.js";
 import {
+  inspectProxyPackage,
+  installStagedProxyPackage,
   isTransientInstallFailure,
+  readProxyPackageSelection,
   resolveGlobalInstaller,
+  selectProxyPackage,
+  writeProxyPackageLauncher,
 } from "../src/lib/proxy/globalInstaller.js";
 import { __testHooks } from "../src/lib/server/routes/claudeProxyRoutes.js";
 
@@ -68,6 +73,7 @@ import { NeuroLinkError } from "../src/lib/utils/errorHandling.js";
 import type {
   CSVLoaderOptions,
   GlobalInstallerExecFile,
+  ProxyPackageSelection,
 } from "../src/lib/types/index.js";
 import iconv from "iconv-lite";
 import { Readable, Transform } from "node:stream";
@@ -103,6 +109,63 @@ import http from "node:http";
 import AdmZip from "adm-zip";
 
 const CLI_DIST_PATH = pathJoin(process.cwd(), "dist", "cli", "index.js");
+
+/** Exercise generated launchers and private installs without a service or real installer. */
+async function withProxyPackageFixture(
+  run: (fixture: {
+    directory: string;
+    packagesDir: string;
+    launcher: string;
+    selected: ProxyPackageSelection;
+    manager: (mode?: "ok" | "network" | "invalid") => {
+      kind: "npm";
+      bin: string;
+    };
+  }) => Promise<boolean>,
+): Promise<boolean> {
+  const directory = mkdtempSync(
+    pathJoin(tmpdir(), "proxy-launcher-regression-"),
+  );
+  const packagesDir = pathJoin(directory, "packages");
+  const currentDir = pathJoin(directory, "selected ' $(touch INJECTED)");
+  const launcher = pathJoin(directory, "bin", "proxy launcher");
+  fs.mkdirSync(currentDir, { recursive: true });
+  writeFileSync(
+    pathJoin(currentDir, "package.json"),
+    JSON.stringify({ name: "@juspay/neurolink", version: "1.0.0" }),
+  );
+  const entryScript = pathJoin(currentDir, "index.cjs");
+  writeFileSync(
+    entryScript,
+    `require('node:fs').writeFileSync(${JSON.stringify(pathJoin(directory, "IMPORTED"))}, 'yes');process.stdout.write(JSON.stringify(process.argv.slice(2)));`,
+  );
+  const selected = inspectProxyPackage(entryScript);
+  writeProxyPackageLauncher(launcher, selected);
+  selectProxyPackage(packagesDir, selected);
+  const manager = (mode: "ok" | "network" | "invalid" = "ok") => {
+    const bin = pathJoin(directory, `fixture-npm-${mode}`);
+    writeFileSync(
+      bin,
+      `#!${process.execPath}
+const fs=require('node:fs'),path=require('node:path'),args=process.argv.slice(2);
+fs.writeFileSync(${JSON.stringify(pathJoin(directory, "installer-args.json"))},JSON.stringify(args));
+const prefix=args[args.indexOf('--prefix')+1];
+if(!args.includes('--prefix')||args.includes('--global')||args.includes('-g'))process.exit(33);
+if(${JSON.stringify(mode)}==='network'){process.stderr.write('npm ERR! EAI_AGAIN');process.exit(1);}
+const target=path.join(prefix,'node_modules/@juspay/neurolink');fs.mkdirSync(target,{recursive:true});
+fs.writeFileSync(path.join(target,'package.json'),JSON.stringify({name:'@juspay/neurolink',version:args.at(-1).split('@').at(-1),bin:{neurolink:'index.cjs'}}));
+fs.writeFileSync(path.join(target,'index.cjs'),${JSON.stringify(mode === "invalid" ? "function {" : "process.stdout.write('candidate')")});
+`,
+      { mode: 0o755 },
+    );
+    return { kind: "npm" as const, bin };
+  };
+  try {
+    return await run({ directory, packagesDir, launcher, selected, manager });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
 
 /**
  * Spawn the built CLI (dist/cli/index.js) and capture exit code + separate
@@ -3302,20 +3365,35 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "launchd: trampoline script uses 'command -v neurolink', not hardcoded path",
+    name: "launchd: launcher runs its validated selection even when PATH and overrides change",
     category: "launchd-regression",
-    fn: async () => {
-      const { readFileSync } = await import("fs");
-      const { join: pathJoin } = await import("path");
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      // The writeTrampoline function must resolve via command -v at runtime
-      return (
-        src.includes("command -v neurolink") && src.includes("writeTrampoline")
-      );
-    },
+    fn: async () =>
+      withProxyPackageFixture(async ({ directory, launcher }) => {
+        const { execFileSync } = await import("node:child_process");
+        const decoy = pathJoin(directory, "neurolink");
+        writeFileSync(decoy, "#!/bin/sh\nexit 99\n", { mode: 0o755 });
+        const args = [
+          "proxy",
+          "start",
+          "argument with space",
+          "$(touch INJECTED)",
+        ];
+        const output = execFileSync(launcher, args, {
+          encoding: "utf8",
+          cwd: directory,
+          env: {
+            ...process.env,
+            PATH: directory,
+            NEUROLINK_BIN: decoy,
+            PNPM_HOME: directory,
+          },
+          timeout: 5_000,
+        });
+        return (
+          JSON.stringify(JSON.parse(output)) === JSON.stringify(args) &&
+          !existsSync(pathJoin(directory, "INJECTED"))
+        );
+      }),
   },
   {
     name: "launchd: proxy install calls writeTrampoline before buildProxyLaunchdPlist",
@@ -3334,31 +3412,28 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "launchd: auto-updater validates the trampoline before activation",
+    name: "updater: a candidate with invalid JavaScript cannot replace the validated launcher",
     category: "launchd-regression",
-    fn: async () => {
-      const { readFileSync } = await import("fs");
-      const { join: pathJoin } = await import("path");
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      // Rolling activation and the legacy kickstart fallback both require a
-      // validated trampoline. The updater must never rewrite the plist.
-      const guardSection = src.slice(
-        src.indexOf("[updater] package-manager candidates"),
-        src.indexOf("// 5. Wait for healthy restart"),
-      );
-      return (
-        guardSection.includes("writeTrampoline()") &&
-        guardSection.includes("validateInstalledVersion") &&
-        guardSection.includes('process.kill(parentPid, "SIGUSR2")') &&
-        guardSection.includes('["kickstart", "-k"') &&
-        !guardSection.includes("writeFileSync(PLIST_PATH") &&
-        !guardSection.includes('["bootout"') &&
-        !guardSection.includes('["bootstrap"')
-      );
-    },
+    fn: async () =>
+      withProxyPackageFixture(async ({ packagesDir, launcher, manager }) => {
+        const before = readFileSync(launcher, "utf8");
+        try {
+          await installStagedProxyPackage({
+            version: "1.0.1",
+            packagesDir,
+            installer: manager("invalid"),
+          });
+          return false;
+        } catch (error) {
+          return (
+            error instanceof Error &&
+            !isTransientInstallFailure(error) &&
+            readFileSync(launcher, "utf8") === before &&
+            readProxyPackageSelection(packagesDir)?.version === "1.0.0" &&
+            !existsSync(pathJoin(packagesDir, "1.0.1"))
+          );
+        }
+      }),
   },
   {
     name: "launchd: spawnFailOpenGuard uses process.argv[1] (same version, not stale)",
@@ -3404,25 +3479,28 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "updater: resolves the package manager that owns the running install",
+    name: "updater: the selected package manager installs only into the private staging directory",
     category: "launchd-regression",
-    fn: async () => {
-      const { readFileSync } = await import("fs");
-      const { join: pathJoin } = await import("path");
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      const installer = readFileSync(
-        pathJoin(process.cwd(), "src/lib/proxy/globalInstaller.ts"),
-        "utf-8",
-      );
-      return (
-        src.includes("resolveGlobalInstaller") &&
-        src.includes("getGlobalInstallArgs") &&
-        installer.includes("matchesCurrentInstall")
-      );
-    },
+    fn: async () =>
+      withProxyPackageFixture(async ({ directory, packagesDir, manager }) => {
+        const candidate = await installStagedProxyPackage({
+          version: "1.0.1",
+          packagesDir,
+          installer: manager(),
+        });
+        const args: string[] = JSON.parse(
+          readFileSync(pathJoin(directory, "installer-args.json"), "utf8"),
+        );
+        const target = args[args.indexOf("--prefix") + 1];
+        return (
+          candidate.version === "1.0.1" &&
+          args.includes("--prefix") &&
+          target.startsWith(pathJoin(packagesDir, ".install-1.0.1-")) &&
+          !args.includes("-g") &&
+          !args.includes("--global") &&
+          readProxyPackageSelection(packagesDir)?.version === "1.0.0"
+        );
+      }),
   },
   {
     name: "updater: recognizes an npm global bin entrypoint after its shim is removed",
@@ -3473,28 +3551,36 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "updater: environmental install failures are retried, not suppressed",
+    name: "updater: a transient staged install failure preserves selection and allows a retry",
     category: "launchd-regression",
-    fn: async () => {
-      const { readFileSync } = await import("fs");
-      const { join: pathJoin } = await import("path");
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      const installFailureIndex = src.indexOf("global install failed");
-      const installFailureEnd = src.indexOf("} else {", installFailureIndex);
-      if (installFailureIndex < 0 || installFailureEnd < 0) {
-        return false;
-      }
-      const section = src.slice(installFailureIndex, installFailureEnd);
-      return (
-        section.includes("scheduleUpdateRetry(") &&
-        section.includes('"transient install failure"') &&
-        section.includes("return;") &&
-        !section.includes("suppressVersion")
-      );
-    },
+    fn: async () =>
+      withProxyPackageFixture(async ({ packagesDir, manager }) => {
+        try {
+          await installStagedProxyPackage({
+            version: "1.0.1",
+            packagesDir,
+            installer: manager("network"),
+          });
+          return false;
+        } catch (error) {
+          if (
+            !isTransientInstallFailure(error) ||
+            readProxyPackageSelection(packagesDir)?.version !== "1.0.0" ||
+            existsSync(pathJoin(packagesDir, "1.0.1"))
+          ) {
+            return false;
+          }
+        }
+        const retry = await installStagedProxyPackage({
+          version: "1.0.1",
+          packagesDir,
+          installer: manager(),
+        });
+        return (
+          retry.version === "1.0.1" &&
+          readProxyPackageSelection(packagesDir)?.version === "1.0.0"
+        );
+      }),
   },
   {
     name: "updater: transient install classification retries network errors only",
@@ -3573,32 +3659,35 @@ const tests: TestFunction[] = [
 
   // ---------- Defensive trampoline & pnpm resolution ----------
   {
-    name: "trampoline: tries multiple candidates and probes each with --version",
+    name: "trampoline: version validation reads the selected manifest without importing the CLI",
     category: "launchd-regression",
-    fn: async () => {
-      const { readFileSync } = await import("fs");
-      const { join: pathJoin } = await import("path");
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      // The trampoline must:
-      // - define a _try helper that runs --version
-      // - try PATH candidates (command -v)
-      // - try PNPM_HOME
-      // - try common install locations
-      // - fall back to baked-in node + script
-      // - exit 127 with a clear message when nothing works
-      return (
-        src.includes("_try() {") &&
-        src.includes("--version >/dev/null 2>&1") &&
-        src.includes("command -v neurolink") &&
-        src.includes("PNPM_HOME") &&
-        src.includes("BAKED_NODE=") &&
-        src.includes("BAKED_SCRIPT=") &&
-        src.includes("exit 127")
-      );
-    },
+    fn: async () =>
+      withProxyPackageFixture(async ({ directory, launcher, selected }) => {
+        const { execFileSync } = await import("node:child_process");
+        const version = execFileSync(launcher, ["--version"], {
+          encoding: "utf8",
+          timeout: 5_000,
+        }).trim();
+        if (
+          version !== "1.0.0" ||
+          existsSync(pathJoin(directory, "IMPORTED"))
+        ) {
+          return false;
+        }
+        writeFileSync(
+          pathJoin(dirname(selected.entryScript), "package.json"),
+          JSON.stringify({ name: "@juspay/neurolink", version: "9.9.9" }),
+        );
+        try {
+          execFileSync(launcher, ["--version"], {
+            stdio: "pipe",
+            timeout: 5_000,
+          });
+          return false;
+        } catch {
+          return !existsSync(pathJoin(directory, "IMPORTED"));
+        }
+      }),
   },
   {
     name: "trampoline: install handler validates via probeBinVersion before proceeding",
@@ -3819,26 +3908,32 @@ const tests: TestFunction[] = [
     },
   },
   {
-    name: "installer: updater skips without suppression when no manager is usable",
+    name: "installer: an unavailable package manager leaves the validated selection usable",
     category: "launchd-regression",
-    fn: async () => {
-      const { readFileSync } = await import("fs");
-      const { join: pathJoin } = await import("path");
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      // When no installer is resolved, we should NOT suppressVersion (that's
-      // version-keyed and inappropriate for an environmental failure).
-      // We should just log and return.
-      const section = src.slice(
-        src.indexOf("no package manager has a writable global root"),
-        src.indexOf("no package manager has a writable global root") + 500,
-      );
-      return (
-        section.includes("return;") && !section.includes("suppressVersion")
-      );
-    },
+    fn: async () =>
+      withProxyPackageFixture(async ({ directory, packagesDir, launcher }) => {
+        const { execFileSync } = await import("node:child_process");
+        try {
+          await installStagedProxyPackage({
+            version: "1.0.1",
+            packagesDir,
+            installer: { kind: "npm", bin: pathJoin(directory, "missing-npm") },
+          });
+          return false;
+        } catch (error) {
+          return (
+            error instanceof Error &&
+            "code" in error &&
+            error.code === "ENOENT" &&
+            readProxyPackageSelection(packagesDir)?.version === "1.0.0" &&
+            !existsSync(pathJoin(packagesDir, "1.0.1")) &&
+            execFileSync(launcher, ["--version"], {
+              encoding: "utf8",
+              timeout: 5_000,
+            }).trim() === "1.0.0"
+          );
+        }
+      }),
   },
   {
     name: "trampoline: generated shell script has valid sh syntax",
@@ -3902,65 +3997,21 @@ exit 127
     },
   },
   {
-    name: "trampoline: live-generated file from proxy.ts has valid sh syntax",
+    name: "trampoline: production launcher generator emits valid sh for quoted package paths",
     category: "launchd-regression",
-    fn: async () => {
-      // Extract the actual template literal from proxy.ts and verify its
-      // generated output is valid shell. This catches bugs where the
-      // source's escaping drifts from what's tested above.
-      const { readFileSync, writeFileSync, mkdtempSync, rmSync } =
-        await import("fs");
-      const os = await import("os");
-      const { join: pathJoin } = await import("path");
-      const { execFileSync } = await import("node:child_process");
-
-      const src = readFileSync(
-        pathJoin(process.cwd(), "src/cli/commands/proxy.ts"),
-        "utf-8",
-      );
-      // Find the template literal that starts after `const script = \``
-      const start = src.indexOf("const script = `#!/bin/sh");
-      if (start < 0) {
-        return false;
-      }
-      const tplStart = src.indexOf("`", start) + 1;
-      const tplEnd = src.indexOf("`;", tplStart);
-      if (tplEnd < 0) {
-        return false;
-      }
-      let tpl = src.slice(tplStart, tplEnd);
-
-      // Substitute the JS interpolations with representative values.
-      // `${shEscape(bakedNode)}` and `${shEscape(bakedScript)}` are the only
-      // interpolations; replace them with shell-safe quoted paths.
-      tpl = tpl.replace(/\$\{shEscape\(bakedNode\)\}/g, "'/usr/bin/node'");
-      tpl = tpl.replace(/\$\{shEscape\(bakedScript\)\}/g, "'/tmp/fake.js'");
-
-      // Un-escape JS string escapes: the source uses \$ to mean literal $,
-      // and \\ to mean literal \. In the written file those appear as $ and \.
-      tpl = tpl
-        .replace(/\\\$/g, "$")
-        .replace(/\\\\/g, "\\")
-        .replace(/\\`/g, "`");
-
-      const tmpDir = mkdtempSync(pathJoin(os.tmpdir(), "neurolink-test-"));
-      const scriptPath = pathJoin(tmpDir, "trampoline.sh");
-      try {
-        writeFileSync(scriptPath, tpl);
-        execFileSync("sh", ["-n", scriptPath], {
-          stdio: ["ignore", "pipe", "pipe"],
-          timeout: 5_000,
-          killSignal: "SIGKILL" as const,
-        });
-        return true;
-      } catch {
-        return false;
-      } finally {
-        rmSync(tmpDir, { recursive: true, force: true });
-      }
-    },
-  },
-  // ---------- openai-compatible provider review fixes (2026-05-25) ----------
+    fn: async () =>
+      withProxyPackageFixture(async ({ directory, launcher }) => {
+        const { execFileSync } = await import("node:child_process");
+        execFileSync("sh", ["-n", launcher], { stdio: "pipe", timeout: 5_000 });
+        return (
+          execFileSync(launcher, ["--version"], {
+            encoding: "utf8",
+            cwd: directory,
+            timeout: 5_000,
+          }).trim() === "1.0.0" && !existsSync(pathJoin(directory, "INJECTED"))
+        );
+      }),
+  }, // ---------- openai-compatible provider review fixes (2026-05-25) ----------
   // Verifies the four review findings flagged against feat/openai-wire-client:
   //   P1.1 doGenerate dropped call options
   //   P1.2 buildToolsForOpenAI sent raw Zod internals
@@ -10321,67 +10372,101 @@ exit 127
     name: "proxy fallback: an idle stream is aborted without ambiguous replay",
     category: "proxy",
     fn: async () => {
+      const assert: typeof import("node:assert/strict") = (
+        await import("node:assert/strict")
+      ).default;
+      const { observeProxyFinalLog } =
+        await import("../src/lib/proxy/proxyActivity.js");
       let cancelled = false;
       const cancel = async (): Promise<void> => {
         cancelled = true;
       };
       const abortSignals: AbortSignal[] = [];
       let streamCalls = 0;
+      const finals: Array<{ responseStatus: number; errorType?: string }> = [];
+      const attempts: Array<{ responseStatus: number; retryable?: boolean }> =
+        [];
+      const requestId = "idle-fallback-regression";
+      const stop = observeProxyFinalLog(
+        requestId,
+        (entry) => finals.push(entry),
+        (entry) => attempts.push(entry),
+      );
       try {
-        await claudeProxyTestHooks.executeClaudeFallbackWithRetry({
-          // Injected rather than reached by patching `globalThis.setTimeout`
-          // to fire every timer at 0ms, which is how this case used to force
-          // the timeout path. That patch stayed installed across an await
-          // inside a 280-case suite sharing one process, so it rewrote the
-          // delay of every timer created in that window — including ones
-          // belonging to other cases' pending work. The hazard is not
-          // theoretical: an attempt to measure this very case with its own
-          // setTimeout-based watchdog had the watchdog rewritten by the patch
-          // and reported an instant false hang, twice, before the instrument
-          // was blamed instead of the code.
-          idleTimeoutMs: 1,
-          ctx: {
-            neurolink: {
-              stream: async (options: { abortSignal?: AbortSignal }) => {
-                streamCalls += 1;
-                if (options.abortSignal) {
-                  abortSignals.push(options.abortSignal);
-                }
-                return {
-                  stream: {
-                    [Symbol.asyncIterator]: () => ({
-                      next: () => new Promise(() => undefined),
-                      return: cancel,
-                    }),
-                  },
-                  toolCalls: [],
-                  model: "fallback-model",
-                };
+        await assert.rejects(
+          claudeProxyTestHooks.executeClaudeFallbackWithRetry({
+            // Injected rather than reached by patching `globalThis.setTimeout`
+            // to fire every timer at 0ms, which is how this case used to force
+            // the timeout path. That patch stayed installed across an await
+            // inside a 280-case suite sharing one process, so it rewrote the
+            // delay of every timer created in that window — including ones
+            // belonging to other cases' pending work. The hazard is not
+            // theoretical: an attempt to measure this very case with its own
+            // setTimeout-based watchdog had the watchdog rewritten by the patch
+            // and reported an instant false hang, twice, before the instrument
+            // was blamed instead of the code.
+            idleTimeoutMs: 1,
+            ctx: {
+              requestId,
+              method: "POST",
+              path: "/v1/messages",
+              headers: {},
+              query: {},
+              params: {},
+              metadata: {},
+              timestamp: Date.now(),
+              neurolink: {
+                stream: async (options: { abortSignal?: AbortSignal }) => {
+                  streamCalls += 1;
+                  if (options.abortSignal) {
+                    abortSignals.push(options.abortSignal);
+                  }
+                  return {
+                    stream: {
+                      [Symbol.asyncIterator]: () => ({
+                        next: () => new Promise(() => undefined),
+                        return: cancel,
+                      }),
+                    },
+                    toolCalls: [],
+                    model: "fallback-model",
+                  };
+                },
               },
+            } as unknown as ServerContext,
+            body: {
+              model: "claude-sonnet-5",
+              messages: [{ role: "user", content: "hello" }],
+              max_tokens: 1024,
+              stream: false,
             },
-          } as unknown as ServerContext,
-          body: {
-            model: "claude-sonnet-5",
-            messages: [],
-            max_tokens: 1024,
-            stream: false,
+            requestStartTime: Date.now(),
+            logProxyBody: () => undefined,
+            logFinalRequest: () => undefined,
+            options: {} as never,
+            providerLabel: "auto-provider",
+          }),
+          {
+            name: "TimeoutError",
+            message: "Translation attempt deadline exceeded",
           },
-          requestStartTime: Date.now(),
-          logProxyBody: () => undefined,
-          logFinalRequest: () => undefined,
-          options: {} as never,
-          providerLabel: "auto-provider",
-        });
-        return false;
-      } catch (error) {
-        return (
-          error instanceof Error &&
-          error.message.includes("Fallback auto-provider stream timed out") &&
-          streamCalls === 1 &&
-          cancelled &&
-          abortSignals.length === 1 &&
-          abortSignals[0]?.aborted === true
         );
+        // The parent owns the final response and may select another configured
+        // provider. This helper records the timed-out attempt without replaying
+        // it or finalizing the parent request prematurely.
+        assert.equal(streamCalls, 1);
+        assert.equal(cancelled, true);
+        assert.equal(abortSignals.length, 1);
+        assert.equal(abortSignals[0].aborted, true);
+        assert.equal(abortSignals[0].reason?.name, "TimeoutError");
+        assert.equal(finals.length, 0);
+        assert.equal(attempts.length, 1);
+        assert.equal(attempts[0].responseStatus, 504);
+        assert.equal(attempts[0].retryable, false);
+        return true;
+      } finally {
+        stop();
+        await resetUsageStatsForTests();
       }
     },
   },
@@ -10396,11 +10481,15 @@ exit 127
     name: "proxy routing: auto-fallback opt-in decides whether a second attempt happens",
     category: "proxy",
     fn: async () => {
+      const assert: typeof import("node:assert/strict") = (
+        await import("node:assert/strict")
+      ).default;
       const runExhaustedRequest = async (
         requestId: string,
         autoFallback: boolean,
       ) => {
         await resetUsageStatsForTests();
+        let streamCalls = 0;
         const ctx = {
           requestId,
           method: "POST",
@@ -10412,14 +10501,17 @@ exit 127
           metadata: {},
           // Yields nothing, so every attempt fails with "no content".
           neurolink: {
-            stream: async () => ({
-              stream: (async function* () {
-                yield* [];
-              })(),
-              toolCalls: [],
-              usage: {},
-              model: "translated-model",
-            }),
+            stream: async () => {
+              streamCalls++;
+              return {
+                stream: (async function* () {
+                  yield* [];
+                })(),
+                toolCalls: [],
+                usage: {},
+                model: "translated-model",
+              };
+            },
           },
           toolRegistry: {},
           body: {
@@ -10441,11 +10533,15 @@ exit 127
         if (!messagesRoute) {
           throw new Error("messages route not found");
         }
-        const result = (await messagesRoute.handler(ctx)) as {
-          type?: string;
-        };
+        const response = await messagesRoute.handler(ctx);
+        assert.ok(response instanceof Response);
+        assert.equal(response.status, 502);
+        const result = await response.json();
+        assert.equal(result.type, "error");
+        assert.equal(result.error.type, "api_error");
         return {
           result,
+          streamCalls,
           stats: getStats(),
           terminal: getTerminalErrors(),
         };
@@ -10457,6 +10553,7 @@ exit 127
         const enabled = await runExhaustedRequest("autofallback-on", true);
         const enabledOk =
           enabled.result?.type === "error" &&
+          enabled.streamCalls === 2 &&
           enabled.stats.totalAttempts === 2 &&
           enabled.stats.totalAttemptErrors === 2 &&
           enabled.stats.totalRequests === 1 &&
@@ -10471,6 +10568,7 @@ exit 127
         const disabled = await runExhaustedRequest("autofallback-off", false);
         const disabledOk =
           disabled.result?.type === "error" &&
+          disabled.streamCalls === 1 &&
           disabled.stats.totalAttempts === 1 &&
           disabled.stats.totalAttemptErrors === 1 &&
           disabled.stats.totalRequests === 1 &&

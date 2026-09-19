@@ -47,10 +47,13 @@ const pending = new Map<
   {
     resolve: (result: ProcessedProxyBodyCapture) => void;
     timer: NodeJS.Timeout;
+    startedAt: number;
   }
 >();
+const publishingSince = new Map<number, number>();
 const otelAdmissionWaiters: Array<{
   bytes: number;
+  queuedAt: number;
   resolve: (result: "admitted" | "queue_full" | "timeout") => void;
   timer: NodeJS.Timeout;
 }> = [];
@@ -153,7 +156,7 @@ function waitForOtelAdmission(
       drainOtelAdmissionWaiters();
     }, OTEL_ADMISSION_WAIT_MS);
     timer.unref?.();
-    otelAdmissionWaiters.push({ bytes, resolve, timer });
+    otelAdmissionWaiters.push({ bytes, queuedAt: Date.now(), resolve, timer });
   });
 }
 
@@ -339,6 +342,7 @@ export async function captureProxyBody(
     return consume({
       error,
       stored: { bodyWriteFailed: true },
+      admissionWaitMs: Math.max(0, Date.now() - queuedAt),
       admission: {
         limitingResource:
           bytes > maxEntryBytes
@@ -357,6 +361,7 @@ export async function captureProxyBody(
       },
     });
   }
+  const admittedAt = Date.now();
   let current: Worker;
   try {
     current = getWorker();
@@ -378,14 +383,22 @@ export async function captureProxyBody(
     timer.unref();
     pending.set(id, {
       timer,
+      startedAt: Date.now(),
       resolve: (result) => {
         // Keep the byte/count lease through index writes and OTLP publication,
         // so completed worker results cannot form an unbounded parent backlog.
+        publishingSince.set(id, Date.now());
+        result.admissionWaitMs = Math.max(0, admittedAt - queuedAt);
+        result.workerQueueWaitMs = Math.max(
+          0,
+          (result.queueWaitMs ?? 0) - result.admissionWaitMs,
+        );
         void consume(result)
           .catch(() => {
             result.error ??= "body_capture_publication_failed";
           })
           .finally(() => {
+            publishingSince.delete(id);
             releaseCapture(bytes);
             if (result.error || result.stored.bodyWriteFailed) {
               snapshot.failed += 1;
@@ -416,7 +429,22 @@ export async function captureProxyBody(
  * retained publication work.
  */
 export function getBodyCaptureWorkerSnapshot(): ProxyBodyCaptureWorkerSnapshot {
-  return { ...snapshot, rejectionReasons: { ...snapshot.rejectionReasons } };
+  const now = Date.now();
+  const oldestAge = (times: number[]) =>
+    times.length ? Math.max(0, now - Math.min(...times)) : 0;
+  return {
+    ...snapshot,
+    rejectionReasons: { ...snapshot.rejectionReasons },
+    processing: pending.size,
+    publishing: publishingSince.size,
+    oldestAdmissionWaitMs: oldestAge(
+      otelAdmissionWaiters.map((waiter) => waiter.queuedAt),
+    ),
+    oldestProcessingMs: oldestAge(
+      [...pending.values()].map((task) => task.startedAt),
+    ),
+    oldestPublicationMs: oldestAge([...publishingSince.values()]),
+  };
 }
 
 /** Isolated tests point at a separately executed built worker. */

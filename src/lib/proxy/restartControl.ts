@@ -117,7 +117,7 @@ export async function startProxyRestartControl(
       drainingWorkers: snapshot.draining.length,
     };
   };
-  const assertIdle = (): void => {
+  const assertReplacementAvailable = (): void => {
     const snapshot = options.server.snapshot();
     if (closing || !snapshot.active) {
       throw new Error("No serving worker is available for a rolling restart.");
@@ -129,9 +129,14 @@ export async function startProxyRestartControl(
     }
     if (snapshot.draining.length) {
       throw new Error(
-        "A previous worker is still finishing requests; another restart is deferred.",
+        "Previous workers are still draining; another restart is deferred.",
       );
     }
+    // This replaces a worker, not the listener/supervisor. Normal admissions
+    // can overlap preflight and activation: the rolling supervisor retains
+    // each previous generation until its pending transfers commit, then drains
+    // its existing streams. Full quiescence is only required before replacing
+    // the supervisor itself (updateCoordinator.isProxyRuntimeSettled).
   };
   const operate = async (restart: boolean): Promise<ProxyRestartResult> => {
     if (busy || closing) {
@@ -160,7 +165,7 @@ export async function startProxyRestartControl(
       };
     };
     try {
-      assertIdle();
+      assertReplacementAvailable();
       const before = options.server.snapshot();
       const active = before.active;
       if (!active) {
@@ -183,7 +188,7 @@ export async function startProxyRestartControl(
           "The configured worker executable did not report a valid installed version.",
         );
       }
-      assertIdle();
+      assertReplacementAvailable();
       if (options.server.snapshot().active?.pid !== previousWorkerPid) {
         throw new Error(
           "Serving worker changed during preflight; retry the check.",

@@ -75,3 +75,27 @@ Defined in: [types/cli.ts:988](https://github.com/juspay/neurolink/blob/release/
 > `optional` **proxyUrl?**: `string`
 
 Defined in: [types/cli.ts:989](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L989)
+
+---
+
+### admissionLookbackMinutes?
+
+> `optional` **admissionLookbackMinutes?**: `number`
+
+Defined in: [types/cli.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L990)
+
+---
+
+### requestTimeoutMs?
+
+> `optional` **requestTimeoutMs?**: `number`
+
+Defined in: [types/cli.ts:991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L991)
+
+---
+
+### ingestionGraceMs?
+
+> `optional` **ingestionGraceMs?**: `number`
+
+Defined in: [types/cli.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L992)

@@ -8,7 +8,7 @@
 
 > **AuthListRefreshAccountResult** = `object`
 
-Defined in: [types/cli.ts:1141](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1141)
+Defined in: [types/cli.ts:1144](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1144)
 
 Fresh-limit result for one provider-qualified account.
 
@@ -18,7 +18,7 @@ Fresh-limit result for one provider-qualified account.
 
 > **provider**: `string`
 
-Defined in: [types/cli.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1143)
+Defined in: [types/cli.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1146)
 
 Provider prefix parsed from the configured account key.
 
@@ -28,7 +28,7 @@ Provider prefix parsed from the configured account key.
 
 > **status**: [`AuthListRefreshStatus`](AuthListRefreshStatus.md)
 
-Defined in: [types/cli.ts:1145](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1145)
+Defined in: [types/cli.ts:1148](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1148)
 
 A missing limit is explicit rather than being rendered as an unexplained dash.
 
@@ -38,4 +38,4 @@ A missing limit is explicit rather than being rendered as an unexplained dash.
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1146)
+Defined in: [types/cli.ts:1149](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1149)

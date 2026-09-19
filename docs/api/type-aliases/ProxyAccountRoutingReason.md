@@ -8,4 +8,4 @@
 
 > **ProxyAccountRoutingReason** = _typeof_ `PROXY_ACCOUNT_ROUTING_REASONS`\[`number`\]
 
-Defined in: [types/proxy.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L523)
+Defined in: [types/proxy.ts:528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L528)

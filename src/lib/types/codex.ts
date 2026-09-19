@@ -198,7 +198,11 @@ export type CodexResponsesRequest = {
 export type CodexFallbackResult = {
   text: string;
   toolCalls: NonNullable<InternalResult["toolCalls"]>;
-  usage?: NonNullable<InternalResult["usage"]>;
+  usage?: NonNullable<InternalResult["usage"]> & {
+    /** Numeric serializer compatibility must not imply provider observation. */
+    inputTokensObserved?: boolean;
+    outputTokensObserved?: boolean;
+  };
   finishReason: "end_turn" | "tool_use";
 };
 

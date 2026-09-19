@@ -8,7 +8,7 @@
 
 > **OpenAISystemMessage** = `object`
 
-Defined in: [types/proxy.ts:3582](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3582)
+Defined in: [types/proxy.ts:3712](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3712)
 
 OpenAI message types.
 
@@ -18,7 +18,7 @@ OpenAI message types.
 
 > **role**: `"system"`
 
-Defined in: [types/proxy.ts:3582](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3582)
+Defined in: [types/proxy.ts:3712](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3712)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/proxy.ts:3582](https://github.com/juspay/neurolink/blob/relea
 
 > **content**: `string`
 
-Defined in: [types/proxy.ts:3582](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3582)
+Defined in: [types/proxy.ts:3712](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3712)

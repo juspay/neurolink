@@ -8,7 +8,7 @@
 
 > **ProxyRollingState** = `object`
 
-Defined in: [types/cli.ts:995](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L995)
+Defined in: [types/cli.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L998)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:995](https://github.com/juspay/neurolink/blob/release/
 
 > **generation**: `number`
 
-Defined in: [types/cli.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L996)
+Defined in: [types/cli.ts:999](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L999)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:996](https://github.com/juspay/neurolink/blob/release/
 
 > **active**: \{ `pid`: `number`; `version`: `string`; `generation`: `number`; \} \| `null`
 
-Defined in: [types/cli.ts:997](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L997)
+Defined in: [types/cli.ts:1000](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1000)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:997](https://github.com/juspay/neurolink/blob/release/
 
 > **candidate**: \{ `pid`: `number`; `expectedVersion`: `string`; `generation`: `number`; \} \| `null`
 
-Defined in: [types/cli.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L998)
+Defined in: [types/cli.ts:1001](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1001)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:998](https://github.com/juspay/neurolink/blob/release/
 
 > **draining**: `object`[]
 
-Defined in: [types/cli.ts:1003](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1003)
+Defined in: [types/cli.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1006)
 
 #### pid
 
@@ -60,7 +60,7 @@ Defined in: [types/cli.ts:1003](https://github.com/juspay/neurolink/blob/release
 
 > **queuedSockets**: `number`
 
-Defined in: [types/cli.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1004)
+Defined in: [types/cli.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1007)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/cli.ts:1004](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **pendingTransfers?**: `number`
 
-Defined in: [types/cli.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1005)
+Defined in: [types/cli.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1008)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/cli.ts:1005](https://github.com/juspay/neurolink/blob/release
 
 > **rejectedSockets**: `number`
 
-Defined in: [types/cli.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1006)
+Defined in: [types/cli.ts:1009](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1009)
 
 ---
 
@@ -84,7 +84,7 @@ Defined in: [types/cli.ts:1006](https://github.com/juspay/neurolink/blob/release
 
 > **failedTransfers**: `number`
 
-Defined in: [types/cli.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1007)
+Defined in: [types/cli.ts:1010](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1010)
 
 ---
 
@@ -92,4 +92,4 @@ Defined in: [types/cli.ts:1007](https://github.com/juspay/neurolink/blob/release
 
 > **lastFailure**: \{ `at`: `string`; `generation`: `number`; `version`: `string`; `phase`: `"startup"` \| `"activation"` \| `"runtime"` \| `"transfer"`; `message`: `string`; `workerPid?`: `number`; `workerExitCode?`: `number` \| `null`; `workerExitSignal?`: `string` \| `null`; `supervisorAction?`: `"none"` \| `"sigkill_after_transfer_failure"` \| `"cancel_socket_replace_before_drain"` \| `"cancel_uncommitted_socket"`; \} \| `null`
 
-Defined in: [types/cli.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1008)
+Defined in: [types/cli.ts:1011](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1011)

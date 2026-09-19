@@ -9,7 +9,7 @@ import { setImmediate as yieldToRequests } from "node:timers/promises";
 import { SeverityNumber } from "@opentelemetry/api-logs";
 import { ExportResultCode } from "@opentelemetry/core";
 import type { ExportResult } from "@opentelemetry/core";
-import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { createProxyOtlpLogTransport } from "./otlpLogTransport.js";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import {
   BatchLogRecordProcessor,
@@ -37,7 +37,7 @@ const bodyPublicationDeadlines = new WeakMap<
   ProxyBodyPublicationProgress,
   number
 >();
-let bodyPublicationChain = Promise.resolve();
+const bodyPublicationOperations = new Set<Promise<ProxyBodyDeliveryResult>>();
 let shuttingDown = false;
 const BODY_OTLP_CHUNK_SIZE = 128 * 1024;
 const OTLP_EXPORT_TIMEOUT_MS = 30_000;
@@ -69,6 +69,8 @@ function createTrackedProcessor(
   kind: "metadata" | "bodies",
 ) {
   const unsettled = new Set<ReadableLogRecord>();
+  const enqueuedAt = new WeakMap<ReadableLogRecord, number>();
+  const capacityWaiters = new Set<() => void>();
   const flushWaiters = new Set<() => void>();
   const state = {
     attempted: 0,
@@ -139,12 +141,21 @@ function createTrackedProcessor(
       }
     });
   };
-  const transport = new OTLPLogExporter({
-    url,
-    timeoutMillis: OTLP_EXPORT_TIMEOUT_MS,
-  });
+  const transport = createProxyOtlpLogTransport(url, OTLP_EXPORT_TIMEOUT_MS);
   const exporter: LogRecordExporter = {
     export(records, callback) {
+      const exportStartedAt = performance.now();
+      for (const record of records) {
+        const id = record.attributes["body.capture_id"];
+        const publication =
+          typeof id === "string" ? bodyPublications.get(id) : undefined;
+        if (publication) {
+          publication.maxChunkQueueWaitMs = Math.max(
+            publication.maxChunkQueueWaitMs ?? 0,
+            exportStartedAt - (enqueuedAt.get(record) ?? exportStartedAt),
+          );
+        }
+      }
       let settled = false;
       const deadline = setTimeout(
         () =>
@@ -177,6 +188,10 @@ function createTrackedProcessor(
           const publication =
             typeof id === "string" ? bodyPublications.get(id) : undefined;
           if (publication) {
+            publication.maxChunkExportMs = Math.max(
+              publication.maxChunkExportMs ?? 0,
+              performance.now() - exportStartedAt,
+            );
             const activeDeadline = bodyPublicationDeadlines.get(publication);
             if (
               result.code === ExportResultCode.SUCCESS &&
@@ -188,6 +203,9 @@ function createTrackedProcessor(
             }
             publication.notify?.();
           }
+        }
+        for (const notify of capacityWaiters) {
+          notify();
         }
         for (const notify of flushWaiters) {
           notify();
@@ -208,7 +226,7 @@ function createTrackedProcessor(
   const batch = new BatchLogRecordProcessor(exporter, {
     maxQueueSize: capacity,
     maxExportBatchSize: 64,
-    scheduledDelayMillis: 1000,
+    scheduledDelayMillis: kind === "bodies" ? 25 : 1000,
     exportTimeoutMillis: OTLP_EXPORT_CALLBACK_DEADLINE_MS,
   });
   const processor: LogRecordProcessor = {
@@ -233,6 +251,7 @@ function createTrackedProcessor(
       state.submitted++;
       state.outstanding++;
       unsettled.add(record);
+      enqueuedAt.set(record, performance.now());
       state.highWaterOutstanding = Math.max(
         state.highWaterOutstanding,
         state.outstanding,
@@ -264,13 +283,36 @@ function createTrackedProcessor(
       }
     },
   };
-  return { state, processor, capacity, kind };
+  /** Wait for a shared queue slot without force-flushing or owning another capture. */
+  const waitForCapacity = (deadline: number): Promise<boolean> =>
+    new Promise((resolve) => {
+      const timer = setTimeout(
+        () => finish(false),
+        Math.max(0, deadline - Date.now()),
+      );
+      timer.unref?.();
+      const finish = (available: boolean) => {
+        clearTimeout(timer);
+        capacityWaiters.delete(check);
+        resolve(available);
+      };
+      const check = () => {
+        if (Date.now() >= deadline) {
+          finish(false);
+        } else if (state.outstanding < capacity) {
+          finish(true);
+        }
+      };
+      capacityWaiters.add(check);
+      check();
+    });
+  return { state, processor, capacity, kind, waitForCapacity };
 }
 
 /**
- * Own a whole capture within byte/count bounds, then pace its chunks by actual
- * export callbacks. SDK forceFlush alone does not await an automatic export
- * already in flight. Serial publication prevents bursts from dropping tails.
+ * Publish bounded captures concurrently into a shared batch queue. Transport
+ * callbacks settle each chunk once; a flush is a process fence, not a per-body
+ * network round trip. Metadata has a separate queue and transport.
  */
 export async function publishProxyOtelBody(
   captureId: string,
@@ -317,176 +359,116 @@ export async function publishProxyOtelBody(
   };
   bodyPublications.set(captureId, progress);
   let deferredRelease: Promise<void> | undefined;
-  const operation = bodyPublicationChain.then(
-    async (): Promise<ProxyBodyDeliveryResult> => {
-      const queue = queues.find((candidate) => candidate.kind === "bodies");
-      if (!queue) {
-        return {
-          status: "rejected",
-          acknowledgedChunks: 0,
-          unconfirmedChunks: 0,
-          droppedChunks: 0,
-          reason: "body_exporter_unavailable",
-        };
-      }
-      // A capture owns bounded publication memory while waiting behind earlier
-      // captures. Start its active deadline only when it reaches the head of
-      // the chain; healthy queued captures must not expire solely because an
-      // earlier export used its transport timeout.
-      const deadline = Date.now() + BODY_PUBLICATION_ACTIVE_DEADLINE_MS;
-      bodyPublicationDeadlines.set(progress, deadline);
-      const chunks = splitUtf8StringByBytes(body, BODY_OTLP_CHUNK_SIZE);
-      const awaitSettlement = () =>
-        new Promise<void>((resolve) => {
-          const check = () => {
-            if (
-              progress.acknowledged + progress.unconfirmed + progress.dropped >=
-              progress.emitted
-            ) {
-              progress.notify = undefined;
-              resolve();
-            }
-          };
-          progress.notify = check;
-          check();
-        });
-      const resultFromProgress = (
-        snapshot: Pick<
-          ProxyBodyPublicationProgress,
-          "acknowledged" | "unconfirmed" | "dropped" | "emitted"
-        >,
-        reason?: string,
-      ): ProxyBodyDeliveryResult => {
-        const pending = Math.max(
-          0,
-          snapshot.emitted -
-            snapshot.acknowledged -
-            snapshot.unconfirmed -
-            snapshot.dropped,
-        );
-        const unconfirmedChunks = snapshot.unconfirmed + pending;
-        const status =
-          snapshot.emitted === 0 && chunks.length > 0
-            ? "rejected"
-            : snapshot.dropped || snapshot.emitted !== chunks.length
-              ? "partial"
-              : unconfirmedChunks
-                ? "export_unconfirmed"
-                : "transport_acknowledged";
-        return {
-          status,
-          expectedChunks: chunks.length,
-          acknowledgedChunks: snapshot.acknowledged,
-          unconfirmedChunks,
-          droppedChunks: snapshot.dropped,
-          notSubmittedChunks: chunks.length - snapshot.emitted,
-          ...(reason ? { reason } : {}),
-        };
+  const operation = (async (): Promise<ProxyBodyDeliveryResult> => {
+    const queue = queues.find((candidate) => candidate.kind === "bodies");
+    if (!queue) {
+      return {
+        status: "rejected",
+        acknowledgedChunks: 0,
+        unconfirmedChunks: 0,
+        droppedChunks: 0,
+        reason: "body_exporter_unavailable",
       };
-      const settleCurrentBatch = async (): Promise<
-        ProxyBodyDeliveryResult | undefined
-      > => {
-        const currentProgress = () => ({
-          acknowledged: progress.acknowledged,
-          unconfirmed: progress.unconfirmed,
-          dropped: progress.dropped,
-          emitted: progress.emitted,
-        });
-        const settlement = queue.processor.forceFlush().then(awaitSettlement);
-        const remainingMs = deadline - Date.now();
-        if (remainingMs <= 0) {
-          deferredRelease = settlement.catch(() => undefined);
-          return resultFromProgress(
-            currentProgress(),
-            "body_publication_deadline",
-          );
-        }
-        let timer: NodeJS.Timeout | undefined;
-        const completed = await Promise.race([
-          settlement.then(() => true),
-          new Promise<boolean>((resolve) => {
-            timer = setTimeout(() => resolve(false), remainingMs);
-            timer.unref?.();
-          }),
-        ]).finally(() => clearTimeout(timer));
-        if (!completed || Date.now() >= deadline) {
-          if (!completed) {
-            // The exporter callback owns the submitted records until it settles.
-            // Keep the capture identity and memory reservation alive meanwhile.
-            deferredRelease = settlement.catch(() => undefined);
-          }
-          return resultFromProgress(
-            currentProgress(),
-            "body_publication_deadline",
-          );
-        }
-        return undefined;
-      };
-      let reason: string | undefined;
-      try {
-        for (let offset = 0; offset < chunks.length; offset += 64) {
-          if (Date.now() >= deadline) {
+    }
+    const startedAt = performance.now();
+    const deadline = Date.now() + BODY_PUBLICATION_ACTIVE_DEADLINE_MS;
+    bodyPublicationDeadlines.set(progress, deadline);
+    const chunks = splitUtf8StringByBytes(body, BODY_OTLP_CHUNK_SIZE);
+    let capacityWaitMs = 0;
+    let reason: string | undefined;
+    try {
+      for (let index = 0; index < chunks.length; index++) {
+        while (queue.state.outstanding >= queue.capacity) {
+          const waitingAt = performance.now();
+          const available = await queue.waitForCapacity(deadline);
+          capacityWaitMs += performance.now() - waitingAt;
+          if (!available) {
             reason = "body_publication_deadline";
             break;
           }
-          // Ordinary body records from an external logger may share this queue.
-          // Wait for them before admitting any part of this batch.
-          while (queue.state.outstanding > queue.capacity - 64) {
-            const deadlineResult = await settleCurrentBatch();
-            if (deadlineResult) {
-              return deadlineResult;
-            }
-          }
-          for (let i = offset; i < Math.min(offset + 64, chunks.length); i++) {
-            emit(chunks[i], i, chunks.length);
-          }
-          const deadlineResult = await settleCurrentBatch();
-          if (deadlineResult) {
-            return deadlineResult;
-          }
-          if (progress.unconfirmed || progress.dropped) {
-            reason = "body_export_unconfirmed";
-            break;
-          }
+        }
+        if (Date.now() >= deadline) {
+          reason = "body_publication_deadline";
+          break;
+        }
+        emit(chunks[index], index, chunks.length);
+        // Multiple waiters can wake together; the next iteration checks the
+        // shared capacity synchronously before emitting its next chunk.
+        if (index % 4 === 3) {
           await yieldToRequests();
         }
-      } catch (error) {
-        reason =
-          error instanceof Error &&
-          error.message === "body_publication_deadline"
-            ? "body_publication_deadline"
-            : "body_publication_failed";
-        // Do not let error cleanup hold the serial publication chain past this
-        // capture's deadline. Exporter callbacks still own submitted chunks, so
-        // retain the capture identity and memory reservation until they settle.
-        const settlement = queue.processor
-          .forceFlush()
-          .catch(() => undefined)
-          .then(awaitSettlement);
-        const remainingMs = deadline - Date.now();
-        if (remainingMs <= 0) {
-          deferredRelease = settlement;
-        } else {
-          let timer: NodeJS.Timeout | undefined;
-          const completed = await Promise.race([
-            settlement.then(() => true),
-            new Promise<boolean>((resolve) => {
-              timer = setTimeout(() => resolve(false), remainingMs);
-              timer.unref?.();
-            }),
-          ]).finally(() => clearTimeout(timer));
-          if (!completed) {
-            deferredRelease = settlement;
-          }
-        }
       }
-      return resultFromProgress(progress, reason);
-    },
-  );
-  bodyPublicationChain = operation.then(
-    () => undefined,
-    () => undefined,
-  );
+    } catch {
+      reason = "body_publication_failed";
+    }
+    const settlement = new Promise<void>((resolve) => {
+      const check = () => {
+        if (
+          progress.acknowledged + progress.unconfirmed + progress.dropped >=
+          progress.emitted
+        ) {
+          progress.notify = undefined;
+          resolve();
+        }
+      };
+      progress.notify = check;
+      check();
+    });
+    let timer: NodeJS.Timeout | undefined;
+    const completed = await Promise.race([
+      settlement.then(() => true),
+      new Promise<boolean>((resolve) => {
+        timer = setTimeout(
+          () => resolve(false),
+          Math.max(0, deadline - Date.now()),
+        );
+        timer.unref?.();
+      }),
+    ]).finally(() => clearTimeout(timer));
+    if (!completed) {
+      // Keep identity/bytes until the real callback or callback deadline settles
+      // submitted chunks. Late success cannot rewrite an uncertainty result.
+      deferredRelease = settlement;
+    }
+    if (!completed || Date.now() >= deadline) {
+      reason ??= "body_publication_deadline";
+    }
+    if (!reason && progress.unconfirmed) {
+      reason = "body_export_unconfirmed";
+    } else if (!reason && progress.dropped) {
+      reason = "body_export_queue_full";
+    }
+    const pending = Math.max(
+      0,
+      progress.emitted -
+        progress.acknowledged -
+        progress.unconfirmed -
+        progress.dropped,
+    );
+    const unconfirmedChunks = progress.unconfirmed + pending;
+    const status =
+      progress.emitted === 0
+        ? "rejected"
+        : progress.dropped || progress.emitted !== chunks.length
+          ? "partial"
+          : unconfirmedChunks
+            ? "export_unconfirmed"
+            : "transport_acknowledged";
+    return {
+      status,
+      expectedChunks: chunks.length,
+      acknowledgedChunks: progress.acknowledged,
+      unconfirmedChunks,
+      droppedChunks: progress.dropped,
+      notSubmittedChunks: chunks.length - progress.emitted,
+      publicationMs: performance.now() - startedAt,
+      capacityWaitMs,
+      maxChunkQueueWaitMs: progress.maxChunkQueueWaitMs ?? 0,
+      maxChunkExportMs: progress.maxChunkExportMs ?? 0,
+      ...(reason ? { reason } : {}),
+    };
+  })();
+  bodyPublicationOperations.add(operation);
   try {
     const result = await operation;
     if (result.status === "transport_acknowledged") {
@@ -500,13 +482,14 @@ export async function publishProxyOtelBody(
     }
     return result;
   } finally {
+    bodyPublicationOperations.delete(operation);
     const release = () => {
       bodyPublications.delete(captureId);
       bodyDelivery.pending--;
       bodyDelivery.pendingBytes -= bytes;
     };
     if (deferredRelease) {
-      void deferredRelease.finally(release);
+      void deferredRelease.then(release, release);
     } else {
       release();
     }
@@ -531,18 +514,22 @@ export function initializeProxyOtelLogs(
   if (!endpoint) {
     throw new Error("OTel-only proxy logging requires an OTLP endpoint");
   }
-  const url = new URL(endpoint);
-  if (!["http:", "https:"].includes(url.protocol)) {
-    throw new Error("Proxy OTLP logs endpoint must use HTTP or HTTPS");
-  }
-  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (url.protocol === "http:" && !loopback) {
-    throw new Error(
-      "Proxy OTLP logs require HTTPS for non-loopback collectors",
-    );
+  const bodyEndpoint =
+    process.env.NEUROLINK_PROXY_OTLP_BODIES_ENDPOINT ?? endpoint;
+  for (const target of [endpoint, bodyEndpoint]) {
+    const url = new URL(target);
+    if (!["http:", "https:"].includes(url.protocol)) {
+      throw new Error("Proxy OTLP logs endpoint must use HTTP or HTTPS");
+    }
+    const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+    if (url.protocol === "http:" && !loopback) {
+      throw new Error(
+        "Proxy OTLP logs require HTTPS for non-loopback collectors",
+      );
+    }
   }
   const metadata = createTrackedProcessor(endpoint, 2048, "metadata");
-  const bodies = createTrackedProcessor(endpoint, 256, "bodies");
+  const bodies = createTrackedProcessor(bodyEndpoint, 256, "bodies");
   queues.push(metadata, bodies);
   provider = new LoggerProvider({
     resource: resourceFromAttributes({
@@ -688,14 +675,14 @@ export function getProxyOtelLogSnapshot() {
 
 /** Bounded provider flush belongs after final request and lifecycle publication. */
 export async function flushProxyOtelLogs(): Promise<void> {
-  await bodyPublicationChain;
+  await Promise.allSettled([...bodyPublicationOperations]);
   await provider?.forceFlush();
 }
 
 /** Release this process's exporter and restore console ownership. */
 export async function shutdownProxyOtelLogs(): Promise<void> {
   shuttingDown = true;
-  await bodyPublicationChain;
+  await Promise.allSettled([...bodyPublicationOperations]);
   restoreConsole?.();
   restoreConsole = undefined;
   await provider?.shutdown();
@@ -703,7 +690,7 @@ export async function shutdownProxyOtelLogs(): Promise<void> {
   queues.length = 0;
   invalidRecords = 0;
   bodyPublications.clear();
-  bodyPublicationChain = Promise.resolve();
+  bodyPublicationOperations.clear();
   shuttingDown = false;
   for (const key of [
     "attempted",

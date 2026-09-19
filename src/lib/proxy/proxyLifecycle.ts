@@ -450,6 +450,8 @@ function enqueueLifecycleEvent(
     const observedBodyBytes = nonNegativeInteger(input.observedBodyBytes);
     const responseChunks = nonNegativeInteger(input.responseChunks);
     const elapsedMs = finiteNonNegative(input.elapsedMs);
+    const requestTimeoutMs = finiteNonNegative(input.requestTimeoutMs);
+    const parentRequestId = clip(input.parentRequestId);
     const model = clip(input.model);
     const sessionHash = clip(input.sessionHash);
     const terminalOutcome = clip(input.terminalOutcome);
@@ -464,6 +466,11 @@ function enqueueLifecycleEvent(
       sequence,
       event: clip(input.event) ?? "unknown",
       requestId: clip(input.requestId) ?? "unknown",
+      ...(parentRequestId !== undefined ? { parentRequestId } : {}),
+      ...(input.accountingScope !== undefined
+        ? { accountingScope: input.accountingScope }
+        : {}),
+      ...(requestTimeoutMs !== undefined ? { requestTimeoutMs } : {}),
       method: clip(input.method) ?? "unknown",
       path: clip(input.path) ?? "unknown",
       ...(model !== undefined ? { model } : {}),

@@ -75,7 +75,10 @@ function redactNestedValue(key: string, value: unknown): unknown {
 }
 
 /** Redact every value under a sensitive key, including objects and arrays. */
-function redactBody(body: unknown): string | undefined {
+function redactBody(
+  body: unknown,
+  redaction: { unparseableFrames: number },
+): string | undefined {
   if (body === undefined || body === null) {
     return undefined;
   }
@@ -102,6 +105,7 @@ function redactBody(body: unknown): string | undefined {
             try {
               redacted = JSON.stringify(JSON.parse(data), redactNestedValue);
             } catch {
+              redaction.unparseableFrames++;
               redacted = "[UNPARSEABLE DATA REDACTED]";
             }
             return [
@@ -114,6 +118,7 @@ function redactBody(body: unknown): string | undefined {
       // Invalid or truncated structured JSON must not expose an unterminated
       // credential value that a quoted-string regex cannot safely redact.
       if (/^\s*[[{]/.test(body)) {
+        redaction.unparseableFrames++;
         return "[UNPARSEABLE DATA REDACTED]";
       }
       // Plain-text bodies retain the existing credential-field redaction.
@@ -221,15 +226,18 @@ function prepareRedactedBody(
   bytes?: number;
   truncated: boolean;
   originalBytes?: number;
+  unparseableFrames: number;
 } {
-  const redacted = redactBody(body);
+  const redaction = { unparseableFrames: 0 };
+  const redacted = redactBody(body, redaction);
   if (redacted === undefined) {
-    return { truncated: false };
+    return { truncated: false, ...redaction };
   }
 
   return {
     ...truncateUtf8String(redacted, maxBytes),
     originalBytes: utf8ByteLength(redacted),
+    ...redaction,
   };
 }
 
@@ -323,11 +331,27 @@ export async function processProxyBodyCapture(
   const limit =
     logDir === null ? MAX_OTEL_CAPTURED_BODY_BYTES : MAX_CAPTURED_BODY_BYTES;
   const prepared = prepareRedactedBody(entry.body, limit);
-  prepared.truncated ||= entry.sourceTruncated === true;
+  // Structured objects no longer carry their wire byte representation. Do not
+  // serialize a second unredacted copy merely to manufacture a byte count.
+  const inputRetainedBytes =
+    typeof entry.body === "string" ? utf8ByteLength(entry.body) : undefined;
+  const captureMetadata = {
+    sourceTruncated: entry.sourceTruncated === true,
+    processingTruncated: prepared.truncated,
+    inputRetainedBytes,
+    inputEncoding:
+      typeof entry.body === "string"
+        ? ("utf8_text" as const)
+        : ("structured_object" as const),
+    redactionLossy: prepared.unparseableFrames > 0,
+    unparseableRedactedFrames: prepared.unparseableFrames,
+  };
+  prepared.truncated ||= captureMetadata.sourceTruncated;
   if (logDir === null) {
     return {
       headers,
       stored: {
+        ...captureMetadata,
         redactedBody: prepared.value,
         redactedBodyBytes: prepared.bytes,
         bodyTruncated: prepared.truncated,
@@ -359,6 +383,7 @@ export async function processProxyBodyCapture(
     headers,
     stored: {
       ...stored,
+      ...captureMetadata,
       bodyCaptureLimitBytes: limit,
       originalRedactedBodyBytes: prepared.originalBytes,
     },

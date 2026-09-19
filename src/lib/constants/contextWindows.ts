@@ -464,6 +464,14 @@ export function getRuntimeOutputCeiling(
   return RUNTIME_OUTPUT_CEILINGS.get(`${provider}:${model}`);
 }
 
+/** Remove a model ceiling that discovery no longer advertises as valid. */
+export function clearRuntimeOutputCeiling(
+  provider: string,
+  model: string,
+): void {
+  RUNTIME_OUTPUT_CEILINGS.delete(`${provider}:${model}`);
+}
+
 /** Test hook: clear runtime-discovered output ceilings (state is module-global). */
 export function clearRuntimeOutputCeilings(): void {
   RUNTIME_OUTPUT_CEILINGS.clear();

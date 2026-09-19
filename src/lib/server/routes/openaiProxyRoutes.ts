@@ -19,6 +19,7 @@ import {
   createClaudeToOpenAIStreamTransform,
   parseOpenAIRequest,
 } from "../../proxy/openaiFormat.js";
+import { createProxyRouteBodyCapture } from "../../proxy/proxyRouteBodyCapture.js";
 import { ProxyTracer } from "../../proxy/proxyTracer.js";
 import {
   buildModelsListResponse,
@@ -27,6 +28,17 @@ import {
 } from "../../proxy/proxyTranslationEngine.js";
 import { buildClientAttribution } from "../../proxy/clientAttribution.js";
 import { logRequest } from "../../proxy/requestLogger.js";
+import {
+  registerInternalProxyRequest,
+  isProxyRequestFinalized,
+  getProxyBridgeResult,
+  releaseProxyRequestAccounting,
+} from "../../proxy/proxyActivity.js";
+import {
+  recordFinalSuccess,
+  recordFinalError,
+} from "../../proxy/usageStats.js";
+import { getProxyRequestTraceContext } from "../../proxy/proxyTraceContext.js";
 import { buildProxyTranslationPlan } from "../../proxy/routingPolicy.js";
 import type {
   ClaudeResponse,
@@ -35,9 +47,10 @@ import type {
   ParsedOpenAIRequest,
   ProxyRuntimeConfigProvider,
   RouteGroup,
+  RequestLogEntry,
   ServerContext,
 } from "../../types/index.js";
-import { withTimeout } from "../../utils/async/withTimeout.js";
+import { raceWithAbort, withTimeout } from "../../utils/async/withTimeout.js";
 import { sanitizeForLog } from "../../utils/logSanitize.js";
 import { logger } from "../../utils/logger.js";
 
@@ -137,9 +150,133 @@ function adaptForTranslationPlan(parsed: ParsedOpenAIRequest): {
 // OpenAI -> Anthropic loopback bridge
 // ---------------------------------------------------------------------------
 
+function startBridgeTracer(
+  ctx: ServerContext,
+  body: OpenAICompletionRequest,
+): ProxyTracer | undefined {
+  try {
+    const tracer = ProxyTracer.startRequest(
+      {
+        requestId: ctx.requestId,
+        method: ctx.method,
+        path: ctx.path,
+        model: body.model,
+        stream: body.stream === true,
+        toolCount: body.tools?.length ?? 0,
+        provider: "openai-bridge",
+        recordRequestMetrics: true,
+        recordUsageMetrics: false,
+        ...buildClientAttribution(ctx.headers),
+      },
+      ctx.headers,
+    );
+    tracer.setMode("full");
+    return tracer;
+  } catch {
+    // Trace setup must not fail the request.
+    return undefined;
+  }
+}
+
+function buildBridgeHeaders(
+  ctx: ServerContext,
+  stream: boolean,
+  token: string,
+): Record<string, string> {
+  // Forward a minimal set of headers. The proxy's own /v1/messages handler
+  // will attach OAuth credentials from its account pool.
+  const forwardHeaders: Record<string, string> = {
+    "content-type": "application/json",
+    accept: stream ? "text/event-stream" : "application/json",
+    "x-neurolink-internal-request": token,
+  };
+  const traceContext = getProxyRequestTraceContext(ctx.requestId);
+  if (traceContext) {
+    forwardHeaders.traceparent = `00-${traceContext.traceId}-${traceContext.spanId}-${traceContext.traceFlags.toString(16).padStart(2, "0")}`;
+  }
+  for (const [k, v] of Object.entries(ctx.headers)) {
+    if (typeof v !== "string") {
+      continue;
+    }
+    const lower = k.toLowerCase();
+    if (
+      lower.startsWith("anthropic-") ||
+      lower === "x-api-key" ||
+      [
+        "user-agent",
+        "x-neurolink-session-id",
+        "x-claude-code-session-id",
+        "session_id",
+        "session-id",
+        "tracestate",
+        "baggage",
+      ].includes(lower) ||
+      (lower === "traceparent" && !forwardHeaders.traceparent)
+    ) {
+      forwardHeaders[lower] = v;
+    }
+  }
+
+  return forwardHeaders;
+}
+
+function bridgeAttribution(child: RequestLogEntry | undefined) {
+  const servingModelStatus = child?.servingModelStatus ?? "unavailable";
+  const accountIdentityStatus =
+    child?.accountIdentityStatus ??
+    (child?.accountKey &&
+    child.accountType !== "translation" &&
+    child.account !== "unknown"
+      ? "observed"
+      : "unavailable");
+  return { servingModelStatus, accountIdentityStatus } as const;
+}
+
+async function bridgeJsonResponse(
+  upstream: Response,
+  signal: AbortSignal,
+  model: string,
+  writeLifecycle: (
+    status: number,
+    extra?: { errorType?: string; errorMessage?: string },
+  ) => Promise<void>,
+  errorResponse: (status: number, message: string) => Response,
+  capture: ReturnType<typeof createProxyRouteBodyCapture>,
+): Promise<unknown> {
+  try {
+    const claudeJson = (await raceWithAbort(
+      upstream.json(),
+      signal,
+    )) as ClaudeResponse;
+    // Child owns billed usage; parent owns client delivery and its serialized body.
+    const response = convertClaudeToOpenAIResponse(claudeJson, model);
+    capture.json(response, 200);
+    await writeLifecycle(200);
+    return response;
+  } catch (error) {
+    const status =
+      signal.aborted && signal.reason?.name !== "TimeoutError"
+        ? 499
+        : signal.reason?.name === "TimeoutError"
+          ? 504
+          : 502;
+    await writeLifecycle(status, {
+      errorType:
+        status === 499
+          ? "client_cancelled"
+          : status === 504
+            ? "loopback_timeout"
+            : "loopback_response_error",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    return errorResponse(status, "Anthropic loopback failed");
+  }
+}
+
 /**
  * Forward an OpenAI-format request targeting a Claude model through the
- * proxy's own /v1/messages endpoint via a loopback fetch().
+ * proxy's own /v1/messages endpoint. The CLI injects its same-worker HTTP
+ * application, so a rolling supervisor cannot move the child to another worker.
  *
  * This reuses the full Claude passthrough path (OAuth account rotation, retry,
  * SSE interception, etc.) and only adds format conversion at the edges.
@@ -155,10 +292,38 @@ async function handleOpenAIToAnthropicBridge(args: {
   targetModel: string;
   requestStartTime: number;
   loopbackPort: number;
+  internalDispatch?: (request: Request) => Response | Promise<Response>;
 }): Promise<unknown> {
-  const { ctx, body, targetModel, requestStartTime, loopbackPort } = args;
+  const {
+    ctx,
+    body,
+    targetModel,
+    requestStartTime,
+    loopbackPort,
+    internalDispatch,
+  } = args;
   const stream = body.stream === true;
   const toolCount = body.tools?.length ?? 0;
+  const capture = createProxyRouteBodyCapture(
+    ctx,
+    body.model,
+    stream,
+    requestStartTime,
+  );
+  capture.request();
+  const errorResponse = (status: number, message: string) => {
+    capture.json(buildOpenAIError(status, message), status);
+    return buildOpenAIErrorResponse(status, message);
+  };
+  const internal = registerInternalProxyRequest(ctx.requestId);
+  const bridgeTracer = startBridgeTracer(ctx, body);
+  const cancellation = new AbortController();
+  const signal = AbortSignal.any([
+    cancellation.signal,
+    AbortSignal.timeout(LOOPBACK_TIMEOUT_MS),
+    ...(ctx.abortSignal ? [ctx.abortSignal] : []),
+  ]);
+  let lifecycleWritten = false;
 
   const writeLifecycle = (
     responseStatus: number,
@@ -170,62 +335,125 @@ async function handleOpenAIToAnthropicBridge(args: {
       cacheCreationTokens?: number;
       cacheReadTokens?: number;
     } = {},
-  ) =>
-    logRequest({
+  ) => {
+    if (lifecycleWritten) {
+      return Promise.resolve();
+    }
+    lifecycleWritten = true;
+    internal.dispose();
+    const child = getProxyBridgeResult(ctx.requestId);
+    const { servingModelStatus, accountIdentityStatus } =
+      bridgeAttribution(child);
+    if (
+      servingModelStatus === "observed" &&
+      child?.model &&
+      child.model !== body.model
+    ) {
+      bridgeTracer?.setModelSubstitution(
+        body.model,
+        child.model,
+        child.provider,
+      );
+    }
+    if (extra.errorType) {
+      bridgeTracer?.setError(
+        extra.errorType,
+        extra.errorMessage ?? extra.errorType,
+      );
+    }
+    bridgeTracer?.end(responseStatus, Date.now() - requestStartTime);
+    if (!isProxyRequestFinalized(ctx.requestId)) {
+      if (responseStatus >= 400) {
+        recordFinalError(responseStatus, child?.account, child?.accountType, {
+          requestId: ctx.requestId,
+          errorType: extra.errorType,
+          message: extra.errorMessage,
+          terminalOutcome:
+            responseStatus === 499
+              ? "client_cancelled"
+              : extra.errorType?.includes("stream")
+                ? "stream_error"
+                : "handler_error",
+        });
+      } else {
+        recordFinalSuccess(child?.account, child?.accountType);
+      }
+    }
+    return logRequest({
       timestamp: new Date().toISOString(),
       requestId: ctx.requestId,
       method: ctx.method,
       path: ctx.path,
-      model: body.model,
+      model: child?.model ?? body.model,
+      servingModelStatus,
       stream,
       toolCount,
-      account: "",
-      accountType: "openai-bridge",
+      account: child?.account ?? "",
+      accountKey: child?.accountKey,
+      accountType: child?.accountType ?? "openai-bridge",
+      accountIdentityStatus,
+      requestedModel: body.model,
+      provider: child?.provider,
+      errorCode: child?.errorCode,
+      transportScope: child?.transportScope,
+      retryable: child?.retryable,
+      accountingScope: "client",
+      usageOwnerRequestId: internal.requestId,
       ...buildClientAttribution(ctx.headers),
       responseStatus,
       responseTimeMs: Date.now() - requestStartTime,
       ...extra,
-    });
-
-  // Convert to Claude format and remap the model to the router's choice.
-  const claudeBody = convertOpenAIToClaudeRequest(body);
-  claudeBody.model = targetModel;
+    }).finally(() => releaseProxyRequestAccounting(ctx.requestId));
+  };
 
   // SECURITY: Never derive the loopback target from the client-controlled
   // `Host` header. The bridge always fetches from 127.0.0.1 on the listener's
   // configured port — anything else would be an SSRF vector.
   const internalUrl = `http://127.0.0.1:${loopbackPort}/v1/messages`;
 
-  // Forward a minimal set of headers. The proxy's own /v1/messages handler
-  // will attach OAuth credentials from its account pool.
-  const forwardHeaders: Record<string, string> = {
-    "content-type": "application/json",
-    accept: stream ? "text/event-stream" : "application/json",
-  };
-  for (const [k, v] of Object.entries(ctx.headers)) {
-    if (typeof v !== "string") {
-      continue;
-    }
-    const lower = k.toLowerCase();
-    if (lower.startsWith("anthropic-") || lower === "x-api-key") {
-      forwardHeaders[lower] = v;
-    }
-  }
-
   // Bound the self-call with a timeout so a stuck inner handler can't hang
   // the outer /v1/chat/completions request indefinitely.
-  const upstream = await withTimeout(
-    fetch(internalUrl, {
+  let upstream: Response;
+  try {
+    signal.throwIfAborted();
+    // Preparation can reject malformed inputs before dispatch. Keep it within
+    // lifecycle cleanup so the internal capability and parent maps are released.
+    const claudeBody = convertOpenAIToClaudeRequest(body);
+    claudeBody.model = targetModel;
+    const forwardHeaders = buildBridgeHeaders(ctx, stream, internal.token);
+    const requestOptions = {
       method: "POST",
       headers: forwardHeaders,
       body: JSON.stringify({ ...claudeBody, stream }),
-    }),
-    LOOPBACK_TIMEOUT_MS,
-    `Anthropic loopback timed out after ${LOOPBACK_TIMEOUT_MS}ms`,
-  );
+      signal,
+    };
+    upstream = await raceWithAbort(
+      Promise.resolve(
+        internalDispatch
+          ? internalDispatch(new Request(internalUrl, requestOptions))
+          : fetch(internalUrl, requestOptions),
+      ),
+      signal,
+    );
+  } catch (error) {
+    internal.dispose();
+    const status = ctx.abortSignal?.aborted ? 499 : signal.aborted ? 504 : 502;
+    cancellation.abort(error);
+    await writeLifecycle(status, {
+      errorType: ctx.abortSignal?.aborted
+        ? "client_cancelled"
+        : status === 504
+          ? "loopback_timeout"
+          : "loopback_exception",
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
+    return errorResponse(status, "Anthropic loopback failed");
+  }
 
   if (!upstream.ok) {
-    const errText = await upstream.text().catch(() => "");
+    const errText = await raceWithAbort(upstream.text(), signal).catch(
+      () => "",
+    );
     const safeErrText = sanitizeForLog(errText);
     logger.always(
       `[proxy:openai] anthropic loopback error ${upstream.status}: ${safeErrText}`,
@@ -234,7 +462,7 @@ async function handleOpenAIToAnthropicBridge(args: {
       errorType: "loopback_upstream_error",
       errorMessage: safeErrText,
     });
-    return buildOpenAIErrorResponse(
+    return errorResponse(
       upstream.status,
       safeErrText || `Anthropic loopback failed with status ${upstream.status}`,
     );
@@ -246,11 +474,15 @@ async function handleOpenAIToAnthropicBridge(args: {
         errorType: "loopback_empty_stream",
         errorMessage: "Anthropic loopback returned empty stream body",
       });
-      return buildOpenAIErrorResponse(
+      return errorResponse(
         502,
         "Anthropic loopback returned empty stream body",
       );
     }
+    const clientCapture = capture.accumulator(
+      "client_response",
+      "text/event-stream",
+    );
     let terminalStreamError: string | undefined;
     const transformed = upstream.body.pipeThrough(
       createClaudeToOpenAIStreamTransform(body.model, {
@@ -260,18 +492,41 @@ async function handleOpenAIToAnthropicBridge(args: {
       }),
     );
     const reader = transformed.getReader();
-    let lifecycleWritten = false;
     const finishLifecycle = async (
       status: number,
       errorType?: string,
       errorMessage?: string,
     ): Promise<void> => {
-      if (lifecycleWritten) {
-        return;
-      }
-      lifecycleWritten = true;
+      signal.removeEventListener("abort", onAbort);
+      clientCapture.finish(status);
       await writeLifecycle(status, { errorType, errorMessage });
     };
+    const onAbort = () => {
+      const outcome = terminalStreamError
+        ? resolveStreamCancellationLifecycle(terminalStreamError)
+        : {
+            status: signal.reason?.name === "TimeoutError" ? 504 : 499,
+            errorType:
+              signal.reason?.name === "TimeoutError"
+                ? "loopback_timeout"
+                : "client_cancelled",
+            errorMessage: "Anthropic loopback cancelled",
+          };
+      void finishLifecycle(
+        outcome.status,
+        outcome.errorType,
+        outcome.errorMessage,
+      );
+      void withTimeout(
+        reader.cancel(signal.reason),
+        1000,
+        "Loopback cancellation timed out",
+      ).catch(() => undefined);
+    };
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) {
+      onAbort();
+    }
     const trackedStream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
@@ -289,6 +544,7 @@ async function handleOpenAIToAnthropicBridge(args: {
             controller.close();
             return;
           }
+          clientCapture.append(value);
           controller.enqueue(value);
         } catch (error) {
           const message = sanitizeForLog(
@@ -299,17 +555,23 @@ async function handleOpenAIToAnthropicBridge(args: {
         }
       },
       async cancel(reason) {
-        try {
-          await reader.cancel(reason);
-        } finally {
-          const cancellation =
-            resolveStreamCancellationLifecycle(terminalStreamError);
-          await finishLifecycle(
-            cancellation.status,
-            cancellation.errorType,
-            cancellation.errorMessage,
-          );
-        }
+        const outcome = resolveStreamCancellationLifecycle(terminalStreamError);
+        // Claim the observed outcome before abort dispatch, but never keep
+        // provider work alive while a metadata sink waits for publication.
+        const finalizing = finishLifecycle(
+          outcome.status,
+          outcome.errorType,
+          outcome.errorMessage,
+        );
+        cancellation.abort(reason);
+        await Promise.all([
+          finalizing,
+          withTimeout(
+            reader.cancel(reason),
+            1000,
+            "Loopback cancellation timed out",
+          ).catch(() => undefined),
+        ]);
       },
     });
     return new Response(trackedStream, {
@@ -322,14 +584,14 @@ async function handleOpenAIToAnthropicBridge(args: {
     });
   }
 
-  const claudeJson = (await upstream.json()) as ClaudeResponse;
-  await writeLifecycle(200, {
-    inputTokens: claudeJson.usage?.input_tokens,
-    outputTokens: claudeJson.usage?.output_tokens,
-    cacheCreationTokens: claudeJson.usage?.cache_creation_input_tokens,
-    cacheReadTokens: claudeJson.usage?.cache_read_input_tokens,
-  });
-  return convertClaudeToOpenAIResponse(claudeJson, body.model);
+  return bridgeJsonResponse(
+    upstream,
+    signal,
+    body.model,
+    writeLifecycle,
+    errorResponse,
+    capture,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +617,7 @@ export function createOpenAIProxyRoutes(
   basePath: string = "",
   loopbackPort: number = DEFAULT_LOOPBACK_PORT,
   runtimeConfigProvider?: ProxyRuntimeConfigProvider,
+  internalDispatch?: (request: Request) => Response | Promise<Response>,
 ): RouteGroup {
   return {
     prefix: `${basePath}/v1`,
@@ -406,6 +669,7 @@ export function createOpenAIProxyRoutes(
                 targetModel,
                 requestStartTime,
                 loopbackPort,
+                internalDispatch,
               });
             } catch (err) {
               // Internal exception text (.message + any stack-trace remnants)
@@ -419,6 +683,21 @@ export function createOpenAIProxyRoutes(
               logger.always(
                 `[proxy:openai] anthropic loopback failed: ${internalDetail}`,
               );
+              const status = ctx.abortSignal?.aborted
+                ? 499
+                : err instanceof Error && "status" in err && err.status === 503
+                  ? 503
+                  : err instanceof Error && err.name === "TimeoutError"
+                    ? 504
+                    : 502;
+              if (!isProxyRequestFinalized(ctx.requestId)) {
+                recordFinalError(status, undefined, undefined, {
+                  requestId: ctx.requestId,
+                  errorType:
+                    status === 499 ? "client_cancelled" : "loopback_exception",
+                  message: internalDetail,
+                });
+              }
               await logRequest({
                 timestamp: new Date().toISOString(),
                 requestId: ctx.requestId,
@@ -429,12 +708,16 @@ export function createOpenAIProxyRoutes(
                 toolCount: body.tools?.length ?? 0,
                 account: "",
                 accountType: "openai-bridge",
-                responseStatus: 502,
+                responseStatus: status,
                 responseTimeMs: Date.now() - requestStartTime,
-                errorType: "loopback_exception",
+                errorType:
+                  status === 499 ? "client_cancelled" : "loopback_exception",
                 errorMessage: internalDetail,
-              });
-              return buildOpenAIErrorResponse(502, "Anthropic loopback failed");
+              }).finally(() => releaseProxyRequestAccounting(ctx.requestId));
+              return buildOpenAIErrorResponse(
+                status,
+                "Anthropic loopback failed",
+              );
             }
           }
 

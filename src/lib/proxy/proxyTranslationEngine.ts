@@ -27,8 +27,27 @@ import {
   serializeOpenAIResponse,
 } from "./openaiFormat.js";
 import type { ProxyTracer } from "./proxyTracer.js";
+import {
+  prepareProxyRequestContext,
+  ProxyContextPreflightError,
+} from "./proxyContextPreflight.js";
+import {
+  reserveProxyTokenBudget,
+  settleProxyTokenBudget,
+  getProxyTokenBudgetPolicy,
+  getProxyTokenBudgetSessionKey,
+  getProxyTokenBudgetError,
+} from "./proxyTokenBudget.js";
+import {
+  isProxyRequestFinalized,
+  getProxyRequestAccounting,
+  registerProxyResponseObserver,
+} from "./proxyActivity.js";
+import { getProxyUpstreamFailure } from "./proxyFailureDetails.js";
+import { sanitizeForLog } from "../utils/logSanitize.js";
+import { createProxyRouteBodyCapture } from "./proxyRouteBodyCapture.js";
 import { DEFAULT_PROXY_MODEL_IDS } from "../constants/proxyModels.js";
-import { logRequest } from "./requestLogger.js";
+import { logRequest, logRequestAttempt } from "./requestLogger.js";
 import { buildClientAttribution } from "./clientAttribution.js";
 import {
   recordAttempt,
@@ -38,6 +57,10 @@ import {
 } from "./usageStats.js";
 import type {
   InternalResult,
+  RequestLogEntry,
+  StreamResult,
+  ProxyContextEvidence,
+  ProxyTokenBudgetLease,
   ParsedClaudeRequest,
   ParsedGeminiRequest,
   ParsedOpenAIRequest,
@@ -46,10 +69,7 @@ import type {
   ServerContext,
   StreamSerializerAdapter,
 } from "../types/index.js";
-import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
-import { withTimeout } from "../utils/async/withTimeout.js";
-import { ERROR_CODES, NeuroLinkError } from "../utils/errorHandling.js";
-import { logger } from "../utils/logger.js";
+import { raceWithAbort, withTimeout } from "../utils/async/withTimeout.js";
 
 // Upper bound on a single translation attempt. Long enough for slow upstreams
 // (Vertex/LiteLLM can take 60–90s on big requests) but short enough that a
@@ -325,27 +345,656 @@ function defaultFinishReason(format: ProxyFormat): string {
   return format === "claude" ? "end_turn" : "stop";
 }
 
-function logTag(format: ProxyFormat): string {
-  if (format === "claude") {
-    return "[proxy]";
+/** Preserve unknown usage as absent; zero is only reported when observed. */
+function translationUsage(
+  result: StreamResult | undefined,
+): Partial<RequestLogEntry> {
+  const raw = result?.usage as Record<string, unknown> | undefined;
+  if (!raw) {
+    return {};
   }
-  if (format === "gemini") {
-    return "[proxy:gemini]";
-  }
-  return "[proxy:openai]";
+  const number = (...values: unknown[]) =>
+    values.find(
+      (value) =>
+        typeof value === "number" && Number.isFinite(value) && value >= 0,
+    ) as number | undefined;
+  const details = raw.outputTokenDetails as Record<string, unknown> | undefined;
+  const inputs = raw.inputTokenDetails as Record<string, unknown> | undefined;
+  // NeuroLink TokenUsage uses disjoint input/cache buckets for every provider.
+  // Raw AI SDK usage instead includes cached input in inputTokens. Preserve
+  // that distinction for both cost metrics and token-budget settlement.
+  const inputIncludesCachedTokens =
+    typeof raw.inputIncludesCachedTokens === "boolean"
+      ? raw.inputIncludesCachedTokens
+      : raw.cacheReadTokens === undefined &&
+        raw.cacheCreationTokens === undefined &&
+        (raw.cachedInputTokens !== undefined || inputs !== undefined);
+  return {
+    inputIncludesCachedTokens,
+    inputTokens: number(raw.inputTokens, raw.promptTokens, raw.input),
+    outputTokens: number(raw.outputTokens, raw.completionTokens, raw.output),
+    cacheReadTokens: number(
+      raw.cacheReadTokens,
+      raw.cachedInputTokens,
+      inputs?.cacheReadTokens,
+    ),
+    cacheCreationTokens: number(
+      raw.cacheCreationTokens,
+      inputs?.cacheWriteTokens,
+    ),
+    reasoningTokens: number(
+      raw.reasoningTokens,
+      raw.reasoning,
+      details?.reasoningTokens,
+    ),
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Unified streaming handler
-// ---------------------------------------------------------------------------
+/** Shared request owner, independent of a consumer asking for another chunk. */
+function createTranslationRequest(args: {
+  ctx: ServerContext;
+  requestModel: string;
+  parsed: ParsedClaudeRequest | ParsedOpenAIRequest | ParsedGeminiRequest;
+  tracer?: ProxyTracer;
+  requestStartTime: number;
+  stream: boolean;
+}) {
+  const { ctx, requestModel, parsed, tracer, requestStartTime, stream } = args;
+  const capture = createProxyRouteBodyCapture(
+    ctx,
+    requestModel,
+    stream,
+    requestStartTime,
+  );
+  if (!ctx.path.endsWith("/v1/messages")) {
+    capture.request();
+  }
+  const controller = new AbortController();
+  const signal = ctx.abortSignal
+    ? AbortSignal.any([ctx.abortSignal, controller.signal])
+    : controller.signal;
+  let result: StreamResult | undefined;
+  let contextPreflight: ProxyContextEvidence | undefined;
+  let budgetLease: ProxyTokenBudgetLease | undefined;
+  let budgetSettlement: Promise<void> | undefined;
+  let terminalWork: Promise<void> | undefined;
+  let attempt: ProxyTranslationAttempt | undefined;
+  let iterator: AsyncIterator<unknown> | undefined;
+  let firstUsefulOutputMs: number | undefined;
+  let finalized = false;
+  let upstreamDispatched = false;
+  const evidence = () => ({
+    model: result?.model ?? attempt?.model ?? "unknown",
+    servingModelStatus: result?.model
+      ? ("observed" as const)
+      : ("unavailable" as const),
+    requestedModel: requestModel,
+    provider: result?.provider ?? attempt?.provider,
+    accountKey: `${result?.provider ?? attempt?.provider ?? "auto"}:sdk-unattributed`,
+    contextPreflight,
+    tokenBudget: budgetLease ? { ...budgetLease.snapshot } : undefined,
+    // The SDK does not expose a credential/account identity. Never invent one
+    // from a provider label or conflate different providers as one account.
+    account: "unknown",
+    accountType: "translation",
+    accountIdentityStatus: "unavailable" as const,
+    ...translationUsage(result),
+  });
+  const finalize = (
+    status: number,
+    errorType?: string,
+    message?: string,
+    errorCode?: string,
+    retryable?: boolean,
+  ) => {
+    if (finalized) {
+      return;
+    }
+    finalized = true;
+    if (isProxyRequestFinalized(ctx.requestId)) {
+      signal.removeEventListener("abort", onAbort);
+      tracer?.end(status, Date.now() - requestStartTime);
+      return;
+    }
+    signal.removeEventListener("abort", onAbort);
+    const e = evidence();
+    if (tracer && e.model !== requestModel) {
+      tracer.setModelSubstitution(requestModel, e.model, e.provider);
+    }
+    if (e.inputTokens !== undefined && e.outputTokens !== undefined) {
+      tracer?.setUsage({
+        inputTokens: e.inputTokens,
+        outputTokens: e.outputTokens,
+        cacheReadTokens: e.cacheReadTokens ?? 0,
+        cacheCreationTokens: e.cacheCreationTokens ?? 0,
+        inputIncludesCachedTokens: e.inputIncludesCachedTokens,
+        reasoningTokens: e.reasoningTokens,
+      });
+      tracer?.recordMetrics();
+    }
+    const ownsClientOutcome =
+      getProxyRequestAccounting(ctx.requestId)?.accountingScope !== "internal";
+    if (errorType) {
+      tracer?.setError(errorType, message?.slice(0, 500) ?? errorType);
+      if (ownsClientOutcome) {
+        recordFinalError(
+          status,
+          attempt?.label ?? "translation",
+          "translation",
+          {
+            requestId: ctx.requestId,
+            errorType,
+            terminalOutcome: errorType,
+            message,
+          },
+        );
+      }
+    } else if (ownsClientOutcome) {
+      recordFinalSuccess(attempt?.label ?? "translation", "translation");
+    }
+    tracer?.end(status, Date.now() - requestStartTime);
+    void logRequest({
+      timestamp: new Date().toISOString(),
+      requestId: ctx.requestId,
+      method: ctx.method,
+      path: ctx.path,
+      stream,
+      toolCount: Object.keys(parsed.tools).length,
+      ...e,
+      ...buildClientAttribution(ctx.headers),
+      responseStatus: status,
+      responseTimeMs: Date.now() - requestStartTime,
+      errorType,
+      errorCode,
+      retryable,
+      errorMessage: message?.slice(0, 500),
+      firstUsefulOutputMs,
+      firstUsefulOutputStatus:
+        firstUsefulOutputMs === undefined ? "no_useful_output" : "observed",
+      ...tracer?.getTraceContext(),
+    });
+  };
+  const cleanupIterator = () => {
+    if (iterator?.return) {
+      void withTimeout(
+        Promise.resolve().then(() => iterator?.return?.()),
+        1000,
+        "Translation cancellation timed out",
+      ).catch(() => undefined);
+    }
+  };
+  const settleBudget = (dispatched = upstreamDispatched): Promise<void> => {
+    if (!budgetLease) {
+      return Promise.resolve();
+    }
+    if (budgetSettlement) {
+      return budgetSettlement;
+    }
+    const usage = evidence();
+    const observed =
+      usage.inputTokens !== undefined && usage.outputTokens !== undefined
+        ? usage.inputTokens +
+          usage.outputTokens +
+          (usage.inputIncludesCachedTokens
+            ? 0
+            : (usage.cacheReadTokens ?? 0) + (usage.cacheCreationTokens ?? 0))
+        : undefined;
+    budgetSettlement = dispatched
+      ? settleProxyTokenBudget(budgetLease, observed)
+      : budgetLease.cancelBeforeDispatch();
+    return budgetSettlement;
+  };
+  const onAbort = () => {
+    const timeout = signal.reason?.name === "TimeoutError";
+    cleanupIterator();
+    terminalWork = settleBudget()
+      .catch(() => undefined)
+      .then(() => {
+        finalize(
+          timeout ? 504 : 499,
+          timeout ? "upstream_timeout" : "client_cancelled",
+          timeout
+            ? "Request deadline exceeded"
+            : "Client cancelled the response",
+        );
+      });
+  };
+  registerProxyResponseObserver(ctx.metadata, {
+    onTerminal: () => terminalWork,
+  });
+  signal.addEventListener("abort", onAbort, { once: true });
+  if (signal.aborted) {
+    onAbort();
+  }
+  return {
+    signal,
+    capture,
+    evidence,
+    finalize,
+    settleBudget,
+    abandon() {
+      // The outer Claude fallback chain owns the final response. Preserve this
+      // attempt's observed evidence without finalizing or borrowing another
+      // provider's account, model, or usage when that chain is exhausted.
+      ctx.metadata.sdkFallbackFailure = evidence();
+      signal.removeEventListener("abort", onAbort);
+      cleanupIterator();
+    },
+    stream,
+    cancel(reason?: unknown) {
+      controller.abort(reason);
+    },
+    output() {
+      firstUsefulOutputMs ??= Date.now() - requestStartTime;
+    },
+    setAttempt(value: ProxyTranslationAttempt) {
+      upstreamDispatched = false;
+      attempt = value;
+      result = undefined;
+      budgetLease = undefined;
+      budgetSettlement = undefined;
+      contextPreflight = undefined;
+      if (!stream) {
+        firstUsefulOutputMs = undefined;
+      }
+      iterator = undefined;
+    },
+    markDispatched() {
+      upstreamDispatched = true;
+    },
+    setBudget(value: ProxyTokenBudgetLease) {
+      budgetLease = value;
+    },
+    setContext(value: ProxyContextEvidence) {
+      contextPreflight = value;
+    },
+    setResult(value: StreamResult) {
+      result = value;
+    },
+    setIterator(value: AsyncIterator<unknown>) {
+      iterator = value;
+    },
+    cleanupIterator,
+  };
+}
 
-/**
- * Handles a translated stream request for either Claude or OpenAI format.
- *
- * The streaming loop logic (iterate attempts, call neurolink.stream, collect
- * text, handle tool calls, keepalive timer) is identical across formats.
- * Only the serializer differs.
- */
+/** An attempt deadline covers setup AND stream consumption and aborts the SDK. */
+async function* runTranslationAttempts(args: {
+  ctx: ServerContext;
+  format: ProxyFormat;
+  parsed: ParsedClaudeRequest | ParsedOpenAIRequest | ParsedGeminiRequest;
+  attempts: ProxyTranslationAttempt[];
+  requestStartTime: number;
+  request: ReturnType<typeof createTranslationRequest>;
+  options?: Parameters<ServerContext["neurolink"]["stream"]>[0];
+  attemptTimeoutMs?: number;
+}): AsyncGenerator<
+  { text?: string; result?: StreamResult; reset?: boolean; admitted?: boolean },
+  void
+> {
+  const { ctx, parsed, attempts, request, requestStartTime } = args;
+  let lastError: unknown = new Error("No translation providers succeeded");
+  let outputVisible = false;
+  for (let index = 0; index < attempts.length; index++) {
+    request.signal.throwIfAborted();
+    const attempt = attempts[index];
+    const started = Date.now();
+    const deadline = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const signal = AbortSignal.any([request.signal, deadline.signal]);
+    request.setAttempt(attempt);
+    yield { reset: true };
+    let status = 200;
+    let errorType: string | undefined;
+    let errorMessage: string | undefined;
+    let errorCode: string | undefined;
+    let lease: ProxyTokenBudgetLease | undefined;
+    let dispatched = false;
+    let denied = false;
+    let failureRetryable: boolean | undefined;
+    let sdkResponse: ReturnType<typeof request.capture.accumulator> | undefined;
+    try {
+      const options = {
+        ...buildTranslationOptions(parsed, {
+          provider: attempt.provider,
+          model: attempt.model,
+        }),
+        ...args.options,
+        abortSignal: signal,
+      };
+      const prepared = prepareProxyRequestContext({
+        provider: attempt.provider ?? "auto",
+        model: attempt.model ?? parsed.model,
+        body: options,
+        toolReferenceBody: ctx.body,
+        maxOutputTokens: parsed.maxTokens,
+      });
+      request.setContext(prepared.evidence);
+      const reservation = reserveProxyTokenBudget({
+        provider: attempt.provider ?? "auto",
+        accountKey: `${attempt.provider ?? "auto"}:sdk-unattributed`,
+        sessionKey: getProxyTokenBudgetSessionKey(new Headers(ctx.headers)),
+        requestId: ctx.requestId,
+        reservationTokens: prepared.totalTokensReservation,
+        policy: getProxyTokenBudgetPolicy(),
+        estimateProvenance: "context_preflight",
+      });
+      // A cancelled RPC may still grant a lease: release it before dispatch.
+      void reservation.then(
+        (value) => {
+          if (signal.aborted && !dispatched) {
+            void value.cancelBeforeDispatch().catch(() => undefined);
+          }
+        },
+        () => undefined,
+      );
+      lease = await raceWithAbort(reservation, signal);
+      request.setBudget(lease);
+      signal.throwIfAborted();
+      // Resolve local admission before any HTTP 200/SSE headers are committed.
+      // No provider is started until the consumer asks for output.
+      yield { admitted: true };
+      signal.throwIfAborted();
+      timer = setTimeout(() => {
+        const error = new DOMException(
+          "Translation attempt deadline exceeded",
+          "TimeoutError",
+        );
+        deadline.abort(error);
+        // Once output has reached the client, a timeout is terminal even if
+        // downstream pulls have stopped. Before output, only this attempt
+        // expires so a configured fallback can still run on the same request.
+        if (outputVisible) {
+          request.cancel(error);
+        }
+      }, args.attemptTimeoutMs ?? TRANSLATION_ATTEMPT_TIMEOUT_MS);
+      timer.unref?.();
+      dispatched = true;
+      request.markDispatched();
+      sdkResponse = request.capture.accumulator(
+        "sdk_response",
+        "text/event-stream",
+        index + 1,
+      );
+      request.capture.log({
+        phase: "sdk_request",
+        contentType: "application/json",
+        body: {
+          ...prepared.body,
+          abortSignal: undefined,
+          tools:
+            !("tools" in prepared.body) || prepared.body.tools === undefined
+              ? undefined
+              : Object.fromEntries(
+                  Object.entries(
+                    (prepared.body.tools ?? {}) as typeof parsed.tools,
+                  ).map(([name, tool]) => [
+                    name,
+                    {
+                      description: tool.description,
+                      inputSchema:
+                        tool.inputSchema &&
+                        typeof tool.inputSchema === "object" &&
+                        "jsonSchema" in tool.inputSchema
+                          ? tool.inputSchema.jsonSchema
+                          : tool.inputSchema,
+                    },
+                  ]),
+                ),
+        },
+        attempt: index + 1,
+        metadata: {
+          representation: "neurolink_sdk_options",
+          omittedRuntimeFields: ["abortSignal", "tools.*.execute"],
+          schemaRepresentation: "json_schema",
+          wireCapture: false,
+        },
+      });
+      recordAttempt(attempt.label ?? "translation", "translation");
+      const result = await raceWithAbort(
+        ctx.neurolink.stream(
+          prepared.body as Parameters<typeof ctx.neurolink.stream>[0],
+        ),
+        signal,
+      );
+      request.setResult(result);
+      const iterator = (result.stream as AsyncIterable<unknown>)[
+        Symbol.asyncIterator
+      ]();
+      request.setIterator(iterator);
+      let hasText = false;
+      while (true) {
+        const next = await raceWithAbort(
+          Promise.resolve(iterator.next()),
+          signal,
+        );
+        if (next.done) {
+          break;
+        }
+        sdkResponse?.appendEvent(next.value);
+        const text = extractText(next.value);
+        if (text) {
+          hasText ||= text.trim().length > 0;
+          // Any delivered text prevents replay, including whitespace.
+          outputVisible = request.stream;
+          request.output();
+          yield { text };
+        }
+      }
+      sdkResponse?.appendEvent({
+        model: result.model,
+        provider: result.provider,
+        usage: result.usage,
+        toolCalls: result.toolCalls,
+        finishReason: result.finishReason,
+      });
+      if (!hasText && !result.toolCalls?.length) {
+        throw new Error(
+          `Translated provider ${attempt.label} returned no content or tool calls`,
+        );
+      }
+      if (result.toolCalls?.length) {
+        request.output();
+      }
+      // Provider work is complete before downstream terminal frames are read.
+      // Slow clients must not retain provider admission or trigger an upstream timeout.
+      clearTimeout(timer);
+      await request.settleBudget();
+      yield { result };
+      return;
+    } catch (error) {
+      lastError =
+        deadline.signal.aborted && !request.signal.aborted
+          ? deadline.signal.reason
+          : error;
+      const budgetError = getProxyTokenBudgetError(error);
+      const failure = getProxyUpstreamFailure(error);
+      failureRetryable = failure?.retryable;
+      denied =
+        !!budgetError ||
+        error instanceof ProxyContextPreflightError ||
+        failure?.retryable === false;
+      const timeout =
+        deadline.signal.reason?.name === "TimeoutError" ||
+        request.signal.reason?.name === "TimeoutError";
+      status =
+        budgetError?.status ??
+        (error instanceof ProxyContextPreflightError
+          ? error.status
+          : timeout
+            ? 504
+            : request.signal.aborted
+              ? 499
+              : (failure?.status ?? 502));
+      errorCode =
+        budgetError?.code ??
+        (error instanceof ProxyContextPreflightError
+          ? error.code
+          : failure?.code);
+      errorType = budgetError
+        ? "token_budget_rejected"
+        : error instanceof ProxyContextPreflightError
+          ? "context_preflight_rejected"
+          : timeout
+            ? "upstream_timeout"
+            : request.signal.aborted
+              ? "client_cancelled"
+              : outputVisible
+                ? "stream_error"
+                : "generation_error";
+      if (budgetError) {
+        request.finalize(
+          budgetError.status,
+          "token_budget_rejected",
+          budgetError.message,
+          budgetError.code,
+          false,
+        );
+      }
+      if (error instanceof ProxyContextPreflightError) {
+        if (error.evidence) {
+          request.setContext(error.evidence);
+        }
+        request.finalize(status, errorType, error.message, error.code, false);
+      }
+      errorMessage =
+        failure?.message ??
+        sanitizeForLog(
+          lastError instanceof Error ? lastError.message : String(lastError),
+          500,
+        );
+      if (dispatched) {
+        recordAttemptError(
+          attempt.label ?? "translation",
+          "translation",
+          status,
+        );
+      }
+      if (request.signal.aborted || outputVisible || denied) {
+        throw lastError;
+      }
+    } finally {
+      sdkResponse?.finish(status);
+      clearTimeout(timer);
+      // Free provider work even if it ignores iterator.return during a stall.
+      deadline.abort();
+      request.cleanupIterator();
+      if (lease) {
+        try {
+          await request.settleBudget(dispatched);
+        } catch (error) {
+          errorCode ??= getProxyTokenBudgetError(error)?.code;
+        }
+      }
+      void logRequestAttempt({
+        timestamp: new Date().toISOString(),
+        requestId: ctx.requestId,
+        attempt: index + 1,
+        method: ctx.method,
+        path: ctx.path,
+        stream: request.stream,
+        toolCount: Object.keys(parsed.tools).length,
+        ...request.evidence(),
+        upstreamDispatched: dispatched,
+        responseStatus: status,
+        responseTimeMs: Date.now() - requestStartTime,
+        attemptDurationMs: Date.now() - started,
+        errorType,
+        errorCode,
+        errorMessage,
+        retryable:
+          failureRetryable ??
+          (!denied &&
+            !request.signal.aborted &&
+            !outputVisible &&
+            index + 1 < attempts.length),
+      });
+    }
+  }
+  throw lastError;
+}
+
+function buildTranslationErrorPayload(
+  format: ProxyFormat,
+  status: number,
+  clientMessage: string,
+  code?: string,
+  retryable?: boolean,
+) {
+  return format === "gemini"
+    ? {
+        error: {
+          code: status,
+          status:
+            status === 400
+              ? "INVALID_ARGUMENT"
+              : status === 403
+                ? "PERMISSION_DENIED"
+                : status === 429
+                  ? "RESOURCE_EXHAUSTED"
+                  : "UNAVAILABLE",
+          message: clientMessage,
+          ...(code ? { reason: code } : {}),
+          ...(retryable !== undefined ? { retryable } : {}),
+        },
+      }
+    : format === "claude"
+      ? {
+          type: "error",
+          error: {
+            type:
+              status === 400
+                ? "invalid_request_error"
+                : status === 403
+                  ? "permission_error"
+                  : status === 429
+                    ? "rate_limit_error"
+                    : "api_error",
+            message: clientMessage,
+            ...(code ? { code } : {}),
+            ...(retryable !== undefined ? { retryable } : {}),
+          },
+        }
+      : {
+          error: {
+            type:
+              status === 400
+                ? "invalid_request_error"
+                : status === 403
+                  ? "permission_error"
+                  : status === 429
+                    ? "rate_limit_error"
+                    : "server_error",
+            message: clientMessage,
+            ...(code ? { code } : {}),
+            ...(retryable !== undefined ? { retryable } : {}),
+          },
+        };
+}
+
+function buildTranslationErrorResponse(
+  format: ProxyFormat,
+  status: number,
+  clientMessage: string,
+  code?: string,
+  capture?: ReturnType<typeof createProxyRouteBodyCapture>,
+  retryable?: boolean,
+): Response {
+  const payload = buildTranslationErrorPayload(
+    format,
+    status,
+    clientMessage,
+    code,
+    retryable,
+  );
+  capture?.json(payload, status);
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+/** Demand-driven serialization; a slow reader cannot grow an unbounded queue. */
 export async function handleTranslatedStreamRequest(args: {
   ctx: ServerContext;
   format: ProxyFormat;
@@ -354,325 +1003,233 @@ export async function handleTranslatedStreamRequest(args: {
   attempts: ProxyTranslationAttempt[];
   tracer?: ProxyTracer;
   requestStartTime: number;
+  /** Preserve outer fallback choice until first upstream output exists. */
+  prefetchFirstOutput?: boolean;
+  options?: Parameters<ServerContext["neurolink"]["stream"]>[0];
+  attemptTimeoutMs?: number;
 }): Promise<Response> {
-  const {
-    ctx,
-    format,
-    requestModel,
-    parsed,
-    attempts,
-    tracer,
-    requestStartTime,
-  } = args;
-  const tag = logTag(format);
+  const { format, requestModel } = args;
+  const request = createTranslationRequest({ ...args, stream: true });
   const serializer =
     format === "claude"
       ? createClaudeSerializerAdapter(requestModel)
       : format === "gemini"
         ? createGeminiSerializerAdapter(requestModel)
         : createOpenAISerializerAdapter(requestModel);
-
-  const KEEPALIVE_INTERVAL_MS = 15_000;
-  const encoder = new TextEncoder();
-  let keepAliveTimer: ReturnType<typeof setInterval> | undefined;
-  let cancelled = false;
-  let succeeded = false;
-  let streamInterruptedAfterOutput = false;
-  let translatedModel: string | undefined;
-  /** Provider that actually served the successful attempt, for costing. */
-  let translatedProvider: string | undefined;
-  /**
-   * Whether the substitution has already been reported to the tracer.
-   *
-   * The success path records it before the tracer prices anything, and the
-   * finally block keeps its own call as a net for any future path that sets
-   * translatedModel without reaching that point. Both guards are otherwise
-   * identical and translatedModel is assigned in exactly one place, so without
-   * this flag every substituted stream reports twice and
-   * proxy_model_substitution_total reads exactly double the real count.
-   */
-  let substitutionRecorded = false;
-  let finalStreamError = "No translation providers succeeded";
-  let upstreamIterator: AsyncIterator<unknown> | undefined;
-  let lastAttemptLabel = "translation";
-
-  const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
-      // Emit opening frame
-      for (const frame of serializer.start()) {
-        controller.enqueue(encoder.encode(frame));
+  let visible = false;
+  const source = runTranslationAttempts({ ...args, request });
+  let primed: Awaited<ReturnType<typeof source.next>> | undefined;
+  try {
+    do {
+      primed = await source.next();
+    } while (
+      primed.done === false &&
+      (primed.value.reset ||
+        (args.prefetchFirstOutput && primed.value.admitted))
+    );
+  } catch (error) {
+    if (args.prefetchFirstOutput) {
+      request.abandon();
+      throw error;
+    }
+    const budgetError = getProxyTokenBudgetError(error);
+    const failure = getProxyUpstreamFailure(error);
+    const status =
+      budgetError?.status ??
+      (error instanceof ProxyContextPreflightError
+        ? error.status
+        : (failure?.status ?? 502));
+    const code =
+      budgetError?.code ??
+      (error instanceof ProxyContextPreflightError
+        ? error.code
+        : failure?.code);
+    const message =
+      budgetError?.message ??
+      (error instanceof ProxyContextPreflightError
+        ? error.message
+        : "Upstream generation failed");
+    request.finalize(
+      status,
+      "generation_error",
+      failure?.message ?? message,
+      code,
+      failure?.retryable,
+    );
+    return buildTranslationErrorResponse(
+      format,
+      status,
+      message,
+      code,
+      request.capture,
+      failure?.retryable,
+    );
+  }
+  async function* output(): AsyncGenerator<
+    {
+      text?: string;
+      result?: StreamResult;
+      reset?: boolean;
+      admitted?: boolean;
+    },
+    void
+  > {
+    if (primed?.done === false) {
+      yield primed.value;
+    }
+    yield* source;
+  }
+  async function* frames() {
+    try {
+      yield* serializer.start();
+      for await (const item of output()) {
+        if (item.text !== undefined) {
+          visible = true;
+          yield* serializer.pushDelta(item.text);
+        }
+        if (item.result) {
+          for (const tool of item.result.toolCalls ?? []) {
+            visible = true;
+            yield* serializer.pushToolUse(
+              tool.toolCallId || generateToolId(format),
+              tool.toolName || "unknown",
+              extractToolArgs(tool),
+            );
+          }
+          yield* serializer.finish(
+            item.result.finishReason ?? defaultFinishReason(format),
+            extractUsageFromStreamResult(item.result.usage),
+          );
+        }
       }
-
-      keepAliveTimer = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(": keep-alive\n\n"));
-        } catch {
-          // Controller already closed.
-        }
-      }, KEEPALIVE_INTERVAL_MS);
-
-      try {
-        for (
-          let attemptIndex = 0;
-          attemptIndex < attempts.length;
-          attemptIndex++
-        ) {
-          if (cancelled) {
-            break;
-          }
-          const attempt = attempts[attemptIndex];
-          lastAttemptLabel = attempt.label ?? "translation";
-          logger.always(
-            `[proxy:${format}] attempt ${attemptIndex + 1}/${attempts.length}: ${attempt.label}`,
-          );
-          recordAttempt(lastAttemptLabel, "translation");
-
-          let collectedText = "";
-          try {
-            const options = buildTranslationOptions(
-              parsed,
-              attempt.provider
-                ? { provider: attempt.provider, model: attempt.model }
-                : {},
-            );
-            const streamResult = await withTimeout(
-              ctx.neurolink.stream(
-                options as Parameters<typeof ctx.neurolink.stream>[0],
-              ),
-              TRANSLATION_ATTEMPT_TIMEOUT_MS,
-              `Translation attempt ${attempt.label} timed out after ${TRANSLATION_ATTEMPT_TIMEOUT_MS}ms`,
-            );
-            const iterable = streamResult.stream as AsyncIterable<unknown>;
-            upstreamIterator = iterable[Symbol.asyncIterator]();
-
-            while (true) {
-              if (cancelled) {
-                break;
-              }
-              const { value: chunk, done } = await upstreamIterator.next();
-              if (done || cancelled) {
-                break;
-              }
-              const text = extractText(chunk);
-              if (text) {
-                collectedText += text;
-                for (const frame of serializer.pushDelta(text)) {
-                  controller.enqueue(encoder.encode(frame));
-                }
-              }
-            }
-
-            if (cancelled) {
-              return;
-            }
-
-            const toolCalls = streamResult.toolCalls ?? [];
-            if (!hasTranslatedOutput(collectedText, toolCalls)) {
-              finalStreamError = `Translated provider ${attempt.label} returned no content or tool calls`;
-              logger.debug(
-                `${tag} translation attempt ${attempt.label} returned no content or tool calls`,
-              );
-              recordAttemptError(lastAttemptLabel, "translation", 502);
-              continue;
-            }
-            if (!cancelled && toolCalls.length) {
-              for (const toolCall of toolCalls) {
-                const toolName =
-                  (toolCall as { toolName?: string }).toolName ??
-                  (toolCall as { name?: string }).name ??
-                  "unknown";
-                const toolId =
-                  (toolCall as { toolCallId?: string }).toolCallId ||
-                  generateToolId(format);
-                for (const frame of serializer.pushToolUse(
-                  toolId,
-                  toolName,
-                  extractToolArgs(toolCall),
-                )) {
-                  controller.enqueue(encoder.encode(frame));
-                }
-              }
-            }
-
-            if (!cancelled) {
-              const reason =
-                streamResult.finishReason ?? defaultFinishReason(format);
-              const resolvedUsage = extractUsageFromStreamResult(
-                streamResult.usage,
-              );
-              for (const frame of serializer.finish(reason, resolvedUsage)) {
-                controller.enqueue(encoder.encode(frame));
-              }
-            }
-
-            translatedModel = streamResult.model;
-            translatedProvider = attempt.provider;
-
-            // Substitution BEFORE usage: setUsage() and recordMetrics() price
-            // the request immediately, against the tracer's current model and
-            // billing provider. Recording first and substituting afterwards
-            // bills the model the client ASKED for — which is exactly what
-            // ProxyTracer.setModelSubstitution() documents as wrong, since a
-            // claude-* alias served by another provider would be charged at
-            // Claude rates. The finally block below keeps its own call as a
-            // net for any future path that sets translatedModel without
-            // reaching here; substitutionRecorded stops the two from
-            // double-counting proxy_model_substitution_total.
-            if (tracer && translatedModel && translatedModel !== requestModel) {
-              tracer.setModelSubstitution(
-                requestModel,
-                translatedModel,
-                translatedProvider,
-              );
-              substitutionRecorded = true;
-            }
-
-            // Track usage and metrics
-            const resolvedUsageForTracer = extractUsageFromStreamResult(
-              streamResult.usage,
-            );
-            tracer?.setUsage({
-              inputTokens: resolvedUsageForTracer.input,
-              outputTokens: resolvedUsageForTracer.output,
-              cacheCreationTokens: 0,
-              cacheReadTokens: 0,
-            });
-            tracer?.recordMetrics();
-            succeeded = true;
-            return;
-          } catch (streamErr) {
-            if (cancelled) {
-              return;
-            }
-            finalStreamError =
-              streamErr instanceof Error
-                ? streamErr.message
-                : String(streamErr);
-            if (collectedText.trim().length > 0) {
-              streamInterruptedAfterOutput = true;
-              recordAttemptError(lastAttemptLabel, "translation", 502);
-              logger.always(`${tag} mid-stream error: ${finalStreamError}`);
-              for (const frame of serializer.emitError(
-                `Upstream stream interrupted: ${finalStreamError}`,
-              )) {
-                controller.enqueue(encoder.encode(frame));
-              }
-              return;
-            }
-            logger.debug(
-              `${tag} translation attempt ${attempt.label} failed: ${finalStreamError}`,
-            );
-            recordAttemptError(lastAttemptLabel, "translation", 500);
-          }
-        }
-
-        // All attempts exhausted
-        if (!cancelled) {
-          logger.always(
-            `${tag} all translation attempts failed: ${finalStreamError}`,
-          );
-          for (const frame of serializer.emitError(finalStreamError)) {
-            controller.enqueue(encoder.encode(frame));
-          }
-        }
-      } finally {
-        if (keepAliveTimer) {
-          clearInterval(keepAliveTimer);
-        }
-        if (!cancelled) {
-          controller.close();
-        }
-        if (
-          !substitutionRecorded &&
-          tracer &&
-          translatedModel &&
-          translatedModel !== requestModel
-        ) {
-          tracer.setModelSubstitution(
-            requestModel,
-            translatedModel,
-            translatedProvider,
-          );
-          substitutionRecorded = true;
-        }
-        const terminalStatus = cancelled
-          ? 499
-          : succeeded
-            ? 200
-            : streamInterruptedAfterOutput
-              ? 502
-              : 500;
-        const terminalErrorType = cancelled
-          ? "client_cancelled"
-          : streamInterruptedAfterOutput
+      request.finalize(200);
+    } catch (error) {
+      if (request.signal.aborted) {
+        return;
+      }
+      const failure = getProxyUpstreamFailure(error);
+      const status =
+        error instanceof Error && error.name === "TimeoutError"
+          ? 504
+          : (failure?.status ?? 502);
+      const message =
+        failure?.message ??
+        sanitizeForLog(
+          error instanceof Error ? error.message : String(error),
+          500,
+        );
+      request.finalize(
+        status,
+        status === 504
+          ? "upstream_timeout"
+          : visible
             ? "stream_error"
-            : succeeded
-              ? undefined
-              : "generation_error";
-        const terminalErrorMessage = cancelled
-          ? "Client cancelled the streaming response"
-          : succeeded
-            ? undefined
-            : finalStreamError;
-        if (terminalErrorType && terminalErrorMessage) {
-          tracer?.setError(
-            terminalErrorType,
-            terminalErrorMessage.slice(0, 500),
-          );
-          recordFinalError(terminalStatus, lastAttemptLabel, "translation", {
-            requestId: ctx.requestId,
-            errorType: terminalErrorType,
-            terminalOutcome: terminalErrorType,
-            message: terminalErrorMessage,
-          });
-        } else {
-          recordFinalSuccess(lastAttemptLabel, "translation");
+            : "generation_error",
+        message,
+        failure?.code,
+        failure?.retryable,
+      );
+      if (failure) {
+        const payload = buildTranslationErrorPayload(
+          format,
+          status,
+          "Upstream generation failed",
+          failure.code,
+          failure.retryable,
+        );
+        yield `${format === "claude" ? "event: error\n" : ""}data: ${JSON.stringify(payload)}\n\n`;
+      } else {
+        yield* serializer.emitError("Upstream generation failed");
+      }
+    }
+  }
+  const iterator = frames();
+  const encoder = new TextEncoder();
+  const clientCapture = request.capture.accumulator(
+    "client_response",
+    "text/event-stream",
+  );
+  let ended = false;
+  let pending: Promise<IteratorResult<string>> | undefined;
+  let streamController: ReadableStreamDefaultController<Uint8Array>;
+  const onAbort = () => {
+    clientCapture.finish(
+      request.signal.reason?.name === "TimeoutError" ? 504 : 499,
+    );
+    ended = true;
+    streamController?.error(
+      request.signal.reason ??
+        new DOMException("Client disconnected", "AbortError"),
+    );
+    void source.return().catch(() => undefined);
+    void iterator.return().catch(() => undefined);
+  };
+  const stream = new ReadableStream<Uint8Array>(
+    {
+      start(controller) {
+        streamController = controller;
+        request.signal.addEventListener("abort", onAbort, { once: true });
+        if (request.signal.aborted) {
+          onAbort();
         }
-        tracer?.end(terminalStatus, Date.now() - requestStartTime);
-
-        const traceCtx = tracer?.getTraceContext();
-        logRequest({
-          timestamp: new Date().toISOString(),
-          requestId: ctx.requestId,
-          method: ctx.method,
-          path: ctx.path,
-          model: requestModel,
-          stream: true,
-          toolCount: Object.keys(parsed.tools).length,
-          account: "translation",
-          accountType: "translation",
-          // Without this the translated doors record no calling client at all.
-          // The Gemini door serves every request through this engine, so its
-          // rows carried a null clientApp and a null userAgent — not merely
-          // "unknown", but nothing to attribute after the fact either.
-          ...buildClientAttribution(ctx.headers),
-          responseStatus: terminalStatus,
-          responseTimeMs: Date.now() - requestStartTime,
-          ...(terminalErrorType ? { errorType: terminalErrorType } : {}),
-          ...(terminalErrorMessage
-            ? { errorMessage: terminalErrorMessage.slice(0, 500) }
-            : {}),
-          ...(traceCtx?.traceId ? { traceId: traceCtx.traceId } : {}),
-          ...(traceCtx?.spanId ? { spanId: traceCtx.spanId } : {}),
-        });
-      }
+      },
+      async pull(controller) {
+        if (ended) {
+          return;
+        }
+        pending ??= iterator.next();
+        // Keepalives use the same pull slot as data, so they cannot bypass backpressure.
+        let heartbeat: ReturnType<typeof setTimeout> | undefined;
+        try {
+          const next = await Promise.race([
+            pending,
+            new Promise<null>((resolve) => {
+              heartbeat = setTimeout(() => resolve(null), 15000);
+              heartbeat.unref?.();
+            }),
+          ]);
+          if (ended) {
+            return;
+          }
+          if (next === null) {
+            const bytes = encoder.encode(": keep-alive\n\n");
+            clientCapture.append(bytes);
+            controller.enqueue(bytes);
+            return;
+          }
+          pending = undefined;
+          if (next.done) {
+            ended = true;
+            request.signal.removeEventListener("abort", onAbort);
+            clientCapture.finish(200);
+            controller.close();
+          } else {
+            const bytes = encoder.encode(next.value);
+            clientCapture.append(bytes);
+            controller.enqueue(bytes);
+          }
+        } catch (error) {
+          if (!ended) {
+            clientCapture.finish(502);
+            ended = true;
+            controller.error(error);
+          }
+        } finally {
+          if (heartbeat) {
+            clearTimeout(heartbeat);
+          }
+        }
+      },
+      cancel(reason) {
+        clientCapture.finish(499);
+        ended = true;
+        request.signal.removeEventListener("abort", onAbort);
+        request.cancel(reason);
+        void iterator.return().catch(() => undefined);
+      },
     },
-    cancel() {
-      cancelled = true;
-      if (keepAliveTimer) {
-        clearInterval(keepAliveTimer);
-        keepAliveTimer = undefined;
-      }
-      if (upstreamIterator?.return) {
-        upstreamIterator.return(undefined).catch((cancelErr) => {
-          logger.debug(
-            `${tag} upstream cancel error: ${cancelErr instanceof Error ? cancelErr.message : String(cancelErr)}`,
-          );
-        });
-      }
-    },
-  });
-
+    { highWaterMark: 0 },
+  );
   return new Response(stream, {
     headers: {
       "content-type": "text/event-stream",
@@ -682,13 +1239,6 @@ export async function handleTranslatedStreamRequest(args: {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Unified JSON (non-streaming) handler
-// ---------------------------------------------------------------------------
-
-/**
- * Handles a translated non-streaming request for either Claude or OpenAI format.
- */
 export async function handleTranslatedJsonRequest(args: {
   ctx: ServerContext;
   format: ProxyFormat;
@@ -698,178 +1248,106 @@ export async function handleTranslatedJsonRequest(args: {
   tracer?: ProxyTracer;
   requestStartTime: number;
   terminalFailureStatus?: number;
+  deferFinalOnError?: boolean;
+  options?: Parameters<ServerContext["neurolink"]["stream"]>[0];
+  attemptTimeoutMs?: number;
 }): Promise<unknown> {
-  const {
-    ctx,
-    format,
-    requestModel,
-    parsed,
-    attempts,
-    tracer,
-    requestStartTime,
-    terminalFailureStatus = 500,
-  } = args;
-  const tag = logTag(format);
-  let lastAttemptError = "No translation providers succeeded";
-  let lastAttemptLabel = "translation";
-
-  for (let attemptIndex = 0; attemptIndex < attempts.length; attemptIndex++) {
-    const attempt = attempts[attemptIndex];
-    lastAttemptLabel = attempt.label ?? "translation";
-    logger.always(
-      `[proxy:${format}] attempt ${attemptIndex + 1}/${attempts.length}: ${attempt.label}`,
-    );
-    recordAttempt(lastAttemptLabel, "translation");
-
-    try {
-      const options = buildTranslationOptions(
-        parsed,
-        attempt.provider
-          ? { provider: attempt.provider, model: attempt.model }
-          : {},
-      );
-      const streamResult = await withTimeout(
-        ctx.neurolink.stream(
-          options as Parameters<typeof ctx.neurolink.stream>[0],
-        ),
-        TRANSLATION_ATTEMPT_TIMEOUT_MS,
-        `Translation attempt ${attempt.label} timed out after ${TRANSLATION_ATTEMPT_TIMEOUT_MS}ms`,
-      );
-      let collectedText = "";
-      for await (const chunk of streamResult.stream) {
-        const text = extractText(chunk);
-        if (text) {
-          collectedText += text;
-        }
+  const request = createTranslationRequest({ ...args, stream: false });
+  let content = "";
+  let result: StreamResult | undefined;
+  try {
+    for await (const item of runTranslationAttempts({ ...args, request })) {
+      if (item.reset) {
+        content = "";
       }
-
-      if (!hasTranslatedOutput(collectedText, streamResult.toolCalls)) {
-        lastAttemptError = `Translated provider ${attempt.label} returned no content or tool calls`;
-        logger.debug(
-          `${tag} translation attempt ${attempt.label} returned no content or tool calls`,
-        );
-        recordAttemptError(lastAttemptLabel, "translation", 502);
-        continue;
+      if (item.text !== undefined) {
+        content += item.text;
       }
-
-      const internal: InternalResult = {
-        content: collectedText,
-        model: streamResult.model,
-        finishReason: streamResult.finishReason ?? defaultFinishReason(format),
-        reasoning: undefined,
-        usage: streamResult.usage
-          ? extractUsageFromStreamResult(streamResult.usage)
-          : undefined,
-        toolCalls: streamResult.toolCalls as InternalResult["toolCalls"],
-      };
-
-      // Substitution BEFORE usage — see the streaming path for why: pricing
-      // happens inside setUsage()/recordMetrics(), so substituting afterwards
-      // bills the requested model instead of the one that served.
-      if (tracer && streamResult.model && streamResult.model !== requestModel) {
-        tracer.setModelSubstitution(
-          requestModel,
-          streamResult.model,
-          attempt.provider,
-        );
+      if (item.result) {
+        result = item.result;
       }
-
-      // Track usage and metrics
-      const resolvedUsage = extractUsageFromStreamResult(streamResult.usage);
-      tracer?.setUsage({
-        inputTokens: resolvedUsage.input,
-        outputTokens: resolvedUsage.output,
-        cacheCreationTokens: 0,
-        cacheReadTokens: 0,
-      });
-      tracer?.recordMetrics();
-      tracer?.end(200, Date.now() - requestStartTime);
-
-      recordFinalSuccess(lastAttemptLabel, "translation");
-
-      const traceCtx = tracer?.getTraceContext();
-      logRequest({
-        timestamp: new Date().toISOString(),
-        requestId: ctx.requestId,
-        method: ctx.method,
-        path: ctx.path,
-        model: requestModel,
-        stream: false,
-        toolCount: Object.keys(parsed.tools).length,
-        account: "translation",
-        accountType: "translation",
-        ...buildClientAttribution(ctx.headers),
-        responseStatus: 200,
-        responseTimeMs: Date.now() - requestStartTime,
-        inputTokens: resolvedUsage.input,
-        outputTokens: resolvedUsage.output,
-        ...(traceCtx?.traceId ? { traceId: traceCtx.traceId } : {}),
-        ...(traceCtx?.spanId ? { spanId: traceCtx.spanId } : {}),
-      });
-
-      if (format === "claude") {
-        return serializeClaudeResponse(internal, requestModel);
-      }
-      if (format === "gemini") {
-        return buildGeminiResponse(
-          internal.content,
-          internal.finishReason ?? defaultFinishReason(format),
-          resolvedUsage,
-          internal.model ?? requestModel,
-          internal.toolCalls,
-        );
-      }
-      return serializeOpenAIResponse(internal, requestModel);
-    } catch (attemptError) {
-      lastAttemptError =
-        attemptError instanceof Error
-          ? attemptError.message
-          : String(attemptError);
-      logger.debug(
-        `${tag} translation attempt ${attempt.label} failed: ${lastAttemptError}`,
-      );
-      recordAttemptError(lastAttemptLabel, "translation", 500);
     }
+    request.signal.throwIfAborted();
+    request.finalize(200);
+    const usage = result?.usage
+      ? extractUsageFromStreamResult(result.usage)
+      : undefined;
+    const internal: InternalResult = {
+      content,
+      model: result?.model,
+      finishReason: result?.finishReason ?? defaultFinishReason(args.format),
+      usage,
+      toolCalls: result?.toolCalls as InternalResult["toolCalls"],
+    };
+    const response =
+      args.format === "claude"
+        ? serializeClaudeResponse(internal, args.requestModel)
+        : args.format === "gemini"
+          ? buildGeminiResponse(
+              content,
+              internal.finishReason ?? defaultFinishReason(args.format),
+              usage ?? { input: 0, output: 0, total: 0 },
+              internal.model ?? args.requestModel,
+              internal.toolCalls,
+            )
+          : serializeOpenAIResponse(internal, args.requestModel);
+    request.capture.json(response, 200);
+    return response;
+  } catch (error) {
+    if (args.deferFinalOnError && !request.signal.aborted) {
+      request.abandon();
+      throw error;
+    }
+    const failure = getProxyUpstreamFailure(error);
+    const message =
+      failure?.message ??
+      sanitizeForLog(
+        error instanceof Error ? error.message : String(error),
+        500,
+      );
+    const budgetError = getProxyTokenBudgetError(error);
+    const timeout =
+      request.signal.reason?.name === "TimeoutError" ||
+      (error instanceof Error && error.name === "TimeoutError");
+    const status =
+      budgetError?.status ??
+      (error instanceof ProxyContextPreflightError
+        ? error.status
+        : timeout
+          ? 504
+          : request.signal.aborted
+            ? 499
+            : (failure?.status ?? args.terminalFailureStatus ?? 502));
+    const code =
+      budgetError?.code ??
+      (error instanceof ProxyContextPreflightError
+        ? error.code
+        : failure?.code);
+    request.finalize(
+      status,
+      timeout
+        ? "upstream_timeout"
+        : request.signal.aborted
+          ? "client_cancelled"
+          : "generation_error",
+      message,
+      code,
+      failure?.retryable,
+    );
+    const clientMessage =
+      budgetError?.message ??
+      (error instanceof ProxyContextPreflightError
+        ? error.message
+        : "Upstream generation failed");
+    return buildTranslationErrorResponse(
+      args.format,
+      status,
+      clientMessage,
+      code,
+      request.capture,
+      failure?.retryable,
+    );
   }
-
-  recordFinalError(terminalFailureStatus, lastAttemptLabel, "translation", {
-    requestId: ctx.requestId,
-    errorType: "generation_error",
-    terminalOutcome: "handler_error",
-    message: lastAttemptError,
-  });
-
-  tracer?.setError("generation_error", lastAttemptError.slice(0, 500));
-  tracer?.end(terminalFailureStatus, Date.now() - requestStartTime);
-
-  const traceCtx = tracer?.getTraceContext();
-  logRequest({
-    timestamp: new Date().toISOString(),
-    requestId: ctx.requestId,
-    method: ctx.method,
-    path: ctx.path,
-    model: requestModel,
-    stream: false,
-    toolCount: Object.keys(parsed.tools).length,
-    account: "translation",
-    accountType: "translation",
-    ...buildClientAttribution(ctx.headers),
-    responseStatus: terminalFailureStatus,
-    responseTimeMs: Date.now() - requestStartTime,
-    errorType: "generation_error",
-    errorMessage: lastAttemptError.slice(0, 500),
-    ...(traceCtx?.traceId ? { traceId: traceCtx.traceId } : {}),
-    ...(traceCtx?.spanId ? { spanId: traceCtx.spanId } : {}),
-  });
-
-  throw new NeuroLinkError({
-    code: ERROR_CODES.PROVIDER_NOT_AVAILABLE,
-    message: lastAttemptError,
-    category: ErrorCategory.EXECUTION,
-    severity: ErrorSeverity.HIGH,
-    retriable: false,
-    context: { attemptLabel: lastAttemptLabel, format },
-  });
 }
 
 // ---------------------------------------------------------------------------

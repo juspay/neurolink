@@ -8,4 +8,4 @@
 
 > **ProxyAccountType** = _typeof_ `PROXY_ACCOUNT_TYPES`\[`number`\]
 
-Defined in: [types/proxy.ts:526](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L526)
+Defined in: [types/proxy.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L531)

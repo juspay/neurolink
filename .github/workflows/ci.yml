@@ -440,6 +440,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:proxy-telemetry
 
+      - name: Proxy lifecycle, accounting, spending and update regressions (isolated)
+        if: matrix.group == 'rest'
+        run: pnpm run test:proxy-reliability
+
       - name: AI Studio loop characterization (local SSE stand-in, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:aistudio-loop-characterization

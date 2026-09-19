@@ -380,6 +380,20 @@ export class RollingWorkerSupervisor {
             );
             this.publishState();
             this.notifyShutdownWaiters();
+          } else if (this.draining.has(generation)) {
+            // A retiring generation still owns requests and budget leases.
+            // Preserve its fatal cause without dropping actual-exit tracking.
+            this.recordFailure(
+              generation,
+              expectedVersion,
+              "runtime",
+              message.message,
+              { workerPid: handle.pid },
+            );
+            this.options.log?.(
+              `[proxy-supervisor] draining worker reported fatal generation=${generation} pid=${handle.pid}: ${message.message}`,
+            );
+            this.publishState();
           }
           return;
         }

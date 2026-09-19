@@ -1,3 +1,8 @@
+import type { ProxyTokenBudgetSnapshot } from "./proxyBudget.js";
+import type {
+  ProxyContextEvidence,
+  ProxyPreparedContext,
+} from "./proxyContext.js";
 /**
  * Proxy type definitions for NeuroLink
  *
@@ -671,6 +676,34 @@ export type ProxyAccountSortMetrics = {
 };
 
 export type RequestLogEntry = {
+  /** Whether model identifies observed serving output rather than a routing target. */
+  servingModelStatus?: "observed" | "unavailable";
+  /** Whether retrying unchanged input can resolve this terminal failure. */
+  retryable?: boolean;
+  tokenBudget?: ProxyTokenBudgetSnapshot;
+  contextPreflight?: ProxyContextEvidence;
+  /** Internal adapter requests link to their one client-facing parent. */
+  parentRequestId?: string;
+  accountingScope?: "client" | "internal";
+  /** Exactly this request owns usage; bridge parents never duplicate it. */
+  usageOwnerRequestId?: string;
+
+  /** API price-table estimate, never a subscription charge or quota measure.
+   * Null when complete usage and an exact model rate are not both available. */
+  apiEquivalentCostUsd?: number | null;
+  /** API-equivalent cache-read savings against uncached input at the same rate. */
+  apiEquivalentCacheSavingsUsd?: number | null;
+  pricingStatus?:
+    | "exact"
+    | "inferred"
+    | "unavailable"
+    | "usage_incomplete"
+    | "owned_by_child";
+  pricingBasis?: "api_price_table";
+  pricingProvider?: string;
+
+  /** Credential identity is unavailable when the SDK does not expose it. */
+  accountIdentityStatus?: "observed" | "unavailable";
   /** First text, refusal or populated tool output, excluding SSE control frames. */
   firstUsefulOutputMs?: number;
   /** Why first-useful-output timing is absent; never substitute a zero. */
@@ -768,7 +801,10 @@ export type ProcessedProxyBodyCapture = {
   headers?: Record<string, string>;
   stored: StoredBodyArtifact;
   error?: string;
+  /** Admission plus worker queue time; retained for existing consumers. */
   queueWaitMs?: number;
+  admissionWaitMs?: number;
+  workerQueueWaitMs?: number;
   processingMs?: number;
   admission?: ProxyBodyCaptureAdmission;
 };
@@ -784,6 +820,11 @@ export type ProxyBodyCaptureAdmission = {
   maxPendingBytes: number;
 };
 export type ProxyBodyCaptureWorkerSnapshot = {
+  processing?: number;
+  publishing?: number;
+  oldestAdmissionWaitMs?: number;
+  oldestProcessingMs?: number;
+  oldestPublicationMs?: number;
   attempted: number;
   completed: number;
   rejected: number;
@@ -813,6 +854,13 @@ export type ProxyBodyDeliveryResult = {
   unconfirmedChunks: number;
   droppedChunks: number;
   notSubmittedChunks?: number;
+  /** Total publication elapsed time, including capacity and exporter waits. */
+  publicationMs?: number;
+  capacityWaitMs?: number;
+  /** Maximum per-chunk residence before an OTLP export starts. */
+  maxChunkQueueWaitMs?: number;
+  /** Maximum per-chunk transport duration; never sums overlapping exports. */
+  maxChunkExportMs?: number;
   reason?: string;
 };
 
@@ -822,6 +870,8 @@ export type ProxyBodyPublicationProgress = {
   unconfirmed: number;
   dropped: number;
   emitted: number;
+  maxChunkQueueWaitMs?: number;
+  maxChunkExportMs?: number;
   notify?: () => void;
 };
 
@@ -844,6 +894,8 @@ export type ProxyTelemetryBackend = {
   baseUrl: string;
   organization: string;
   stream: string;
+  /** Optional separate backend storage for bulk body chunks. */
+  bodyStream?: string;
   authorization?: string;
   collectorMetricsUrl?: string;
 };
@@ -868,6 +920,10 @@ export type ProxyTelemetryDoctorOptions = {
   endTime: number;
   proxyUrl?: string;
   maxRows?: number;
+  /** Explicit age-search horizon; older admissions are outside this proof. */
+  admissionLookbackMs?: number;
+  requestTimeoutMs?: number;
+  ingestionGraceMs?: number;
   fetchImpl?: typeof fetch;
 };
 export type ProxyTelemetryCheck = {
@@ -891,6 +947,8 @@ export type ProxyTelemetryStoredRecord = Partial<RequestLogEntry> & {
   event?: string;
   telemetryStatus?: string;
   outcomeSource?: string;
+  requestTimeoutMs?: number;
+  redactionLossy?: boolean;
 };
 export type ProxyTelemetryFieldCoverage = {
   records: number;
@@ -919,6 +977,14 @@ export type ProxyRequestLoggerSnapshot = {
 };
 
 export type RequestAttemptLogEntry = {
+  /** False for a local context/budget refusal before a provider call. */
+  upstreamDispatched?: boolean;
+  /** Client model name retained independently of the dispatched model. */
+  requestedModel?: string;
+  tokenBudget?: ProxyTokenBudgetSnapshot;
+  contextPreflight?: ProxyContextEvidence;
+  accountingScope?: "client" | "internal";
+  usageOwnerRequestId?: string;
   timestamp: string;
   requestId: string;
   /** Parent client request for an internal fallback invocation. */
@@ -958,10 +1024,14 @@ export type RequestAttemptLogEntry = {
   quotaResetAt?: number;
   /** Unknown scope never implies an account-wide long-window rejection. */
   quotaScope?: "session" | "weekly" | "unknown";
+  /** True when input includes the cache breakdown (native Codex wire usage). */
+  inputIncludesCachedTokens?: boolean;
   inputTokens?: number;
   outputTokens?: number;
   cacheCreationTokens?: number;
   cacheReadTokens?: number;
+  /** Reasoning tokens are a subset of output, never additional usage. */
+  reasoningTokens?: number;
   /** Provider that received this upstream attempt. */
   provider?: string;
   /** OTel trace ID for correlation with distributed traces */
@@ -989,6 +1059,7 @@ export type CodexFinalLogExtra = Partial<
     | "firstUsefulOutputMs"
     | "firstUsefulOutputStatus"
     | "firstUsefulOutputEvent"
+    | "retryable"
   >
 >;
 
@@ -996,6 +1067,12 @@ export type CodexFinalLogExtra = Partial<
 export type CodexAttemptLogExtra = Partial<
   Pick<
     RequestAttemptLogEntry,
+    | "inputTokens"
+    | "outputTokens"
+    | "cacheReadTokens"
+    | "cacheCreationTokens"
+    | "reasoningTokens"
+    | "inputIncludesCachedTokens"
     | "errorType"
     | "errorMessage"
     | "errorCode"
@@ -1052,6 +1129,7 @@ export type ClaudeFinalRequestLogger = (
     cacheReadTokens?: number;
     reasoningTokens?: number;
     errorCode?: string;
+    retryable?: boolean;
     transportScope?: ProxyTransportScope;
   },
 ) => void;
@@ -1065,6 +1143,7 @@ export type ClaudeLoggedErrorBuilder = (
     accountType?: string;
     attempt?: number;
     errorCode?: string;
+    retryable?: boolean;
     transportScope?: ProxyTransportScope;
   },
 ) => ClaudeErrorResponse;
@@ -1128,6 +1207,7 @@ export type AnthropicLoopState = {
 export type AnthropicUpstreamBody = {
   bodyStr: string;
   sessionId?: string;
+  preparedContext: ProxyPreparedContext<ClaudeRequest>;
 };
 
 export type AnthropicUpstreamBodyBuilder = (
@@ -1236,6 +1316,7 @@ export type PreparedAnthropicAccountAttempt = {
   headers?: Record<string, string>;
   buildUpstreamBody?: AnthropicUpstreamBodyBuilder;
   finalBodyStr?: string;
+  preparedContext?: ProxyPreparedContext<ClaudeRequest>;
   fetchStartMs?: number;
   upstreamSpan?: Span;
 };
@@ -1969,8 +2050,12 @@ export type ProxyRequestContext = {
    * every non-Anthropic model prices to $0.
    */
   provider?: string;
-  /** An internal fallback is an attempt; its parent owns request/token metrics. */
+  /** Whether this span owns client request, latency, and error metrics. */
   recordRequestMetrics?: boolean;
+  /** Provider usage ownership. Defaults to recordRequestMetrics for backwards
+   * compatibility: internal Codex fallback spans suppress both, while bridge
+   * children explicitly retain usage and their parent owns client outcomes. */
+  recordUsageMetrics?: boolean;
 };
 
 /** Response-side details parsed from the upstream reply (model, finish, tools). */
@@ -2013,6 +2098,12 @@ export type UsageContext = {
   reasoningTokens?: number;
   rateLimitAfter5h?: number;
   rateLimitAfter7d?: number;
+};
+
+/** Keep trace usage when a child request owns its token and cost metrics. */
+export type ProxyUsageAttributionOptions = {
+  /** Defaults to the tracer's configured ownership when omitted. */
+  recordMetrics?: boolean;
 };
 
 // =============================================================================
@@ -2077,6 +2168,11 @@ export type ProxyActivitySnapshot = {
 export type ProxyRuntimeActivity = {
   activeRequests: number;
   lastActivityAt: string | null;
+  /** Supervisor-wide resources that must settle before process replacement. */
+  drainingWorkers?: number;
+  queuedSockets?: number;
+  pendingTransfers?: number;
+  candidateWorkers?: number;
 };
 
 /** Terminal state observed while the HTTP adapter relays a response body. */
@@ -2120,6 +2216,14 @@ export type ProxyLifecycleTerminalOutcome =
 
 /** Content-free lifecycle event accepted by the bounded metadata logger. */
 export type ProxyLifecycleEventInput = {
+  /** Hard admission-to-terminal deadline used by reconciliation. */
+  requestTimeoutMs?: number;
+  /** Internal adapter requests link to their one client-facing parent. */
+  parentRequestId?: string;
+  accountingScope?: "client" | "internal";
+  /** Exactly this request owns usage; bridge parents never duplicate it. */
+  usageOwnerRequestId?: string;
+
   event: ProxyLifecycleEventName;
   requestId: string;
   method: string;
@@ -2325,6 +2429,9 @@ export type ProxyAnalysisReport = {
       providerFinalRecorded: boolean;
     }>;
     accepted: number;
+    internalAccepted?: number;
+    internalTerminal?: number;
+    internalUnsettled?: number;
     /** Accepted metadata requests that do not require model final records. */
     auxiliaryRequests: number;
     headers: number;
@@ -2337,6 +2444,8 @@ export type ProxyAnalysisReport = {
   };
   requests: {
     completed: number;
+    /** Linked internal adapter finals excluded from client request totals. */
+    internalCompleted?: number;
     success: number;
     errors: number;
     finalRateLimits: number;
@@ -2427,6 +2536,9 @@ export type ProxyAnalysisAttemptRecord = {
 
 /** Final request fields retained while joining offline proxy log records. */
 export type ProxyAnalysisFinalRequestRecord = {
+  accountingScope?: "client" | "internal";
+  parentRequestId?: string;
+  usageOwnerRequestId?: string;
   firstUsefulOutputMs: number | null;
   timestamp: string;
   status: number;
@@ -2468,6 +2580,9 @@ export type ProxyCancellableTransformer<I, O> = Transformer<I, O> & {
  * a null result as "not observed", never as "zero tokens".
  */
 export type CodexStreamUsage = {
+  /** Distinguish missing provider usage from a reported zero. */
+  inputTokensObserved?: boolean;
+  outputTokensObserved?: boolean;
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
@@ -2503,6 +2618,13 @@ export type ProxyAnalysisRoutingRecord = {
 
 /** Request metadata retained by the HTTP adapter for terminal error logging. */
 export type RuntimeRequestMetadata = {
+  /** Internal adapter requests link to their one client-facing parent. */
+  parentRequestId?: string;
+  accountingScope?: "client" | "internal";
+  /** Exactly this request owns usage; bridge parents never duplicate it. */
+  usageOwnerRequestId?: string;
+  abortController?: AbortController;
+
   /** Last dispatched attempt, retained until this HTTP request terminates. */
   lastUpstreamAttempt?: RequestAttemptLogEntry;
   requestId: string;
@@ -2706,6 +2828,14 @@ export type CompareProxyReplayOptions = {
 
 /** Persisted artifact produced when a body is stored to disk. */
 export type StoredBodyArtifact = {
+  /** Bytes supplied to redaction, after any source observer limit. */
+  inputRetainedBytes?: number;
+  inputEncoding?: "utf8_text" | "structured_object";
+  sourceTruncated?: boolean;
+  processingTruncated?: boolean;
+  /** Invalid structured frames were removed for secret safety. */
+  redactionLossy?: boolean;
+  unparseableRedactedFrames?: number;
   bodyPath?: string;
   bodySha256?: string;
   redactedBodyBytes?: number;
@@ -4657,4 +4787,40 @@ type ProxyBodyCaptureWaitingSnapshot = {
   highWaterWaitingBytes: number;
   admissionWaits: number;
   admissionTimeouts: number;
+};
+
+/** Immutable package selection used by the proxy launcher, never by global npm. */
+export type ProxyPackageSelection = {
+  version: string;
+  entryScript: string;
+  nodePath: string;
+};
+
+/** Atomically published active and rollback package selections. */
+export type ProxyPackageSelectionState = {
+  schemaVersion: 1;
+  active: ProxyPackageSelection | null;
+  previous: ProxyPackageSelection | null;
+};
+
+/** Bounded asynchronous package installation with injectable subprocesses. */
+export type ProxyStagedInstallOptions = {
+  version: string;
+  packagesDir: string;
+  installer: Pick<GlobalInstallerProbe, "kind" | "bin">;
+  idleTimeoutMs?: number;
+  maxDurationMs?: number;
+  killGraceMs?: number;
+  spawn?: typeof import("node:child_process").spawn;
+  execFileSync?: GlobalInstallerExecFile;
+  onProgress?: (progress: { elapsedMs: number; outputBytes: number }) => void;
+};
+
+/** Saved launchd settings retained when installing the service again. */
+export type ProxyServiceInstallSettings = {
+  envFile?: string;
+  configFile?: string;
+  host?: string;
+  port?: number;
+  environment: Record<string, string>;
 };

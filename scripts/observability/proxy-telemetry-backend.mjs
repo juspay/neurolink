@@ -37,9 +37,25 @@ export async function resolveProxyTelemetryBackend(env = process.env) {
       }
     }
   }
+  /** Resolve collector environment substitutions without logging their values.
+   * @param {string | undefined} value
+   */
+  const resolveCollectorValue = (value) =>
+    value?.replace(
+      /\$\{env:([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
+      (_match, name, fallback) => {
+        const resolved = env[name] ?? fallback;
+        if (resolved === undefined)
+          {throw new Error(
+            `Collector environment variable ${name} is not configured`,
+          );}
+        return resolved;
+      },
+    );
   const exporter = native?.exporters?.["otlphttp/openobserve"];
-  const destination = exporter?.endpoint
-    ? new URL(exporter.endpoint)
+  const configuredEndpoint = resolveCollectorValue(exporter?.endpoint);
+  const destination = configuredEndpoint
+    ? new URL(configuredEndpoint)
     : undefined;
   const nativeOrg = destination?.pathname.match(
     /^\/api\/([a-zA-Z0-9_-]+)\/?$/,
@@ -48,7 +64,9 @@ export async function resolveProxyTelemetryBackend(env = process.env) {
     env.NEUROLINK_OPENOBSERVE_BASIC_AUTH ??
     (env.NEUROLINK_OPENOBSERVE_USER && env.NEUROLINK_OPENOBSERVE_PASSWORD
       ? `Basic ${Buffer.from(`${env.NEUROLINK_OPENOBSERVE_USER}:${env.NEUROLINK_OPENOBSERVE_PASSWORD}`).toString("base64")}`
-      : (exporter?.headers?.Authorization ?? exporter?.headers?.authorization));
+      : resolveCollectorValue(
+          exporter?.headers?.Authorization ?? exporter?.headers?.authorization,
+        ));
   return {
     baseUrl:
       env.NEUROLINK_OPENOBSERVE_URL ??
@@ -57,8 +75,15 @@ export async function resolveProxyTelemetryBackend(env = process.env) {
     organization: env.NEUROLINK_OPENOBSERVE_ORG ?? nativeOrg ?? "default",
     stream:
       env.NEUROLINK_PROXY_STREAM_HEADER ??
-      exporter?.headers?.["stream-name"] ??
+      resolveCollectorValue(exporter?.headers?.["stream-name"]) ??
       "neurolink_proxy",
+    bodyStream:
+      env.NEUROLINK_PROXY_BODY_STREAM_HEADER ??
+      resolveCollectorValue(
+        native?.exporters?.["otlphttp/openobserve-bodies"]?.headers?.[
+          "stream-name"
+        ],
+      ),
     authorization,
     collectorMetricsUrl:
       env.NEUROLINK_OTEL_COLLECTOR_METRICS_URL ??
@@ -72,7 +97,9 @@ export async function resolveProxyTelemetryBackend(env = process.env) {
 export function validateProxyTelemetryBackend(backend) {
   if (
     !/^[a-zA-Z0-9_-]+$/.test(backend.organization) ||
-    !/^[a-zA-Z0-9_]+$/.test(backend.stream)
+    !/^[a-zA-Z0-9_]+$/.test(backend.stream) ||
+    (backend.bodyStream !== undefined &&
+      !/^[a-zA-Z0-9_]+$/.test(backend.bodyStream))
   ) {
     throw new Error("Invalid telemetry organization or stream");
   }

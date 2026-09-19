@@ -46,7 +46,10 @@ import {
   redactUrlsInText,
   sanitizeForLog,
 } from "../../lib/utils/logSanitize.js";
-import { withTimeout } from "../../lib/utils/async/withTimeout.js";
+import {
+  raceWithAbort,
+  withTimeout,
+} from "../../lib/utils/async/withTimeout.js";
 import { startProxyHttpTrace } from "../../lib/proxy/proxyTracer.js";
 import {
   formatUptime,
@@ -75,6 +78,7 @@ import type {
   ProxyTelemetryAction,
   ProxyTelemetryArgs,
   ProxyRuntimeActivity,
+  ProxyPackageSelection,
   ProxyRuntimeConfigSnapshot,
   ProxyReadinessState,
   ProxyResponseTrackingObserver,
@@ -96,6 +100,9 @@ import {
 import { resolveProxyStatusAccountIdentity } from "../../lib/proxy/codexAccountUsage.js";
 import {
   beginProxyRequest,
+  consumeInternalProxyRequest,
+  releaseProxyRequestAccounting,
+  withProxyFinalLogOwnership,
   getProxyActivitySnapshot,
   observeProxyFinalLog,
   takeProxyResponseObservers,
@@ -111,7 +118,16 @@ import {
 } from "../../lib/proxy/proxyLifecycle.js";
 import {
   describeInstallFailure,
-  getGlobalInstallArgs,
+  assertProxyServiceInstallIdle,
+  probeProxyLaunchdPresence,
+  inspectProxyPackage,
+  isProxyServiceEnvironmentKey,
+  parseProxyServiceInstallSettings,
+  installStagedProxyPackage,
+  readProxyPackageSelection,
+  resolveProxyWorkerPackage,
+  selectProxyPackage,
+  writeProxyPackageLauncher,
   isTransientInstallFailure,
   resolveGlobalInstaller,
   validateInstalledVersion,
@@ -124,6 +140,9 @@ import {
   requestProxySupervisorTelemetry,
 } from "../../lib/proxy/restartControl.js";
 import { getProxyProcessTelemetry } from "../../lib/proxy/processTelemetry.js";
+import { recordFinalError as recordProxyRuntimeFinalError } from "../../lib/proxy/usageStats.js";
+import { logRequest as logProxyRequestFinal } from "../../lib/proxy/requestLogger.js";
+import { bindProxyClientCancellation } from "../../lib/proxy/proxyClientCancellation.js";
 import { isProxyAuxiliaryRequest } from "../../lib/proxy/proxyRequestKind.js";
 import { spawnProxySocketWorker } from "../../lib/proxy/rollingWorkerProcess.js";
 import {
@@ -132,6 +151,8 @@ import {
 } from "../../lib/proxy/rollingWorkerProtocol.js";
 import { attachSocketWorkerProcess } from "../../lib/proxy/socketWorkerRuntime.js";
 import {
+  parseProxyRuntimeActivity,
+  isProxyUpdateOwnerCurrent,
   shouldRefreshStaleSupervisor,
   waitForProxyUpdateWindow,
 } from "../../lib/proxy/updateCoordinator.js";
@@ -695,20 +716,7 @@ async function getProxyRuntimeActivity(
     if (!response.ok) {
       return null;
     }
-    const payload = (await response.json()) as {
-      activity?: Partial<ProxyRuntimeActivity>;
-    };
-    const activeRequests = Number(payload.activity?.activeRequests);
-    if (!Number.isFinite(activeRequests) || activeRequests < 0) {
-      return null;
-    }
-    return {
-      activeRequests,
-      lastActivityAt:
-        typeof payload.activity?.lastActivityAt === "string"
-          ? payload.activity.lastActivityAt
-          : null,
-    };
+    return parseProxyRuntimeActivity(await response.json());
   } catch {
     return null;
   }
@@ -940,11 +948,12 @@ async function resumeProxyUpdateDrain(
 
 /**
  * Path to a small trampoline script that the plist invokes.
- * The trampoline re-resolves `neurolink` via PATH on every launch,
- * so launchd never gets pinned to a version-specific store path.
+ * The trampoline selects a validated immutable package. The stable launchd
+ * path does not require reinstalling the service to activate another version.
  */
 const TRAMPOLINE_DIR = join(homedir(), ".neurolink", "bin");
 const TRAMPOLINE_PATH = join(TRAMPOLINE_DIR, "neurolink-proxy");
+const PROXY_PACKAGES_DIR = join(homedir(), ".neurolink", "proxy-packages");
 
 /**
  * Verify a candidate bin path actually runs by invoking `--version` on it.
@@ -969,101 +978,30 @@ function probeBinVersion(binPath: string): string | undefined {
 /**
  * Write (or overwrite) the trampoline shell script.
  *
- * Defensive design: the trampoline tries multiple candidates in order and
- * only `exec`s one whose `--version` check succeeds. If every PATH-based
- * candidate is broken (stale shims, missing packages), it falls back to the
- * baked-in `node + script` path that was verified to work at install time.
+ * Selection is explicit: package validation happens before rewriting the
+ * launcher, and launch itself never imports the CLI merely to probe a version.
  */
-function writeTrampoline(): void {
-  const { writeFileSync, mkdirSync, existsSync, chmodSync } = _require(
-    "fs",
-  ) as typeof import("fs");
-  if (!existsSync(TRAMPOLINE_DIR)) {
-    mkdirSync(TRAMPOLINE_DIR, { recursive: true });
-  }
-
-  // Baked-in fallback: the specific node + JS script currently running
-  // (guaranteed to work, since we ARE running). Used only if all PATH-based
-  // candidates fail their --version probe.
-  const bakedNode = process.execPath;
-  const bakedScript = process.argv[1] ?? join(__dirname, "..", "index.js");
-
-  // Shell-escape the baked paths (they shouldn't contain quotes in practice,
-  // but be safe for paths with spaces).
-  const shEscape = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
-
-  const script = `#!/bin/sh
-# Auto-generated by \`neurolink proxy install\` — do not edit.
-# Resolves a working neurolink binary on every launchd invocation so the
-# plist never gets pinned to a broken/stale shim.
-
-BAKED_NODE=${shEscape(bakedNode)}
-BAKED_SCRIPT=${shEscape(bakedScript)}
-
-# IPC workers must preserve the inherited Node channel until the final exec.
-# Do not launch a --version probe subprocess on that descriptor; the parent
-# validates the worker's exact package version before activation instead.
-if [ "\${NEUROLINK_PROXY_TRAMPOLINE_EXEC_ONLY:-0}" = "1" ]; then
-  if [ -n "\${NEUROLINK_BIN:-}" ] && [ -x "$NEUROLINK_BIN" ]; then
-    exec "$NEUROLINK_BIN" "$@"
-  fi
-  for cand in \
-      "$(command -v neurolink 2>/dev/null || true)" \
-      "\${PNPM_HOME:-}/neurolink" \
-      "$HOME/.local/share/pnpm/neurolink" \
-      "$HOME/Library/pnpm/neurolink" \
-      "/usr/local/bin/neurolink" \
-      "/opt/homebrew/bin/neurolink"; do
-    [ -n "$cand" ] && [ -x "$cand" ] && exec "$cand" "$@"
-  done
-  if [ -x "$BAKED_NODE" ] && [ -f "$BAKED_SCRIPT" ]; then
-    exec "$BAKED_NODE" "$BAKED_SCRIPT" "$@"
-  fi
-  exit 127
-fi
-
-# Probe a candidate: must be executable and respond to --version cleanly.
-_try() {
-  [ -n "$1" ] && [ -x "$1" ] || return 1
-  "$1" --version >/dev/null 2>&1 || return 1
-  return 0
+function writeTrampoline(
+  selection?: ProxyPackageSelection,
+  isCurrentOwner?: () => boolean,
+): void {
+  // Reinstall preserves an already validated proxy-owned selection. A manual
+  // global npm upgrade cannot silently retarget existing worker generations.
+  const selected =
+    selection ??
+    readProxyPackageSelection(PROXY_PACKAGES_DIR) ??
+    inspectProxyPackage(process.argv[1] ?? join(__dirname, "..", "index.js"));
+  writeProxyPackageLauncher(TRAMPOLINE_PATH, selected, isCurrentOwner);
+  selectProxyPackage(PROXY_PACKAGES_DIR, selected, isCurrentOwner);
 }
 
-# 1. Explicit user override (escape hatch for broken environments).
-if [ -n "\${NEUROLINK_BIN:-}" ]; then
-  if _try "$NEUROLINK_BIN"; then
-    exec "$NEUROLINK_BIN" "$@"
-  fi
-  echo "[neurolink-proxy] WARN: NEUROLINK_BIN=$NEUROLINK_BIN is not runnable, trying defaults" >&2
-fi
-
-# 2. PATH-based and common install locations. First working one wins.
-for cand in \\
-    "$(command -v neurolink 2>/dev/null || true)" \\
-    "\${PNPM_HOME:-}/neurolink" \\
-    "$HOME/.local/share/pnpm/neurolink" \\
-    "$HOME/Library/pnpm/neurolink" \\
-    "/usr/local/bin/neurolink" \\
-    "/opt/homebrew/bin/neurolink"; do
-  if _try "$cand"; then
-    exec "$cand" "$@"
-  fi
-done
-
-# 3. Baked-in fallback: the exact node + script that worked at install time.
-#    Always valid at install time; may become stale after package updates
-#    (but at that point the PATH candidates above should work).
-if [ -x "$BAKED_NODE" ] && [ -f "$BAKED_SCRIPT" ]; then
-  exec "$BAKED_NODE" "$BAKED_SCRIPT" "$@"
-fi
-
-echo "[neurolink-proxy] FATAL: no working neurolink binary found." >&2
-echo "[neurolink-proxy] Tried: PATH, \\$PNPM_HOME, \\$HOME/.local/share/pnpm, \\$HOME/Library/pnpm, /usr/local/bin, /opt/homebrew/bin, baked-in install path." >&2
-echo "[neurolink-proxy] Fix: reinstall with 'pnpm add -g @juspay/neurolink' or set NEUROLINK_BIN=/path/to/working/neurolink." >&2
-exit 127
-`;
-  writeFileSync(TRAMPOLINE_PATH, script, { mode: 0o755 });
-  chmodSync(TRAMPOLINE_PATH, 0o755);
+/** Status must remain available when an external installer damages its entrypoint. */
+function readProxyDiskVersion(): string | null {
+  try {
+    return inspectProxyPackage(process.argv[1]).version;
+  } catch {
+    return null;
+  }
 }
 
 function spawnFailOpenGuard(
@@ -1205,6 +1143,9 @@ async function runProxyTelemetryManager(
         ["format", "--format"],
         ["maxRows", "--max-rows"],
         ["proxyUrl", "--proxy-url"],
+        ["admissionLookbackMinutes", "--admission-lookback-minutes"],
+        ["requestTimeoutMs", "--request-timeout-ms"],
+        ["ingestionGraceMs", "--ingestion-grace-ms"],
       ] as const) {
         if (argv[key] !== undefined) {
           queryArgs.push(option, String(argv[key]));
@@ -1524,15 +1465,24 @@ function registerProxyRequestTracking(
       c.req.raw.headers.get("x-claude-code-session-id") ??
       undefined;
     const sessionHash = hashProxyLifecycleSessionId(sessionId);
+    const internal = consumeInternalProxyRequest(
+      c.req.raw.headers.get("x-neurolink-internal-request"),
+    );
+    const abortController = new AbortController();
     const metadata: RuntimeRequestMetadata = {
-      requestId: crypto.randomUUID(),
+      requestId: internal?.requestId ?? crypto.randomUUID(),
+      parentRequestId: internal?.parentRequestId,
+      accountingScope: internal ? "internal" : "client",
+      usageOwnerRequestId: internal?.requestId,
+      abortController,
       method: c.req.method,
       path: c.req.path,
       startedAt: Date.now(),
       model: "-",
       stream: false,
       toolCount: 0,
-      rejectForUpdate: readiness.drainingForUpdate,
+      // Trusted child work belongs to an already admitted parent request.
+      rejectForUpdate: !internal && readiness.drainingForUpdate,
     };
     requestMetadata.set(c.req.raw, metadata);
     const httpTrace = startProxyHttpTrace(
@@ -1551,7 +1501,22 @@ function registerProxyRequestTracking(
     const finishActivity = metadata.rejectForUpdate
       ? () => undefined
       : beginProxyRequest();
+    let responseTracking = false;
+    let cancelledBeforeHeaders = false;
+    const deadline = setTimeout(
+      () =>
+        abortController.abort(
+          new DOMException("Proxy request deadline exceeded", "TimeoutError"),
+        ),
+      900_000,
+    );
+    deadline.unref?.();
+    let unbindClient = () => {};
     const finish = () => {
+      clearTimeout(deadline);
+      unbindClient();
+      abortController.signal.removeEventListener("abort", onPreheaderAbort);
+      releaseProxyRequestAccounting(metadata.requestId);
       httpTrace.end(
         metadata.terminalResult?.responseStatus ?? c.res.status,
         metadata.terminalResult?.terminalOutcome ?? "unknown",
@@ -1565,6 +1530,72 @@ function registerProxyRequestTracking(
       metadata.shareRelease?.();
       requestMetadata.delete(c.req.raw);
     };
+    const onPreheaderAbort = () => {
+      if (responseTracking || cancelledBeforeHeaders) {
+        return;
+      }
+      cancelledBeforeHeaders = true;
+      const timeout = abortController.signal.reason?.name === "TimeoutError";
+      const status = timeout ? 504 : 499;
+      const errorType = timeout ? "request_timeout" : "client_cancelled";
+      if (!metadata.terminalResult && metadata.accountingScope !== "internal") {
+        recordProxyRuntimeFinalError(status, undefined, undefined, {
+          requestId: metadata.requestId,
+          errorType,
+          terminalOutcome: timeout ? "handler_error" : "client_cancelled",
+          message: timeout
+            ? "Request deadline exceeded"
+            : "Client disconnected before response headers",
+        });
+      }
+      void logProxyRequestFinal({
+        timestamp: new Date().toISOString(),
+        requestId: metadata.requestId,
+        method: metadata.method,
+        path: metadata.path,
+        model: metadata.model,
+        stream: metadata.stream,
+        toolCount: metadata.toolCount,
+        account: "",
+        accountType: "proxy-runtime",
+        responseStatus: status,
+        responseTimeMs: Date.now() - metadata.startedAt,
+        errorType,
+        errorMessage: timeout
+          ? "Request deadline exceeded"
+          : "Client disconnected before response headers",
+      });
+      logProxyLifecycleEvent({
+        event: "request_terminal",
+        requestId: metadata.requestId,
+        parentRequestId: metadata.parentRequestId,
+        accountingScope: metadata.accountingScope,
+        method: metadata.method,
+        path: metadata.path,
+        model: metadata.model,
+        stream: metadata.stream,
+        sessionHash,
+        elapsedMs: performance.now() - startedMonotonicMs,
+        terminalOutcome: timeout ? "handler_error" : "client_cancelled",
+        transportOutcome: timeout ? "stream_error" : "client_cancelled",
+        finalStatus: status,
+        errorType,
+        telemetryStatus: "complete",
+        outcomeSource: "transport_error",
+      });
+      finishActivity();
+      metadata.shareRelease?.();
+      clearTimeout(deadline);
+      unbindClient();
+    };
+    abortController.signal.addEventListener("abort", onPreheaderAbort, {
+      once: true,
+    });
+    unbindClient = bindProxyClientCancellation(
+      c.req.raw,
+      c.env,
+      abortController,
+    );
     // The route adapter populates model/stream/toolCount after parsing. Omit
     // them at acceptance instead of publishing misleading placeholder values;
     // subsequent events carry the parsed metadata under the same request ID.
@@ -1572,6 +1603,9 @@ function registerProxyRequestTracking(
       await httpTrace.run(() =>
         persistProxyLifecycleAcceptance({
           requestId: metadata.requestId,
+          parentRequestId: metadata.parentRequestId,
+          accountingScope: metadata.accountingScope,
+          requestTimeoutMs: 900_000,
           method: metadata.method,
           path: metadata.path,
           sessionHash,
@@ -1580,7 +1614,21 @@ function registerProxyRequestTracking(
           monotonicMs: startedMonotonicMs,
         }),
       );
-      await httpTrace.run(next);
+      if (abortController.signal.aborted) {
+        c.res = new Response(null, { status: 499 });
+        finish();
+        return;
+      }
+      await httpTrace.run(() =>
+        withProxyFinalLogOwnership(metadata.requestId, next),
+      );
+      if (cancelledBeforeHeaders) {
+        void c.res.body
+          ?.cancel(abortController.signal.reason)
+          .catch(() => undefined);
+        finish();
+        return;
+      }
       const responseStatus = c.res.status;
       logProxyLifecycleEvent({
         event: "response_headers",
@@ -1620,122 +1668,170 @@ function registerProxyRequestTracking(
               observer.onTerminal?.(details),
             ),
           ),
-          2_000,
+          3_000,
           "Timed out joining proxy response accounting",
         );
         return results.some((result) => result.status === "rejected");
       };
-      c.res = trackProxyResponse(c.res, finish, {
-        onFirstChunk: ({ observedBodyBytes, responseChunks }) => {
-          logProxyLifecycleEvent({
-            event: "response_first_chunk",
-            requestId: metadata.requestId,
-            method: metadata.method,
-            path: metadata.path,
-            model: metadata.model,
-            stream: metadata.stream,
-            toolCount: metadata.toolCount,
-            sessionHash,
-            requestBytes,
-            responseStatus,
+      responseTracking = true;
+      c.res = trackProxyResponse(
+        c.res,
+        finish,
+        {
+          onFirstChunk: ({ observedBodyBytes, responseChunks }) => {
+            logProxyLifecycleEvent({
+              event: "response_first_chunk",
+              requestId: metadata.requestId,
+              method: metadata.method,
+              path: metadata.path,
+              model: metadata.model,
+              stream: metadata.stream,
+              toolCount: metadata.toolCount,
+              sessionHash,
+              requestBytes,
+              responseStatus,
+              observedBodyBytes,
+              responseChunks,
+              elapsedMs: performance.now() - startedMonotonicMs,
+            });
+            notifyRouteFirstChunk({
+              observedBodyBytes,
+              responseChunks,
+            });
+          },
+          onTerminal: async ({
+            outcome,
+            error,
             observedBodyBytes,
             responseChunks,
-            elapsedMs: performance.now() - startedMonotonicMs,
-          });
-          notifyRouteFirstChunk({
-            observedBodyBytes,
-            responseChunks,
-          });
-        },
-        onTerminal: async ({
-          outcome,
-          error,
-          observedBodyBytes,
-          responseChunks,
-        }) => {
-          const terminalMonotonicMs = performance.now();
-          const terminalTimestampMs = Date.now();
-          // Route accounting may await SSE parsing/cancellation. Join it before
-          // publishing the semantic terminal record; transport EOF alone is not
-          // evidence of a successful model response.
-          let accountingTimedOut = false;
-          let accountingFailed = false;
-          try {
-            accountingFailed = await httpTrace.run(() =>
-              notifyRouteTerminal({
-                outcome,
-                error,
-                observedBodyBytes,
-                responseChunks,
-              }),
+          }) => {
+            const terminalMonotonicMs = performance.now();
+            const terminalTimestampMs = Date.now();
+            // Route accounting may await SSE parsing/cancellation. Join it before
+            // publishing the semantic terminal record; transport EOF alone is not
+            // evidence of a successful model response.
+            let accountingTimedOut = false;
+            let accountingFailed = false;
+            try {
+              accountingFailed = await httpTrace.run(() =>
+                notifyRouteTerminal({
+                  outcome,
+                  error,
+                  observedBodyBytes,
+                  responseChunks,
+                }),
+              );
+            } catch {
+              accountingTimedOut = true;
+            }
+            if (!metadata.terminalResult && responseStatus >= 400) {
+              if (metadata.accountingScope !== "internal") {
+                recordProxyRuntimeFinalError(
+                  responseStatus,
+                  undefined,
+                  undefined,
+                  {
+                    requestId: metadata.requestId,
+                    errorType:
+                      responseStatus === 404
+                        ? "route_not_found"
+                        : "request_rejected",
+                    terminalOutcome: "handler_error",
+                  },
+                );
+              }
+              await logProxyRequestFinal({
+                timestamp: new Date().toISOString(),
+                requestId: metadata.requestId,
+                method: metadata.method,
+                path: metadata.path,
+                model: metadata.model,
+                stream: metadata.stream,
+                toolCount: metadata.toolCount,
+                account: "",
+                accountType: "proxy-runtime",
+                responseStatus,
+                responseTimeMs: Date.now() - metadata.startedAt,
+                errorType:
+                  responseStatus === 404
+                    ? "route_not_found"
+                    : "request_rejected",
+                terminalOutcome: "handler_error",
+              });
+            }
+            const final = metadata.terminalResult;
+            const auxiliary = isProxyAuxiliaryRequest(
+              metadata.method,
+              metadata.path,
             );
-          } catch {
-            accountingTimedOut = true;
-          }
-          const final = metadata.terminalResult;
-          const auxiliary = isProxyAuxiliaryRequest(
-            metadata.method,
-            metadata.path,
-          );
-          const terminalOutcome =
-            final?.terminalOutcome ??
-            (outcome === "stream_error" ||
-            metadata.terminalErrorType === "stream_error"
-              ? "stream_error"
-              : outcome === "client_cancelled"
-                ? "client_cancelled"
-                : responseStatus >= 400
-                  ? "handler_error"
-                  : auxiliary
-                    ? outcome
-                    : "unknown");
-          logProxyLifecycleEvent({
-            event: "request_terminal",
-            timestampMs: terminalTimestampMs,
-            monotonicMs: terminalMonotonicMs,
-            requestId: metadata.requestId,
-            method: metadata.method,
-            path: metadata.path,
-            model: metadata.model,
-            stream: metadata.stream,
-            toolCount: metadata.toolCount,
-            sessionHash,
-            requestBytes,
-            responseStatus,
-            observedBodyBytes,
-            responseChunks,
-            elapsedMs: terminalMonotonicMs - startedMonotonicMs,
-            terminalOutcome,
-            finalStatus: final?.responseStatus,
-            transportOutcome: outcome,
-            outcomeSource: final
-              ? "final_request"
-              : responseStatus >= 400 ||
-                  (auxiliary &&
-                    (outcome === "completed" || outcome === "bodyless"))
-                ? "http_status"
-                : terminalOutcome === "unknown"
-                  ? "unknown"
-                  : "transport_error",
-            telemetryStatus: accountingTimedOut
-              ? "timeout"
-              : accountingFailed
-                ? "observer_error"
-                : final || auxiliary
-                  ? "complete"
-                  : "missing_final",
-            errorType: final?.errorType ?? metadata.terminalErrorType,
-            errorCode: final?.errorCode ?? metadata.terminalErrorCode,
-          });
-          stopObservingFinalLog();
-          httpTrace.end(
-            final?.responseStatus ?? responseStatus,
-            terminalOutcome,
-            final?.errorType ?? metadata.terminalErrorType,
-          );
+            const terminalOutcome =
+              final?.terminalOutcome ??
+              (outcome === "stream_error" ||
+              metadata.terminalErrorType === "stream_error"
+                ? "stream_error"
+                : outcome === "client_cancelled"
+                  ? "client_cancelled"
+                  : responseStatus >= 400
+                    ? "handler_error"
+                    : auxiliary
+                      ? outcome
+                      : "unknown");
+            logProxyLifecycleEvent({
+              event: "request_terminal",
+              timestampMs: terminalTimestampMs,
+              monotonicMs: terminalMonotonicMs,
+              requestId: metadata.requestId,
+              method: metadata.method,
+              path: metadata.path,
+              model: metadata.model,
+              stream: metadata.stream,
+              toolCount: metadata.toolCount,
+              sessionHash,
+              requestBytes,
+              responseStatus,
+              observedBodyBytes,
+              responseChunks,
+              elapsedMs: terminalMonotonicMs - startedMonotonicMs,
+              terminalOutcome,
+              finalStatus: final?.responseStatus,
+              transportOutcome: outcome,
+              outcomeSource: final
+                ? "final_request"
+                : responseStatus >= 400 ||
+                    (auxiliary &&
+                      (outcome === "completed" || outcome === "bodyless"))
+                  ? "http_status"
+                  : terminalOutcome === "unknown"
+                    ? "unknown"
+                    : "transport_error",
+              telemetryStatus: accountingTimedOut
+                ? "timeout"
+                : accountingFailed
+                  ? "observer_error"
+                  : final || auxiliary
+                    ? "complete"
+                    : "missing_final",
+              errorType: final?.errorType ?? metadata.terminalErrorType,
+              errorCode: final?.errorCode ?? metadata.terminalErrorCode,
+            });
+            stopObservingFinalLog();
+            httpTrace.end(
+              final?.responseStatus ?? responseStatus,
+              terminalOutcome,
+              final?.errorType ?? metadata.terminalErrorType,
+            );
+          },
         },
-      });
+        abortController.signal,
+      );
     } catch (error) {
+      clearTimeout(deadline);
+      unbindClient();
+      abortController.signal.removeEventListener("abort", onPreheaderAbort);
+      if (cancelledBeforeHeaders) {
+        finish();
+        return;
+      }
       stopObservingFinalLog();
       // Keep metadata available to app.onError, which records the client-facing
       // failure with the same request ID before deleting the WeakMap entry.
@@ -1811,7 +1907,7 @@ export async function createProxyStartApp(params: {
     await import("../../lib/server/routes/codexProxyRoutes.js");
   const { createGeminiProxyRoutes } =
     await import("../../lib/server/routes/geminiProxyRoutes.js");
-  const { logBodyCapture, logRequest, getRequestLoggerSnapshot } =
+  const { logBodyCapture, getRequestLoggerSnapshot } =
     await import("../../lib/proxy/requestLogger.js");
   const { recordFinalError } = await import("../../lib/proxy/usageStats.js");
   const { admitInboundShareRequest, isGrantRequiredByEnv } =
@@ -1854,20 +1950,22 @@ export async function createProxyStartApp(params: {
     const clientMessage = options?.clientMessage ?? errorMessage;
     const clientErrorType = options?.clientErrorType ?? errorType;
     const attempt = metadata.lastUpstreamAttempt;
-    recordFinalError(
-      status,
-      attempt?.account ?? PROXY_INTERNAL_ACCOUNT_LABEL,
-      attempt?.accountType ?? PROXY_INTERNAL_ACCOUNT_TYPE,
-      {
-        requestId: metadata.requestId,
-        errorType,
-        errorCode: options?.errorCode,
-        terminalOutcome: "handler_error",
-        message: errorMessage,
-      },
-    );
+    if (metadata.accountingScope !== "internal" && !metadata.terminalResult) {
+      recordFinalError(
+        status,
+        attempt?.account ?? PROXY_INTERNAL_ACCOUNT_LABEL,
+        attempt?.accountType ?? PROXY_INTERNAL_ACCOUNT_TYPE,
+        {
+          requestId: metadata.requestId,
+          errorType,
+          errorCode: options?.errorCode,
+          terminalOutcome: "handler_error",
+          message: errorMessage,
+        },
+      );
+    }
     await Promise.all([
-      logRequest({
+      logProxyRequestFinal({
         timestamp: new Date().toISOString(),
         requestId: metadata.requestId,
         method: metadata.method,
@@ -1932,18 +2030,25 @@ export async function createProxyStartApp(params: {
     metadata.terminalErrorType = telemetryUnavailable
       ? "telemetry_unavailable"
       : "unhandled_proxy_error";
-    await recordRuntimeError(
-      metadata,
-      status,
-      metadata.terminalErrorType,
-      errMsg,
-      {
-        clientMessage: "Proxy internal error",
-        clientErrorType: "api_error",
-        errorCode: metadata.terminalErrorCode,
-      },
-    );
-    requestMetadata.delete(c.req.raw);
+    try {
+      await recordRuntimeError(
+        metadata,
+        status,
+        metadata.terminalErrorType,
+        errMsg,
+        {
+          clientMessage: "Proxy internal error",
+          clientErrorType: "api_error",
+          errorCode: metadata.terminalErrorCode,
+        },
+      );
+    } finally {
+      // Admission/handler failures may never reach the response tracker. Keep
+      // bridge ownership through final publication, then release this request
+      // only; a child failure must retain its parent's result until delivery.
+      releaseProxyRequestAccounting(metadata.requestId);
+      requestMetadata.delete(c.req.raw);
+    }
     return c.json(
       {
         type: "error",
@@ -2008,7 +2113,7 @@ export async function createProxyStartApp(params: {
       if (payload.action === "drain_for_supervisor_refresh") {
         // A crashed updater must not strand the current rolling worker in
         // maintenance mode. A successful launchd refresh replaces this process.
-        scheduleSupervisorRefreshResume(35 * 60 * 1000);
+        scheduleSupervisorRefreshResume(90 * 1000);
       }
     } else if (payload.action === "resume") {
       if (!resumeProxyConnections(readiness)) {
@@ -2064,6 +2169,9 @@ export async function createProxyStartApp(params: {
     "",
     params.port,
     runtimeConfigProvider,
+    // Keep bridge capabilities, accounting and cancellation in this worker
+    // across supervisor generation switches; never re-enter the public listener.
+    (request) => app.fetch(request),
   );
   const codexRouteGroup = createCodexProxyRoutes("");
   const geminiRouteGroup = createGeminiProxyRoutes(
@@ -2178,16 +2286,18 @@ export async function createProxyStartApp(params: {
       // secret. Running it through the request gate as well would spend the
       // grant's rate allowance and open a coin hold for a call that consumes no
       // capacity at all.
-      const shareOutcome = c.req.path.startsWith("/peer/")
-        ? ({ kind: "local" } as const)
-        : await admitInboundShareRequest({
-            headers: Object.fromEntries(c.req.raw.headers.entries()),
-            model: String(model),
-            ...(requestedMaxTokens !== undefined
-              ? { maxTokens: requestedMaxTokens }
-              : {}),
-            requireGrant: isGatedListener(c),
-          });
+      const shareOutcome =
+        metadata?.accountingScope === "internal" ||
+        c.req.path.startsWith("/peer/")
+          ? ({ kind: "local" } as const)
+          : await admitInboundShareRequest({
+              headers: Object.fromEntries(c.req.raw.headers.entries()),
+              model: String(model),
+              ...(requestedMaxTokens !== undefined
+                ? { maxTokens: requestedMaxTokens }
+                : {}),
+              requireGrant: isGatedListener(c),
+            });
       if (shareOutcome.kind === "refused") {
         const refusal = shareOutcome.response;
         for (const [key, value] of Object.entries(refusal.headers)) {
@@ -2214,7 +2324,8 @@ export async function createProxyStartApp(params: {
         }
       }
 
-      const requestAbortController = new AbortController();
+      const requestAbortController =
+        metadata?.abortController ?? new AbortController();
       const ctx = {
         requestId: metadata?.requestId ?? crypto.randomUUID(),
         method: c.req.method,
@@ -2251,9 +2362,14 @@ export async function createProxyStartApp(params: {
         }
       };
 
-      const result = shareContext
-        ? await runWithShareContext(shareContext, () => route.handler(ctx))
-        : await route.handler(ctx);
+      const result = await raceWithAbort(
+        Promise.resolve(
+          shareContext
+            ? runWithShareContext(shareContext, () => route.handler(ctx))
+            : route.handler(ctx),
+        ),
+        ctx.abortSignal,
+      );
       if (result instanceof Response) {
         // Streaming responses own their headers; merge in anything the
         // handler published on the context that the Response lacks. A Response
@@ -2821,6 +2937,12 @@ export async function createProxyStartApp(params: {
           updateState?.installedVersion ??
           updateState?.lastUpdateVersion ??
           null,
+        validatedVersion: updateState?.installedVersion ?? null,
+        selectedPackageVersion:
+          readProxyPackageSelection(PROXY_PACKAGES_DIR)?.version ?? null,
+        diskPackageVersion: readProxyDiskVersion(),
+        candidateVersion:
+          supervisorState?.rolling?.candidate?.expectedVersion ?? null,
         activatedVersion: PROXY_VERSION,
         pendingActivationVersion: updateState?.pendingRestartVersion ?? null,
         pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
@@ -3855,17 +3977,23 @@ async function runLaunchdProxySupervisor(
     host,
     port,
     initialVersion: PROXY_VERSION,
-    spawnWorker: (generation, expectedVersion) =>
-      spawnProxySocketWorker({
+    spawnWorker: (generation, expectedVersion) => {
+      const selected = resolveProxyWorkerPackage({
+        packagesDir: PROXY_PACKAGES_DIR,
+        entryScript,
+        expectedVersion,
+      });
+      return spawnProxySocketWorker({
         generation,
         expectedVersion,
-        command: TRAMPOLINE_PATH,
-        args: workerArgs,
+        command: selected.nodePath,
+        args: [selected.entryScript, ...workerArgs],
         env: {
           NEUROLINK_PROXY_UPDATE_CONTROL_TOKEN: PROXY_UPDATE_CONTROL_TOKEN,
           NEUROLINK_PROXY_TRAMPOLINE_EXEC_ONLY: "1",
         },
-      }),
+      });
+    },
     onStateChange: (snapshot) => {
       saveProxySupervisorState({
         pid: process.pid,
@@ -4557,7 +4685,13 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
           updateState?.installedVersion ??
           updateState?.lastUpdateVersion ??
           null,
-        activatedVersion: supervisorState?.rolling.active?.version ?? null,
+        validatedVersion: updateState?.installedVersion ?? null,
+        selectedPackageVersion:
+          readProxyPackageSelection(PROXY_PACKAGES_DIR)?.version ?? null,
+        diskPackageVersion: readProxyDiskVersion(),
+        candidateVersion:
+          supervisorState?.rolling?.candidate?.expectedVersion ?? null,
+        activatedVersion: supervisorState?.rolling?.active?.version ?? null,
         pendingActivationVersion: updateState?.pendingRestartVersion ?? null,
         pendingRestartVersion: updateState?.pendingRestartVersion ?? null,
         deferredUpdate: updateState?.deferredUpdate ?? null,
@@ -4573,7 +4707,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         workerRunning &&
         (supervisorPid
           ? supervisorRunning &&
-            (!supervisorState ||
+            (!supervisorState?.rolling ||
               supervisorState.rolling.active?.pid === state?.pid)
           : true);
       if ((state || supervisorState) && (servingWorker || supervisorRunning)) {
@@ -4773,7 +4907,7 @@ export const proxyStatusCommand: CommandModule<object, ProxyStatusArgs> = {
         }
         if (status.installedVersion) {
           logger.always(
-            `  ${chalk.bold("Installed:")}  ${chalk.cyan(`v${status.installedVersion}`)}`,
+            `  ${chalk.bold("Validated:")}  ${chalk.cyan(`v${status.installedVersion}`)}`,
           );
         }
         if (status.activatedVersion) {
@@ -4915,6 +5049,21 @@ export const proxyTelemetryCommand: CommandModule<object, ProxyTelemetryArgs> =
           type: "string",
           description: "Proxy endpoint used by the read-only doctor",
         })
+        .option("admission-lookback-minutes", {
+          type: "number",
+          description:
+            "Doctor admission history horizon; must exceed request timeout plus ingestion grace",
+        })
+        .option("request-timeout-ms", {
+          type: "number",
+          description:
+            "Default request deadline for doctor admission reconciliation",
+        })
+        .option("ingestion-grace-ms", {
+          type: "number",
+          description:
+            "Time allowed for telemetry ingestion before reconciliation",
+        })
         .option("quiet", {
           type: "boolean",
           alias: "q",
@@ -5041,12 +5190,12 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
     const UPDATE_CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
     const QUIET_THRESHOLD_MS = 120 * 1000; // 2 minutes of silence
     const NATURAL_WINDOW_WAIT_MS = 10 * 60 * 1000; // prefer no admission pause
-    const UPDATE_DRAIN_TIMEOUT_MS = 30 * 60 * 1000; // preserve long streams
+    const UPDATE_DRAIN_TIMEOUT_MS = 30 * 1000; // defer and reopen admission instead of waiting through long streams
     const UPDATE_RETRY_DELAY_MS = 5 * 60 * 1000;
     const UPDATE_RETRY_MAX_DELAY_MS = 30 * 60 * 1000;
     const UPDATE_RETRY_MAX_ATTEMPTS = 4;
     const UPDATE_ACTIVITY_POLL_MS = 10 * 1000;
-    const UPDATE_TIMEOUT_MS = 30 * 1000; // 30 seconds to come healthy
+    const UPDATE_TIMEOUT_MS = 150 * 1000; // include the supervisor candidate readiness deadline
 
     // Get running version from /health endpoint (with timeout to avoid hanging)
     let runningVersion = PROXY_VERSION; // fallback
@@ -5102,15 +5251,33 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
         );
       }
     };
+    const isCurrentUpdateOwner = (): boolean => {
+      const runtime = rollingSupervisor
+        ? loadProxySupervisorState()
+        : loadProxyState();
+      return isProxyUpdateOwnerCurrent({
+        stopping: guardStopping,
+        parentPid,
+        updaterPid: process.pid,
+        parentStatus: getProcessStatus(parentPid),
+        runtimePid: runtime?.pid,
+        runtimeUpdaterPid: runtime?.updaterPid,
+      });
+    };
     let updateInProgress = false;
     let updateRestartInProgress = false;
     const runUpdateCheck = async () => {
-      if (guardStopping || updateInProgress) {
+      if (updateInProgress || !isCurrentUpdateOwner()) {
         return;
       }
       updateInProgress = true;
       let updateVersion = runningVersion;
       let drainActive = false;
+      let previousPackage = readProxyPackageSelection(PROXY_PACKAGES_DIR);
+      if (previousPackage?.version !== runningVersion) {
+        previousPackage = readProxyPackageSelection(PROXY_PACKAGES_DIR, true);
+      }
+      let candidatePackage: ProxyPackageSelection | undefined;
       try {
         // Lazy-load update modules so they're only imported at check time
         const { checkForUpdate } =
@@ -5179,10 +5346,235 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           `[updater] update available: ${runningVersion} → ${result.latestVersion}`,
         );
 
+        if (rollingSupervisor && !supervisorRefreshOnly) {
+          logger.always(
+            `[updater] keeping v${runningVersion} serving while staging the candidate`,
+          );
+        }
+
+        // Recheck the target before staging because discovery can be delayed.
+        let pendingRestart = initiallyPendingRestart;
+        if (!supervisorRefreshOnly) {
+          const refreshedResult = await checkForUpdate(runningVersion);
+          result = refreshedResult;
+          updateVersion = result.latestVersion;
+          persistUpdaterState("record refreshed update check", () =>
+            recordCheck(result.latestVersion),
+          );
+          if (!result.updateAvailable) {
+            persistUpdaterState("clear update deferral", () =>
+              clearUpdateDeferral(),
+            );
+            return;
+          }
+          pendingRestart =
+            loadUpdateState()?.pendingRestartVersion === result.latestVersion;
+          if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
+            logger.debug(
+              `[guard] refreshed version ${result.latestVersion} is suppressed, skipping`,
+            );
+            return;
+          }
+        }
+        persistUpdaterState("clear update deferral", () =>
+          clearUpdateDeferral(),
+        );
+        logger.always(
+          `[updater] ${supervisorRefreshOnly ? "supervisor reconciliation prepared" : rollingSupervisor ? "rolling activation prepared" : "candidate preparation started"} for v${result.latestVersion}`,
+        );
+
+        // 3. Install update (validate version string before passing to shell)
+        if (!/^\d+\.\d+\.\d+$/.test(result.latestVersion)) {
+          const message = `invalid version format: ${result.latestVersion}`;
+          logger.always(
+            `[guard] WARNING: invalid version format "${result.latestVersion}", skipping`,
+          );
+          persistUpdaterState("record update failure", () =>
+            recordUpdateFailure(result.latestVersion, "check", message),
+          );
+          return;
+        }
+
+        const { execFileSync } = await import("node:child_process");
+        if (!supervisorRefreshOnly && !pendingRestart) {
+          const installerResolution = resolveGlobalInstaller({
+            entryScript: process.argv[1],
+          });
+          logger.always(
+            `[updater] package-manager candidates: ${installerResolution.tried
+              .map(
+                (candidate) =>
+                  `${candidate.kind}:${candidate.bin}(${candidate.installable ? `v${candidate.version}` : (candidate.reason ?? "unusable")})`,
+              )
+              .join(", ")}`,
+          );
+          // Staging never writes a global package root, including when this
+          // updater itself already runs from a private immutable package.
+          const installer =
+            installerResolution.installer ??
+            installerResolution.tried.find((candidate) => candidate.working);
+          if (!installer) {
+            const message =
+              "no working package manager is available for a private staged install";
+            logger.always(`[updater] WARNING: ${message}; skipping this cycle`);
+            persistUpdaterState("record update failure", () =>
+              recordUpdateFailure(result.latestVersion, "install", message),
+            );
+            return;
+          }
+          logger.always(
+            `[updater] installing @juspay/neurolink@${result.latestVersion} via ${installer.kind} ${installer.bin} (v${installer.version})`,
+          );
+          if (!isCurrentUpdateOwner()) {
+            return;
+          }
+          try {
+            // Retain a validated rollback even when migrating from a mutable
+            // global package whose on-disk version already differs from live.
+            previousPackage = await installStagedProxyPackage({
+              version: runningVersion,
+              packagesDir: PROXY_PACKAGES_DIR,
+              installer,
+            });
+            if (!isCurrentUpdateOwner()) {
+              return;
+            }
+            candidatePackage = await installStagedProxyPackage({
+              version: result.latestVersion,
+              packagesDir: PROXY_PACKAGES_DIR,
+              installer,
+              onProgress: ({ elapsedMs, outputBytes }) =>
+                logger.debug(
+                  `[updater] staged install progress elapsedMs=${elapsedMs} outputBytes=${outputBytes}`,
+                ),
+            });
+          } catch (installErr) {
+            if (!isCurrentUpdateOwner()) {
+              return;
+            }
+            const detail = describeInstallFailure(installErr);
+            logger.always(
+              `[updater] WARNING: staged install failed:\n${detail}`,
+            );
+            persistUpdaterState("record update failure", () =>
+              recordUpdateFailure(result.latestVersion, "install", detail),
+            );
+            if (isTransientInstallFailure(installErr)) {
+              scheduleUpdateRetry(
+                "transient install failure",
+                result.latestVersion,
+              );
+            }
+            return;
+          }
+        } else if (!supervisorRefreshOnly) {
+          logger.always(
+            `[updater] resuming pending restart for already-installed v${result.latestVersion}`,
+          );
+        }
+
+        // Staging can outlive an operator reinstall or owner replacement.
+        // Never publish or roll back another service's package selection.
+        if (!isCurrentUpdateOwner()) {
+          return;
+        }
+
+        // 4. Refresh and validate the stable trampoline. The plist already
+        // points at this path, so it must not be unloaded or rewritten here.
+        if (!supervisorRefreshOnly) {
+          try {
+            previousPackage ??= inspectProxyPackage(process.argv[1]);
+            candidatePackage ??=
+              readProxyPackageSelection(PROXY_PACKAGES_DIR) ?? undefined;
+            if (
+              !candidatePackage ||
+              candidatePackage.version !== result.latestVersion
+            ) {
+              // A legacy pending marker may refer to an in-place global install.
+              // Never guess that it is safe or point a launcher at unverified files.
+              throw new Error(
+                "Pending update has no validated staged package; restaging required",
+              );
+            }
+            if (
+              previousPackage?.version === runningVersion &&
+              !pendingRestart
+            ) {
+              selectProxyPackage(
+                PROXY_PACKAGES_DIR,
+                previousPackage,
+                isCurrentUpdateOwner,
+              );
+            }
+            writeTrampoline(candidatePackage, isCurrentUpdateOwner);
+
+            const validation = await validateInstalledVersion({
+              binPath: TRAMPOLINE_PATH,
+              expectedVersion: result.latestVersion,
+            });
+            if (!isCurrentUpdateOwner()) {
+              return;
+            }
+            if (validation.version !== result.latestVersion) {
+              const message = `trampoline validation failed after ${validation.attempts} attempts: ${validation.failure ?? "unknown failure"}`;
+              logger.always(`[updater] WARNING: ${message}; restart deferred`);
+              persistUpdaterState("record update failure", () =>
+                recordUpdateFailure(
+                  result.latestVersion,
+                  "validation",
+                  message,
+                ),
+              );
+              persistUpdaterState("abandon invalid pending update", () =>
+                abandonPendingUpdate(result.latestVersion),
+              );
+              if (previousPackage) {
+                writeTrampoline(previousPackage, isCurrentUpdateOwner);
+              }
+              scheduleUpdateRetry(
+                "transient candidate validation failure",
+                result.latestVersion,
+              );
+              return;
+            }
+
+            persistUpdaterState("record installed update", () =>
+              recordUpdateInstalled(result.latestVersion),
+            );
+            logger.always(
+              `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
+            );
+          } catch (trampolineError) {
+            if (!isCurrentUpdateOwner()) {
+              return;
+            }
+            const message =
+              trampolineError instanceof Error
+                ? trampolineError.message
+                : String(trampolineError);
+            logger.always(
+              `[updater] WARNING: failed to refresh trampoline; refusing restart: ${message}`,
+            );
+            persistUpdaterState("record update failure", () =>
+              recordUpdateFailure(result.latestVersion, "validation", message),
+            );
+            persistUpdaterState("abandon invalid pending update", () =>
+              abandonPendingUpdate(result.latestVersion),
+            );
+            if (previousPackage) {
+              writeTrampoline(previousPackage, isCurrentUpdateOwner);
+            }
+            scheduleUpdateRetry(
+              "candidate validation failed; restaging permitted",
+              result.latestVersion,
+            );
+            return;
+          }
+        }
+
         if (!rollingSupervisor) {
-          // Legacy launchd services must become idle before their listener is
-          // restarted. Rolling services keep the current worker serving while
-          // the candidate package is installed and validated.
+          // Staging and validation finish before closing legacy admission.
+          // A busy service gets a bounded drain attempt and resumes on failure.
           let lastDeferralSignature = "";
           const waitForWindow = async (quietWaitMs: number) => {
             const window = await waitForProxyUpdateWindow({
@@ -5246,7 +5638,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             return;
           }
 
-          // Hold admission closed through install and restart after a quiet
+          // Hold admission closed through restart after a quiet
           // observation, closing the race with a newly admitted request.
           if (!drainActive) {
             updateWindow = await waitForWindow(0);
@@ -5258,170 +5650,9 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               return;
             }
           }
-        } else if (!supervisorRefreshOnly) {
-          logger.always(
-            `[updater] rolling supervisor will keep v${runningVersion} serving during installation`,
-          );
         }
 
-        // Refresh after waiting so a long deferral can never install a stale
-        // target while a newer release is already available.
-        let pendingRestart = initiallyPendingRestart;
-        if (!supervisorRefreshOnly) {
-          const refreshedResult = await checkForUpdate(runningVersion);
-          result = refreshedResult;
-          updateVersion = result.latestVersion;
-          persistUpdaterState("record refreshed update check", () =>
-            recordCheck(result.latestVersion),
-          );
-          if (!result.updateAvailable) {
-            persistUpdaterState("clear update deferral", () =>
-              clearUpdateDeferral(),
-            );
-            return;
-          }
-          pendingRestart =
-            loadUpdateState()?.pendingRestartVersion === result.latestVersion;
-          if (isVersionSuppressed(result.latestVersion) && !pendingRestart) {
-            logger.debug(
-              `[guard] refreshed version ${result.latestVersion} is suppressed, skipping`,
-            );
-            return;
-          }
-        }
-        persistUpdaterState("clear update deferral", () =>
-          clearUpdateDeferral(),
-        );
-        logger.always(
-          `[updater] ${supervisorRefreshOnly ? "supervisor reconciliation prepared" : rollingSupervisor ? "rolling activation prepared" : "safe update window acquired"} for v${result.latestVersion}`,
-        );
-
-        // 3. Install update (validate version string before passing to shell)
-        if (!/^\d+\.\d+\.\d+$/.test(result.latestVersion)) {
-          const message = `invalid version format: ${result.latestVersion}`;
-          logger.always(
-            `[guard] WARNING: invalid version format "${result.latestVersion}", skipping`,
-          );
-          persistUpdaterState("record update failure", () =>
-            recordUpdateFailure(result.latestVersion, "check", message),
-          );
-          return;
-        }
-
-        const { execFileSync } = await import("node:child_process");
-        if (!supervisorRefreshOnly && !pendingRestart) {
-          const installerResolution = resolveGlobalInstaller({
-            entryScript: process.argv[1],
-          });
-          logger.always(
-            `[updater] package-manager candidates: ${installerResolution.tried
-              .map(
-                (candidate) =>
-                  `${candidate.kind}:${candidate.bin}(${candidate.installable ? `v${candidate.version}` : (candidate.reason ?? "unusable")})`,
-              )
-              .join(", ")}`,
-          );
-          const installer = installerResolution.installer;
-          if (!installer) {
-            const message =
-              "no package manager has a writable global root and executable directory";
-            logger.always(`[updater] WARNING: ${message}; skipping this cycle`);
-            persistUpdaterState("record update failure", () =>
-              recordUpdateFailure(result.latestVersion, "install", message),
-            );
-            return;
-          }
-          logger.always(
-            `[updater] installing @juspay/neurolink@${result.latestVersion} via ${installer.kind} ${installer.bin} (v${installer.version})`,
-          );
-          if (guardStopping || getProcessStatus(parentPid) === "not_running") {
-            return;
-          }
-          try {
-            execFileSync(
-              installer.bin,
-              getGlobalInstallArgs(
-                installer.kind,
-                `@juspay/neurolink@${result.latestVersion}`,
-              ),
-              {
-                timeout: 120_000,
-                stdio: "pipe",
-              },
-            );
-          } catch (installErr) {
-            const detail = describeInstallFailure(installErr);
-            logger.always(
-              `[updater] WARNING: global install failed:\n${detail}`,
-            );
-            persistUpdaterState("record update failure", () =>
-              recordUpdateFailure(result.latestVersion, "install", detail),
-            );
-            if (isTransientInstallFailure(installErr)) {
-              scheduleUpdateRetry(
-                "transient install failure",
-                result.latestVersion,
-              );
-            }
-            return;
-          }
-        } else if (!supervisorRefreshOnly) {
-          logger.always(
-            `[updater] resuming pending restart for already-installed v${result.latestVersion}`,
-          );
-        }
-
-        // 4. Refresh and validate the stable trampoline. The plist already
-        // points at this path, so it must not be unloaded or rewritten here.
-        if (!supervisorRefreshOnly) {
-          try {
-            writeTrampoline();
-
-            const validation = await validateInstalledVersion({
-              binPath: TRAMPOLINE_PATH,
-              expectedVersion: result.latestVersion,
-            });
-            if (validation.version !== result.latestVersion) {
-              const message = `trampoline validation failed after ${validation.attempts} attempts: ${validation.failure ?? "unknown failure"}`;
-              logger.always(`[updater] WARNING: ${message}; restart deferred`);
-              persistUpdaterState("record update failure", () =>
-                recordUpdateFailure(
-                  result.latestVersion,
-                  "validation",
-                  message,
-                ),
-              );
-              persistUpdaterState("abandon invalid pending update", () =>
-                abandonPendingUpdate(result.latestVersion),
-              );
-              return;
-            }
-
-            persistUpdaterState("record installed update", () =>
-              recordUpdateInstalled(result.latestVersion),
-            );
-            logger.always(
-              `[updater] trampoline validated at v${validation.version} after ${validation.attempts} attempt(s)`,
-            );
-          } catch (trampolineError) {
-            const message =
-              trampolineError instanceof Error
-                ? trampolineError.message
-                : String(trampolineError);
-            logger.always(
-              `[updater] WARNING: failed to refresh trampoline; refusing restart: ${message}`,
-            );
-            persistUpdaterState("record update failure", () =>
-              recordUpdateFailure(result.latestVersion, "validation", message),
-            );
-            persistUpdaterState("abandon invalid pending update", () =>
-              abandonPendingUpdate(result.latestVersion),
-            );
-            return;
-          }
-        }
-
-        if (guardStopping || getProcessStatus(parentPid) === "not_running") {
+        if (!isCurrentUpdateOwner()) {
           return;
         }
 
@@ -5437,6 +5668,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               `[updater] requesting rolling activation of v${result.latestVersion}`,
             );
             try {
+              if (!isCurrentUpdateOwner()) {
+                updateRestartInProgress = false;
+                return;
+              }
               process.kill(parentPid, "SIGUSR2");
             } catch (activationError) {
               updateRestartInProgress = false;
@@ -5599,6 +5834,10 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
               return;
             }
 
+            if (!isCurrentUpdateOwner()) {
+              updateRestartInProgress = false;
+              return;
+            }
             logger.always(
               `[updater] refreshing launchd supervisor at v${result.latestVersion}`,
             );
@@ -5689,43 +5928,42 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
             ? `rolling candidate failed: ${rollingFailure}`
             : `proxy did not report v${result.latestVersion} healthy within ${UPDATE_TIMEOUT_MS}ms`;
           if (rollingSupervisor && !supervisorRefreshOnly) {
+            if (!isCurrentUpdateOwner()) {
+              updateRestartInProgress = false;
+              return;
+            }
             try {
-              const rollbackResolution = resolveGlobalInstaller({
-                entryScript: process.argv[1],
-              });
-              const rollbackInstaller = rollbackResolution.installer;
-              if (!rollbackInstaller) {
+              if (
+                !previousPackage ||
+                previousPackage.version !== runningVersion
+              ) {
                 throw new Error(
-                  "no usable package manager is available for rollback",
+                  "Previous validated package selection is unavailable",
                 );
               }
               logger.always(
-                `[updater] rolling activation failed; restoring @juspay/neurolink@${runningVersion}`,
+                `[updater] restoring immutable package selection v${runningVersion}`,
               );
-              execFileSync(
-                rollbackInstaller.bin,
-                getGlobalInstallArgs(
-                  rollbackInstaller.kind,
-                  `@juspay/neurolink@${runningVersion}`,
-                ),
-                { timeout: 120_000, stdio: "pipe" },
-              );
-              writeTrampoline();
+              writeTrampoline(previousPackage, isCurrentUpdateOwner);
               const rollbackValidation = await validateInstalledVersion({
                 binPath: TRAMPOLINE_PATH,
                 expectedVersion: runningVersion,
               });
               if (rollbackValidation.version !== runningVersion) {
                 throw new Error(
-                  `rollback trampoline reported v${rollbackValidation.version ?? "unknown"}; expected v${runningVersion}`,
+                  `Rollback selection did not validate as v${runningVersion}`,
                 );
               }
-              // Reinstalling the old package is not enough: the supervisor was
+              // Restoring the old package selection is not enough: the supervisor was
               // told to activate result.latestVersion, so its recovery loop
               // keeps demanding the new version against the now-downgraded
               // installation and can never serve a worker again. Re-point the
               // supervisor at runningVersion and report success only once it
               // actually serves that version again.
+              if (!isCurrentUpdateOwner()) {
+                updateRestartInProgress = false;
+                return;
+              }
               const rollbackActivated = await activateRollbackVersion(
                 host,
                 port,
@@ -5775,7 +6013,7 @@ export const proxyGuardCommand: CommandModule<object, ProxyGuardArgs> = {
           recordUpdateFailure(updateVersion, "check", message),
         );
       } finally {
-        if (drainActive && !updateRestartInProgress) {
+        if (drainActive && !updateRestartInProgress && isCurrentUpdateOwner()) {
           const resumed = await resumeProxyUpdateDrain(host, port);
           if (!resumed && getProcessStatus(parentPid) !== "not_running") {
             logger.always(
@@ -6154,10 +6392,8 @@ export function buildProxyLaunchdPlist(
   envFile?: string,
   configFile?: string,
 ): string {
-  // The plist invokes the trampoline script (a tiny shell wrapper at
-  // ~/.neurolink/bin/neurolink-proxy) which re-resolves the real
-  // `neurolink` binary via PATH on every launch.  This way, launchd
-  // is never pinned to a version-specific pnpm store path.
+  // The stable launcher selects an already validated package without
+  // rewriting the launchd service or its inherited runtime environment.
   const trampolinePath = escapeXml(TRAMPOLINE_PATH);
   const envFileArgs = envFile
     ? `
@@ -6170,23 +6406,17 @@ export function buildProxyLaunchdPlist(
     <string>${escapeXml(configFile)}</string>`
     : "";
 
-  const otelEnvironment = isProxyOtelOnly()
-    ? [
-        "NEUROLINK_PROXY_LOG_SINK",
-        "OTEL_EXPORTER_OTLP_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_LOGS_ENDPOINT",
-        "OTEL_EXPORTER_OTLP_HEADERS",
-        "OTEL_EXPORTER_OTLP_LOGS_HEADERS",
-        "OTEL_SERVICE_NAME",
-        "NEUROLINK_PROXY_SESSION_SECRET",
-      ]
-        .filter((name) => process.env[name] !== undefined)
-        .map(
-          (name) =>
-            `    <key>${name}</key>\n    <string>${escapeXml(process.env[name]!)}</string>`,
-        )
-        .join("\n")
-    : "";
+  const otelEnvironment = Object.keys(process.env)
+    .filter(
+      (name) =>
+        isProxyServiceEnvironmentKey(name) && process.env[name] !== undefined,
+    )
+    .sort()
+    .map(
+      (name) =>
+        `    <key>${escapeXml(name)}</key>\n    <string>${escapeXml(process.env[name]!)}</string>`,
+    )
+    .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -6252,12 +6482,10 @@ export const proxyInstallCommand: CommandModule = {
       .option("port", {
         type: "number",
         alias: "p",
-        default: 55669,
         description: "Proxy port",
       })
       .option("host", {
         type: "string",
-        default: "127.0.0.1",
         description: "Proxy host",
       })
       .option("env-file", {
@@ -6278,9 +6506,6 @@ export const proxyInstallCommand: CommandModule = {
       ) as Argv;
   },
   handler: async (argv) => {
-    const port = (argv.port as number) ?? 55669;
-    const host = (argv.host as string) ?? "127.0.0.1";
-
     if (process.platform !== "darwin") {
       console.info(
         chalk.red("proxy install is currently macOS-only (uses launchd)."),
@@ -6291,12 +6516,67 @@ export const proxyInstallCommand: CommandModule = {
       process.exit(1);
     }
 
+    const existingSupervisor = loadProxySupervisorState();
+    const existingWorker = loadProxyState();
+    assertProxyServiceInstallIdle({
+      pids: [
+        existingSupervisor?.pid,
+        existingWorker?.pid,
+        existingSupervisor?.rolling?.active?.pid,
+        existingSupervisor?.rolling?.candidate?.pid,
+        ...(existingSupervisor?.rolling?.draining?.map(
+          (worker) => worker.pid,
+        ) ?? []),
+      ].filter((pid): pid is number => typeof pid === "number"),
+      getProcessStatus,
+      launchdPresence: probeProxyLaunchdPresence({
+        label: PLIST_LABEL,
+        uid: process.getuid?.() ?? 501,
+      }),
+    });
+
     const { mkdirSync, existsSync, chmodSync } = await import("fs");
+    let savedSettings = parseProxyServiceInstallSettings(null);
+    if (existsSync(PLIST_PATH)) {
+      // Existing runtime values are defaults, never printed. Refuse to rewrite
+      // an unreadable service rather than silently dropping its OTel settings.
+      const { execFileSync } = await import("node:child_process");
+      try {
+        savedSettings = parseProxyServiceInstallSettings(
+          JSON.parse(
+            execFileSync(
+              "plutil",
+              ["-convert", "json", "-o", "-", PLIST_PATH],
+              {
+                encoding: "utf8",
+                timeout: 5_000,
+                stdio: ["ignore", "pipe", "pipe"],
+              },
+            ),
+          ),
+        );
+      } catch {
+        // Neither captured plutil output nor JSON parse excerpts may expose
+        // stored exporter authorization headers in a reinstall error.
+        throw new Error(
+          "Existing proxy service settings could not be read; refusing reinstall before service changes.",
+        );
+      }
+      for (const [name, value] of Object.entries(savedSettings.environment)) {
+        process.env[name] ??= value;
+      }
+    }
+    const port =
+      (argv.port as number | undefined) ?? savedSettings.port ?? 55669;
+    const host =
+      (argv.host as string | undefined) ?? savedSettings.host ?? "127.0.0.1";
     const envResolution = resolveProxyEnvFile({
-      explicitEnvFile: (argv as { envFile?: string }).envFile,
+      explicitEnvFile:
+        (argv as { envFile?: string }).envFile ?? savedSettings.envFile,
     });
     const envFile = envResolution.path;
-    const explicitConfig = (argv as { config?: string }).config;
+    const explicitConfig =
+      (argv as { config?: string }).config ?? savedSettings.configFile;
     const configPath = resolveProxyConfigPath(explicitConfig);
     if (explicitConfig && !existsSync(configPath)) {
       console.info(chalk.red(`Proxy config file not found: ${configPath}`));
@@ -6322,9 +6602,8 @@ export const proxyInstallCommand: CommandModule = {
     writeTrampoline();
     console.info(chalk.green(`✓ Trampoline written to ${TRAMPOLINE_PATH}`));
 
-    // Sanity-check: run the trampoline itself and confirm it resolves to
-    // a working neurolink binary. This catches environments where every
-    // PATH-based candidate is broken AND the baked-in path is unreachable.
+    // Validate selected package metadata without initializing the CLI graph.
+    // Worker startup separately proves readiness before accepting traffic.
     const trampolineVersion = probeBinVersion(TRAMPOLINE_PATH);
     if (!trampolineVersion) {
       console.info(
@@ -6339,23 +6618,17 @@ export const proxyInstallCommand: CommandModule = {
       );
       console.info(
         chalk.yellow(
-          `  Try: 'pnpm add -g @juspay/neurolink' or set NEUROLINK_BIN=/path/to/working/neurolink.`,
+          `  Inspect the selected package and reinstall the missing version before retrying.`,
         ),
       );
       process.exit(1);
     }
     if (trampolineVersion !== PROXY_VERSION) {
       console.info(
-        chalk.red(
-          `✗ Trampoline resolves to v${trampolineVersion} but this installer is v${PROXY_VERSION}.`,
-        ),
-      );
-      console.info(
         chalk.yellow(
-          `  PATH may shadow this installation with an older version. Fix your PATH or set NEUROLINK_BIN.`,
+          `Retaining selected proxy package v${trampolineVersion}; this service installer is v${PROXY_VERSION}.`,
         ),
       );
-      process.exit(1);
     }
     console.info(
       chalk.green(

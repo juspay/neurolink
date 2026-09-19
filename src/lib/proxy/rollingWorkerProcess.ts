@@ -7,6 +7,10 @@ import type {
   SpawnProxySocketWorkerOptions,
   TransferableProxySocket,
 } from "../types/index.js";
+import {
+  handleProxyTokenBudgetMessage,
+  releaseProxyTokenBudgetOwner,
+} from "./proxyTokenBudget.js";
 import { ErrorFactory } from "../utils/errorHandling.js";
 import {
   isProxyWorkerStatusMessage,
@@ -38,6 +42,8 @@ export function spawnProxySocketWorker(
   >();
   const pendingStatusMessages: ProxyWorkerStatusMessage[] = [];
   let spawnError: Error | undefined;
+  let budgetResponseFailure: Error | undefined;
+  let budgetTerminationTimeout: NodeJS.Timeout | undefined;
   const child = (options.spawn ?? spawn)(options.command, options.args, {
     env: {
       ...process.env,
@@ -115,6 +121,39 @@ export function spawnProxySocketWorker(
     }
     pending.callback(error);
   };
+  /** Lost budget replies leave unknown leases; release them only after exit. */
+  const quarantineBudgetDeliveryFailure = (): void => {
+    if (budgetResponseFailure) {
+      return;
+    }
+    const error = ErrorFactory.proxyWorkerLifecycle(
+      `proxy worker ${childPid} token budget response delivery failed`,
+    );
+    budgetResponseFailure = error;
+    // An IPC-disconnected worker may ignore graceful shutdown. Retain its
+    // reservation occupancy until exit, but bound how long it can survive.
+    budgetTerminationTimeout = setTimeout(() => {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGKILL");
+      }
+    }, 1_000);
+    budgetTerminationTimeout.unref?.();
+    try {
+      publishStatus({
+        type: "proxy-worker:fatal",
+        generation: options.generation,
+        pid: childPid,
+        message: error.message,
+      });
+      for (const socketId of [...pendingSockets.keys()]) {
+        settleSocket(socketId, error);
+      }
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGTERM");
+      }
+    }
+  };
   /**
    * Accept messages only from this worker and start a fresh deadline for
    * the commit phase.
@@ -160,12 +199,40 @@ export function spawnProxySocketWorker(
     }
   };
   child.on("message", (message: unknown) => {
+    if (budgetResponseFailure) {
+      return;
+    }
+    if (
+      handleProxyTokenBudgetMessage(
+        message,
+        { pid: childPid, generation: options.generation },
+        (response) => {
+          if (!child.connected) {
+            quarantineBudgetDeliveryFailure();
+            return;
+          }
+          try {
+            child.send(response, (error) => {
+              if (error) {
+                quarantineBudgetDeliveryFailure();
+              }
+            });
+          } catch {
+            quarantineBudgetDeliveryFailure();
+          }
+        },
+      )
+    ) {
+      return;
+    }
     onInternalMessage(message);
     if (isProxyWorkerStatusMessage(message)) {
       publishStatus(message);
     }
   });
   child.once("exit", (code, signal) => {
+    clearTimeout(budgetTerminationTimeout);
+    releaseProxyTokenBudgetOwner(childPid, options.generation);
     for (const socketId of [...pendingSockets.keys()]) {
       settleSocket(
         socketId,
@@ -183,6 +250,9 @@ export function spawnProxySocketWorker(
   });
 
   const sendControl = (message: ProxyWorkerControlMessage): void => {
+    if (budgetResponseFailure) {
+      throw budgetResponseFailure;
+    }
     if (!child.connected) {
       throw new Error(`proxy worker ${childPid} IPC channel is closed`);
     }
@@ -197,6 +267,10 @@ export function spawnProxySocketWorker(
     pid: childPid,
     sendControl,
     sendSocket: (generation, socket, callback) => {
+      if (budgetResponseFailure) {
+        callback(budgetResponseFailure);
+        return;
+      }
       if (!child.connected) {
         callback(new Error(`proxy worker ${childPid} IPC channel is closed`));
         return;

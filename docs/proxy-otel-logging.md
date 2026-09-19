@@ -35,17 +35,15 @@ In this mode:
   supervisor state are operational persistence and continue to be stored.
 
 Metadata has a 2,048-record queue; redacted body chunks have an independent
-256-record queue. Bodies use 128 KiB OTLP records, so an 8 MiB capture fits in
-one 64-record export batch. Outstanding counts include exports in flight. A
-separate publication queue owns up to 64 captures / 32 MiB of redacted payloads.
-It sends one capture at a time, at most 64 chunks per batch, and waits for actual
-exporter callbacks before submitting more. Slow or failed collectors cannot make
-a burst silently drop the tail of an otherwise accepted capture. Metadata uses
-its own queue and continues independently. Transport timeouts are 30 seconds,
-with a 31-second callback guard. Capture publication has a 20-second active
-deadline that starts when the capture reaches the head of the bounded queue;
-queue wait alone does not expire an accepted capture. A failed batch stops
-further publication and produces an explicit unconfirmed or partial result.
+256-record queue. Bodies use chunks capped at 128 KiB. Outstanding counts
+include exports in flight. Publication owns up
+to 64 captures / 32 MiB of redacted payloads concurrently. Captures share export
+batches of at most 64 records, wait for queue capacity, and settle their own
+chunks from exporter callbacks. Metadata has its own queue and transport.
+Transport timeouts are 30 seconds, with a 31-second callback guard. Capture
+publication has a 20-second deadline covering capacity waits and export
+settlement. A deadline or failed export produces an explicit unconfirmed or
+partial result; submitted chunks retain ownership until their callbacks settle.
 These bounds still permit rejected captures during a prolonged outage. They are
 payload/queue limits, not total process RSS limits: objects, serialization
 buffers and the capture worker add overhead.
@@ -60,8 +58,9 @@ captured redacted text, and `bodyDelivery`. Chunks carry the same identity as
 `body.capture_id`; reconstruct by capture ID and chunk index, then verify the
 count and digest. The index is emitted after publication settles:
 
-- `transport_acknowledged`: all prepared chunks received SDK transport success;
-  this does not prove backend persistence or per-record acceptance.
+- `transport_acknowledged`: all prepared chunks received validated OTLP JSON
+  acknowledgments reporting no rejected records; this does not prove backend
+  persistence or independently verified per-record acceptance.
 - `export_unconfirmed`: all chunks were submitted, but at least one export was
   not acknowledged. Some or all may still be stored in the backend.
 - `partial`: publication stopped after only part of the capture was submitted,
@@ -100,8 +99,9 @@ both processes. A worker-only restart refuses an incomplete supervisor logging
 cutover; replacing a worker cannot close the supervisor's inherited log files.
 The selected sink and per-process export counters remain under request logging
 observability. `submitted` means admitted to the memory queue;
-`transportAcknowledged` means the SDK reported HTTP export success. It does not
-prove individual record acceptance or backend persistence. `exportUnconfirmed`
+`transportAcknowledged` means the response-aware transport validated the OTLP
+JSON acknowledgment with no reported rejected records. It does not prove
+individual record acceptance or backend persistence. `exportUnconfirmed`
 means an export failed or could not be confirmed; it may have reached the
 collector before a connection failed. `dropped` counts local queue overflow.
 Reconcile these with collector counters and queries for correlated request IDs
@@ -209,8 +209,11 @@ finals, attempts, lifecycle and body records retain native OTLP trace/span field
 through deferred callbacks. Standalone supervisor events are process evidence
 and do not invent a request trace. Direct Codex requests now use the same tracing
 and request metrics path, including selected account and requested reasoning
-effort. Internal fallback traces do not increment independent request/token
-metrics; their parent request owns those metrics.
+effort. Internal child traces do not increment client request metrics. Codex
+fallback children own their observed token metrics; the parent owns the client
+request count and retains attributable usage on its span without counting it
+again. If a later SDK fallback owns the final outcome, the failed Codex attempt
+retains its usage and the parent does not inherit that earlier provider's usage.
 
 Claude JSON, native streams and translated fallbacks record useful-output
 availability and its source. Populated content starts and completed zero-argument
@@ -244,10 +247,13 @@ Each OTel log gets a `proxy.event_id`. Per queue, `/status` retains the latest
 `failureHistoryEvicted` counter. These entries contain event/request/capture IDs
 and sanitized error metadata, not log bodies. After a successful export,
 `telemetry_delivery` records report queued diagnostics through the same OTel
-pipeline. The original uncertain records are not replayed. Failure diagnostics
-are bounded, can themselves be lost, and cannot repair an abrupt process exit.
-The standard SDK may report transport success for an OTLP `partialSuccess`
-response; transport acknowledgement is deliberately not called record acceptance.
+pipeline. Retryable transport failures use bounded retries with unchanged event
+identities. After export settles as failed, recovery diagnostics do not replay
+the original uncertain records. Failure diagnostics are bounded, can themselves
+be lost, and cannot repair an abrupt process exit. The response-aware transport
+marks partial rejection and malformed acknowledgments unconfirmed without
+replaying those batches. A valid acknowledgment still does not prove backend
+persistence.
 
 ## Coverage maintained in CI
 

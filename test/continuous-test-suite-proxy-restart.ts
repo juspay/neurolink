@@ -17,6 +17,7 @@ import {
   chmod,
 } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { request, Server } from "node:http";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -408,6 +409,13 @@ async function withService(
         return {
           ...snapshot,
           rejectedSockets: snapshot.rejectedSockets + counterNoise,
+          // Controlled control-plane evidence makes the admission/preflight
+          // overlap deterministic; the real supervisor still performs handoff.
+          pendingTransfers:
+            (snapshot.pendingTransfers ?? 0) +
+            (mode === "pending-transfer" ? 1 : 0),
+          queuedSockets:
+            snapshot.queuedSockets + (mode === "queued-admission" ? 1 : 0),
         };
       },
     },
@@ -495,6 +503,34 @@ await test("check verifies readiness without spawning a worker or changing setti
   });
 });
 
+// Deterministic admission overlap: supervisor replacement needs full
+// quiescence, but worker-only replacement must remain available under traffic.
+for (const admissionState of ["pending-transfer", "queued-admission"]) {
+  await test(`worker-only restart accepts active-generation ${admissionState} evidence`, async () => {
+    await withService(admissionState, async ({ command, server, url }) => {
+      const before = server.snapshot();
+      const outcome = await command();
+      if (outcome.exitCode !== 0) {
+        console.error(
+          "Restart admission diagnostics:",
+          JSON.stringify(outcome),
+        );
+      }
+      assertEqual(outcome.exitCode, 0, "admission blocked rolling replacement");
+      const result = JSON.parse(outcome.stdout);
+      assertEqual(result.phase, "activated");
+      assert(
+        result.workerPid !== before.active?.pid,
+        "serving worker was not replaced",
+      );
+      assertEqual(result.supervisorPid, process.pid, "listener owner changed");
+      assertEqual(await (await fetch(url)).text(), "worker-2");
+      assertEqual(server.snapshot().rejectedSockets, 0);
+      assertEqual(server.snapshot().failedTransfers, 0);
+    });
+  });
+}
+
 await test("restart preserves an active stream and admits new requests throughout handoff", async () => {
   await withService("normal", async ({ command, server, url }) => {
     const before = server.snapshot();
@@ -525,6 +561,9 @@ await test("restart preserves an active stream and admits new requests throughou
     })();
     try {
       const outcome = await command();
+      if (outcome.exitCode !== 0) {
+        console.error("Restart handoff diagnostics:", JSON.stringify(outcome));
+      }
       assertEqual(outcome.exitCode, 0, "worker restart failed");
       const result = JSON.parse(outcome.stdout);
       assertEqual(result.phase, "activated", "replacement was not verified");
@@ -983,7 +1022,7 @@ await test("rolling workers reject the legacy global drain without changing admi
   }
 });
 
-await test("supervisor refresh drain retries recovery until admission resumes", async () => {
+await test("supervisor refresh drain has a 90-second recovery lease and retries until admission resumes", async () => {
   const previous = process.env.NEUROLINK_PROXY_SOCKET_WORKER;
   const realSetTimeout = globalThis.setTimeout;
   const realClearTimeout = globalThis.clearTimeout;
@@ -1040,7 +1079,10 @@ await test("supervisor refresh drain retries recovery until admission resumes", 
       });
 
     assertEqual((await control("drain_for_supervisor_refresh")).status, 200);
-    assertEqual(timers[0]?.delay, 35 * 60 * 1000);
+    // Staging completes before draining, so a crashed updater must reopen
+    // admission after 90 seconds instead of the former 35-minute install lease.
+    assertEqual(timers[0]?.delay, 90_000);
+    assertEqual(timers[0].handle.hasRef(), false);
     readiness.ready = false;
     assertEqual((await control("resume")).status, 409);
     assert(
@@ -1058,7 +1100,7 @@ await test("supervisor refresh drain retries recovery until admission resumes", 
     assertEqual(readiness.drainingForUpdate, false);
 
     assertEqual((await control("drain_for_supervisor_refresh")).status, 200);
-    assertEqual(timers[1]?.delay, 35 * 60 * 1000);
+    assertEqual(timers[1]?.delay, 90_000);
     readiness.ready = false;
     realClearTimeout(timers[1].handle);
     timers[1].callback();
@@ -1181,6 +1223,62 @@ await test("supervisor diagnostic failure remains unavailable without interrupti
       );
     },
   );
+});
+
+await test("legacy supervisor state keeps HTTP and CLI status readable without rolling metadata", async () => {
+  const stateHome = await mkdtemp(join(tmpdir(), "neurolink-legacy-status-"));
+  try {
+    // Supply HOME before Node loads any module: both HTTP state managers and
+    // the built CLI resolve their paths inside the same disposable directory.
+    const outcome = await new Promise<{ code: number | null; output: string }>(
+      (resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [
+            fileURLToPath(
+              new URL("./fixtures/proxyLegacyStatus.mjs", import.meta.url),
+            ),
+          ],
+          {
+            env: {
+              ...process.env,
+              HOME: stateHome,
+              USERPROFILE: stateHome,
+              XDG_CONFIG_HOME: join(stateHome, ".config"),
+              NEUROLINK_TEST_LEGACY_STATUS_HOME: stateHome,
+            },
+            stdio: ["ignore", "pipe", "pipe"],
+          },
+        );
+        let output = "";
+        const timer = setTimeout(() => child.kill("SIGKILL"), 20_000);
+        child.stdout.on("data", (chunk) => {
+          output += chunk;
+        });
+        child.stderr.on("data", (chunk) => {
+          output += chunk;
+        });
+        child.on("error", (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+        child.on("close", (code) => {
+          clearTimeout(timer);
+          resolve({ code, output });
+        });
+      },
+    );
+    if (outcome.code !== 0) {
+      console.error(outcome.output);
+    }
+    assertEqual(outcome.code, 0, "isolated legacy status fixture failed");
+    assert(
+      outcome.output.includes("legacy-status-pass"),
+      "status assertions did not complete",
+    );
+  } finally {
+    await rm(stateHome, { recursive: true, force: true });
+  }
 });
 
 await runSuite();

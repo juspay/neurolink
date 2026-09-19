@@ -8,7 +8,7 @@
 
 > **ToolAnnotationInfo** = `object`
 
-Defined in: [types/cli.ts:1606](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1606)
+Defined in: [types/cli.ts:1609](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1609)
 
 Info row for an MCP tool annotation.
 
@@ -18,7 +18,7 @@ Info row for an MCP tool annotation.
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1607](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1607)
+Defined in: [types/cli.ts:1610](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1610)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1607](https://github.com/juspay/neurolink/blob/release
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1608](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1608)
+Defined in: [types/cli.ts:1611](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1611)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1608](https://github.com/juspay/neurolink/blob/release
 
 > **toolName**: `string`
 
-Defined in: [types/cli.ts:1609](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1609)
+Defined in: [types/cli.ts:1612](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1612)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1609](https://github.com/juspay/neurolink/blob/release
 
 > **description**: `string`
 
-Defined in: [types/cli.ts:1610](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1610)
+Defined in: [types/cli.ts:1613](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1613)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/cli.ts:1610](https://github.com/juspay/neurolink/blob/release
 
 > **annotations**: [`MCPToolAnnotations`](MCPToolAnnotations.md)
 
-Defined in: [types/cli.ts:1611](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1611)
+Defined in: [types/cli.ts:1614](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1614)

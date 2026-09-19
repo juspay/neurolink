@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryStoredRecord** = `Partial`\<[`RequestLogEntry`](RequestLogEntry.md)\> & `object`
 
-Defined in: [types/proxy.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L879)
+Defined in: [types/proxy.ts:935](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L935)
 
 Small stored metadata used by the doctor; bodies are queried separately.
 
@@ -73,3 +73,11 @@ Small stored metadata used by the doctor; bodies are queried separately.
 ### outcomeSource?
 
 > `optional` **outcomeSource?**: `string`
+
+### requestTimeoutMs?
+
+> `optional` **requestTimeoutMs?**: `number`
+
+### redactionLossy?
+
+> `optional` **redactionLossy?**: `boolean`

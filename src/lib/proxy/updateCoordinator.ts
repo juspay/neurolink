@@ -26,12 +26,82 @@ export function shouldRefreshStaleSupervisor(options: {
   );
 }
 
+/** An idle active worker alone does not make its supervisor safe to stop. */
+export function isProxyRuntimeSettled(activity: ProxyRuntimeActivity): boolean {
+  return (
+    activity.activeRequests === 0 &&
+    (activity.drainingWorkers ?? 0) === 0 &&
+    (activity.queuedSockets ?? 0) === 0 &&
+    (activity.pendingTransfers ?? 0) === 0 &&
+    (activity.candidateWorkers ?? 0) === 0
+  );
+}
+
+/** Parse untrusted status conservatively; incomplete rolling evidence is busy. */
+export function parseProxyRuntimeActivity(
+  payload: unknown,
+): ProxyRuntimeActivity | null {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+  const value = payload as {
+    activity?: Partial<ProxyRuntimeActivity>;
+    autoUpdate?: {
+      supervisorPid?: unknown;
+      rolling?: {
+        draining?: unknown;
+        queuedSockets?: unknown;
+        pendingTransfers?: unknown;
+        candidate?: unknown;
+      } | null;
+    };
+  };
+  const active = value.activity?.activeRequests;
+  if (
+    typeof active !== "number" ||
+    !Number.isSafeInteger(active) ||
+    active < 0
+  ) {
+    return null;
+  }
+  const result: ProxyRuntimeActivity = {
+    activeRequests: active,
+    lastActivityAt:
+      typeof value.activity?.lastActivityAt === "string"
+        ? value.activity.lastActivityAt
+        : null,
+  };
+  const rolling = value.autoUpdate?.rolling;
+  if (value.autoUpdate?.supervisorPid && !rolling) {
+    return null;
+  }
+  if (rolling) {
+    if (
+      !Array.isArray(rolling.draining) ||
+      typeof rolling.queuedSockets !== "number" ||
+      !Number.isSafeInteger(rolling.queuedSockets) ||
+      rolling.queuedSockets < 0 ||
+      typeof rolling.pendingTransfers !== "number" ||
+      !Number.isSafeInteger(rolling.pendingTransfers) ||
+      rolling.pendingTransfers < 0 ||
+      rolling.candidate === undefined
+    ) {
+      return null;
+    }
+    result.drainingWorkers = rolling.draining.length;
+    result.queuedSockets = rolling.queuedSockets;
+    result.pendingTransfers = rolling.pendingTransfers;
+    result.candidateWorkers = rolling.candidate === null ? 0 : 1;
+  }
+  return result;
+}
+
 function isQuiet(
   activity: ProxyRuntimeActivity,
   quietThresholdMs: number,
   nowMs: number,
 ): boolean {
-  if (activity.activeRequests > 0) {
+  if (!isProxyRuntimeSettled(activity)) {
     return false;
   }
   if (!activity.lastActivityAt) {
@@ -89,7 +159,7 @@ export async function waitForProxyUpdateWindow(
     }
     const activity = await options.getActivity();
     options.onPhase?.("draining", activity);
-    if (activity?.activeRequests === 0) {
+    if (activity && isProxyRuntimeSettled(activity)) {
       return { ready: true, draining: true };
     }
     await wait(options.pollIntervalMs);
@@ -98,4 +168,21 @@ export async function waitForProxyUpdateWindow(
   const activity = await options.getActivity();
   options.onPhase?.("drain_timeout", activity);
   return { ready: false, draining: true, reason: "drain_timeout" };
+}
+
+/** An asynchronous staging job must not publish after its service owner changes. */
+export function isProxyUpdateOwnerCurrent(options: {
+  stopping: boolean;
+  parentPid: number;
+  updaterPid: number;
+  parentStatus: "running" | "not_running" | "unknown";
+  runtimePid?: number;
+  runtimeUpdaterPid?: number;
+}): boolean {
+  return (
+    !options.stopping &&
+    options.parentStatus === "running" &&
+    options.runtimePid === options.parentPid &&
+    options.runtimeUpdaterPid === options.updaterPid
+  );
 }

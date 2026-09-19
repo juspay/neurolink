@@ -8,7 +8,7 @@
 
 > **ClaudeTool** = `object`
 
-Defined in: [types/proxy.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L108)
+Defined in: [types/proxy.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L113)
 
 Tool definition in the Claude Messages API format.
 
@@ -18,7 +18,7 @@ Tool definition in the Claude Messages API format.
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L109)
+Defined in: [types/proxy.ts:114](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L114)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:109](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **description?**: `string`
 
-Defined in: [types/proxy.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L110)
+Defined in: [types/proxy.ts:115](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L115)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:110](https://github.com/juspay/neurolink/blob/releas
 
 > **input_schema**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L111)
+Defined in: [types/proxy.ts:116](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L116)
