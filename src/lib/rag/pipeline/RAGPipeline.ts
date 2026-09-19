@@ -27,6 +27,7 @@
  */
 
 import { randomUUID } from "crypto";
+import { extname } from "path";
 import type {
   Chunk,
   VectorQueryResult,
@@ -538,6 +539,22 @@ export class RAGPipeline {
 
     for (const source of sources) {
       try {
+        if (typeof source === "string") {
+          // IMAGE_EXTENSIONS includes .svg, but that constant's raster
+          // guarantee is scoped to the processor path (SvgProcessor). Here
+          // it would flow raw markup bytes into generateImageCaption (which
+          // base64s them into a vision call) and into the multi-modal embed
+          // call — both raster-only. Mirrors the identical skip in
+          // ragIntegration.ts's ingestion-tool entry point so the two agree.
+          const withoutQueryOrFragment = source.split(/[?#]/)[0];
+          if (extname(withoutQueryOrFragment).toLowerCase() === ".svg") {
+            logger.warn(
+              `[RAGPipeline] SVG is not supported as a multi-modal image source, skipping: ${redactUrlForError(source)}`,
+            );
+            continue;
+          }
+        }
+
         // Load the image
         let imageDoc;
         if (Buffer.isBuffer(source)) {
@@ -554,6 +571,21 @@ export class RAGPipeline {
           );
         } else {
           imageDoc = await this.imageLoader.load(source);
+        }
+
+        // The extension check above is necessary but not sufficient: it only
+        // sees the name. A source with no `.svg` suffix — an extension-less
+        // URL, or a local file named without one — reaches ImageLoader, which
+        // falls back to detecting the type from the bytes and returns
+        // `image/svg+xml` for markup starting `<svg`/`<?xm`. So re-check the
+        // resolved type, and skip rather than throw, so SVG behaves the same
+        // whichever way it was identified. `supportedFormats` does not cover
+        // this: it is optional, and unset on the default config.
+        if (imageDoc.mimeType === "image/svg+xml") {
+          logger.warn(
+            `[RAGPipeline] SVG is not supported as a multi-modal image source, skipping: ${redactUrlForError(imageDoc.metadata.source)}`,
+          );
+          continue;
         }
 
         const { supportedFormats } = this.multiModalConfig;

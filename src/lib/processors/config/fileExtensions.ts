@@ -20,7 +20,14 @@ import { extensionsForModality } from "./fileTypeRegistry.js";
 
 /**
  * Image file extensions supported by the platform.
- * Includes `.svg`, which is processed as sanitized markup rather than raster.
+ *
+ * Includes `.svg`. On the processor path (`SvgProcessor`) that guarantees
+ * sanitized markup, never raster bytes — but that guarantee is scoped to
+ * that one consumer. This constant is also consumed by code that treats
+ * every image extension as raster (captioning, multimodal embedding, vision
+ * adapters); `.svg` is markup there too, just without the sanitization, so
+ * each such consumer must explicitly handle or reject `.svg` itself rather
+ * than assume this list implies raster-safety.
  */
 export const IMAGE_EXTENSIONS: readonly string[] =
   extensionsForModality("image");
