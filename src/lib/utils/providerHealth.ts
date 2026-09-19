@@ -34,7 +34,41 @@ export class ProviderHealthChecker {
   private static readonly DEFAULT_CACHE_AGE = 300000; // 5 minutes
   private static readonly CONSECUTIVE_FAILURE_THRESHOLD =
     ProviderHealthChecker.getValidatedFailureThreshold();
-  private static consecutiveFailures = new Map<string, number>();
+  /**
+   * Circuit breaker state, keyed by provider.
+   *
+   * `count` is a count of consecutive failed CONNECTIVITY PROBES (plus the
+   * rare case of the check itself throwing) — never of "the provider is
+   * unconfigured". Those are different facts and only one of them is worth
+   * backing off from. A missing credential is a free, local, determinate
+   * answer that costs nothing to re-derive and flips the instant an env var
+   * is set; treating it as a failure is what let a sweep of ~38 providers
+   * (issue #1305 grew it from 8) blacklist every provider the machine
+   * happens not to have credentials for, after which the sweep reported
+   * `isConfigured: false` and no `responseTime` for a provider that was
+   * merely unconfigured — and kept reporting it after the key was supplied.
+   *
+   * `lastFailureAt` bounds how long a run of failures is held against a
+   * provider; see `checkProviderHealth`.
+   */
+  private static consecutiveFailures = new Map<
+    string,
+    { count: number; lastFailureAt: number }
+  >();
+  /**
+   * Hard cap on simultaneous per-provider checks inside
+   * `checkAllProvidersHealth`. Issue #1305: the sweep used to cover only 8
+   * of ~38 registered providers; now every non-opted-out descriptor is
+   * included (see `excludeFromHealthSweep`). Firing all ~38 at once via a
+   * single `Promise.allSettled` would be harmless by default
+   * (`includeConnectivityTest` defaults to false, so most calls never
+   * leave the process), but a caller who opts into
+   * `includeConnectivityTest: true` would otherwise open up to ~38
+   * concurrent outbound HTTP connections to that many different vendors in
+   * one burst. Batching keeps that bounded without reducing coverage —
+   * every provider is still checked, just not all in the same instant.
+   */
+  private static readonly MAX_CONCURRENT_HEALTH_CHECKS = 8;
 
   /**
    * Validate and return a safe failure threshold value
@@ -81,27 +115,30 @@ export class ProviderHealthChecker {
       }
     }
 
-    // Check if provider has consecutive failures (blacklisting)
-    const failureCount = this.consecutiveFailures.get(providerName) || 0;
-    if (failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD) {
-      const healthStatus: ProviderHealthStatusOptions = {
-        provider: providerName,
-        isHealthy: false,
-        isConfigured: false,
-        hasApiKey: false,
-        lastChecked: new Date(),
-        error: `Provider blacklisted after ${failureCount} consecutive failures`,
-        warning: "Provider will be retried after cache TTL expires",
-        configurationIssues: [
-          `Blacklisted due to ${failureCount} consecutive failures`,
-        ],
-        recommendations: ["Check provider status and configuration"],
-      };
+    // Circuit breaker. It suppresses the outbound connectivity PROBE, not
+    // the whole check: the configuration audit below is local and free, so
+    // skipping it bought nothing and cost the caller a status object of a
+    // different shape — no `responseTime`, and a fabricated
+    // `isConfigured: false` for a provider nothing had looked at.
+    //
+    // A run of failures older than the cache TTL is forgotten, which is
+    // what makes the "will be retried after cache TTL expires" warning
+    // below true. Nothing else could clear it, because the breaker's whole
+    // effect is to suppress the probe that would disprove it.
+    const breaker = this.consecutiveFailures.get(providerName);
+    if (
+      breaker !== undefined &&
+      Date.now() - breaker.lastFailureAt >= maxCacheAge
+    ) {
+      this.consecutiveFailures.delete(providerName);
+    }
+    const failureCount = this.consecutiveFailures.get(providerName)?.count ?? 0;
+    const blacklisted = failureCount >= this.CONSECUTIVE_FAILURE_THRESHOLD;
+    if (blacklisted) {
       logger.warn(
         `Provider ${providerName} blacklisted due to consecutive failures`,
         { failureCount },
       );
-      return healthStatus;
     }
 
     const startTime = Date.now();
@@ -126,14 +163,32 @@ export class ProviderHealthChecker {
       // 2. Check API key validity (basic format validation)
       await this.checkApiKeyValidity(providerName, healthStatus);
 
-      // 3. Optional: Connectivity test
-      if (includeConnectivityTest) {
+      // 3. Optional: Connectivity test. This is the only step that leaves
+      // the process, so it is the only one the circuit breaker governs and
+      // the only one whose outcome may trip it.
+      const issuesBeforeProbe = healthStatus.configurationIssues.length;
+      const probed = includeConnectivityTest && !blacklisted;
+      if (probed) {
         await this.checkConnectivity(providerName, healthStatus, timeout);
       }
+      const probeFailed =
+        probed && healthStatus.configurationIssues.length > issuesBeforeProbe;
 
       // 4. Optional: Model validation
       if (includeModelValidation) {
         await this.checkModelAvailability(providerName, healthStatus);
+      }
+
+      if (blacklisted) {
+        healthStatus.error = `Provider blacklisted after ${failureCount} consecutive failures`;
+        healthStatus.warning =
+          "Provider will be retried after cache TTL expires";
+        healthStatus.configurationIssues.push(
+          `Blacklisted due to ${failureCount} consecutive failures`,
+        );
+        healthStatus.recommendations.push(
+          "Check provider status and configuration",
+        );
       }
 
       // 5. Determine overall health
@@ -152,13 +207,16 @@ export class ProviderHealthChecker {
         });
       }
 
-      // Reset failure count on success
-      if (healthStatus.isHealthy) {
+      // Only a probe that actually ran moves the breaker. A check that
+      // issued no request is not evidence either way: it neither proves the
+      // provider is failing nor that it has recovered.
+      if (probeFailed) {
+        this.consecutiveFailures.set(providerName, {
+          count: failureCount + 1,
+          lastFailureAt: Date.now(),
+        });
+      } else if (probed) {
         this.consecutiveFailures.delete(providerName);
-      } else {
-        // Track consecutive failures
-        const currentFailures = this.consecutiveFailures.get(providerName) || 0;
-        this.consecutiveFailures.set(providerName, currentFailures + 1);
       }
 
       logger.debug(`Health check completed for ${providerName}`, {
@@ -175,13 +233,16 @@ export class ProviderHealthChecker {
       );
       healthStatus.responseTime = Date.now() - startTime;
 
-      // Track consecutive failures
-      const currentFailures = this.consecutiveFailures.get(providerName) || 0;
-      this.consecutiveFailures.set(providerName, currentFailures + 1);
+      // A check that threw failed to answer at all, which is a failure in
+      // the sense the breaker is for — unlike an answered "not configured".
+      this.consecutiveFailures.set(providerName, {
+        count: failureCount + 1,
+        lastFailureAt: Date.now(),
+      });
 
       logger.warn(`Health check failed for ${providerName}`, {
         error: errorMessage,
-        consecutiveFailures: currentFailures + 1,
+        consecutiveFailures: failureCount + 1,
       });
     }
 
@@ -1979,29 +2040,50 @@ export class ProviderHealthChecker {
   }
 
   /**
-   * Get health status for all registered providers
+   * Get health status for all registered providers.
+   *
+   * Membership: every descriptor in PROVIDER_DESCRIPTORS EXCEPT those that
+   * explicitly opt out via `excludeFromHealthSweep` (none currently do).
+   * Before issue #1305's fix, membership was implicit opt-IN via
+   * `defaultHealthSweepPriority`, which only 8 of ~38 descriptors carried —
+   * every other registered provider was silently invisible to this sweep,
+   * including anything a caller had actually configured and could use.
+   *
+   * Order: `defaultHealthSweepPriority` still decides ORDER for the
+   * providers that set it (lower = first — order is behaviour for
+   * first-healthy-wins callers like `getBestHealthyProvider`); everything
+   * else sorts after them, in PROVIDER_DESCRIPTORS's own declaration order
+   * (Array.prototype.sort is stable, so ties never reshuffle).
+   *
+   * Checks run in bounded-size batches (MAX_CONCURRENT_HEALTH_CHECKS) so a
+   * full sweep of every provider can't fire dozens of concurrent requests
+   * at once when a caller opts into `includeConnectivityTest`.
    */
   static async checkAllProvidersHealth(
     options: ProviderHealthCheckOptions = {},
   ): Promise<ProviderHealthStatusOptions[]> {
-    // Sweep membership and ORDER come from the descriptors. Order is
-    // behaviour: auto-select takes the first healthy provider, so the
-    // priority field, not the descriptor array's layout, decides preference.
     const providers: AIProviderName[] = PROVIDER_DESCRIPTORS.filter(
-      (d) => d.defaultHealthSweepPriority !== undefined,
+      (d) => d.excludeFromHealthSweep !== true,
     )
       .sort(
         (a, b) =>
-          (a.defaultHealthSweepPriority ?? 0) -
-          (b.defaultHealthSweepPriority ?? 0),
+          (a.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER) -
+          (b.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER),
       )
       .map((d) => d.name);
 
-    const healthChecks = providers.map((provider) =>
-      this.checkProviderHealth(provider, options),
-    );
-
-    const results = await Promise.allSettled(healthChecks);
+    const results: PromiseSettledResult<ProviderHealthStatusOptions>[] = [];
+    for (
+      let i = 0;
+      i < providers.length;
+      i += this.MAX_CONCURRENT_HEALTH_CHECKS
+    ) {
+      const batch = providers.slice(i, i + this.MAX_CONCURRENT_HEALTH_CHECKS);
+      const batchResults = await Promise.allSettled(
+        batch.map((provider) => this.checkProviderHealth(provider, options)),
+      );
+      results.push(...batchResults);
+    }
 
     return results.map((result, index) => {
       if (result.status === "fulfilled") {

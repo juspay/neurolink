@@ -1239,32 +1239,50 @@ await runSuite(async () => {
     );
   });
 
-  logSection("default health sweep (retired providerHealth.ts hand list)");
+  logSection("default health sweep (issue #1305 — full-coverage membership)");
 
-  await test("the descriptor-driven health sweep preserves the historical membership AND order", async () => {
+  await test("the descriptor-driven health sweep covers every non-opted-out descriptor, prioritized ones first", async () => {
     const { ProviderFactory } = await import("../dist/index.js");
     const all = ProviderFactory.getAllDescriptors();
-    const sweep = all
-      .filter(
-        (d: { defaultHealthSweepPriority?: number }) =>
-          d.defaultHealthSweepPriority !== undefined,
-      )
+    const eligible = all.filter(
+      (d: { excludeFromHealthSweep?: true }) =>
+        d.excludeFromHealthSweep !== true,
+    );
+    const sweep = eligible
+      .slice()
       .sort(
         (
           a: { defaultHealthSweepPriority?: number },
           b: { defaultHealthSweepPriority?: number },
         ) =>
-          (a.defaultHealthSweepPriority ?? 0) -
-          (b.defaultHealthSweepPriority ?? 0),
+          (a.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER) -
+          (b.defaultHealthSweepPriority ?? Number.MAX_SAFE_INTEGER),
       )
       .map((d: { name: string }) => d.name);
-    // Order is behaviour: auto-select takes the first healthy provider, so
-    // this pins the exact sequence the retired hand-maintained array had.
+
+    // Membership: nothing opts out today, so the sweep must cover every
+    // registered descriptor — no more silent, undocumented exclusion.
     assertEqual(
-      sweep.join(","),
-      "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
-      "sweep membership/order",
+      sweep.length,
+      all.length,
+      "sweep membership must equal the full descriptor count",
     );
+
+    // Order is behaviour: auto-select takes the first healthy provider, so
+    // the historically prioritized 8 must still lead, in their original
+    // sequence, before the rest follow in declaration order.
+    assertEqual(
+      sweep.slice(0, 8).join(","),
+      "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
+      "prioritized sweep prefix/order",
+    );
+
+    // Regression guard for the exact defect issue #1305 reported: these
+    // were excluded from the sweep with no documented reason.
+    for (const name of ["mistral", "deepseek"]) {
+      assert(sweep.includes(name), `${name} must be part of the default sweep`);
+    }
+
     const priorities = all
       .map(
         (d: { defaultHealthSweepPriority?: number }) =>
@@ -1278,23 +1296,204 @@ await runSuite(async () => {
     );
   });
 
-  await test("the SHIPPED sweep returns statuses in descriptor-priority order", async () => {
+  await test("the SHIPPED sweep returns every eligible provider, prioritized ones in order first", async () => {
     // Review follow-up: the data pin above proves the descriptors, not the
     // runtime. This drives ProviderHealthChecker.checkAllProvidersHealth
     // itself — health OUTCOMES are environment-dependent and irrelevant
-    // here; the returned array's provider SEQUENCE is the behaviour the
+    // here; the returned array's SIZE and SEQUENCE are the behaviour the
     // descriptor priorities own.
+    const { ProviderFactory } = await import("../dist/index.js");
     const { ProviderHealthChecker } =
       await import("../dist/utils/providerHealth.js");
+    const eligibleCount = ProviderFactory.getAllDescriptors().filter(
+      (d: { excludeFromHealthSweep?: true }) =>
+        d.excludeFromHealthSweep !== true,
+    ).length;
     const statuses = await ProviderHealthChecker.checkAllProvidersHealth({
       includeConnectivityTest: false,
       cacheResults: false,
       timeout: 1000,
     });
     assertEqual(
-      statuses.map((h: { provider: string }) => h.provider).join(","),
+      statuses.length,
+      eligibleCount,
+      "runtime sweep size must match the eligible descriptor count",
+    );
+    assertEqual(
+      statuses
+        .slice(0, 8)
+        .map((h: { provider: string }) => h.provider)
+        .join(","),
       "vertex,google-ai,anthropic,openai,bedrock,azure,litellm,ollama",
-      "runtime sweep order",
+      "runtime sweep prioritized prefix/order",
+    );
+  });
+
+  await test("a currently-excluded provider (mistral) appears in the sweep once configured (issue #1305)", async () => {
+    // Precondition proving the sweep actually ran a real check for this
+    // provider, not merely listed its name: responseTime is only set once
+    // checkProviderHealth() reaches the end of its try block.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+    const { ProviderFactory } = await import("../dist/index.js");
+    const eligibleCount = ProviderFactory.getAllDescriptors().filter(
+      (d: { excludeFromHealthSweep?: true }) =>
+        d.excludeFromHealthSweep !== true,
+    ).length;
+
+    const originalMistralKey = process.env.MISTRAL_API_KEY;
+    // 32 alphanumeric chars — satisfies API_KEY_FORMATS.mistral so format
+    // validation passes without a real credential or network call
+    // (includeConnectivityTest stays false below).
+    process.env.MISTRAL_API_KEY = "n".repeat(32);
+
+    let statuses: Array<{
+      provider: string;
+      isConfigured: boolean;
+      hasApiKey: boolean;
+      isHealthy: boolean;
+      responseTime?: number;
+    }>;
+    try {
+      statuses = await ProviderHealthChecker.checkAllProvidersHealth({
+        includeConnectivityTest: false,
+        cacheResults: false,
+        timeout: 1000,
+      });
+    } finally {
+      if (originalMistralKey === undefined) {
+        delete process.env.MISTRAL_API_KEY;
+      } else {
+        process.env.MISTRAL_API_KEY = originalMistralKey;
+      }
+    }
+
+    // Precondition: the sweep iterated every eligible descriptor, not a
+    // short hard-coded list — the exact shape of the original defect.
+    assertEqual(
+      statuses.length,
+      eligibleCount,
+      "sweep result count must match the eligible descriptor count",
+    );
+
+    const mistral = statuses.find(
+      (s: { provider: string }) => s.provider === "mistral",
+    );
+    assert(
+      mistral !== undefined,
+      "mistral must be present in the sweep result",
+    );
+    assert(
+      typeof mistral?.responseTime === "number",
+      "mistral's entry must show a real check ran, not just membership",
+    );
+    assertEqual(
+      mistral?.isConfigured,
+      true,
+      "mistral must be reported configured once its API key env var is set",
+    );
+    assertEqual(
+      mistral?.hasApiKey,
+      true,
+      "mistral must be reported as having a validly formatted API key",
+    );
+    assertEqual(
+      mistral?.isHealthy,
+      true,
+      "mistral must be reported healthy once configured",
+    );
+  });
+
+  await test("repeated configuration-only sweeps never blacklist an unconfigured provider (issue #1305 follow-up)", async () => {
+    // #1305 grew the sweep from 8 providers to every eligible descriptor,
+    // so on any machine that lacks ~38 vendors' credentials most entries
+    // now come back unconfigured on EVERY sweep. That must not count as a
+    // provider failure: the circuit breaker exists to stop hammering an
+    // endpoint, and a sweep with includeConnectivityTest off issues no
+    // request at all. While it did count, the fourth such sweep tripped
+    // the breaker and short-circuited before the check ran — returning a
+    // structurally different entry (no responseTime, isConfigured false)
+    // for a provider whose key had just been supplied, and continuing to
+    // return it for the life of the process. That is the exact shape the
+    // test above happens to catch, but only at its current call ordering;
+    // this pins the behaviour directly.
+    //
+    // Two ways a test like this can stop discriminating, both closed here
+    // rather than documented. Call ordering: clearHealthCache() resets the
+    // breaker and the cache for every provider, so this drives the count
+    // from zero and does not care how many checks earlier tests spent.
+    // Threshold: CONSECUTIVE_FAILURE_THRESHOLD is read from
+    // PROVIDER_FAILURE_THRESHOLD at class-init, so a literal loop count
+    // sized against the default 3 would silently pass on the unfixed
+    // checker under, say, PROVIDER_FAILURE_THRESHOLD=5. The loop below
+    // instead exceeds the highest value getValidatedFailureThreshold will
+    // accept, so no configured threshold escapes it.
+    const { ProviderHealthChecker } =
+      await import("../dist/utils/providerHealth.js");
+
+    type SweepEntry = {
+      provider: string;
+      isConfigured: boolean;
+      isHealthy: boolean;
+      responseTime?: number;
+    };
+    const sweepMistral = async (): Promise<SweepEntry | undefined> => {
+      const statuses: SweepEntry[] =
+        await ProviderHealthChecker.checkAllProvidersHealth({
+          includeConnectivityTest: false,
+          cacheResults: false,
+          timeout: 1000,
+        });
+      return statuses.find((s) => s.provider === "mistral");
+    };
+
+    const originalMistralKey = process.env.MISTRAL_API_KEY;
+    // Breaker and cache are process-lifetime static state that earlier
+    // tests in this file have already moved — start from a known point.
+    ProviderHealthChecker.clearHealthCache();
+
+    let configured: SweepEntry | undefined;
+    try {
+      delete process.env.MISTRAL_API_KEY;
+      // One more than the ceiling getValidatedFailureThreshold enforces
+      // (10), so this outruns any threshold the env can select — not just
+      // the default 3 that tripped the breaker in CI.
+      for (let i = 0; i < 11; i++) {
+        const unconfigured = await sweepMistral();
+        assert(
+          typeof unconfigured?.responseTime === "number",
+          `sweep ${i + 1} skipped the check for mistral instead of running it`,
+        );
+        assertEqual(
+          unconfigured?.isConfigured,
+          false,
+          `sweep ${i + 1} reported mistral configured with its env var removed`,
+        );
+      }
+      process.env.MISTRAL_API_KEY = "n".repeat(32);
+      configured = await sweepMistral();
+    } finally {
+      if (originalMistralKey === undefined) {
+        delete process.env.MISTRAL_API_KEY;
+      } else {
+        process.env.MISTRAL_API_KEY = originalMistralKey;
+      }
+      ProviderHealthChecker.clearHealthCache();
+    }
+
+    assert(
+      typeof configured?.responseTime === "number",
+      "the sweep after the key was supplied skipped mistral's check",
+    );
+    assertEqual(
+      configured?.isConfigured,
+      true,
+      "mistral stayed reported as unconfigured after its env var was set",
+    );
+    assertEqual(
+      configured?.isHealthy,
+      true,
+      "mistral stayed reported as unhealthy after its env var was set",
     );
   });
 
