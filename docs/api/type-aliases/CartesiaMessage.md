@@ -8,7 +8,7 @@
 
 > **CartesiaMessage** = `object`
 
-Defined in: [types/tts.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L310)
+Defined in: [types/tts.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L321)
 
 Message envelope received from the Cartesia TTS WebSocket.
 
@@ -18,7 +18,7 @@ Message envelope received from the Cartesia TTS WebSocket.
 
 > `optional` **data?**: `string`
 
-Defined in: [types/tts.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L311)
+Defined in: [types/tts.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L322)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/tts.ts:311](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **done?**: `boolean`
 
-Defined in: [types/tts.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L312)
+Defined in: [types/tts.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L323)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/tts.ts:312](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **error?**: `string`
 
-Defined in: [types/tts.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L313)
+Defined in: [types/tts.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/tts.ts#L324)
