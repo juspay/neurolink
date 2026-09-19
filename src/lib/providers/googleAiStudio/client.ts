@@ -1927,6 +1927,16 @@ export class GoogleAIStudioProvider extends BaseProvider {
       (result as { _generationEndEmitted?: boolean })._generationEndEmitted =
         true;
     }
+    // The failure path has no result to carry that flag — `result` is null —
+    // so mark the error instead. Without this the provider's own
+    // `generation:end` (success: false) and the SDK's emitGenerateErrorEvent
+    // both fire for one failed native generate, double-counting every failure
+    // in analytics and as two Pipeline B spans. The success path above was
+    // already deduplicated; only the catch branch was missed.
+    if (!success && error && typeof error === "object") {
+      (error as { _generationEndEmitted?: boolean })._generationEndEmitted =
+        true;
+    }
     emitter.emit("generation:end", {
       provider: this.providerName,
       responseTime: Date.now() - startTime,

@@ -6029,6 +6029,16 @@ Current user's request: ${currentInput}`;
     // remains false for backwards-compat with existing listeners that only
     // branch on the boolean.
     const aborted = isAbortError(error);
+    // A native path that already emitted its own `generation:end` for this
+    // failure marks the error, because on the failure path it has no result
+    // object to mark. Re-emitting here would double every native failure.
+    if (
+      error &&
+      typeof error === "object" &&
+      (error as { _generationEndEmitted?: boolean })._generationEndEmitted
+    ) {
+      return;
+    }
     try {
       this.emitter.emit("generation:end", {
         provider: errProvider,
@@ -8865,13 +8875,33 @@ Current user's request: ${currentInput}`;
     // naming the one provider that failed is clearer than the generic
     // multi-provider wording. The multi-provider prefix is left untouched
     // so existing message-matching suites keep passing.
+    // Both wrappers replace the provider's error with a new one, discarding
+    // anything attached to it. `_generationEndEmitted` has to survive: lose it
+    // and emitGenerateErrorEvent emits a second event for a failure the native
+    // provider already reported. Returns the error rather than throwing so each
+    // call site keeps its own `throw` — a never-returning helper reads better
+    // but tsconfig.cli.json will not accept it as terminating the enclosing
+    // function (TS2366). `cause` is set because the original error and its
+    // stack were simply being thrown away.
+    const wrapProviderError = (message: string): Error => {
+      const wrapped = new Error(message, { cause: lastError });
+      if (
+        lastError &&
+        (lastError as { _generationEndEmitted?: boolean })._generationEndEmitted
+      ) {
+        (wrapped as { _generationEndEmitted?: boolean })._generationEndEmitted =
+          true;
+      }
+      return wrapped;
+    };
+
     if (providersToTry.length === 1) {
-      throw new Error(
+      throw wrapProviderError(
         `Provider ${providersToTry[0]} failed: ${lastError?.message || "Unknown error"}`,
       );
     }
 
-    throw new Error(
+    throw wrapProviderError(
       `Failed to generate text with all providers. Last error: ${lastError?.message || "Unknown error"}`,
     );
   }
