@@ -2433,11 +2433,15 @@ async function processImageToBase64(
       const match = image.match(/^data:([^;]+);base64,(.+)$/);
       if (match) {
         const declaredMime = match[1];
-        // #348: only accept image/* data URIs; reject a non-image MIME before
-        // it reaches a provider API rather than passing it through unchecked.
-        if (!declaredMime.startsWith("image/")) {
+        // #348: validate against the actual supported-image allowlist, not
+        // just the "image/*" prefix — "image/invalid-format" started with
+        // "image/" and passed here, only to fail later at the provider.
+        // Reuses ImageProcessor's allowlist (itself sourced from
+        // imageFormatSupport's SUPPORTED_INPUT_IMAGE_MIME_TYPES) so intake
+        // validation can never drift from the set NeuroLink actually accepts.
+        if (!ImageProcessor.validateImageFormat(declaredMime)) {
           throw new Error(
-            `Unsupported data URI MIME type for image input at index ${index}: "${declaredMime}" (expected image/*)`,
+            `Unsupported data URI MIME type for image input at index ${index}: "${declaredMime}" (not a supported image format)`,
           );
         }
         mimeType = declaredMime;

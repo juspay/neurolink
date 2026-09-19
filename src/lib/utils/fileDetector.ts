@@ -5,6 +5,7 @@
  */
 
 import { open, readFile, realpath } from "fs/promises";
+import { STATUS_CODES } from "node:http";
 import {
   basename,
   isAbsolute as isAbsolutePath,
@@ -892,7 +893,12 @@ export class FileDetector {
     ];
 
     let best: FileDetectionResult | null = null;
+    // #397: track which strategy produced `best` so the eventual log line
+    // can name it — the strategy instances themselves are gone by the time
+    // logging happens below, only their results survive.
+    let bestStrategyName = "none";
     for (const strategy of strategies) {
+      const strategyName = strategy.constructor.name;
       const result = await strategy.detect(
         strategy instanceof ExtensionStrategy && extensionInput
           ? extensionInput
@@ -900,20 +906,30 @@ export class FileDetector {
       );
       if (!best || result.metadata.confidence > best.metadata.confidence) {
         best = result;
+        bestStrategyName = strategyName;
       }
       if (result.metadata.confidence >= confidenceThreshold) {
         logger.info(
-          `[FileDetector] Type: ${result.type} (${result.metadata.confidence}%)`,
+          `[FileDetector] Type: ${result.type} (${result.metadata.confidence}%, strategy: ${strategyName})`,
         );
         return FileDetector.withResolvedExtension(result, input, options);
       }
     }
 
-    // Below-threshold detection is the common case for any file under the
-    // ContentHeuristic ceiling — a debug detail, not a warning-worthy anomaly.
-    logger.debug(
-      `[FileDetector] Best-effort type below threshold: ${best?.type ?? "unknown"} (${best?.metadata.confidence ?? 0}%, threshold ${confidenceThreshold}%)`,
-    );
+    // A genuinely unidentifiable input — every strategy failed to produce
+    // even a type — is a real failure, not a best-effort guess, so it is
+    // surfaced at error level instead of being buried in debug output.
+    if (!best || best.type === "unknown") {
+      logger.error(
+        `[FileDetector] Detection failed: no strategy identified a type (best: ${bestStrategyName}, ${best?.metadata.confidence ?? 0}%, threshold ${confidenceThreshold}%)`,
+      );
+    } else {
+      // Below-threshold detection is the common case for any file under the
+      // ContentHeuristic ceiling — a debug detail, not a warning-worthy anomaly.
+      logger.debug(
+        `[FileDetector] Best-effort type below threshold: ${best.type} (${best.metadata.confidence}%, threshold ${confidenceThreshold}%, strategy: ${bestStrategyName})`,
+      );
+    }
     return FileDetector.withResolvedExtension(
       best as FileDetectionResult,
       input,
@@ -2070,10 +2086,16 @@ export class FileDetector {
           });
 
           if (response.statusCode !== 200) {
-            // Query string / fragment stripped — a presigned URL's token must
-            // not be echoed into a thrown error.
+            // #360: pair the code with its standard reason phrase (e.g. 404 →
+            // "Not Found") so the message is readable rather than a bare
+            // number. Sourced from Node's own `http.STATUS_CODES` table
+            // rather than a hand-written map that could drift from it, and
+            // falls back gracefully for a non-standard code that table
+            // doesn't recognize. Query string / fragment stays stripped — a
+            // presigned URL's token must not be echoed into a thrown error.
+            const statusText = STATUS_CODES[response.statusCode];
             throw new Error(
-              `HTTP ${response.statusCode} fetching ${redactUrlForError(url)}`,
+              `HTTP ${response.statusCode}${statusText ? ` ${statusText}` : ""} fetching ${redactUrlForError(url)}`,
             );
           }
 
