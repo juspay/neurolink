@@ -8,7 +8,7 @@
 
 > **CommandHandler**\<`TArgs`, `TResult`\> = (`args`) => `Promise`\<`TResult`\>
 
-Defined in: [types/cli.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L485)
+Defined in: [types/cli.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L487)
 
 Command handler function type
 

@@ -8,7 +8,7 @@
 
 > **ProxySupervisorState** = `object`
 
-Defined in: [types/cli.ts:1028](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1028)
+Defined in: [types/cli.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1030)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:1028](https://github.com/juspay/neurolink/blob/release
 
 > **pid**: `number`
 
-Defined in: [types/cli.ts:1029](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1029)
+Defined in: [types/cli.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1031)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:1029](https://github.com/juspay/neurolink/blob/release
 
 > **host**: `string`
 
-Defined in: [types/cli.ts:1030](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1030)
+Defined in: [types/cli.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1032)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/cli.ts:1030](https://github.com/juspay/neurolink/blob/release
 
 > **port**: `number`
 
-Defined in: [types/cli.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1031)
+Defined in: [types/cli.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1033)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/cli.ts:1031](https://github.com/juspay/neurolink/blob/release
 
 > **startTime**: `string`
 
-Defined in: [types/cli.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1032)
+Defined in: [types/cli.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1034)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/cli.ts:1032](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **version?**: `string`
 
-Defined in: [types/cli.ts:1034](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1034)
+Defined in: [types/cli.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1036)
 
 Version loaded by the long-lived supervisor process.
 
@@ -58,7 +58,7 @@ Version loaded by the long-lived supervisor process.
 
 > `optional` **updaterPid?**: `number`
 
-Defined in: [types/cli.ts:1035](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1035)
+Defined in: [types/cli.ts:1037](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1037)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/cli.ts:1035](https://github.com/juspay/neurolink/blob/release
 
 > **rolling**: [`ProxyRollingState`](ProxyRollingState.md)
 
-Defined in: [types/cli.ts:1036](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1036)
+Defined in: [types/cli.ts:1038](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1038)

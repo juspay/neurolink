@@ -8,7 +8,7 @@
 
 > **ProviderSetupArgv** = `object`
 
-Defined in: [types/cli.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1486)
+Defined in: [types/cli.ts:1488](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1488)
 
 Shared yargs-argv shape for every provider-specific CLI setup command.
 
@@ -18,7 +18,7 @@ Shared yargs-argv shape for every provider-specific CLI setup command.
 
 > `optional` **check?**: `boolean`
 
-Defined in: [types/cli.ts:1487](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1487)
+Defined in: [types/cli.ts:1489](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1489)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/cli.ts:1487](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **nonInteractive?**: `boolean`
 
-Defined in: [types/cli.ts:1488](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1488)
+Defined in: [types/cli.ts:1490](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1490)

@@ -8,7 +8,7 @@
 
 > **GoogleAISetupConfig** = `object`
 
-Defined in: [types/cli.ts:803](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L803)
+Defined in: [types/cli.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L805)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:803](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **apiKey?**: `string`
 
-Defined in: [types/cli.ts:804](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L804)
+Defined in: [types/cli.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L806)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/cli.ts:804](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **model?**: `string`
 
-Defined in: [types/cli.ts:805](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L805)
+Defined in: [types/cli.ts:807](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L807)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/cli.ts:805](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **isReconfiguring?**: `boolean`
 
-Defined in: [types/cli.ts:806](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L806)
+Defined in: [types/cli.ts:808](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L808)

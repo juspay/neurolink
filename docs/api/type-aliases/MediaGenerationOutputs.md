@@ -152,11 +152,13 @@ if (result.ppt) {
 
 ### imageOutput?
 
-> `optional` **imageOutput?**: \{ `base64`: `string`; \} \| `null`
+> `optional` **imageOutput?**: \{ `base64`: `string`; `mimeType?`: `string`; \} \| `null`
 
-Defined in: [types/generate.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1045)
+Defined in: [types/generate.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1049)
 
-Standard format for image generation
+Standard format for image generation. `mimeType` is set when the provider
+can identify the encoded format (sniffed from the image bytes, e.g.
+Recraft returns WebP), so callers do not have to assume PNG.
 
 ---
 
@@ -164,6 +166,6 @@ Standard format for image generation
 
 > `optional` **transcription?**: [`STTResult`](STTResult.md)
 
-Defined in: [types/generate.ts:1047](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1047)
+Defined in: [types/generate.ts:1051](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1051)
 
 STT transcription result (present when stt.enabled is true and audio input was provided)
