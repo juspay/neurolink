@@ -1783,6 +1783,546 @@ async function testCartesiaTTS(sdk: NeuroLink): Promise<boolean | null> {
   }
 }
 
+// ============================================================
+// TTS-013 (#492): Google native streaming synthesis
+// TTS-026 (#524): `neurolink voices`
+// TTS-028 (#528): live per-provider synthesis
+// ============================================================
+
+/**
+ * A voice family Google's streaming endpoint accepts. Every other family is
+ * refused with `only Chirp 3: HD voices are supported for streaming
+ * synthesis`, so this is not interchangeable with TTS_CONFIG.defaultVoice.
+ */
+const STREAMING_VOICE = "en-US-Chirp3-HD-Aoede";
+
+/**
+ * Exactly one sentence, and long enough that Google takes over a second to
+ * render it.
+ *
+ * That is what makes the chunk count discriminating. `TTSProcessor` segments
+ * streamed text at sentence boundaries and serves each segment either from a
+ * handler's native stream or from a single buffered `synthesize()` call, so
+ * one sentence yields exactly ONE chunk on the buffered path however long it
+ * is. More than one chunk is reachable only by the native path.
+ */
+const ONE_SENTENCE =
+  "One single sentence that is long enough for the service to take a " +
+  "noticeable moment to render it from beginning to end";
+
+async function* oneSegment(text: string): AsyncGenerator<string> {
+  yield text;
+}
+
+type CollectedChunk = {
+  index: number;
+  isFinal: boolean;
+  bytes: number;
+  cumulativeSize?: number;
+  format: string;
+  sampleRate?: number;
+};
+
+/**
+ * Drain `TTSProcessor.synthesizeStream()` for one sentence.
+ *
+ * `streamingBufferSize` is set above the sentence length so the processor
+ * cannot hard-split it: any chunk count above one then comes from the
+ * handler, not from segmentation.
+ */
+async function collectGoogleChunks(
+  format: "pcm16" | "ogg" | "mp3",
+  voice: string,
+): Promise<CollectedChunk[]> {
+  await ProviderRegistry.registerAllProviders();
+  const collected: CollectedChunk[] = [];
+  for await (const chunk of TTSProcessor.synthesizeStream(
+    oneSegment(ONE_SENTENCE),
+    "google-ai",
+    { voice, format, streamingBufferSize: ONE_SENTENCE.length + 50 },
+  )) {
+    collected.push({
+      index: chunk.index,
+      isFinal: chunk.isFinal,
+      bytes: chunk.data.length,
+      cumulativeSize: chunk.cumulativeSize,
+      format: chunk.format,
+      sampleRate: chunk.sampleRate,
+    });
+  }
+  return collected;
+}
+
+/**
+ * Global chunk invariants `TTSProcessor` guarantees whichever path served a
+ * segment. Returns a discrepancy description, or undefined when they all hold.
+ *
+ * Deliberately names the position of a mismatch rather than printing the
+ * chunk: a message carrying provider-ish text is reclassified as a skip by
+ * the harness, which would turn a real failure green.
+ */
+function describeChunkInvariantBreak(
+  chunks: readonly CollectedChunk[],
+): string | undefined {
+  const misindexed = chunks.findIndex((chunk, at) => chunk.index !== at);
+  if (misindexed !== -1) {
+    return `chunk indexes are not 0..n-1 — first mismatch at position ${misindexed}`;
+  }
+  const finals = chunks.filter((chunk) => chunk.isFinal).length;
+  if (finals !== 1) {
+    return `expected exactly one final chunk, counted ${finals}`;
+  }
+  if (!chunks[chunks.length - 1]?.isFinal) {
+    return "the final chunk is not the last one delivered";
+  }
+  let running = 0;
+  for (const [at, chunk] of chunks.entries()) {
+    running += chunk.bytes;
+    if (chunk.cumulativeSize !== running) {
+      return `cumulativeSize does not track the running byte total — first divergence at position ${at}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * TTS-013 (#492): Google streams natively for a streaming-capable voice.
+ *
+ * The precondition below matters: "more than one chunk" is only evidence of
+ * native delivery once audio has actually been produced. An empty stream
+ * would otherwise read as a failure of the native path when in fact nothing
+ * ran at all.
+ */
+async function testGoogleNativeStreaming(): Promise<boolean | null> {
+  const name = "TTS - Google native streaming (#492)";
+  logTest(name, "TESTING");
+
+  if (isTTSCredentialsMissing()) {
+    logTest(name, "SKIP", "GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  try {
+    const chunks = await collectGoogleChunks("pcm16", STREAMING_VOICE);
+
+    // Precondition: synthesis actually happened.
+    const audible = chunks.filter((chunk) => chunk.bytes > 0).length;
+    if (audible === 0) {
+      logTest(
+        name,
+        "FAIL",
+        "no audio was produced at all — the chunk-count assertion below would be vacuous",
+      );
+      return false;
+    }
+
+    if (chunks.length < 2) {
+      logTest(
+        name,
+        "FAIL",
+        `one sentence produced ${chunks.length} chunk(s); the native path must deliver more than one`,
+      );
+      return false;
+    }
+
+    const broken = describeChunkInvariantBreak(chunks);
+    if (broken) {
+      logTest(name, "FAIL", broken);
+      return false;
+    }
+
+    if (chunks[0]?.format !== "pcm16") {
+      logTest(name, "FAIL", "streamed chunks are not labelled pcm16");
+      return false;
+    }
+    if (chunks[0]?.sampleRate !== 24000) {
+      logTest(
+        name,
+        "FAIL",
+        "streamed chunks do not report the 24kHz sample rate headerless PCM needs",
+      );
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `${chunks.length} native chunks, ${chunks[chunks.length - 1]?.cumulativeSize} bytes`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(name, "SKIP", `upstream error: ${msg.slice(0, 120)}`);
+      return null;
+    }
+    logTest(name, "FAIL", msg);
+    return false;
+  }
+}
+
+/**
+ * TTS-013 (#492), negative control: the format gate keeps mp3 on the buffered
+ * path.
+ *
+ * Google's streaming endpoint rejects MP3 outright, so the handler must
+ * answer `undefined` for it rather than reach the wire and fail a segment the
+ * buffered path can serve. Same voice as the case above — only the format
+ * differs — so a chunk count of exactly one isolates the gate.
+ */
+async function testGoogleStreamingFormatGate(): Promise<boolean | null> {
+  const name = "TTS - Google streaming format gate (#492)";
+  logTest(name, "TESTING");
+
+  if (isTTSCredentialsMissing()) {
+    logTest(name, "SKIP", "GOOGLE_APPLICATION_CREDENTIALS not set");
+    return null;
+  }
+
+  try {
+    const chunks = await collectGoogleChunks("mp3", STREAMING_VOICE);
+
+    // Precondition: the buffered path ran and produced audio. Without this,
+    // zero chunks would satisfy "not more than one" for the wrong reason.
+    const audible = chunks.filter((chunk) => chunk.bytes > 0).length;
+    if (audible === 0) {
+      logTest(
+        name,
+        "FAIL",
+        "the buffered path produced no audio — nothing was actually synthesized",
+      );
+      return false;
+    }
+
+    if (chunks.length !== 1) {
+      logTest(
+        name,
+        "FAIL",
+        `mp3 must take the buffered path and yield one chunk per sentence; got ${chunks.length}`,
+      );
+      return false;
+    }
+
+    const broken = describeChunkInvariantBreak(chunks);
+    if (broken) {
+      logTest(name, "FAIL", broken);
+      return false;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `mp3 fell back to buffered, ${chunks[0]?.bytes} bytes`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (isExpectedProviderError(msg)) {
+      logTest(name, "SKIP", `upstream error: ${msg.slice(0, 120)}`);
+      return null;
+    }
+    logTest(name, "FAIL", msg);
+    return false;
+  }
+}
+
+/**
+ * TTS-026 (#524): `TTSProcessor.getVoices()` reports an unregistered provider
+ * as a typed error rather than a TypeError on an absent member.
+ *
+ * Runs without any credentials: with none set, nothing registers and every
+ * provider name is unregistered, which is exactly the case under test.
+ */
+async function testGetVoicesUnregistered(): Promise<boolean | null> {
+  const name = "TTS - getVoices rejects an unregistered provider (#524)";
+  logTest(name, "TESTING");
+
+  try {
+    await ProviderRegistry.registerAllProviders();
+    let raised: unknown;
+    try {
+      await TTSProcessor.getVoices("definitely-not-a-tts-provider");
+    } catch (err) {
+      raised = err;
+    }
+
+    if (raised === undefined) {
+      logTest(name, "FAIL", "listing voices for an unknown provider resolved");
+      return false;
+    }
+    const code = (raised as { code?: unknown }).code;
+    if (code !== "TTS_PROVIDER_NOT_SUPPORTED") {
+      logTest(name, "FAIL", "the raised error does not carry the typed code");
+      return false;
+    }
+
+    logTest(name, "PASS", "typed TTS_PROVIDER_NOT_SUPPORTED");
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * TTS-026 (#524): the CLI command exists, is reachable, and fails cleanly.
+ *
+ * Credential-free by construction — an unknown provider is unregistered
+ * whatever keys are present — so this half runs everywhere.
+ */
+async function testCLIVoicesUnknownProvider(): Promise<boolean | null> {
+  const name = "CLI voices - unknown provider exits non-zero (#524)";
+  logTest(name, "TESTING");
+
+  try {
+    const result = await runCommand("node", [
+      "dist/cli/index.js",
+      "voices",
+      "--provider=definitely-not-a-tts-provider",
+    ]);
+
+    if (result.success) {
+      logTest(
+        name,
+        "FAIL",
+        "the command reported success for an unknown provider",
+      );
+      return false;
+    }
+    const output = `${result.stdout}${result.stderr}`;
+    if (!output.includes("Could not list voices")) {
+      logTest(
+        name,
+        "FAIL",
+        "the failure was not reported by the voices command",
+      );
+      return false;
+    }
+    if (!output.includes("Registered providers")) {
+      logTest(name, "FAIL", "the failure does not name what is registered");
+      return false;
+    }
+
+    logTest(name, "PASS", `exit ${result.code}, registered set named`);
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * TTS-026 (#524): the live listing path — CLI, JSON mode, against OpenAI's
+ * fixed six voices, which are the one provider list that is a known constant.
+ */
+async function testCLIVoicesOpenAI(): Promise<boolean | null> {
+  const name = "CLI voices - OpenAI list (#524)";
+  logTest(name, "TESTING");
+
+  if (!process.env.OPENAI_API_KEY) {
+    logTest(name, "SKIP", "OPENAI_API_KEY not set");
+    return null;
+  }
+
+  try {
+    const result = await runCommand("node", [
+      "dist/cli/index.js",
+      "voices",
+      "--provider=openai-tts",
+      "--json",
+    ]);
+
+    if (!result.success) {
+      if (isExpectedProviderError(result.stderr)) {
+        logTest(name, "SKIP", result.stderr.slice(0, 120));
+        return null;
+      }
+      logTest(name, "FAIL", `the command exited ${result.code}`);
+      return false;
+    }
+
+    const start = result.stdout.indexOf("[");
+    const end = result.stdout.lastIndexOf("]");
+    if (start === -1 || end <= start) {
+      logTest(name, "FAIL", "--json did not emit a JSON array");
+      return false;
+    }
+    const parsed: unknown = JSON.parse(result.stdout.slice(start, end + 1));
+    if (!Array.isArray(parsed)) {
+      logTest(name, "FAIL", "--json did not emit a JSON array");
+      return false;
+    }
+
+    const ids = parsed.map((voice) => (voice as { id?: unknown }).id);
+    const expected = ["alloy", "echo", "fable", "nova", "onyx", "shimmer"];
+    const missing = expected.filter((id) => !ids.includes(id));
+    if (missing.length > 0) {
+      logTest(
+        name,
+        "FAIL",
+        `${missing.length} of the six OpenAI voices are absent`,
+      );
+      return false;
+    }
+
+    const names = parsed.map((voice) =>
+      String((voice as { name?: unknown }).name),
+    );
+    const unsorted = names.findIndex(
+      (current, at) => at > 0 && (names[at - 1] ?? "") > current,
+    );
+    if (unsorted !== -1) {
+      logTest(
+        name,
+        "FAIL",
+        `the list is not sorted by name — first break at position ${unsorted}`,
+      );
+      return false;
+    }
+
+    logTest(name, "PASS", `${parsed.length} voices, sorted`);
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
+/**
+ * TTS-028 (#528): every configured TTS provider synthesizes real audio.
+ *
+ * One case rather than one per provider so the matrix stays readable, and
+ * because the interesting property is coverage across providers rather than
+ * any single provider's behaviour. A provider whose key is absent is not
+ * counted; a provider whose key is present but rejected upstream is reported
+ * as an environment skip, matching `explainMissingAudio` elsewhere in this
+ * file. The whole case skips only when nothing at all was exercised.
+ */
+async function testLiveProviderSynthesis(): Promise<boolean | null> {
+  const name = "TTS - live provider synthesis matrix (#528)";
+  logTest(name, "TESTING");
+
+  const matrix: Array<{
+    provider: string;
+    configured: boolean;
+    voice?: string;
+    format: "mp3" | "pcm16";
+  }> = [
+    {
+      provider: "openai-tts",
+      configured: !!process.env.OPENAI_API_KEY,
+      voice: "nova",
+      format: "mp3",
+    },
+    {
+      provider: "google-ai",
+      configured: !!process.env.GOOGLE_APPLICATION_CREDENTIALS,
+      voice: TTS_CONFIG.defaultVoice,
+      format: "mp3",
+    },
+    {
+      provider: "azure-tts",
+      configured:
+        !!process.env.AZURE_SPEECH_KEY && !!process.env.AZURE_SPEECH_REGION,
+      voice: "en-US-JennyNeural",
+      format: "mp3",
+    },
+    {
+      provider: "elevenlabs",
+      configured: !!process.env.ELEVENLABS_API_KEY,
+      format: "mp3",
+    },
+    {
+      provider: "cartesia",
+      configured: !!process.env.CARTESIA_API_KEY,
+      format: "mp3",
+    },
+  ];
+
+  try {
+    await ProviderRegistry.registerAllProviders();
+
+    const passed: string[] = [];
+    const skipped: string[] = [];
+    const failed: string[] = [];
+
+    for (const entry of matrix) {
+      if (!entry.configured) {
+        continue;
+      }
+      if (!TTSProcessor.supports(entry.provider)) {
+        // Credentials are present but registration declined them. That is a
+        // configuration condition, not a synthesis defect.
+        skipped.push(`${entry.provider} (not registered)`);
+        continue;
+      }
+      try {
+        const result = await TTSProcessor.synthesize(
+          "Integration coverage for text to speech.",
+          entry.provider,
+          {
+            format: entry.format,
+            ...(entry.voice !== undefined ? { voice: entry.voice } : {}),
+          },
+        );
+        if (!Buffer.isBuffer(result.buffer) || result.buffer.length === 0) {
+          failed.push(`${entry.provider} (empty buffer)`);
+          continue;
+        }
+        if (result.size !== result.buffer.length) {
+          failed.push(`${entry.provider} (size disagrees with buffer)`);
+          continue;
+        }
+        if (typeof result.metadata?.latency !== "number") {
+          failed.push(`${entry.provider} (no latency recorded)`);
+          continue;
+        }
+        passed.push(`${entry.provider} ${result.buffer.length}B`);
+      } catch (err) {
+        const detail = err instanceof Error ? err.message : String(err);
+        // 401/403 is a credential condition — environmental, like a missing
+        // key. Anything else is a real failure of this provider's path.
+        if (/\b(?:401|403)\b/.test(detail) || isExpectedProviderError(detail)) {
+          skipped.push(`${entry.provider} (upstream credential/quota)`);
+          continue;
+        }
+        failed.push(`${entry.provider} (synthesis raised)`);
+      }
+    }
+
+    if (failed.length > 0) {
+      logTest(
+        name,
+        "FAIL",
+        `${failed.length} provider(s) failed: ${failed.join(", ")}`,
+      );
+      return false;
+    }
+    if (passed.length === 0) {
+      logTest(
+        name,
+        "SKIP",
+        skipped.length > 0
+          ? `no provider was exercised — ${skipped.join(", ")}`
+          : "no TTS provider credentials are set",
+      );
+      return null;
+    }
+
+    logTest(
+      name,
+      "PASS",
+      `${passed.length} synthesized: ${passed.join(", ")}${
+        skipped.length > 0 ? ` | skipped: ${skipped.join(", ")}` : ""
+      }`,
+    );
+    return true;
+  } catch (err) {
+    logTest(name, "FAIL", err instanceof Error ? err.message : String(err));
+    return false;
+  }
+}
+
 async function runAllTests(): Promise<void> {
   log("\nNeuroLink Continuous Test Suite: TTS (Text-to-Speech)", "bright");
   log(
@@ -1874,6 +2414,36 @@ async function runAllTests(): Promise<void> {
     {
       name: "TTS - Cartesia end-to-end",
       fn: () => testCartesiaTTS(sharedSdk),
+    },
+
+    // TTS-013 (#492) — Google native streaming, plus its format gate.
+    {
+      name: "TTS - Google native streaming (#492)",
+      fn: () => testGoogleNativeStreaming(),
+    },
+    {
+      name: "TTS - Google streaming format gate (#492)",
+      fn: () => testGoogleStreamingFormatGate(),
+    },
+
+    // TTS-026 (#524) — voice discovery, SDK and CLI.
+    {
+      name: "TTS - getVoices rejects an unregistered provider (#524)",
+      fn: () => testGetVoicesUnregistered(),
+    },
+    {
+      name: "CLI voices - unknown provider exits non-zero (#524)",
+      fn: () => testCLIVoicesUnknownProvider(),
+    },
+    {
+      name: "CLI voices - OpenAI list (#524)",
+      fn: () => testCLIVoicesOpenAI(),
+    },
+
+    // TTS-028 (#528) — live synthesis across every configured provider.
+    {
+      name: "TTS - live provider synthesis matrix (#528)",
+      fn: () => testLiveProviderSynthesis(),
     },
     // Observability spans (Test #15)
     {

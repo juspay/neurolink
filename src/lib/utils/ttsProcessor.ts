@@ -14,6 +14,7 @@ import type {
   TTSOptions,
   TTSResult,
   TTSHandler,
+  TTSVoice,
 } from "../types/index.js";
 import { VALID_AUDIO_FORMATS } from "../types/index.js";
 import { ErrorCategory, ErrorSeverity } from "../constants/enums.js";
@@ -394,6 +395,66 @@ export class TTSProcessor {
     }
 
     return isSupported;
+  }
+
+  /**
+   * List the voices a registered provider offers.
+   *
+   * The counterpart to `synthesize()` for discovery: a caller cannot pass
+   * `TTSOptions.voice` without first knowing what the provider will accept,
+   * and `getVoices` is optional on `TTSHandler`, so asking the handler
+   * directly means every caller re-implements the same two guards. Both
+   * failures are reported as typed `TTSError`s rather than a `TypeError` on
+   * an absent member.
+   *
+   * `languageCode` is passed through verbatim; each handler decides what
+   * filtering it means. Google and Azure query their APIs with it, OpenAI's
+   * voice list is fixed and ignores it.
+   *
+   * @param providerName - Provider identifier, resolved case-insensitively
+   * @param options - Optional language filter
+   * @returns The provider's voices
+   * @throws TTSError if the provider is not registered or cannot list voices
+   *
+   * @example
+   * ```typescript
+   * const voices = await TTSProcessor.getVoices("google-ai", {
+   *   languageCode: "en-US",
+   * });
+   * ```
+   */
+  static async getVoices(
+    providerName: string,
+    options: { languageCode?: string } = {},
+  ): Promise<TTSVoice[]> {
+    const handler = this.getHandler(providerName);
+    if (!handler) {
+      const registered = this.listProviders();
+      throw new TTSError({
+        code: TTS_ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+        message: `TTS provider "${providerName}" is not registered. Registered providers: ${
+          registered.length > 0 ? registered.join(", ") : "none"
+        }`,
+        category: ErrorCategory.VALIDATION,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: false,
+        context: { provider: providerName },
+      });
+    }
+
+    const listVoices = handler.getVoices;
+    if (typeof listVoices !== "function") {
+      throw new TTSError({
+        code: TTS_ERROR_CODES.PROVIDER_NOT_SUPPORTED,
+        message: `TTS provider "${providerName}" does not support voice listing`,
+        category: ErrorCategory.VALIDATION,
+        severity: ErrorSeverity.MEDIUM,
+        retriable: false,
+        context: { provider: providerName },
+      });
+    }
+
+    return await listVoices.call(handler, options.languageCode);
   }
 
   /**

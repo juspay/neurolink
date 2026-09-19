@@ -42,6 +42,7 @@ import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
 import { voiceServerCommand } from "./commands/voiceServer.js";
 import { DocsCommandFactory } from "./commands/docs.js";
 import { UsageCommandFactory } from "./commands/usage.js";
+import { VoicesCommandFactory } from "./commands/voices.js";
 
 // Enhanced CLI with Professional UX
 export function initializeCliParser() {
@@ -227,6 +228,9 @@ export function initializeCliParser() {
 
       // Validate Command (alias for config validate)
       .command(CLICommandFactory.createValidateCommand())
+
+      // Voices Command - TTS voice discovery for --tts-voice
+      .command(VoicesCommandFactory.createVoicesCommand())
 
       // Completion Command - Using CLICommandFactory
       .command(CLICommandFactory.createCompletionCommand())
