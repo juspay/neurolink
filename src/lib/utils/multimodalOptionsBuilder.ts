@@ -65,6 +65,7 @@ export function buildMultimodalOptions(
     },
     csvOptions: options.csvOptions,
     pdfOptions: options.pdfOptions,
+    imageOptions: options.imageOptions,
     systemPrompt: options.systemPrompt,
     conversationHistory: options.conversationMessages,
     provider: providerName,
