@@ -1213,8 +1213,8 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       // model has already given. Dropping them is what makes `response_format`
       // legal again on a vendor that refuses the two together.
       withTools: boolean = true,
-    ) =>
-      runNativeGenerateLoop(
+    ) => {
+      return runNativeGenerateLoop(
         {
           doGenerate,
           ...createNativeGenerateGuard({
@@ -1229,10 +1229,17 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             // estimator's own serializer: its fallback over-reports, which
             // makes the guard fire rather than silently size the overhead at
             // nothing.
+            // Charge the guard only for what this pass actually sends. A
+            // reformat pass runs with `withTools === false` and omits `tools`
+            // from the request (see the spread below), so counting them here
+            // over-reports the fixed overhead. That inflation is not cosmetic:
+            // it feeds `planLoopGuardReclaim`, so a large tool schema can push
+            // the estimate past the reclaim threshold and drop older tool
+            // exchanges out of a reformat request that would have fit.
             getFixedOverheadTokens: () =>
               estimateTokens(
                 serializeForEstimate({
-                  tools: v3Tools,
+                  ...(withTools && v3Tools ? { tools: v3Tools } : {}),
                   responseFormat: format,
                 }),
                 this.providerName,
@@ -1281,6 +1288,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         },
         toolExecutionSummaries,
       );
+    };
 
     // Structured output rides `response_format` first. When a vendor rejects
     // that outright — a tools/JSON-mode conflict, or a schema its constrained

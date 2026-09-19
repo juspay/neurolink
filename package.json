@@ -250,7 +250,8 @@
     "test:anthropic-execution-control": "tsx test/continuous-test-suite-anthropic-execution-control.ts",
     "test:aistudio-loop-characterization": "tsx test/continuous-test-suite-aistudio-loop-characterization.ts",
     "test:docs-mcp": "pnpm exec tsx test/continuous-test-suite-docs-mcp.ts",
-    "test:vertex-claude-characterization": "tsx test/continuous-test-suite-vertex-claude-characterization.ts"
+    "test:vertex-claude-characterization": "tsx test/continuous-test-suite-vertex-claude-characterization.ts",
+    "test:toolfree-guard-overhead": "pnpm exec tsx test/continuous-test-suite-toolfree-guard-overhead.ts"
   },
   "files": [
     "dist",
