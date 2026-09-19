@@ -101,8 +101,14 @@ jobs:
       - name: Build package
         run: pnpm run build
 
+      # Bounded because this job runs multiple live sweeps back to back (this
+      # one and the CLI mirror below). The CLI harness already caps each
+      # child process, but nothing capped the step itself, and GitHub's
+      # default job ceiling is 360 minutes — long enough for one wedged
+      # provider to hold a nightly runner most of a day.
       - name: Live provider matrix sweep (self-gates cleanly when keys are absent)
         run: pnpm run test:matrix
+        timeout-minutes: 30
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -152,6 +158,8 @@ jobs:
       # a second build without shrinking the secrets it carries.
       - name: Live CLI provider matrix sweep (self-gates cleanly when keys are absent)
         run: pnpm run test:matrix:cli
+        # Same bound as the sweep above, for the same reason.
+        timeout-minutes: 30
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
