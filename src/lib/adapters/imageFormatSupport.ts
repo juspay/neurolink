@@ -23,12 +23,23 @@
 import type {
   ImageWithAltText,
   VisionImageConversion,
+  VisionImageOutputFormat,
 } from "../types/index.js";
 import { extensionForMimeType } from "../processors/config/fileTypeRegistry.js";
 import { withTimeout } from "../utils/errorHandling.js";
 import { logger } from "../utils/logger.js";
 import { tryImport } from "../utils/tryImport.js";
-import { getFfmpegPath, runFfmpeg } from "./video/ffmpegAdapter.js";
+import {
+  getFfmpegPath,
+  JPEG_QUALITY,
+  runFfmpeg,
+} from "./video/ffmpegAdapter.js";
+
+/**
+ * Default transcode target, and the one every existing caller keeps getting:
+ * see the module header for why PNG rather than JPEG is the right default.
+ */
+const DEFAULT_VISION_IMAGE_OUTPUT_FORMAT: VisionImageOutputFormat = "png";
 
 /**
  * Per-backend ceiling for one image conversion.
@@ -119,7 +130,10 @@ export function needsVisionTranscode(mimeType: string): boolean {
  * only — actual HEVC-coded HEIC fails inside libheif, and BMP, ICO and
  * JPEG 2000 are not compiled in at all. Those fall through to ffmpeg below.
  */
-async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
+async function transcodeWithSharp(
+  buffer: Buffer,
+  outputFormat: VisionImageOutputFormat,
+): Promise<Buffer> {
   const sharpModule = await tryImport<typeof import("sharp")>(
     "sharp",
     "Image format conversion for vision providers",
@@ -131,9 +145,9 @@ async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
   // failure list instead of "sharpModule.default is not a function".
   //
   // It deliberately throws rather than returning `buffer`: returning the input
-  // would report a successful conversion and relabel the original bytes as PNG,
-  // and would also skip the ffmpeg backend — the one that actually handles
-  // HEIC, BMP, ICO and JPEG 2000.
+  // would report a successful conversion and relabel the original bytes under
+  // the requested format, and would also skip the ffmpeg backend — the one
+  // that actually handles HEIC, BMP, ICO and JPEG 2000.
   if (typeof sharpModule?.default !== "function") {
     throw new Error(
       "the installed sharp package does not expose a callable default export",
@@ -143,9 +157,17 @@ async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
   // a multi-page TIFF) from being flattened into one tall strip — the first
   // frame is what a vision model should receive.
   const pipeline = sharpModule.default(buffer, { pages: 1 });
-  // The instance shape is checked as well as the factory: a build that exports
-  // a callable but returns something without `.png()` would otherwise fail as
-  // an opaque TypeError inside the backend loop.
+  if (outputFormat === "jpeg") {
+    // The instance shape is checked as well as the factory: a build that
+    // exports a callable but returns something without `.jpeg()` would
+    // otherwise fail as an opaque TypeError inside the backend loop.
+    if (typeof pipeline?.jpeg !== "function") {
+      throw new Error(
+        "the installed sharp package returned a pipeline without a jpeg() encoder",
+      );
+    }
+    return pipeline.jpeg().toBuffer();
+  }
   if (typeof pipeline?.png !== "function") {
     throw new Error(
       "the installed sharp package returned a pipeline without a png() encoder",
@@ -175,6 +197,7 @@ async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
 async function transcodeWithFfmpeg(
   buffer: Buffer,
   extension: string,
+  outputFormat: VisionImageOutputFormat,
   binaryPath?: string,
 ): Promise<Buffer> {
   const [
@@ -190,7 +213,14 @@ async function transcodeWithFfmpeg(
   ]);
   const workDir = await mkdtemp(join(tmpdir(), "neurolink-img-"));
   const inputPath = join(workDir, `${randomUUID()}${extension}`);
-  const outputPath = join(workDir, `${randomUUID()}.png`);
+  // "mjpeg" is ffmpeg's codec name for a JPEG image2 stream; "png" doubles as
+  // both the codec name and the output extension.
+  const outputExtension = outputFormat === "jpeg" ? ".jpg" : ".png";
+  const codecArgs =
+    outputFormat === "jpeg"
+      ? ["-c:v", "mjpeg", "-q:v", JPEG_QUALITY]
+      : ["-c:v", "png"];
+  const outputPath = join(workDir, `${randomUUID()}${outputExtension}`);
   try {
     await writeFile(inputPath, buffer);
     await runFfmpeg(
@@ -200,14 +230,13 @@ async function transcodeWithFfmpeg(
         "error",
         "-i",
         inputPath,
-        // Take a single frame so a multi-image container yields one PNG rather
-        // than ffmpeg erroring on a missing output-sequence pattern.
+        // Take a single frame so a multi-image container yields one output
+        // image rather than ffmpeg erroring on a missing sequence pattern.
         "-frames:v",
         "1",
         "-f",
         "image2",
-        "-c:v",
-        "png",
+        ...codecArgs,
         outputPath,
       ],
       binaryPath ? { binaryPath } : {},
@@ -230,17 +259,21 @@ async function transcodeWithFfmpeg(
 async function* transcodeBackends(
   buffer: Buffer,
   extension: string,
+  outputFormat: VisionImageOutputFormat,
 ): AsyncGenerator<{ name: string; run: () => Promise<Buffer> }> {
-  yield { name: "sharp", run: () => transcodeWithSharp(buffer) };
+  yield {
+    name: "sharp",
+    run: () => transcodeWithSharp(buffer, outputFormat),
+  };
   const resolved = await getFfmpegPath().catch(() => "ffmpeg");
   yield {
     name: "ffmpeg",
-    run: () => transcodeWithFfmpeg(buffer, extension),
+    run: () => transcodeWithFfmpeg(buffer, extension, outputFormat),
   };
   if (resolved !== "ffmpeg") {
     yield {
       name: "system ffmpeg",
-      run: () => transcodeWithFfmpeg(buffer, extension, "ffmpeg"),
+      run: () => transcodeWithFfmpeg(buffer, extension, outputFormat, "ffmpeg"),
     };
   }
 }
@@ -257,10 +290,14 @@ async function* transcodeBackends(
  *
  * @param buffer - Raw image bytes.
  * @param mimeType - Detected MIME type of `buffer`.
+ * @param outputFormat - Transcode target. Defaults to `"png"` — see the
+ *   module header for why that stays the default for every caller who
+ *   doesn't opt into `"jpeg"` explicitly.
  */
 export async function toVisionCompatibleImage(
   buffer: Buffer,
   mimeType: string,
+  outputFormat: VisionImageOutputFormat = DEFAULT_VISION_IMAGE_OUTPUT_FORMAT,
 ): Promise<VisionImageConversion> {
   if (!needsVisionTranscode(mimeType)) {
     return { buffer, mimeType, converted: false };
@@ -268,9 +305,14 @@ export async function toVisionCompatibleImage(
 
   const normalized = mimeType.split(";")[0].trim().toLowerCase();
   const extension = extensionForMimeType(normalized) ?? ".bin";
+  const targetMimeType = outputFormat === "jpeg" ? "image/jpeg" : "image/png";
   const failures: string[] = [];
 
-  for await (const backend of transcodeBackends(buffer, extension)) {
+  for await (const backend of transcodeBackends(
+    buffer,
+    extension,
+    outputFormat,
+  )) {
     try {
       // Both backends can stall — sharp on a malformed stream, ffmpeg on a
       // container it half-understands — and this runs inline on the request
@@ -287,10 +329,10 @@ export async function toVisionCompatibleImage(
         throw new Error("produced an empty image");
       }
       logger.debug(
-        `[imageFormatSupport] Transcoded ${normalized} → image/png via ${backend.name} ` +
+        `[imageFormatSupport] Transcoded ${normalized} → ${targetMimeType} via ${backend.name} ` +
           `(${buffer.length} → ${converted.length} bytes) for vision compatibility`,
       );
-      return { buffer: converted, mimeType: "image/png", converted: true };
+      return { buffer: converted, mimeType: targetMimeType, converted: true };
     } catch (error) {
       failures.push(
         `${backend.name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`,
@@ -299,8 +341,8 @@ export async function toVisionCompatibleImage(
   }
 
   logger.warn(
-    `[imageFormatSupport] Could not transcode ${normalized} to PNG — sending the ` +
-      `original bytes, which most vision providers will reject. Install a full ` +
+    `[imageFormatSupport] Could not transcode ${normalized} to ${targetMimeType} — sending ` +
+      `the original bytes, which most vision providers will reject. Install a full ` +
       `ffmpeg build (or set FFMPEG_PATH to one) to enable this format. ` +
       `Tried ${failures.join("; ")}`,
   );

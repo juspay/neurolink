@@ -31,6 +31,7 @@ import type {
   MultimodalChatMessage,
   StreamOptions,
   TextGenerationOptions,
+  VisionImageOutputFormat,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import {
@@ -1766,7 +1767,7 @@ export async function buildMultimodalMessagesArray(
 
   // Detection can append images (PDF page renders, video keyframes, a HEIC
   // photo), so compatibility conversion has to run after it, not before.
-  await normalizeVisionImageFormats(inp);
+  await normalizeVisionImageFormats(inp, options.imageOptions?.outputFormat);
 
   // Process explicit CSV files array
   await processExplicitCsvFiles(options);
@@ -1941,6 +1942,7 @@ export async function buildMultimodalMessagesArray(
         model,
         options.pdfOptions,
         inp.nativeAudioFiles ?? [],
+        options.imageOptions?.outputFormat,
       );
     } else if (
       (inp.images && inp.images.length > 0) ||
@@ -1957,7 +1959,10 @@ export async function buildMultimodalMessagesArray(
         pdfFiles,
         provider,
         model,
-        inp.nativeAudioFiles ?? [],
+        {
+          audioFiles: inp.nativeAudioFiles ?? [],
+          outputFormat: options.imageOptions?.outputFormat,
+        },
       );
     } else {
       userContent = inp.text;
@@ -2052,6 +2057,7 @@ async function convertContentToProviderFormat(
   _model: string,
   pdfOptions?: GenerateOptions["pdfOptions"],
   audioFiles: MultimodalAudioEntry[] = [],
+  outputFormat?: VisionImageOutputFormat,
 ): Promise<unknown> {
   const textContent = content.find((c) => c.type === "text");
   const imageContent = content.filter((c) => c.type === "image");
@@ -2122,7 +2128,10 @@ async function convertContentToProviderFormat(
     pdfFiles,
     provider,
     _model,
-    audioFiles,
+    {
+      audioFiles,
+      outputFormat,
+    },
   );
 }
 
@@ -2423,6 +2432,7 @@ async function convertFilePathToBase64(filePath: string): Promise<string> {
 async function processImageToBase64(
   image: Buffer | string,
   index: number,
+  outputFormat?: VisionImageOutputFormat,
 ): Promise<{ imageData: string; mimeType: string }> {
   let imageData: string;
   let mimeType = "image/jpeg"; // Default mime type
@@ -2506,7 +2516,11 @@ async function processImageToBase64(
     const context = `image input at index ${index}`;
     ImageProcessor.validateSize(base64DecodedByteLength(imageData), context);
     const rawImage = Buffer.from(imageData, "base64");
-    const compatible = await toVisionCompatibleImage(rawImage, mimeType);
+    const compatible = await toVisionCompatibleImage(
+      rawImage,
+      mimeType,
+      outputFormat,
+    );
     if (compatible.converted) {
       imageData = compatible.buffer.toString("base64");
       mimeType = compatible.mimeType;
@@ -2531,6 +2545,7 @@ async function processImageToBase64(
  */
 export async function normalizeVisionImageFormats(
   input: GenerateOptions["input"],
+  outputFormat?: VisionImageOutputFormat,
 ): Promise<void> {
   const images = input?.images;
   if (!images || images.length === 0) {
@@ -2555,6 +2570,7 @@ export async function normalizeVisionImageFormats(
     const compatible = await toVisionCompatibleImage(
       source.buffer,
       source.mimeType,
+      outputFormat,
     );
     if (!compatible.converted) {
       continue;
@@ -2708,6 +2724,7 @@ async function convertSimpleImagesToProviderFormat(
   images: Array<Buffer | string | ImageWithAltText>,
   provider: string,
   _model: string,
+  outputFormat?: VisionImageOutputFormat,
 ): Promise<Array<TextPart | ImagePart>> {
   // Validate image count against provider-specific limits before processing
   ProviderImageAdapter.validateImageCount(images.length, provider, _model);
@@ -2779,7 +2796,11 @@ async function convertSimpleImagesToProviderFormat(
   for (const [index, { data: image }] of actualImages.entries()) {
     try {
       // Use helper function to process image and reduce nesting depth
-      const { imageData, mimeType } = await processImageToBase64(image, index);
+      const { imageData, mimeType } = await processImageToBase64(
+        image,
+        index,
+        outputFormat,
+      );
 
       content.push({
         type: "image" as const,
@@ -2809,8 +2830,14 @@ async function convertMultimodalToProviderFormat(
   pdfFiles: MultimodalPdfEntry[],
   provider: string,
   model: string,
-  audioFiles: MultimodalAudioEntry[] = [],
+  // Bundled rather than two more positional params: a 7th would trip the
+  // repo's `max-params` ceiling of 6.
+  mediaOptions: {
+    audioFiles?: MultimodalAudioEntry[];
+    outputFormat?: VisionImageOutputFormat;
+  } = {},
 ): Promise<Array<TextPart | ImagePart | FilePart>> {
+  const { audioFiles = [], outputFormat } = mediaOptions;
   const content: Array<TextPart | ImagePart | FilePart> = [
     { type: "text", text },
   ];
@@ -2822,6 +2849,7 @@ async function convertMultimodalToProviderFormat(
       images,
       provider,
       model,
+      outputFormat,
     );
     if (Array.isArray(imageContent)) {
       imageContent.forEach((item) => {
