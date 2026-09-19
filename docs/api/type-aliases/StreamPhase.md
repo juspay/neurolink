@@ -8,6 +8,6 @@
 
 > **StreamPhase** = `"initializing"` \| `"streaming"` \| `"processing"` \| `"complete"` \| `"error"`
 
-Defined in: [types/providers.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L414)
+Defined in: [types/providers.ts:416](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L416)
 
 Stream processing phases

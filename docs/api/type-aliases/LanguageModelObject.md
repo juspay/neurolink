@@ -8,7 +8,7 @@
 
 > **LanguageModelObject** = `object`
 
-Defined in: [types/providers.ts:2126](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2126)
+Defined in: [types/providers.ts:2128](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2128)
 
 Language model object shape (LanguageModelV2/V3).
 
@@ -18,7 +18,7 @@ Language model object shape (LanguageModelV2/V3).
 
 > `readonly` **modelId**: `string`
 
-Defined in: [types/providers.ts:2127](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2127)
+Defined in: [types/providers.ts:2129](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2129)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:2127](https://github.com/juspay/neurolink/blob/r
 
 > `readonly` **provider**: `string`
 
-Defined in: [types/providers.ts:2128](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2128)
+Defined in: [types/providers.ts:2130](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2130)
