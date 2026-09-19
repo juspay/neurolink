@@ -25,6 +25,19 @@
  *
  * Suites that legitimately need a different default (e.g. middleware uses
  * ollama by default) pass `{ defaultProvider: "ollama" }` to defineSuite.
+ *
+ * Per-test timeout budget scaling:
+ *   `NEUROLINK_TEST_TIMEOUT_SCALE` multiplies every suite's resolved
+ *   `perTestTimeoutMs` (default 240_000, or a suite's own override). It is
+ *   unset by default, which resolves to a scale of 1 — today's fixed
+ *   budgets, unchanged, on a local machine. Set it on a shared/loaded CI
+ *   executor (e.g. `NEUROLINK_TEST_TIMEOUT_SCALE=2`) to widen every suite's
+ *   wall-clock budget without editing suite source. Anything that does not
+ *   parse as a finite number greater than 0 (unset, empty, non-numeric, or
+ *   <= 0) falls back to 1. This only widens the budget; it does not and
+ *   cannot tell a genuine hang apart from runner contention — see the
+ *   offline-timeout message in `defineSuite` for why that distinction is
+ *   left to the reader.
  */
 import "dotenv/config";
 import { spawn, type SpawnOptions } from "node:child_process";
@@ -168,6 +181,28 @@ function resolveOpts(name: string, defs: DefineSuiteOpts): SuiteOpts {
     process.env.TEST_MODEL ??
     defs.defaultModel;
   return { name, provider, model, port: args.port };
+}
+
+/** Env var documented in this file's header comment. */
+export const TIMEOUT_SCALE_ENV_VAR = "NEUROLINK_TEST_TIMEOUT_SCALE";
+
+/**
+ * Multiplier for every suite's `perTestTimeoutMs`, read from
+ * `NEUROLINK_TEST_TIMEOUT_SCALE`. Falls back to 1 (today's fixed budgets,
+ * unchanged) whenever the value is unset or does not parse as a finite
+ * number greater than 0 — an invalid override should never shrink a budget
+ * to 0 or leave it negative.
+ *
+ * Exported (not just used internally by `defineSuite`) so this parsing can
+ * be asserted on directly instead of only through a live timer race.
+ */
+export function resolveTimeoutScale(): number {
+  const raw = process.env[TIMEOUT_SCALE_ENV_VAR];
+  if (raw === undefined || raw.trim() === "") {
+    return 1;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -543,11 +578,21 @@ export function defineSuite(
   const failures: { name: string; error: string }[] = [];
   const startedAt = Date.now();
 
-  const perTestTimeoutMs = defs.perTestTimeoutMs ?? 240_000;
+  // Scaled by NEUROLINK_TEST_TIMEOUT_SCALE (see this file's header comment);
+  // the scale is 1 by default, so this is exactly today's fixed value.
+  const perTestTimeoutMs = Math.round(
+    (defs.perTestTimeoutMs ?? 240_000) * resolveTimeoutScale(),
+  );
   // Sentinel used by the per-test timeout below. Classified as SKIP because a
-  // live suite can't tell an SDK bug from an upstream that never responded —
-  // unless the suite declares `offline`, where there is no upstream and the
-  // only remaining explanation is a defect here.
+  // live suite can't tell an SDK bug from an upstream that never responded.
+  // A suite that declares `offline` has no upstream, so that particular
+  // ambiguity is gone — but a *different* one takes its place: "offline"
+  // rules out a slow upstream, not a slow runner. A shared/loaded CI
+  // executor can stretch the same wall-clock budget that a genuine hang
+  // would blow through, and this harness has no way to tell the two apart
+  // from inside the timeout. So the offline case is classified as FAIL
+  // (someone must look), but the message below names both explanations
+  // instead of asserting the one it cannot actually rule out.
   const PER_TEST_TIMEOUT_SKIP_MARKER = "PER_TEST_TIMEOUT_SKIP";
   const timeoutIsFailure = defs.offline === true;
 
@@ -558,7 +603,7 @@ export function defineSuite(
         reject(
           new Error(
             timeoutIsFailure
-              ? `${testName} exceeded ${perTestTimeoutMs}ms in an offline suite — nothing here waits on a network, so this is a hang in the code under test, not a slow upstream`
+              ? `${testName} exceeded its ${perTestTimeoutMs}ms per-test budget in an offline suite (nothing here waits on a network, so this is not a slow upstream). That leaves two explanations this harness cannot distinguish: a genuine hang in the code under test, or contention on a shared/loaded CI runner stretching wall-clock time. Re-run in isolation, or raise ${TIMEOUT_SCALE_ENV_VAR} if the runner is shared, before concluding which.`
               : `SKIP: ${PER_TEST_TIMEOUT_SKIP_MARKER} — ${testName} exceeded ${perTestTimeoutMs}ms — upstream likely hung; aborting test`,
           ),
         );

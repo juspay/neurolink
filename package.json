@@ -80,6 +80,7 @@
     "test:context": "pnpm exec tsx test/continuous-test-suite-context.ts",
     "test:evaluation": "pnpm exec tsx test/continuous-test-suite-evaluation.ts",
     "test:handler-registry": "pnpm exec tsx test/continuous-test-suite-handler-registry.ts",
+    "test:harness-offline-timeout": "pnpm exec tsx test/continuous-test-suite-harness-offline-timeout.ts",
     "test:resolve-request-kind": "pnpm exec tsx test/continuous-test-suite-resolve-request-kind.ts",
     "test:mcp": "pnpm exec tsx test/continuous-test-suite-mcp-infra.ts",
     "test:tool-resolution": "pnpm exec tsx test/continuous-test-suite-tool-resolution.ts",
