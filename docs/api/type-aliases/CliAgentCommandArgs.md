@@ -8,7 +8,7 @@
 
 > **CliAgentCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:2049](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2049)
+Defined in: [types/cli.ts:2051](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2051)
 
 Agent command arguments for multi-agent orchestration
 

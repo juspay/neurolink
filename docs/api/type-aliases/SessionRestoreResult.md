@@ -8,7 +8,7 @@
 
 > **SessionRestoreResult** = `object`
 
-Defined in: [types/cli.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L570)
+Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L572)
 
 Session restore result
 
@@ -18,7 +18,7 @@ Session restore result
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L571)
+Defined in: [types/cli.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L573)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:571](https://github.com/juspay/neurolink/blob/release/
 
 > **sessionId**: `string`
 
-Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L572)
+Defined in: [types/cli.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L574)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:572](https://github.com/juspay/neurolink/blob/release/
 
 > **messageCount**: `number`
 
-Defined in: [types/cli.ts:573](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L573)
+Defined in: [types/cli.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L575)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:573](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L574)
+Defined in: [types/cli.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L576)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/cli.ts:574](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **lastActivity?**: `string`
 
-Defined in: [types/cli.ts:575](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L575)
+Defined in: [types/cli.ts:577](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L577)

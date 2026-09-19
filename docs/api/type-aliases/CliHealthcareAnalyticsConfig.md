@@ -8,7 +8,7 @@
 
 > **CliHealthcareAnalyticsConfig** = `object`
 
-Defined in: [types/cli.ts:1838](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1838)
+Defined in: [types/cli.ts:1840](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1840)
 
 Analytics config for the healthcare evaluation domain.
 
@@ -18,7 +18,7 @@ Analytics config for the healthcare evaluation domain.
 
 > **trackPatientData**: `boolean`
 
-Defined in: [types/cli.ts:1839](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1839)
+Defined in: [types/cli.ts:1841](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1841)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1839](https://github.com/juspay/neurolink/blob/release
 
 > **trackDiagnosticAccuracy**: `boolean`
 
-Defined in: [types/cli.ts:1840](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1840)
+Defined in: [types/cli.ts:1842](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1842)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1840](https://github.com/juspay/neurolink/blob/release
 
 > **trackTreatmentOutcomes**: `boolean`
 
-Defined in: [types/cli.ts:1841](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1841)
+Defined in: [types/cli.ts:1843](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1843)

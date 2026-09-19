@@ -8,7 +8,7 @@
 
 > **TextGenerationOptions** = `object`
 
-Defined in: [types/generate.ts:1243](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1243)
+Defined in: [types/generate.ts:1247](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1247)
 
 Text generation options type (consolidated from core types)
 Extended to support video generation mode
@@ -19,7 +19,7 @@ Extended to support video generation mode
 
 > `optional` **prompt?**: `string`
 
-Defined in: [types/generate.ts:1244](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1244)
+Defined in: [types/generate.ts:1248](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1248)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/generate.ts:1244](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **input?**: `object`
 
-Defined in: [types/generate.ts:1254](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1254)
+Defined in: [types/generate.ts:1258](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1258)
 
 Alternative input format for multimodal SDK operations.
 
@@ -81,7 +81,7 @@ Director Mode segments (2-10). When provided, Director Mode is activated.
 
 > `optional` **provider?**: [`AIProviderName`](../enumerations/AIProviderName.md)
 
-Defined in: [types/generate.ts:1276](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1276)
+Defined in: [types/generate.ts:1280](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1280)
 
 ---
 
@@ -89,7 +89,7 @@ Defined in: [types/generate.ts:1276](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **model?**: `string`
 
-Defined in: [types/generate.ts:1277](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1277)
+Defined in: [types/generate.ts:1281](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1281)
 
 ---
 
@@ -97,7 +97,7 @@ Defined in: [types/generate.ts:1277](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **region?**: `string`
 
-Defined in: [types/generate.ts:1278](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1278)
+Defined in: [types/generate.ts:1282](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1282)
 
 ---
 
@@ -105,7 +105,7 @@ Defined in: [types/generate.ts:1278](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/generate.ts:1279](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1279)
+Defined in: [types/generate.ts:1283](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1283)
 
 ---
 
@@ -113,7 +113,7 @@ Defined in: [types/generate.ts:1279](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/generate.ts:1280](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1280)
+Defined in: [types/generate.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1284)
 
 ---
 
@@ -121,7 +121,7 @@ Defined in: [types/generate.ts:1280](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **topP?**: `number`
 
-Defined in: [types/generate.ts:1282](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1282)
+Defined in: [types/generate.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1286)
 
 Top-p (nucleus) sampling parameter. Controls diversity of generated tokens.
 
@@ -131,7 +131,7 @@ Top-p (nucleus) sampling parameter. Controls diversity of generated tokens.
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/generate.ts:1284](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1284)
+Defined in: [types/generate.ts:1288](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1288)
 
 Top-k sampling parameter. Limits the number of tokens considered. (Google/Gemini models only)
 
@@ -141,7 +141,7 @@ Top-k sampling parameter. Limits the number of tokens considered. (Google/Gemini
 
 > `optional` **stopSequences?**: `string`[]
 
-Defined in: [types/generate.ts:1286](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1286)
+Defined in: [types/generate.ts:1290](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1290)
 
 Stop sequences that will halt generation when encountered.
 
@@ -151,7 +151,7 @@ Stop sequences that will halt generation when encountered.
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/generate.ts:1287](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1287)
+Defined in: [types/generate.ts:1291](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1291)
 
 ---
 
@@ -159,7 +159,7 @@ Defined in: [types/generate.ts:1287](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **schema?**: [`ZodUnknownSchema`](ZodUnknownSchema.md) \| [`Schema`](Schema.md)\<`unknown`\>
 
-Defined in: [types/generate.ts:1288](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1288)
+Defined in: [types/generate.ts:1292](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1292)
 
 ---
 
@@ -167,7 +167,7 @@ Defined in: [types/generate.ts:1288](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **output?**: `object`
 
-Defined in: [types/generate.ts:1300](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1300)
+Defined in: [types/generate.ts:1304](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1304)
 
 Output configuration options
 
@@ -232,7 +232,7 @@ output: {
 
 > `optional` **tools?**: `Record`\<`string`, [`Tool`](Tool.md)\>
 
-Defined in: [types/generate.ts:1332](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1332)
+Defined in: [types/generate.ts:1336](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1336)
 
 ---
 
@@ -240,7 +240,7 @@ Defined in: [types/generate.ts:1332](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **enabledToolNames?**: `string`[]
 
-Defined in: [types/generate.ts:1347](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1347)
+Defined in: [types/generate.ts:1351](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1351)
 
 Filter available tools by name.
 Only tools with names in this array will be made available.
@@ -262,7 +262,7 @@ await neurolink.generate({
 
 > `optional` **timeout?**: `number` \| `string`
 
-Defined in: [types/generate.ts:1348](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1348)
+Defined in: [types/generate.ts:1352](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1352)
 
 ---
 
@@ -270,7 +270,7 @@ Defined in: [types/generate.ts:1348](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **turnTimeoutMs?**: `number`
 
-Defined in: [types/generate.ts:1350](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1350)
+Defined in: [types/generate.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1354)
 
 Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutMs.
 
@@ -280,7 +280,7 @@ Wall-clock cap for the whole agentic turn (ms). See GenerateOptions.turnTimeoutM
 
 > `optional` **stallTimeoutMs?**: `number`
 
-Defined in: [types/generate.ts:1352](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1352)
+Defined in: [types/generate.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1356)
 
 Max time with no progress before the turn ends as "stalled" (ms). See GenerateOptions.stallTimeoutMs.
 
@@ -290,7 +290,7 @@ Max time with no progress before the turn ends as "stalled" (ms). See GenerateOp
 
 > `optional` **wrapupTimeLeadMs?**: `number`
 
-Defined in: [types/generate.ts:1354](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1354)
+Defined in: [types/generate.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1358)
 
 Remaining-time threshold that triggers the wrap-up nudge (ms). See GenerateOptions.wrapupTimeLeadMs.
 
@@ -300,7 +300,7 @@ Remaining-time threshold that triggers the wrap-up nudge (ms). See GenerateOptio
 
 > `optional` **toolTimeoutMs?**: `number` \| `null`
 
-Defined in: [types/generate.ts:1356](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1356)
+Defined in: [types/generate.ts:1360](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1360)
 
 Per-tool-execution timeout (ms, default 300_000; `null` for no bound). See GenerateOptions.toolTimeoutMs.
 
@@ -310,7 +310,7 @@ Per-tool-execution timeout (ms, default 300_000; `null` for no bound). See Gener
 
 > `optional` **abortSignal?**: `AbortSignal`
 
-Defined in: [types/generate.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1358)
+Defined in: [types/generate.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1362)
 
 AbortSignal for external cancellation of the AI call
 
@@ -320,7 +320,7 @@ AbortSignal for external cancellation of the AI call
 
 > `optional` **toolExecutionCapture?**: [`ToolExecutionCaptureOptions`](ToolExecutionCaptureOptions.md)
 
-Defined in: [types/generate.ts:1360](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1360)
+Defined in: [types/generate.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1364)
 
 Bounds for tool execution capture. See GenerateOptions.toolExecutionCapture.
 
@@ -330,7 +330,7 @@ Bounds for tool execution capture. See GenerateOptions.toolExecutionCapture.
 
 > `optional` **disableTools?**: `boolean`
 
-Defined in: [types/generate.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1368)
+Defined in: [types/generate.ts:1372](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1372)
 
 ---
 
@@ -338,7 +338,7 @@ Defined in: [types/generate.ts:1368](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **disableToolCallRepair?**: `boolean`
 
-Defined in: [types/generate.ts:1370](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1370)
+Defined in: [types/generate.ts:1374](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1374)
 
 Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (repair enabled).
 
@@ -348,7 +348,7 @@ Disable the schema-driven tool call repair mechanism (BZ-665). Default: false (r
 
 > `optional` **maxSteps?**: `number`
 
-Defined in: [types/generate.ts:1371](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1371)
+Defined in: [types/generate.ts:1375](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1375)
 
 ---
 
@@ -356,7 +356,7 @@ Defined in: [types/generate.ts:1371](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **toolFilter?**: `string`[]
 
-Defined in: [types/generate.ts:1374](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1374)
+Defined in: [types/generate.ts:1378](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1378)
 
 Include only these tools by name (whitelist). If set, only matching tools are available.
 
@@ -366,7 +366,7 @@ Include only these tools by name (whitelist). If set, only matching tools are av
 
 > `optional` **excludeTools?**: `string`[]
 
-Defined in: [types/generate.ts:1377](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1377)
+Defined in: [types/generate.ts:1381](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1381)
 
 Exclude these tools by name (blacklist). Applied after toolFilter.
 
@@ -376,7 +376,7 @@ Exclude these tools by name (blacklist). Applied after toolFilter.
 
 > `optional` **disableToolCache?**: `boolean`
 
-Defined in: [types/generate.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1380)
+Defined in: [types/generate.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1384)
 
 Disable tool result caching for this request (overrides global mcp.cache.enabled)
 
@@ -386,7 +386,7 @@ Disable tool result caching for this request (overrides global mcp.cache.enabled
 
 > `optional` **disableInternalFallback?**: `boolean`
 
-Defined in: [types/generate.ts:1389](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1389)
+Defined in: [types/generate.ts:1393](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1393)
 
 Caller owns fallback order. Read in two places: `directProviderGeneration`
 bounds its static provider-priority walk to one candidate, and
@@ -400,7 +400,7 @@ invalid-model error surfaces as itself. Mapped from
 
 > `optional` **toolChoice?**: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>
 
-Defined in: [types/generate.ts:1404](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1404)
+Defined in: [types/generate.ts:1408](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1408)
 
 Tool choice configuration for the generation.
 Controls whether and which tools the model must call.
@@ -420,7 +420,7 @@ will cause infinite tool calls until `maxSteps` is exhausted.
 
 > `optional` **prepareStep?**: (`options`) => `PromiseLike`\<\{ `model?`: [`LanguageModel`](LanguageModel.md); `toolChoice?`: [`ToolChoice`](ToolChoice.md)\<`Record`\<`string`, [`Tool`](Tool.md)\>\>; `experimental_activeTools?`: `string`[]; \} \| `undefined`\>
 
-Defined in: [types/generate.ts:1429](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1429)
+Defined in: [types/generate.ts:1433](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1433)
 
 Optional callback that runs before each step in a multi-step generation.
 Allows dynamically changing `toolChoice` and available tools per step.
@@ -477,7 +477,7 @@ https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-text#parameters
 
 > `optional` **tts?**: [`TTSOptions`](TTSOptions.md)
 
-Defined in: [types/generate.ts:1472](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1472)
+Defined in: [types/generate.ts:1476](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1476)
 
 Text-to-Speech (TTS) configuration
 
@@ -514,7 +514,7 @@ const result = await neurolink.generate({
 
 > `optional` **stt?**: [`STTOptions`](STTOptions.md) & `object`
 
-Defined in: [types/generate.ts:1491](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1491)
+Defined in: [types/generate.ts:1495](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1495)
 
 Speech-to-Text (STT) configuration
 
@@ -554,7 +554,7 @@ const result = await neurolink.generate({
 
 > `optional` **enableEvaluation?**: `boolean`
 
-Defined in: [types/generate.ts:1494](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1494)
+Defined in: [types/generate.ts:1498](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1498)
 
 ---
 
@@ -562,7 +562,7 @@ Defined in: [types/generate.ts:1494](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **enableAnalytics?**: `boolean`
 
-Defined in: [types/generate.ts:1495](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1495)
+Defined in: [types/generate.ts:1499](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1499)
 
 ---
 
@@ -570,7 +570,7 @@ Defined in: [types/generate.ts:1495](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **context?**: `Record`\<`string`, [`JsonValue`](JsonValue.md)\>
 
-Defined in: [types/generate.ts:1496](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1496)
+Defined in: [types/generate.ts:1500](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1500)
 
 ---
 
@@ -578,7 +578,7 @@ Defined in: [types/generate.ts:1496](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **evaluationDomain?**: `string`
 
-Defined in: [types/generate.ts:1499](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1499)
+Defined in: [types/generate.ts:1503](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1503)
 
 ---
 
@@ -586,7 +586,7 @@ Defined in: [types/generate.ts:1499](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **toolUsageContext?**: `string`
 
-Defined in: [types/generate.ts:1500](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1500)
+Defined in: [types/generate.ts:1504](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1504)
 
 ---
 
@@ -594,7 +594,7 @@ Defined in: [types/generate.ts:1500](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **conversationHistory?**: `object`[]
 
-Defined in: [types/generate.ts:1501](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1501)
+Defined in: [types/generate.ts:1505](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1505)
 
 #### role
 
@@ -610,7 +610,7 @@ Defined in: [types/generate.ts:1501](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **conversationMessages?**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/generate.ts:1504](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1504)
+Defined in: [types/generate.ts:1508](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1508)
 
 ---
 
@@ -618,7 +618,7 @@ Defined in: [types/generate.ts:1504](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **conversationMemoryConfig?**: `Partial`\<[`ConversationMemoryConfig`](ConversationMemoryConfig.md)\>
 
-Defined in: [types/generate.ts:1507](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1507)
+Defined in: [types/generate.ts:1511](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1511)
 
 ---
 
@@ -626,7 +626,7 @@ Defined in: [types/generate.ts:1507](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **originalPrompt?**: `string`
 
-Defined in: [types/generate.ts:1508](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1508)
+Defined in: [types/generate.ts:1512](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1512)
 
 ---
 
@@ -634,7 +634,7 @@ Defined in: [types/generate.ts:1508](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **middleware?**: [`MiddlewareFactoryOptions`](MiddlewareFactoryOptions.md)
 
-Defined in: [types/generate.ts:1511](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1511)
+Defined in: [types/generate.ts:1515](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1515)
 
 ---
 
@@ -642,7 +642,7 @@ Defined in: [types/generate.ts:1511](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **onFinish?**: [`OnFinishCallback`](OnFinishCallback.md)
 
-Defined in: [types/generate.ts:1519](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1519)
+Defined in: [types/generate.ts:1523](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1523)
 
 ---
 
@@ -650,7 +650,7 @@ Defined in: [types/generate.ts:1519](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **onError?**: [`OnErrorCallback`](OnErrorCallback.md)
 
-Defined in: [types/generate.ts:1520](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1520)
+Defined in: [types/generate.ts:1524](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1524)
 
 ---
 
@@ -658,7 +658,7 @@ Defined in: [types/generate.ts:1520](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **expectedOutcome?**: `string`
 
-Defined in: [types/generate.ts:1523](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1523)
+Defined in: [types/generate.ts:1527](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1527)
 
 ---
 
@@ -666,7 +666,7 @@ Defined in: [types/generate.ts:1523](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **evaluationCriteria?**: `string`[]
 
-Defined in: [types/generate.ts:1524](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1524)
+Defined in: [types/generate.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1528)
 
 ---
 
@@ -674,7 +674,7 @@ Defined in: [types/generate.ts:1524](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **csvOptions?**: [`CSVProcessorOptions`](CSVProcessorOptions.md)
 
-Defined in: [types/generate.ts:1527](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1527)
+Defined in: [types/generate.ts:1531](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1531)
 
 ---
 
@@ -682,7 +682,7 @@ Defined in: [types/generate.ts:1527](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **pdfOptions?**: `object`
 
-Defined in: [types/generate.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1530)
+Defined in: [types/generate.ts:1534](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1534)
 
 PDF processing options (#258).
 
@@ -716,7 +716,7 @@ Max pages converted by the image fallback (#297); defaults to PDF_LIMITS.DEFAULT
 
 > `optional` **enableSummarization?**: `boolean`
 
-Defined in: [types/generate.ts:1541](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1541)
+Defined in: [types/generate.ts:1545](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1545)
 
 ---
 
@@ -724,7 +724,7 @@ Defined in: [types/generate.ts:1541](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **skipToolPromptInjection?**: `boolean`
 
-Defined in: [types/generate.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1559)
+Defined in: [types/generate.ts:1563](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1563)
 
 Skip injecting tool schemas into the system prompt.
 When true, tools are ONLY passed natively via the provider's `tools` parameter,
@@ -737,7 +737,7 @@ Default: false (backward compatible — tool schemas are injected into system pr
 
 > `optional` **thinking?**: `boolean`
 
-Defined in: [types/generate.ts:1625](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1625)
+Defined in: [types/generate.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1629)
 
 Enable extended thinking capability (simplified option).
 Equivalent to `thinkingConfig.enabled = true`.
@@ -749,7 +749,7 @@ Works with both Anthropic and Gemini 3 models.
 
 > `optional` **thinkingBudget?**: `number`
 
-Defined in: [types/generate.ts:1632](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1632)
+Defined in: [types/generate.ts:1636](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1636)
 
 Token budget for thinking (Anthropic models only).
 Equivalent to `thinkingConfig.budgetTokens`.
@@ -761,7 +761,7 @@ Range: 5000-100000 tokens. Ignored for Gemini models.
 
 > `optional` **thinkingLevel?**: `"minimal"` \| `"low"` \| `"medium"` \| `"high"`
 
-Defined in: [types/generate.ts:1643](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1643)
+Defined in: [types/generate.ts:1647](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1647)
 
 Thinking level for Gemini 3 models only.
 Equivalent to `thinkingConfig.thinkingLevel`.
@@ -778,7 +778,7 @@ Equivalent to `thinkingConfig.thinkingLevel`.
 
 > `optional` **thinkingConfig?**: `object`
 
-Defined in: [types/generate.ts:1651](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1651)
+Defined in: [types/generate.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1655)
 
 Full thinking/reasoning configuration (recommended for SDK usage).
 Takes precedence over simplified options (thinking, thinkingBudget, thinkingLevel).
@@ -817,7 +817,7 @@ Above documentation for provider-specific behavior and option compatibility.
 
 > `optional` **credentials?**: [`NeurolinkCredentials`](NeurolinkCredentials.md)
 
-Defined in: [types/generate.ts:1667](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1667)
+Defined in: [types/generate.ts:1671](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1671)
 
 Per-provider credential overrides for this request.
 Overrides instance-level credentials set in `new NeuroLink({ credentials })`.
@@ -829,7 +829,7 @@ Unset providers fall through to instance credentials, then environment variables
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/generate.ts:1674](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1674)
+Defined in: [types/generate.ts:1678](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1678)
 
 Optional request identifier for observability and log correlation.
 When provided, this ID is forwarded to spans, logs, and telemetry so
@@ -841,7 +841,7 @@ callers can correlate generation traces back to their own request lifecycle.
 
 > `optional` **piiDetection?**: [`GenerateOptions`](GenerateOptions.md)\[`"piiDetection"`\]
 
-Defined in: [types/generate.ts:1677](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1677)
+Defined in: [types/generate.ts:1681](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1681)
 
 PII detection config — forwarded from GenerateOptions/StreamOptions.
 
@@ -851,7 +851,7 @@ PII detection config — forwarded from GenerateOptions/StreamOptions.
 
 > `optional` **responseValidation?**: [`GenerateOptions`](GenerateOptions.md)\[`"responseValidation"`\]
 
-Defined in: [types/generate.ts:1680](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1680)
+Defined in: [types/generate.ts:1684](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1684)
 
 Response validation config — forwarded from GenerateOptions/StreamOptions.
 
@@ -861,7 +861,7 @@ Response validation config — forwarded from GenerateOptions/StreamOptions.
 
 > `optional` **inputValidation?**: [`GenerateOptions`](GenerateOptions.md)\[`"inputValidation"`\]
 
-Defined in: [types/generate.ts:1683](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1683)
+Defined in: [types/generate.ts:1687](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1687)
 
 Input validation config — forwarded from GenerateOptions/StreamOptions.
 
@@ -871,7 +871,7 @@ Input validation config — forwarded from GenerateOptions/StreamOptions.
 
 > `optional` **processors?**: [`ProcessorPipelineConfig`](ProcessorPipelineConfig.md)
 
-Defined in: [types/generate.ts:1686](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1686)
+Defined in: [types/generate.ts:1690](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1690)
 
 #### Deprecated
 

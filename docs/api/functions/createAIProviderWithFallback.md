@@ -8,7 +8,7 @@
 
 > **createAIProviderWithFallback**(`primaryProvider?`, `fallbackProvider?`, `modelName?`): `Promise`\<[`ProviderPairResult`](../type-aliases/ProviderPairResult.md)\<[`AIProvider`](../type-aliases/AIProvider.md)\>\>
 
-Defined in: [index.ts:523](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L523)
+Defined in: [index.ts:527](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L527)
 
 Create provider with automatic fallback for production resilience.
 

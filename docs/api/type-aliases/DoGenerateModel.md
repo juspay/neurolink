@@ -8,7 +8,7 @@
 
 > **DoGenerateModel** = `object`
 
-Defined in: [types/cli.ts:1403](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1403)
+Defined in: [types/cli.ts:1405](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1405)
 
 Type for language models that expose the low-level doGenerate method.
 Used by SageMaker CLI commands for direct endpoint testing and benchmarking.
@@ -19,7 +19,7 @@ Used by SageMaker CLI commands for direct endpoint testing and benchmarking.
 
 > **doGenerate**(`options`): `Promise`\<\{ `text?`: `string`; `finishReason?`: `string`; `usage`: \{ `promptTokens?`: `number`; `completionTokens?`: `number`; `inputTokens?`: `number`; `outputTokens?`: `number`; `totalTokens?`: `number`; \}; \}\>
 
-Defined in: [types/cli.ts:1404](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1404)
+Defined in: [types/cli.ts:1406](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1406)
 
 #### Parameters
 
