@@ -8110,7 +8110,10 @@ Current user's request: ${currentInput}`;
       toolsUsed: result.toolsUsed || [],
       toolCalls: result.toolCalls ?? [],
       toolExecutions: transformedToolExecutions,
-      enhancedWithTools: Boolean(hasToolExecutions),
+      // A tool RAN (toolsUsed), not merely dispatched (toolExecutions can
+      // include failed/never-found calls) — see hasToolExecutions above,
+      // which still gates the null-result check and must not change.
+      enhancedWithTools: !!(result.toolsUsed && result.toolsUsed.length > 0),
       availableTools: transformToolsForMCP(
         transformToolsToExpectedFormat(availableTools),
       ),
@@ -8312,7 +8315,8 @@ Current user's request: ${currentInput}`;
               executionTime: te.durationMs,
               success: !te.isError,
             })),
-            enhancedWithTools: !!poolResult.toolExecutions?.length,
+            // A tool RAN (toolsUsed), not merely dispatched.
+            enhancedWithTools: !!poolResult.toolsUsed?.length,
             analytics: poolResult.analytics,
             evaluation: poolResult.evaluation,
             audio: poolResult.audio,
@@ -8786,7 +8790,8 @@ Current user's request: ${currentInput}`;
             executionTime: te.durationMs,
             success: !te.isError,
           })),
-          enhancedWithTools: !!result.toolExecutions?.length,
+          // A tool RAN (toolsUsed), not merely dispatched.
+          enhancedWithTools: !!result.toolsUsed?.length,
           analytics: result.analytics,
           evaluation: result.evaluation,
           audio: result.audio,

@@ -1081,15 +1081,19 @@ await test("Bedrock does not report a tool the model asked for but never ran", a
       "toolsUsed reports a tool the turn never executed",
     );
 
-    // `enhancedWithTools` is deliberately NOT asserted here. The provider sets
-    // it, but `NeuroLink.generate()` overwrites it with
-    // `Boolean(result.toolExecutions?.length)` before the caller sees it, so on
-    // this surface it means "a tool was dispatched", not "a tool ran". That the
-    // same field carries one meaning through the SDK and another through a
-    // provider handle is a pre-existing, cross-provider inconsistency — not
-    // something to redefine from inside a Bedrock fix. The provider-level value
-    // is aligned with `toolsUsed` in client.ts so the two stop disagreeing
-    // there.
+    // The contract this locks in: `enhancedWithTools` means a tool RAN, not
+    // merely that one was dispatched. `NeuroLink.generate()` used to derive
+    // it from `toolExecutions.length` (dispatch, including this failed
+    // TOOL_NOT_FOUND lookup), overwriting whatever the provider set from
+    // `toolsUsed` (ran) — so the same public field meant "dispatched"
+    // through the SDK and "ran" through a provider handle. The preconditions
+    // above already prove the dispatch happened and failed
+    // (`toolExecutions.length > 0`, `executed === 0`), so this is not
+    // satisfied merely because nothing was dispatched.
+    assert(
+      result.enhancedWithTools !== true,
+      "enhancedWithTools reports true for a turn whose only tool dispatch failed",
+    );
   } finally {
     await local.close();
     for (const key of Object.keys(process.env)) {
