@@ -8,7 +8,7 @@
 
 > **TelemetryNativeValidateArgs** = `object`
 
-Defined in: [types/cli.ts:1237](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1237)
+Defined in: [types/cli.ts:1239](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1239)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/cli.ts:1237](https://github.com/juspay/neurolink/blob/release
 
 > **directory**: `string`
 
-Defined in: [types/cli.ts:1238](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1238)
+Defined in: [types/cli.ts:1240](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1240)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/cli.ts:1238](https://github.com/juspay/neurolink/blob/release
 
 > **collectorBin**: `string`
 
-Defined in: [types/cli.ts:1239](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1239)
+Defined in: [types/cli.ts:1241](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1241)

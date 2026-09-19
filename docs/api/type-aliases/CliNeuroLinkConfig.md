@@ -8,7 +8,7 @@
 
 > **CliNeuroLinkConfig** = `object`
 
-Defined in: [types/cli.ts:1916](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1916)
+Defined in: [types/cli.ts:1918](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1918)
 
 Materialized shape of the CLI config parsed from `~/.neurolink/config.json`.
 Matches the output of `ConfigSchema.parse()` defined in
@@ -21,7 +21,7 @@ Matches the output of `ConfigSchema.parse()` defined in
 
 > **defaultProvider**: [`CliConfigProvider`](CliConfigProvider.md)
 
-Defined in: [types/cli.ts:1917](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1917)
+Defined in: [types/cli.ts:1919](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1919)
 
 ---
 
@@ -29,7 +29,7 @@ Defined in: [types/cli.ts:1917](https://github.com/juspay/neurolink/blob/release
 
 > **providers**: `object`
 
-Defined in: [types/cli.ts:1918](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1918)
+Defined in: [types/cli.ts:1920](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1920)
 
 #### openai?
 
@@ -193,7 +193,7 @@ Defined in: [types/cli.ts:1918](https://github.com/juspay/neurolink/blob/release
 
 > **profiles**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/cli.ts:1948](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1948)
+Defined in: [types/cli.ts:1950](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1950)
 
 ---
 
@@ -201,7 +201,7 @@ Defined in: [types/cli.ts:1948](https://github.com/juspay/neurolink/blob/release
 
 > **preferences**: `object`
 
-Defined in: [types/cli.ts:1949](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1949)
+Defined in: [types/cli.ts:1951](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1951)
 
 #### outputFormat
 
@@ -245,7 +245,7 @@ Defined in: [types/cli.ts:1949](https://github.com/juspay/neurolink/blob/release
 
 > **domains**: `object`
 
-Defined in: [types/cli.ts:1960](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1960)
+Defined in: [types/cli.ts:1962](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1962)
 
 #### healthcare
 

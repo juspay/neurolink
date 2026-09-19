@@ -8,7 +8,7 @@
 
 > **MCPDiscoveryResult** = `object`
 
-Defined in: [types/cli.ts:1990](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1990)
+Defined in: [types/cli.ts:1992](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1992)
 
 Per-server discovery result produced by `neurolink mcp discover`.
 
@@ -18,7 +18,7 @@ Per-server discovery result produced by `neurolink mcp discover`.
 
 > **serverId**: `string`
 
-Defined in: [types/cli.ts:1991](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1991)
+Defined in: [types/cli.ts:1993](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1993)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1991](https://github.com/juspay/neurolink/blob/release
 
 > **serverName**: `string`
 
-Defined in: [types/cli.ts:1992](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1992)
+Defined in: [types/cli.ts:1994](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1994)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1992](https://github.com/juspay/neurolink/blob/release
 
 > **toolCount**: `number`
 
-Defined in: [types/cli.ts:1993](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1993)
+Defined in: [types/cli.ts:1995](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1995)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/cli.ts:1993](https://github.com/juspay/neurolink/blob/release
 
 > **tools**: `object`[]
 
-Defined in: [types/cli.ts:1994](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1994)
+Defined in: [types/cli.ts:1996](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1996)
 
 #### name
 

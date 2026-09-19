@@ -8,7 +8,7 @@
 
 > **TaskLogsArgs** = `object`
 
-Defined in: [types/cli.ts:1805](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1805)
+Defined in: [types/cli.ts:1807](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1807)
 
 Arguments for `neurolink task logs`.
 
@@ -18,7 +18,7 @@ Arguments for `neurolink task logs`.
 
 > **taskId**: `string`
 
-Defined in: [types/cli.ts:1806](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1806)
+Defined in: [types/cli.ts:1808](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1808)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1806](https://github.com/juspay/neurolink/blob/release
 
 > **limit**: `number`
 
-Defined in: [types/cli.ts:1807](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1807)
+Defined in: [types/cli.ts:1809](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1809)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1807](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **status?**: `string`
 
-Defined in: [types/cli.ts:1808](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1808)
+Defined in: [types/cli.ts:1810](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1810)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1808](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **full?**: `boolean`
 
-Defined in: [types/cli.ts:1809](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1809)
+Defined in: [types/cli.ts:1811](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1811)

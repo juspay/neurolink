@@ -27,6 +27,7 @@ import {
 import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
 import { assertSafeUrl } from "../utils/ssrfGuard.js";
 import type { LanguageModel } from "../types/index.js";
+import { detectImageMimeType } from "../utils/imageDetection.js";
 
 const RECRAFT_DEFAULT_BASE_URL = "https://external.api.recraft.ai/v1";
 const REQUEST_TIMEOUT_MS = 120_000;
@@ -269,7 +270,15 @@ export class RecraftProvider extends BaseProvider {
       model: this.modelName,
       // output: 1000 = sentinel for per-image pricing (see pricing.ts)
       usage: { input: 0, output: 1000, total: 1000 },
-      imageOutput: { base64 },
+      // Recraft answers b64_json with WebP bytes for V3 raster models; label
+      // the real format from the leading bytes instead of leaving callers to
+      // assume PNG.
+      imageOutput: {
+        base64,
+        mimeType: detectImageMimeType(
+          Buffer.from(base64.slice(0, 64), "base64"),
+        ),
+      },
     };
   }
 
