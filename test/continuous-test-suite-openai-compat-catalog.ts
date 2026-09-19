@@ -2,6 +2,18 @@
 import "dotenv/config";
 
 import { withCaseTimeout } from "./helpers/harness.js";
+import { execFileSync } from "node:child_process";
+import {
+  cpSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 
 /**
  * OpenAI-Compat Catalog — E2E contract + regression suite.
@@ -1173,6 +1185,145 @@ async function testCatalogStructuralInvariants(): Promise<void> {
 // Section: main
 // ───────────────────────────────────────────────────────────────────────
 
+// ───────────────────────────────────────────────────────────────────────
+// Section: the catalog schema's "a fallback cannot be the primary" rule
+//
+// This rule only ever fires through build tooling — `codegen:catalog --check`,
+// `check:models`, `verify:provider-onboarding` — so driving `generate()` does
+// not reach it. Rather than import the schema (which would make this a unit
+// test), these cases run the real tool in a subprocess against a copy of the
+// real catalog directory. `CATALOG_DIR` in tools/codegen-catalog.ts is relative,
+// so setting the child's cwd is enough to point it at a fixture tree.
+// ───────────────────────────────────────────────────────────────────────
+
+const CATALOG_SRC = "src/lib/providers/catalog";
+// Derived from this module's own location, not process.cwd(): a harness that
+// launches the suite from anywhere but the repo root would otherwise copy a
+// non-existent catalog tree, and run the exemption half against whatever tree
+// happened to be under the launch directory.
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Run `codegen:catalog --check` with its cwd pointed at a fixture tree. */
+function runCodegenCheck(cwd: string): { code: number; output: string } {
+  try {
+    // `.bin/tsx` is a shell wrapper, not a JS entry — it has to be executed,
+    // not handed to node. Both paths are absolute, so the child's cwd only
+    // selects which catalog directory the tool reads.
+    const stdout = execFileSync(
+      join(REPO_ROOT, "node_modules/.bin/tsx"),
+      [join(REPO_ROOT, "tools/codegen-catalog.ts"), "--check"],
+      {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+        env: process.env,
+      },
+    );
+    return { code: 0, output: stdout };
+  } catch (err) {
+    const e = err as { status?: number; stdout?: string; stderr?: string };
+    return {
+      code: e.status ?? 1,
+      output: `${e.stdout ?? ""}${e.stderr ?? ""}`,
+    };
+  }
+}
+
+/** A temp tree holding a copy of the real catalog directory. */
+function makeCatalogTree(): string {
+  const root = mkdtempSync(join(tmpdir(), "neurolink-catalog-"));
+  mkdirSync(join(root, CATALOG_SRC), { recursive: true });
+  cpSync(join(REPO_ROOT, CATALOG_SRC), join(root, CATALOG_SRC), {
+    recursive: true,
+  });
+  return root;
+}
+
+async function testCatalogFallbackRule(): Promise<void> {
+  const section = "catalog schema: a fallback identical to the primary";
+
+  await runCase(
+    `${section} is rejected when the catalog has other models`,
+    async () => {
+      const root = makeCatalogTree();
+      try {
+        // cerebras ships two selectable models, so it is subject to the rule.
+        const target = join(root, CATALOG_SRC, "cerebras.json");
+        const entry = JSON.parse(readFileSync(target, "utf8")) as {
+          models: { default: string; fallbackModelName?: string };
+        };
+        // PRECONDITION: the fixture must start valid, or a rejection proves
+        // nothing about this rule.
+        const clean = runCodegenCheck(root);
+        if (/cannot fall back/.test(clean.output)) {
+          throw new Error(
+            "precondition: the unmodified tree already trips the rule",
+          );
+        }
+        entry.models.fallbackModelName = entry.models.default;
+        writeFileSync(target, `${JSON.stringify(entry, null, 2)}\n`);
+
+        const res = runCodegenCheck(root);
+        if (res.code === 0) {
+          throw new Error("a self-referential fallback was accepted");
+        }
+        if (!/cannot fall back/.test(res.output)) {
+          throw new Error("rejected, but not by the fallback rule");
+        }
+        if (!/cerebras\.json/.test(res.output)) {
+          throw new Error("the rejection did not name the offending catalog");
+        }
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  await runCase(
+    `${section} is exempt when the catalog has only one model`,
+    async () => {
+      const root = makeCatalogTree();
+      try {
+        // PRECONDITION: this only tests the exemption if single-model catalogs
+        // that resolve their own default actually ship. Two do.
+        const singles = ["gmicloud.json", "inception-labs.json"].filter((f) => {
+          const m = (
+            JSON.parse(readFileSync(join(root, CATALOG_SRC, f), "utf8")) as {
+              models: {
+                default: string;
+                fallbacks?: string[];
+                fallbackModelName?: string;
+                catalog: Record<string, { status?: string }>;
+              };
+            }
+          ).models;
+          const derived =
+            m.fallbackModelName ?? m.fallbacks?.[1] ?? m.fallbacks?.[0];
+          const selectable = Object.values(m.catalog).filter(
+            (spec) => spec.status !== "retired",
+          ).length;
+          return derived === m.default && selectable === 1;
+        });
+        if (singles.length === 0) {
+          throw new Error(
+            "precondition: no shipped single-model catalog resolves its own default",
+          );
+        }
+
+        const res = runCodegenCheck(REPO_ROOT);
+        if (/cannot fall back/.test(res.output)) {
+          throw new Error("a single-model catalog was rejected by the rule");
+        }
+        if (res.code !== 0) {
+          throw new Error("the shipped catalog tree no longer checks clean");
+        }
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+}
+
 async function main(): Promise<void> {
   console.log("=== OpenAI-Compat Catalog Suite (E2E) ===");
   neutralizeCatalogEnv();
@@ -1182,6 +1333,7 @@ async function main(): Promise<void> {
     await testConfiguredProviderHookDelegation();
     await testGroqTimeoutErrorClassOverride();
     await testCatalogStructuralInvariants();
+    await testCatalogFallbackRule();
   } finally {
     restoreEnv();
   }
