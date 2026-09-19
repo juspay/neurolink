@@ -77,6 +77,156 @@ const RETRYABLE_ERROR_CODES = new Set([
 ]);
 
 /**
+ * Bytes of prologue {@link hasSvgRoot} decodes and scans.
+ *
+ * A real SVG reaches its root within a few hundred bytes, so 4KB is generous.
+ * The cap exists because scanning the whole buffer made every unrecognized
+ * binary — and every BMP/TIFF/ICO/AVIF, whose checks run after this one — pay
+ * a full UTF-8 decode, and let a crafted unterminated doctype walk every byte
+ * (measured: 322ms on 32MB, 69ms to reject a 16MB BMP).
+ */
+const SVG_PROLOGUE_SCAN_BYTES = 4096;
+
+/**
+ * Find an SVG root after XML's permitted leading constructs.
+ *
+ * Deliberately a discriminator, not an XML parser. Raster magic is checked
+ * first; this only distinguishes text reaching an SVG root after a UTF-8 BOM,
+ * XML whitespace, processing instructions, comments, or a doctype. The doctype
+ * scanner tracks quotes, comments/PIs, and the internal subset so a `>` or
+ * `]` inside any of them cannot expose a later `<svg` early. The root itself
+ * may carry an XML namespace prefix (`<s:svg xmlns:s="...">`), which is
+ * accepted alongside the bare `<svg` form.
+ *
+ * Scanning a bounded window makes "unterminated" ambiguous, and the two cases
+ * must resolve OPPOSITE ways:
+ *
+ *  - the WINDOW ran out — the rest of the document is unreadable from here, so
+ *    fail CLOSED and answer SVG. This function gates a rejection, so answering
+ *    raster on an unterminated prologue would hand back the exact bypass it
+ *    exists to close: prepend filler past the window and sail through as
+ *    raster. A raster file never opens `<!--` or `<!doctype`, so the
+ *    false-positive cost is a skipped image; the other direction is the
+ *    vulnerability.
+ *  - the BUFFER ran out — the whole document was read and is malformed, so it
+ *    is genuinely not an SVG.
+ */
+function hasSvgRoot(input: Buffer): boolean {
+  const windowed = input.length > SVG_PROLOGUE_SCAN_BYTES;
+  const text = input
+    .subarray(0, Math.min(input.length, SVG_PROLOGUE_SCAN_BYTES))
+    .toString("utf8");
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+
+  const skipWhitespace = (): void => {
+    while (/\s/.test(text[position] ?? "")) {
+      position++;
+    }
+  };
+
+  const skipDoctype = (): boolean => {
+    let quote: '"' | "'" | undefined;
+    let subsetDepth = 0;
+    let index = position + 9;
+    while (index < text.length) {
+      const char = text[index];
+      if (quote) {
+        if (char === quote) {
+          quote = undefined;
+        }
+        index++;
+        continue;
+      }
+      // Comments and processing instructions are valid markup inside the
+      // internal subset (and, leniently, anywhere else in the declaration)
+      // and may themselves contain `]` or `>` — e.g. `<!-- ] > -->`. Skip
+      // them as opaque spans, the same way the outer scan does, so their
+      // contents can never be misread as the subset-close or doctype-end
+      // delimiter.
+      if (text.startsWith("<!--", index)) {
+        const end = text.indexOf("-->", index + 4);
+        if (end < 0) {
+          return false;
+        }
+        index = end + 3;
+        continue;
+      }
+      if (text.startsWith("<?", index)) {
+        const end = text.indexOf("?>", index + 2);
+        if (end < 0) {
+          return false;
+        }
+        index = end + 2;
+        continue;
+      }
+      if (char === '"' || char === "'") {
+        quote = char;
+      } else if (char === "[") {
+        subsetDepth++;
+      } else if (char === "]" && subsetDepth > 0) {
+        subsetDepth--;
+      } else if (char === ">" && subsetDepth === 0) {
+        position = index + 1;
+        return true;
+      }
+      index++;
+    }
+    return false;
+  };
+
+  skipWhitespace();
+  while (position < text.length) {
+    if (text.startsWith("<?", position)) {
+      const end = text.indexOf("?>", position + 2);
+      if (end < 0) {
+        return windowed;
+      }
+      position = end + 2;
+    } else if (text.startsWith("<!--", position)) {
+      const end = text.indexOf("-->", position + 4);
+      if (end < 0) {
+        return windowed;
+      }
+      position = end + 3;
+    } else if (
+      text.slice(position, position + 9).toLowerCase() === "<!doctype"
+    ) {
+      if (!skipDoctype()) {
+        return windowed;
+      }
+    } else {
+      break;
+    }
+    skipWhitespace();
+  }
+
+  const rest = text.slice(position);
+  // Accepts an optional XML namespace prefix ahead of the tag name — an
+  // NCName (letters/digits/`.`/`-`/`_`, not starting with a digit) followed
+  // by `:` — so `<s:svg xmlns:s="...">` matches the same way bare `<svg`
+  // does.
+  if (/^<(?:[A-Za-z_][\w.-]*:)?svg(?:[\s/>])/i.test(rest)) {
+    return true;
+  }
+  // A fixed "`<svg` plus its delimiter is 5 characters" cutoff only worked
+  // when the tag name was the literal `svg`. With a namespace prefix now
+  // accepted, the prefix is unbounded (any NCName), so no fixed length can
+  // bound "may still be mid-token" — `<s:svg` (6 chars) is just as
+  // truncatable as `<svg` (4) was. Instead, check whether `rest` could still
+  // be the START of a string this function would accept: an optional NCName
+  // prefix, optionally followed by `:` and however much of the literal
+  // `svg` has been seen so far, with nothing left over. Anything left over
+  // (a character that cannot continue the prefix, isn't `:`, or doesn't
+  // continue "svg") proves `rest` can never complete into a match, so it is
+  // safe to answer false even though the window is cut. An empty `rest` is
+  // the same ambiguity in the degenerate case (no root text observed yet).
+  const isUnresolvedPrefix =
+    rest.length === 0 ||
+    /^<(?:[A-Za-z_][\w.-]*)?(?::(?:s(?:v(?:g)?)?)?)?$/i.test(rest);
+  return windowed && isUnresolvedPrefix;
+}
+
+/**
  * Determines if an HTTP error is retryable based on status code
  * Only network errors and certain HTTP status codes should be retried
  * 4xx client errors like 404 (Not Found) and 403 (Forbidden) should NOT be retried
@@ -555,12 +705,10 @@ export class ImageProcessor {
           }
         }
 
-        // SVG: check for "<svg" or "<?xml" at start (text-based)
-        if (input.length >= 4) {
-          const start = input.subarray(0, 4).toString();
-          if (start === "<svg" || start === "<?xm") {
-            return "image/svg+xml";
-          }
+        // SVG is text-based and may legally put a BOM, whitespace, an XML
+        // declaration, comments, or a doctype before its root element.
+        if (hasSvgRoot(input)) {
+          return "image/svg+xml";
         }
 
         // ISO-BMFF images: "ftyp" box at offset 4, major brand at offset 8.

@@ -8248,6 +8248,61 @@ exit 127
     },
   },
   {
+    name: "ImageProcessor: DOCTYPE internal subset with a comment containing ']' and '>' does not end the subset early",
+    category: "image-processor",
+    fn: async () => {
+      // skipDoctype() tracked only quote state and subsetDepth via literal
+      // '[' / ']'. It had no awareness of XML comments inside the internal
+      // subset, so a ']' or '>' sitting inside a `<!-- ... -->` comment was
+      // misread as the real subset-close / doctype-end delimiter, and the
+      // scanner exited the DOCTYPE before ever reaching the real `<svg`
+      // root below. This is a genuine SVG document.
+      const svg = Buffer.from("<!DOCTYPE svg [<!-- ] > -->]><svg></svg>");
+      return ImageProcessor.detectImageType(svg) === "image/svg+xml";
+    },
+  },
+  {
+    name: "ImageProcessor: namespace-prefixed SVG root (e.g. <s:svg>) is detected as SVG, not raster",
+    category: "image-processor",
+    fn: async () => {
+      // The root-detection regex was anchored to the literal tag name "svg"
+      // with no XML-namespace-prefix support, so a valid namespace-prefixed
+      // root was not recognized as SVG and would fall through toward being
+      // treated as an unrecognized/raster image instead.
+      const svg = Buffer.from(
+        '<s:svg xmlns:s="http://www.w3.org/2000/svg"></s:svg>',
+      );
+      return ImageProcessor.detectImageType(svg) === "image/svg+xml";
+    },
+  },
+  {
+    name: "ImageProcessor: a namespace-prefixed SVG root straddling the exact scan-window boundary still fails closed",
+    category: "image-processor",
+    fn: async () => {
+      // The truncation-ambiguity fallback used a fixed "`<svg` plus its
+      // delimiter is 5 characters" cutoff, sized for the literal `svg` tag
+      // name. Once the root-detection regex accepted an unbounded-length
+      // namespace prefix (`<s:svg`, `<foo:svg`, ...), that fixed length no
+      // longer bounded "may still be mid-token": a prefixed root straddling
+      // the scan window could land past the old cutoff and be misread as
+      // "definitely not SVG" — a fail-open bypass sending raw SVG markup
+      // down the raster/vision path.
+      //
+      // This reproduces that exact boundary rather than merely exceeding the
+      // window: a comment that CLOSES well inside the 4096-byte scan window
+      // (so the "unterminated prologue" fail-closed path is never reached),
+      // sized so the window cuts precisely after "<s:svg" (6 chars) — the
+      // shortest prefix long enough to trip the old fixed cutoff
+      // (`rest.length < 5`) while still being a genuine, unresolved partial
+      // match of the new prefix-aware pattern.
+      const filler = `<!-- ${"x".repeat(4081)} -->`; // closes at index 4090
+      const doc = Buffer.from(
+        `${filler}<s:svg xmlns:s="http://www.w3.org/2000/svg"></s:svg>`,
+      );
+      return ImageProcessor.detectImageType(doc) === "image/svg+xml";
+    },
+  },
+  {
     name: "MessageBuilder #273: a failed CSV/file input throws instead of being silently dropped",
     category: "message-builder",
     fn: async () => {

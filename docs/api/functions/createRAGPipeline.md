@@ -8,7 +8,7 @@
 
 > **createRAGPipeline**(`options`): [`RAGPipeline`](../classes/RAGPipeline.md)
 
-Defined in: [rag/pipeline/RAGPipeline.ts:1086](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L1086)
+Defined in: [rag/pipeline/RAGPipeline.ts:1123](https://github.com/juspay/neurolink/blob/release/src/lib/rag/pipeline/RAGPipeline.ts#L1123)
 
 Create a simple RAG pipeline with sensible defaults
 

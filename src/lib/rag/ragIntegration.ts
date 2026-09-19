@@ -9,6 +9,7 @@ import {
 } from "../observability/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlForError } from "../utils/logSanitize.js";
+import { ImageProcessor } from "../utils/imageProcessor.js";
 import { createChunker } from "./ChunkerFactory.js";
 import {
   createVectorQueryTool,
@@ -397,6 +398,30 @@ async function _prepareRAGToolInner(
       try {
         const imageDoc = await imageLoader.load(imgPath);
 
+        // The two `ext === ".svg"` checks above are a cheap early-out, not the
+        // boundary: both match the NAME exactly, and the name is not what
+        // decides the type. ImageLoader resolves it two ways that disagree
+        // with a bare `.svg` comparison — `.svgz` maps to image/svg+xml
+        // through EXTENSION_MIME_MAP, and loadFromURL ignores the extension
+        // entirely and sniffs the bytes, so any image-extension URL actually
+        // serving SVG resolves to image/svg+xml here. A local raster suffix
+        // has the opposite problem: loadFromPath trusts the extension before
+        // the bytes, so inspect both. Otherwise `hasImage: true` below sends
+        // SVG markup to the raster embed call. Skip rather than throw,
+        // matching the early-outs and the identical guard
+        // in RAGPipeline.ingestImages — the two entry points are independent
+        // (prepareRAGTool builds its chunks here, not via ingestImages), so
+        // each needs its own.
+        if (
+          imageDoc.mimeType === "image/svg+xml" ||
+          ImageProcessor.detectImageType(imageDoc.image) === "image/svg+xml"
+        ) {
+          logger.warn(
+            `[RAG] SVG is not supported as a RAG image source, skipping: ${redactUrlForError(imgPath)}`,
+          );
+          continue;
+        }
+
         // Use filename-based text representation for simple embedding
         const imageText = imageDoc.text;
 
@@ -626,7 +651,7 @@ async function _prepareRAGToolInner(
     tool: aiTool,
     toolName,
     chunksIndexed: allChunks.length + imageChunks.length,
-    filesLoaded: fileContents.length + imageFiles.length,
+    filesLoaded: fileContents.length + imageChunks.length,
   };
 }
 

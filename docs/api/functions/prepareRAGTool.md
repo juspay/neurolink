@@ -8,7 +8,7 @@
 
 > **prepareRAGTool**(`ragConfig`, `fallbackProvider?`): `Promise`\<[`RAGPreparedTool`](../type-aliases/RAGPreparedTool.md)\>
 
-Defined in: [rag/ragIntegration.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/rag/ragIntegration.ts#L187)
+Defined in: [rag/ragIntegration.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/rag/ragIntegration.ts#L188)
 
 Prepare RAG tools from the provided configuration.
 
