@@ -144,3 +144,153 @@ jobs:
           IDEOGRAM_API_KEY: ${{ secrets.IDEOGRAM_API_KEY }}
           RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      # The CLI mirror of the sweep above (dist/cli/index.js against the same
+      # PROVIDERS matrix, minus embed-only providers the CLI has no command
+      # for). Kept as a step here rather than its own job: it needs the same
+      # broad credential set as the sweep, so isolating it would only pay for
+      # a second build without shrinking the secrets it carries.
+      - name: Live CLI provider matrix sweep (self-gates cleanly when keys are absent)
+        run: pnpm run test:matrix:cli
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          GOOGLE_VERTEX_PROJECT: ${{ secrets.GOOGLE_VERTEX_PROJECT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SAGEMAKER_ENDPOINT: ${{ secrets.SAGEMAKER_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
+          GMICLOUD_API_KEY: ${{ secrets.GMICLOUD_API_KEY }}
+          INCEPTION_LABS_API_KEY: ${{ secrets.INCEPTION_LABS_API_KEY }}
+          IO_INTELLIGENCE_API_KEY: ${{ secrets.IO_INTELLIGENCE_API_KEY }}
+          UPSTAGE_API_KEY: ${{ secrets.UPSTAGE_API_KEY }}
+          MANCER_API_KEY: ${{ secrets.MANCER_API_KEY }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+          IDEOGRAM_API_KEY: ${{ secrets.IDEOGRAM_API_KEY }}
+          RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+      # The JSON-validity/huge-text E2E suite, which spans nearly the same
+      # provider breadth as the sweep above (tools-active structured output
+      # across OpenAI, Anthropic, Vertex, Google AI, Bedrock, Azure, Mistral,
+      # Groq, DeepSeek, Cohere, OpenRouter, xAI, Cerebras). Kept as a step
+      # here for the same reason as the CLI mirror above: the credential set
+      # is already the sweep's, so a separate job would only add a build.
+      - name: Live JSON validity E2E sweep (self-gates cleanly when keys are absent)
+        run: pnpm run test:json-e2e
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+          GOOGLE_VERTEX_PROJECT: ${{ secrets.GOOGLE_VERTEX_PROJECT }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SAGEMAKER_ENDPOINT: ${{ secrets.SAGEMAKER_ENDPOINT }}
+          AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+          AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          HUGGINGFACE_API_KEY: ${{ secrets.HUGGINGFACE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          NVIDIA_NIM_API_KEY: ${{ secrets.NVIDIA_NIM_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
+          GMICLOUD_API_KEY: ${{ secrets.GMICLOUD_API_KEY }}
+          INCEPTION_LABS_API_KEY: ${{ secrets.INCEPTION_LABS_API_KEY }}
+          IO_INTELLIGENCE_API_KEY: ${{ secrets.IO_INTELLIGENCE_API_KEY }}
+          UPSTAGE_API_KEY: ${{ secrets.UPSTAGE_API_KEY }}
+          MANCER_API_KEY: ${{ secrets.MANCER_API_KEY }}
+          VOYAGE_API_KEY: ${{ secrets.VOYAGE_API_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          STABILITY_API_KEY: ${{ secrets.STABILITY_API_KEY }}
+          IDEOGRAM_API_KEY: ${{ secrets.IDEOGRAM_API_KEY }}
+          RECRAFT_API_KEY: ${{ secrets.RECRAFT_API_KEY }}
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+
+  # Two more single-credential live suites, grouped the way reasoning-parity
+  # above is: the sweep's steps carry forty provider secrets and each of
+  # these needs exactly one (ANTHROPIC_API_KEY), so appending either to the
+  # sweep would queue it behind every other provider for no reason. Unlike
+  # reasoning-parity, the two are combined into one job rather than split
+  # into two: both need only the same single credential, so sharing a build
+  # costs nothing extra that isolating them separately would avoid.
+  anthropic-live-suites:
+    name: 🤖 Live Anthropic-Only Suites
+    runs-on: ubuntu-latest
+    # Not a required check, for the same reason as the other jobs here: each
+    # spends a real ANTHROPIC_API_KEY credential against the live API and
+    # must not block a merge on a transient upstream outage or a rotated-out
+    # secret.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Nothing after this step touches git, so the checkout token has no
+          # reason to sit in .git/config where every later step can read it.
+          persist-credentials: false
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: 🔄 SvelteKit Sync
+        run: pnpm exec svelte-kit sync
+
+      # Both suites call assertDistFresh(), and the thinkingConfig suite also
+      # drives the built CLI, so the build is a precondition, not a
+      # convenience.
+      - name: Build package
+        run: pnpm run build
+
+      - name: Live thinkingConfig passthrough — generate()/stream()/CLI (SKIPs cleanly without the key)
+        run: pnpm run test:thinking-config
+        timeout-minutes: 15
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Live Anthropic toolChoice passthrough (SKIPs cleanly without the key)
+        run: pnpm run test:anthropic-toolchoice
+        timeout-minutes: 15
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
