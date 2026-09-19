@@ -8,7 +8,7 @@
 
 > **GoogleGenAIClass** = (`cfg`) => [`GenAIClient`](GenAIClient.md)
 
-Defined in: [types/providers.ts:1246](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1246)
+Defined in: [types/providers.ts:1247](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1247)
 
 Google GenAI constructor type
 Supports both API key (Google AI Studio) and Vertex AI configurations

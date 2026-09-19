@@ -8,7 +8,7 @@
 
 > **AIProvider** = `object`
 
-Defined in: [types/providers.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L871)
+Defined in: [types/providers.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L872)
 
 AI Provider type with flexible parameter support
 
@@ -18,7 +18,7 @@ AI Provider type with flexible parameter support
 
 > **stream**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<[`StreamResult`](StreamResult.md)\>
 
-Defined in: [types/providers.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L873)
+Defined in: [types/providers.ts:874](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L874)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/providers.ts:873](https://github.com/juspay/neurolink/blob/re
 
 > **generate**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<[`EnhancedGenerateResult`](EnhancedGenerateResult.md) \| `null`\>
 
-Defined in: [types/providers.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L878)
+Defined in: [types/providers.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L879)
 
 #### Parameters
 
@@ -62,7 +62,7 @@ Defined in: [types/providers.ts:878](https://github.com/juspay/neurolink/blob/re
 
 > **gen**(`optionsOrPrompt`, `analysisSchema?`): `Promise`\<[`EnhancedGenerateResult`](EnhancedGenerateResult.md) \| `null`\>
 
-Defined in: [types/providers.ts:883](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L883)
+Defined in: [types/providers.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L884)
 
 #### Parameters
 
@@ -84,7 +84,7 @@ Defined in: [types/providers.ts:883](https://github.com/juspay/neurolink/blob/re
 
 > **embed**(`input`, `modelName?`): `Promise`\<`number`[]\>
 
-Defined in: [types/providers.ts:893](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L893)
+Defined in: [types/providers.ts:894](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L894)
 
 Generate an embedding vector for text or multi-modal input.
 Accepts either a plain string (text-only) or an EmbedInput object
@@ -110,7 +110,7 @@ for multi-modal embeddings (text + image).
 
 > **embedMany**(`texts`, `modelName?`): `Promise`\<`number`[][]\>
 
-Defined in: [types/providers.ts:898](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L898)
+Defined in: [types/providers.ts:899](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L899)
 
 Generate embedding vectors for multiple text inputs in batch.
 
@@ -134,7 +134,7 @@ Generate embedding vectors for multiple text inputs in batch.
 
 > **setupToolExecutor**(`sdk`, `functionTag`): `void`
 
-Defined in: [types/providers.ts:901](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L901)
+Defined in: [types/providers.ts:902](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L902)
 
 #### Parameters
 
@@ -162,7 +162,7 @@ Defined in: [types/providers.ts:901](https://github.com/juspay/neurolink/blob/re
 
 > **setTraceContext**(`ctx`): `void`
 
-Defined in: [types/providers.ts:913](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L913)
+Defined in: [types/providers.ts:914](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L914)
 
 Propagate trace context from NeuroLink SDK for parent-child span hierarchy.
 Use this method instead of accessing `_traceContext` directly.
@@ -183,7 +183,7 @@ Use this method instead of accessing `_traceContext` directly.
 
 > `optional` **supportsTools**(): `boolean`
 
-Defined in: [types/providers.ts:922](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L922)
+Defined in: [types/providers.ts:923](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L923)
 
 Whether this provider supports native tool/function calling for the
 current model. Implemented by BaseProvider (default true); overridden by
@@ -201,7 +201,7 @@ external AIProvider implementations — callers treat absence as `true`.
 
 > `optional` **ensureModelLimits**(): `Promise`\<`void`\>
 
-Defined in: [types/providers.ts:932](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L932)
+Defined in: [types/providers.ts:933](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L933)
 
 Ensure runtime-discovered model limits (context window, output-token
 ceiling) are registered before budget math runs. Implemented by

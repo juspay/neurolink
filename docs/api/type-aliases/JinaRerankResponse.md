@@ -8,7 +8,7 @@
 
 > **JinaRerankResponse** = `object`
 
-Defined in: [types/providers.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L285)
+Defined in: [types/providers.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L286)
 
 Jina AI /rerank response shape.
 
@@ -18,7 +18,7 @@ Jina AI /rerank response shape.
 
 > `optional` **model?**: `string`
 
-Defined in: [types/providers.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L286)
+Defined in: [types/providers.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L287)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:286](https://github.com/juspay/neurolink/blob/re
 
 > **results**: `object`[]
 
-Defined in: [types/providers.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L287)
+Defined in: [types/providers.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L288)
 
 #### index
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:287](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/providers.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L292)
+Defined in: [types/providers.ts:293](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L293)
 
 #### total_tokens?
 
