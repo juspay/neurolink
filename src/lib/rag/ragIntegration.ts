@@ -397,6 +397,26 @@ async function _prepareRAGToolInner(
       try {
         const imageDoc = await imageLoader.load(imgPath);
 
+        // The two `ext === ".svg"` checks above are a cheap early-out, not the
+        // boundary: both match the NAME exactly, and the name is not what
+        // decides the type. ImageLoader resolves it two ways that disagree
+        // with a bare `.svg` comparison — `.svgz` maps to image/svg+xml
+        // through EXTENSION_MIME_MAP, and loadFromURL ignores the extension
+        // entirely and sniffs the bytes, so any image-extension URL actually
+        // serving SVG resolves to image/svg+xml here. Both reach this line,
+        // and `hasImage: true` below would send them to captioning and the
+        // raster embed call. Guard on the resolved type instead, and skip
+        // rather than throw, matching the early-outs and the identical guard
+        // in RAGPipeline.ingestImages — the two entry points are independent
+        // (prepareRAGTool builds its chunks here, not via ingestImages), so
+        // each needs its own.
+        if (imageDoc.mimeType === "image/svg+xml") {
+          logger.warn(
+            `[RAG] SVG is not supported as a RAG image source, skipping: ${redactUrlForError(imgPath)}`,
+          );
+          continue;
+        }
+
         // Use filename-based text representation for simple embedding
         const imageText = imageDoc.text;
 

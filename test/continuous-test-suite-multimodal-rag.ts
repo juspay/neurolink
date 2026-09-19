@@ -28,9 +28,10 @@ import "dotenv/config";
  * Run: npx tsx test/continuous-test-suite-multimodal-rag.ts
  */
 
-import { mkdtempSync, copyFileSync, rmSync } from "node:fs";
+import { mkdtempSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer as createH2Server } from "node:http2";
 import { assert, defineSuite } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
@@ -39,7 +40,41 @@ assertDistFresh();
 const { test, runSuite } = defineSuite("Multi-modal embeddings + RAG images");
 
 const { AIProviderFactory } = await import("../dist/index.js");
-const { ImageLoader } = await import("../dist/rag/index.js");
+const { ImageLoader, RAGPipeline, InMemoryVectorStore, prepareRAGTool } =
+  await import("../dist/rag/index.js");
+
+/** One entry of the search tool's `sources` array, as this suite reads it. */
+type RagSearchSource = {
+  source: string;
+  hasImage?: boolean;
+};
+
+/**
+ * Runtime-validating narrow for the prepared RAG tool's result.
+ *
+ * `execute()` is typed loosely, and an assertion would let a shape change
+ * turn the negative assertion below vacuous — `sources` silently absent
+ * reads the same as "no SVG was indexed". Validating the members this case
+ * actually reads makes that a failure instead.
+ */
+function isRagSearchResult(
+  value: unknown,
+): value is { sources: RagSearchSource[] } {
+  if (typeof value !== "object" || value === null || !("sources" in value)) {
+    return false;
+  }
+  const { sources } = value;
+  return (
+    Array.isArray(sources) &&
+    sources.every(
+      (entry): entry is RagSearchSource =>
+        typeof entry === "object" &&
+        entry !== null &&
+        "source" in entry &&
+        typeof entry.source === "string",
+    )
+  );
+}
 
 const NOVA_MODEL = "amazon.nova-2-multimodal-embeddings-v1:0";
 const TITAN_TEXT_MODEL = "amazon.titan-embed-text-v2:0";
@@ -257,6 +292,294 @@ await test("an ordinary image path still captions from its filename", async () =
     assert(
       doc.mimeType === "image/png",
       "the loaded image did not resolve to its actual type",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+/**
+ * Minimal local stand-in for the Bedrock Runtime InvokeModel endpoint that
+ * `embed()` calls. `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` redirects the real SDK
+ * client here — see `helpers/bedrockLocalEndpoint.ts` for the fuller
+ * Converse/ConverseStream variant this mirrors. The SDK's default request
+ * handler for this client is `NodeHttp2Handler` for every operation,
+ * including the non-streaming InvokeModel used by embeddings, so a plain
+ * `http.Server` never completes the handshake and this must speak h2. No
+ * credentials are validated: SigV4 signs happily against placeholder keys and
+ * nothing here checks the signature.
+ */
+async function startLocalBedrockEmbed(): Promise<{
+  endpoint: string;
+  invokeCount: () => number;
+  close: () => Promise<void>;
+}> {
+  let invokeCount = 0;
+  const server = createH2Server();
+  server.on("request", (req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (c: Buffer) => chunks.push(c));
+    req.on("end", () => {
+      invokeCount += 1;
+      res.writeHead(200, { "content-type": "application/json" });
+      // Shape Bedrock's Titan (non-Nova) embed response takes: a flat
+      // `embedding` array. Fixed and fake — nothing here reads the request
+      // body, so it says nothing about what was actually embedded; the
+      // request COUNT is the signal this test relies on.
+      res.end(JSON.stringify({ embedding: [0.1, 0.2, 0.3, 0.4] }));
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const port = typeof address === "object" && address ? address.port : 0;
+  return {
+    endpoint: `http://127.0.0.1:${port}`,
+    invokeCount: () => invokeCount,
+    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+  };
+}
+
+await test("RAGPipeline.ingestImages skips an .svg source but still ingests a PNG from the same call", async () => {
+  // IMAGE_EXTENSIONS' "sanitized markup" guarantee is scoped to the
+  // processor path (SvgProcessor) — ingestImages() has no processor in its
+  // path at all. Without a skip, generateMultiModalEmbedding would base64
+  // raw SVG markup straight into this raster embed call, exactly the gap
+  // ragIntegration.ts already closed on its own entry point.
+  //
+  // Two sources in one call, not one: an SVG-only call passing because
+  // NOTHING was ingested would prove nothing. The PNG is the precondition
+  // that the harness actually exercised the ingest path at all.
+  const restoreAws = withFakeAwsEnv();
+  const local = await startLocalBedrockEmbed();
+  const previousEndpoint = process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+  process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = local.endpoint;
+  // AmazonBedrockProvider#embed() ignores the modelName the provider was
+  // constructed with when generateMultiModalEmbedding() calls it — it falls
+  // back to BEDROCK_EMBEDDING_MODEL / AWS_EMBEDDING_MODEL, defaulting to the
+  // text-only Titan model. Without this, the client-side
+  // `embedInput.image && !isMultiModalModel` guard rejects the PNG before
+  // any request is built, independent of the SVG-skip fix under test.
+  const previousEmbeddingModel = process.env.BEDROCK_EMBEDDING_MODEL;
+  process.env.BEDROCK_EMBEDDING_MODEL = "amazon.titan-embed-image-v1";
+  const dir = mkdtempSync(join(tmpdir(), "neurolink-mmrag-svg-"));
+  try {
+    const pngPath = join(dir, "photo.png");
+    copyFileSync("test/fixtures/sample-screenshot.png", pngPath);
+    const svgPath = join(dir, "icon.svg");
+    writeFileSync(
+      svgPath,
+      '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"></svg>',
+    );
+
+    const pipeline = new RAGPipeline({
+      vectorStore: new InMemoryVectorStore(),
+      embeddingModel: {
+        provider: "bedrock",
+        modelName: "amazon.titan-embed-text-v2:0",
+      },
+      multiModal: {
+        enabled: true,
+        embeddingModel: {
+          provider: "bedrock",
+          modelName: "amazon.titan-embed-image-v1",
+          modality: "multimodal",
+        },
+        imageTextStrategy: "filename",
+      },
+    });
+
+    const result = await pipeline.ingestImages([svgPath, pngPath]);
+
+    // Precondition: the non-SVG source in the same call really was
+    // ingested. If this were not true, the SVG assertion below would pass
+    // for the wrong reason — everything in the call failing, not just SVG
+    // being skipped.
+    assert(
+      result.imagesProcessed === 1 && result.chunksCreated === 1,
+      "ingestImages did not report exactly the non-SVG source as processed",
+    );
+    assert(
+      pipeline.getMultiModalStats().totalImages === 1,
+      "the pipeline's own image count disagrees with ingestImages' return value",
+    );
+    // The strongest evidence the SVG was skipped rather than merely
+    // discarded downstream: the embed endpoint was reached exactly once.
+    // Without the fix this fake endpoint accepts SVG bytes too (it does
+    // not validate format), so an unfixed pipeline calls it twice.
+    assert(
+      local.invokeCount() === 1,
+      "the embedding endpoint was not called exactly once for this two-source batch",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    await local.close();
+    if (previousEndpoint === undefined) {
+      delete process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+    } else {
+      process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = previousEndpoint;
+    }
+    if (previousEmbeddingModel === undefined) {
+      delete process.env.BEDROCK_EMBEDDING_MODEL;
+    } else {
+      process.env.BEDROCK_EMBEDDING_MODEL = previousEmbeddingModel;
+    }
+    restoreAws();
+  }
+});
+
+await test("RAGPipeline.ingestImages skips SVG identified only by its bytes, not its name", async () => {
+  // The case above names the file `.svg`, so the extension check catches it
+  // before anything is loaded. That check only sees the NAME. ImageLoader
+  // falls back to detecting the type from the bytes whenever the name does
+  // not supply one — `detectImageType` returns `image/svg+xml` for a buffer
+  // starting `<svg`/`<?xm` — so a source with no extension carries SVG markup
+  // straight past it and into the raster embed call.
+  //
+  // The reported instance of this is a URL like `https://example.com/logo`
+  // served as `image/svg+xml`. That exact shape is not reachable from a test:
+  // as the header notes, `safeFetch` permits only HTTPS and refuses to
+  // resolve a private address, so no local stand-in can be reached. The
+  // extension-less LOCAL path is the same defect through the same fallback —
+  // `loadFromPath` looks up an empty extension in EXTENSION_MIME_MAP, misses,
+  // and calls the identical `detectImageType` — and it pins the same guard,
+  // which reads the resolved `mimeType` and so does not care which branch
+  // produced it.
+  //
+  // Two sources again, for the same reason: the PNG is the precondition that
+  // the ingest path ran at all.
+  const restoreAws = withFakeAwsEnv();
+  const local = await startLocalBedrockEmbed();
+  const previousEndpoint = process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+  process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = local.endpoint;
+  const previousEmbeddingModel = process.env.BEDROCK_EMBEDDING_MODEL;
+  process.env.BEDROCK_EMBEDDING_MODEL = "amazon.titan-embed-image-v1";
+  const dir = mkdtempSync(join(tmpdir(), "neurolink-mmrag-svgbytes-"));
+  try {
+    const pngPath = join(dir, "photo.png");
+    copyFileSync("test/fixtures/sample-screenshot.png", pngPath);
+    // No extension at all — the shape the name-based check cannot see.
+    const svgPath = join(dir, "logo");
+    writeFileSync(
+      svgPath,
+      '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"></svg>',
+    );
+
+    const pipeline = new RAGPipeline({
+      vectorStore: new InMemoryVectorStore(),
+      embeddingModel: {
+        provider: "bedrock",
+        modelName: "amazon.titan-embed-text-v2:0",
+      },
+      multiModal: {
+        enabled: true,
+        embeddingModel: {
+          provider: "bedrock",
+          modelName: "amazon.titan-embed-image-v1",
+          modality: "multimodal",
+        },
+        // Left unset deliberately: `supportedFormats` is optional, and an
+        // absent list is the default. A guard that only holds when a caller
+        // configured one would not close this.
+        imageTextStrategy: "filename",
+      },
+    });
+
+    const result = await pipeline.ingestImages([svgPath, pngPath]);
+
+    // Precondition, asserted before the negative claim: the PNG in the same
+    // call really was ingested. Without this, "the SVG was not embedded"
+    // would also be satisfied by the whole batch failing.
+    assert(
+      result.imagesProcessed === 1 && result.chunksCreated === 1,
+      "ingestImages did not report exactly the non-SVG source as processed",
+    );
+    assert(
+      pipeline.getMultiModalStats().totalImages === 1,
+      "the pipeline's own image count disagrees with ingestImages' return value",
+    );
+    // The negative claim itself. The fake endpoint does not inspect or
+    // validate what it is sent, so nothing downstream of the guard would
+    // reject SVG bytes on its behalf: an unguarded pipeline reaches it twice.
+    assert(
+      local.invokeCount() === 1,
+      "the embedding endpoint was not called exactly once for this two-source batch",
+    );
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    await local.close();
+    if (previousEndpoint === undefined) {
+      delete process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME;
+    } else {
+      process.env.AWS_ENDPOINT_URL_BEDROCK_RUNTIME = previousEndpoint;
+    }
+    if (previousEmbeddingModel === undefined) {
+      delete process.env.BEDROCK_EMBEDDING_MODEL;
+    } else {
+      process.env.BEDROCK_EMBEDDING_MODEL = previousEmbeddingModel;
+    }
+    restoreAws();
+  }
+});
+
+await test("prepareRAGTool skips an SVG image source but still indexes a raster one", async () => {
+  // A SECOND, independent image-ingestion path. prepareRAGTool does not call
+  // RAGPipeline.ingestImages — it constructs its own ImageLoader and builds
+  // its chunks inline — so the guard in ingestImages does not cover it, and
+  // the two cases above would all pass with this path wide open.
+  //
+  // The vector is `.svgz`. Both of this path's early-outs compare the
+  // extension to `".svg"` exactly, and `extname("logo.svgz")` is `".svgz"`,
+  // so neither fires; `.svgz` IS in IMAGE_EXTENSIONS, so the source is
+  // classified as an image; and EXTENSION_MIME_MAP resolves it to
+  // image/svg+xml. It reaches the index as a `hasImage: true` chunk. The same
+  // guard also covers the URL form of this — loadFromURL ignores the
+  // extension and sniffs the bytes — which stays untestable offline for the
+  // safeFetch reason in the header, so this case pins the guard and the URL
+  // form rides on the same line of code.
+  //
+  // No credentials: with no embedding provider configured, prepareRAGTool
+  // indexes and queries through its deterministic hash embedding, so this
+  // runs fully offline.
+  const dir = mkdtempSync(join(tmpdir(), "neurolink-ragint-svgz-"));
+  try {
+    const pngPath = join(dir, "photo.png");
+    copyFileSync("test/fixtures/sample-screenshot.png", pngPath);
+    const svgzPath = join(dir, "logo.svgz");
+    writeFileSync(
+      svgzPath,
+      '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"></svg>',
+    );
+
+    const prepared = await prepareRAGTool({
+      files: [svgzPath, pngPath],
+      topK: 10,
+    });
+
+    assert(
+      prepared.chunksIndexed === 1,
+      "prepareRAGTool did not index exactly the non-SVG source",
+    );
+
+    const searched = await prepared.tool.execute({
+      query: "logo photo image",
+    });
+    const sources = isRagSearchResult(searched) ? searched.sources : undefined;
+    // Precondition, asserted before the negative claim: the raster image in
+    // the same call really did reach the index as an image chunk. Without
+    // it, "no SVG was indexed" is also satisfied by an empty index — and an
+    // empty index is a state this path can reach on its own.
+    assert(
+      sources !== undefined && sources.length === 1,
+      "the prepared tool did not return exactly one indexed source",
+    );
+    assert(
+      sources[0].hasImage === true && sources[0].source.endsWith("photo.png"),
+      "the one indexed source is not the raster image",
+    );
+    // The negative claim.
+    assert(
+      !sources.some((entry) => entry.source.endsWith(".svgz")),
+      "an SVG source reached the RAG index",
     );
   } finally {
     rmSync(dir, { recursive: true, force: true });
