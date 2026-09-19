@@ -8,7 +8,7 @@
 
 > **ProcessorErrorMessageTemplate** = `object`
 
-Defined in: [types/processor.ts:1025](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1025)
+Defined in: [types/processor.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1041)
 
 Error message template with user-friendly messaging and retry information.
 
@@ -18,7 +18,7 @@ Error message template with user-friendly messaging and retry information.
 
 > **message**: `string`
 
-Defined in: [types/processor.ts:1027](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1027)
+Defined in: [types/processor.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1043)
 
 Technical error message
 
@@ -28,7 +28,7 @@ Technical error message
 
 > **userMessage**: `string`
 
-Defined in: [types/processor.ts:1029](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1029)
+Defined in: [types/processor.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1045)
 
 User-friendly error message
 
@@ -38,7 +38,7 @@ User-friendly error message
 
 > **suggestedAction**: `string`
 
-Defined in: [types/processor.ts:1031](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1031)
+Defined in: [types/processor.ts:1047](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1047)
 
 Suggested action to resolve the error
 
@@ -48,6 +48,6 @@ Suggested action to resolve the error
 
 > **retryable**: `boolean`
 
-Defined in: [types/processor.ts:1033](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1033)
+Defined in: [types/processor.ts:1049](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1049)
 
 Whether this error is potentially retryable

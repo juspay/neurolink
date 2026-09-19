@@ -8,7 +8,7 @@
 
 > **SanitizeDisplayNameOptions** = `object`
 
-Defined in: [types/file.ts:674](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L674)
+Defined in: [types/file.ts:740](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L740)
 
 Options for display name sanitization.
 
@@ -18,7 +18,7 @@ Options for display name sanitization.
 
 > `optional` **maxLength?**: `number`
 
-Defined in: [types/file.ts:676](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L676)
+Defined in: [types/file.ts:742](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L742)
 
 Maximum length for the name (default: 100)
 
@@ -28,6 +28,6 @@ Maximum length for the name (default: 100)
 
 > `optional` **allowUnicode?**: `boolean`
 
-Defined in: [types/file.ts:678](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L678)
+Defined in: [types/file.ts:744](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L744)
 
 Whether to allow unicode characters (default: true)

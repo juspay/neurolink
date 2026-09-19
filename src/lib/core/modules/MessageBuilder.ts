@@ -130,6 +130,13 @@ export class MessageBuilder {
             },
             csvOptions: options.csvOptions,
             pdfOptions: options.pdfOptions,
+            // #413/#440/#1748: the per-modality option bags. This object is
+            // rebuilt field by field, so anything omitted here never reaches
+            // the message builder — the same trap the audioFiles/videoFiles
+            // note above records. videoOptions was omitted, so the CLI's
+            // --video-frames/--video-quality/--video-format never arrived.
+            audioOptions: options.audioOptions,
+            videoOptions: options.videoOptions,
             provider: options.provider,
             model: options.model,
             temperature: options.temperature,
@@ -279,6 +286,13 @@ export class MessageBuilder {
             },
             csvOptions: options.csvOptions,
             pdfOptions: options.pdfOptions,
+            // #413/#440/#1748: the per-modality option bags. This object is
+            // rebuilt field by field, so anything omitted here never reaches
+            // the message builder — the same trap the audioFiles/videoFiles
+            // note above records. videoOptions was omitted, so the CLI's
+            // --video-frames/--video-quality/--video-format never arrived.
+            audioOptions: options.audioOptions,
+            videoOptions: options.videoOptions,
             provider: options.provider,
             model: options.model,
             temperature: options.temperature,

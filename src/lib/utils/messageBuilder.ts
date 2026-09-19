@@ -38,6 +38,7 @@ import {
   toVisionCompatibleImage,
 } from "../adapters/imageFormatSupport.js";
 import {
+  extensionsForModality,
   FILE_TYPE_REGISTRY,
   lookupByExtension,
 } from "../processors/config/fileTypeRegistry.js";
@@ -1125,11 +1126,44 @@ async function detectFileForUnifiedArray(
           format: options.videoOptions.format,
         }
       : undefined,
+    // #413/#440: same story for audio — the transcription backend, language
+    // and prompt a caller chose have to reach AudioProcessor, which is
+    // several hops down from here.
+    audioOptions: options.audioOptions
+      ? {
+          provider: options.audioOptions.provider,
+          transcriptionModel: options.audioOptions.transcriptionModel,
+          language: options.audioOptions.language,
+          prompt: options.audioOptions.prompt,
+        }
+      : undefined,
     provider: provider,
     mimetypeHint: fileMimetypeHint,
     filenameHint: fileFilenameHint,
   });
 }
+
+/**
+ * Guidance appended to the system prompt when an audio file is attached (#471).
+ *
+ * An audio attachment does not reach the model as audio on most providers: the
+ * processor transcribes it and inlines the transcript as text. Without saying
+ * so, models reliably answer "I cannot listen to audio" while the transcript
+ * of that very recording sits in the prompt above — the audio equivalent of
+ * the "no files attached" failure the CSV/PDF guidance exists to prevent.
+ *
+ * It also states the negative case, because a file whose transcription was
+ * skipped (no backend configured, unsupported format) still arrives, carrying
+ * metadata and a stated reason. A model told only "audio is transcribed" will
+ * otherwise invent speech content for a file that has none.
+ */
+const AUDIO_PROMPT_EXTENSIONS: readonly string[] =
+  extensionsForModality("audio");
+
+const AUDIO_TRANSCRIPTION_INSTRUCTIONS = `
+- Any audio file has ALREADY BEEN PROCESSED for you: its metadata, and its transcript when one could be produced, are inlined above under "## Audio File: ..." — you do not need to, and cannot, listen to the recording yourself.
+- Treat the text under "--- Transcript ---" as the verbatim spoken content of that recording, and answer from it directly. Do NOT reply that you are unable to process audio.
+- If an audio file shows no transcript, transcription was skipped and the stated reason is inlined with it. Say so rather than inventing what the audio might contain.`;
 
 export async function processUnifiedFilesArray(
   options: GenerateOptions,
@@ -1199,6 +1233,13 @@ export async function processUnifiedFilesArray(
       const fileRegistry = options.fileRegistry as
         | FileReferenceRegistry
         | undefined;
+
+      // #471: the system-prompt augmentation below has to know whether any
+      // audio actually made it in. Counted from the detection result rather
+      // than from `inp2.nativeAudioFiles`, which is only populated when the
+      // raw bytes could also be re-read — an audio file whose transcript was
+      // inlined but whose bytes were not would otherwise go unmentioned.
+      let audioIncludedCount = 0;
 
       // Only detection runs concurrently, and only for files that will not
       // take the lazy-registration branch.
@@ -1291,6 +1332,9 @@ export async function processUnifiedFilesArray(
 
           await appendDetectedFileResult(result, file, options);
           includedCount++;
+          if (result.type === "audio") {
+            audioIncludedCount++;
+          }
 
           // Log what content type was added to the message
           const contentType = result.type === "image" ? "image" : "text";
@@ -1351,7 +1395,9 @@ export async function processUnifiedFilesArray(
 - The full content of the user's local file(s) is INLINED in this message under "## CSV Data from ..." / "## PDF Data from ..." / "## File: ..." headings — it is the actual file the user is asking about.
 - TREAT THE INLINED CONTENT AS IF IT WERE AN ATTACHMENT. Do NOT respond with "no files attached" or ask the user to re-upload — the data is already here.
 - DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files.
-- Analyze the inlined file content directly without attempting to fetch or read files using tools.`;
+- Analyze the inlined file content directly without attempting to fetch or read files using tools.${
+          audioIncludedCount > 0 ? AUDIO_TRANSCRIPTION_INSTRUCTIONS : ""
+        }`;
         const existingSystem = (options.systemPrompt || "").trim();
         options.systemPrompt = existingSystem
           ? `${existingSystem}${filePromptAugmentation}`
@@ -1709,7 +1755,24 @@ function buildMultimodalSystemPrompt(
         typeof f === "string" ? f.toLowerCase().endsWith(".csv") : false,
       ));
 
-  if (hasCSVFiles || hasPDFFiles) {
+  // #471: audio attachments. `processUnifiedFilesArray` has already run by the
+  // time this is called, so `nativeAudioFiles` is the authoritative signal —
+  // it is populated from the detector's verdict, which reads magic bytes and
+  // therefore recognises an audio file whose name says nothing. The remaining
+  // checks cover the paths that never reach the detector: an explicit
+  // `audioFiles` alias (folded away by `foldMediaAliasesIntoFiles`, but only
+  // once that has run) and a plain path attached by name.
+  const hasAudioFiles =
+    (inp.nativeAudioFiles && inp.nativeAudioFiles.length > 0) ||
+    (inp.audioFiles && inp.audioFiles.length > 0) ||
+    (inp.files &&
+      inp.files.some((f) =>
+        typeof f === "string"
+          ? AUDIO_PROMPT_EXTENSIONS.some((ext) => f.toLowerCase().endsWith(ext))
+          : false,
+      ));
+
+  if (hasCSVFiles || hasPDFFiles || hasAudioFiles) {
     const fileTypes = [];
     if (hasPDFFiles) {
       fileTypes.push("PDFs");
@@ -1717,14 +1780,19 @@ function buildMultimodalSystemPrompt(
     if (hasCSVFiles) {
       fileTypes.push("CSVs");
     }
+    if (hasAudioFiles) {
+      fileTypes.push("audio files (transcribed)");
+    }
 
     systemPrompt += `\n\nIMPORTANT FILE HANDLING INSTRUCTIONS:
-- The full content of the user's local ${fileTypes.join(", ")} (and any images) is INLINED in this message under the "## CSV Data from ..." / "## PDF Data from ..." headings — it is the actual file the user is asking about.
+- The full content of the user's local ${fileTypes.join(", ")} (and any images) is INLINED in this message under the "## CSV Data from ..." / "## PDF Data from ..." / "## Audio File: ..." headings — it is the actual file the user is asking about.
 - TREAT THE INLINED CONTENT AS IF IT WERE AN ATTACHMENT. Do NOT respond with "no files attached" or ask the user to re-upload — the data is already here.
 - DO NOT use GitHub tools (get_file_contents, search_code, etc.) for local files - they only work for remote repository files
 - Analyze the provided file content directly without attempting to fetch or read files using tools
 - GitHub MCP tools are ONLY for remote repository operations, not local filesystem access
-- Use the file content shown in this message for your analysis`;
+- Use the file content shown in this message for your analysis${
+      hasAudioFiles ? AUDIO_TRANSCRIPTION_INSTRUCTIONS : ""
+    }`;
   }
 
   return systemPrompt;

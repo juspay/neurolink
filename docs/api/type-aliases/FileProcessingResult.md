@@ -217,3 +217,40 @@ Provider's citations requirement for visual PDF analysis (#349).
 #### hasKeyframes?
 
 > `optional` **hasKeyframes?**: `boolean`
+
+#### duration?
+
+> `optional` **duration?**: `number`
+
+Media duration in seconds, read from the container header.
+
+Sourced from the demuxed stream rather than from the transcription
+backend, so it is present for every audio file — including one that was
+never transcribed because no provider was configured.
+
+#### language?
+
+> `optional` **language?**: `string`
+
+Language of the transcript, as reported by the transcription provider
+(BCP-47 or ISO-639-1 depending on the backend), or the language the
+caller pinned via `AudioProcessorOptions.language`.
+
+Absent when the file was not transcribed — its absence therefore means
+"unknown", never "not speech".
+
+#### transcriptionLength?
+
+> `optional` **transcriptionLength?**: `number`
+
+Character count of the transcript.
+
+`0` is a meaningful value distinct from `undefined`: it means a provider
+ran and returned an empty transcript (silence, music, no speech), where
+`undefined` means no transcription was attempted at all.
+
+#### transcriptionProvider?
+
+> `optional` **transcriptionProvider?**: `string`
+
+Which backend produced the transcript, e.g. "openai-whisper".
