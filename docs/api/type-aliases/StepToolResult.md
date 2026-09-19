@@ -8,7 +8,7 @@
 
 > **StepToolResult** = `object`
 
-Defined in: [types/utilities.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L310)
+Defined in: [types/utilities.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L324)
 
 Shape of a completed tool result as returned by the AI SDK in
 `onStepFinish`. Both `output` (AI SDK v4) and `result` (older shape)
@@ -20,7 +20,7 @@ are supported so the helper works across SDK versions.
 
 > **toolName**: `string`
 
-Defined in: [types/utilities.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L311)
+Defined in: [types/utilities.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L325)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/utilities.ts:311](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **output?**: `unknown`
 
-Defined in: [types/utilities.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L312)
+Defined in: [types/utilities.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L326)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/utilities.ts:312](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **result?**: `unknown`
 
-Defined in: [types/utilities.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L313)
+Defined in: [types/utilities.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L327)
 
 ---
 
@@ -44,4 +44,4 @@ Defined in: [types/utilities.ts:313](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **error?**: `string`
 
-Defined in: [types/utilities.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L314)
+Defined in: [types/utilities.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L328)

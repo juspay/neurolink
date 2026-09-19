@@ -8,7 +8,7 @@
 
 > **IsolatedAgentDefinition** = [`AgentDefinition`](AgentDefinition.md) & `object`
 
-Defined in: [types/isolatedAgent.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L131)
+Defined in: [types/isolatedAgent.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L140)
 
 Definition of an isolated sub-agent: a standard AgentDefinition plus
 optional structured extraction.

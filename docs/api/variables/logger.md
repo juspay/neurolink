@@ -8,7 +8,7 @@
 
 > `const` **logger**: `object`
 
-Defined in: [utils/logger.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/utils/logger.ts#L495)
+Defined in: [utils/logger.ts:596](https://github.com/juspay/neurolink/blob/release/src/lib/utils/logger.ts#L596)
 
 Main unified logger export that provides a simplified API for logging.
 This is the primary interface that should be used by application code.
@@ -179,9 +179,7 @@ Features:
 
 ##### emitter
 
-###### emit
-
-(`event`, ...`args`) => `boolean`
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
 
 #### Returns
 
@@ -195,9 +193,89 @@ Features:
 
 ##### ifEmitter?
 
-###### emit
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
 
-(`event`, ...`args`) => `boolean`
+#### Returns
+
+`void`
+
+### runInInstanceScope
+
+> **runInInstanceScope**: \<`T`\>(`instanceId`, `fn`) => `T`
+
+#### Type Parameters
+
+##### T
+
+`T`
+
+#### Parameters
+
+##### instanceId
+
+`string`
+
+##### fn
+
+() => `T`
+
+#### Returns
+
+`T`
+
+### getInstanceScope
+
+> **getInstanceScope**: () => `string` \| `undefined`
+
+#### Returns
+
+`string` \| `undefined`
+
+### addScopedEventEmitter
+
+> **addScopedEventEmitter**: (`instanceId`, `emitter`) => `void`
+
+#### Parameters
+
+##### instanceId
+
+`string`
+
+##### emitter
+
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
+
+#### Returns
+
+`void`
+
+### removeScopedEventEmitter
+
+> **removeScopedEventEmitter**: (`instanceId`, `emitter`) => `void`
+
+#### Parameters
+
+##### instanceId
+
+`string`
+
+##### emitter
+
+[`LogEventEmitter`](../type-aliases/LogEventEmitter.md)
+
+#### Returns
+
+`void`
+
+### clearScopedEventEmitters
+
+> **clearScopedEventEmitters**: (`instanceId`) => `void`
+
+#### Parameters
+
+##### instanceId
+
+`string`
 
 #### Returns
 

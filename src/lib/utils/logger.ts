@@ -14,7 +14,21 @@
  * - Tabular data display
  */
 
-import type { LogEntry, LogLevel } from "../types/index.js";
+import { AsyncLocalStorage } from "node:async_hooks";
+import type { LogEntry, LogEventEmitter, LogLevel } from "../types/index.js";
+
+/**
+ * Identifies which NeuroLink instance is emitting, for the async operation
+ * currently on the stack. Populated by `runInInstanceScope()` — which the SDK
+ * entry points (`generate`, `stream`, `generateText`) wrap their bodies in —
+ * so a log call anywhere beneath them can be attributed without every call
+ * site threading an instance through.
+ *
+ * Empty for logs emitted outside any call (construction, background MCP
+ * reconnects, module init). Those stay unattributed rather than being charged
+ * to whichever instance happens to hold the global sink.
+ */
+const instanceLogScope = new AsyncLocalStorage<string>();
 
 // OTel trace context for log correlation (optional — gracefully no-ops if OTel not initialized)
 let traceApi: typeof import("@opentelemetry/api") | null = null;
@@ -52,9 +66,8 @@ class NeuroLinkLogger {
   private logs: LogEntry[] = [];
   private maxLogs = 1000;
   private isDebugMode: boolean;
-  private eventEmitter?: {
-    emit: (event: string, ...args: unknown[]) => boolean;
-  };
+  private eventEmitter?: LogEventEmitter;
+  private readonly scopedEmitters = new Map<string, Set<LogEventEmitter>>();
 
   constructor() {
     // Cache debug mode check to avoid repeated array searches
@@ -76,9 +89,7 @@ class NeuroLinkLogger {
    *
    * @param emitter - The event emitter instance
    */
-  setEventEmitter(emitter: {
-    emit: (event: string, ...args: unknown[]) => boolean;
-  }): void {
+  setEventEmitter(emitter: LogEventEmitter): void {
     this.eventEmitter = emitter;
   }
 
@@ -91,13 +102,85 @@ class NeuroLinkLogger {
    *
    * @param ifEmitter - When provided, clear only if it is the current emitter
    */
-  clearEventEmitter(ifEmitter?: {
-    emit: (event: string, ...args: unknown[]) => boolean;
-  }): void {
+  clearEventEmitter(ifEmitter?: LogEventEmitter): void {
     if (ifEmitter !== undefined && this.eventEmitter !== ifEmitter) {
       return;
     }
     this.eventEmitter = undefined;
+  }
+
+  /**
+   * Runs `fn` with every log call beneath it attributed to `instanceId`.
+   *
+   * Nesting is safe and expected: a host turn that delegates to a worker ends
+   * up with the worker's id on top for the duration of the worker's call, and
+   * the host's id restored afterwards. Re-entering with the same id is a
+   * no-op in effect.
+   *
+   * @param instanceId - Identifier of the emitting NeuroLink instance
+   * @param fn - Work to run inside the scope
+   * @returns Whatever `fn` returns
+   */
+  runInInstanceScope<T>(instanceId: string, fn: () => T): T {
+    return instanceLogScope.run(instanceId, fn);
+  }
+
+  /**
+   * The instance id currently attributed, or undefined outside any scope.
+   */
+  getInstanceScope(): string | undefined {
+    return instanceLogScope.getStore();
+  }
+
+  /**
+   * Subscribes `emitter` to log events emitted by one instance only.
+   *
+   * Unlike {@link setEventEmitter} — a single process-wide sink that receives
+   * everything — a scoped emitter receives only events logged inside that
+   * instance's {@link runInInstanceScope}. Several emitters may share an id.
+   *
+   * @param instanceId - Instance whose events this emitter should receive
+   * @param emitter - The sink to subscribe
+   */
+  addScopedEventEmitter(instanceId: string, emitter: LogEventEmitter): void {
+    const existing = this.scopedEmitters.get(instanceId);
+    if (existing) {
+      existing.add(emitter);
+      return;
+    }
+    this.scopedEmitters.set(instanceId, new Set([emitter]));
+  }
+
+  /**
+   * Unsubscribes a scoped emitter. Must be called when the owning instance is
+   * disposed, or the emitter — and everything it closes over — is retained by
+   * the process-global logger for the lifetime of the process.
+   *
+   * @param instanceId - Instance the emitter was registered against
+   * @param emitter - The sink to unsubscribe
+   */
+  removeScopedEventEmitter(instanceId: string, emitter: LogEventEmitter): void {
+    const existing = this.scopedEmitters.get(instanceId);
+    if (!existing) {
+      return;
+    }
+    existing.delete(emitter);
+    if (existing.size === 0) {
+      this.scopedEmitters.delete(instanceId);
+    }
+  }
+
+  /**
+   * Drops every scoped emitter registered against an instance.
+   *
+   * Called from `NeuroLink.dispose()`: the registry lives on the
+   * process-global logger, so an instance that goes away without clearing its
+   * own entry would keep its sinks — and their closures — reachable forever.
+   *
+   * @param instanceId - Instance whose sinks should be dropped
+   */
+  clearScopedEventEmitters(instanceId: string): void {
+    this.scopedEmitters.delete(instanceId);
   }
 
   /**
@@ -291,17 +374,35 @@ class NeuroLinkLogger {
       data,
     };
 
-    // Emit log event if emitter is configured
-    if (this.eventEmitter) {
-      try {
-        this.eventEmitter.emit("log-event", {
-          level,
-          message,
-          timestamp: new Date().getTime(),
-          data,
-        });
-      } catch {
-        // Silently ignore emitter errors to avoid disrupting logging
+    // Emit to the per-instance sinks for whichever instance is on the stack,
+    // then to the process-wide sink. The two are independent: a scoped sink
+    // never sees another instance's events, and the global sink still sees
+    // everything, so existing setEventEmitter() consumers are unaffected.
+    const scopeId = instanceLogScope.getStore();
+    const scoped =
+      scopeId === undefined ? undefined : this.scopedEmitters.get(scopeId);
+    if (scoped || this.eventEmitter) {
+      const event = {
+        level,
+        message,
+        timestamp: entry.timestamp.getTime(),
+        data,
+      };
+      if (scoped) {
+        for (const emitter of scoped) {
+          try {
+            emitter.emit("log-event", event);
+          } catch {
+            // Silently ignore emitter errors to avoid disrupting logging
+          }
+        }
+      }
+      if (this.eventEmitter) {
+        try {
+          this.eventEmitter.emit("log-event", event);
+        } catch {
+          // Silently ignore emitter errors to avoid disrupting logging
+        }
       }
     }
 
@@ -536,12 +637,20 @@ export const logger = {
   setLogLevel: (level: LogLevel) => neuroLinkLogger.setLogLevel(level),
   getLogs: (level?: LogLevel) => neuroLinkLogger.getLogs(level),
   clearLogs: () => neuroLinkLogger.clearLogs(),
-  setEventEmitter: (emitter: {
-    emit: (event: string, ...args: unknown[]) => boolean;
-  }) => neuroLinkLogger.setEventEmitter(emitter),
-  clearEventEmitter: (ifEmitter?: {
-    emit: (event: string, ...args: unknown[]) => boolean;
-  }) => neuroLinkLogger.clearEventEmitter(ifEmitter),
+  setEventEmitter: (emitter: LogEventEmitter) =>
+    neuroLinkLogger.setEventEmitter(emitter),
+  clearEventEmitter: (ifEmitter?: LogEventEmitter) =>
+    neuroLinkLogger.clearEventEmitter(ifEmitter),
+  // Per-instance routing (see NeuroLinkLogger.runInInstanceScope)
+  runInInstanceScope: <T>(instanceId: string, fn: () => T) =>
+    neuroLinkLogger.runInInstanceScope(instanceId, fn),
+  getInstanceScope: () => neuroLinkLogger.getInstanceScope(),
+  addScopedEventEmitter: (instanceId: string, emitter: LogEventEmitter) =>
+    neuroLinkLogger.addScopedEventEmitter(instanceId, emitter),
+  removeScopedEventEmitter: (instanceId: string, emitter: LogEventEmitter) =>
+    neuroLinkLogger.removeScopedEventEmitter(instanceId, emitter),
+  clearScopedEventEmitters: (instanceId: string) =>
+    neuroLinkLogger.clearScopedEventEmitters(instanceId),
 };
 
 /**

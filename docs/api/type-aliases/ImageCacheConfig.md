@@ -8,7 +8,7 @@
 
 > **ImageCacheConfig** = `object`
 
-Defined in: [types/utilities.ts:254](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L254)
+Defined in: [types/utilities.ts:268](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L268)
 
 Configuration options for the image cache
 
@@ -18,7 +18,7 @@ Configuration options for the image cache
 
 > `optional` **maxSize?**: `number`
 
-Defined in: [types/utilities.ts:256](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L256)
+Defined in: [types/utilities.ts:270](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L270)
 
 Maximum number of entries in the cache (default: 100)
 
@@ -28,7 +28,7 @@ Maximum number of entries in the cache (default: 100)
 
 > `optional` **ttlMs?**: `number`
 
-Defined in: [types/utilities.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L258)
+Defined in: [types/utilities.ts:272](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L272)
 
 Time-to-live in milliseconds (default: 30 minutes)
 
@@ -38,6 +38,6 @@ Time-to-live in milliseconds (default: 30 minutes)
 
 > `optional` **maxImageSize?**: `number`
 
-Defined in: [types/utilities.ts:260](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L260)
+Defined in: [types/utilities.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L274)
 
 Maximum size per image in bytes (default: 10MB)
