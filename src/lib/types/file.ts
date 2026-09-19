@@ -499,6 +499,21 @@ export type OfficeProcessorOptions = {
   processAllSheets?: boolean;
   /** For presentations (pptx only): whether to include slide notes */
   includeSlideNotes?: boolean;
+  /**
+   * For spreadsheets (xlsx only): restrict processing to the named sheet.
+   * When the workbook has no sheet by that name the result says so and lists
+   * the names it does have, rather than silently falling back to every sheet.
+   * Omit to process every sheet (the default).
+   */
+  sheetName?: string;
+  /**
+   * For spreadsheets (xlsx only): how sheet data is rendered into the prompt.
+   * - `raw` (default): tab-separated preview — the long-standing behaviour
+   * - `csv`: comma-separated values with RFC 4180 quoting
+   * - `markdown`: a markdown table per sheet
+   * - `json`: an array of row objects keyed by the header row
+   */
+  formatStyle?: "raw" | "markdown" | "json" | "csv";
 };
 
 /**

@@ -130,6 +130,11 @@ export class MessageBuilder {
             },
             csvOptions: options.csvOptions,
             pdfOptions: options.pdfOptions,
+            // This object is rebuilt field by field, so anything not named
+            // here never reaches the multimodal builder — the same way
+            // audioFiles/videoFiles went missing in #284. Office options
+            // steer XLSX sheet selection and rendering.
+            officeOptions: options.officeOptions,
             provider: options.provider,
             model: options.model,
             temperature: options.temperature,
@@ -279,6 +284,11 @@ export class MessageBuilder {
             },
             csvOptions: options.csvOptions,
             pdfOptions: options.pdfOptions,
+            // This object is rebuilt field by field, so anything not named
+            // here never reaches the multimodal builder — the same way
+            // audioFiles/videoFiles went missing in #284. Office options
+            // steer XLSX sheet selection and rendering.
+            officeOptions: options.officeOptions,
             provider: options.provider,
             model: options.model,
             temperature: options.temperature,

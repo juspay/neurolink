@@ -27,6 +27,7 @@ export const textGenerationOptionsSchema: Record<
     | "region"
     | "csvOptions"
     | "pdfOptions"
+    | "officeOptions"
     | "tts"
     | "stt" // Complex object, set via --stt* flags
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead

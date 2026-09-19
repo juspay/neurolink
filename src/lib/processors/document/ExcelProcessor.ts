@@ -45,6 +45,7 @@ import type {
   ExcelJSWorksheet,
   ExcelWorksheet,
   FileInfo,
+  OfficeProcessorOptions,
   ProcessOptions,
   ProcessedExcel,
   ProcessorFileProcessingResult,
@@ -611,6 +612,137 @@ export class ExcelProcessor extends BaseFileProcessor<ProcessedExcel> {
 
     return lines.join("\n");
   }
+}
+
+// =============================================================================
+// PROMPT FORMATTING
+// =============================================================================
+
+/** Rows beyond this per sheet are summarised rather than listed. */
+const PROMPT_PREVIEW_ROWS = 20;
+
+/** RFC 4180: quote a field that contains a comma, quote or newline. */
+function csvEscape(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/** A pipe inside a cell would otherwise split it into two columns. */
+function markdownEscape(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+}
+
+function cellText(value: string | number | boolean | null): string {
+  return String(value ?? "");
+}
+
+function formatSheetRows(
+  sheet: ExcelWorksheet,
+  formatStyle: NonNullable<OfficeProcessorOptions["formatStyle"]>,
+): string {
+  const previewRows = sheet.rows.slice(0, PROMPT_PREVIEW_ROWS);
+  if (previewRows.length === 0) {
+    return "";
+  }
+
+  switch (formatStyle) {
+    case "markdown": {
+      // `rows[0]` IS the header row (that is where `headers` came from), so
+      // the body always starts at index 1 — emitting row 0 again would
+      // duplicate the header underneath the separator.
+      const header =
+        sheet.headers.length > 0 ? sheet.headers : previewRows[0].map(cellText);
+      const body = previewRows.slice(1);
+      const columnCount = Math.max(
+        header.length,
+        ...body.map((row) => row.length),
+        1,
+      );
+      const pad = (cells: string[]): string[] =>
+        Array.from({ length: columnCount }, (_, i) =>
+          markdownEscape(cells[i] ?? ""),
+        );
+      return [
+        `| ${pad(header).join(" | ")} |`,
+        `| ${Array.from({ length: columnCount }, () => "---").join(" | ")} |`,
+        ...body.map((row) => `| ${pad(row.map(cellText)).join(" | ")} |`),
+      ].join("\n");
+    }
+    case "csv":
+      return previewRows
+        .map((row) => row.map((cell) => csvEscape(cellText(cell))).join(","))
+        .join("\n");
+    case "json": {
+      const header =
+        sheet.headers.length > 0 ? sheet.headers : previewRows[0].map(cellText);
+      const objects = previewRows
+        .slice(1)
+        .map((row) =>
+          Object.fromEntries(header.map((key, i) => [key, row[i] ?? null])),
+        );
+      return JSON.stringify(objects, null, 2);
+    }
+    case "raw":
+    default:
+      // Bug-for-bug with the pre-option behaviour: the header line is printed
+      // and then `rows` is printed in full, so row 1 appears twice. Callers
+      // that want a clean table ask for "markdown" or "csv".
+      return [
+        sheet.headers.join("\t"),
+        ...previewRows.map((row) => row.map(cellText).join("\t")),
+      ].join("\n");
+  }
+}
+
+/**
+ * Render processed worksheets into the text handed to the model.
+ *
+ * @param worksheets - Worksheets extracted from the workbook
+ * @param totalRows - Total row count across all extracted worksheets
+ * @param options - Office options; `sheetName` selects a single sheet and
+ *   `formatStyle` chooses the rendering (default `raw`, the tab-separated
+ *   preview that predates the option)
+ * @returns Prompt-ready text, or a message naming the available sheets when
+ *   `sheetName` matches none of them
+ */
+export function formatWorksheetsForPrompt(
+  worksheets: ExcelWorksheet[],
+  totalRows: number,
+  options?: OfficeProcessorOptions,
+): string {
+  const requested = options?.sheetName;
+  let selected = worksheets;
+
+  if (requested !== undefined) {
+    selected = worksheets.filter((sheet) => sheet.name === requested);
+    if (selected.length === 0) {
+      const available = worksheets.map((sheet) => sheet.name).join(", ");
+      return `Sheet "${requested}" not found. Available sheets: ${available || "(none)"}`;
+    }
+  }
+
+  const formatStyle = options?.formatStyle ?? "raw";
+  const selectedRows = selected.reduce((sum, sheet) => sum + sheet.rowCount, 0);
+  const scope =
+    requested !== undefined
+      ? `Spreadsheet: sheet "${requested}" of ${worksheets.length}, ${selectedRows} rows`
+      : `Spreadsheet: ${worksheets.length} sheet(s), ${totalRows} total rows`;
+
+  let text = `${scope}\n`;
+  for (const sheet of selected) {
+    text += `\n### Sheet: ${sheet.name}\n`;
+    text += `Columns (${sheet.columnCount}): ${sheet.headers.join(", ")}\n`;
+    text += `Rows: ${sheet.rowCount}\n`;
+    const rendered = formatSheetRows(sheet, formatStyle);
+    if (!rendered) {
+      continue;
+    }
+    text += `\nData:\n${rendered}\n`;
+    const remaining = sheet.rowCount - PROMPT_PREVIEW_ROWS;
+    if (remaining > 0) {
+      text += `... (${remaining} more rows)\n`;
+    }
+  }
+  return text;
 }
 
 // =============================================================================

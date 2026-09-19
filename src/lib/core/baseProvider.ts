@@ -1102,6 +1102,7 @@ export abstract class BaseProvider implements AIProvider {
         context: options.context as Record<string, JsonValue> | undefined,
         csvOptions: options.csvOptions,
         pdfOptions: options.pdfOptions,
+        officeOptions: options.officeOptions,
         // Forward abort, tool filtering, and timeout options to prevent
         // silent bypass when falling back from real streaming to fake streaming
         abortSignal: options.abortSignal,

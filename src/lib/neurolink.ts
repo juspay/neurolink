@@ -5605,6 +5605,7 @@ Current user's request: ${currentInput}`;
       // reached convertToImages.
       csvOptions: options.csvOptions,
       pdfOptions: options.pdfOptions,
+      officeOptions: options.officeOptions,
       region: options.region,
       tts: options.tts,
       stt: options.stt,
