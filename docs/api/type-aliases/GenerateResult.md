@@ -8,7 +8,7 @@
 
 > **GenerateResult** = `object` & [`MediaGenerationOutputs`](MediaGenerationOutputs.md)
 
-Defined in: [types/generate.ts:1061](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1061)
+Defined in: [types/generate.ts:1075](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1075)
 
 Generate function result type - Primary output format
 Future-ready for multi-modal outputs while maintaining text focus

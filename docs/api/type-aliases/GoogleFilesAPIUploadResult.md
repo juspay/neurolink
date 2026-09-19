@@ -8,7 +8,7 @@
 
 > **GoogleFilesAPIUploadResult** = `object`
 
-Defined in: [types/file.ts:557](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L557)
+Defined in: [types/file.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L568)
 
 Google AI Studio Files API types
 
@@ -18,7 +18,7 @@ Google AI Studio Files API types
 
 > **file**: `object`
 
-Defined in: [types/file.ts:558](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L558)
+Defined in: [types/file.ts:569](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L569)
 
 #### name
 

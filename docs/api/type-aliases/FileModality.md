@@ -8,7 +8,7 @@
 
 > **FileModality** = `"image"` \| `"audio"` \| `"video"` \| `"document"` \| `"data"` \| `"archive"`
 
-Defined in: [types/file.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L82)
+Defined in: [types/file.ts:93](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L93)
 
 Broad category a file format belongs to, as a human would name it.
 

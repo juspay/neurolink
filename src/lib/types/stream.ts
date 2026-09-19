@@ -35,7 +35,11 @@ import type {
 import type { TTSChunk, TTSOptions, TTSResult } from "./tts.js";
 import type { STTOptions, STTResult } from "./stt.js";
 import type { StandardRecord, ValidationSchema } from "./aliases.js";
-import type { CSVProcessorOptions, FileWithMetadata } from "./file.js";
+import type {
+  CSVProcessorOptions,
+  FileWithMetadata,
+  VisionImageOutputFormat,
+} from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { LanguageModel, StepResult } from "./providers.js";
 import type { Tool, ToolChoice } from "./tools.js";
@@ -429,6 +433,19 @@ export type StreamOptions = {
      * not sent to the model at all. Defaults to PDF_LIMITS.DEFAULT_MAX_PAGES (20).
      */
     maxPages?: number;
+  };
+
+  /**
+   * Options for images that need transcoding before a vision provider can
+   * read them (HEIC, TIFF, BMP, ICO, JPEG 2000, AVIF — see
+   * `adapters/imageFormatSupport.ts`). Mirrors `GenerateOptions.imageOptions`.
+   */
+  imageOptions?: {
+    /**
+     * Transcode target for an incompatible image. Defaults to `"png"` — the
+     * module's own default, unchanged unless a caller opts in here.
+     */
+    outputFormat?: VisionImageOutputFormat;
   };
 
   // Video processing options

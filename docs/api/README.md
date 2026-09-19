@@ -1227,6 +1227,7 @@ console.log(result.content);
 - [RuntimeMCPServerInfo](type-aliases/RuntimeMCPServerInfo.md)
 - [FileType](type-aliases/FileType.md)
 - [OfficeDocumentType](type-aliases/OfficeDocumentType.md)
+- [VisionImageOutputFormat](type-aliases/VisionImageOutputFormat.md)
 - [VisionImageConversion](type-aliases/VisionImageConversion.md)
 - [AudioConversionResult](type-aliases/AudioConversionResult.md)
 - [MultimodalAudioEntry](type-aliases/MultimodalAudioEntry.md)

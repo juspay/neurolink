@@ -37,6 +37,7 @@ import type {
   CSVProcessorOptions,
   FileWithMetadata,
   MultimodalAudioEntry,
+  VisionImageOutputFormat,
 } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { Schema, Tool, ToolChoice } from "./tools.js";
@@ -181,6 +182,19 @@ export type GenerateOptions = {
      * not sent to the model at all. Defaults to PDF_LIMITS.DEFAULT_MAX_PAGES (20).
      */
     maxPages?: number;
+  };
+
+  /**
+   * Options for images that need transcoding before a vision provider can
+   * read them (HEIC, TIFF, BMP, ICO, JPEG 2000, AVIF — see
+   * `adapters/imageFormatSupport.ts`).
+   */
+  imageOptions?: {
+    /**
+     * Transcode target for an incompatible image. Defaults to `"png"` — the
+     * module's own default, unchanged unless a caller opts in here.
+     */
+    outputFormat?: VisionImageOutputFormat;
   };
 
   // Video processing options
@@ -1556,6 +1570,21 @@ export type TextGenerationOptions = {
     scale?: number;
     /** Max pages converted by the image fallback (#297); defaults to PDF_LIMITS.DEFAULT_MAX_PAGES. */
     maxPages?: number;
+  };
+
+  /**
+   * Options for images that need transcoding before a vision provider can
+   * read them (HEIC, TIFF, BMP, ICO, JPEG 2000, AVIF — see
+   * `adapters/imageFormatSupport.ts`). Mirrors `GenerateOptions.imageOptions`;
+   * this is the shape that actually reaches `MessageBuilder` for providers
+   * built on `BaseProvider`.
+   */
+  imageOptions?: {
+    /**
+     * Transcode target for an incompatible image. Defaults to `"png"` — the
+     * module's own default, unchanged unless a caller opts in here.
+     */
+    outputFormat?: VisionImageOutputFormat;
   };
 
   enableSummarization?: boolean; // Enable/disable summarization for this specific request

@@ -242,6 +242,7 @@
     "test:mcp-result-cache": "pnpm exec tsx test/continuous-test-suite-mcp-result-cache.ts",
     "test:archive:security": "pnpm exec tsx test/continuous-test-suite-archive-security.ts",
     "test:office:security": "pnpm exec tsx test/continuous-test-suite-office-security.ts",
+    "test:vision-image-format": "pnpm exec tsx test/continuous-test-suite-vision-image-format.ts",
     "test:model-pool": "pnpm exec tsx test/continuous-test-suite-model-pool.ts",
     "test:agents": "pnpm exec tsx test/continuous-test-suite-agents.ts",
     "test:classifier-router": "pnpm exec tsx test/continuous-test-suite-classifier-router.ts",

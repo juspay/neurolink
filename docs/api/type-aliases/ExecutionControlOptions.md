@@ -8,7 +8,7 @@
 
 > **ExecutionControlOptions** = `object`
 
-Defined in: [types/stream.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L297)
+Defined in: [types/stream.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L301)
 
 Opt-in execution policy for one streamed turn. Supported only on the native
 Anthropic stream path today; any other provider REJECTS it rather than
@@ -32,7 +32,7 @@ restores exactly the old behaviour.
 
 > **requestTimeoutMs**: `number`
 
-Defined in: [types/stream.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L306)
+Defined in: [types/stream.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L310)
 
 Hard deadline for a single HTTP request (ms). Required, finite, positive.
 
@@ -47,7 +47,7 @@ error. A step boundary cannot reset a deadline already running.
 
 > `optional` **lifetimeTimeoutMs?**: `number` \| `null`
 
-Defined in: [types/stream.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L326)
+Defined in: [types/stream.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L330)
 
 The turn's wall-clock ceiling (ms).
 
@@ -73,7 +73,7 @@ present holding `undefined`: both say "no opinion", and both inherit.
 
 > `optional` **beforeStep?**: (`context`) => [`ExecutionControlDecision`](ExecutionControlDecision.md) \| `undefined` \| `Promise`\<[`ExecutionControlDecision`](ExecutionControlDecision.md) \| `undefined`\>
 
-Defined in: [types/stream.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L333)
+Defined in: [types/stream.ts:337](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L337)
 
 Runs at each step boundary. May renew the step cap and append a planning
 nudge. It is itself bounded by `beforeStepTimeoutMs` and cancelled with
@@ -96,7 +96,7 @@ declining to renew.
 
 > `optional` **beforeStepTimeoutMs?**: `number`
 
-Defined in: [types/stream.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L344)
+Defined in: [types/stream.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/stream.ts#L348)
 
 Bound on `beforeStep` itself (ms, finite and positive; default 30_000).
 A boundary callback sits between two model calls, so an unbounded one
