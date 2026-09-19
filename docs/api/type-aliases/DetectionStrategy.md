@@ -8,7 +8,7 @@
 
 > **DetectionStrategy** = `object`
 
-Defined in: [types/file.ts:696](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L696)
+Defined in: [types/file.ts:734](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L734)
 
 Contract implemented by each file-detection strategy.
 
@@ -18,7 +18,7 @@ Contract implemented by each file-detection strategy.
 
 > **detect**(`input`): `Promise`\<[`FileDetectionResult`](FileDetectionResult.md)\>
 
-Defined in: [types/file.ts:697](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L697)
+Defined in: [types/file.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L735)
 
 #### Parameters
 

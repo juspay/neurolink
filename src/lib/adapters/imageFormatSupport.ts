@@ -21,8 +21,11 @@
  */
 
 import type {
+  ExifOrientationProbe,
+  ImageOrientationNormalization,
   ImageWithAltText,
   VisionImageConversion,
+  VisionTranscodeOptions,
 } from "../types/index.js";
 import { extensionForMimeType } from "../processors/config/fileTypeRegistry.js";
 import { withTimeout } from "../utils/errorHandling.js";
@@ -111,6 +114,278 @@ export function needsVisionTranscode(mimeType: string): boolean {
 }
 
 /**
+ * Formats whose spec allows an EXIF/XMP orientation tag.
+ *
+ * PNG and GIF have no such field, so they are deliberately absent — gating on
+ * this set (rather than running sharp's metadata probe on every image) means
+ * those two formats never pay for a decode they cannot possibly need.
+ */
+const EXIF_ORIENTABLE_MIME_TYPES: ReadonlySet<string> = new Set([
+  "image/jpeg",
+  "image/tiff",
+  "image/x-tiff",
+  "image/webp",
+  "image/avif",
+  "image/heic",
+  "image/heic-sequence",
+  "image/heif",
+  "image/heif-sequence",
+]);
+
+/**
+ * True when a MIME type's format can carry an orientation tag at all. Cheap
+ * enough to call on every image; callers use it to skip reading a file off
+ * disk (or invoking sharp) for a format that structurally cannot need it.
+ */
+export function mayCarryExifOrientation(mimeType: string): boolean {
+  const normalized = mimeType.split(";")[0].trim().toLowerCase();
+  return EXIF_ORIENTABLE_MIME_TYPES.has(normalized);
+}
+
+/**
+ * Leading bytes {@link probeExifOrientation} needs to reach a verdict on the
+ * containers it parses.
+ *
+ * A JPEG's EXIF block lives in an APP1 segment whose length field is 16 bits
+ * wide, so the segment cannot exceed 64 KiB — and IFD0, which holds the
+ * orientation tag, sits at the very front of it. One window this size
+ * therefore spans the entire tag block of any file written EXIF-first, which
+ * is every file a camera or phone produces. WebP settles in 21 bytes.
+ *
+ * Sized deliberately in terms of what the format guarantees rather than what
+ * a sample of files happens to need: a window chosen by measurement would
+ * turn an unusual-but-legal layout into a silent wrong answer, whereas
+ * running out of this one returns `"inconclusive"` and costs only the read it
+ * was trying to avoid.
+ */
+export const EXIF_PROBE_PREFIX_BYTES = 64 * 1024;
+
+/** Orientation, tag 0x0112 of TIFF/EXIF IFD0. */
+const EXIF_TAG_ORIENTATION = 0x0112;
+
+/** TIFF field types this probe knows how to read a scalar out of. */
+const TIFF_TYPE_SHORT = 3;
+const TIFF_TYPE_LONG = 4;
+
+function readUint16(
+  buffer: Buffer,
+  offset: number,
+  littleEndian: boolean,
+): number | undefined {
+  if (offset < 0 || offset + 2 > buffer.length) {
+    return undefined;
+  }
+  return littleEndian
+    ? buffer.readUInt16LE(offset)
+    : buffer.readUInt16BE(offset);
+}
+
+function readUint32(
+  buffer: Buffer,
+  offset: number,
+  littleEndian: boolean,
+): number | undefined {
+  if (offset < 0 || offset + 4 > buffer.length) {
+    return undefined;
+  }
+  return littleEndian
+    ? buffer.readUInt32LE(offset)
+    : buffer.readUInt32BE(offset);
+}
+
+/**
+ * Read the orientation tag out of a TIFF header block — the payload of a JPEG
+ * APP1 segment past its `Exif\0\0` signature, or a `.tif` file's own opening
+ * bytes, which are the same structure.
+ *
+ * Only IFD0 is walked. That is where every writer puts orientation, and it is
+ * also the only IFD libvips reads it from, so a deeper walk would find tags
+ * that the decoder this probe is standing in for would itself ignore.
+ */
+function probeTiffBlockOrientation(tiff: Buffer): ExifOrientationProbe {
+  const byteOrder = readUint16(tiff, 0, false);
+  const littleEndian = byteOrder === 0x4949; // "II"
+  if (!littleEndian && byteOrder !== 0x4d4d /* "MM" */) {
+    return "inconclusive";
+  }
+  if (readUint16(tiff, 2, littleEndian) !== 42) {
+    return "inconclusive";
+  }
+  const ifdOffset = readUint32(tiff, 4, littleEndian);
+  if (ifdOffset === undefined) {
+    return "inconclusive";
+  }
+  const entryCount = readUint16(tiff, ifdOffset, littleEndian);
+  if (entryCount === undefined) {
+    return "inconclusive";
+  }
+  // Every entry must be inside the window before "no orientation tag here"
+  // can mean anything — a half-read IFD is a question, not an answer.
+  if (ifdOffset + 2 + entryCount * 12 > tiff.length) {
+    return "inconclusive";
+  }
+  for (let i = 0; i < entryCount; i++) {
+    const entry = ifdOffset + 2 + i * 12;
+    if (readUint16(tiff, entry, littleEndian) !== EXIF_TAG_ORIENTATION) {
+      continue;
+    }
+    const fieldType = readUint16(tiff, entry + 2, littleEndian);
+    // A scalar that fits in four bytes is stored left-justified in the value
+    // field, so both widths start at the same place. An exotic field type is
+    // left to the decoder rather than guessed at.
+    const value =
+      fieldType === TIFF_TYPE_SHORT
+        ? readUint16(tiff, entry + 8, littleEndian)
+        : fieldType === TIFF_TYPE_LONG
+          ? readUint32(tiff, entry + 8, littleEndian)
+          : undefined;
+    if (value === undefined) {
+      return "inconclusive";
+    }
+    // Matches `normalizeImageOrientation`'s own condition: 1 is upright and 0
+    // is the absent/invalid encoding, and neither is worth a re-encode.
+    return value <= 1 ? "absent" : "present";
+  }
+  return "absent";
+}
+
+/**
+ * Walk a JPEG's marker segments looking for the EXIF APP1.
+ *
+ * Reaching SOS or EOI is a conclusive "absent": metadata segments are
+ * required to precede the entropy-coded scan, so nothing past that point can
+ * introduce one. Running off the end of the window is not conclusive and says
+ * so.
+ */
+function probeJpegOrientation(prefix: Buffer): ExifOrientationProbe {
+  if (prefix.length < 4 || prefix.readUInt16BE(0) !== 0xffd8 /* SOI */) {
+    // The extension claimed JPEG and the bytes disagree. Whatever this is,
+    // the decoder gets to say so.
+    return "inconclusive";
+  }
+  let offset = 2;
+  while (offset + 4 <= prefix.length) {
+    if (prefix[offset] !== 0xff) {
+      return "inconclusive";
+    }
+    // Any run of 0xFF ahead of the marker id is legal fill.
+    let markerAt = offset + 1;
+    while (markerAt < prefix.length && prefix[markerAt] === 0xff) {
+      markerAt++;
+    }
+    if (markerAt >= prefix.length) {
+      return "inconclusive";
+    }
+    const marker = prefix[markerAt];
+    if (marker === 0xd9 /* EOI */ || marker === 0xda /* SOS */) {
+      return "absent";
+    }
+    // Standalone markers carry no length field to skip over.
+    if (
+      marker === 0x01 ||
+      marker === 0xd8 ||
+      (marker >= 0xd0 && marker <= 0xd7)
+    ) {
+      offset = markerAt + 1;
+      continue;
+    }
+    const length = readUint16(prefix, markerAt + 1, false);
+    if (length === undefined || length < 2) {
+      return "inconclusive";
+    }
+    const payloadStart = markerAt + 3;
+    const segmentEnd = markerAt + 1 + length;
+    if (marker === 0xe1 /* APP1 */) {
+      if (segmentEnd > prefix.length) {
+        return "inconclusive";
+      }
+      const payload = prefix.subarray(payloadStart, segmentEnd);
+      if (
+        payload.length > 6 &&
+        payload.subarray(0, 4).toString("latin1") === "Exif" &&
+        payload[4] === 0x00 &&
+        payload[5] === 0x00
+      ) {
+        return probeTiffBlockOrientation(payload.subarray(6));
+      }
+      // Some other APP1 — an XMP packet, most often. Keep walking; the EXIF
+      // one may still be ahead.
+    }
+    offset = segmentEnd;
+  }
+  return "inconclusive";
+}
+
+/**
+ * Read the VP8X feature flags of a WebP container.
+ *
+ * A simple-format file (`VP8 ` / `VP8L` as its only chunk) has nowhere to put
+ * metadata, which settles it outright. An extended file advertises whether an
+ * EXIF chunk exists anywhere in the file, and that flag alone is enough to
+ * clear the common case — the chunk itself is conventionally written after
+ * the image data, so a set flag is where a header prefix stops being able to
+ * answer.
+ */
+function probeWebpOrientation(prefix: Buffer): ExifOrientationProbe {
+  if (
+    prefix.length < 16 ||
+    prefix.subarray(0, 4).toString("latin1") !== "RIFF" ||
+    prefix.subarray(8, 12).toString("latin1") !== "WEBP"
+  ) {
+    return "inconclusive";
+  }
+  const firstChunk = prefix.subarray(12, 16).toString("latin1");
+  if (firstChunk === "VP8 " || firstChunk === "VP8L") {
+    return "absent";
+  }
+  // fourCC (4) + chunk length (4) puts the flags byte at 20.
+  if (firstChunk !== "VP8X" || prefix.length < 21) {
+    return "inconclusive";
+  }
+  const EXIF_CHUNK_FLAG = 0x08;
+  return (prefix[20] & EXIF_CHUNK_FLAG) === 0 ? "absent" : "inconclusive";
+}
+
+/**
+ * Decide from a bounded header prefix whether an image carries an EXIF
+ * orientation worth acting on — without decoding it, and without needing all
+ * of its bytes.
+ *
+ * This exists because the orientation question is asked of every JPEG and
+ * WebP a caller supplies, while the answer is "no" for almost all of them.
+ * Answering it with a decoder means reading the whole file into memory and
+ * loading sharp to look at a header; answering it here costs
+ * {@link EXIF_PROBE_PREFIX_BYTES} at most, and usually far less.
+ *
+ * The verdict is deliberately three-valued. `"absent"` is a promise — the
+ * container was parsed far enough to rule an actionable tag out — and callers
+ * may skip the expensive path on it. Everything else, including every
+ * container this probe does not parse (HEIC, HEIF, AVIF: ISOBMFF, where
+ * orientation is an item property rather than a header field), comes back
+ * `"inconclusive"` and must fall through to the decoder.
+ *
+ * @param prefix - Leading bytes of the image; the whole image is also fine.
+ * @param mimeType - Detected MIME type of the image `prefix` came from.
+ */
+export function probeExifOrientation(
+  prefix: Buffer,
+  mimeType: string,
+): ExifOrientationProbe {
+  const normalized = mimeType.split(";")[0].trim().toLowerCase();
+  switch (normalized) {
+    case "image/jpeg":
+      return probeJpegOrientation(prefix);
+    case "image/webp":
+      return probeWebpOrientation(prefix);
+    case "image/tiff":
+    case "image/x-tiff":
+      return probeTiffBlockOrientation(prefix);
+    default:
+      return "inconclusive";
+  }
+}
+
+/**
  * Decode with sharp. Covers TIFF, AVIF, GIF and SVG in-process with no temp
  * files, which is the fast path.
  *
@@ -119,7 +394,10 @@ export function needsVisionTranscode(mimeType: string): boolean {
  * only — actual HEVC-coded HEIC fails inside libheif, and BMP, ICO and
  * JPEG 2000 are not compiled in at all. Those fall through to ffmpeg below.
  */
-async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
+async function transcodeWithSharp(
+  buffer: Buffer,
+  autoOrient: boolean,
+): Promise<Buffer> {
   const sharpModule = await tryImport<typeof import("sharp")>(
     "sharp",
     "Image format conversion for vision providers",
@@ -151,7 +429,18 @@ async function transcodeWithSharp(buffer: Buffer): Promise<Buffer> {
       "the installed sharp package returned a pipeline without a png() encoder",
     );
   }
-  return pipeline.png().toBuffer();
+  if (autoOrient && typeof pipeline.rotate !== "function") {
+    throw new Error(
+      "the installed sharp package returned a pipeline without a rotate() transform",
+    );
+  }
+  // `.rotate()` with no argument auto-orients from the EXIF tag, and the PNG
+  // encoder then writes already-upright pixels with no tag left to carry. It
+  // rides along inside the decode the transcode was going to do anyway, so an
+  // image needing both costs one decode and one encode rather than two of
+  // each — and, for a source sharp writes lossily (TIFF defaults to JPEG
+  // compression), skips a whole generation of quality loss on the way.
+  return (autoOrient ? pipeline.rotate() : pipeline).png().toBuffer();
 }
 
 /**
@@ -230,8 +519,9 @@ async function transcodeWithFfmpeg(
 async function* transcodeBackends(
   buffer: Buffer,
   extension: string,
+  autoOrient: boolean,
 ): AsyncGenerator<{ name: string; run: () => Promise<Buffer> }> {
-  yield { name: "sharp", run: () => transcodeWithSharp(buffer) };
+  yield { name: "sharp", run: () => transcodeWithSharp(buffer, autoOrient) };
   const resolved = await getFfmpegPath().catch(() => "ffmpeg");
   yield {
     name: "ffmpeg",
@@ -255,12 +545,36 @@ async function* transcodeBackends(
  * compatibility step becoming a new way for a previously working request to
  * break.
  *
+ * `options.autoOrient` folds an EXIF orientation correction into the same
+ * decode, for a format that needs both (HEIC, HEIF, TIFF, AVIF are in both
+ * sets). Only the sharp backend honours it: ffmpeg's image encoders do not
+ * apply EXIF orientation, so a source ffmpeg transcodes comes back unrotated.
+ * `autoOrient` is therefore a request rather than a guarantee, exactly like
+ * `converted`.
+ *
+ * That it costs nothing today rests on {@link transcodeBackends}' **ordering**,
+ * not on which formats each backend supports. ffmpeg is a fallback: it is
+ * reached only once sharp has thrown on this exact buffer, and a buffer sharp
+ * cannot decode is one the sharp-based `normalizeImageOrientation` could not
+ * have oriented either. The two sets are disjoint by construction, which is
+ * why replacing the old orientation-then-transcode pair with this lost no
+ * rotation.
+ *
+ * ⚠️ That makes the ordering load-bearing. Reordering the backends, or
+ * preferring ffmpeg for some format sharp can also read, would silently stop
+ * applying rotations the two-pass code did apply — and nothing would fail,
+ * because the fused path still reports `converted: true`. A change like that
+ * needs `autoOrient` to grow its own fallback rather than inheriting this
+ * one's guarantee.
+ *
  * @param buffer - Raw image bytes.
  * @param mimeType - Detected MIME type of `buffer`.
+ * @param options - See {@link VisionTranscodeOptions}.
  */
 export async function toVisionCompatibleImage(
   buffer: Buffer,
   mimeType: string,
+  options?: VisionTranscodeOptions,
 ): Promise<VisionImageConversion> {
   if (!needsVisionTranscode(mimeType)) {
     return { buffer, mimeType, converted: false };
@@ -268,9 +582,14 @@ export async function toVisionCompatibleImage(
 
   const normalized = mimeType.split(";")[0].trim().toLowerCase();
   const extension = extensionForMimeType(normalized) ?? ".bin";
+  const autoOrient = options?.autoOrient === true;
   const failures: string[] = [];
 
-  for await (const backend of transcodeBackends(buffer, extension)) {
+  for await (const backend of transcodeBackends(
+    buffer,
+    extension,
+    autoOrient,
+  )) {
     try {
       // Both backends can stall — sharp on a malformed stream, ffmpeg on a
       // container it half-understands — and this runs inline on the request
@@ -305,6 +624,93 @@ export async function toVisionCompatibleImage(
       `Tried ${failures.join("; ")}`,
   );
   return { buffer, mimeType, converted: false };
+}
+
+/**
+ * Auto-orient an image from its EXIF/XMP tag and strip the tag, so a photo
+ * that was stored rotated (the common case for phone cameras, since the
+ * sensor is read in one fixed orientation and rotation is recorded as a flag
+ * rather than baked into the pixels) is sent upright instead of sideways.
+ *
+ * Three costs are guarded deliberately, matching how `toVisionCompatibleImage`
+ * guards its own:
+ * - **Cost**: `mayCarryExifOrientation` skips formats that cannot carry the
+ *   tag; `probeExifOrientation` then settles the formats that can from their
+ *   own header bytes, so the overwhelmingly common orientation-less JPEG or
+ *   WebP never loads sharp at all. Only a container the probe cannot rule
+ *   out reaches a `metadata()` call, and only a tag that is present and not
+ *   the already-upright value `1` reaches the decode-and-re-encode.
+ * - **Availability**: sharp is an optional dependency (the ffmpeg fallback
+ *   path above exists precisely because it can be absent). Any failure —
+ *   missing package, malformed pixels, a timeout — is caught here and
+ *   degrades to returning the original bytes unchanged, never throwing.
+ * - **Size**: re-encoding changes byte length. This function only returns the
+ *   new bytes; it does not itself re-validate size limits. Callers that
+ *   re-encode must re-run their size guard on the returned buffer.
+ *
+ * Never throws for image reasons — mirrors `toVisionCompatibleImage`.
+ *
+ * @param buffer - Raw image bytes.
+ * @param mimeType - Detected MIME type of `buffer`.
+ */
+export async function normalizeImageOrientation(
+  buffer: Buffer,
+  mimeType: string,
+): Promise<ImageOrientationNormalization> {
+  if (!mayCarryExifOrientation(mimeType)) {
+    return { buffer, normalized: false };
+  }
+  // Only "absent" is actionable here. "inconclusive" means the parse ran out
+  // of container it understands, which is a question for the decoder rather
+  // than a no — see {@link probeExifOrientation}.
+  if (probeExifOrientation(buffer, mimeType) === "absent") {
+    return { buffer, normalized: false };
+  }
+
+  try {
+    const sharpModule = await tryImport<typeof import("sharp")>(
+      "sharp",
+      "EXIF orientation normalization",
+    );
+    if (typeof sharpModule?.default !== "function") {
+      throw new Error(
+        "the installed sharp package does not expose a callable default export",
+      );
+    }
+
+    const metadata = await withTimeout(
+      sharpModule.default(buffer).metadata(),
+      IMAGE_TRANSCODE_TIMEOUT_MS,
+      new Error(`EXIF metadata read exceeded ${IMAGE_TRANSCODE_TIMEOUT_MS}ms`),
+    );
+    // 1 is "already upright" (and the implicit value when the tag is absent
+    // altogether) — nothing to correct, so skip the re-encode entirely.
+    if (!metadata.orientation || metadata.orientation === 1) {
+      return { buffer, normalized: false };
+    }
+
+    const rotated = await withTimeout(
+      sharpModule.default(buffer).rotate().toBuffer(),
+      IMAGE_TRANSCODE_TIMEOUT_MS,
+      new Error(`EXIF auto-orient exceeded ${IMAGE_TRANSCODE_TIMEOUT_MS}ms`),
+    );
+    if (rotated.length === 0) {
+      throw new Error("auto-orient produced an empty image");
+    }
+
+    logger.debug(
+      `[imageFormatSupport] Normalized EXIF orientation ${metadata.orientation} for ` +
+        `${mimeType} (${buffer.length} → ${rotated.length} bytes)`,
+    );
+    return { buffer: rotated, normalized: true };
+  } catch (error) {
+    logger.warn(
+      `[imageFormatSupport] Could not normalize EXIF orientation for ${mimeType} — ` +
+        `sending the original bytes as-is: ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    );
+    return { buffer, normalized: false };
+  }
 }
 
 /**

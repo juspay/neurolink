@@ -8,7 +8,7 @@
 
 > **FileDetectionResult** = `object`
 
-Defined in: [types/file.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L142)
+Defined in: [types/file.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L180)
 
 File detection result with confidence scoring
 
@@ -18,7 +18,7 @@ File detection result with confidence scoring
 
 > **type**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L143)
+Defined in: [types/file.ts:181](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L181)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:143](https://github.com/juspay/neurolink/blob/release
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L144)
+Defined in: [types/file.ts:182](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L182)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:144](https://github.com/juspay/neurolink/blob/release
 
 > **extension**: `string` \| `null`
 
-Defined in: [types/file.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L145)
+Defined in: [types/file.ts:183](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L183)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:145](https://github.com/juspay/neurolink/blob/release
 
 > **source**: [`FileSource`](FileSource.md)
 
-Defined in: [types/file.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L146)
+Defined in: [types/file.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L184)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/file.ts:146](https://github.com/juspay/neurolink/blob/release
 
 > **metadata**: `object`
 
-Defined in: [types/file.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L147)
+Defined in: [types/file.ts:185](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L185)
 
 #### size?
 

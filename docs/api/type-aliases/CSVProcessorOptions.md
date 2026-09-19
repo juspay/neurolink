@@ -8,7 +8,7 @@
 
 > **CSVProcessorOptions** = `object`
 
-Defined in: [types/file.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L304)
+Defined in: [types/file.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L342)
 
 CSV processor options
 
@@ -18,7 +18,7 @@ CSV processor options
 
 > `optional` **maxRows?**: `number`
 
-Defined in: [types/file.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L305)
+Defined in: [types/file.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L343)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/file.ts:305](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **formatStyle?**: `"raw"` \| `"markdown"` \| `"json"`
 
-Defined in: [types/file.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L306)
+Defined in: [types/file.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L344)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/file.ts:306](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **includeHeaders?**: `boolean`
 
-Defined in: [types/file.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L307)
+Defined in: [types/file.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L345)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/file.ts:307](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **sampleDataFormat?**: [`SampleDataFormat`](SampleDataFormat.md)
 
-Defined in: [types/file.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L308)
+Defined in: [types/file.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L346)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/file.ts:308](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **extension?**: `string` \| `null`
 
-Defined in: [types/file.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L309)
+Defined in: [types/file.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L347)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/file.ts:309](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **encoding?**: `string`
 
-Defined in: [types/file.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L315)
+Defined in: [types/file.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L353)
 
 Character encoding override (#362). When omitted, the encoding is detected
 from a BOM then `chardet`, falling back to UTF-8. Accepts any label
@@ -70,7 +70,7 @@ from a BOM then `chardet`, falling back to UTF-8. Accepts any label
 
 > `optional` **sanitizeColumnNames?**: `boolean`
 
-Defined in: [types/file.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L320)
+Defined in: [types/file.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L358)
 
 Rewrite column headers into valid identifiers (#378). Opt-in; default false
 preserves the raw header strings as object keys.
@@ -81,7 +81,7 @@ preserves the raw header strings as object keys.
 
 > `optional` **columnNameCase?**: `"camelCase"` \| `"snake_case"`
 
-Defined in: [types/file.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L322)
+Defined in: [types/file.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L360)
 
 Case style used when `sanitizeColumnNames` is on (#378). Default "snake_case".
 
@@ -91,7 +91,7 @@ Case style used when `sanitizeColumnNames` is on (#378). Default "snake_case".
 
 > `optional` **parseTimeoutMs?**: `number`
 
-Defined in: [types/file.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L328)
+Defined in: [types/file.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L366)
 
 Wall-clock cap for the streaming parse in milliseconds (#379). On timeout the
 parse returns the rows collected so far and flags `metadata.parseTimedOut`,
@@ -103,7 +103,7 @@ rather than hanging forever. Defaults: 30s for strings, 5min for files.
 
 > `optional` **skipEmptyLines?**: `boolean`
 
-Defined in: [types/file.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L334)
+Defined in: [types/file.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L372)
 
 Skip blank / whitespace-only data rows (#373). Default `true`: blank lines
 are excluded from the returned content (including raw CSV text) and from

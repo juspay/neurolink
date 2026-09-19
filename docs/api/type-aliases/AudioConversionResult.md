@@ -8,7 +8,7 @@
 
 > **AudioConversionResult** = `object`
 
-Defined in: [types/file.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L49)
+Defined in: [types/file.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L87)
 
 Outcome of an audio-compatibility pass over one file.
 
@@ -23,7 +23,7 @@ from the resulting `mimeType`.
 
 > `readonly` **buffer**: `Buffer`
 
-Defined in: [types/file.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L50)
+Defined in: [types/file.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L88)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/file.ts:50](https://github.com/juspay/neurolink/blob/release/
 
 > `readonly` **mimeType**: `string`
 
-Defined in: [types/file.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L51)
+Defined in: [types/file.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L89)
 
 ---
 
@@ -39,6 +39,6 @@ Defined in: [types/file.ts:51](https://github.com/juspay/neurolink/blob/release/
 
 > `readonly` **converted**: `boolean`
 
-Defined in: [types/file.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L53)
+Defined in: [types/file.ts:91](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L91)
 
 True when the bytes were re-encoded; false when they were left alone.

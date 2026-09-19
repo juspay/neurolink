@@ -1,5 +1,10 @@
 import { existsSync, readFileSync, statSync } from "fs";
-import { readFile as readFileAsync, stat as statAsync } from "fs/promises";
+import {
+  open as openAsync,
+  readFile as readFileAsync,
+  stat as statAsync,
+} from "fs/promises";
+import type { FileHandle } from "fs/promises";
 import pLimit from "p-limit";
 import { request } from "undici";
 import { redirectFollowingDispatcher } from "./redirectDispatcher.js";
@@ -23,6 +28,7 @@ import type {
   ChatMessage,
   Content,
   CSVContent,
+  ExifOrientationProbe,
   FileInput,
   FileWithMetadata,
   GenerateOptions,
@@ -34,7 +40,11 @@ import type {
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
 import {
+  EXIF_PROBE_PREFIX_BYTES,
+  mayCarryExifOrientation,
   needsVisionTranscode,
+  normalizeImageOrientation,
+  probeExifOrientation,
   toVisionCompatibleImage,
 } from "../adapters/imageFormatSupport.js";
 import {
@@ -2490,12 +2500,16 @@ async function processImageToBase64(
     imageData = image.toString("base64");
   }
 
-  // Last line of defence for vision-format compatibility. `normalizeVisionImageFormats`
-  // handles `input.images` eagerly so the providers that read that array
-  // directly (Google AI Studio, Bedrock) see converted bytes, but images that
-  // arrive as URLs are downloaded further downstream and only become bytes
-  // here. A no-op for the universal formats, so the common path is unaffected.
-  if (needsVisionTranscode(mimeType)) {
+  // Last line of defence for vision-format compatibility AND orientation.
+  // `normalizeVisionImageFormats` handles `input.images` eagerly so the
+  // providers that read that array directly (Google AI Studio, Bedrock) see
+  // converted/oriented bytes, but images that arrive as URLs are downloaded
+  // further downstream and only become bytes here. A no-op for PNG/GIF (which
+  // cannot carry an orientation tag) already sent as-is, so the common
+  // no-EXIF case is unaffected.
+  const needsOrientationCheck = mayCarryExifOrientation(mimeType);
+  const needsTranscode = needsVisionTranscode(mimeType);
+  if (needsOrientationCheck || needsTranscode) {
     // Guard the decoded bytes, not just the Buffer input. The buffer branch
     // above is already checked, but a data: URI reaches here having only been
     // regex-matched — so an oversized one was handed straight to sharp/ffmpeg,
@@ -2505,11 +2519,27 @@ async function processImageToBase64(
     // allocating the very thing the limit exists to refuse.
     const context = `image input at index ${index}`;
     ImageProcessor.validateSize(base64DecodedByteLength(imageData), context);
-    const rawImage = Buffer.from(imageData, "base64");
-    const compatible = await toVisionCompatibleImage(rawImage, mimeType);
-    if (compatible.converted) {
-      imageData = compatible.buffer.toString("base64");
-      mimeType = compatible.mimeType;
+    const rawImage: Buffer = Buffer.from(imageData, "base64");
+
+    if (needsTranscode) {
+      // Both passes need the same decode, so a format in both sets (HEIC,
+      // HEIF, TIFF, AVIF) gets one pipeline rather than two — see
+      // `toVisionCompatibleImage`'s `autoOrient`.
+      const compatible = await toVisionCompatibleImage(rawImage, mimeType, {
+        autoOrient: needsOrientationCheck,
+      });
+      if (compatible.converted) {
+        imageData = compatible.buffer.toString("base64");
+        mimeType = compatible.mimeType;
+      }
+    } else if (needsOrientationCheck) {
+      const oriented = await normalizeImageOrientation(rawImage, mimeType);
+      if (oriented.normalized) {
+        // Re-encoding changes byte length — re-run the size guard on the
+        // result rather than trusting the pre-orientation check to still hold.
+        ImageProcessor.validateBufferSize(oriented.buffer, context);
+        imageData = oriented.buffer.toString("base64");
+      }
     }
   }
 
@@ -2548,19 +2578,55 @@ export async function normalizeVisionImageFormats(
       : (entry as Buffer | string);
 
     const source = await readImageSourceForConversion(payload);
-    if (!source || !needsVisionTranscode(source.mimeType)) {
+    if (
+      !source ||
+      (!needsVisionTranscode(source.mimeType) &&
+        !mayCarryExifOrientation(source.mimeType))
+    ) {
       continue;
     }
 
-    const compatible = await toVisionCompatibleImage(
-      source.buffer,
-      source.mimeType,
-    );
-    if (!compatible.converted) {
+    let buffer = source.buffer;
+    let mimeType = source.mimeType;
+    let changed = false;
+    const orientable = mayCarryExifOrientation(mimeType);
+
+    if (needsVisionTranscode(mimeType)) {
+      // A format in both sets (HEIC, HEIF, TIFF, AVIF) is oriented inside the
+      // transcode's own decode instead of ahead of it. Two sequential passes
+      // cost two decodes and two encodes, and the intermediate re-encode is
+      // lossy for some of these formats — so the model would read an image a
+      // generation worse than the one it could have been sent.
+      const compatible = await toVisionCompatibleImage(buffer, mimeType, {
+        autoOrient: orientable,
+      });
+      if (compatible.converted) {
+        buffer = compatible.buffer;
+        mimeType = compatible.mimeType;
+        changed = true;
+      }
+    } else if (orientable) {
+      const oriented = await normalizeImageOrientation(buffer, mimeType);
+      // Re-encoding changes byte length, so the size guard that gated the
+      // read above must run again on the result — a re-encode that grew past
+      // the limit must not silently replace an under-limit original.
+      if (
+        oriented.normalized &&
+        withinConversionLimit(
+          oriented.buffer,
+          `oriented image at index ${index}`,
+        )
+      ) {
+        buffer = oriented.buffer;
+        changed = true;
+      }
+    }
+
+    if (!changed) {
       continue;
     }
 
-    const dataUri = `data:${compatible.mimeType};base64,${compatible.buffer.toString("base64")}`;
+    const dataUri = `data:${mimeType};base64,${buffer.toString("base64")}`;
     images[index] = isWrapped
       ? { ...(entry as ImageWithAltText), data: dataUri }
       : dataUri;
@@ -2631,6 +2697,45 @@ function withinConversionLimit(buffer: Buffer, context: string): boolean {
   return withinConversionByteLimit(buffer.length, context);
 }
 
+/**
+ * Ask a file's own header bytes whether it carries an EXIF orientation,
+ * reading at most {@link EXIF_PROBE_PREFIX_BYTES} to find out.
+ *
+ * This is what keeps the orientation pass off the JPEG hot path. Without it,
+ * widening the conversion gate to cover orientation means every local `.jpg`
+ * and `.webp` is stat'd, read into memory in full and handed to a decoder,
+ * purely to discover that the overwhelming majority carry no tag — new I/O
+ * on the single most common image input there is.
+ *
+ * Reports `"inconclusive"` on any read failure rather than propagating it:
+ * the full read that follows will hit the same problem a few lines later,
+ * where the existing handler already turns it into a warning and a skipped
+ * conversion. Failing here instead would only duplicate that.
+ */
+async function probeFileExifOrientation(
+  path: string,
+  mimeType: string,
+  size: number,
+): Promise<ExifOrientationProbe> {
+  // The caller has already stat'd, so a small file costs a small buffer
+  // rather than the window's full width.
+  const window = Math.min(Math.max(size, 0), EXIF_PROBE_PREFIX_BYTES);
+  if (window === 0) {
+    return "inconclusive";
+  }
+  let handle: FileHandle | undefined;
+  try {
+    handle = await openAsync(path, "r");
+    const prefix = Buffer.alloc(window);
+    const { bytesRead } = await handle.read(prefix, 0, prefix.length, 0);
+    return probeExifOrientation(prefix.subarray(0, bytesRead), mimeType);
+  } catch {
+    return "inconclusive";
+  } finally {
+    await handle?.close().catch(() => undefined);
+  }
+}
+
 async function readImageSourceForConversion(
   payload: Buffer | string,
 ): Promise<{ buffer: Buffer; mimeType: string } | undefined> {
@@ -2669,16 +2774,29 @@ async function readImageSourceForConversion(
     return undefined;
   }
   const mimeType = getMimeTypeFromExtension(payload);
-  if (!needsVisionTranscode(mimeType)) {
+  const transcodable = needsVisionTranscode(mimeType);
+  if (!transcodable && !mayCarryExifOrientation(mimeType)) {
     return undefined;
   }
   try {
     // Preflight the size before reading. Conversion replaces the entry with a
     // data URI, which bypasses processImageToBase64's buffer-size guard — so
     // without this a large local HEIC/TIFF/BMP was read fully into memory and
-    // then re-encoded, with no limit applied at either step.
+    // then re-encoded, with no limit applied at either step. The same applies
+    // to a local JPEG read only for its EXIF tag: still bounded before the read.
     const { size } = await statAsync(payload);
     ImageProcessor.validateSize(size, `image at ${safeBasename(payload)}`);
+    // A file whose only reason to be here is the orientation question gets
+    // that question answered from its header, and is not read at all when the
+    // answer is no. A transcodable format is exempt: its bytes are needed
+    // whatever the orientation turns out to be, so a probe would be pure
+    // overhead.
+    if (
+      !transcodable &&
+      (await probeFileExifOrientation(payload, mimeType, size)) === "absent"
+    ) {
+      return undefined;
+    }
     const buffer = await readFileAsync(payload);
     ImageProcessor.validateBufferSize(
       buffer,
