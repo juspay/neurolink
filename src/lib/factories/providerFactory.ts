@@ -9,6 +9,7 @@ import type {
 } from "../types/index.js";
 
 import { logger } from "../utils/logger.js";
+import { suggestClosest } from "../utils/stringDistance.js";
 import {
   PROVIDER_DESCRIPTORS,
   PROVIDER_DESCRIPTORS_BY_NAME,
@@ -104,34 +105,63 @@ export class ProviderFactory {
 
     if (!registration) {
       throw new Error(
-        `Unknown provider: ${resolvedProviderName}. Available providers: ${ProviderFactory.getAvailableProviders().join(", ")}`,
+        ProviderFactory.describeUnresolvableProvider(resolvedProviderName),
       );
     }
 
-    // Respect environment variables before falling back to registry default
-    let model = modelName;
-    if (!model) {
-      // Check for provider-specific environment variables
-      if (resolvedProviderName.toLowerCase().includes("vertex")) {
-        // Use gemini-2.5-flash as default - latest GA model with best price-performance
-        model = process.env.VERTEX_MODEL || "gemini-2.5-flash";
-      } else if (resolvedProviderName.toLowerCase().includes("bedrock")) {
-        model = process.env.BEDROCK_MODEL || process.env.BEDROCK_MODEL_ID;
-      }
-      // Fallback to registry default if no env var
-      model = model || registration.defaultModel;
-    }
-
-    const credKey = resolveCredentialKey(normalizedName);
-
-    // Extract provider-scoped credential slice (e.g. credentials.openai for OpenAI)
-    const scopedCredentials = credentials
-      ? ((credentials as Record<string, unknown>)[credKey] as
-          | Record<string, unknown>
-          | undefined)
-      : undefined;
-
+    // Everything below this point — model resolution included — is wrapped in
+    // the same try/catch. The dynamic import a few lines down is on this
+    // path too: a load failure there is a provider-construction failure like
+    // any other and must come back as "Failed to create provider ...", not
+    // escape unwrapped.
     try {
+      // Respect environment variables before falling back to registry default
+      let model = modelName;
+      if (model) {
+        // #337: the model registry has always carried aliases ("gpt4o" ->
+        // "gpt-4o"), and capability lookups resolve through them, but the id
+        // actually sent to the provider did not — so `generate({ model:
+        // "gpt4o" })` put the alias on the wire and the provider 404'd.
+        // Imported lazily: the registry is a large module and this is the only
+        // thing on the construction path that needs it.
+        const { resolveProviderModelAlias } =
+          await import("../models/modelRegistry.js");
+        const canonicalProvider =
+          ProviderFactory.getDescriptor(normalizedName)?.name ?? normalizedName;
+        const canonicalModel = resolveProviderModelAlias(
+          canonicalProvider,
+          model,
+        );
+        if (canonicalModel) {
+          logger.debug("[ProviderFactory] Resolved model alias", {
+            provider: canonicalProvider,
+            requested: model,
+            resolved: canonicalModel,
+          });
+          model = canonicalModel;
+        }
+      }
+      if (!model) {
+        // Check for provider-specific environment variables
+        if (resolvedProviderName.toLowerCase().includes("vertex")) {
+          // Use gemini-2.5-flash as default - latest GA model with best price-performance
+          model = process.env.VERTEX_MODEL || "gemini-2.5-flash";
+        } else if (resolvedProviderName.toLowerCase().includes("bedrock")) {
+          model = process.env.BEDROCK_MODEL || process.env.BEDROCK_MODEL_ID;
+        }
+        // Fallback to registry default if no env var
+        model = model || registration.defaultModel;
+      }
+
+      const credKey = resolveCredentialKey(normalizedName);
+
+      // Extract provider-scoped credential slice (e.g. credentials.openai for OpenAI)
+      const scopedCredentials = credentials
+        ? ((credentials as Record<string, unknown>)[credKey] as
+            | Record<string, unknown>
+            | undefined)
+        : undefined;
+
       if (typeof registration.constructor !== "function") {
         throw new Error(
           `Invalid constructor for provider ${providerName}: not a function`,
@@ -170,6 +200,75 @@ export class ProviderFactory {
   /**
    * Get list of available providers
    */
+  /**
+   * Explain why a provider name did not resolve, usefully (#354).
+   *
+   * Three distinct situations used to share one generic message:
+   *
+   * - The registry is empty, because `ProviderRegistry.registerAllProviders()`
+   *   has not run yet. Every name is unresolvable, and listing zero available
+   *   providers tells the reader nothing about why.
+   * - The name IS a known provider but has no registration — recognised,
+   *   unavailable. Distinct from a typo and worth saying so.
+   * - The name is not a provider at all, in which case a near-miss is almost
+   *   always a typo and is worth naming: "opennai" -> "openai".
+   *
+   * Canonical names are offered as suggestions ahead of aliases, so a typo
+   * resolves to the name the docs use.
+   *
+   * @param requested - The provider name as the caller supplied it
+   * @returns A message naming the situation and what to do about it
+   */
+  private static describeUnresolvableProvider(requested: string): string {
+    const registered = ProviderFactory.getAvailableProviders();
+    if (registered.length === 0) {
+      return (
+        `Cannot resolve provider "${requested}": no providers are registered yet. ` +
+        `ProviderRegistry.registerAllProviders() has not completed, so every name ` +
+        `is unresolvable at this point — this is a lifecycle problem, not a bad name.`
+      );
+    }
+
+    // `registered` mixes canonical names and aliases (registerProvider sets
+    // both as separate map keys — see registerProvider above), and a name
+    // registered without a descriptor (a caller-supplied registerProvider()
+    // with no 5th argument) has no entry in PROVIDER_ALIAS_INDEX at all. Only
+    // PROVIDER_DESCRIPTORS would previously stand in for "what's registered",
+    // which listed every built-in provider whether or not this factory
+    // instance had actually registered it, and mislabelled a descriptor-less
+    // custom registration as an "alias" simply for not matching that static
+    // list. Deriving both lists from `registered` itself fixes both: a
+    // registered name canonicalizes to what PROVIDER_ALIAS_INDEX resolves it
+    // to (itself, when it has no descriptor), and only a name that resolves
+    // to a *different*, registered canonical name is a true alias.
+    const canonical = Array.from(
+      new Set(registered.map((name) => PROVIDER_ALIAS_INDEX.get(name) ?? name)),
+    ).sort();
+    const aliases = registered
+      .filter((name) => {
+        const target = PROVIDER_ALIAS_INDEX.get(name);
+        return target !== undefined && target !== name;
+      })
+      .sort();
+
+    const known = PROVIDER_ALIAS_INDEX.get(requested.toLowerCase());
+    if (known) {
+      return (
+        `Provider "${requested}" is a recognised provider (${known}) but is not registered ` +
+        `in this factory, so it cannot be constructed. Registered providers: ${canonical.join(", ")}.`
+      );
+    }
+
+    // Canonical names first so a tie resolves to the documented spelling.
+    const suggestions = suggestClosest(requested, [...canonical, ...aliases]);
+    const didYouMean =
+      suggestions.length > 0 ? ` Did you mean: ${suggestions.join(", ")}?` : "";
+    return (
+      `Unknown provider: "${requested}".${didYouMean} ` +
+      `Valid providers: ${canonical.join(", ")}. Accepted aliases: ${aliases.join(", ")}.`
+    );
+  }
+
   static getAvailableProviders(): string[] {
     return Array.from(ProviderFactory.providers.keys()).filter(
       (name, index, arr) => arr.indexOf(name) === index, // Remove duplicates from aliases

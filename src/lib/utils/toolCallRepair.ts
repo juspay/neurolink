@@ -1,4 +1,5 @@
 import { logger } from "./logger.js";
+import { levenshtein, MAX_COMPARABLE_LENGTH } from "./stringDistance.js";
 import type { ToolCallRepairFunction, ToolSet } from "../types/index.js";
 import type {
   JSONSchema7,
@@ -78,15 +79,27 @@ export function resolveToolName(
 
   // 3. Levenshtein distance — accept if normalized distance < 0.3
   // Compare by normalized score (not raw edits) so length differences don't skew selection.
+  // `levenshtein` throws rather than truncates past MAX_COMPARABLE_LENGTH (see
+  // stringDistance.ts), so an over-limit name is skipped here instead of
+  // compared on a truncated prefix — a called name and a tool name that
+  // merely share a long-enough prefix must never tie at distance 0 and
+  // resolve to the wrong tool. The guard checks the lowercased operands, since
+  // those are what get compared and lowercasing can lengthen a string ("İ").
   let bestMatch: string | null = null;
   let bestNormalized = Infinity;
-  for (const t of availableTools) {
-    const dist = levenshtein(calledLower, t.toLowerCase());
-    const maxLen = Math.max(calledName.length, t.length);
-    const normalized = maxLen === 0 ? 0 : dist / maxLen;
-    if (normalized < 0.3 && normalized < bestNormalized) {
-      bestNormalized = normalized;
-      bestMatch = t;
+  if (calledLower.length <= MAX_COMPARABLE_LENGTH) {
+    for (const t of availableTools) {
+      const tLower = t.toLowerCase();
+      if (tLower.length > MAX_COMPARABLE_LENGTH) {
+        continue;
+      }
+      const dist = levenshtein(calledLower, tLower);
+      const maxLen = Math.max(calledName.length, t.length);
+      const normalized = maxLen === 0 ? 0 : dist / maxLen;
+      if (normalized < 0.3 && normalized < bestNormalized) {
+        bestNormalized = normalized;
+        bestMatch = t;
+      }
     }
   }
   if (bestMatch) {
@@ -111,13 +124,29 @@ export function rankToolNameCandidates(
   limit = 5,
 ): string[] {
   const calledLower = calledName.toLowerCase();
-  return [...availableTools]
-    .sort(
-      (a, b) =>
-        levenshtein(calledLower, a.toLowerCase()) -
-        levenshtein(calledLower, b.toLowerCase()),
-    )
-    .slice(0, limit);
+  const calledWithinLimit = calledLower.length <= MAX_COMPARABLE_LENGTH;
+
+  // `levenshtein` throws past MAX_COMPARABLE_LENGTH instead of truncating, so
+  // an over-limit operand is scored as "furthest away" rather than compared
+  // on a truncated (and potentially falsely-tied) prefix. This still only
+  // orders the list — no candidate is dropped — matching this function's
+  // "no accept/reject judgment" contract.
+  const distanceTo = (name: string): number => {
+    const nameLower = name.toLowerCase();
+    if (!calledWithinLimit || nameLower.length > MAX_COMPARABLE_LENGTH) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return levenshtein(calledLower, nameLower);
+  };
+
+  // Precompute once per tool (not per comparison), and compare with an
+  // explicit equality check — two Infinity distances (both over-limit) would
+  // otherwise subtract to NaN, an invalid sort-comparator result.
+  return availableTools
+    .map((name) => ({ name, distance: distanceTo(name) }))
+    .sort((a, b) => (a.distance === b.distance ? 0 : a.distance - b.distance))
+    .slice(0, limit)
+    .map((entry) => entry.name);
 }
 
 /**
@@ -289,14 +318,21 @@ function findMatchingKey(
     return ciMatch;
   }
 
-  // Levenshtein — threshold ≤2 edits
+  // Levenshtein — threshold ≤2 edits. Same over-limit guard as
+  // resolveToolName above: skip rather than let levenshtein() truncate.
   let best: string | null = null;
   let bestDist = Infinity;
-  for (const k of schemaKeys) {
-    const dist = levenshtein(inputLower, k.toLowerCase());
-    if (dist <= 2 && dist < bestDist) {
-      bestDist = dist;
-      best = k;
+  if (inputLower.length <= MAX_COMPARABLE_LENGTH) {
+    for (const k of schemaKeys) {
+      const kLower = k.toLowerCase();
+      if (kLower.length > MAX_COMPARABLE_LENGTH) {
+        continue;
+      }
+      const dist = levenshtein(inputLower, kLower);
+      if (dist <= 2 && dist < bestDist) {
+        bestDist = dist;
+        best = k;
+      }
     }
   }
   return best;
@@ -388,51 +424,4 @@ export function coerceType(
   }
 
   return value;
-}
-
-// ─── Levenshtein Distance ──────────────────────────────────────────
-
-/**
- * Compute Levenshtein edit distance between two strings.
- * Uses the iterative matrix approach — O(m*n) time, O(min(m,n)) space.
- */
-function levenshtein(a: string, b: string): number {
-  if (a === b) {
-    return 0;
-  }
-  if (a.length === 0) {
-    return b.length;
-  }
-  if (b.length === 0) {
-    return a.length;
-  }
-
-  // Use shorter string as column to minimize space
-  if (a.length > b.length) {
-    [a, b] = [b, a];
-  }
-
-  const aLen = a.length;
-  const bLen = b.length;
-  let prev = new Array<number>(aLen + 1);
-  let curr = new Array<number>(aLen + 1);
-
-  for (let i = 0; i <= aLen; i++) {
-    prev[i] = i;
-  }
-
-  for (let j = 1; j <= bLen; j++) {
-    curr[0] = j;
-    for (let i = 1; i <= aLen; i++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[i] = Math.min(
-        prev[i] + 1, // deletion
-        curr[i - 1] + 1, // insertion
-        prev[i - 1] + cost, // substitution
-      );
-    }
-    [prev, curr] = [curr, prev];
-  }
-
-  return prev[aLen];
 }
