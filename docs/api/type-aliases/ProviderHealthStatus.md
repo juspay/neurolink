@@ -8,6 +8,6 @@
 
 > **ProviderHealthStatus** = `"healthy"` \| `"degraded"` \| `"unhealthy"` \| `"unknown"`
 
-Defined in: [types/providers.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L427)
+Defined in: [types/providers.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L428)
 
 Provider health status

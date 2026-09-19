@@ -8,7 +8,7 @@
 
 > **SageMakerToolResult** = `object`
 
-Defined in: [types/providers.ts:1642](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1642)
+Defined in: [types/providers.ts:1643](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1643)
 
 Tool result information
 
@@ -18,7 +18,7 @@ Tool result information
 
 > **toolCallId**: `string`
 
-Defined in: [types/providers.ts:1644](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1644)
+Defined in: [types/providers.ts:1645](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1645)
 
 Tool call identifier
 
@@ -28,7 +28,7 @@ Tool call identifier
 
 > **toolName**: `string`
 
-Defined in: [types/providers.ts:1646](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1646)
+Defined in: [types/providers.ts:1647](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1647)
 
 Tool name
 
@@ -38,7 +38,7 @@ Tool name
 
 > **result**: `unknown`
 
-Defined in: [types/providers.ts:1648](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1648)
+Defined in: [types/providers.ts:1649](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1649)
 
 Tool result data
 
@@ -48,7 +48,7 @@ Tool result data
 
 > **status**: `"success"` \| `"error"`
 
-Defined in: [types/providers.ts:1650](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1650)
+Defined in: [types/providers.ts:1651](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1651)
 
 Execution status
 
@@ -58,6 +58,6 @@ Execution status
 
 > `optional` **error?**: `string`
 
-Defined in: [types/providers.ts:1652](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1652)
+Defined in: [types/providers.ts:1653](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1653)
 
 Error message if status is error

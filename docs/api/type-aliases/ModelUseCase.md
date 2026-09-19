@@ -8,6 +8,6 @@
 
 > **ModelUseCase** = `"chat"` \| `"completion"` \| `"analysis"` \| `"coding"` \| `"creative"` \| `"reasoning"` \| `"translation"` \| `"summarization"` \| `"classification"`
 
-Defined in: [types/providers.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L413)
+Defined in: [types/providers.ts:414](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L414)
 
 Model Use Cases - High Reusability

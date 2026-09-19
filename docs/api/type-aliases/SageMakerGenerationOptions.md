@@ -8,7 +8,7 @@
 
 > **SageMakerGenerationOptions** = `object`
 
-Defined in: [types/providers.ts:1714](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1714)
+Defined in: [types/providers.ts:1715](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1715)
 
 Enhanced generation request options
 
@@ -18,7 +18,7 @@ Enhanced generation request options
 
 > **prompt**: `string`
 
-Defined in: [types/providers.ts:1716](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1716)
+Defined in: [types/providers.ts:1717](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1717)
 
 Input prompt text
 
@@ -28,7 +28,7 @@ Input prompt text
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/providers.ts:1718](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1718)
+Defined in: [types/providers.ts:1719](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1719)
 
 System prompt for context
 
@@ -38,7 +38,7 @@ System prompt for context
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/providers.ts:1720](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1720)
+Defined in: [types/providers.ts:1721](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1721)
 
 Maximum tokens to generate
 
@@ -48,7 +48,7 @@ Maximum tokens to generate
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/providers.ts:1722](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1722)
+Defined in: [types/providers.ts:1723](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1723)
 
 Temperature for randomness (0-1)
 
@@ -58,7 +58,7 @@ Temperature for randomness (0-1)
 
 > `optional` **topP?**: `number`
 
-Defined in: [types/providers.ts:1724](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1724)
+Defined in: [types/providers.ts:1725](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1725)
 
 Top-p nucleus sampling (0-1)
 
@@ -68,7 +68,7 @@ Top-p nucleus sampling (0-1)
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/providers.ts:1726](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1726)
+Defined in: [types/providers.ts:1727](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1727)
 
 Top-k sampling
 
@@ -78,7 +78,7 @@ Top-k sampling
 
 > `optional` **stopSequences?**: `string`[]
 
-Defined in: [types/providers.ts:1728](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1728)
+Defined in: [types/providers.ts:1729](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1729)
 
 Stop sequences to end generation
 
@@ -88,7 +88,7 @@ Stop sequences to end generation
 
 > `optional` **stream?**: `boolean`
 
-Defined in: [types/providers.ts:1730](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1730)
+Defined in: [types/providers.ts:1731](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1731)
 
 Enable streaming response
 
@@ -98,7 +98,7 @@ Enable streaming response
 
 > `optional` **tools?**: `object`[]
 
-Defined in: [types/providers.ts:1732](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1732)
+Defined in: [types/providers.ts:1733](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1733)
 
 Tools available for function calling
 
@@ -120,6 +120,6 @@ Tools available for function calling
 
 > `optional` **toolChoice?**: `"auto"` \| `"none"` \| \{ `type`: `"tool"`; `name`: `string`; \}
 
-Defined in: [types/providers.ts:1738](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1738)
+Defined in: [types/providers.ts:1739](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1739)
 
 Tool choice mode

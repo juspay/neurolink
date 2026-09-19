@@ -8,7 +8,7 @@
 
 > **EndpointHealth** = `object`
 
-Defined in: [types/providers.ts:2353](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2353)
+Defined in: [types/providers.ts:2354](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2354)
 
 Endpoint health and metadata information.
 
@@ -18,7 +18,7 @@ Endpoint health and metadata information.
 
 > **status**: `"healthy"` \| `"unhealthy"` \| `"unknown"`
 
-Defined in: [types/providers.ts:2354](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2354)
+Defined in: [types/providers.ts:2355](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2355)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2354](https://github.com/juspay/neurolink/blob/r
 
 > **responseTime**: `number`
 
-Defined in: [types/providers.ts:2355](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2355)
+Defined in: [types/providers.ts:2356](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2356)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2355](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:2356](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2356)
+Defined in: [types/providers.ts:2357](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2357)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:2356](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **modelInfo?**: `object`
 
-Defined in: [types/providers.ts:2357](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2357)
+Defined in: [types/providers.ts:2358](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2358)
 
 #### name?
 
