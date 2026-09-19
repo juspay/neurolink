@@ -8,7 +8,7 @@
 
 > **ModelAliasConfig** = `object`
 
-Defined in: [types/generate.ts:1824](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1824)
+Defined in: [types/generate.ts:1828](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1828)
 
 NL-004: Model alias/deprecation configuration.
 Allows mapping deprecated model names to their replacements.
@@ -19,4 +19,4 @@ Allows mapping deprecated model names to their replacements.
 
 > **aliases**: `Record`\<`string`, \{ `target`: `string`; `action`: `"warn"` \| `"redirect"` \| `"block"`; `reason?`: `string`; \}\>
 
-Defined in: [types/generate.ts:1825](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1825)
+Defined in: [types/generate.ts:1829](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1829)

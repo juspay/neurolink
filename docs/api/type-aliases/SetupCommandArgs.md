@@ -8,7 +8,7 @@
 
 > **SetupCommandArgs** = [`BaseCommandArgs`](BaseCommandArgs.md) & `object`
 
-Defined in: [types/cli.ts:720](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L720)
+Defined in: [types/cli.ts:722](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L722)
 
 Setup command factory arguments
 

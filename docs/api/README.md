@@ -3663,6 +3663,8 @@ console.log(result.content);
 - [gateDecisionBoolean](functions/gateDecisionBoolean.md)
 - [decisionKey](functions/decisionKey.md)
 - [isAbortError](functions/isAbortError.md)
+- [sniffImageMimeType](functions/sniffImageMimeType.md)
+- [detectImageMimeType](functions/detectImageMimeType.md)
 - [buildObservabilityConfigFromEnv](functions/buildObservabilityConfigFromEnv.md)
 - [detectAndRedactPII](functions/detectAndRedactPII.md)
 - [calculateCost](functions/calculateCost.md)
