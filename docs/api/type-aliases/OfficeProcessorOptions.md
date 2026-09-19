@@ -8,7 +8,7 @@
 
 > **OfficeProcessorOptions** = `object`
 
-Defined in: [types/file.ts:489](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L489)
+Defined in: [types/file.ts:587](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L587)
 
 Office processor options for Word, PowerPoint, and Excel documents
 
@@ -44,7 +44,7 @@ const options: OfficeProcessorOptions = {
 
 > `optional` **format?**: [`OfficeDocumentType`](OfficeDocumentType.md)
 
-Defined in: [types/file.ts:491](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L491)
+Defined in: [types/file.ts:589](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L589)
 
 Office document format type
 
@@ -54,7 +54,7 @@ Office document format type
 
 > `optional` **extractTextOnly?**: `boolean`
 
-Defined in: [types/file.ts:493](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L493)
+Defined in: [types/file.ts:591](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L591)
 
 Whether to extract text only (true) or preserve formatting (false). Applies to: docx, pptx, xlsx
 
@@ -64,7 +64,7 @@ Whether to extract text only (true) or preserve formatting (false). Applies to: 
 
 > `optional` **maxSizeMB?**: `number`
 
-Defined in: [types/file.ts:495](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L495)
+Defined in: [types/file.ts:593](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L593)
 
 Maximum file size in megabytes. Applies to: docx, pptx, xlsx
 
@@ -74,7 +74,7 @@ Maximum file size in megabytes. Applies to: docx, pptx, xlsx
 
 > `optional` **includeMetadata?**: `boolean`
 
-Defined in: [types/file.ts:497](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L497)
+Defined in: [types/file.ts:595](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L595)
 
 Whether to include metadata (author, created date, etc.). Applies to: docx, pptx, xlsx
 
@@ -84,7 +84,7 @@ Whether to include metadata (author, created date, etc.). Applies to: docx, pptx
 
 > `optional` **processAllSheets?**: `boolean`
 
-Defined in: [types/file.ts:499](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L499)
+Defined in: [types/file.ts:597](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L597)
 
 For spreadsheets (xlsx only): whether to process all sheets or just the first
 
@@ -94,6 +94,6 @@ For spreadsheets (xlsx only): whether to process all sheets or just the first
 
 > `optional` **includeSlideNotes?**: `boolean`
 
-Defined in: [types/file.ts:501](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L501)
+Defined in: [types/file.ts:599](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L599)
 
 For presentations (pptx only): whether to include slide notes

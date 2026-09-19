@@ -1482,6 +1482,14 @@ export class FileDetector {
             ...detection.metadata,
             frameCount: videoResult.data.frameCount,
             hasKeyframes: videoResult.data.hasKeyframes,
+            // Carried so native delivery can apply its duration ceiling
+            // without opening the container a second time. The processor
+            // reports 0 when nothing could probe it; that is "unknown", not a
+            // zero-length clip, so it is left off rather than passed through
+            // as a number a ceiling check would happily accept.
+            ...(videoResult.data.metadata.duration > 0
+              ? { durationSec: videoResult.data.metadata.duration }
+              : {}),
           },
         };
       }

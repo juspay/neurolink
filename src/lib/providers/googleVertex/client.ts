@@ -12,7 +12,10 @@ import {
 } from "../../constants/enums.js";
 import { BaseProvider } from "../../core/baseProvider.js";
 import { unwrapImagePayload } from "../../adapters/imageFormatSupport.js";
-import { appendNativeAudioParts } from "../googleNativeGemini3/utils.js";
+import {
+  appendNativeAudioParts,
+  appendNativeVideoParts,
+} from "../googleNativeGemini3/utils.js";
 import { getMimeTypeForExtension } from "../../processors/config/mimeConstants.js";
 import {
   DEFAULT_GEMINI_STREAM_TIMEOUT_MS,
@@ -59,6 +62,7 @@ import type {
   ChatMessage,
   MinimalChatMessage,
   MultimodalAudioEntry,
+  MultimodalVideoEntry,
   ProviderErrorRule,
 } from "../../types/index.js";
 import {
@@ -1599,6 +1603,7 @@ export class GoogleVertexProvider extends BaseProvider {
       pdfFiles?: Array<Buffer | string>;
       images?: Array<Buffer | string | ImageWithAltText>;
       nativeAudioFiles?: MultimodalAudioEntry[];
+      nativeVideoFiles?: MultimodalVideoEntry[];
     };
 
     if (multimodalInput?.pdfFiles && multimodalInput.pdfFiles.length > 0) {
@@ -1635,6 +1640,13 @@ export class GoogleVertexProvider extends BaseProvider {
     await appendNativeAudioParts(
       userParts,
       multimodalInput?.nativeAudioFiles,
+      "[GoogleVertex]",
+    );
+
+    await appendNativeVideoParts(
+      userParts,
+      multimodalInput?.nativeVideoFiles,
+      "vertex",
       "[GoogleVertex]",
     );
 
@@ -2641,6 +2653,7 @@ export class GoogleVertexProvider extends BaseProvider {
           pdfFiles?: Array<Buffer | string>;
           images?: Array<Buffer | string | ImageWithAltText>;
           nativeAudioFiles?: MultimodalAudioEntry[];
+          nativeVideoFiles?: MultimodalVideoEntry[];
         }
       | undefined;
 
@@ -2678,6 +2691,13 @@ export class GoogleVertexProvider extends BaseProvider {
     await appendNativeAudioParts(
       userParts,
       multimodalInput?.nativeAudioFiles,
+      "[GoogleVertex]",
+    );
+
+    await appendNativeVideoParts(
+      userParts,
+      multimodalInput?.nativeVideoFiles,
+      "vertex",
       "[GoogleVertex]",
     );
 

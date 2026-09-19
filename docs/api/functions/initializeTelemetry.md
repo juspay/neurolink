@@ -8,7 +8,7 @@
 
 > **initializeTelemetry**(): `Promise`\<`boolean`\>
 
-Defined in: [index.ts:771](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L771)
+Defined in: [index.ts:786](https://github.com/juspay/neurolink/blob/release/src/lib/index.ts#L786)
 
 ## Returns
 

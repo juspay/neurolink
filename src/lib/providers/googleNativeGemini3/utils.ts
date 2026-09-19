@@ -38,11 +38,13 @@ import type {
   VertexToolStep,
   GeminiMultimodalInput,
   MultimodalAudioEntry,
+  MultimodalVideoEntry,
 } from "../../types/index.js";
 import {
   needsAudioTranscode,
   toProviderCompatibleAudio,
 } from "../../adapters/audioFormatSupport.js";
+import { canDeliverVideoNatively } from "../../adapters/videoFormatSupport.js";
 import { logger } from "../../utils/logger.js";
 import { guardToolExecutor } from "../../core/toolExecutionGuards.js";
 import { resolveSamplingParams } from "../../models/modelRegistry.js";
@@ -1771,6 +1773,53 @@ export async function appendNativeAudioParts(
   }
 }
 
+/**
+ * Append video to a Gemini request as `inlineData` parts.
+ *
+ * The native request body is assembled by hand rather than taken from the AI
+ * SDK's `file` parts, so — exactly as with audio — a `{ type: "file" }` part
+ * built upstream never arrives here. Video has to be added explicitly or it
+ * is silently dropped on both Gemini front ends while the capability table
+ * says it is supported.
+ *
+ * A clip the provider will not take inline is skipped rather than sent: an
+ * oversized or unsupported `inlineData` part fails the whole request, whereas
+ * skipping leaves the caller with the metadata summary and the keyframes,
+ * which is what it had before native delivery existed.
+ */
+export async function appendNativeVideoParts(
+  userParts: VertexNativePart[],
+  videoFiles: MultimodalVideoEntry[] | undefined,
+  providerName: string,
+  logPrefix: string = "[GeminiNative]",
+): Promise<void> {
+  if (!videoFiles || videoFiles.length === 0) {
+    return;
+  }
+  for (const video of videoFiles) {
+    // Split on both separators: a Windows-style name reaching a POSIX host
+    // would otherwise keep its whole path in the log line.
+    const base = video.filename.split(/[\\/]/).pop() ?? video.filename;
+    const decision = canDeliverVideoNatively(providerName, video);
+    if (!decision.deliver) {
+      logger.warn(
+        `${logPrefix} Sending keyframes instead of the clip for ${base}: ` +
+          `${decision.reason}.`,
+      );
+      continue;
+    }
+    userParts.push({
+      inlineData: {
+        mimeType: video.mimeType,
+        data: video.buffer.toString("base64"),
+      },
+    });
+    logger.debug(
+      `${logPrefix} Added native video part for ${base} (${video.mimeType})`,
+    );
+  }
+}
+
 export async function buildUserPartsWithMultimodal(
   input: GeminiMultimodalInput | undefined,
   textOverride?: string,
@@ -1889,6 +1938,16 @@ export async function buildUserPartsWithMultimodal(
   // Vertex client left this front end advertising native audio via
   // NATIVE_AUDIO_PROVIDERS and then dropping the bytes on the floor.
   await appendNativeAudioParts(parts, input?.nativeAudioFiles, logPrefix);
+  // `google-ai-studio` rather than the caller's provider string: this helper
+  // is the AI Studio / Gemini 3 assembly path, and the capability table is
+  // keyed by provider name. Passing a name the table does not know would make
+  // every clip fall back to keyframes on the one front end that can watch it.
+  await appendNativeVideoParts(
+    parts,
+    input?.nativeVideoFiles,
+    "google-ai-studio",
+    logPrefix,
+  );
 
   return parts;
 }

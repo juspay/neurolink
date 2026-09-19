@@ -8,6 +8,6 @@
 
 > **CSVColumnDataType** = `"string"` \| `"number"` \| `"integer"` \| `"float"` \| `"boolean"` \| `"date"` \| `"datetime"` \| `"email"` \| `"url"` \| `"empty"` \| `"mixed"`
 
-Defined in: [types/file.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L229)
+Defined in: [types/file.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L327)
 
 Detected data type for a CSV column

@@ -8,7 +8,7 @@
 
 > **GenerateOptionsNormalized** = [`GenerateOptions`](GenerateOptions.md) & `object`
 
-Defined in: [types/generate.ts:1792](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1792)
+Defined in: [types/generate.ts:1804](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1804)
 
 Internal alias used by messageBuilder helpers after the entry-point
 (`buildMultimodalMessagesArray`) has guaranteed that `input` is non-null.
