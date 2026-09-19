@@ -125,6 +125,26 @@ Extracted ID3/Vorbis/APE tags
 
 > `optional` **transcriptionProvider?**: `string`
 
+### transcriptionLanguage?
+
+> `optional` **transcriptionLanguage?**: `string`
+
+Language the transcription backend reported for the speech (#409).
+
+Distinct from any language the caller _requested_: Whisper's
+`verbose_json` detects the language even when none was pinned, so this is
+what was actually recognised.
+
+### transcriptionDuration?
+
+> `optional` **transcriptionDuration?**: `number`
+
+Audio duration in seconds as measured by the transcription backend (#409).
+
+Kept apart from `metadata.duration`, which comes from the container
+header: the two disagree on a file with a broken or absent header, and the
+header is the one that is available without a transcription call.
+
 ### transcriptionSkippedReason?
 
 > `optional` **transcriptionSkippedReason?**: `string`

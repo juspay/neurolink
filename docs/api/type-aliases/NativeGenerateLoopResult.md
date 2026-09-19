@@ -8,7 +8,7 @@
 
 > **NativeGenerateLoopResult** = `object`
 
-Defined in: [types/generate.ts:1837](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1837)
+Defined in: [types/generate.ts:1905](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1905)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/generate.ts:1837](https://github.com/juspay/neurolink/blob/re
 
 > **text**: `string`
 
-Defined in: [types/generate.ts:1838](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1838)
+Defined in: [types/generate.ts:1906](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1906)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/generate.ts:1838](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **reasoning?**: `string`
 
-Defined in: [types/generate.ts:1840](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1840)
+Defined in: [types/generate.ts:1908](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1908)
 
 Joined reasoning content parts from the final step, when the vendor sent any.
 
@@ -34,7 +34,7 @@ Joined reasoning content parts from the final step, when the vendor sent any.
 
 > **finishReason**: `string`
 
-Defined in: [types/generate.ts:1841](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1841)
+Defined in: [types/generate.ts:1909](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1909)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/generate.ts:1841](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **rawFinishReason?**: `string`
 
-Defined in: [types/generate.ts:1842](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1842)
+Defined in: [types/generate.ts:1910](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1910)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/generate.ts:1842](https://github.com/juspay/neurolink/blob/re
 
 > **inputTokens**: `number`
 
-Defined in: [types/generate.ts:1843](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1843)
+Defined in: [types/generate.ts:1911](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1911)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/generate.ts:1843](https://github.com/juspay/neurolink/blob/re
 
 > **outputTokens**: `number`
 
-Defined in: [types/generate.ts:1844](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1844)
+Defined in: [types/generate.ts:1912](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1912)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/generate.ts:1844](https://github.com/juspay/neurolink/blob/re
 
 > **cacheReadTokens**: `number`
 
-Defined in: [types/generate.ts:1845](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1845)
+Defined in: [types/generate.ts:1913](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1913)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/generate.ts:1845](https://github.com/juspay/neurolink/blob/re
 
 > **cacheWriteTokens**: `number`
 
-Defined in: [types/generate.ts:1846](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1846)
+Defined in: [types/generate.ts:1914](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1914)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/generate.ts:1846](https://github.com/juspay/neurolink/blob/re
 
 > **toolsUsed**: `string`[]
 
-Defined in: [types/generate.ts:1847](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1847)
+Defined in: [types/generate.ts:1915](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1915)
 
 ---
 
@@ -90,4 +90,4 @@ Defined in: [types/generate.ts:1847](https://github.com/juspay/neurolink/blob/re
 
 > **steps**: `number`
 
-Defined in: [types/generate.ts:1848](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1848)
+Defined in: [types/generate.ts:1916](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1916)

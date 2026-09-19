@@ -431,6 +431,24 @@ export type StreamOptions = {
   };
 
   /**
+   * Audio transcription options for attached audio files (#413/#440).
+   *
+   * Mirrors `GenerateOptions.audioOptions`. `stream()` spreads its options
+   * rather than rebuilding them field by field, so declaring it here is what
+   * lets it reach the message builder.
+   */
+  audioOptions?: {
+    /** Backend: "openai" (aliases "whisper"), "google" or "azure". */
+    provider?: string;
+    /** Transcription model, e.g. "whisper-1". Backend-specific. */
+    transcriptionModel?: string;
+    /** Language hint, e.g. "en". */
+    language?: string;
+    /** Context prompt to bias transcription. */
+    prompt?: string;
+  };
+
+  /**
    * Text-to-Speech (TTS) configuration for streaming
    *
    * Enable audio generation from the streamed text response. Audio chunks will be

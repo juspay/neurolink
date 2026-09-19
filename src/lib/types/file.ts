@@ -211,6 +211,34 @@ export type FileProcessingResult = {
     // Video-specific metadata
     frameCount?: number;
     hasKeyframes?: boolean;
+    // Audio-specific metadata (#409)
+    /**
+     * Media duration in seconds, read from the container header.
+     *
+     * Sourced from the demuxed stream rather than from the transcription
+     * backend, so it is present for every audio file — including one that was
+     * never transcribed because no provider was configured.
+     */
+    duration?: number;
+    /**
+     * Language of the transcript, as reported by the transcription provider
+     * (BCP-47 or ISO-639-1 depending on the backend), or the language the
+     * caller pinned via `AudioProcessorOptions.language`.
+     *
+     * Absent when the file was not transcribed — its absence therefore means
+     * "unknown", never "not speech".
+     */
+    language?: string;
+    /**
+     * Character count of the transcript.
+     *
+     * `0` is a meaningful value distinct from `undefined`: it means a provider
+     * ran and returned an empty transcript (silence, music, no speech), where
+     * `undefined` means no transcription was attempted at all.
+     */
+    transcriptionLength?: number;
+    /** Which backend produced the transcript, e.g. "openai-whisper". */
+    transcriptionProvider?: string;
   };
 };
 
@@ -420,6 +448,44 @@ export type AudioProviderConfig = {
   costPer60s?: number;
   /** Optional: Cost per 15 seconds of audio in USD */
   costPer15s?: number;
+};
+
+/**
+ * A transcription backend `AudioProcessor` can drive (#413).
+ *
+ * Deliberately narrower than `AudioProcessorOptions.provider`, which stays a
+ * free-form `string` on the public surface for backward compatibility: a
+ * caller's spelling is normalised onto this union (accepting aliases such as
+ * "whisper" for "openai") and an unrecognised one is reported rather than
+ * silently ignored.
+ */
+export type AudioTranscriptionProvider = "openai" | "google" | "azure";
+
+/**
+ * Outcome of choosing a transcription backend (#413).
+ *
+ * A union rather than a nullable provider so the "nothing usable" case is
+ * forced to carry the reason — the failure mode this replaces was every
+ * unavailable backend collapsing into an indistinguishable empty result.
+ */
+export type AudioTranscriptionSelection =
+  | { provider: AudioTranscriptionProvider; label: string; reason?: undefined }
+  | { provider?: undefined; label?: undefined; reason: string };
+
+/**
+ * What a transcription attempt produced (#409/#416).
+ *
+ * `transcriptionSkippedReason` is present on exactly the attempts that yielded
+ * no transcript, so a caller can tell "no speech in this audio" from "no
+ * backend was reachable".
+ */
+export type AudioTranscriptionOutcome = {
+  transcript: string | undefined;
+  hasTranscript: boolean;
+  transcriptionProvider: string | undefined;
+  transcriptionLanguage: string | undefined;
+  transcriptionDuration: number | undefined;
+  transcriptionSkippedReason: string | undefined;
 };
 
 /**

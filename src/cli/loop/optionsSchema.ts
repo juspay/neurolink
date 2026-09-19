@@ -27,6 +27,8 @@ export const textGenerationOptionsSchema: Record<
     | "region"
     | "csvOptions"
     | "pdfOptions"
+    | "audioOptions" // Complex object (#413), set via --audio-* flags, not `/set`
+    | "videoOptions" // Complex object (#1748), set via --video-* flags, not `/set`
     | "tts"
     | "stt" // Complex object, set via --stt* flags
     | "thinkingConfig" // Complex object, use thinking/thinkingBudget instead

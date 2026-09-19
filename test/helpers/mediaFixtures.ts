@@ -223,3 +223,65 @@ export function findImageMagick(): string | null {
   }
   return null;
 }
+
+/**
+ * Write a real PCM WAV file without shelling out to anything.
+ *
+ * The ffmpeg-backed helpers above are the right tool when a suite needs a
+ * specific codec or container, but ffmpeg is deliberately not installed in
+ * this repo's CI, so any suite that depends on them can only skip there. WAV
+ * is simple enough to emit directly — a 44-byte canonical RIFF header plus
+ * signed 16-bit little-endian samples — which makes it the one audio fixture
+ * a required check can rely on actually existing.
+ *
+ * The payload is a sine tone rather than silence for the same reason
+ * `makeAudioFile` uses one: a decoder handed a run of zeroes can take a
+ * degenerate path, and the point is to exercise a normal decode.
+ *
+ * @param dir - Directory to write into (must exist)
+ * @param name - Filename, e.g. "sample.wav"
+ * @param seconds - Duration of the tone
+ * @param sampleRate - Samples per second
+ * @returns Absolute path to the written file
+ */
+export function makeWavFile(
+  dir: string,
+  name: string,
+  seconds = 1,
+  sampleRate = 16000,
+): string {
+  const channels = 1;
+  const bitsPerSample = 16;
+  const bytesPerSample = bitsPerSample / 8;
+  const frameCount = Math.max(1, Math.round(seconds * sampleRate));
+  const dataBytes = frameCount * channels * bytesPerSample;
+
+  const header = Buffer.alloc(44);
+  header.write("RIFF", 0, "ascii");
+  // RIFF chunk size counts everything after this field, i.e. total - 8.
+  header.writeUInt32LE(36 + dataBytes, 4);
+  header.write("WAVE", 8, "ascii");
+  header.write("fmt ", 12, "ascii");
+  header.writeUInt32LE(16, 16); // PCM fmt chunk length
+  header.writeUInt16LE(1, 20); // audioFormat = PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * channels * bytesPerSample, 28); // byteRate
+  header.writeUInt16LE(channels * bytesPerSample, 32); // blockAlign
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write("data", 36, "ascii");
+  header.writeUInt32LE(dataBytes, 40);
+
+  const samples = Buffer.alloc(dataBytes);
+  const freq = 440;
+  for (let i = 0; i < frameCount; i++) {
+    const value = Math.round(
+      Math.sin((2 * Math.PI * freq * i) / sampleRate) * 0x3fff,
+    );
+    samples.writeInt16LE(value, i * bytesPerSample);
+  }
+
+  const target = path.join(dir, name);
+  fs.writeFileSync(target, Buffer.concat([header, samples]));
+  return target;
+}
