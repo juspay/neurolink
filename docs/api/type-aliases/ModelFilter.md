@@ -8,7 +8,7 @@
 
 > **ModelFilter** = `object`
 
-Defined in: [types/providers.ts:426](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L426)
+Defined in: [types/providers.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L427)
 
 Model Filter Configuration - High Reusability
 
@@ -18,7 +18,7 @@ Model Filter Configuration - High Reusability
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/providers.ts:427](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L427)
+Defined in: [types/providers.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L428)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:427](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **capability?**: [`ModelCapability`](ModelCapability.md)
 
-Defined in: [types/providers.ts:428](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L428)
+Defined in: [types/providers.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L429)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:428](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **useCase?**: [`ModelUseCase`](ModelUseCase.md)
 
-Defined in: [types/providers.ts:429](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L429)
+Defined in: [types/providers.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L430)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:429](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **requireVision?**: `boolean`
 
-Defined in: [types/providers.ts:430](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L430)
+Defined in: [types/providers.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L431)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:430](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **requireFunctionCalling?**: `boolean`
 
-Defined in: [types/providers.ts:431](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L431)
+Defined in: [types/providers.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L432)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:431](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/providers.ts:432](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L432)
+Defined in: [types/providers.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L433)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/providers.ts:432](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **costLimit?**: `number`
 
-Defined in: [types/providers.ts:433](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L433)
+Defined in: [types/providers.ts:434](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L434)

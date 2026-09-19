@@ -6,7 +6,7 @@
 
 # Enumeration: OpenAIModels
 
-Defined in: [constants/enums.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L296)
+Defined in: [constants/enums.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L297)
 
 Supported Models for OpenAI
 
@@ -16,7 +16,7 @@ Supported Models for OpenAI
 
 > **GPT_5_3_CODEX**: `"gpt-5.3-codex"`
 
-Defined in: [constants/enums.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L298)
+Defined in: [constants/enums.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L299)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [constants/enums.ts:298](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_4**: `"gpt-5.4"`
 
-Defined in: [constants/enums.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L301)
+Defined in: [constants/enums.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L302)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [constants/enums.ts:301](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_4_MINI**: `"gpt-5.4-mini"`
 
-Defined in: [constants/enums.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L302)
+Defined in: [constants/enums.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L303)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [constants/enums.ts:302](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_4_NANO**: `"gpt-5.4-nano"`
 
-Defined in: [constants/enums.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L303)
+Defined in: [constants/enums.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L304)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [constants/enums.ts:303](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_4_PRO**: `"gpt-5.4-pro"`
 
-Defined in: [constants/enums.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L304)
+Defined in: [constants/enums.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L305)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [constants/enums.ts:304](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_2**: `"gpt-5.2"`
 
-Defined in: [constants/enums.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L307)
+Defined in: [constants/enums.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L308)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [constants/enums.ts:307](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_2_CHAT_LATEST**: `"gpt-5.2-chat-latest"`
 
-Defined in: [constants/enums.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L308)
+Defined in: [constants/enums.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L309)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [constants/enums.ts:308](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_2_PRO**: `"gpt-5.2-pro"`
 
-Defined in: [constants/enums.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L309)
+Defined in: [constants/enums.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L310)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [constants/enums.ts:309](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_2_CODEX**: `"gpt-5.2-codex"`
 
-Defined in: [constants/enums.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L310)
+Defined in: [constants/enums.ts:311](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L311)
 
 ---
 
@@ -88,7 +88,7 @@ Defined in: [constants/enums.ts:310](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_1**: `"gpt-5.1"`
 
-Defined in: [constants/enums.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L313)
+Defined in: [constants/enums.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L314)
 
 ---
 
@@ -96,7 +96,7 @@ Defined in: [constants/enums.ts:313](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_1_CHAT_LATEST**: `"gpt-5.1-chat-latest"`
 
-Defined in: [constants/enums.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L314)
+Defined in: [constants/enums.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L315)
 
 ---
 
@@ -104,7 +104,7 @@ Defined in: [constants/enums.ts:314](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_1_CODEX**: `"gpt-5.1-codex"`
 
-Defined in: [constants/enums.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L315)
+Defined in: [constants/enums.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L316)
 
 ---
 
@@ -112,7 +112,7 @@ Defined in: [constants/enums.ts:315](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_1_CODEX_MAX**: `"gpt-5.1-codex-max"`
 
-Defined in: [constants/enums.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L316)
+Defined in: [constants/enums.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L317)
 
 ---
 
@@ -120,7 +120,7 @@ Defined in: [constants/enums.ts:316](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_1_CODEX_MINI**: `"gpt-5.1-codex-mini"`
 
-Defined in: [constants/enums.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L317)
+Defined in: [constants/enums.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L318)
 
 ---
 
@@ -128,7 +128,7 @@ Defined in: [constants/enums.ts:317](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5**: `"gpt-5"`
 
-Defined in: [constants/enums.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L320)
+Defined in: [constants/enums.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L321)
 
 ---
 
@@ -136,7 +136,7 @@ Defined in: [constants/enums.ts:320](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_MINI**: `"gpt-5-mini"`
 
-Defined in: [constants/enums.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L321)
+Defined in: [constants/enums.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L322)
 
 ---
 
@@ -144,7 +144,7 @@ Defined in: [constants/enums.ts:321](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_NANO**: `"gpt-5-nano"`
 
-Defined in: [constants/enums.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L322)
+Defined in: [constants/enums.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L323)
 
 ---
 
@@ -152,7 +152,7 @@ Defined in: [constants/enums.ts:322](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_PRO**: `"gpt-5-pro"`
 
-Defined in: [constants/enums.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L323)
+Defined in: [constants/enums.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L324)
 
 ---
 
@@ -160,7 +160,7 @@ Defined in: [constants/enums.ts:323](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_CHAT_LATEST**: `"gpt-5-chat-latest"`
 
-Defined in: [constants/enums.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L324)
+Defined in: [constants/enums.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L325)
 
 ---
 
@@ -168,7 +168,7 @@ Defined in: [constants/enums.ts:324](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_5_CODEX**: `"gpt-5-codex"`
 
-Defined in: [constants/enums.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L325)
+Defined in: [constants/enums.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L326)
 
 ---
 
@@ -176,7 +176,7 @@ Defined in: [constants/enums.ts:325](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_OSS_120B**: `"gpt-oss-120b"`
 
-Defined in: [constants/enums.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L328)
+Defined in: [constants/enums.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L329)
 
 ---
 
@@ -184,7 +184,7 @@ Defined in: [constants/enums.ts:328](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_OSS_20B**: `"gpt-oss-20b"`
 
-Defined in: [constants/enums.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L329)
+Defined in: [constants/enums.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L330)
 
 ---
 
@@ -192,7 +192,7 @@ Defined in: [constants/enums.ts:329](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_4_1**: `"gpt-4.1"`
 
-Defined in: [constants/enums.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L332)
+Defined in: [constants/enums.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L333)
 
 ---
 
@@ -200,7 +200,7 @@ Defined in: [constants/enums.ts:332](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_4_1_MINI**: `"gpt-4.1-mini"`
 
-Defined in: [constants/enums.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L333)
+Defined in: [constants/enums.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L334)
 
 ---
 
@@ -208,7 +208,7 @@ Defined in: [constants/enums.ts:333](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_4_1_NANO**: `"gpt-4.1-nano"`
 
-Defined in: [constants/enums.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L334)
+Defined in: [constants/enums.ts:335](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L335)
 
 ---
 
@@ -216,7 +216,7 @@ Defined in: [constants/enums.ts:334](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_4O**: `"gpt-4o"`
 
-Defined in: [constants/enums.ts:337](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L337)
+Defined in: [constants/enums.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L338)
 
 ---
 
@@ -224,7 +224,7 @@ Defined in: [constants/enums.ts:337](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_4O_MINI**: `"gpt-4o-mini"`
 
-Defined in: [constants/enums.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L338)
+Defined in: [constants/enums.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L339)
 
 ---
 
@@ -232,7 +232,7 @@ Defined in: [constants/enums.ts:338](https://github.com/juspay/neurolink/blob/re
 
 > **O3**: `"o3"`
 
-Defined in: [constants/enums.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L341)
+Defined in: [constants/enums.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L342)
 
 ---
 
@@ -240,7 +240,7 @@ Defined in: [constants/enums.ts:341](https://github.com/juspay/neurolink/blob/re
 
 > **O3_MINI**: `"o3-mini"`
 
-Defined in: [constants/enums.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L342)
+Defined in: [constants/enums.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L343)
 
 ---
 
@@ -248,7 +248,7 @@ Defined in: [constants/enums.ts:342](https://github.com/juspay/neurolink/blob/re
 
 > **O3_PRO**: `"o3-pro"`
 
-Defined in: [constants/enums.ts:343](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L343)
+Defined in: [constants/enums.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L344)
 
 ---
 
@@ -256,7 +256,7 @@ Defined in: [constants/enums.ts:343](https://github.com/juspay/neurolink/blob/re
 
 > **O4_MINI**: `"o4-mini"`
 
-Defined in: [constants/enums.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L344)
+Defined in: [constants/enums.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L345)
 
 ---
 
@@ -264,7 +264,7 @@ Defined in: [constants/enums.ts:344](https://github.com/juspay/neurolink/blob/re
 
 > **O1**: `"o1"`
 
-Defined in: [constants/enums.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L345)
+Defined in: [constants/enums.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L346)
 
 ---
 
@@ -272,7 +272,7 @@ Defined in: [constants/enums.ts:345](https://github.com/juspay/neurolink/blob/re
 
 > **O1_PREVIEW**: `"o1-preview"`
 
-Defined in: [constants/enums.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L347)
+Defined in: [constants/enums.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L348)
 
 #### Deprecated
 
@@ -284,7 +284,7 @@ Turned off Jul 14, 2025. Use GPT_4_1 or O3.
 
 > **O1_MINI**: `"o1-mini"`
 
-Defined in: [constants/enums.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L349)
+Defined in: [constants/enums.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L350)
 
 #### Deprecated
 
@@ -296,7 +296,7 @@ Replaced by o3-mini.
 
 > **GPT_4**: `"gpt-4"`
 
-Defined in: [constants/enums.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L352)
+Defined in: [constants/enums.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L353)
 
 ---
 
@@ -304,7 +304,7 @@ Defined in: [constants/enums.ts:352](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_4_TURBO**: `"gpt-4-turbo"`
 
-Defined in: [constants/enums.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L353)
+Defined in: [constants/enums.ts:354](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L354)
 
 ---
 
@@ -312,7 +312,7 @@ Defined in: [constants/enums.ts:353](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_3_5_TURBO**: `"gpt-3.5-turbo"`
 
-Defined in: [constants/enums.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L356)
+Defined in: [constants/enums.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L357)
 
 ---
 
@@ -320,7 +320,7 @@ Defined in: [constants/enums.ts:356](https://github.com/juspay/neurolink/blob/re
 
 > **GPT_IMAGE_1**: `"gpt-image-1"`
 
-Defined in: [constants/enums.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L359)
+Defined in: [constants/enums.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L360)
 
 ---
 
@@ -328,7 +328,7 @@ Defined in: [constants/enums.ts:359](https://github.com/juspay/neurolink/blob/re
 
 > **DALL_E_3**: `"dall-e-3"`
 
-Defined in: [constants/enums.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L360)
+Defined in: [constants/enums.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L361)
 
 ---
 
@@ -336,4 +336,4 @@ Defined in: [constants/enums.ts:360](https://github.com/juspay/neurolink/blob/re
 
 > **DALL_E_2**: `"dall-e-2"`
 
-Defined in: [constants/enums.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L361)
+Defined in: [constants/enums.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L362)
