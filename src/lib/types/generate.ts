@@ -1836,7 +1836,13 @@ export type NativeGenerateLoopArgs = {
 
 export type NativeGenerateLoopResult = {
   text: string;
-  /** Joined reasoning content parts from the final step, when the vendor sent any. */
+  /**
+   * Joined reasoning content parts from EVERY step, when the vendor sent any.
+   *
+   * Was final-step-only until the native generate loop began accumulating
+   * across steps; a multi-step turn would otherwise report only the reasoning
+   * that happened after its last tool call.
+   */
   reasoning?: string;
   finishReason: string;
   rawFinishReason?: string;

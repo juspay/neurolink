@@ -414,6 +414,13 @@ export class ToolsManager {
     for (let pass = 0; pass < MAX_ENVELOPE_TIGHTENING_PASSES; pass++) {
       const allocations = waterFillTextBudget(sizes, textBudget);
       const replacements = new Map<number, string>();
+      // Record the sizes here, log them only if this pass is the one that
+      // survives. A rejected pass never happened as far as the caller is
+      // concerned, and up to MAX_ENVELOPE_TIGHTENING_PASSES of them can be
+      // rejected on a single call — building their template strings, and the
+      // byteLength each one interpolates, is work paid whether or not debug
+      // logging is even enabled.
+      const truncatedItems: Array<{ index: number; originalSize: number }> = [];
       textIndexes.forEach((index, k) => {
         const item = content[index] as { text: string };
         const { preview, truncated, originalSize } = generateToolOutputPreview(
@@ -421,15 +428,20 @@ export class ToolsManager {
           { maxBytes: allocations[k], notice },
         );
         if (truncated) {
-          logger.debug(
-            `[ToolsManager] Truncated '${toolName}' MCP content text item ${index}: ${originalSize} bytes → ${Buffer.byteLength(preview, "utf-8")} bytes (envelope budget ${maxBytes})`,
-          );
+          truncatedItems.push({ index, originalSize });
           replacements.set(index, preview);
         }
       });
       const candidate = rebuild(replacements);
       const candidateSize = serializedByteLength(candidate);
       if (candidateSize !== undefined && candidateSize <= maxBytes) {
+        if (logger.shouldLog("debug")) {
+          for (const { index, originalSize } of truncatedItems) {
+            logger.debug(
+              `[ToolsManager] Truncated '${toolName}' MCP content text item ${index}: ${originalSize} bytes → ${Buffer.byteLength(replacements.get(index) ?? "", "utf-8")} bytes (envelope budget ${maxBytes})`,
+            );
+          }
+        }
         return candidate;
       }
       if (candidateSize === undefined || replacements.size === 0) {

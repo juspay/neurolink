@@ -75,6 +75,17 @@ export function createNativeGenerateGuard(config: NativeGenerateGuardConfig) {
     estimateTokens(textOf(message), config.provider) + TOKENS_PER_MESSAGE;
 
   return {
+    /**
+     * Record the prompt-token count the vendor reported for the step just
+     * sent.
+     *
+     * Paired with the estimate this guard made for that same step it yields a
+     * calibration ratio — how far the local estimator undercounts what the
+     * vendor actually charges — and that ratio scales the reclaim threshold,
+     * so the guard fires against real token accounting rather than its own.
+     * A non-finite or non-positive figure is ignored, leaving calibration at
+     * 1 rather than skewing it toward a number the vendor never reported.
+     */
     observeUsage(usage: unknown): void {
       const input = isRecord(usage) ? usage.inputTokens : undefined;
       const total = isRecord(input) ? input.total : input;
@@ -83,6 +94,15 @@ export function createNativeGenerateGuard(config: NativeGenerateGuardConfig) {
           ? total
           : undefined;
     },
+    /**
+     * Reclaim context from `conversation` when it has crossed the guard's
+     * threshold, or return `undefined` to send it unchanged.
+     *
+     * The initial task prefix — every message up to and including the first
+     * user turn — is protected as a unit, so leading system messages cannot
+     * displace the task itself from entry zero. Everything after it is
+     * eligible for truncation or dropping under the shared reclaim policy.
+     */
     guardConversation(
       conversation: Array<Record<string, unknown>>,
     ): Array<Record<string, unknown>> | undefined {
