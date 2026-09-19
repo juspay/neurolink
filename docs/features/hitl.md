@@ -74,8 +74,12 @@ const neurolink = new NeuroLink({
   },
 });
 
-// (1)! Listen for confirmation requests
-neurolink.on("hitl:confirmation-request", async (event) => {
+// (1)! Reach the SDK's event emitter. NeuroLink does not extend EventEmitter,
+// so there is no neurolink.on() / neurolink.emit().
+const emitter = neurolink.getEventEmitter();
+
+// (2)! Listen for confirmation requests
+emitter.on("hitl:confirmation-request", async (event) => {
   const {
     confirmationId,
     toolName,
@@ -83,7 +87,7 @@ neurolink.on("hitl:confirmation-request", async (event) => {
     timeoutMs,
   } = event.payload;
 
-  // (2)! Show your app's confirmation UI
+  // (3)! Show your app's confirmation UI
   const approved = await showConfirmationDialog({
     action: toolName,
     details: args,
@@ -91,11 +95,11 @@ neurolink.on("hitl:confirmation-request", async (event) => {
     timeoutMs,
   });
 
-  // (3)! Send response back to NeuroLink
-  neurolink.emit("hitl:confirmation-response", {
+  // (4)! Send response back to NeuroLink
+  emitter.emit("hitl:confirmation-response", {
     type: "hitl:confirmation-response",
     payload: {
-      confirmationId, // (4)! Must match the request
+      confirmationId, // (5)! Must match the request
       approved, // (5)! User decision
       reason: approved ? undefined : "User denied permission",
       metadata: {
@@ -107,7 +111,7 @@ neurolink.on("hitl:confirmation-request", async (event) => {
 });
 
 // (6)! Handle confirmation timeouts
-neurolink.on("hitl:timeout", (event) => {
+emitter.on("hitl:timeout", (event) => {
   console.warn(`Confirmation timed out for ${event.payload.toolName}`);
 });
 ```
@@ -164,10 +168,13 @@ const riskyTool = {
 
 ### Event Types
 
+All HITL events ride the SDK emitter returned by
+`neurolink.getEventEmitter()`; `emitter` below is that object.
+
 **Confirmation Request Event** (`hitl:confirmation-request`):
 
 ```typescript
-neurolink.on("hitl:confirmation-request", (event) => {
+emitter.on("hitl:confirmation-request", (event) => {
   event.payload: {
     confirmationId: string;      // Unique ID for this request
     toolName: string;            // Tool requiring confirmation
@@ -183,7 +190,7 @@ neurolink.on("hitl:confirmation-request", (event) => {
 **Confirmation Response** (emit from your app):
 
 ```typescript
-neurolink.emit("hitl:confirmation-response", {
+emitter.emit("hitl:confirmation-response", {
   type: "hitl:confirmation-response",
   payload: {
     confirmationId: string;      // Must match request
@@ -201,7 +208,7 @@ neurolink.emit("hitl:confirmation-response", {
 **Timeout Event** (`hitl:timeout`):
 
 ```typescript
-neurolink.on("hitl:timeout", (event) => {
+emitter.on("hitl:timeout", (event) => {
   event.payload: {
     confirmationId: string;
     toolName: string;
@@ -237,13 +244,15 @@ const tool = {
 
 ```typescript
 // Always respond to confirmation requests with matching ID
-neurolink.on("hitl:confirmation-request", async (event) => {
+const emitter = neurolink.getEventEmitter();
+
+emitter.on("hitl:confirmation-request", async (event) => {
   const { confirmationId } = event.payload; // (1)!
 
   const approved = await showConfirmationDialog(event.payload);
 
   // (2)! Send response with EXACT confirmationId from request
-  neurolink.emit("hitl:confirmation-response", {
+  emitter.emit("hitl:confirmation-response", {
     type: "hitl:confirmation-response",
     payload: {
       confirmationId, // (3)! Must match request exactly
@@ -268,7 +277,9 @@ neurolink.on("hitl:confirmation-request", async (event) => {
 
 ```typescript
 // Set up event listener BEFORE making AI requests
-neurolink.on("hitl:confirmation-request", async (event) => {
+const emitter = neurolink.getEventEmitter();
+
+emitter.on("hitl:confirmation-request", async (event) => {
   // (1)! Show your confirmation UI
   await handleConfirmationPrompt(event);
 });
