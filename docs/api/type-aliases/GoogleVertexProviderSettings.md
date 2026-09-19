@@ -8,7 +8,7 @@
 
 > **GoogleVertexProviderSettings** = `object`
 
-Defined in: [types/providers.ts:1266](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1266)
+Defined in: [types/providers.ts:1268](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1268)
 
 Google Vertex AI provider settings for native SDK configuration
 Used with @google/genai SDK in vertexai mode
@@ -22,7 +22,7 @@ or the temporary credentials file approach, not through these settings fields.
 
 > **project**: `string`
 
-Defined in: [types/providers.ts:1268](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1268)
+Defined in: [types/providers.ts:1270](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1270)
 
 Google Cloud project ID
 
@@ -32,7 +32,7 @@ Google Cloud project ID
 
 > **location**: `string`
 
-Defined in: [types/providers.ts:1270](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1270)
+Defined in: [types/providers.ts:1272](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1272)
 
 Google Cloud region/location (e.g., 'us-central1')
 
@@ -42,6 +42,6 @@ Google Cloud region/location (e.g., 'us-central1')
 
 > `optional` **fetch?**: _typeof_ `fetch`
 
-Defined in: [types/providers.ts:1272](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1272)
+Defined in: [types/providers.ts:1274](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1274)
 
 Optional custom fetch implementation
