@@ -52,7 +52,10 @@ import { logger } from "../../utils/logger.js";
 import { drainDetachedPump } from "../../utils/drainDetachedPump.js";
 import { createGeminiLoopAdapter } from "../../core/geminiLoopAdapter.js";
 import { runAgenticLoop } from "../../core/loopEngine.js";
-import { DEFAULT_TOOL_MAX_RETRIES } from "../../core/constants.js";
+import {
+  DEFAULT_TOOL_MAX_RETRIES,
+  resolveToolTimeoutMs,
+} from "../../core/constants.js";
 import { isToolsSchemaExclusionInForce } from "../../core/modules/structuredOutputPolicy.js";
 import {
   GEMINI_ELISION_NOTE,
@@ -75,13 +78,18 @@ import { resolveToolExecutionRecords } from "../../core/toolExecutionRecorder.js
 import {
   buildDedupedEngineTools,
   buildGeminiResponseSchema,
+  buildLoopExitMessage,
   buildNativeConfig,
+  buildWrapupNudgeText,
   computeMaxSteps,
   createContextGuard,
+  createTurnClock,
   buildUserPartsWithMultimodal,
   extractThoughtSignature,
   handleMaxStepsTermination,
+  mapGeminiFinishReason,
   prependConversationMessages,
+  resolveTurnStopReason,
 } from "../googleNativeGemini3/index.js";
 import { createStreamChannel } from "../../core/streamChannel.js";
 import { toNativeToolDeclarations } from "../../core/nativeToolFormat.js";
@@ -960,11 +968,57 @@ export class GoogleAIStudioProvider extends BaseProvider {
           );
           const maxSteps = computeMaxSteps(options.maxSteps);
 
-          // Compose abort signal from user signal + timeout
-          const composedSignal = composeAbortSignals(
+          // Abort fan-in. The caller's signal, the pre-existing per-request
+          // timeout controller and the turn clock's watchdogs all trip one
+          // internal controller, and everything downstream (SDK request,
+          // engine, guarded tool executors) rides its signal — so a deadline
+          // reaches a tool mid-execution, not only the next step boundary.
+          const upstreamSignal = composeAbortSignals(
             options.abortSignal,
             timeoutController?.controller.signal,
           );
+          const internalAbort = new AbortController();
+          const onUpstreamAbort = () => internalAbort.abort();
+          upstreamSignal?.addEventListener("abort", onUpstreamAbort);
+          if (upstreamSignal?.aborted) {
+            internalAbort.abort();
+          }
+          const toolExecTimeoutMs = resolveToolTimeoutMs(options.toolTimeoutMs);
+          // No `defaultTurnTimeoutMs`: this path already carries a whole-turn
+          // bound in `timeoutController`, and arming a second timer for the
+          // same instant would make which one fired a race. The clock owns an
+          // explicit `turnTimeoutMs` and the stall watchdog; the controller
+          // keeps the default deadline it always had, and `timedOut` below
+          // reads both so either one is reported as a time-limit exit.
+          const turnClock = createTurnClock({
+            ...(options.turnTimeoutMs !== undefined
+              ? { turnTimeoutMs: options.turnTimeoutMs }
+              : {}),
+            ...(options.stallTimeoutMs !== undefined
+              ? { stallTimeoutMs: options.stallTimeoutMs }
+              : {}),
+            ...(options.wrapupTimeLeadMs !== undefined
+              ? { wrapupTimeLeadMs: options.wrapupTimeLeadMs }
+              : {}),
+            onDeadline: (kind) => {
+              logger.warn(
+                kind === "timeout"
+                  ? `[GoogleAIStudio] Native Gemini turn exceeded its ${options.turnTimeoutMs}ms time budget — aborting`
+                  : `[GoogleAIStudio] Native Gemini turn made no progress for ${options.stallTimeoutMs}ms — aborting`,
+              );
+              internalAbort.abort();
+            },
+          });
+          const composedSignal: AbortSignal = internalAbort.signal;
+          /**
+           * True when a wall-clock bound ended the turn. Both the turn clock's
+           * explicit deadline and the pre-existing per-request controller are
+           * time limits, so an exit caused by either must not be reported as a
+           * bare caller abort.
+           */
+          const hitTimeLimit = (): boolean =>
+            turnClock.timedOut ||
+            timeoutController?.controller.signal.aborted === true;
 
           // Create a push-based text channel so the caller receives tokens as
           // they arrive from the network rather than after full buffering.
@@ -995,7 +1049,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           // Shared metadata object mutated by the background loop so the
           // returned object reflects the final values after stream completion.
-          const metadata = {
+          // Typed against StreamResult so the turn-exit fields the loop fills
+          // in at close (stopReason / rawFinishReason / stepsUsed) are the
+          // declared ones rather than late additions to an inferred shape.
+          const metadata: NonNullable<StreamResult["metadata"]> = {
             streamId: `native-${Date.now()}`,
             startTime,
             responseTime: 0,
@@ -1011,6 +1068,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
             let totalCacheReadTokens = 0;
             let totalReasoningTokens = 0;
             let step = 0;
+            // Model calls the engine actually made, reported from the
+            // per-step request hook. `step` above counts only steps that
+            // produced tool calls, so it misses the final text-only step and
+            // would under-report `stepsUsed`, which is a public field.
+            let stepsTaken = 0;
+            let wasAborted = false;
+            let lastFinishReason: string | undefined;
             // Cheap trigger for the in-turn reclaim, mirroring the Vertex twin.
             // Planning serializes the WHOLE accumulated history to estimate it,
             // so running it unconditionally charges that once per step for the
@@ -1035,6 +1099,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 // what makes an always-failing tool dispatch exactly twice.
                 toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES },
                 liveTools: options.tools ?? {},
+                // A tool hydrated mid-turn gets the same bound, abort race
+                // and stall ping as one declared up front.
+                toolGuards: {
+                  toolTimeoutMs: toolExecTimeoutMs,
+                  abortSignal: composedSignal,
+                  onProgress: () => turnClock.noteProgress(),
+                },
                 ...(declarationsResult
                   ? { declarations: declarationsResult }
                   : {}),
@@ -1042,16 +1113,29 @@ export class GoogleAIStudioProvider extends BaseProvider {
                   model: modelName,
                   contents,
                   config,
-                  ...(composedSignal
-                    ? { httpOptions: { signal: composedSignal } }
-                    : {}),
                 }),
-                sendStep: async (request) =>
-                  client.models.generateContentStream(
-                    request as Parameters<
-                      typeof client.models.generateContentStream
-                    >[0],
-                  ),
+                // `config.abortSignal` is the ONLY cancellation channel
+                // @google/genai reads (ApiClient forwards
+                // `params.config.abortSignal` to fetch). This loop previously
+                // passed a top-level `httpOptions.signal`, which is not a key
+                // the SDK looks at, so nothing could cancel an in-flight
+                // request — a caller abort or a blown deadline only took
+                // effect at the next step boundary, and never at all against a
+                // provider that had gone quiet mid-stream.
+                sendStep: async (request, signal) => {
+                  turnClock.noteProgress();
+                  const built = request as {
+                    model: string;
+                    contents: unknown;
+                    config?: Record<string, unknown>;
+                  };
+                  return client.models.generateContentStream({
+                    ...built,
+                    config: { ...(built.config ?? {}), abortSignal: signal },
+                  } as Parameters<
+                    typeof client.models.generateContentStream
+                  >[0]);
+                },
                 noteUsage: (inputTokens, outputTokens) => {
                   contextGuard.noteUsage(inputTokens, outputTokens);
                 },
@@ -1083,6 +1167,15 @@ export class GoogleAIStudioProvider extends BaseProvider {
               // late write and lose the per-step thought signature.
               const adapter: typeof baseAdapter = {
                 ...baseAdapter,
+                // Counted HERE, not in buildToolResultMessages: this runs once
+                // per model call, including the final text-only step that asks
+                // for no tools. Counting in the tool-result hook reports one
+                // step fewer for every turn that ends normally.
+                buildStepRequest: (contents, engineStep) => {
+                  stepsTaken = engineStep + 1;
+                  turnClock.noteProgress();
+                  return baseAdapter.buildStepRequest(contents, engineStep);
+                },
                 buildToolResultMessages: (
                   contents,
                   stepResult,
@@ -1160,6 +1253,21 @@ export class GoogleAIStudioProvider extends BaseProvider {
                     toolResults,
                     engineStep,
                   );
+                  // Time-budget wrap-up nudge (twin of the Vertex Gemini
+                  // loops'): with the turn deadline approaching, tell the
+                  // model to consolidate. Rides as a trailing text part on the
+                  // tool-response user turn. Only fires against an EXPLICIT
+                  // turnTimeoutMs — createTurnClock refuses to nudge against a
+                  // defensive default, so no caller gains injected prompt text
+                  // without asking for a time budget.
+                  if (turnClock.shouldNudgeWrapup()) {
+                    const last = next[next.length - 1] as
+                      | { parts?: unknown[] }
+                      | undefined;
+                    if (last && Array.isArray(last.parts)) {
+                      last.parts.push({ text: buildWrapupNudgeText(false) });
+                    }
+                  }
                   // Project this step's growth: the appended tool results ride
                   // the next prompt, which the provider has not reported on yet.
                   try {
@@ -1180,6 +1288,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
               const engineTools = buildDedupedEngineTools(
                 declarationsResult,
                 options.tools,
+                {
+                  toolTimeoutMs: toolExecTimeoutMs,
+                  abortSignal: composedSignal,
+                  onProgress: () => turnClock.noteProgress(),
+                },
               );
 
               const { stream: engineStream, resultPromise } = runAgenticLoop(
@@ -1187,48 +1300,84 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 currentContents,
                 {
                   tools: engineTools,
-                  ...(composedSignal ? { abortSignal: composedSignal } : {}),
-                  // This loop guards no executor of its own, so the engine's
-                  // per-tool bound is the only thing standing between a wedged
-                  // tool and a turn that never ends. Honour the caller's value
-                  // when there is one; the engine defaults otherwise.
-                  ...(options.toolTimeoutMs !== undefined
-                    ? { toolTimeoutMs: options.toolTimeoutMs }
-                    : {}),
+                  abortSignal: composedSignal,
+                  // The engine bounds every tool call itself. Passing the same
+                  // value the guards above use keeps the engine's backstop from
+                  // being tighter than what the caller asked for.
+                  toolTimeoutMs: toolExecTimeoutMs,
                 },
               );
 
               const pump = (async () => {
                 for await (const chunk of engineStream) {
+                  // Every chunk is progress, which is what keeps a productive
+                  // but slow turn away from the stall watchdog.
+                  turnClock.noteProgress();
                   channel.push(chunk);
                 }
               })();
 
               let engineResult;
+              let turnFailure: unknown;
               try {
                 engineResult = await resultPromise;
               } catch (error) {
-                await drainDetachedPump(pump, "GoogleAIStudio");
-                logger.error("[GoogleAIStudio] Native SDK error", error);
-                throw this.handleProviderError(error);
+                turnFailure = error;
               }
-              await pump;
+              // Drained unconditionally and tolerantly: when the turn ends by
+              // abort the channel rejects too, and re-awaiting a settled
+              // rejection would rethrow the very error the branch below has
+              // already decided to absorb.
+              await drainDetachedPump(pump, "GoogleAIStudio");
+              if (turnFailure !== undefined) {
+                // A turn ended by its own time budget or by the caller is not
+                // a provider failure. Rethrowing one would surface a deadline
+                // as a network error and, worse, send the caller down an
+                // unbounded fallback path right after a blown budget. A
+                // provider timeout keeps throwing exactly as before, because
+                // classifying it is what produces the timeout error callers
+                // already handle.
+                if (turnClock.expired || options.abortSignal?.aborted) {
+                  wasAborted = true;
+                } else {
+                  logger.error(
+                    "[GoogleAIStudio] Native SDK error",
+                    turnFailure,
+                  );
+                  throw this.handleProviderError(turnFailure);
+                }
+              }
 
-              totalInputTokens += engineResult.usage.inputTokens;
-              totalOutputTokens += engineResult.usage.outputTokens;
-              totalCacheReadTokens += engineResult.usage.cacheReadTokens ?? 0;
-              totalReasoningTokens += engineResult.usage.reasoningTokens ?? 0;
+              if (engineResult) {
+                totalInputTokens += engineResult.usage.inputTokens;
+                totalOutputTokens += engineResult.usage.outputTokens;
+                totalCacheReadTokens += engineResult.usage.cacheReadTokens ?? 0;
+                totalReasoningTokens += engineResult.usage.reasoningTokens ?? 0;
+                lastFinishReason =
+                  engineResult.rawStopReason ?? lastFinishReason;
+                if (engineResult.aborted) {
+                  wasAborted = true;
+                }
+              }
+              if (composedSignal.aborted) {
+                wasAborted = true;
+              }
+
               // The turn produced a final answer when the model stopped
               // calling tools of its own accord, rather than being cut off at
               // the cap.
               const completedWithFinalAnswer =
-                engineResult.toolCalls.length === 0 ||
-                engineResult.finishReason !== "tool-calls";
+                engineResult !== undefined &&
+                (engineResult.toolCalls.length === 0 ||
+                  engineResult.finishReason !== "tool-calls");
 
               // Handle max-steps termination: if the model was still calling
               // tools when we hit the limit, push a synthetic final message.
+              // An aborted turn is NOT a step-cap turn — a killed 3-step turn
+              // claiming it "reached the 200-step limit" is the exact
+              // mislabeling this loop is being fixed for.
               const hitStepLimitWithoutFinalAnswer =
-                step >= maxSteps && !completedWithFinalAnswer;
+                !wasAborted && step >= maxSteps && !completedWithFinalAnswer;
               if (hitStepLimitWithoutFinalAnswer) {
                 const fallback = handleMaxStepsTermination(
                   "[GoogleAIStudio]",
@@ -1240,13 +1389,62 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 if (fallback) {
                   channel.push({ content: fallback });
                 }
+              } else if (wasAborted && !completedWithFinalAnswer) {
+                // Exactly one honest terminal chunk, matching the actual exit
+                // cause, and only when the consumer has not already been given
+                // the model's own prose.
+                logger.warn(
+                  `[GoogleAIStudio] Tool call loop ended mid-turn ` +
+                    `(${hitTimeLimit() ? "turn time limit" : turnClock.stalled ? "stall watchdog" : "caller abort"}); ` +
+                    `returning an honest terminal message.`,
+                );
+                channel.push({
+                  content: buildLoopExitMessage({
+                    timedOut: hitTimeLimit(),
+                    stalled: turnClock.stalled,
+                    elapsedMs: turnClock.elapsedMs(),
+                    wasAborted,
+                    ...(options.stallTimeoutMs !== undefined
+                      ? { stallTimeoutMs: options.stallTimeoutMs }
+                      : {}),
+                    maxSteps,
+                    toolCallCount: allToolCalls.length,
+                  }),
+                });
               }
 
               const responseTime = Date.now() - startTime;
 
+              // Turn-exit discriminator, independent of the provider-shaped
+              // finishReason — consumers branch on this instead of sniffing
+              // strings. It reports only conditions this loop can actually
+              // observe: it never claims a context-cap, because the reclaim
+              // planner here has no stop-the-turn branch to report.
+              const stopReason = resolveTurnStopReason({
+                timedOut: hitTimeLimit(),
+                stalled: turnClock.stalled,
+                wasAborted,
+                cappedWithoutAnswer: hitStepLimitWithoutFinalAnswer,
+                finishReason: mapGeminiFinishReason(lastFinishReason),
+              });
+              if (stopReason !== "completed") {
+                this.emitTurnEvent({
+                  phase: stopReason,
+                  step: stepsTaken,
+                  maxSteps,
+                  toolCallCount: allToolCalls.length,
+                  elapsedMs: turnClock.elapsedMs(),
+                });
+              }
+
               // Update shared metadata so the returned object reflects final values.
               metadata.responseTime = responseTime;
               metadata.totalToolExecutions = allToolCalls.length;
+              metadata.stopReason = stopReason;
+              metadata.stepsUsed = stepsTaken;
+              if (lastFinishReason !== undefined) {
+                metadata.rawFinishReason = lastFinishReason;
+              }
 
               // Set token usage and finish reason on the span
               span.setAttribute(ATTR.GEN_AI_INPUT_TOKENS, totalInputTokens);
@@ -1288,6 +1486,16 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 },
                 requestDuration: responseTime,
                 timestamp: new Date().toISOString(),
+                // Turn-lifecycle telemetry. The generate path gets these for
+                // free because createAnalytics reads them off the result;
+                // this path settles its own analytics, so they are set here.
+                stepsUsed: stepsTaken,
+                toolCallCount: allToolCalls.length,
+                stopReason,
+                elapsedMs: turnClock.elapsedMs(),
+                ...(lastFinishReason !== undefined
+                  ? { rawFinishReason: lastFinishReason }
+                  : {}),
               });
 
               channel.close();
@@ -1295,6 +1503,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
               channel.error(err);
               analyticsReject(err);
             } finally {
+              turnClock.dispose();
+              upstreamSignal?.removeEventListener("abort", onUpstreamAbort);
               timeoutController?.cleanup();
             }
           })();
@@ -1362,6 +1572,10 @@ export class GoogleAIStudioProvider extends BaseProvider {
           this.providerName,
           "generate",
         );
+        // Declared out here so the finally below can release the watchdog
+        // timers and the caller-signal listener on every exit, including the
+        // throws inside the try that never reach the clock's own scope.
+        let releaseTurnResources: () => void = () => {};
 
         try {
           const apiKey = this.getApiKey();
@@ -1486,10 +1700,50 @@ export class GoogleAIStudioProvider extends BaseProvider {
             toolsConfig,
           );
 
-          const composedSignal = composeAbortSignals(
+          // Abort fan-in — see the streaming twin for why the turn clock
+          // drives an internal controller rather than composing a third
+          // signal at each call site.
+          const upstreamSignal = composeAbortSignals(
             options.abortSignal,
             timeoutController?.controller.signal,
           );
+          const internalAbort = new AbortController();
+          const onUpstreamAbort = () => internalAbort.abort();
+          upstreamSignal?.addEventListener("abort", onUpstreamAbort);
+          if (upstreamSignal?.aborted) {
+            internalAbort.abort();
+          }
+          const toolExecTimeoutMs = resolveToolTimeoutMs(options.toolTimeoutMs);
+          // No `defaultTurnTimeoutMs`: the pre-existing whole-turn bound on
+          // this path is `timeoutController`, and `hitTimeLimit()` reads it,
+          // so no new default deadline is introduced by arming the clock.
+          const turnClock = createTurnClock({
+            ...(options.turnTimeoutMs !== undefined
+              ? { turnTimeoutMs: options.turnTimeoutMs }
+              : {}),
+            ...(options.stallTimeoutMs !== undefined
+              ? { stallTimeoutMs: options.stallTimeoutMs }
+              : {}),
+            ...(options.wrapupTimeLeadMs !== undefined
+              ? { wrapupTimeLeadMs: options.wrapupTimeLeadMs }
+              : {}),
+            onDeadline: (kind) => {
+              logger.warn(
+                kind === "timeout"
+                  ? `[GoogleAIStudio] Native Gemini generate turn exceeded its ${options.turnTimeoutMs}ms time budget — aborting`
+                  : `[GoogleAIStudio] Native Gemini generate turn made no progress for ${options.stallTimeoutMs}ms — aborting`,
+              );
+              internalAbort.abort();
+            },
+          });
+          const composedSignal: AbortSignal = internalAbort.signal;
+          releaseTurnResources = () => {
+            turnClock.dispose();
+            upstreamSignal?.removeEventListener("abort", onUpstreamAbort);
+          };
+          const hitTimeLimit = (): boolean =>
+            turnClock.timedOut ||
+            timeoutController?.controller.signal.aborted === true;
           const maxSteps = computeMaxSteps(options.maxSteps);
 
           let finalText = "";
@@ -1508,6 +1762,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
             output: unknown;
           }> = [];
           let step = 0;
+          // Model calls made — see the streaming twin for why this is not
+          // `step`.
+          let stepsTaken = 0;
+          let wasAborted = false;
+          let lastFinishReason: string | undefined;
           // Cheap reclaim trigger — see the stream twin.
           const contextGuard = createContextGuard(
             getContextWindowSize("googleAiStudio", modelName),
@@ -1523,21 +1782,31 @@ export class GoogleAIStudioProvider extends BaseProvider {
             maxSteps,
             toolFailureBreaker: { maxRetries: DEFAULT_TOOL_MAX_RETRIES },
             liveTools: options.tools ?? {},
+            toolGuards: {
+              toolTimeoutMs: toolExecTimeoutMs,
+              abortSignal: composedSignal,
+              onProgress: () => turnClock.noteProgress(),
+            },
             ...(declarationsResult ? { declarations: declarationsResult } : {}),
             buildRequest: (contents) => ({
               model: modelName,
               contents,
               config,
-              ...(composedSignal
-                ? { httpOptions: { signal: composedSignal } }
-                : {}),
             }),
-            sendStep: async (request) =>
-              client.models.generateContentStream(
-                request as Parameters<
-                  typeof client.models.generateContentStream
-                >[0],
-              ),
+            // See the streaming twin: `config.abortSignal` is the only
+            // cancellation channel the SDK reads.
+            sendStep: async (request, signal) => {
+              turnClock.noteProgress();
+              const built = request as {
+                model: string;
+                contents: unknown;
+                config?: Record<string, unknown>;
+              };
+              return client.models.generateContentStream({
+                ...built,
+                config: { ...(built.config ?? {}), abortSignal: signal },
+              } as Parameters<typeof client.models.generateContentStream>[0]);
+            },
             noteUsage: (inputTokens, outputTokens) => {
               contextGuard.noteUsage(inputTokens, outputTokens);
             },
@@ -1562,6 +1831,13 @@ export class GoogleAIStudioProvider extends BaseProvider {
 
           const adapter: typeof baseAdapter = {
             ...baseAdapter,
+            // Once per model call, including the final text-only step — see
+            // the streaming twin.
+            buildStepRequest: (contents, engineStep) => {
+              stepsTaken = engineStep + 1;
+              turnClock.noteProgress();
+              return baseAdapter.buildStepRequest(contents, engineStep);
+            },
             buildToolResultMessages: (
               contents,
               stepResult,
@@ -1626,6 +1902,15 @@ export class GoogleAIStudioProvider extends BaseProvider {
                 toolResults,
                 engineStep,
               );
+              // Wrap-up nudge — see the streaming twin.
+              if (turnClock.shouldNudgeWrapup()) {
+                const last = next[next.length - 1] as
+                  | { parts?: unknown[] }
+                  | undefined;
+                if (last && Array.isArray(last.parts)) {
+                  last.parts.push({ text: buildWrapupNudgeText(false) });
+                }
+              }
               try {
                 const appended = next[next.length - 1];
                 contextGuard.noteAppendedChars(
@@ -1642,6 +1927,11 @@ export class GoogleAIStudioProvider extends BaseProvider {
           const engineTools = buildDedupedEngineTools(
             declarationsResult,
             options.tools,
+            {
+              toolTimeoutMs: toolExecTimeoutMs,
+              abortSignal: composedSignal,
+              onProgress: () => turnClock.noteProgress(),
+            },
           );
 
           const { stream: engineStream, resultPromise } = runAgenticLoop(
@@ -1649,12 +1939,8 @@ export class GoogleAIStudioProvider extends BaseProvider {
             currentContents,
             {
               tools: engineTools,
-              ...(composedSignal ? { abortSignal: composedSignal } : {}),
-              // This loop guards no executor of its own — see the streaming
-              // path above for why the engine's bound has to be reachable.
-              ...(options.toolTimeoutMs !== undefined
-                ? { toolTimeoutMs: options.toolTimeoutMs }
-                : {}),
+              abortSignal: composedSignal,
+              toolTimeoutMs: toolExecTimeoutMs,
             },
           );
 
@@ -1663,34 +1949,101 @@ export class GoogleAIStudioProvider extends BaseProvider {
           const drain = (async () => {
             for await (const chunk of engineStream) {
               void chunk;
+              turnClock.noteProgress();
             }
           })();
 
           let engineResult;
+          let turnFailure: unknown;
           try {
             engineResult = await resultPromise;
           } catch (error) {
-            await drainDetachedPump(drain, "GoogleAIStudio");
-            logger.error("[GoogleAIStudio] Native SDK generate error", error);
-            throw this.handleProviderError(error);
+            turnFailure = error;
           }
-          await drain;
+          await drainDetachedPump(drain, "GoogleAIStudio");
+          if (turnFailure !== undefined) {
+            // Same split as the streaming twin: a blown time budget or a
+            // caller abort ends the turn honestly, a provider failure still
+            // throws.
+            if (turnClock.expired || options.abortSignal?.aborted) {
+              wasAborted = true;
+            } else {
+              logger.error(
+                "[GoogleAIStudio] Native SDK generate error",
+                turnFailure,
+              );
+              throw this.handleProviderError(turnFailure);
+            }
+          }
 
-          totalInputTokens += engineResult.usage.inputTokens;
-          totalOutputTokens += engineResult.usage.outputTokens;
-          totalCacheReadTokens += engineResult.usage.cacheReadTokens ?? 0;
-          totalReasoningTokens += engineResult.usage.reasoningTokens ?? 0;
-          finalText = engineResult.text;
+          if (engineResult) {
+            totalInputTokens += engineResult.usage.inputTokens;
+            totalOutputTokens += engineResult.usage.outputTokens;
+            totalCacheReadTokens += engineResult.usage.cacheReadTokens ?? 0;
+            totalReasoningTokens += engineResult.usage.reasoningTokens ?? 0;
+            lastFinishReason = engineResult.rawStopReason ?? lastFinishReason;
+            finalText = engineResult.text;
+            if (engineResult.aborted) {
+              wasAborted = true;
+            }
+          }
+          if (composedSignal.aborted) {
+            wasAborted = true;
+          }
 
-          finalText = handleMaxStepsTermination(
-            "[GoogleAIStudio]",
-            step,
-            maxSteps,
-            finalText,
-            lastStepText,
-          );
+          const hitStepLimitWithoutAnswer =
+            !wasAborted && step >= maxSteps && !finalText;
+          if (wasAborted && !finalText) {
+            // Never the step-cap text for a turn the budget killed: prefer
+            // the prose the model already produced, else an honest message
+            // naming the actual exit cause.
+            logger.warn(
+              `[GoogleAIStudio] Generate tool call loop ended mid-turn ` +
+                `(${hitTimeLimit() ? "turn time limit" : turnClock.stalled ? "stall watchdog" : "caller abort"}); ` +
+                `returning gathered text or an honest terminal message.`,
+            );
+            finalText =
+              lastStepText ||
+              buildLoopExitMessage({
+                timedOut: hitTimeLimit(),
+                stalled: turnClock.stalled,
+                elapsedMs: turnClock.elapsedMs(),
+                wasAborted,
+                ...(options.stallTimeoutMs !== undefined
+                  ? { stallTimeoutMs: options.stallTimeoutMs }
+                  : {}),
+                maxSteps,
+                toolCallCount: allToolCalls.length,
+              });
+          } else {
+            finalText = handleMaxStepsTermination(
+              "[GoogleAIStudio]",
+              step,
+              maxSteps,
+              finalText,
+              lastStepText,
+            );
+          }
 
           const responseTime = Date.now() - startTime;
+
+          // Turn-exit discriminator — see the streaming twin.
+          const stopReason = resolveTurnStopReason({
+            timedOut: hitTimeLimit(),
+            stalled: turnClock.stalled,
+            wasAborted,
+            cappedWithoutAnswer: hitStepLimitWithoutAnswer,
+            finishReason: mapGeminiFinishReason(lastFinishReason),
+          });
+          if (stopReason !== "completed") {
+            this.emitTurnEvent({
+              phase: stopReason,
+              step: stepsTaken,
+              maxSteps,
+              toolCallCount: allToolCalls.length,
+              elapsedMs: turnClock.elapsedMs(),
+            });
+          }
 
           // Set token usage and finish reason on the span
           span.setAttribute(ATTR.GEN_AI_INPUT_TOKENS, totalInputTokens);
@@ -1715,6 +2068,14 @@ export class GoogleAIStudioProvider extends BaseProvider {
             content: finalText,
             provider: this.providerName,
             model: modelName,
+            // createAnalytics reads these off the result, so setting them
+            // here is also what puts stepsUsed / stopReason / elapsedMs /
+            // rawFinishReason on `result.analytics`.
+            stopReason,
+            stepsUsed: stepsTaken,
+            ...(lastFinishReason !== undefined
+              ? { rawFinishReason: lastFinishReason }
+              : {}),
             usage: {
               input: adjustedInputTokens,
               // Thinking tokens are billed at the output rate but Gemini
@@ -1747,6 +2108,7 @@ export class GoogleAIStudioProvider extends BaseProvider {
           };
           return this.enhanceResult(baseResult, options, startTime);
         } finally {
+          releaseTurnResources();
           timeoutController?.cleanup();
         }
       },

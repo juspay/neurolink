@@ -1265,6 +1265,43 @@ export function buildAbortedTurnMessage(toolCallCount: number): string {
 }
 
 /**
+ * Pick the honest terminal message for a native-loop exit by its ACTUAL
+ * cause. The step-cap text is the fallback for genuine budget exhaustion
+ * only — time/stall/abort exits must never claim a step limit was reached
+ * (the 2026-07-03 "reached the 200-step limit" incident was a wall-clock
+ * abort wearing the cap message).
+ *
+ * Takes plain booleans rather than a turn clock so a loop whose wall-clock
+ * deadline is owned by something other than `createTurnClock` — AI Studio's
+ * pre-existing per-request timeout controller — can report through the same
+ * builders instead of growing a second set.
+ */
+export function buildLoopExitMessage(params: {
+  timedOut: boolean;
+  stalled: boolean;
+  /** Turn duration so far, for the time-limit message. */
+  elapsedMs: number;
+  wasAborted: boolean;
+  stallTimeoutMs?: number;
+  maxSteps: number;
+  toolCallCount: number;
+}): string {
+  if (params.timedOut) {
+    return buildTurnTimeoutMessage(params.elapsedMs, params.toolCallCount);
+  }
+  if (params.stalled) {
+    return buildTurnStalledMessage(
+      params.stallTimeoutMs ?? 0,
+      params.toolCallCount,
+    );
+  }
+  if (params.wasAborted) {
+    return buildAbortedTurnMessage(params.toolCallCount);
+  }
+  return buildToolLoopCapMessage(params.maxSteps, params.toolCallCount);
+}
+
+/**
  * Wrap-up nudge injected when the remaining turn time drops inside the
  * `wrapupTimeLeadMs` window — the time-budget twin of the soft step-budget
  * nudge. Rides as a trailing text block on the tool-result user turn.

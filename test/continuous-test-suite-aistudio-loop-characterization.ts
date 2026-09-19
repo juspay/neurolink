@@ -195,6 +195,67 @@ async function startStandIn(
   };
 }
 
+/**
+ * A stand-in that accepts the request, opens a response, and then says
+ * nothing — a wedged provider.
+ *
+ * Nothing is written and nothing is ended, so the turn makes no progress
+ * after the first request. Only the stall watchdog can end it.
+ */
+async function startSilentStandIn(): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const server: Server = createServer((_req, res) => {
+    calls.push({ body: {} });
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    // Deliberately no write and no end: the turn clock is what must react.
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
+  };
+}
+
+/**
+ * A stand-in that keeps the stream alive with periodic events.
+ *
+ * Progress resets the stall clock, so a turn against this server can only be
+ * ended by the wall-clock deadline — which is what separates the two limits.
+ * Without it, one fixture would prove one limit works and say nothing about
+ * the other.
+ */
+async function startDribblingStandIn(): Promise<StandIn> {
+  const calls: StandInCall[] = [];
+  const timers: NodeJS.Timeout[] = [];
+  const server: Server = createServer((_req, res) => {
+    calls.push({ body: {} });
+    res.writeHead(200, { "content-type": "text/event-stream" });
+    const t = setInterval(() => {
+      res.write(sse([{ text: "." }]));
+    }, 300);
+    timers.push(t);
+    res.on("close", () => clearInterval(t));
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  return {
+    calls,
+    port: typeof address === "object" && address ? address.port : 0,
+    close: () =>
+      new Promise<void>((resolve) => {
+        timers.forEach(clearInterval);
+        server.closeAllConnections?.();
+        server.close(() => resolve());
+      }),
+  };
+}
+
 function credentialsFor(port: number) {
   return {
     googleAiStudio: {
@@ -844,6 +905,289 @@ await test("tool activity is numbered by the turn's steps, one per step", async 
   assert(
     steps.length === 2 && steps[0] === 1 && steps[1] === 2,
     "tool activity was not numbered 1,2 across the turn's two tool steps",
+  );
+});
+
+section("turn clock");
+
+await test("a completed turn reports itself completed, with the steps it used", async () => {
+  // The positive control for everything below. A discriminator that always
+  // said "stalled" would satisfy the two deadline cases on its own, and a
+  // stepsUsed wired to the tool-result hook under-reports every turn that
+  // ends on a text-only step — which is every healthy turn. Both are pinned
+  // here, on a turn nothing interrupts.
+  const server = await startStandIn((i) =>
+    i === 0 ? toolTurn("lookup", { q: "x" }) : textTurn("done"),
+  );
+  const restore = withAiStudioEnv();
+  const counter = { calls: 0 };
+  let stopReason: string | undefined;
+  let stepsUsed: number | undefined;
+  try {
+    const nl = new NeuroLink();
+    const result = await nl.stream({
+      input: { text: "look something up" },
+      provider: "google-ai",
+      model: MODEL,
+      maxTokens: 32,
+      maxSteps: 5,
+      disableTools: false,
+      disableInternalFallback: true,
+      tools: customTool(counter),
+      credentials: credentialsFor(server.port),
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    // metadata, not the top-level field: on a background-loop stream the
+    // top-level one is snapshotted by wrapper spreads before the loop
+    // settles. That contract is documented on StreamResult.
+    const metadata = (
+      result as {
+        metadata?: { stopReason?: string; stepsUsed?: number };
+      }
+    ).metadata;
+    stopReason = metadata?.stopReason;
+    stepsUsed = metadata?.stepsUsed;
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] aistudio completed turn: stopReason=${String(stopReason)} stepsUsed=${String(stepsUsed)} calls=${server.calls.length}`,
+  );
+  assert(
+    stopReason === "completed",
+    "a turn that finished on its own was not reported as completed",
+  );
+  // Two model calls: the tool step and the text step. Counting in the
+  // tool-result hook would report 1.
+  assert(
+    stepsUsed === 2,
+    `the turn reported ${String(stepsUsed)} steps for a two-call turn`,
+  );
+});
+
+await test("a stream that stops making progress ends the turn as stalled", async () => {
+  // The turn clock is the part of this loop nothing else exercises: it only
+  // acts when a stream goes quiet, so a normal turn never touches it.
+  // `stallTimeoutMs` is a public option threaded straight into
+  // createTurnClock, so the behaviour IS reachable deterministically — a
+  // stand-in that opens a response and then says nothing reproduces a wedged
+  // provider exactly.
+  //
+  // Removing the clock does not make this case fail, it makes it HANG, and it
+  // hangs inside stream() before any drain begins. The race below is what
+  // turns that regression into a clean red rather than a stuck runner.
+  const server = await startSilentStandIn();
+  const restore = withAiStudioEnv();
+  let stopReason: string | undefined;
+  let outcome: string;
+  let thrown: unknown;
+  try {
+    const turn = (async () => {
+      const nl = new NeuroLink();
+      const result = await nl.stream({
+        input: { text: "hi" },
+        provider: "google-ai",
+        model: MODEL,
+        maxTokens: 32,
+        disableInternalFallback: true,
+        stallTimeoutMs: 1500,
+        credentials: credentialsFor(server.port),
+      });
+      for await (const chunk of result.stream) {
+        void chunk;
+      }
+      stopReason = (result as { metadata?: { stopReason?: string } }).metadata
+        ?.stopReason;
+      return "ended";
+    })();
+    outcome = await Promise.race([
+      // The rejection is RETAINED, not converted into a pass. Mapping every
+      // error to a passing outcome would let any unrelated failure — a
+      // connection refused, a misconfigured credential — satisfy a test whose
+      // whole subject is the turn clock.
+      turn.catch((error: unknown) => {
+        thrown = error;
+        return "threw";
+      }),
+      new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("never-ended"), 20_000);
+        t.unref?.();
+      }),
+    ]);
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] aistudio stall turn: outcome=${outcome} stopReason=${String(stopReason)}`,
+  );
+  assert(
+    outcome !== "never-ended",
+    "a wedged turn was never ended by the turn clock within the bound",
+  );
+  if (outcome === "threw") {
+    // Printed, never interpolated into an assertion: the harness downgrades a
+    // failure whose text matches isExpectedProviderError() to a SKIP, so
+    // provider wording must not reach an assert.
+    console.log(
+      `    [diagnostic] aistudio stall turn threw: ${String((thrown as Error)?.message).slice(0, 160)}`,
+    );
+  }
+  assert(
+    outcome === "ended",
+    "the wedged turn failed instead of being ended by the turn clock",
+  );
+  assert(
+    stopReason === "stalled",
+    "a wedged turn ended without being reported as a stall",
+  );
+});
+
+await test("a turn that outlives turnTimeoutMs ends on the wall-clock deadline", async () => {
+  // The stall clock and the wall-clock deadline are separate limits with
+  // separate stop reasons. This one is reachable with a stand-in that DOES
+  // make progress — it keeps dribbling events, so the stall clock is
+  // continually reset and only turnTimeoutMs can end the turn.
+  const server = await startDribblingStandIn();
+  const restore = withAiStudioEnv();
+  let stopReason: string | undefined;
+  let text = "";
+  let outcome: string;
+  let thrown: unknown;
+  try {
+    const turn = (async () => {
+      const nl = new NeuroLink();
+      const result = await nl.stream({
+        input: { text: "hi" },
+        provider: "google-ai",
+        model: MODEL,
+        maxTokens: 32,
+        maxSteps: 20,
+        disableInternalFallback: true,
+        turnTimeoutMs: 2500,
+        // Deliberately far above the deadline so a stall cannot be what ends
+        // this turn.
+        stallTimeoutMs: 60_000,
+        credentials: credentialsFor(server.port),
+      });
+      for await (const chunk of result.stream) {
+        if ("content" in chunk && typeof chunk.content === "string") {
+          text += chunk.content;
+        }
+      }
+      stopReason = (result as { metadata?: { stopReason?: string } }).metadata
+        ?.stopReason;
+      return "ended";
+    })();
+    outcome = await Promise.race([
+      turn.catch((error: unknown) => {
+        thrown = error;
+        return "threw";
+      }),
+      new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("never-ended"), 25_000);
+        t.unref?.();
+      }),
+    ]);
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] aistudio time-limit turn: outcome=${outcome} stopReason=${String(stopReason)} chars=${text.length}`,
+  );
+  assert(
+    outcome !== "never-ended",
+    "a turn past its wall-clock deadline was never ended within the bound",
+  );
+  if (outcome === "threw") {
+    console.log(
+      `    [diagnostic] aistudio time-limit turn threw: ${String((thrown as Error)?.message).slice(0, 160)}`,
+    );
+  }
+  assert(
+    outcome === "ended",
+    "the turn failed instead of being ended by its wall-clock deadline",
+  );
+  assert(
+    stopReason === "time-limit",
+    "a turn past its wall-clock deadline was not reported against that deadline",
+  );
+  // The honesty half of the contract, and the reason this issue exists: a
+  // turn killed by the clock must not claim it ran out of steps. The turn
+  // above was given 20 steps and used one.
+  assert(
+    !/step limit/i.test(text),
+    "a turn ended by its time budget described itself as having run out of steps",
+  );
+});
+
+await test("the generate path arms the same clock and reports the same reason", async () => {
+  // generate() runs a second, near-duplicate loop. A fix applied to only one
+  // of them is the exact shape of the gap this issue tracks, so the
+  // non-streaming path is pinned separately rather than assumed.
+  const server = await startSilentStandIn();
+  const restore = withAiStudioEnv();
+  let stopReason: string | undefined;
+  let content = "";
+  let outcome: string;
+  let thrown: unknown;
+  try {
+    const turn = (async () => {
+      const nl = new NeuroLink();
+      const result = await nl.generate({
+        input: { text: "hi" },
+        provider: "google-ai",
+        model: MODEL,
+        maxTokens: 32,
+        disableInternalFallback: true,
+        stallTimeoutMs: 1500,
+        credentials: credentialsFor(server.port),
+      });
+      stopReason = (result as { stopReason?: string } | null)?.stopReason;
+      content = (result as { content?: string } | null)?.content ?? "";
+      return "ended";
+    })();
+    outcome = await Promise.race([
+      turn.catch((error: unknown) => {
+        thrown = error;
+        return "threw";
+      }),
+      new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("never-ended"), 20_000);
+        t.unref?.();
+      }),
+    ]);
+  } finally {
+    restore();
+    await server.close();
+  }
+  console.log(
+    `    [diagnostic] aistudio generate stall: outcome=${outcome} stopReason=${String(stopReason)} chars=${content.length}`,
+  );
+  assert(
+    outcome !== "never-ended",
+    "a wedged generate turn was never ended by the turn clock within the bound",
+  );
+  if (outcome === "threw") {
+    console.log(
+      `    [diagnostic] aistudio generate stall threw: ${String((thrown as Error)?.message).slice(0, 160)}`,
+    );
+  }
+  assert(
+    outcome === "ended",
+    "the wedged generate turn failed instead of being ended by the turn clock",
+  );
+  assert(
+    stopReason === "stalled",
+    "a wedged generate turn ended without being reported as a stall",
+  );
+  assert(
+    content.length > 0 && !/step limit/i.test(content),
+    "the wedged generate turn answered with nothing, or claimed a step limit it never reached",
   );
 });
 
