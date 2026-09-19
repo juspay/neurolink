@@ -47,7 +47,7 @@ import type { NeuroLink } from "../dist/neurolink.js";
 // Fail loudly rather than silently testing a stale build (see distFreshness.ts).
 assertDistFresh();
 
-const { test, runSuite } = defineSuite("Provider Wiring");
+const { test, runSuite } = defineSuite("Provider Wiring", { offline: true });
 
 // A compile-time-verified enumeration of every NeurolinkCredentials key that
 // belongs to a NON-catalog provider. If a key is renamed/removed in
@@ -431,6 +431,113 @@ await test("Replicate credentials still accept the legacy apiToken/baseUrl namin
     internal.apiToken === "r8_test_legacy_style",
     "expected apiToken from the legacy credential field to still work",
   );
+});
+
+await test("a schema reaches the wire as response_format only when no tools are attached", async () => {
+  // What this pins, and why it needed pinning:
+  //
+  // `suppressResponseFormatWithTools()` defaults to true, so for every
+  // OpenAI-compatible provider except OpenAI and Azure a request that carries
+  // tools drops `response_format`. The schema is then honoured by a fallback
+  // re-ask rather than by the provider.
+  //
+  // That is invisible from a response: a model asked for JSON usually returns
+  // JSON whether or not the schema was enforced, so a suite that inspects only
+  // the reply cannot tell an honoured schema from a lucky one. The live JSON
+  // suite reads replies, and it sets NEUROLINK_DISABLE_BUILTIN_TOOLS=true
+  // believing that yields a tool-free configuration.
+  //
+  // It does not. That flag only drops `directAgentTools`; the repo's tracked
+  // `.mcp-config.json` auto-registers a filesystem MCP server, so ~19 tools
+  // still reach the wire. Measured here: 26 tools with the flag off, 19 with
+  // it on, 0 only when a caller passes `disableTools`. So no cell of that
+  // suite has ever exercised the `response_format` branch for a suppressing
+  // provider — which is exactly where a silently-ignored schema could hide.
+  //
+  // Asserting on the request bytes is the only way to see it.
+  const { startLocalOpenAICompatible, toolNamesOnWire, responseFormatOnWire } =
+    await import("./helpers/openaiCompatibleLocalEndpoint.js");
+  const { NeuroLink } = await import("../dist/index.js");
+  const { z } = await import("zod");
+
+  const local = await startLocalOpenAICompatible();
+  const savedEnv = { ...process.env };
+  process.env.DEEPSEEK_BASE_URL = local.baseURL;
+  process.env.DEEPSEEK_API_KEY = "sk-local-endpoint-not-real";
+
+  const schema = z.object({ capital: z.string(), population: z.number() });
+  const ask = (extra: Record<string, unknown>) => ({
+    input: { text: "Give the capital of France and its population." },
+    provider: "deepseek" as const,
+    schema,
+    maxTokens: 200,
+    ...extra,
+  });
+
+  // Declared out here so `finally` can shut both down even when an assertion
+  // throws mid-case. Each shutdown catches independently: a rejected one must
+  // not skip the cleanup that follows it.
+  let nl: NeuroLink | undefined;
+  let flagged: NeuroLink | undefined;
+  try {
+    nl = new NeuroLink({ conversationMemory: { enabled: false } });
+
+    // 1 — tools attached (the default): response_format is suppressed.
+    {
+      const before = local.requests.length;
+      await nl.generate(ask({}));
+      const sent = local.requests[before];
+      assert(
+        toolNamesOnWire(sent).length > 0,
+        "the default configuration put no tools on the wire, so this case proves nothing",
+      );
+      assert(
+        responseFormatOnWire(sent) === null,
+        "response_format survived alongside tools, which the suppression contract forbids",
+      );
+    }
+
+    // 2 — no tools: the schema reaches the provider as response_format.
+    {
+      const before = local.requests.length;
+      await nl.generate(ask({ disableTools: true }));
+      const sent = local.requests[before];
+      assert(
+        toolNamesOnWire(sent).length === 0,
+        "disableTools left tools on the wire",
+      );
+      const format = responseFormatOnWire(sent) as { type?: string } | null;
+      assert(
+        format !== null && typeof format.type === "string",
+        "no response_format reached the provider for a tool-free schema request",
+      );
+    }
+
+    // 3 — the misconception itself, pinned: the env flag does NOT mean
+    // "no tools". If this ever starts holding, the live JSON suite's
+    // assumption becomes true and this comment should go.
+    {
+      const before = local.requests.length;
+      process.env.NEUROLINK_DISABLE_BUILTIN_TOOLS = "true";
+      flagged = new NeuroLink({ conversationMemory: { enabled: false } });
+      await flagged.generate(ask({}));
+      const sent = local.requests[before];
+      assert(
+        toolNamesOnWire(sent).length > 0,
+        "NEUROLINK_DISABLE_BUILTIN_TOOLS now yields a tool-free wire; the JSON suite's assumption changed",
+      );
+    }
+  } finally {
+    await nl?.shutdown?.().catch(() => {});
+    await flagged?.shutdown?.().catch(() => {});
+    await local.close();
+    for (const key of Object.keys(process.env)) {
+      if (!(key in savedEnv)) {
+        delete process.env[key];
+      }
+    }
+    Object.assign(process.env, savedEnv);
+  }
 });
 
 await test("catalog-provider enum surfaces are byte-identical to the pre-JSON-migration snapshot", async () => {
