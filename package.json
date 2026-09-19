@@ -132,6 +132,7 @@
     "test:provider-fallback": "pnpm exec tsx test/continuous-test-suite-provider-fallback.ts",
     "test:provider-fallback-latency": "pnpm exec tsx test/continuous-test-suite-provider-fallback-latency.ts",
     "test:provider-wiring": "pnpm exec tsx test/continuous-test-suite-provider-wiring.ts",
+    "test:pdf-image-streaming": "pnpm exec tsx test/continuous-test-suite-pdf-image-streaming.ts",
     "test:rag": "pnpm exec tsx test/continuous-test-suite-rag.ts",
     "test:skills": "pnpm exec tsx test/continuous-test-suite-skills.ts",
     "test:servers": "pnpm exec tsx test/continuous-test-suite-servers.ts",

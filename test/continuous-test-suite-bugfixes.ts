@@ -2077,11 +2077,22 @@ const tests: TestFunction[] = [
       // Keep the ORIGINAL unbound function for restoration: putting a bound
       // copy back would leave the class carrying a different function identity
       // for every later test in the suite.
-      const original = PDFImageConverter.convertToImages;
+      //
+      // #302: buildMultimodalMessagesArray now drives the streaming
+      // convertToImagesStream generator instead of the batch convertToImages
+      // — stub that instead. The wrapper stays a plain (non-generator)
+      // function that captures `opts` and hands back the real generator
+      // object from `callOriginal`: calling a generator function only
+      // constructs the generator (its body — including the maxPages
+      // validation the "bad" cases below exercise — doesn't run until the
+      // caller's `for await` starts iterating it), so `seen.push` here still
+      // fires synchronously at call time, exactly like the batch stub it
+      // replaces.
+      const original = PDFImageConverter.convertToImagesStream;
       const callOriginal = original.bind(PDFImageConverter);
       (
         PDFImageConverter as unknown as Record<string, unknown>
-      ).convertToImages = async (
+      ).convertToImagesStream = (
         buffer: Buffer,
         opts: { scale?: number; maxPages?: number },
       ) => {
@@ -2130,7 +2141,7 @@ const tests: TestFunction[] = [
       } finally {
         (
           PDFImageConverter as unknown as Record<string, unknown>
-        ).convertToImages = original;
+        ).convertToImagesStream = original;
       }
     },
   },

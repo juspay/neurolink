@@ -744,10 +744,35 @@ export class PDFProcessor {
       effectiveScale = scale * Math.sqrt(maxCanvasPixels / largestPixels);
     }
 
-    const document = await pdf(pdfBuffer, {
-      scale: effectiveScale,
-      ...(password ? { password } : {}),
-    });
+    // #258: map pdfjs's PasswordException to the same actionable typed error
+    // convertToImages raises — kept in sync per the class docstring above.
+    // Unlike the per-page loop below, a failure here happens before any page
+    // can be isolated, so it must reject the generator outright rather than
+    // being yielded as a page error.
+    let document: Awaited<ReturnType<typeof pdf>>;
+    try {
+      document = await pdf(pdfBuffer, {
+        scale: effectiveScale,
+        ...(password ? { password } : {}),
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const pdfErr = error as { name?: string; code?: number };
+      if (
+        pdfErr?.name === "PasswordException" ||
+        /password/i.test(errorMessage)
+      ) {
+        const incorrect =
+          pdfErr.code === 2 || /incorrect|invalid/i.test(errorMessage);
+        throw incorrect
+          ? ErrorFactory.pdfIncorrectPassword()
+          : ErrorFactory.pdfPasswordRequired();
+      }
+      throw new Error(`PDF to image conversion failed: ${errorMessage}`, {
+        cause: error,
+      });
+    }
     const totalPages: number = document.length;
     let converted = 0;
 

@@ -2968,7 +2968,18 @@ async function convertMultimodalToProviderFormat(
         try {
           const effectiveMaxPages =
             pdf.maxPages ?? PDF_LIMITS.DEFAULT_MAX_PAGES;
-          const conversionResult = await PDFImageConverter.convertToImages(
+
+          // #302: stream pages one at a time instead of materialising every
+          // rendered page before any of them reaches `content` — this is the
+          // path generate()/stream() callers actually exercise, so it must
+          // carry the memory characteristic convertToImagesStream was built
+          // for. Per-page ordering, error isolation (#294) and the resulting
+          // message content are kept identical to the batch path below;
+          // only how the pages are produced changes.
+          const pageErrors: Array<{ page: number; error: string }> = [];
+          let convertedCount = 0;
+
+          for await (const page of PDFImageConverter.convertToImagesStream(
             pdf.buffer,
             {
               // #297: this is the only PDF→image call the product actually makes,
@@ -2985,7 +2996,42 @@ async function convertMultimodalToProviderFormat(
                 ? { maxCanvasPixels: pdf.maxCanvasPixels }
                 : {}), // #260
             },
-          );
+          )) {
+            if (page.error) {
+              // #294: per-page isolation — a failed page is recorded and
+              // skipped, not thrown, so the rest of the document still
+              // reaches the model.
+              pageErrors.push({ page: page.pageIndex, error: page.error });
+              continue;
+            }
+            convertedCount++;
+            // Add each page as an ImagePart (raw base64, not data: URI — see SSRF note above)
+            content.push({
+              type: "image" as const,
+              image: page.image,
+              mimeType: "image/png",
+            } as ImagePart);
+
+            logger.debug(
+              `[PDF→Image] Added page ${page.pageIndex} of ${pdf.filename}`,
+            );
+          }
+
+          // Batch's convertToImages throws when nothing converted (either a
+          // zero-page PDF or every page failed) instead of returning an empty
+          // result; convertToImagesStream has no such guard (it simply yields
+          // nothing / all-error pages), so replicate that contract explicitly
+          // to keep the two paths' failure behavior identical.
+          if (convertedCount === 0) {
+            if (pageErrors.length > 0) {
+              throw new Error(
+                `All ${pageErrors.length} page(s) failed to render. First error: ${pageErrors[0].error}`,
+              );
+            }
+            throw new Error(
+              "PDF has 0 pages. Cannot convert empty PDF to images.",
+            );
+          }
 
           // The renderer stops at maxPages, so a longer document is silently
           // truncated — say so rather than letting the model answer from a
@@ -2997,43 +3043,23 @@ async function convertMultimodalToProviderFormat(
           // there. Reaching the cap is also unambiguous — a short count caused by
           // per-page render failures (#294 isolates those into `errors`) would
           // otherwise be misreported as a maxPages truncation.
-          if (conversionResult.pageCount >= effectiveMaxPages) {
+          if (convertedCount >= effectiveMaxPages) {
             logger.warn(
               `[PDF→Image] ${safeBasename(pdf.filename)} hit the ${effectiveMaxPages}-page ` +
                 `conversion limit. Any pages beyond that were not sent — the model may be ` +
                 `answering from a partial document. Raise pdfOptions.maxPages or split the file.`,
             );
           }
-          if (conversionResult.errors && conversionResult.errors.length > 0) {
+          if (pageErrors.length > 0) {
             logger.warn(
-              `[PDF→Image] ${safeBasename(pdf.filename)}: ${conversionResult.errors.length} page(s) ` +
-                `failed to render and were omitted (page ${conversionResult.errors.map((e) => e.page).join(", ")}).`,
+              `[PDF→Image] ${safeBasename(pdf.filename)}: ${pageErrors.length} page(s) ` +
+                `failed to render and were omitted (page ${pageErrors.map((e) => e.page).join(", ")}).`,
             );
           }
 
           logger.info(
-            `[PDF→Image] ✅ Converted ${pdf.filename}: ${conversionResult.pageCount} page(s) → images`,
+            `[PDF→Image] ✅ Converted ${pdf.filename}: ${convertedCount} page(s) → images`,
           );
-
-          // Add each page as an ImagePart (raw base64, not data: URI — see SSRF note above)
-          conversionResult.images.forEach((base64Image, pageIndex) => {
-            content.push({
-              type: "image" as const,
-              image: base64Image,
-              mimeType: "image/png",
-            } as ImagePart);
-
-            logger.debug(
-              `[PDF→Image] Added page ${pageIndex + 1}/${conversionResult.pageCount} of ${pdf.filename}`,
-            );
-          });
-
-          // Log any warnings from conversion
-          if (conversionResult.warnings) {
-            conversionResult.warnings.forEach((warning) => {
-              logger.warn(`[PDF→Image] ${warning}`);
-            });
-          }
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : String(error);
