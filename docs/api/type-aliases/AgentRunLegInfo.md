@@ -8,7 +8,7 @@
 
 > **AgentRunLegInfo** = `object`
 
-Defined in: [types/isolatedAgent.ts:285](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L285)
+Defined in: [types/isolatedAgent.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L294)
 
 Per-leg accounting for leashed runs.
 
@@ -18,7 +18,7 @@ Per-leg accounting for leashed runs.
 
 > **index**: `number`
 
-Defined in: [types/isolatedAgent.ts:287](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L287)
+Defined in: [types/isolatedAgent.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L296)
 
 0-based leg index.
 
@@ -28,7 +28,7 @@ Defined in: [types/isolatedAgent.ts:287](https://github.com/juspay/neurolink/blo
 
 > **toolCalls**: `number`
 
-Defined in: [types/isolatedAgent.ts:289](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L289)
+Defined in: [types/isolatedAgent.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L298)
 
 Tool calls made this leg.
 
@@ -38,6 +38,6 @@ Tool calls made this leg.
 
 > **durationMs**: `number`
 
-Defined in: [types/isolatedAgent.ts:291](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L291)
+Defined in: [types/isolatedAgent.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L300)
 
 Wall-clock duration of this leg (ms).

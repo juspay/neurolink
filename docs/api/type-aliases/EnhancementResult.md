@@ -8,7 +8,7 @@
 
 > **EnhancementResult** = `object`
 
-Defined in: [types/utilities.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L163)
+Defined in: [types/utilities.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L177)
 
 Enhancement result with metadata
 
@@ -18,7 +18,7 @@ Enhancement result with metadata
 
 > **options**: [`UnifiedGenerationOptions`](UnifiedGenerationOptions.md)
 
-Defined in: [types/utilities.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L164)
+Defined in: [types/utilities.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L178)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/utilities.ts:164](https://github.com/juspay/neurolink/blob/re
 
 > **metadata**: `object`
 
-Defined in: [types/utilities.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L165)
+Defined in: [types/utilities.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/utilities.ts#L179)
 
 #### enhancementApplied
 

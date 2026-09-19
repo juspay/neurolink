@@ -8,7 +8,7 @@
 
 > **AgentLegOptions** = `object`
 
-Defined in: [types/isolatedAgent.ts:158](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L158)
+Defined in: [types/isolatedAgent.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L167)
 
 Leg budget for leashed mode. Setting either enables leashed mode.
 
@@ -18,7 +18,7 @@ Leg budget for leashed mode. Setting either enables leashed mode.
 
 > `optional` **budgetMs?**: `number`
 
-Defined in: [types/isolatedAgent.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L160)
+Defined in: [types/isolatedAgent.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L169)
 
 Wall-clock budget for one leg (ms).
 
@@ -28,6 +28,6 @@ Wall-clock budget for one leg (ms).
 
 > `optional` **budgetToolCalls?**: `number`
 
-Defined in: [types/isolatedAgent.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L162)
+Defined in: [types/isolatedAgent.ts:171](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L171)
 
 Tool-call budget for one leg.

@@ -30,6 +30,7 @@ import type {
   AgentRunOutcome,
   AgentToolRegistrationOptions,
   IsolatedAgentDefinition,
+  LogEventEmitter,
   NetworkExecutionInput,
   NetworkExecutionOptions,
   NetworkExecutionResult,
@@ -670,6 +671,9 @@ function createTypedEmitter<
   return emitter as TypedEventEmitter<TEvents>;
 }
 
+/** Monotonic source for {@link NeuroLink.logInstanceId}. Process-local by design. */
+let neuroLinkInstanceCounter = 0;
+
 export class NeuroLink {
   /** @internal Brand for cross-module identification — see {@link isNeuroLink}. */
   readonly [NEUROLINK_BRAND] = true as const;
@@ -678,6 +682,14 @@ export class NeuroLink {
   private mcpSkipped = false;
   private mcpInitPromise: Promise<void> | null = null;
   private emitter = createTypedEmitter<NeuroLinkEvents>();
+
+  /**
+   * Process-unique id used to attribute this instance's log events. The SDK
+   * entry points run their bodies inside `logger.runInInstanceScope(this.logInstanceId, …)`,
+   * which is what lets a worker's log bridge receive only the worker's own
+   * events instead of everything in the process.
+   */
+  private readonly logInstanceId = `nl-${++neuroLinkInstanceCounter}`;
 
   // TaskManager — lazy-initialized on first access via `this.tasks`
   private _taskManager?: TaskManager;
@@ -4421,6 +4433,18 @@ Current user's request: ${currentInput}`;
   async generate(
     optionsOrPrompt: GenerateOptions | DynamicOptions | string,
   ): Promise<GenerateResult> {
+    return logger.runInInstanceScope(this.logInstanceId, () =>
+      this.generateInInstanceScope(optionsOrPrompt),
+    );
+  }
+
+  /**
+   * Body of {@link generate}, always entered through the instance log scope
+   * so every log call beneath it is attributable to this instance.
+   */
+  private async generateInInstanceScope(
+    optionsOrPrompt: GenerateOptions | DynamicOptions | string,
+  ): Promise<GenerateResult> {
     // Host-loop delegation (registerAgentTool): enter a per-turn scope so
     // delegation caps count against THIS top-level generate, and withhold
     // depth-limited agent tools from the request. beginDelegationTurn
@@ -6527,6 +6551,17 @@ Current user's request: ${currentInput}`;
    * Internally calls generate() and converts result format
    */
   async generateText(
+    options: TextGenerationOptions,
+  ): Promise<TextGenerationResult> {
+    return logger.runInInstanceScope(this.logInstanceId, () =>
+      this.generateTextInInstanceScope(options),
+    );
+  }
+
+  /**
+   * Body of {@link generateText}, always entered through the instance log scope.
+   */
+  private async generateTextInInstanceScope(
     options: TextGenerationOptions,
   ): Promise<TextGenerationResult> {
     // Validate required parameters for backward compatibility
@@ -9123,6 +9158,23 @@ Current user's request: ${currentInput}`;
    * @throws {Error} When conversation memory operations fail (if enabled)
    */
   async stream(options: StreamOptions | DynamicOptions): Promise<StreamResult> {
+    return logger.runInInstanceScope(this.logInstanceId, () =>
+      this.streamInInstanceScope(options),
+    );
+  }
+
+  /**
+   * Body of {@link stream}, always entered through the instance log scope.
+   *
+   * Note the scope covers setting the stream up, not draining it: logs
+   * emitted while the consumer iterates the returned stream run in the
+   * consumer's async context, so they are attributed to whatever scope the
+   * consumer is in. Provider loops that run to completion inside this call
+   * are covered.
+   */
+  private async streamInInstanceScope(
+    options: StreamOptions | DynamicOptions,
+  ): Promise<StreamResult> {
     // Host-loop delegation (registerAgentTool): the same per-turn scope as
     // generate() — delegation caps count against THIS streamed turn and
     // depth-limited agent tools are withheld from the request. The provider
@@ -17732,10 +17784,24 @@ Current user's request: ${currentInput}`;
           // Log-bridge listener errors never disrupt the worker.
         }
       };
-      hostEmitter.on("log-event", forward);
+      // Bridge the WORKER's own scoped sink, not the host's process-wide one.
+      // Subscribing to hostEmitter would deliver every log event in the
+      // process — host, sibling workers, MCP — stamped with this worker's
+      // tag. The scoped registration delivers only events logged inside the
+      // worker's own generate/stream/generateText calls.
+      const bridgeEmitter: LogEventEmitter = {
+        emit: (event: string, ...args: unknown[]) => {
+          if (event === "log-event") {
+            forward(args[0]);
+          }
+          return true;
+        },
+      };
+      const workerLogInstanceId = worker.logInstanceId;
+      logger.addScopedEventEmitter(workerLogInstanceId, bridgeEmitter);
       const originalDispose = worker.dispose.bind(worker);
       worker.dispose = async () => {
-        hostEmitter.off("log-event", forward);
+        logger.removeScopedEventEmitter(workerLogInstanceId, bridgeEmitter);
         await originalDispose();
       };
     }
@@ -18530,6 +18596,10 @@ Current user's request: ${currentInput}`;
           // Clear only if this instance's emitter is the active log sink —
           // disposing a worker instance must not yank the host's bridge.
           logger.clearEventEmitter(this.emitter);
+          // Scoped sinks live on the process-global logger, keyed by this
+          // instance's id — they outlive `this.emitter` and must be dropped
+          // explicitly or the sink (and its closure) leaks for the process.
+          logger.clearScopedEventEmitters(this.logInstanceId);
           logger.debug("[NeuroLink] Event listeners removed successfully");
         } catch (error) {
           const err =

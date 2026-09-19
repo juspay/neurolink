@@ -8,7 +8,7 @@
 
 > **AgentRunOutcome** = `object`
 
-Defined in: [types/isolatedAgent.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L312)
+Defined in: [types/isolatedAgent.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L321)
 
 Outcome of an isolated agent run.
 
@@ -23,7 +23,7 @@ successful payloads).
 
 > **status**: [`AgentRunStatus`](AgentRunStatus.md)
 
-Defined in: [types/isolatedAgent.ts:313](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L313)
+Defined in: [types/isolatedAgent.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L322)
 
 ---
 
@@ -31,7 +31,7 @@ Defined in: [types/isolatedAgent.ts:313](https://github.com/juspay/neurolink/blo
 
 > `optional` **data?**: `unknown`
 
-Defined in: [types/isolatedAgent.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L315)
+Defined in: [types/isolatedAgent.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L324)
 
 Schema-valid extraction output when `extraction.schema` was given.
 
@@ -41,7 +41,7 @@ Schema-valid extraction output when `extraction.schema` was given.
 
 > `optional` **content?**: `string`
 
-Defined in: [types/isolatedAgent.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L317)
+Defined in: [types/isolatedAgent.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L326)
 
 Final research-pass text (the worker's own narrative).
 
@@ -51,7 +51,7 @@ Final research-pass text (the worker's own narrative).
 
 > `optional` **stopReason?**: [`GenerateStopReason`](GenerateStopReason.md) \| `string`
 
-Defined in: [types/isolatedAgent.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L319)
+Defined in: [types/isolatedAgent.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L328)
 
 Why the research turn ended (honest — see GenerateStopReason).
 
@@ -61,7 +61,7 @@ Why the research turn ended (honest — see GenerateStopReason).
 
 > **toolExecutions**: [`ToolExecutionRecord`](ToolExecutionRecord.md)[]
 
-Defined in: [types/isolatedAgent.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L325)
+Defined in: [types/isolatedAgent.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L334)
 
 Real tool execution records (params/results/timing). Terminal outcomes
 carry the WHOLE run's records (all legs — what `data` was built from);
@@ -73,7 +73,7 @@ carry the WHOLE run's records (all legs — what `data` was built from);
 
 > `optional` **usage?**: [`TokenUsage`](TokenUsage.md)
 
-Defined in: [types/isolatedAgent.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L327)
+Defined in: [types/isolatedAgent.ts:336](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L336)
 
 Aggregated token usage for the run (research + extraction).
 
@@ -83,7 +83,7 @@ Aggregated token usage for the run (research + extraction).
 
 > **durationMs**: `number`
 
-Defined in: [types/isolatedAgent.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L329)
+Defined in: [types/isolatedAgent.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L338)
 
 Wall-clock duration of this call (ms).
 
@@ -93,7 +93,7 @@ Wall-clock duration of this call (ms).
 
 > `optional` **extractionSource?**: `string`
 
-Defined in: [types/isolatedAgent.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L331)
+Defined in: [types/isolatedAgent.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L340)
 
 Present when extraction fell back through the recovery ladder.
 
@@ -103,7 +103,7 @@ Present when extraction fell back through the recovery ladder.
 
 > `optional` **extractionError?**: `string`
 
-Defined in: [types/isolatedAgent.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L333)
+Defined in: [types/isolatedAgent.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L342)
 
 Extraction/validation error summary when data is a mechanical digest.
 
@@ -113,7 +113,7 @@ Extraction/validation error summary when data is a mechanical digest.
 
 > `optional` **handle?**: `string`
 
-Defined in: [types/isolatedAgent.ts:336](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L336)
+Defined in: [types/isolatedAgent.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L345)
 
 Resume handle (status "in_progress" only).
 
@@ -123,7 +123,7 @@ Resume handle (status "in_progress" only).
 
 > `optional` **leg?**: [`AgentRunLegInfo`](AgentRunLegInfo.md)
 
-Defined in: [types/isolatedAgent.ts:338](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L338)
+Defined in: [types/isolatedAgent.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L347)
 
 This leg's accounting.
 
@@ -133,7 +133,7 @@ This leg's accounting.
 
 > `optional` **delta?**: `string`[]
 
-Defined in: [types/isolatedAgent.ts:340](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L340)
+Defined in: [types/isolatedAgent.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L349)
 
 One-line query→outcome summaries for this leg.
 
@@ -143,7 +143,7 @@ One-line query→outcome summaries for this leg.
 
 > `optional` **nextPlan?**: `string`
 
-Defined in: [types/isolatedAgent.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L342)
+Defined in: [types/isolatedAgent.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L351)
 
 The worker's own stated intent for the next leg.
 
@@ -153,7 +153,7 @@ The worker's own stated intent for the next leg.
 
 > `optional` **wasteSignals?**: `string`[]
 
-Defined in: [types/isolatedAgent.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L344)
+Defined in: [types/isolatedAgent.ts:353](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L353)
 
 Tripped waste signatures, if any.
 
@@ -163,6 +163,6 @@ Tripped waste signatures, if any.
 
 > `optional` **budget?**: [`AgentRunBudget`](AgentRunBudget.md)
 
-Defined in: [types/isolatedAgent.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L346)
+Defined in: [types/isolatedAgent.ts:355](https://github.com/juspay/neurolink/blob/release/src/lib/types/isolatedAgent.ts#L355)
 
 Cumulative budget accounting.
