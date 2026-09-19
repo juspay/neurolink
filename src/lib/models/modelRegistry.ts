@@ -2809,6 +2809,52 @@ export function getModelById(id: string): ModelInfo | undefined {
 }
 
 /**
+ * Resolve a registry alias to the canonical model id for a given provider.
+ *
+ * The registry has carried per-model aliases ("gpt4o" -> "gpt-4o", "gpt4" ->
+ * "gpt-4") all along, and capability lookups like {@link modelSupports}
+ * already resolve through them — but the id actually sent to the provider did
+ * not, so `generate({ model: "gpt4o" })` put the alias on the wire and the
+ * provider 404'd. This closes that gap (#337).
+ *
+ * Deliberately conservative, because a wrong rewrite is worse than no rewrite:
+ *
+ * - An id the registry already knows is returned untouched, so a canonical id
+ *   can never be displaced by an alias that happens to collide with it.
+ * - An alias is only applied when the model it names belongs to the provider
+ *   being constructed. Without that check, an aggregator or self-hosted
+ *   deployment whose model is literally named "gpt4" would be silently
+ *   rewritten to OpenAI's "gpt-4".
+ * - Anything unrecognised passes through, so custom and brand-new model ids
+ *   keep working exactly as before.
+ *
+ * @param provider - Provider being constructed (canonical name)
+ * @param model - Model id or alias as the caller supplied it
+ * @returns The canonical id when an alias resolved, otherwise null
+ */
+export function resolveProviderModelAlias(
+  provider: string,
+  model: string,
+): string | null {
+  const normalizedModel = model.toLowerCase();
+  if (MODEL_REGISTRY[model] || MODEL_REGISTRY[normalizedModel]) {
+    return null;
+  }
+
+  const aliasTarget = MODEL_ALIASES[normalizedModel];
+  if (!aliasTarget) {
+    return null;
+  }
+
+  const target = MODEL_REGISTRY[aliasTarget];
+  if (!target || target.provider !== provider.toLowerCase()) {
+    return null;
+  }
+
+  return target.id;
+}
+
+/**
  * Check whether a model supports a registered capability.
  *
  * Aliases resolve to their canonical model ID before the provider is
