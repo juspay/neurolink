@@ -634,7 +634,7 @@ ws.onmessage = (event) => {
       console.log("Connected:", message.connectionId);
       break;
     case "response":
-      console.log("Response:", message.data);
+      console.log("Response:", message.content);
       break;
     case "stream_start":
       console.log("Stream starting...");

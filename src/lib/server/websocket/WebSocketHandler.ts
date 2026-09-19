@@ -12,7 +12,10 @@ import type {
   WebSocketMessage,
   AuthenticatedUser,
   ServerAuthConfig as _AuthConfig,
+  GenerateOptions,
+  StreamOptions,
 } from "../../types/index.js";
+import type { NeuroLink } from "../../neurolink.js";
 import { WebSocketError, WebSocketConnectionError } from "../errors.js";
 import { logger } from "../../utils/logger.js";
 
@@ -78,6 +81,26 @@ export class WebSocketConnectionManager {
     if (this.connections.size >= this.config.maxConnections) {
       throw new WebSocketConnectionError(
         `Maximum connections (${this.config.maxConnections}) reached`,
+      );
+    }
+
+    // Enforce the auth contract the config already declares. `auth.required`
+    // has existed on WebSocketConfig (with a `strategy`) since this manager
+    // was written, and `handleConnection` has always accepted and stored an
+    // AuthenticatedUser — but nothing ever checked either, so a deployer who
+    // set `required: true` got exactly the same open socket as one who did
+    // not. That was latent while the agent routes were stubs that returned
+    // canned values; it stops being latent the moment `tool_call` actually
+    // reaches `executeTool`, because then an unauthenticated client can
+    // invoke any registered tool with arbitrary arguments. Refuse the
+    // connection rather than letting a route decide, so every handler
+    // registered on this manager inherits the gate.
+    if (this.config.auth.required && !user) {
+      logger.warn(
+        `[WebSocket] Rejected unauthenticated connection to ${path} (auth.required)`,
+      );
+      throw new WebSocketConnectionError(
+        "Authentication required for this WebSocket endpoint",
       );
     }
 
@@ -455,37 +478,85 @@ export class WebSocketMessageRouter {
 /**
  * Create a WebSocket handler for AI agent interactions
  */
+/**
+ * Send one frame, reporting failure instead of throwing.
+ *
+ * A socket that has already closed throws on `send`. That matters in two
+ * places here: mid-stream, where an unguarded throw unwinds into `onMessage`'s
+ * catch, which then tries to send an error frame on the same dead socket and
+ * throws again — this time with nothing above it to catch, i.e. an unhandled
+ * rejection; and in that catch itself, for the same reason. Returning a
+ * boolean lets both callers stop cleanly instead.
+ */
+function trySend(connection: { socket: unknown }, payload: unknown): boolean {
+  const socket = connection.socket as { send: (data: string) => void };
+  try {
+    socket.send(JSON.stringify(payload));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createAgentWebSocketHandler(
-  _neurolink: unknown,
+  neurolink: NeuroLink,
 ): IWebSocketHandler {
   const router = new WebSocketMessageRouter();
 
   // Register message routes
   router.route("generate", async (connection, payload) => {
-    const { prompt, options: _options } = payload as {
+    const { prompt, options } = payload as {
       prompt: string;
-      options?: unknown;
+      options?: Omit<GenerateOptions, "input">;
     };
-    // TODO(#1576): Implement generate using neurolink
-    return { type: "response", data: `Received: ${prompt}` };
+    const result = await neurolink.generate({
+      ...options,
+      input: { text: prompt },
+    });
+    return { type: "response", content: result.content };
   });
 
   router.route("stream", async (connection, payload) => {
-    const { prompt, options: _options } = payload as {
+    const { prompt, options } = payload as {
       prompt: string;
-      options?: unknown;
+      options?: Omit<StreamOptions, "input">;
     };
-    // TODO(#1576): Implement streaming using neurolink
-    return { type: "stream_start", data: { prompt } };
+    if (!trySend(connection, { type: "stream_start", data: { prompt } })) {
+      return undefined;
+    }
+
+    const result = await neurolink.stream({
+      ...options,
+      input: { text: prompt },
+    });
+    let clientPresent = true;
+    for await (const chunk of result.stream) {
+      if ("content" in chunk && typeof chunk.content === "string") {
+        if (!trySend(connection, { type: "chunk", content: chunk.content })) {
+          // The client is gone. Breaking runs the stream's IteratorClose,
+          // which now aborts the upstream request rather than leaving it in
+          // flight for a reader that no longer exists.
+          clientPresent = false;
+          logger.info(
+            `[AgentWebSocket] Client went away mid-stream: ${connection.id}`,
+          );
+          break;
+        }
+      }
+    }
+
+    // Returning nothing keeps onMessage from sending a completion frame on a
+    // socket that just refused one.
+    return clientPresent ? { type: "stream_complete" } : undefined;
   });
 
   router.route("tool_call", async (connection, payload) => {
-    const { toolName, args: _args } = payload as {
+    const { toolName, args } = payload as {
       toolName: string;
       args: unknown;
     };
-    // TODO(#1576): Implement tool call using neurolink
-    return { type: "tool_result", data: { toolName, result: null } };
+    const result = await neurolink.executeTool(toolName, args);
+    return { type: "tool_result", toolName, result };
   });
 
   return {
@@ -505,17 +576,22 @@ export function createAgentWebSocketHandler(
       try {
         const result = await router.handle(connection, message);
         if (result) {
-          const socket = connection.socket as { send: (data: string) => void };
-          socket.send(JSON.stringify(result));
+          trySend(connection, result);
         }
       } catch (error) {
-        const socket = connection.socket as { send: (data: string) => void };
-        socket.send(
-          JSON.stringify({
+        // Guarded: this catch is the last line of defence, so a throw from
+        // the send itself — which is exactly what a closed socket does — has
+        // nothing above it and would surface as an unhandled rejection.
+        if (
+          !trySend(connection, {
             type: "error",
             error: (error as Error).message,
-          }),
-        );
+          })
+        ) {
+          logger.warn(
+            `[AgentWebSocket] Could not deliver error frame, socket closed: ${connection.id}`,
+          );
+        }
       }
     },
 

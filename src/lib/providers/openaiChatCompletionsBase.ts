@@ -101,7 +101,11 @@ import {
   toolCallsFromSummaries,
 } from "../core/toolExecutionRecorder.js";
 import { convertZodToJsonSchema } from "../utils/schemaConversion.js";
-import { coerceJsonToSchema, schemaAccepts } from "../utils/json/coerce.js";
+import {
+  coerceJsonToSchema,
+  recoverScalarRoot,
+  schemaAccepts,
+} from "../utils/json/coerce.js";
 import { resolveToolChoice } from "../utils/toolChoice.js";
 import { transformToolExecutions } from "../utils/transformationUtils.js";
 import { withProviderRetry } from "../utils/providerRetry.js";
@@ -163,6 +167,34 @@ const yieldsSchemaValidObject = (
 ): boolean => {
   const coerced = coerceJsonToSchema(text, schema);
   return coerced !== null && schemaAccepts(schema, coerced.structuredData);
+};
+
+/**
+ * Resolve a model answer against the requested schema, accepting the roots a
+ * ValidationSchema actually allows.
+ *
+ * `coerceJsonToSchema` scans for a balanced object or array span, so it
+ * recovers object and array roots but never a scalar one: a schema of
+ * `z.string()` answered with `"sunny"` finds no span and yields null. That is
+ * why `recoverScalarRoot` exists — it was already the second half of this
+ * decision on the neurolink.ts generate path (`recoverStructuredData`), and
+ * was simply never wired into the provider path. Without it a scalar-root
+ * schema silently produces no structured output no matter how correctly the
+ * model answers.
+ *
+ * Returns `undefined` when neither route accepts, which callers treat as "the
+ * model did not produce the value".
+ */
+const resolveAgainstSchema = (
+  text: string,
+  schema: ValidationSchema,
+): unknown | undefined => {
+  const coerced = coerceJsonToSchema(text, schema);
+  if (coerced !== null && schemaAccepts(schema, coerced.structuredData)) {
+    return coerced.structuredData;
+  }
+  const scalar = recoverScalarRoot(text, schema);
+  return scalar.kind === "accepted" ? scalar.value : undefined;
 };
 
 // Pull one native chunk at a time and forward cancellation to its iterator.
@@ -1738,6 +1770,222 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     return loop;
   }
 
+  /**
+   * Resolve the parsed object for a `stream({ schema })` turn, after the
+   * stream has been drained.
+   *
+   * Before this, streaming never sent `response_format` under any condition —
+   * unlike the generate path, where the gap is only tools-dependent (see
+   * suppressResponseFormatWithTools), so `structuredData` was never available
+   * to a streaming caller at all. `executeStream` now sends `response_format`
+   * on the wire whenever a schema is present and tools aren't suppressing it;
+   * this method covers what's left: the common case where the streamed text
+   * already parses against the schema, and the tools-suppressed case, which is
+   * re-asked once without tools — the same recovery `reformatWithoutTools`
+   * performs for generate(), reusing its acceptance rule
+   * (`yieldsSchemaValidObject`) and its two-strategy fallback (native
+   * `response_format` first, the schema spelled into the prompt if a vendor
+   * rejects that).
+   *
+   * Returns `undefined` on every failure path rather than throwing: a turn
+   * whose text the caller has already consumed and streamed to their UI must
+   * not be turned into an error by a follow-up they never asked for.
+   */
+  private async resolveStreamStructuredData(args: {
+    schema: ValidationSchema;
+    schemaJson: Record<string, unknown>;
+    text: string;
+    conversation: Array<Record<string, unknown>> | undefined;
+    modelId: string;
+    abortSignal?: AbortSignal;
+    options: StreamOptions;
+  }): Promise<
+    | {
+        data: unknown;
+        usage: { inputTokens: number; outputTokens: number };
+      }
+    | undefined
+  > {
+    const {
+      schema,
+      schemaJson,
+      text,
+      conversation,
+      modelId,
+      abortSignal,
+      options,
+    } = args;
+    // A function, not a captured boolean: the signal is read once before the
+    // re-ask and again after it, and it can legitimately flip in between — a
+    // const read of `abortSignal.aborted` would let the compiler narrow the
+    // second read away (it cannot know the underlying signal mutates between
+    // the two checks).
+    const isCancelled = (): boolean => abortSignal?.aborted === true;
+    // Nothing streamed — a middleware short-circuit, or a turn that only
+    // called tools. Nothing to parse and nothing to restate.
+    if (text.trim().length === 0) {
+      return undefined;
+    }
+    // The happy path: the streamed answer already satisfies the schema (this
+    // is what sending `response_format` on the wire was for), so no second
+    // request.
+    const streamedValue = resolveAgainstSchema(text, schema);
+    if (streamedValue !== undefined) {
+      return {
+        data: streamedValue,
+        usage: { inputTokens: 0, outputTokens: 0 },
+      };
+    }
+    // No conversation means `doStream` never ran (a middleware short
+    // -circuited and returned its own stream), so there is no turn for a
+    // re-ask to build on.
+    if (!conversation || isCancelled()) {
+      return undefined;
+    }
+    try {
+      const model = await this.getAISDKModelWithMiddleware(options);
+      if (!hasNativeDoGenerate(model)) {
+        return undefined;
+      }
+      logger.warn(
+        `[${this.providerName}] streamed answer is not schema-valid — re-asking once without tools`,
+        { provider: this.providerName, model: modelId },
+      );
+      const doGenerate = model.doGenerate.bind(model);
+      // Every request here is billed, including one whose ANSWER is
+      // discarded (a native-format attempt the vendor rejected, or a re-ask
+      // that came back off-schema). Accumulate as each response lands rather
+      // than reading the survivor, for the same reason the generate path
+      // does: otherwise a two-request recovery reports as one.
+      const billed = { inputTokens: 0, outputTokens: 0 };
+      const runLoop = (
+        conv: Array<Record<string, unknown>>,
+        format: { type: "json"; schema: Record<string, unknown> } | undefined,
+      ) =>
+        runNativeGenerateLoop(
+          {
+            doGenerate,
+            conversation: conv,
+            toolsRecord: {},
+            ...(format ? { responseFormat: format } : {}),
+            maxSteps: 1,
+            ...(options.maxTokens
+              ? { maxOutputTokens: options.maxTokens }
+              : {}),
+            ...(abortSignal ? { abortSignal } : {}),
+            runStep: (call) => call(),
+          },
+          [],
+        ).then((loopResult) => {
+          billed.inputTokens += loopResult.inputTokens;
+          billed.outputTokens += loopResult.outputTokens;
+          return loopResult;
+        });
+      // `conversation` here is the STREAMING loop's own array (see
+      // executeToolBatch), which is already wire-shaped: an assistant turn
+      // that called a tool carries a real `tool_calls` field and the matching
+      // reply is a `{role: "tool", tool_call_id, content}` message — not the
+      // ai-sdk-parts shape `messageBuilderToOpenAI` expects from `doGenerate`'s
+      // `options.prompt`. Re-running `runNativeGenerateLoop` on those turns
+      // unchanged would send them through `messageBuilderToOpenAI` a second
+      // time, which only ever reads the ai-sdk-parts fields — it silently
+      // drops `tool_calls` (it inspects `content` for `{type:"tool-call",
+      // toolCallId}` parts, never a wire `tool_calls` property) and blanks
+      // `tool_call_id` to `""` (it reads `toolCallId`, the pre-wire field,
+      // never the wire `tool_call_id`). The result is a `tool` message with no
+      // matching preceding tool call, which a real vendor rejects outright.
+      // None of that history is actually needed for this re-ask: the
+      // assistant turn appended below already restates whatever the tool call
+      // produced, in the model's own words, so the tool exchange itself is
+      // dropped rather than repaired.
+      const conversationWithoutToolExchange = conversation.filter((message) => {
+        if (message.role === "tool") {
+          return false;
+        }
+        const toolCalls = (message as { tool_calls?: unknown[] }).tool_calls;
+        return !(
+          message.role === "assistant" &&
+          Array.isArray(toolCalls) &&
+          toolCalls.length > 0
+        );
+      });
+      const reaskConversation: Array<Record<string, unknown>> = [
+        ...conversationWithoutToolExchange,
+        { role: "assistant", content: text },
+        {
+          role: "user",
+          content:
+            // "value", not "object": ValidationSchema also accepts array and
+            // scalar roots (z.array(...), z.string()).
+            "Return that same answer as a single JSON value conforming to " +
+            "the required schema. No prose before or after it, and no " +
+            "markdown code fence.",
+        },
+      ];
+      let reformatted: Awaited<ReturnType<typeof runLoop>>;
+      try {
+        reformatted = await runLoop(reaskConversation, {
+          type: "json",
+          schema: schemaJson,
+        });
+      } catch (nativeFormatError) {
+        if (isCancelled()) {
+          throw nativeFormatError;
+        }
+        logger.warn(
+          `[${this.providerName}] the stream re-ask's response_format was rejected — retrying with the schema in the prompt`,
+          {
+            provider: this.providerName,
+            model: modelId,
+            error:
+              nativeFormatError instanceof Error
+                ? nativeFormatError.message
+                : String(nativeFormatError),
+          },
+        );
+        reformatted = await runLoop(
+          appendJsonSchemaInstruction(reaskConversation, schemaJson),
+          undefined,
+        );
+      }
+      // Sending response_format is not the same as being obeyed: accept the
+      // reformat only if it actually produced the object.
+      const reaskedValue = resolveAgainstSchema(reformatted.text, schema);
+      if (reaskedValue === undefined) {
+        logger.warn(
+          `[${this.providerName}] the tool-free stream re-ask did not yield a schema-valid value either; leaving structuredData unset`,
+          { provider: this.providerName, model: modelId },
+        );
+        return { data: undefined, usage: billed };
+      }
+      return { data: reaskedValue, usage: billed };
+    } catch (error) {
+      // A caller who cancelled deserves their cancellation. Swallowing here
+      // resolved a cancelled turn as though the abort never happened — the
+      // inner handler already rethrows for exactly that case, and this outer
+      // one was catching its rethrow and turning it back into `undefined`.
+      //
+      // Our OWN turn deadline is the one thing that must NOT propagate: the
+      // caller has already consumed the streamed text, and a deadline reached
+      // during a follow-up they never asked for must not retroactively turn
+      // their answer into an error. The two arrive on the same composed
+      // signal but are distinguishable by reason, since the turn timer aborts
+      // with a TimeoutError. Same rule as the generate path's reformat guard.
+      if (isCancelled() && !(abortSignal?.reason instanceof TimeoutError)) {
+        throw error;
+      }
+      logger.warn(
+        `[${this.providerName}] the tool-free structured-output re-ask failed for a stream; leaving structuredData unset`,
+        {
+          provider: this.providerName,
+          model: modelId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
+      return undefined;
+    }
+  }
+
   protected async executeStream(
     options: StreamOptions,
     _analysisSchema?: ZodUnknownSchema | Schema<unknown>,
@@ -1797,6 +2045,32 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       throw setupErr;
     }
 
+    // Structured output rides `response_format`, mirroring the generate
+    // path's policy (see suppressResponseFormatWithTools) — the streaming
+    // path previously never sent it AT ALL, regardless of tools, so
+    // `structuredData` was never available to a streaming caller in any
+    // case. Computed once, up front, exactly like the generate path: mid-turn
+    // tool hydration (tools.discovery) does not retroactively change whether
+    // this turn asked for JSON.
+    const schemaJson = options.schema
+      ? (convertZodToJsonSchema(options.schema as ZodUnknownSchema) as Record<
+          string,
+          unknown
+        >)
+      : undefined;
+    const hasToolsForStream = !!openAITools && openAITools.length > 0;
+    const responseFormatSuppressed =
+      schemaJson !== undefined &&
+      hasToolsForStream &&
+      this.suppressResponseFormatWithTools();
+    const responseFormat: OpenAICompatResponseFormat | undefined =
+      schemaJson && !responseFormatSuppressed
+        ? this.adjustResponseFormat(
+            v3ResponseFormatToOpenAI({ type: "json", schema: schemaJson }),
+            modelId,
+          )
+        : undefined;
+
     const url = this.getChatCompletionsURL(modelId);
     const fetchImpl = createProxyFetch();
 
@@ -1846,6 +2120,14 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     };
 
     let loopPromise: Promise<unknown> | undefined;
+    // The wire conversation only exists once `doStream` actually runs, and it
+    // is built from the MIDDLEWARE-TRANSFORMED prompt, so it cannot be
+    // reconstructed from `promptMessages` afterwards. Captured here so the
+    // post-drain structured-output re-ask (resolveStreamStructuredData) can
+    // build on the same turn the model actually saw. Stays undefined when a
+    // middleware short-circuits the request — the case where there is no
+    // turn to build on at all.
+    let loopConversation: Array<Record<string, unknown>> | undefined;
     const providerNameForLoop = this.providerName;
     const streamBaseModel: LanguageModelV3 = {
       specificationVersion: "v3" as const,
@@ -1872,6 +2154,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           transformedPrompt,
           wireNameMaps?.toWire,
         );
+        loopConversation = conversation as Array<Record<string, unknown>>;
         const sampled: StreamOptions = {
           ...options,
           ...(typeof params?.maxOutputTokens === "number"
@@ -1901,6 +2184,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           closeChannel: channel.close,
           resolveUsage,
           resolveFinish,
+          responseFormat,
         });
         const completion: Promise<LanguageModelV3StreamPart> = loopPromise.then(
           () =>
@@ -1985,8 +2269,23 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     }
 
     const providerName = this.providerName;
+    // Not an arrow function — `transformedStream` doesn't have `this` bound,
+    // so it needs its own capture to reach resolveStreamStructuredData.
+    const self = this;
+    // Built here rather than inline in `result` so the generator below can
+    // fill in `structuredData` after the stream drains. Same mutable
+    // -reference contract `finishReason`/`stopReason` on this object already
+    // rely on: a wrapper that spreads the result cannot snapshot a value that
+    // does not exist yet.
+    const streamMetadata: NonNullable<StreamResult["metadata"]> = {
+      startTime,
+      streamId: `${this.providerName}-${Date.now()}`,
+    };
     const transformedStream = async function* () {
       let contentYielded = 0;
+      // Only accumulated when a schema was actually requested — every other
+      // turn keeps paying nothing for this.
+      let schemaText = "";
       try {
         for await (const chunk of chunkSource) {
           if (
@@ -1995,6 +2294,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             chunk.content.length > 0
           ) {
             contentYielded++;
+            if (options.schema) {
+              schemaText += chunk.content;
+            }
           }
           yield chunk;
         }
@@ -2002,6 +2304,52 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         // `loopPromise` is undefined when a middleware blocked the request
         // before `doStream` ran, in which case there is no loop to surface.
         await loopPromise;
+        // Structured output for a `stream({ schema })` turn. Runs HERE —
+        // after the stream is fully drained — so a tool-free re-ask (when the
+        // streamed answer isn't already schema-valid) never reaches
+        // `wrapStream` and a caller's guardrail middleware never sees a
+        // second stream it did not ask for.
+        //
+        // When a middleware short-circuited the request, `loopPromise` is
+        // undefined and `schemaText` is empty, so this resolves to nothing
+        // and the field stays absent rather than hanging a reader.
+        if (options.schema && schemaJson) {
+          const resolved = await self.resolveStreamStructuredData({
+            schema: options.schema as ValidationSchema,
+            schemaJson,
+            text: schemaText,
+            conversation: loopConversation,
+            modelId,
+            abortSignal,
+            options,
+          });
+          // Assign only when there is something to assign. A bare
+          // `= resolved?.data` creates the own property even when the value
+          // is undefined, so `"structuredData" in metadata` reports true for
+          // a turn that produced no object — which is precisely the check the
+          // field's own contract tells readers to use to detect absence.
+          if (resolved?.data !== undefined) {
+            streamMetadata.structuredData = resolved.data;
+          }
+          // Only when a re-ask actually spent something. The common case is
+          // the streamed answer already parsing, which costs nothing extra
+          // and leaves the field absent rather than reporting a zero.
+          if (
+            resolved &&
+            (resolved.usage.inputTokens > 0 || resolved.usage.outputTokens > 0)
+          ) {
+            streamMetadata.structuredDataUsage = resolved.usage;
+            logger.info(
+              `[${providerName}] structured-output re-ask billed separately from the streamed turn`,
+              {
+                provider: providerName,
+                model: modelId,
+                inputTokens: resolved.usage.inputTokens,
+                outputTokens: resolved.usage.outputTokens,
+              },
+            );
+          }
+        }
         // No-output path: stream completed normally but yielded zero text.
         // Build an enriched sentinel + stamp the active OTel span so
         // Pipeline B (ContextEnricher) surfaces a WARNING-level Langfuse
@@ -2077,10 +2425,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
         },
       ),
       toolsUsed,
-      metadata: {
-        startTime,
-        streamId: `${this.providerName}-${Date.now()}`,
-      },
+      metadata: streamMetadata,
     };
     // Lazy getter: every read transforms the live `toolExecutionSummaries`
     // through the canonical `transformToolExecutions()` so consumers see
@@ -2132,6 +2477,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
       closeChannel,
       resolveUsage,
       resolveFinish,
+      responseFormat,
     } = args;
 
     // Hoisted above the try so the catch can resolve the usage accumulated
@@ -2267,6 +2613,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
           openAITools,
           openAIToolChoice,
           pushChunk,
+          responseFormat,
         });
         lastObservedPromptTokens = stepResult.usage?.prompt_tokens;
         stepFinish = stepResult.finishReason;
@@ -2320,6 +2667,7 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
     openAITools: OpenAICompatChatTool[] | undefined;
     openAIToolChoice: OpenAICompatToolChoiceWire | undefined;
     pushChunk: (chunk: OpenAICompatStreamChunk) => void;
+    responseFormat?: OpenAICompatResponseFormat;
   }): Promise<OpenAICompatSSEResult> {
     // Per-step max_tokens fit: the conversation grows every step of the
     // tool loop, so the window fit is recomputed per request (no-op when
@@ -2345,6 +2693,9 @@ export abstract class OpenAIChatCompletionsProvider extends BaseProvider {
             ? { toolChoice: args.openAIToolChoice }
             : {}),
           streaming: true,
+          ...(args.responseFormat
+            ? { responseFormat: args.responseFormat }
+            : {}),
         }),
         args.modelId,
       ),
