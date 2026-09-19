@@ -1200,6 +1200,10 @@ console.log(result.content);
 - [VisionImageConversion](type-aliases/VisionImageConversion.md)
 - [AudioConversionResult](type-aliases/AudioConversionResult.md)
 - [MultimodalAudioEntry](type-aliases/MultimodalAudioEntry.md)
+- [MultimodalVideoEntry](type-aliases/MultimodalVideoEntry.md)
+- [VideoProviderConfig](type-aliases/VideoProviderConfig.md)
+- [NativeMediaAttachments](type-aliases/NativeMediaAttachments.md)
+- [VideoDeliveryDecision](type-aliases/VideoDeliveryDecision.md)
 - [FileModality](type-aliases/FileModality.md)
 - [FileFormatEntry](type-aliases/FileFormatEntry.md)
 - [FileWithMetadata](type-aliases/FileWithMetadata.md)
@@ -3113,6 +3117,7 @@ console.log(result.content);
 
 ## Variables
 
+- [VIDEO_PROVIDER_CONFIGS](variables/VIDEO_PROVIDER_CONFIGS.md)
 - [NEUROLINK_RESOURCE_ID_KEY](variables/NEUROLINK_RESOURCE_ID_KEY.md)
 - [NEUROLINK_THREAD_ID_KEY](variables/NEUROLINK_THREAD_ID_KEY.md)
 - [globalAuthContext](variables/globalAuthContext.md)
@@ -3255,6 +3260,11 @@ console.log(result.content);
 
 - [registerDefaultVideoHandlers](functions/registerDefaultVideoHandlers.md)
 - [isVertexVideoConfigured](functions/isVertexVideoConfigured.md)
+- [getVideoProviderConfig](functions/getVideoProviderConfig.md)
+- [supportsNativeVideo](functions/supportsNativeVideo.md)
+- [isNativeVideoMimeType](functions/isNativeVideoMimeType.md)
+- [estimateVideoTokens](functions/estimateVideoTokens.md)
+- [canDeliverVideoNatively](functions/canDeliverVideoNatively.md)
 - [resolveArtifactStorageType](functions/resolveArtifactStorageType.md)
 - [createArtifactStore](functions/createArtifactStore.md)
 - [createAuthProvider](functions/createAuthProvider.md)

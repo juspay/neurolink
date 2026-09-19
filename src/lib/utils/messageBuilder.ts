@@ -49,6 +49,10 @@ import {
   supportsNativeAudio,
   toProviderCompatibleAudio,
 } from "../adapters/audioFormatSupport.js";
+import {
+  canDeliverVideoNatively,
+  supportsNativeVideo,
+} from "../adapters/videoFormatSupport.js";
 import { getImageCache } from "./imageCache.js";
 import { ImageProcessor, imageUtils } from "./imageProcessor.js";
 import { logger } from "./logger.js";
@@ -65,7 +69,7 @@ import type {
   FilePart,
   ImagePart,
   TextPart,
-  MultimodalAudioEntry,
+  NativeMediaAttachments,
   MultimodalPdfEntry,
 } from "../types/index.js";
 
@@ -904,6 +908,26 @@ async function appendDetectedFileResult(
       logger.info(
         `[FileDetector] Added ${result.images.length} video keyframes as images`,
       );
+    }
+    // Carry the bytes forward alongside the summary and the frames, the same
+    // way audio does. Whether the clip is sent is decided later, per provider:
+    // one that can watch receives it, one that cannot still gets the keyframes
+    // and is no worse off than before. This matters most where the frames are
+    // absent — ffmpeg is optional, and without it the summary was everything
+    // the model saw.
+    const videoBytes = await readFileInputBytes(file);
+    if (videoBytes) {
+      options.input.nativeVideoFiles = [
+        ...(options.input.nativeVideoFiles || []),
+        {
+          buffer: videoBytes,
+          filename,
+          mimeType: result.mimeType,
+          ...(typeof result.metadata?.durationSec === "number"
+            ? { durationSec: result.metadata.durationSec }
+            : {}),
+        },
+      ];
     }
     logger.info(`[FileDetector] ✅ Video: ${filename}`);
   } else if (result.type === "audio") {
@@ -1799,8 +1823,15 @@ export async function buildMultimodalMessagesArray(
   const hasNativeAudio =
     (inp.nativeAudioFiles?.length ?? 0) > 0 && supportsNativeAudio(provider);
 
-  // If no images, PDFs or audio, use standard message building and convert to MultimodalChatMessage[]
-  if (!hasImages && !hasPDFs && !hasNativeAudio) {
+  // Video that is to be delivered natively is multimodal for exactly the
+  // reason audio is: it becomes a non-text part. Gated on the provider
+  // accepting video so one that only ever sees keyframes keeps the cheaper
+  // shape it already had.
+  const hasNativeVideo =
+    (inp.nativeVideoFiles?.length ?? 0) > 0 && supportsNativeVideo(provider);
+
+  // If no images, PDFs, audio or video, use standard message building and convert to MultimodalChatMessage[]
+  if (!hasImages && !hasPDFs && !hasNativeAudio && !hasNativeVideo) {
     // #289: CSV content[] items don't need vision, so they never reach the
     // multimodal converter below — process them into the prompt text here
     // (otherwise a `content: [{type:"csv"}]`-only request silently drops it).
@@ -1940,7 +1971,7 @@ export async function buildMultimodalMessagesArray(
         provider,
         model,
         options.pdfOptions,
-        inp.nativeAudioFiles ?? [],
+        { audio: inp.nativeAudioFiles, video: inp.nativeVideoFiles },
       );
     } else if (
       (inp.images && inp.images.length > 0) ||
@@ -1949,7 +1980,11 @@ export async function buildMultimodalMessagesArray(
       // audio-only turn fell through to the plain-text branch below, so the
       // recording was dropped and only its metadata summary — already folded
       // into `text` — ever reached the model.
-      (inp.nativeAudioFiles?.length ?? 0) > 0
+      (inp.nativeAudioFiles?.length ?? 0) > 0 ||
+      // Same for a video-only turn. On a machine without ffmpeg there are no
+      // keyframes to put in `images`, so this clause is the only thing keeping
+      // the clip out of the plain-text branch.
+      (inp.nativeVideoFiles?.length ?? 0) > 0
     ) {
       userContent = await convertMultimodalToProviderFormat(
         inp.text ?? "",
@@ -1957,7 +1992,7 @@ export async function buildMultimodalMessagesArray(
         pdfFiles,
         provider,
         model,
-        inp.nativeAudioFiles ?? [],
+        { audio: inp.nativeAudioFiles, video: inp.nativeVideoFiles },
       );
     } else {
       userContent = inp.text;
@@ -2051,8 +2086,10 @@ async function convertContentToProviderFormat(
   provider: string,
   _model: string,
   pdfOptions?: GenerateOptions["pdfOptions"],
-  audioFiles: MultimodalAudioEntry[] = [],
+  nativeMedia: NativeMediaAttachments = {},
 ): Promise<unknown> {
+  const audioFiles = nativeMedia.audio ?? [];
+  const videoFiles = nativeMedia.video ?? [];
   const textContent = content.find((c) => c.type === "text");
   const imageContent = content.filter((c) => c.type === "image");
   const pdfContent = content.filter((c) => c.type === "pdf");
@@ -2078,8 +2115,16 @@ async function convertContentToProviderFormat(
   // provider accepting audio so one that cannot keeps the cheaper plain-text
   // shape rather than an array carrying a part it will ignore.
   const deliversAudio = audioFiles.length > 0 && supportsNativeAudio(provider);
+  // Video reaches this branch under the same conditions and needs the same
+  // two effects: it makes an otherwise text-less request complete, and it
+  // keeps the request off the plain-string early return that would discard
+  // the bytes.
+  const deliversVideo = videoFiles.length > 0 && supportsNativeVideo(provider);
   const hasMultimodal =
-    imageContent.length > 0 || pdfContent.length > 0 || deliversAudio;
+    imageContent.length > 0 ||
+    pdfContent.length > 0 ||
+    deliversAudio ||
+    deliversVideo;
 
   // Validate that we have at least some content
   if (!hasMultimodal && !text) {
@@ -2122,7 +2167,7 @@ async function convertContentToProviderFormat(
     pdfFiles,
     provider,
     _model,
-    audioFiles,
+    nativeMedia,
   );
 }
 
@@ -2809,8 +2854,10 @@ async function convertMultimodalToProviderFormat(
   pdfFiles: MultimodalPdfEntry[],
   provider: string,
   model: string,
-  audioFiles: MultimodalAudioEntry[] = [],
+  nativeMedia: NativeMediaAttachments = {},
 ): Promise<Array<TextPart | ImagePart | FilePart>> {
+  const audioFiles = nativeMedia.audio ?? [];
+  const videoFiles = nativeMedia.video ?? [];
   const content: Array<TextPart | ImagePart | FilePart> = [
     { type: "text", text },
   ];
@@ -2868,6 +2915,35 @@ async function convertMultimodalToProviderFormat(
       logger.info(
         `[Audio] ✅ Added to content (native audio): ${base}` +
           `${compatible.converted ? ` (converted to ${compatible.mimeType})` : ""}`,
+      );
+    }
+  }
+
+  // Attach the video itself to providers that can watch, alongside the
+  // metadata summary and whatever keyframes were extracted. Both of those
+  // stay: a model asked "how long is this?" keeps its exact answer, and on a
+  // provider where the clip is rejected below the frames are still all it has.
+  if (videoFiles.length > 0 && supportsNativeVideo(provider)) {
+    for (const video of videoFiles) {
+      const base = safeBasename(video.filename);
+      const decision = canDeliverVideoNatively(provider, video);
+      if (!decision.deliver) {
+        // Not an error. Every reason here has the same remedy — the keyframes
+        // and the summary already in the request — so this says what happened
+        // and moves on rather than failing a request that will still work.
+        logger.warn(
+          `[Video] Sending keyframes instead of the clip for ${base}: ` +
+            `${decision.reason}.`,
+        );
+        continue;
+      }
+      content.push({
+        type: "file" as const,
+        data: video.buffer,
+        mediaType: video.mimeType,
+      });
+      logger.info(
+        `[Video] ✅ Added to content (native video): ${base} (${video.mimeType})`,
       );
     }
   }

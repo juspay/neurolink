@@ -37,6 +37,7 @@ import type {
   CSVProcessorOptions,
   FileWithMetadata,
   MultimodalAudioEntry,
+  MultimodalVideoEntry,
 } from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { Schema, Tool, ToolChoice } from "./tools.js";
@@ -89,6 +90,17 @@ export type GenerateOptions = {
      */
     nativeAudioFiles?: MultimodalAudioEntry[];
     videoFiles?: Array<Buffer | string>; // Explicit video files
+    /**
+     * Video collected during file detection, carried through to a provider
+     * that can watch it. Populated by detection rather than by callers.
+     *
+     * Separate from `videoFiles` above, which is the caller-facing input that
+     * yields a metadata summary plus extracted keyframes. This one carries the
+     * decoded bytes forward so a provider that accepts video receives the clip
+     * itself; providers that cannot fall back to the frames and this is
+     * ignored.
+     */
+    nativeVideoFiles?: MultimodalVideoEntry[];
     files?: Array<Buffer | string | FileWithMetadata>; // Auto-detect file types
     content?: Content[]; // Advanced multimodal content
 

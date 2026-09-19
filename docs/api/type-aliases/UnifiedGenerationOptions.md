@@ -8,7 +8,7 @@
 
 > **UnifiedGenerationOptions** = [`GenerateOptions`](GenerateOptions.md) & `object`
 
-Defined in: [types/generate.ts:1208](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1208)
+Defined in: [types/generate.ts:1220](https://github.com/juspay/neurolink/blob/release/src/lib/types/generate.ts#L1220)
 
 Unified options for both generation and streaming
 Supports factory patterns and domain configuration
