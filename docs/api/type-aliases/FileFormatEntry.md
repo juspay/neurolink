@@ -8,7 +8,7 @@
 
 > **FileFormatEntry** = `object`
 
-Defined in: [types/file.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L96)
+Defined in: [types/file.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L134)
 
 One format in the canonical file-type registry.
 
@@ -21,7 +21,7 @@ aliases accepted on input. See `processors/config/fileTypeRegistry.ts`.
 
 > `readonly` **label**: `string`
 
-Defined in: [types/file.ts:98](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L98)
+Defined in: [types/file.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L136)
 
 Human-readable format name, used in registry-conflict errors.
 
@@ -31,7 +31,7 @@ Human-readable format name, used in registry-conflict errors.
 
 > `readonly` **extensions**: readonly `string`[]
 
-Defined in: [types/file.ts:100](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L100)
+Defined in: [types/file.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L138)
 
 Extensions with leading dots, lowercase; first is canonical.
 
@@ -41,7 +41,7 @@ Extensions with leading dots, lowercase; first is canonical.
 
 > `readonly` **mimeTypes**: readonly `string`[]
 
-Defined in: [types/file.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L102)
+Defined in: [types/file.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L140)
 
 MIME types, lowercase; first is canonical.
 
@@ -51,7 +51,7 @@ MIME types, lowercase; first is canonical.
 
 > `readonly` **fileType**: [`FileType`](FileType.md)
 
-Defined in: [types/file.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L104)
+Defined in: [types/file.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L142)
 
 Routing type the detector emits for this format.
 
@@ -61,6 +61,6 @@ Routing type the detector emits for this format.
 
 > `readonly` **modality**: [`FileModality`](FileModality.md)
 
-Defined in: [types/file.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L106)
+Defined in: [types/file.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L144)
 
 Category a human would put this format in.

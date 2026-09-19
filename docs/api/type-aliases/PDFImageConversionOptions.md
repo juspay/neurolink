@@ -8,7 +8,7 @@
 
 > **PDFImageConversionOptions** = `object`
 
-Defined in: [types/file.ts:576](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L576)
+Defined in: [types/file.ts:614](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L614)
 
 Options for converting PDF pages to images.
 
@@ -18,7 +18,7 @@ Options for converting PDF pages to images.
 
 > `optional` **scale?**: `number`
 
-Defined in: [types/file.ts:578](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L578)
+Defined in: [types/file.ts:616](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L616)
 
 Scale factor for image quality (1-4, default: 2)
 
@@ -28,7 +28,7 @@ Scale factor for image quality (1-4, default: 2)
 
 > `optional` **maxPages?**: `number`
 
-Defined in: [types/file.ts:580](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L580)
+Defined in: [types/file.ts:618](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L618)
 
 Maximum number of pages to convert (default: 20 from PDF_LIMITS.DEFAULT_MAX_PAGES)
 
@@ -38,7 +38,7 @@ Maximum number of pages to convert (default: 20 from PDF_LIMITS.DEFAULT_MAX_PAGE
 
 > `optional` **format?**: `"png"`
 
-Defined in: [types/file.ts:582](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L582)
+Defined in: [types/file.ts:620](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L620)
 
 Output format (default: png). Only PNG is currently implemented by PDFProcessor.
 
@@ -48,7 +48,7 @@ Output format (default: png). Only PNG is currently implemented by PDFProcessor.
 
 > `optional` **maxCanvasPixels?**: `number`
 
-Defined in: [types/file.ts:588](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L588)
+Defined in: [types/file.ts:626](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L626)
 
 Per-page pixel ceiling (#260). Any page whose width×height×scale² would
 exceed this is uniformly downscaled to stay under it, preventing a huge
@@ -60,7 +60,7 @@ page from allocating gigabytes of canvas. Default: PDF_LIMITS.DEFAULT_MAX_CANVAS
 
 > `optional` **password?**: `string`
 
-Defined in: [types/file.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L590)
+Defined in: [types/file.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L628)
 
 Password for an encrypted PDF (passed to the underlying renderer) (#258).
 
@@ -70,7 +70,7 @@ Password for an encrypted PDF (passed to the underlying renderer) (#258).
 
 > `optional` **onProgress?**: (`progress`) => `void` \| `Promise`\<`void`\>
 
-Defined in: [types/file.ts:592](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L592)
+Defined in: [types/file.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L630)
 
 Per-page progress callback invoked as each page is rendered (#302).
 

@@ -8,7 +8,7 @@
 
 > **VideoProcessorOptions** = `object`
 
-Defined in: [types/file.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L450)
+Defined in: [types/file.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L488)
 
 Keyframe-extraction knobs for an attached video (#478).
 
@@ -22,7 +22,7 @@ own ceiling — a caller cannot raise `frames` above VIDEO_CONFIG.MAX_FRAMES.
 
 > `optional` **frames?**: `number`
 
-Defined in: [types/file.ts:452](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L452)
+Defined in: [types/file.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L490)
 
 Max keyframes to extract. Clamped to the processor's MAX_FRAMES ceiling.
 
@@ -32,7 +32,7 @@ Max keyframes to extract. Clamped to the processor's MAX_FRAMES ceiling.
 
 > `optional` **quality?**: `number`
 
-Defined in: [types/file.ts:454](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L454)
+Defined in: [types/file.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L492)
 
 Encoder quality 1-100 for the extracted frames.
 
@@ -42,6 +42,6 @@ Encoder quality 1-100 for the extracted frames.
 
 > `optional` **format?**: `"jpeg"` \| `"png"`
 
-Defined in: [types/file.ts:456](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L456)
+Defined in: [types/file.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L494)
 
 Frame encoding. Defaults to jpeg.

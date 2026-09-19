@@ -8,7 +8,7 @@
 
 > **MultimodalAudioEntry** = `object`
 
-Defined in: [types/file.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L64)
+Defined in: [types/file.ts:102](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L102)
 
 One audio file destined for native delivery to a provider.
 
@@ -23,7 +23,7 @@ memory.
 
 > **buffer**: `Buffer`
 
-Defined in: [types/file.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L66)
+Defined in: [types/file.ts:104](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L104)
 
 Raw audio bytes, as detected.
 
@@ -33,7 +33,7 @@ Raw audio bytes, as detected.
 
 > **filename**: `string`
 
-Defined in: [types/file.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L68)
+Defined in: [types/file.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L106)
 
 Display name; may be a full path, so log only its basename.
 
@@ -43,6 +43,6 @@ Display name; may be a full path, so log only its basename.
 
 > **mimeType**: `string`
 
-Defined in: [types/file.ts:70](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L70)
+Defined in: [types/file.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/file.ts#L108)
 
 Detected MIME type of `buffer`.

@@ -39,6 +39,44 @@ export type VisionImageConversion = {
 };
 
 /**
+ * Knobs for one vision-compatibility pass.
+ *
+ * `autoOrient` exists so a caller that also wants EXIF orientation applied
+ * gets it inside the same decode. Rotating first and transcoding second means
+ * two full decode/re-encode cycles, and for the lossy formats in both sets
+ * (TIFF, which sharp writes JPEG-compressed by default) the intermediate
+ * re-encode costs a generation of image quality that the model then reads.
+ */
+export type VisionTranscodeOptions = {
+  readonly autoOrient?: boolean;
+};
+
+/**
+ * What a bounded header probe could establish about an image's EXIF
+ * orientation tag, without decoding the image or reading all of its bytes.
+ *
+ * `"inconclusive"` is not a failure — it is the honest answer whenever the
+ * prefix ran out before the parse reached a verdict, or the container is one
+ * this probe does not parse. Callers must treat it as "find out the expensive
+ * way", never as "no tag".
+ */
+export type ExifOrientationProbe = "absent" | "present" | "inconclusive";
+
+/**
+ * Outcome of an EXIF-orientation pass over one image.
+ *
+ * See `adapters/imageFormatSupport.ts` — `normalized` is false both when the
+ * image carried no orientation tag (or an already-upright `1`) and when the
+ * pass could not run (sharp unavailable, decode failure), so callers must not
+ * treat it as a success flag; either way `buffer` is safe to send as-is.
+ */
+export type ImageOrientationNormalization = {
+  readonly buffer: Buffer;
+  /** True when the bytes were re-encoded to apply and strip EXIF orientation. */
+  readonly normalized: boolean;
+};
+
+/**
  * Outcome of an audio-compatibility pass over one file.
  *
  * See `adapters/audioFormatSupport.ts`. As with images, `converted` is false
