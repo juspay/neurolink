@@ -6,21 +6,35 @@ keywords: hitl, human in the loop, enterprise, compliance, approval workflow, au
 
 # Enterprise Human-in-the-Loop System
 
-> **Since**: v7.39.0 | **Status**: Production Ready | **Availability**: SDK & CLI
+> **Since**: v7.39.0 | **Availability**: SDK & CLI
 
-:::note[Feature Status - Enterprise HITL]
-This document describes enterprise HITL features. Some advanced features (marked as "Planned")
-are not yet implemented and represent the target API design for future releases.
+:::danger[Most of this page is a design sketch, not a reference]
+**Treat every code sample below as the target API unless it appears in
+"Currently available" immediately after this box.** The `(Planned)` markers on
+three headings are _not_ a complete index — as of `v11.2.3`, **48 code samples
+across 24 headings** on this page use configuration keys that `HITLConfig` does
+not have, and only 8 of those 48 sit under a marked heading.
 
-**Currently Available:** Basic HITL with `dangerousActions`, `timeout`, `autoApproveOnTimeout`,
-`allowArgumentModification`, and `auditLogging`. See [Basic HITL Guide](./hitl.md).
+None of `requireApproval`, `reviewCallback`, `statusCallback`, `mode`,
+`confidenceThreshold`, `contentPatterns`, `escalationPolicy` or the object form
+of `auditLog` exists in `src/lib/types/hitl.ts` or is handled by
+`src/lib/hitl/hitlManager.ts`. `validateConfig` does not reject unknown keys
+either, so a config copied from this page is **accepted silently** and every one
+of those keys is dropped — approval gates that never fire, with no error.
+
+That includes the compliance sections. The HIPAA / SOC2 / GDPR examples show an
+`auditLog` storage backend and an `escalationPolicy` that do not exist; do not
+cite them as evidence of a control.
+
+Tracking: [#752](https://github.com/juspay/neurolink/issues/752).
 :::
 
 ---
 
-## Currently Available HITL Features
+## Currently available
 
-The basic HITL implementation supports:
+`HITLConfig` has exactly these eight keys. Anything else on this page is not
+implemented.
 
 ```typescript
 const neurolink = new NeuroLink({
@@ -28,14 +42,36 @@ const neurolink = new NeuroLink({
     enabled: true,
     dangerousActions: ["delete", "remove", "drop"], // Trigger keywords
     timeout: 30000, // Confirmation timeout (ms)
+    confirmationMethod: "event", // The only supported value
     autoApproveOnTimeout: false, // Auto-approve if timeout
     allowArgumentModification: false, // Allow arg changes
     auditLogging: true, // Enable audit logs
+    customRules: [], // Advanced per-tool conditions
   },
 });
 ```
 
-For production use today, refer to the [Basic HITL Guide](./hitl.md).
+Approval is **event-based**, through the SDK emitter — there is no
+`reviewCallback`. The emitter is reached with `getEventEmitter()`; `NeuroLink`
+does not extend `EventEmitter`, so `neurolink.on(...)` and `neurolink.emit(...)`
+do not exist:
+
+```typescript
+const emitter = neurolink.getEventEmitter();
+
+emitter.on("hitl:confirmation-request", (event) => {
+  const { confirmationId, toolName, arguments: args } = event.payload;
+
+  // Your approval UI / Slack / email integration decides here.
+  emitter.emit("hitl:confirmation-response", {
+    type: "hitl:confirmation-response",
+    payload: { confirmationId, approved: true },
+  });
+});
+```
+
+This is the shape exercised by `test/continuous-test-suite-hitl.ts`. For
+production use today, refer to the [Basic HITL Guide](./hitl.md).
 
 ---
 
@@ -79,7 +115,12 @@ NeuroLink's Human-in-the-Loop (HITL) system provides enterprise-grade controls f
 
 ---
 
-## Quick Start (5 Minutes)
+## Quick Start (5 Minutes) — target API, not implemented
+
+:::warning
+The configuration in this section is **not implemented**. Use
+["Currently available"](#currently-available) above for a setup that works.
+:::
 
 ### Installation
 
