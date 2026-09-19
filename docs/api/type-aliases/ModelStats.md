@@ -8,7 +8,7 @@
 
 > **ModelStats** = `object`
 
-Defined in: [types/providers.ts:476](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L476)
+Defined in: [types/providers.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L477)
 
 Model Statistics Object - High Reusability
 
@@ -18,7 +18,7 @@ Model Statistics Object - High Reusability
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L477)
+Defined in: [types/providers.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L478)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:477](https://github.com/juspay/neurolink/blob/re
 
 > **provider**: `string`
 
-Defined in: [types/providers.ts:478](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L478)
+Defined in: [types/providers.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L479)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:478](https://github.com/juspay/neurolink/blob/re
 
 > **capabilities**: [`ModelCapability`](ModelCapability.md)[]
 
-Defined in: [types/providers.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L479)
+Defined in: [types/providers.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L480)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:479](https://github.com/juspay/neurolink/blob/re
 
 > **useCases**: [`ModelUseCase`](ModelUseCase.md)[]
 
-Defined in: [types/providers.ts:480](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L480)
+Defined in: [types/providers.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L481)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:480](https://github.com/juspay/neurolink/blob/re
 
 > **performance**: `object`
 
-Defined in: [types/providers.ts:481](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L481)
+Defined in: [types/providers.ts:482](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L482)
 
 #### avgLatency?
 
@@ -70,7 +70,7 @@ Defined in: [types/providers.ts:481](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **pricing?**: [`ModelPricing`](ModelPricing.md)
 
-Defined in: [types/providers.ts:486](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L486)
+Defined in: [types/providers.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L487)
 
 ---
 
@@ -78,7 +78,7 @@ Defined in: [types/providers.ts:486](https://github.com/juspay/neurolink/blob/re
 
 > **metadata**: `object` & `object`
 
-Defined in: [types/providers.ts:487](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L487)
+Defined in: [types/providers.ts:488](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L488)
 
 #### Type Declaration
 

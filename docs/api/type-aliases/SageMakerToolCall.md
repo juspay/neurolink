@@ -8,7 +8,7 @@
 
 > **SageMakerToolCall** = `object`
 
-Defined in: [types/providers.ts:1628](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1628)
+Defined in: [types/providers.ts:1629](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1629)
 
 Tool call information for function calling
 
@@ -18,7 +18,7 @@ Tool call information for function calling
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:1630](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1630)
+Defined in: [types/providers.ts:1631](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1631)
 
 Tool call identifier
 
@@ -28,7 +28,7 @@ Tool call identifier
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:1632](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1632)
+Defined in: [types/providers.ts:1633](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1633)
 
 Tool/function name
 
@@ -38,7 +38,7 @@ Tool/function name
 
 > **arguments**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:1634](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1634)
+Defined in: [types/providers.ts:1635](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1635)
 
 Tool arguments as JSON object
 
@@ -48,6 +48,6 @@ Tool arguments as JSON object
 
 > **type**: `"function"`
 
-Defined in: [types/providers.ts:1636](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1636)
+Defined in: [types/providers.ts:1637](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1637)
 
 Tool call type

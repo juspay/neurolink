@@ -8,7 +8,7 @@
 
 > **SageMakerStructuredOutput** = `object`
 
-Defined in: [types/providers.ts:1696](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1696)
+Defined in: [types/providers.ts:1697](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1697)
 
 Structured output streaming information (Phase 2.3)
 
@@ -18,7 +18,7 @@ Structured output streaming information (Phase 2.3)
 
 > `optional` **partialObject?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:1698](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1698)
+Defined in: [types/providers.ts:1699](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1699)
 
 Partial JSON object being built
 
@@ -28,7 +28,7 @@ Partial JSON object being built
 
 > `optional` **jsonDelta?**: `string`
 
-Defined in: [types/providers.ts:1700](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1700)
+Defined in: [types/providers.ts:1701](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1701)
 
 JSON delta text
 
@@ -38,7 +38,7 @@ JSON delta text
 
 > `optional` **currentPath?**: `string`
 
-Defined in: [types/providers.ts:1702](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1702)
+Defined in: [types/providers.ts:1703](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1703)
 
 Current parsing path (e.g., "user.name")
 
@@ -48,7 +48,7 @@ Current parsing path (e.g., "user.name")
 
 > `optional` **validationErrors?**: `string`[]
 
-Defined in: [types/providers.ts:1704](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1704)
+Defined in: [types/providers.ts:1705](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1705)
 
 Schema validation errors
 
@@ -58,7 +58,7 @@ Schema validation errors
 
 > `optional` **complete?**: `boolean`
 
-Defined in: [types/providers.ts:1706](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1706)
+Defined in: [types/providers.ts:1707](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1707)
 
 Indicates if JSON is complete and valid
 
@@ -68,6 +68,6 @@ Indicates if JSON is complete and valid
 
 > `optional` **schema?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/providers.ts:1708](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1708)
+Defined in: [types/providers.ts:1709](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1709)
 
 JSON schema being validated against

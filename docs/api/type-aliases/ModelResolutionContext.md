@@ -8,7 +8,7 @@
 
 > **ModelResolutionContext** = `object`
 
-Defined in: [types/providers.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L459)
+Defined in: [types/providers.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L460)
 
 Model Resolution Context - High Reusability
 
@@ -18,7 +18,7 @@ Model Resolution Context - High Reusability
 
 > `optional` **requireCapabilities?**: [`ModelCapability`](ModelCapability.md)[]
 
-Defined in: [types/providers.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L460)
+Defined in: [types/providers.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L461)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:460](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **preferredProviders?**: `string`[]
 
-Defined in: [types/providers.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L461)
+Defined in: [types/providers.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L462)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:461](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **useCase?**: [`ModelUseCase`](ModelUseCase.md)
 
-Defined in: [types/providers.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L462)
+Defined in: [types/providers.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L463)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:462](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **budgetConstraints?**: `object`
 
-Defined in: [types/providers.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L463)
+Defined in: [types/providers.ts:464](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L464)
 
 #### maxCostPerRequest?
 
@@ -58,7 +58,7 @@ Defined in: [types/providers.ts:463](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **performance?**: `object`
 
-Defined in: [types/providers.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L467)
+Defined in: [types/providers.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L468)
 
 #### maxLatency?
 

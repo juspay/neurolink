@@ -8,7 +8,7 @@
 
 > **NeuroLinkInstance** = `object`
 
-Defined in: [types/providers.ts:2336](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2336)
+Defined in: [types/providers.ts:2337](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2337)
 
 Minimal NeuroLink-like instance accepted by the image generation service.
 
@@ -18,7 +18,7 @@ Minimal NeuroLink-like instance accepted by the image generation service.
 
 > **generate**: (`options`) => `Promise`\<`unknown`\>
 
-Defined in: [types/providers.ts:2337](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2337)
+Defined in: [types/providers.ts:2338](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2338)
 
 #### Parameters
 
