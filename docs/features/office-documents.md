@@ -188,31 +188,85 @@ type StreamOptions = {
 
 ```typescript
 type OfficeProcessorOptions = {
-  /**
-   * Provider to use for document processing
-   * @default "bedrock"
-   */
-  provider?: string;
-
-  /**
-   * Maximum file size in MB
-   * @default 5 (provider-dependent)
-   */
+  /** Office document format type */
+  format?: OfficeDocumentType;
+  /** Extract text only (true) or preserve formatting (false) */
+  extractTextOnly?: boolean;
+  /** Maximum file size in megabytes */
   maxSizeMB?: number;
-
+  /** Include metadata (author, created date, etc.) */
+  includeMetadata?: boolean;
+  /** xlsx only: process all sheets or just the first */
+  processAllSheets?: boolean;
+  /** pptx only: include slide notes */
+  includeSlideNotes?: boolean;
   /**
-   * Whether to extract embedded images
-   * @default true
+   * xlsx only: restrict processing to the named sheet. When the workbook has
+   * no sheet by that name the result says so and lists the names it does
+   * have. Omit to process every sheet (the default).
    */
-  extractImages?: boolean;
-
+  sheetName?: string;
   /**
-   * Whether to preserve document structure in output
-   * @default true
+   * xlsx only: how sheet data is rendered into the prompt.
+   * - `raw` (default): tab-separated preview
+   * - `csv`: comma-separated values with RFC 4180 quoting
+   * - `markdown`: a markdown table per sheet
+   * - `json`: an array of row objects keyed by the header row
    */
-  preserveStructure?: boolean;
+  formatStyle?: "raw" | "markdown" | "json" | "csv";
 };
 ```
+
+Only `sheetName` and `formatStyle` are read by the XLSX pipeline today; the
+other fields are declared but not yet consumed.
+
+### DOCX structure and metrics
+
+A `.docx` is converted to Markdown before it reaches the model, so headings,
+ordered and unordered lists, and tables survive as structure rather than being
+flattened into prose. Each document is prefixed with a metrics line:
+
+```
+Document: 42 words, 9 paragraphs, 268 characters
+
+# Quarterly Platform Report
+
+## Adoption
+
+- Merchant onboarding automated
+- Settlement latency reduced
+
+| Region | Merchants | Volume |
+| --- | --- | --- |
+| APAC | 128 | 44200 |
+```
+
+This needs no configuration and applies to every provider, because the
+conversion happens while the prompt is built rather than in a provider adapter.
+
+### Selecting and formatting spreadsheet data
+
+```typescript
+// Only the "Transactions" sheet, rendered as a markdown table
+await neurolink.generate({
+  input: {
+    text: "Which transactions were refunded?",
+    files: ["workbook.xlsx"],
+  },
+  provider: "openai",
+  officeOptions: { sheetName: "Transactions", formatStyle: "markdown" },
+});
+
+// Row objects keyed by the header row, for a model that reasons better over JSON
+await neurolink.generate({
+  input: { text: "Total the amounts.", files: ["workbook.xlsx"] },
+  provider: "openai",
+  officeOptions: { formatStyle: "json" },
+});
+```
+
+Naming a sheet that does not exist does not silently fall back to every sheet —
+the prompt reports the miss and lists the available sheet names.
 
 ### File Input Formats
 

@@ -35,7 +35,11 @@ import type {
 import type { TTSChunk, TTSOptions, TTSResult } from "./tts.js";
 import type { STTOptions, STTResult } from "./stt.js";
 import type { StandardRecord, ValidationSchema } from "./aliases.js";
-import type { CSVProcessorOptions, FileWithMetadata } from "./file.js";
+import type {
+  CSVProcessorOptions,
+  FileWithMetadata,
+  OfficeProcessorOptions,
+} from "./file.js";
 import type { WorkflowConfig } from "./workflow.js";
 import type { LanguageModel, StepResult } from "./providers.js";
 import type { Tool, ToolChoice } from "./tools.js";
@@ -398,6 +402,12 @@ export type StreamOptions = {
 
   // CSV processing options (#379: canonical shape — see CSVProcessorOptions)
   csvOptions?: CSVProcessorOptions;
+
+  /**
+   * Office document processing options. Currently consumed by the XLSX path
+   * (`sheetName`, `formatStyle`); see OfficeProcessorOptions.
+   */
+  officeOptions?: OfficeProcessorOptions;
 
   /** PDF processing options (#258). */
   pdfOptions?: {

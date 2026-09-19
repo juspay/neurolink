@@ -3016,6 +3016,8 @@ console.log(result.content);
 - [StepToolResult](type-aliases/StepToolResult.md)
 - [JsonCoercionResult](type-aliases/JsonCoercionResult.md)
 - [ScalarRecoveryDecision](type-aliases/ScalarRecoveryDecision.md)
+- [MarkdownHtmlElementNode](type-aliases/MarkdownHtmlElementNode.md)
+- [MarkdownHtmlNode](type-aliases/MarkdownHtmlNode.md)
 - [ChromaMetadataValue](type-aliases/ChromaMetadataValue.md)
 - [ChromaMetadata](type-aliases/ChromaMetadata.md)
 - [ChromaWhere](type-aliases/ChromaWhere.md)

@@ -8,6 +8,6 @@
 
 > **ArchiveFormat** = `"zip"` \| `"tar"` \| `"tar.gz"` \| `"tar.bz2"` \| `"gz"` \| `"bz2"` \| `"xz"` \| `"zst"` \| `"rar"` \| `"7z"`
 
-Defined in: [types/processor.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L880)
+Defined in: [types/processor.ts:891](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L891)
 
 Supported archive format identifiers.

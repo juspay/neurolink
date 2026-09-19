@@ -357,3 +357,27 @@ export type ScalarRecoveryDecision =
   | { kind: "rejected"; value: unknown }
   | { kind: "nullish" }
   | { kind: "not-json" };
+
+// ---------------------------------------------------------------------------
+// HTML → Markdown conversion (utils/htmlToMarkdown.ts)
+// ---------------------------------------------------------------------------
+
+/**
+ * An element in the parsed HTML tree used for Markdown conversion.
+ */
+export type MarkdownHtmlElementNode = {
+  kind: "element";
+  /** Lower-cased tag name. */
+  tag: string;
+  /** Lower-cased attribute names mapped to their decoded values. */
+  attrs: Record<string, string>;
+  children: MarkdownHtmlNode[];
+};
+
+/**
+ * A node in the parsed HTML tree used for Markdown conversion: either a text
+ * run or an element.
+ */
+export type MarkdownHtmlNode =
+  | { kind: "text"; value: string }
+  | MarkdownHtmlElementNode;

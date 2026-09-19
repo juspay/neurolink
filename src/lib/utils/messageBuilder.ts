@@ -1116,6 +1116,9 @@ async function detectFileForUnifiedArray(
       "unknown",
     ],
     csvOptions: options.csvOptions,
+    // Office options travel the same unified `files` path, so this is where a
+    // caller's sheet selection / format choice reaches the XLSX processor.
+    officeOptions: options.officeOptions,
     // #478: videos arrive through this unified `files` path, so this is
     // where the CLI's frame/quality/format request has to be handed on.
     videoOptions: options.videoOptions

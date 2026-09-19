@@ -240,6 +240,7 @@
     "test:multimodal:sdk": "pnpm exec tsx test/continuous-test-suite-multimodal-sdk.ts",
     "test:mcp-result-cache": "pnpm exec tsx test/continuous-test-suite-mcp-result-cache.ts",
     "test:archive:security": "pnpm exec tsx test/continuous-test-suite-archive-security.ts",
+    "test:office": "pnpm exec tsx test/continuous-test-suite-office.ts",
     "test:office:security": "pnpm exec tsx test/continuous-test-suite-office-security.ts",
     "test:model-pool": "pnpm exec tsx test/continuous-test-suite-model-pool.ts",
     "test:agents": "pnpm exec tsx test/continuous-test-suite-agents.ts",

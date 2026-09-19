@@ -8,7 +8,7 @@
 
 > **CliProcessingResult** = `object`
 
-Defined in: [types/processor.ts:990](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L990)
+Defined in: [types/processor.ts:1001](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1001)
 
 Result of CLI file processing
 
@@ -18,7 +18,7 @@ Result of CLI file processing
 
 > **success**: `boolean`
 
-Defined in: [types/processor.ts:992](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L992)
+Defined in: [types/processor.ts:1003](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1003)
 
 Whether processing succeeded
 
@@ -28,7 +28,7 @@ Whether processing succeeded
 
 > **processorUsed**: `string` \| `null`
 
-Defined in: [types/processor.ts:994](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L994)
+Defined in: [types/processor.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1005)
 
 Name of the processor that was used
 
@@ -38,7 +38,7 @@ Name of the processor that was used
 
 > **output**: `string`
 
-Defined in: [types/processor.ts:996](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L996)
+Defined in: [types/processor.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1007)
 
 Formatted output string
 
@@ -48,6 +48,6 @@ Formatted output string
 
 > `optional` **error?**: `string`
 
-Defined in: [types/processor.ts:998](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L998)
+Defined in: [types/processor.ts:1009](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1009)
 
 Error message if processing failed

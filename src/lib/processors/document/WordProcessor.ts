@@ -42,6 +42,7 @@ import type {
 import { SIZE_LIMITS } from "../config/index.js";
 import { FileErrorCode } from "../errors/index.js";
 import { tryImport } from "../../utils/tryImport.js";
+import { htmlToMarkdown } from "../../utils/htmlToMarkdown.js";
 
 let _mammoth: typeof import("mammoth") | null = null;
 async function loadMammoth() {
@@ -80,6 +81,27 @@ const SUPPORTED_WORD_EXTENSIONS = [".docx", ".doc"];
  * Word documents can be larger due to embedded images and complex formatting
  */
 const WORD_TIMEOUT_MS = 60000;
+
+/**
+ * Derive the document metrics from the extracted plain text.
+ *
+ * Counted off `textContent` rather than the markdown so the numbers describe
+ * the document's prose, not the syntax added to represent it.
+ */
+function measureText(textContent: string): {
+  wordCount: number;
+  paragraphCount: number;
+  characterCount: number;
+} {
+  const trimmed = textContent.trim();
+  return {
+    wordCount: trimmed ? trimmed.split(/\s+/).length : 0,
+    paragraphCount: textContent
+      .split(/\n+/)
+      .filter((line) => line.trim().length > 0).length,
+    characterCount: textContent.length,
+  };
+}
 
 // =============================================================================
 // WORD PROCESSOR CLASS
@@ -176,7 +198,9 @@ export class WordProcessor extends BaseFileProcessor<ProcessedWord> {
     return {
       textContent: "",
       htmlContent: "",
+      markdownContent: "",
       warnings: [],
+      ...measureText(""),
       buffer,
       mimetype:
         fileInfo.mimetype ||
@@ -325,7 +349,9 @@ export class WordProcessor extends BaseFileProcessor<ProcessedWord> {
           filename: this.getFilename(fileInfo),
           textContent,
           htmlContent,
+          markdownContent: htmlToMarkdown(htmlContent),
           warnings,
+          ...measureText(textContent),
         },
       };
     } catch (error) {

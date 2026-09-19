@@ -8,7 +8,7 @@
 
 > **SupportedFileTypeInfo** = `object`
 
-Defined in: [types/processor.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1008)
+Defined in: [types/processor.ts:1019](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1019)
 
 Information about a supported file type
 
@@ -18,7 +18,7 @@ Information about a supported file type
 
 > **name**: `string`
 
-Defined in: [types/processor.ts:1010](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1010)
+Defined in: [types/processor.ts:1021](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1021)
 
 Processor name
 
@@ -28,7 +28,7 @@ Processor name
 
 > **priority**: `number`
 
-Defined in: [types/processor.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1012)
+Defined in: [types/processor.ts:1023](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1023)
 
 Priority (lower = processed first)
 
@@ -38,7 +38,7 @@ Priority (lower = processed first)
 
 > **extensions**: `string`[]
 
-Defined in: [types/processor.ts:1014](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1014)
+Defined in: [types/processor.ts:1025](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1025)
 
 Supported file extensions
 
@@ -48,7 +48,7 @@ Supported file extensions
 
 > **mimeTypes**: `string`[]
 
-Defined in: [types/processor.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1016)
+Defined in: [types/processor.ts:1027](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1027)
 
 Supported MIME types
 
@@ -58,6 +58,6 @@ Supported MIME types
 
 > `optional` **description?**: `string`
 
-Defined in: [types/processor.ts:1018](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1018)
+Defined in: [types/processor.ts:1029](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1029)
 
 Optional description

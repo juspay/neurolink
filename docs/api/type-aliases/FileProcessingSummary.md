@@ -8,7 +8,7 @@
 
 > **FileProcessingSummary** = `object`
 
-Defined in: [types/processor.ts:1131](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1131)
+Defined in: [types/processor.ts:1142](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1142)
 
 Summary of file processing operations.
 
@@ -18,7 +18,7 @@ Summary of file processing operations.
 
 > **totalFiles**: `number`
 
-Defined in: [types/processor.ts:1132](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1132)
+Defined in: [types/processor.ts:1143](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1143)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/processor.ts:1132](https://github.com/juspay/neurolink/blob/r
 
 > **processedFiles**: `object`[]
 
-Defined in: [types/processor.ts:1133](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1133)
+Defined in: [types/processor.ts:1144](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1144)
 
 #### filename
 
@@ -46,7 +46,7 @@ Defined in: [types/processor.ts:1133](https://github.com/juspay/neurolink/blob/r
 
 > **failedFiles**: `object`[]
 
-Defined in: [types/processor.ts:1138](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1138)
+Defined in: [types/processor.ts:1149](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1149)
 
 #### filename
 
@@ -62,7 +62,7 @@ Defined in: [types/processor.ts:1138](https://github.com/juspay/neurolink/blob/r
 
 > **skippedFiles**: `object`[]
 
-Defined in: [types/processor.ts:1142](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1142)
+Defined in: [types/processor.ts:1153](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1153)
 
 #### filename
 
@@ -82,7 +82,7 @@ Defined in: [types/processor.ts:1142](https://github.com/juspay/neurolink/blob/r
 
 > **warnings**: `object`[]
 
-Defined in: [types/processor.ts:1147](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1147)
+Defined in: [types/processor.ts:1158](https://github.com/juspay/neurolink/blob/release/src/lib/types/processor.ts#L1158)
 
 #### filename
 

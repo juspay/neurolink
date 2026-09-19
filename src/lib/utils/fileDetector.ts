@@ -38,6 +38,7 @@ import type {
   FileProcessingResult,
   FileSource,
   FileType,
+  OfficeProcessorOptions,
   VideoProcessorOptions,
 } from "../types/index.js";
 import { tracers, ATTR, withSpan } from "../telemetry/index.js";
@@ -448,6 +449,7 @@ export class FileDetector {
             csvOptions,
             options?.provider,
             options?.videoOptions,
+            options?.officeOptions,
           );
           FileDetector.setFileResultSpanAttributes(
             span,
@@ -468,6 +470,7 @@ export class FileDetector {
           csvOptions,
           options?.provider,
           options?.videoOptions,
+          options?.officeOptions,
         );
         FileDetector.setFileResultSpanAttributes(
           span,
@@ -1364,6 +1367,7 @@ export class FileDetector {
     options?: CSVProcessorOptions,
     provider?: string,
     videoOptions?: VideoProcessorOptions,
+    officeOptions?: OfficeProcessorOptions,
   ): Promise<FileProcessingResult> {
     switch (detection.type) {
       case "csv":
@@ -1392,7 +1396,11 @@ export class FileDetector {
       case "archive":
         return await FileDetector.processArchiveFile(content, detection);
       case "xlsx":
-        return await FileDetector.processXlsxFile(content, detection);
+        return await FileDetector.processXlsxFile(
+          content,
+          detection,
+          officeOptions,
+        );
       case "docx":
         return await FileDetector.processDocxFile(content, detection);
       case "pptx":
@@ -1659,6 +1667,7 @@ export class FileDetector {
   private static async processXlsxFile(
     content: Buffer,
     detection: FileDetectionResult,
+    officeOptions?: OfficeProcessorOptions,
   ): Promise<FileProcessingResult> {
     const xlsxFilename = detection.metadata.filename || "spreadsheet";
     try {
@@ -1691,7 +1700,7 @@ export class FileDetector {
           };
         }
       } else {
-        const { excelProcessor } =
+        const { excelProcessor, formatWorksheetsForPrompt } =
           await import("../processors/document/ExcelProcessor.js");
         const xlsxResult = await excelProcessor.processFile({
           id: xlsxFilename,
@@ -1703,30 +1712,13 @@ export class FileDetector {
           buffer: content,
         });
         if (xlsxResult.success && xlsxResult.data) {
-          // Build text content from worksheets
-          const sheets = xlsxResult.data.worksheets || [];
-          let textContent = `Spreadsheet: ${sheets.length} sheet(s), ${xlsxResult.data.totalRows} total rows\n`;
-          for (const sheet of sheets) {
-            textContent += `\n### Sheet: ${sheet.name}\n`;
-            textContent += `Columns (${sheet.columnCount}): ${sheet.headers.join(", ")}\n`;
-            textContent += `Rows: ${sheet.rowCount}\n`;
-            // Include first rows as sample data
-            const sampleRows = sheet.rows.slice(0, 20);
-            const rowText = sampleRows
-              .map((row) => row.map((c) => String(c ?? "")).join("\t"))
-              .join("\n");
-            if (!rowText) {
-              continue;
-            }
-            textContent += `\nData:\n${sheet.headers.join("\t")}\n${rowText}\n`;
-            const remaining = sheet.rowCount - 20;
-            if (remaining > 0) {
-              textContent += `... (${remaining} more rows)\n`;
-            }
-          }
           return {
             type: "xlsx",
-            content: textContent,
+            content: formatWorksheetsForPrompt(
+              xlsxResult.data.worksheets || [],
+              xlsxResult.data.totalRows,
+              officeOptions,
+            ),
             mimeType: detection.mimeType,
             metadata: detection.metadata,
           };
@@ -1838,16 +1830,27 @@ export class FileDetector {
           buffer: content,
         });
         if (docxResult.success && docxResult.data) {
+          // Prefer the markdown rendering: it keeps the headings, lists and
+          // tables that the plain-text extraction flattens away. Plain text
+          // remains the fallback for a document with no convertible structure.
+          const {
+            markdownContent,
+            textContent,
+            wordCount,
+            paragraphCount,
+            characterCount,
+          } = docxResult.data;
+          const body = markdownContent || textContent;
           return {
             type: "docx",
-            content:
-              docxResult.data.textContent ||
-              FileDetector.formatInformativePlaceholder(
-                "Document",
-                docxFilename,
-                content,
-                detection,
-              ),
+            content: body
+              ? `Document: ${wordCount} words, ${paragraphCount} paragraphs, ${characterCount} characters\n\n${body}`
+              : FileDetector.formatInformativePlaceholder(
+                  "Document",
+                  docxFilename,
+                  content,
+                  detection,
+                ),
             mimeType: detection.mimeType,
             metadata: detection.metadata,
           };
