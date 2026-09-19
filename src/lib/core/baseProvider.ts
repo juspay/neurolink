@@ -2590,6 +2590,43 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   /**
+   * Emit a `turn:lifecycle` event on the SDK emitter (alongside
+   * tool:start/tool:end) so loop conditions that previously only reached
+   * process logs — step-cap, time-limit, stall, abort, tool timeouts,
+   * malformed-call retries — are observable by consumers' own pipelines.
+   *
+   * Lives here rather than on one provider because every native agentic loop
+   * has the same conditions to report, and a second copy is how two loops
+   * come to emit subtly different payloads for the same event name.
+   */
+  protected emitTurnEvent(payload: {
+    phase:
+      | "step-cap"
+      | "context-cap"
+      | "time-limit"
+      | "stalled"
+      | "aborted"
+      | "provider-error"
+      | "tool-timeout"
+      | "malformed-retry";
+    step?: number;
+    maxSteps?: number;
+    toolName?: string;
+    toolCallCount?: number;
+    elapsedMs?: number;
+  }): void {
+    try {
+      this.neurolink?.getEventEmitter()?.emit("turn:lifecycle", {
+        provider: this.providerName,
+        timestamp: Date.now(),
+        ...payload,
+      });
+    } catch {
+      /* listener errors are non-fatal */
+    }
+  }
+
+  /**
    * The per-provider generate budget from the descriptor, for native paths
    * that call `withTurnTimeout` directly.
    */

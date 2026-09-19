@@ -111,12 +111,10 @@ import { TimeoutError, withTimeout } from "../../utils/async/index.js";
 import { parseTimeout } from "../../utils/timeout.js";
 import {
   appendStepText,
-  buildAbortedTurnMessage,
   buildContextCapMessage,
   buildDedupedEngineTools,
+  buildLoopExitMessage,
   buildToolLoopCapMessage,
-  buildTurnStalledMessage,
-  buildTurnTimeoutMessage,
   buildWrapupNudgeText,
   createContextGuard,
   createTurnClock,
@@ -7402,44 +7400,9 @@ export class GoogleVertexProvider extends BaseProvider {
   }
 
   /**
-   * Emit a `turn:lifecycle` event on the SDK emitter (alongside
-   * tool:start/tool:end) so loop conditions that previously only reached
-   * process logs — step-cap, time-limit, stall, abort, tool timeouts,
-   * malformed-call retries — are observable by consumers' own pipelines.
-   */
-  private emitTurnEvent(payload: {
-    phase:
-      | "step-cap"
-      | "context-cap"
-      | "time-limit"
-      | "stalled"
-      | "aborted"
-      | "provider-error"
-      | "tool-timeout"
-      | "malformed-retry";
-    step?: number;
-    maxSteps?: number;
-    toolName?: string;
-    toolCallCount?: number;
-    elapsedMs?: number;
-  }): void {
-    try {
-      this.neurolink?.getEventEmitter()?.emit("turn:lifecycle", {
-        provider: this.providerName,
-        timestamp: Date.now(),
-        ...payload,
-      });
-    } catch {
-      /* listener errors are non-fatal */
-    }
-  }
-
-  /**
-   * Pick the honest terminal message for a native-loop exit by its ACTUAL
-   * cause. The step-cap text is the fallback for genuine budget exhaustion
-   * only — time/stall/abort exits must never claim a step limit was reached
-   * (the 2026-07-03 "reached the 200-step limit" incident was a wall-clock
-   * abort wearing the cap message).
+   * Turn-clock-shaped adapter over the shared {@link buildLoopExitMessage}.
+   * Every call site in this file holds a clock, so the mapping lives here
+   * rather than at ten call sites; the decision itself is the shared one.
    */
   private buildLoopExitMessage(params: {
     turnClock: { timedOut: boolean; stalled: boolean; elapsedMs(): number };
@@ -7448,22 +7411,17 @@ export class GoogleVertexProvider extends BaseProvider {
     maxSteps: number;
     toolCallCount: number;
   }): string {
-    if (params.turnClock.timedOut) {
-      return buildTurnTimeoutMessage(
-        params.turnClock.elapsedMs(),
-        params.toolCallCount,
-      );
-    }
-    if (params.turnClock.stalled) {
-      return buildTurnStalledMessage(
-        params.stallTimeoutMs ?? 0,
-        params.toolCallCount,
-      );
-    }
-    if (params.wasAborted) {
-      return buildAbortedTurnMessage(params.toolCallCount);
-    }
-    return buildToolLoopCapMessage(params.maxSteps, params.toolCallCount);
+    return buildLoopExitMessage({
+      timedOut: params.turnClock.timedOut,
+      stalled: params.turnClock.stalled,
+      elapsedMs: params.turnClock.elapsedMs(),
+      wasAborted: params.wasAborted,
+      ...(params.stallTimeoutMs !== undefined
+        ? { stallTimeoutMs: params.stallTimeoutMs }
+        : {}),
+      maxSteps: params.maxSteps,
+      toolCallCount: params.toolCallCount,
+    });
   }
 
   protected formatProviderError(error: unknown): Error {
