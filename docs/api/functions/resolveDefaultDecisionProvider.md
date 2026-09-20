@@ -8,7 +8,7 @@
 
 > **resolveDefaultDecisionProvider**(): `string` \| `undefined`
 
-Defined in: [factories/providerDescriptors.ts:646](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L646)
+Defined in: [factories/providerDescriptors.ts:648](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L648)
 
 The decision provider to use when a caller names none: the first one whose
 primary credential env var is actually set.

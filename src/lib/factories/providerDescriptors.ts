@@ -34,10 +34,10 @@ import { DEFAULT_INFERENCE_KINDS } from "../types/index.js";
 
 /**
  * Hand-maintained provider identity, credentials, defaults, and runtime
- * behavior classification for every provider EXCEPT the 8 JSON-catalog
+ * behavior classification for every provider EXCEPT the 15 JSON-catalog
  * providers derived by buildCatalogDescriptors() below (see
- * PROVIDER_DESCRIPTORS's own doc for why Mistral, a 9th catalog provider,
- * stays here too). Pure data — no provider-class imports, no dynamic
+ * PROVIDER_DESCRIPTORS's own doc for why Mistral, the remaining catalog
+ * provider, stays here too). Pure data — no provider-class imports, no dynamic
  * import(), no side effects beyond building the two derived lookup maps
  * below. Order follows the AIProviderName enum declaration order
  * (enums.ts:8-40) so this file stays easy to diff against it.
@@ -526,13 +526,14 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
 ];
 
 /**
- * Builds ProviderDescriptor entries for 8 of the 9 JSON-catalog providers —
- * cerebras, cloudflare, fireworks, groq, perplexity, sambanova, together-ai,
- * xai. Every field is derived from the catalog JSON
+ * Builds ProviderDescriptor entries for 15 of the 16 JSON-catalog providers —
+ * api-route, baseten, cerebras, cloudflare, fireworks, gmicloud, groq,
+ * inception-labs, io-intelligence, mancer, perplexity, sambanova,
+ * together-ai, upstage, xai. Every field is derived from the catalog JSON
  * (src/lib/providers/catalog/<id>.json), never hand-typed.
  *
- * Mistral is the 9th catalog provider but is deliberately excluded here and
- * stays in HAND_DESCRIPTORS above: its JSON setup.url
+ * Mistral is the remaining catalog provider but is deliberately excluded
+ * here and stays in HAND_DESCRIPTORS above: its JSON setup.url
  * ("https://console.mistral.ai/") diverges from the long-shipped descriptor
  * setupUrl ("https://console.mistral.ai/api-keys" — a real value conflict,
  * not missing enrichment), its envVars has no `model` key the JSON would
@@ -575,11 +576,12 @@ function buildCatalogDescriptor(
     ) as ProviderDescriptor["credentialsKey"],
     envVars,
     defaultModel: entry.models.default,
-    // All 9 catalog providers currently have capabilities.tools: true, so
-    // this is runtime-identical today either way. "none" (not an invented
-    // literal — it's the union's own no-tool-support member, the same one
+    // 15 of the 16 catalog providers have capabilities.tools: true; Mancer
+    // ships tools: false, so this ternary's false branch is live, not
+    // hypothetical. "none" (not an invented literal — it's the union's own
+    // no-tool-support member, the same one
     // REPLICATE/VOYAGE/JINA/STABILITY/IDEOGRAM/RECRAFT use above) is the
-    // correct false-branch if a future catalog provider ships tools: false.
+    // correct false-branch here.
     toolSupport: entry.capabilities.tools ? "native" : "none",
     localRuntime: false,
     healthCheck: "env-only",
@@ -599,7 +601,7 @@ function buildCatalogDescriptors(): ProviderDescriptor[] {
 /**
  * Single source of truth for provider identity, credentials, defaults, and
  * runtime behavior classification — the hand-maintained providers plus the
- * 8 JSON-catalog providers derived above.
+ * 15 JSON-catalog providers derived above.
  */
 export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   ...HAND_DESCRIPTORS,

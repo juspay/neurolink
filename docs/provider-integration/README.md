@@ -62,7 +62,7 @@ For a fast pre-flight checklist you can paste into your PR description, see [`CH
 | [`CHECKLIST.md`](CHECKLIST.md)                                         | Pasteable PR checklist                                               | Every PR — pick the §A-§H section that matches                                                           |
 | [`tiers/README.md`](tiers/README.md)                                   | Tiered LLM-provider onboarding (the current canonical path)          | Adding any new chat/text-generation provider — read this first, not `15-adding-llm-provider.md` directly |
 | [`adr/README.md`](adr/README.md)                                       | Why the tiers/catalog/descriptor/CI-gate are shaped the way they are | Before proposing a change to the onboarding process itself                                               |
-| [`manifests/README.md`](manifests/README.md)                           | The per-provider manifest convention                                 | Every Tier 2+ provider PR                                                                                |
+| [`manifests/README.md`](manifests/README.md)                           | The per-provider manifest convention                                 | Every Tier 3+ provider PR (Tier 2 uses catalog JSON evidence instead)                                    |
 | [`SAFETY-PRIMITIVES.md`](SAFETY-PRIMITIVES.md)                         | Cross-cutting safety helpers reference                               | Whenever you download external URLs, log responses, or wrap streaming with OTel spans                    |
 
 ### Implementation journals (the worked examples)

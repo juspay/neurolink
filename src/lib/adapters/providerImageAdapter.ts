@@ -104,21 +104,26 @@ function normalizeVisionProvider(provider: string): string {
 }
 
 /**
- * Vision-capable models for 8 of the 9 JSON-catalog providers, derived from
- * models.catalog[*].vision. Only a provider with ≥1 vision model gets a key
- * here — an absent key and a present-but-empty array are handled identically
- * by supportsVision()/getSupportedModels()/getVisionProviders() below (all
- * three treat "no entry" and "empty array" the same way), so omitting the
- * all-empty providers (cerebras, together-ai, fireworks, perplexity — none
- * has a vision model in the current catalog) changes nothing at runtime.
+ * Derived from 15 of the 16 JSON-catalog providers (every one except
+ * Mistral — see below), by reading models.catalog[*].vision. Derivation
+ * does not mean vision-capable: only a provider with ≥1 vision model gets a
+ * key here, so of those 15 only 8 (api-route, baseten, cerebras, fireworks,
+ * groq, io-intelligence, sambanova, xai) currently contribute a row. The
+ * other 7 (cloudflare, gmicloud, inception-labs, mancer, perplexity,
+ * together-ai, upstage) have no vision model in the current catalog and are
+ * omitted — an absent key and a present-but-empty array are handled
+ * identically by supportsVision()/getSupportedModels()/getVisionProviders()
+ * below (all three treat "no entry" and "empty array" the same way), so
+ * omitting them changes nothing at runtime. This list moves as the catalog
+ * JSON does; re-derive rather than trust these names to stay current.
  * Fireworks previously had 3 hand-written vision entries
  * ("phi-3-vision-128k-instruct", "llama-v3p2-90b/11b-vision-instruct");
  * none of those model ids exist in the catalog's current (fully refreshed)
- * roster, so they are gone along with the rest of that roster, not silently
- * dropped by this derivation.
+ * roster, but three different models (two Kimi variants, one Qwen) now carry
+ * vision: true, so Fireworks is derived here rather than omitted.
  *
- * Mistral is the 9th catalog provider but is excluded here and stays fully
- * hand-written in VISION_CAPABILITIES.mistral below: its JSON vision list
+ * Mistral is the remaining catalog provider but is excluded here and stays
+ * fully hand-written in VISION_CAPABILITIES.mistral below: its JSON vision list
  * (14 exact model ids) diverges from the hand list in both directions — the
  * hand list carries bare-name fallback entries ("mistral-small",
  * "mistral-medium", "magistral-small", "magistral-medium") that widen

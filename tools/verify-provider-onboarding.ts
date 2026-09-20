@@ -126,8 +126,10 @@ async function loadDescriptors(): Promise<ReadonlySet<string>> {
 /**
  * Providers that predate this check and have no providerMatrix entry.
  *
- * Exactly one today: cerebras, which shipped in #1561 without an entry. PR
- * #1564 adds it — remove this line when that lands, and the set becomes empty.
+ * Empty today: cerebras was the one gap (shipped in #1561 without an
+ * entry), closed when it became a full JSON-catalog provider — its
+ * providerMatrix row is now derived automatically via CATALOG_PROVIDER_IDS
+ * in test/helpers/providerMatrix.ts, so it no longer needs the exemption.
  *
  * A name listed here that HAS an entry produces a warning, not an error.
  * Making it fatal would red-line every open pull request the moment someone
@@ -137,7 +139,7 @@ async function loadDescriptors(): Promise<ReadonlySet<string>> {
  * more names, drawn from a scan whose regex did not allow quoted keys, and
  * the note flagged all five as already present on the first run.
  */
-const KNOWN_MATRIX_GAPS: ReadonlySet<string> = new Set(["cerebras"]);
+const KNOWN_MATRIX_GAPS: ReadonlySet<string> = new Set();
 
 /**
  * Read the provider keys out of test/helpers/providerMatrix.ts.

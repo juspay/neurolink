@@ -52,8 +52,9 @@ jobs:
         env:
           # NOTE: these must match the names the catalog derives
           # (<ID>_API_KEY), not whatever the vendor's own docs call them.
-          # live-matrix.yml passes CLOUDFLARE_API_TOKEN, which nothing reads,
-          # so Cloudflare has been silently skipped in that workflow.
+          # live-matrix.yml now correctly passes CLOUDFLARE_API_KEY and
+          # CLOUDFLARE_ACCOUNT_ID (it used to pass CLOUDFLARE_API_TOKEN,
+          # which nothing read, silently skipping Cloudflare there).
           CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
           CLOUDFLARE_API_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

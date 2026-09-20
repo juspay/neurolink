@@ -86,6 +86,7 @@ pnpm run verify:provider-onboarding
 pnpm run build
 ```
 
-(`pnpm run verify:provider-onboarding` doesn't exist yet as of 2026-08-18
-— it's a follow-up change to this plan. Until it lands, treat the other
-commands as the enforced minimum.)
+(`pnpm run verify:provider-onboarding` (`tools/verify-provider-onboarding.ts`)
+now exists and is CI-enforced — it runs in the `provider-safety-net-shards` job
+in `.github/workflows/ci.yml` (the `provider-safety-net` job only aggregates
+the shards' result via `needs:`).)
