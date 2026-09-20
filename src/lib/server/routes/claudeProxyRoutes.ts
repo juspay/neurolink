@@ -81,6 +81,10 @@ import {
   convertClaudeRequestToCodex,
 } from "../../proxy/codexFallback.js";
 import {
+  executeVertexAnthropicFallback,
+  isVertexAnthropicModel,
+} from "../../proxy/vertexAnthropicFallback.js";
+import {
   isProxyRequestFinalized,
   getProxyRequestAccounting,
   registerProxyResponseObserver,
@@ -5691,6 +5695,52 @@ async function tryConfiguredClaudeFallbackChain(args: {
           requestStartTime,
           logProxyBody,
           logFinalRequest,
+        });
+      } else if (
+        fallback.provider === "vertex" &&
+        isVertexAnthropicModel(fallback.model)
+      ) {
+        // Claude on Vertex speaks the Anthropic Messages API, so the request
+        // goes up as-is. The SDK path below runs its own tool loop and drops
+        // the caller's pending tool call, which strands every agentic turn.
+        const vertexModel = fallback.model;
+        const vertexAccount = `vertex/${vertexModel}`;
+        response = await executeVertexAnthropicFallback({
+          body,
+          model: vertexModel,
+          ...(ctx.abortSignal ? { signal: ctx.abortSignal } : {}),
+          onTerminal: ({ usage, status, errorMessage }) => {
+            // The hop finalizes itself, like the Codex path does. Nothing else
+            // ends this tracer: the route returns before the stream drains, so
+            // without this the root span stays open and cost, request and
+            // duration metrics are never emitted.
+            //
+            // Billing has to follow the model that served the turn. Left on the
+            // requested alias, the pricing lookup misses and the charge is
+            // silently dropped, which is why the Vertex hop had token counters
+            // but no `proxy_cost_usd_total` series at all.
+            tracer?.setModelSubstitution(body.model, vertexModel, "vertex");
+            // Without this the spend lands under the Anthropic account that
+            // never served the turn, hiding Vertex cost inside a subscription
+            // account's figures.
+            tracer?.setServedAccount(vertexAccount, "vertex");
+            // setUsage must precede end(), which is what turns usage into cost.
+            tracer?.setUsage(usage);
+            tracer?.end(status, Date.now() - requestStartTime);
+            logFinalRequest(
+              status,
+              vertexAccount,
+              "vertex",
+              status === 200 ? undefined : "vertex_fallback_stream",
+              errorMessage,
+              {
+                inputTokens: usage.inputTokens,
+                outputTokens: usage.outputTokens,
+                cacheCreationTokens: usage.cacheCreationTokens,
+                cacheReadTokens: usage.cacheReadTokens,
+              },
+            );
+          },
         });
       } else {
         const availability =

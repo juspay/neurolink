@@ -304,4 +304,457 @@ await test("marks SDK images and binary content as media rather than base64 text
   assert.equal(result.evidence.multimodalEstimate, true);
   assert.ok(result.inputTokensEstimate < 10000);
 });
+
+await test("truncates oldest history to the configured target before refusing", () => {
+  registerRuntimeContextWindow("codex", "sol", 1_000_000);
+  const turn = (n: number) => ({
+    role: n % 2 === 0 ? "user" : "assistant",
+    content: [
+      { type: "input_text", text: `turn ${n} ` + "word ".repeat(4000) },
+    ],
+  });
+  const body = {
+    instructions: "system policy",
+    tools: [{ name: "keep_me" }],
+    input: Array.from({ length: 40 }, (_, n) => turn(n)),
+  };
+  const untouched = prepareProxyRequestContext({
+    provider: "codex",
+    model: "sol",
+    body,
+    policy: { models: { "codex/sol": { contextWindow: 1_000_000 } } },
+  });
+  assert.equal(untouched.evidence.historyModified, false);
+  assert.equal(untouched.body.input.length, 40);
+
+  const result = prepareProxyRequestContext({
+    provider: "codex",
+    model: "sol",
+    body,
+    policy: {
+      models: {
+        "codex/sol": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 10_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  assert.ok((result.evidence.historyUnitsRemoved ?? 0) > 0);
+  assert.ok(result.inputTokensEstimate <= 10_000);
+  assert.ok(result.inputTokensEstimate < untouched.inputTokensEstimate);
+  assert.ok(result.body.input.length < 40);
+  // The newest turn and the fixed context always survive.
+  assert.deepEqual(
+    result.body.input[result.body.input.length - 1],
+    body.input[39],
+  );
+  assert.equal(result.body.instructions, "system policy");
+  assert.deepEqual(result.body.tools, [{ name: "keep_me" }]);
+  assert.equal(body.input.length, 40);
+});
+await test("never strands a tool result from its originating call", () => {
+  registerRuntimeContextWindow("codex", "sol", 1_000_000);
+  const filler = "word ".repeat(4000);
+  const input: unknown[] = [];
+  for (let n = 0; n < 12; n += 1) {
+    input.push({
+      role: "user",
+      content: [{ type: "input_text", text: filler }],
+    });
+    input.push({
+      type: "function_call",
+      call_id: `call-${n}`,
+      name: "lookup",
+      arguments: "{}",
+    });
+    input.push({
+      type: "function_call_output",
+      call_id: `call-${n}`,
+      output: filler,
+    });
+  }
+  input.push({
+    role: "user",
+    content: [{ type: "input_text", text: "latest" }],
+  });
+  const result = prepareProxyRequestContext({
+    provider: "codex",
+    model: "sol",
+    body: { input },
+    policy: {
+      models: {
+        "codex/sol": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 8_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  const kept = result.body.input as Array<Record<string, unknown>>;
+  const calls = new Set(
+    kept.filter((i) => i.type === "function_call").map((i) => i.call_id),
+  );
+  const outputs = kept.filter((i) => i.type === "function_call_output");
+  for (const output of outputs) {
+    assert.ok(calls.has(output.call_id), "tool result lost its call");
+  }
+  const newest = kept[kept.length - 1] as { content: Array<{ text: string }> };
+  assert.equal(newest.content[0].text, "latest");
+});
+await test("preserves Claude tool_use and tool_result pairing while truncating", () => {
+  registerRuntimeContextWindow("anthropic", "opus", 1_000_000);
+  const filler = "word ".repeat(4000);
+  const messages: unknown[] = [];
+  for (let n = 0; n < 12; n += 1) {
+    messages.push({ role: "user", content: [{ type: "text", text: filler }] });
+    messages.push({
+      role: "assistant",
+      content: [{ type: "tool_use", id: `tu-${n}`, name: "search", input: {} }],
+    });
+    messages.push({
+      role: "user",
+      content: [
+        { type: "tool_result", tool_use_id: `tu-${n}`, content: filler },
+      ],
+    });
+  }
+  messages.push({ role: "user", content: [{ type: "text", text: "final" }] });
+  const result = prepareProxyRequestContext({
+    provider: "anthropic",
+    model: "opus",
+    body: { messages },
+    policy: {
+      models: {
+        "anthropic/opus": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 8_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  const kept = result.body.messages as Array<{
+    role: string;
+    content: Array<Record<string, unknown>>;
+  }>;
+  const uses = new Set<string>();
+  for (const m of kept) {
+    for (const b of m.content) {
+      if (b.type === "tool_use") {
+        uses.add(b.id as string);
+      }
+    }
+  }
+  for (const m of kept) {
+    for (const b of m.content) {
+      if (b.type === "tool_result") {
+        assert.ok(uses.has(b.tool_use_id as string), "orphaned tool_result");
+      }
+    }
+  }
+});
+await test("does not treat the translated current turn as removable history", () => {
+  registerRuntimeContextWindow("vertex", "opus", 1_000_000);
+  const result = prepareProxyRequestContext({
+    provider: "vertex",
+    model: "opus",
+    body: {
+      systemPrompt: "system",
+      conversationMessages: Array.from({ length: 30 }, (_, n) => ({
+        role: n % 2 === 0 ? "user" : "assistant",
+        content: "word ".repeat(4000),
+      })),
+      input: { text: "the current question" },
+    },
+    policy: {
+      models: {
+        "vertex/opus": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 10_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  assert.deepEqual(result.body.input, { text: "the current question" });
+  assert.equal(result.body.systemPrompt, "system");
+  assert.ok(result.body.conversationMessages.length < 30);
+});
+for (const bad of [
+  '{"models":{"a/b":{"contextWindow":100,"compactAtTokens":100,"compactToTokens":50}}}',
+  '{"models":{"a/b":{"contextWindow":100,"compactAtTokens":80,"compactToTokens":80}}}',
+  '{"models":{"a/b":{"contextWindow":100,"compactAtTokens":80}}}',
+  '{"models":{"a/b":{"contextWindow":100,"compactToTokens":50}}}',
+  '{"models":{"a/b":{"contextWindow":100,"compactAtTokens":0,"compactToTokens":-1}}}',
+]) {
+  await test(`rejects invalid compaction policy ${bad}`, () => {
+    assert.throws(() => parseProxyContextPolicy(bad));
+  });
+}
+await test("accepts a compaction trigger above its target and below the window", () => {
+  const parsed = parseProxyContextPolicy(
+    '{"models":{"codex/gpt-5.6-sol":{"contextWindow":1000000,"compactAtTokens":700000,"compactToTokens":650000}}}',
+  );
+  assert.equal(parsed.models?.["codex/gpt-5.6-sol"].compactAtTokens, 700000);
+  assert.equal(parsed.models?.["codex/gpt-5.6-sol"].compactToTokens, 650000);
+});
+
+// A truncated Claude history must still be dispatchable: the Messages API rejects
+// a conversation whose first message is not from the user.
+await test("keeps a user message at the head after truncating conversationMessages", () => {
+  // One huge oldest turn: removing it alone clears the budget, so the loop stops
+  // with an assistant turn at the head unless the role rule advances past it.
+  const huge = "word ".repeat(20000);
+  const body = {
+    systemPrompt: "system policy",
+    input: { text: "current turn" },
+    conversationMessages: [
+      { role: "user", content: `oldest ${huge}` },
+      { role: "assistant", content: "short reply" },
+      { role: "user", content: "short follow up" },
+      { role: "assistant", content: "short reply two" },
+    ],
+  };
+  const result = prepareProxyRequestContext({
+    provider: "vertex",
+    model: "claude-opus-4-6",
+    body,
+    policy: {
+      models: {
+        "vertex/claude-opus-4-6": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 10_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  assert.ok(result.body.conversationMessages.length < 4);
+  assert.equal(result.body.conversationMessages[0].role, "user");
+  assert.equal(result.body.systemPrompt, "system policy");
+  assert.deepEqual(result.body.input, { text: "current turn" });
+});
+
+await test("keeps a user head and whole tool pairs when truncating Claude messages", () => {
+  const huge = "word ".repeat(20000);
+  const body = {
+    system: "system policy",
+    messages: [
+      { role: "user", content: `oldest ${huge}` },
+      {
+        role: "assistant",
+        content: [
+          { type: "tool_use", id: "call_1", name: "read", input: {} },
+          { type: "text", text: "calling read" },
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          { type: "tool_result", tool_use_id: "call_1", content: "file body" },
+        ],
+      },
+      { role: "user", content: "newest question" },
+    ],
+  };
+  const result = prepareProxyRequestContext({
+    provider: "anthropic",
+    model: "probe",
+    body,
+    policy: {
+      models: {
+        "anthropic/probe": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 10_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  assert.equal(result.body.messages[0].role, "user");
+  const kept = JSON.stringify(result.body.messages);
+  assert.equal(
+    kept.includes("tool_result"),
+    kept.includes("tool_use"),
+    "a tool_result must never outlive its tool_use",
+  );
+});
+
+// Items with no role (Codex function_call / function_call_output) must not be
+// dragged into the role rule.
+await test("role-less Codex items are not dropped by the user-head rule", () => {
+  const filler = "word ".repeat(4000);
+  const body = {
+    instructions: "system policy",
+    input: [
+      { type: "function_call", call_id: "c1", name: "read", arguments: filler },
+      { type: "function_call_output", call_id: "c1", output: filler },
+      { type: "function_call", call_id: "c2", name: "read", arguments: filler },
+      { type: "function_call_output", call_id: "c2", output: filler },
+    ],
+  };
+  const result = prepareProxyRequestContext({
+    provider: "codex",
+    model: "sol",
+    body,
+    policy: {
+      models: {
+        "codex/sol": {
+          contextWindow: 1_000_000,
+          // Reachable by design: only one of the two units may be removed here,
+          // so the target must sit above what a single removal can achieve.
+          compactAtTokens: 20_000,
+          compactToTokens: 11_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  // The surviving unit is a complete call/output pair, not a stranded output.
+  assert.equal(result.body.input[0].type, "function_call");
+  assert.equal(result.body.input.length % 2, 0);
+});
+
+// An image that truncation removed must not keep the request flagged multimodal:
+// the ceiling check is skipped for multimodal requests, so stale state silently
+// disables it.
+await test("an image dropped by truncation no longer disables the ceiling check", () => {
+  const filler = "word ".repeat(4000);
+  const build = () => ({
+    system: "system policy",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", data: "iVBOR" } },
+          { type: "text", text: `oldest ${filler}` },
+        ],
+      },
+      { role: "assistant", content: `reply ${filler}` },
+      { role: "user", content: `newest ${filler}` },
+    ],
+  });
+  const roomy = prepareProxyRequestContext({
+    provider: "anthropic",
+    model: "probe",
+    body: build(),
+    policy: {
+      models: {
+        "anthropic/probe": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 10_000,
+        },
+      },
+    },
+  });
+  assert.equal(roomy.evidence.historyModified, true);
+  assert.equal(roomy.evidence.multimodalEstimate, false);
+
+  assert.throws(
+    () =>
+      prepareProxyRequestContext({
+        provider: "anthropic",
+        model: "probe",
+        body: build(),
+        policy: {
+          models: {
+            "anthropic/probe": {
+              contextWindow: 21_000,
+              maxOutputTokens: 15_000,
+              compactAtTokens: 20_000,
+              compactToTokens: 10_000,
+            },
+          },
+        },
+      }),
+    (error: unknown) => {
+      const typed = error as {
+        code?: string;
+        evidence?: { multimodalEstimate?: boolean };
+      };
+      assert.equal(typed.code, "proxy_context_window_exceeded");
+      assert.equal(typed.evidence?.multimodalEstimate, false);
+      return true;
+    },
+  );
+});
+
+await test("fails typed when compaction cannot reach its target", () => {
+  // Fixed context alone blows the target, so no amount of unit removal helps.
+  // The design requires a typed local failure over a silent dispatch above the
+  // configured bound.
+  const huge = "word ".repeat(6000);
+  let code: string | undefined;
+  try {
+    prepareProxyRequestContext({
+      provider: "codex",
+      model: "sol",
+      body: {
+        instructions: huge,
+        input: [
+          { role: "user", content: [{ type: "input_text", text: huge }] },
+          { role: "user", content: [{ type: "input_text", text: "latest" }] },
+        ],
+      },
+      policy: {
+        models: {
+          "codex/sol": {
+            contextWindow: 1_000_000,
+            compactAtTokens: 5_000,
+            compactToTokens: 1_000,
+          },
+        },
+      },
+    });
+  } catch (error) {
+    code = (error as { code?: string }).code;
+  }
+  assert.equal(code, "proxy_context_compaction_failed");
+});
+
+await test("conversationMessages may lose every unit, since the turn is elsewhere", () => {
+  // The translated shape carries the current turn in object-valued `input`, so
+  // retaining a final history unit is unnecessary — and when that unit is an
+  // assistant turn it leaves a history the Messages API rejects.
+  const huge = "word ".repeat(9000);
+  const result = prepareProxyRequestContext({
+    provider: "vertex",
+    model: "opus",
+    body: {
+      input: { text: "current turn" },
+      conversationMessages: [
+        { role: "user", content: `oldest ${huge}` },
+        { role: "assistant", content: `reply ${huge}` },
+      ],
+    },
+    policy: {
+      models: {
+        "vertex/opus": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 20_000,
+          compactToTokens: 500,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  const kept = result.body.conversationMessages as Array<{ role: string }>;
+  assert.equal(
+    kept.length,
+    0,
+    "a trailing assistant turn must not be stranded",
+  );
+  assert.deepEqual(result.body.input, { text: "current turn" });
+});
+
 console.log(`Passed: ${passed}; Failed: 0; RESULT: PASS`);

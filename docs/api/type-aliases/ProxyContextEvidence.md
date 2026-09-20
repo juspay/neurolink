@@ -8,7 +8,7 @@
 
 > **ProxyContextEvidence** = `object`
 
-Defined in: [types/proxyContext.ts:10](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L10)
+Defined in: [types/proxyContext.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L20)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxyContext.ts:10](https://github.com/juspay/neurolink/blob/
 
 > **provider**: `string`
 
-Defined in: [types/proxyContext.ts:11](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L11)
+Defined in: [types/proxyContext.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L21)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxyContext.ts:11](https://github.com/juspay/neurolink/blob/
 
 > **model**: `string`
 
-Defined in: [types/proxyContext.ts:12](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L12)
+Defined in: [types/proxyContext.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L22)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxyContext.ts:12](https://github.com/juspay/neurolink/blob/
 
 > **inputTokensEstimate**: `number`
 
-Defined in: [types/proxyContext.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L13)
+Defined in: [types/proxyContext.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L23)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxyContext.ts:13](https://github.com/juspay/neurolink/blob/
 
 > **toolsTokensEstimate**: `number`
 
-Defined in: [types/proxyContext.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L14)
+Defined in: [types/proxyContext.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L24)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/proxyContext.ts:14](https://github.com/juspay/neurolink/blob/
 
 > **instructionsTokensEstimate**: `number`
 
-Defined in: [types/proxyContext.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L15)
+Defined in: [types/proxyContext.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L25)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/proxyContext.ts:15](https://github.com/juspay/neurolink/blob/
 
 > **schemaTokensEstimate**: `number`
 
-Defined in: [types/proxyContext.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L16)
+Defined in: [types/proxyContext.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L26)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/proxyContext.ts:16](https://github.com/juspay/neurolink/blob/
 
 > **outputTokensReserve**: `number`
 
-Defined in: [types/proxyContext.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L17)
+Defined in: [types/proxyContext.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L27)
 
 ---
 
@@ -72,7 +72,7 @@ Defined in: [types/proxyContext.ts:17](https://github.com/juspay/neurolink/blob/
 
 > **reasoningIncludedInOutputReserve**: `true`
 
-Defined in: [types/proxyContext.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L18)
+Defined in: [types/proxyContext.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L28)
 
 ---
 
@@ -80,7 +80,7 @@ Defined in: [types/proxyContext.ts:18](https://github.com/juspay/neurolink/blob/
 
 > `optional` **contextWindow?**: `number`
 
-Defined in: [types/proxyContext.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L19)
+Defined in: [types/proxyContext.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L29)
 
 ---
 
@@ -88,7 +88,7 @@ Defined in: [types/proxyContext.ts:19](https://github.com/juspay/neurolink/blob/
 
 > **contextLimitSource**: `"configured"` \| `"discovered"` \| `"unknown"`
 
-Defined in: [types/proxyContext.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L20)
+Defined in: [types/proxyContext.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L30)
 
 ---
 
@@ -96,7 +96,7 @@ Defined in: [types/proxyContext.ts:20](https://github.com/juspay/neurolink/blob/
 
 > **tokenCountSource**: `"estimated"`
 
-Defined in: [types/proxyContext.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L21)
+Defined in: [types/proxyContext.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L31)
 
 ---
 
@@ -104,7 +104,7 @@ Defined in: [types/proxyContext.ts:21](https://github.com/juspay/neurolink/blob/
 
 > **multimodalEstimate**: `boolean`
 
-Defined in: [types/proxyContext.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L22)
+Defined in: [types/proxyContext.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L32)
 
 ---
 
@@ -112,7 +112,7 @@ Defined in: [types/proxyContext.ts:22](https://github.com/juspay/neurolink/blob/
 
 > **originalToolCount**: `number`
 
-Defined in: [types/proxyContext.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L23)
+Defined in: [types/proxyContext.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L33)
 
 ---
 
@@ -120,12 +120,32 @@ Defined in: [types/proxyContext.ts:23](https://github.com/juspay/neurolink/blob/
 
 > **retainedToolCount**: `number`
 
-Defined in: [types/proxyContext.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L24)
+Defined in: [types/proxyContext.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L34)
 
 ---
 
 ### historyModified
 
-> **historyModified**: `false`
+> **historyModified**: `boolean`
 
-Defined in: [types/proxyContext.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L25)
+Defined in: [types/proxyContext.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L35)
+
+---
+
+### historyUnitsRemoved?
+
+> `optional` **historyUnitsRemoved?**: `number`
+
+Defined in: [types/proxyContext.ts:37](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L37)
+
+Complete history units dropped by pre-dispatch truncation.
+
+---
+
+### inputTokensBeforeTruncation?
+
+> `optional` **inputTokensBeforeTruncation?**: `number`
+
+Defined in: [types/proxyContext.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L39)
+
+Input estimate before truncation, when truncation ran.

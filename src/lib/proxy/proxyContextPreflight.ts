@@ -6,6 +6,7 @@ import {
   estimateTokens,
   IMAGE_TOKEN_ESTIMATE,
 } from "../utils/tokenEstimation.js";
+import { truncateHistoryForBudget } from "./proxyHistoryTruncation.js";
 import type {
   ProxyContextPolicy,
   ProxyContextEvidence,
@@ -110,19 +111,39 @@ export function parseProxyContextPolicy(
       );
     }
     for (const [key, limit] of Object.entries(value.models)) {
+      // Read each budget into a local before comparing: narrowing from the
+      // `positive` predicate does not survive several `||` operands when it is
+      // applied to a property access, and the looser compiler flags used by the
+      // package build then see `unknown` on one side of `>=`.
+      const contextWindow = record(limit) ? limit.contextWindow : undefined;
+      const maxOutputTokens = record(limit) ? limit.maxOutputTokens : undefined;
+      const compactAt = record(limit) ? limit.compactAtTokens : undefined;
+      const compactTo = record(limit) ? limit.compactToTokens : undefined;
       if (
         !key.includes("/") ||
         !record(limit) ||
-        !positive(limit.contextWindow) ||
-        (limit.maxOutputTokens !== undefined &&
-          !positive(limit.maxOutputTokens)) ||
+        !positive(contextWindow) ||
+        (maxOutputTokens !== undefined && !positive(maxOutputTokens)) ||
+        (compactAt !== undefined &&
+          (!positive(compactAt) || compactAt >= contextWindow)) ||
+        (compactTo !== undefined &&
+          (!positive(compactTo) ||
+            !positive(compactAt) ||
+            compactTo >= compactAt)) ||
+        (compactAt !== undefined && compactTo === undefined) ||
         Object.keys(limit).some(
-          (k) => !["contextWindow", "maxOutputTokens"].includes(k),
+          (k) =>
+            ![
+              "contextWindow",
+              "maxOutputTokens",
+              "compactAtTokens",
+              "compactToTokens",
+            ].includes(k),
         )
       ) {
         throw new ProxyContextPreflightError(
           "invalid_context_policy",
-          "Each model needs an explicit provider/model key and positive contextWindow/output limit",
+          "Each model needs an explicit provider/model key, a positive contextWindow/output limit, and a compaction target below its trigger",
         );
       }
     }
@@ -330,17 +351,23 @@ export function prepareProxyRequestContext<T extends object>(args: {
         : {}),
     };
   }
-  const wire = body as Record<string, unknown>;
-  const state = { multimodal: false };
+  let wire = body as Record<string, unknown>;
+  // Fixed cost and history are tracked separately: truncation can remove the
+  // only image in a request, and a sticky flag would then keep the ceiling
+  // check disabled for a request that no longer carries any media.
+  const fixedState = { multimodal: false };
+  let historyState = { multimodal: false };
+  const isMultimodal = (): boolean =>
+    fixedState.multimodal || historyState.multimodal;
   const provider = args.provider === "codex" ? "openai" : args.provider;
-  const toolsTokensEstimate = estimateValue(wire.tools, provider, state);
+  const toolsTokensEstimate = estimateValue(wire.tools, provider, fixedState);
   const instructionsTokensEstimate = [
     wire.instructions,
     wire.system,
     wire.systemPrompt,
     wire.systemInstruction,
   ].reduce<number>(
-    (sum, value) => sum + estimateValue(value, provider, state),
+    (sum, value) => sum + estimateValue(value, provider, fixedState),
     0,
   );
   const schemaTokensEstimate = [
@@ -356,25 +383,63 @@ export function prepareProxyRequestContext<T extends object>(args: {
       ? wire.generationConfig.responseJsonSchema
       : undefined,
   ].reduce<number>(
-    (sum, value) => sum + estimateValue(value, provider, state),
+    (sum, value) => sum + estimateValue(value, provider, fixedState),
     0,
   );
-  const inputTokensEstimate =
+  const estimate = (value: unknown): number =>
+    estimateValue(value, provider, historyState);
+  const fixedTokensEstimate =
     24 +
     schemaTokensEstimate +
     toolsTokensEstimate +
-    instructionsTokensEstimate +
+    instructionsTokensEstimate;
+  const historyTokensEstimate = (): number =>
     [
       wire.messages,
       wire.input,
       wire.contents,
       wire.conversationMessages,
       wire.prompt,
-    ].reduce<number>(
-      (sum, value) => sum + estimateValue(value, provider, state),
-      0,
-    );
+    ].reduce<number>((sum, value) => sum + estimate(value), 0);
+  let inputTokensEstimate = fixedTokensEstimate + historyTokensEstimate();
   const configured = policy.models?.[`${args.provider}/${args.model}`];
+  // Cost control: reduce history before the refusal checks below, so those see
+  // the reduced estimate and a bounded request is dispatched instead of a
+  // rejected one. Runs on every dispatch path because every path lands here.
+  let historyModified = false;
+  let historyUnitsRemoved = 0;
+  const inputTokensBeforeTruncation = inputTokensEstimate;
+  if (
+    configured?.compactAtTokens !== undefined &&
+    configured.compactToTokens !== undefined &&
+    inputTokensEstimate > configured.compactAtTokens
+  ) {
+    const truncated = truncateHistoryForBudget({
+      body,
+      inputTokensEstimate,
+      targetTokens: configured.compactToTokens,
+      estimate,
+    });
+    if (truncated.historyModified) {
+      body = truncated.body;
+      wire = body as Record<string, unknown>;
+      historyModified = true;
+      historyUnitsRemoved = truncated.unitsRemoved;
+      historyState = { multimodal: false };
+      inputTokensEstimate = fixedTokensEstimate + historyTokensEstimate();
+    }
+    // The design requires a typed local failure rather than a silent dispatch
+    // above the configured bound: fixed context alone, or the one unit that
+    // must be retained, can exceed the target with nothing left to remove.
+    if (inputTokensEstimate > configured.compactToTokens) {
+      throw new ProxyContextPreflightError(
+        "proxy_context_compaction_failed",
+        `Compaction could not bring ${args.provider}/${args.model} within ` +
+          `${configured.compactToTokens} tokens; ${inputTokensEstimate} remain ` +
+          `after removing every removable unit`,
+      );
+    }
+  }
   const discovered = getRuntimeContextWindow(args.provider, args.model);
   const contextWindow = configured?.contextWindow ?? discovered;
   const outputCeiling =
@@ -418,10 +483,13 @@ export function prepareProxyRequestContext<T extends object>(args: {
         ? "discovered"
         : "unknown",
     tokenCountSource: "estimated",
-    multimodalEstimate: state.multimodal,
+    multimodalEstimate: isMultimodal(),
     originalToolCount: toolCount(tools),
     retainedToolCount: toolCount(wire.tools),
-    historyModified: false,
+    historyModified,
+    ...(historyModified
+      ? { historyUnitsRemoved, inputTokensBeforeTruncation }
+      : {}),
   };
   if (
     policy.maxInputTokens !== undefined &&
@@ -448,12 +516,12 @@ export function prepareProxyRequestContext<T extends object>(args: {
   if (
     contextWindow !== undefined &&
     policy.enforceDiscoveredLimits !== false &&
-    !state.multimodal &&
+    !isMultimodal() &&
     inputTokensEstimate + outputTokensReserve > contextWindow
   ) {
     throw new ProxyContextPreflightError(
       "proxy_context_window_exceeded",
-      "Estimated input plus output/reasoning reserve exceeds the serving model context window; no history was truncated",
+      `Estimated input plus output/reasoning reserve exceeds the serving model context window; ${historyModified ? "history was truncated and still does not fit" : "no history was truncated"}`,
       evidence,
     );
   }

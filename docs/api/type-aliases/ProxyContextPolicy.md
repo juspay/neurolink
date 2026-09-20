@@ -48,6 +48,6 @@ Defined in: [types/proxyContext.ts:6](https://github.com/juspay/neurolink/blob/r
 
 ### models?
 
-> `optional` **models?**: `Record`\<`string`, \{ `contextWindow`: `number`; `maxOutputTokens?`: `number`; \}\>
+> `optional` **models?**: `Record`\<`string`, \{ `contextWindow`: `number`; `maxOutputTokens?`: `number`; `compactAtTokens?`: `number`; `compactToTokens?`: `number`; \}\>
 
 Defined in: [types/proxyContext.ts:7](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L7)

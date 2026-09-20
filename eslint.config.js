@@ -397,6 +397,7 @@ export default [
             "test/continuous-test-suite-proxy-token-budget.ts",
             "test/fixtures/proxyTokenBudgetWorker.mts",
             "test/continuous-test-suite-proxy-context-preflight.ts",
+            "test/continuous-test-suite-vertex-anthropic-fallback.ts",
             "test/continuous-test-suite-proxy-telemetry-reconciliation.ts",
             "test/continuous-test-suite-proxy-fallback-errors.ts",
             "test/continuous-test-suite-proxy-fallback-parent.ts",

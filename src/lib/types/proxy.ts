@@ -4824,3 +4824,28 @@ export type ProxyServiceInstallSettings = {
   port?: number;
   environment: Record<string, string>;
 };
+
+/** Where a native Claude-to-Vertex passthrough is addressed. */
+export type VertexAnthropicPassthroughTarget = {
+  projectId: string;
+  location: string;
+  model: string;
+  stream: boolean;
+};
+
+/** One native Claude-to-Vertex passthrough dispatch. */
+export type VertexAnthropicPassthroughRequest = {
+  body: Readonly<Record<string, unknown>>;
+  projectId: string;
+  location: string;
+  model: string;
+  signal?: AbortSignal;
+};
+
+/** How a Claude-on-Vertex passthrough ended, so the hop can be finalized once. */
+export type VertexPassthroughTerminal = {
+  usage: UsageContext;
+  /** 200 served, 499 client cancelled, 502 upstream stream failure. */
+  status: number;
+  errorMessage?: string;
+};

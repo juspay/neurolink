@@ -4,7 +4,17 @@ export type ProxyContextPolicy = {
   outputReserveTokens?: number;
   enforceDiscoveredLimits?: boolean;
   toolAllowlist?: string[];
-  models?: Record<string, { contextWindow: number; maxOutputTokens?: number }>;
+  models?: Record<
+    string,
+    {
+      contextWindow: number;
+      maxOutputTokens?: number;
+      /** Input estimate above which history is reduced. Bounds per-turn cost. */
+      compactAtTokens?: number;
+      /** Input estimate to reduce to. Must be below compactAtTokens. */
+      compactToTokens?: number;
+    }
+  >;
 };
 
 export type ProxyContextEvidence = {
@@ -22,7 +32,11 @@ export type ProxyContextEvidence = {
   multimodalEstimate: boolean;
   originalToolCount: number;
   retainedToolCount: number;
-  historyModified: false;
+  historyModified: boolean;
+  /** Complete history units dropped by pre-dispatch truncation. */
+  historyUnitsRemoved?: number;
+  /** Input estimate before truncation, when truncation ran. */
+  inputTokensBeforeTruncation?: number;
 };
 
 export type ProxyPreparedContext<T> = {
@@ -31,4 +45,17 @@ export type ProxyPreparedContext<T> = {
   outputTokensReserve: number;
   totalTokensReservation: number;
   evidence: ProxyContextEvidence;
+};
+
+/** Estimator injected into history truncation so it matches preflight accounting. */
+export type ProxyHistoryEstimate = (value: unknown) => number;
+
+/** The history container a proxy body carries. */
+export type ProxyHistoryField = "messages" | "input" | "conversationMessages";
+
+export type ProxyHistoryTruncationResult<T> = {
+  body: T;
+  historyModified: boolean;
+  unitsRemoved: number;
+  itemsRemoved: number;
 };

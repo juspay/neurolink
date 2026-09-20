@@ -8,7 +8,7 @@
 
 > **ProxyPreparedContext**\<`T`\> = `object`
 
-Defined in: [types/proxyContext.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L28)
+Defined in: [types/proxyContext.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L42)
 
 ## Type Parameters
 
@@ -22,7 +22,7 @@ Defined in: [types/proxyContext.ts:28](https://github.com/juspay/neurolink/blob/
 
 > **body**: `T`
 
-Defined in: [types/proxyContext.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L29)
+Defined in: [types/proxyContext.ts:43](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L43)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/proxyContext.ts:29](https://github.com/juspay/neurolink/blob/
 
 > **inputTokensEstimate**: `number`
 
-Defined in: [types/proxyContext.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L30)
+Defined in: [types/proxyContext.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L44)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/proxyContext.ts:30](https://github.com/juspay/neurolink/blob/
 
 > **outputTokensReserve**: `number`
 
-Defined in: [types/proxyContext.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L31)
+Defined in: [types/proxyContext.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L45)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/proxyContext.ts:31](https://github.com/juspay/neurolink/blob/
 
 > **totalTokensReservation**: `number`
 
-Defined in: [types/proxyContext.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L32)
+Defined in: [types/proxyContext.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L46)
 
 ---
 
@@ -54,4 +54,4 @@ Defined in: [types/proxyContext.ts:32](https://github.com/juspay/neurolink/blob/
 
 > **evidence**: [`ProxyContextEvidence`](ProxyContextEvidence.md)
 
-Defined in: [types/proxyContext.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L33)
+Defined in: [types/proxyContext.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyContext.ts#L47)
