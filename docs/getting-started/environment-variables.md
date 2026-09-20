@@ -1116,7 +1116,7 @@ GOOGLE_AI_API_KEY="AIza-your-google-ai-studio-key"   # canonical
 ### Complete .env File Example
 
 ```bash
-# NeuroLink Environment Configuration - All 15 Providers
+# NeuroLink Environment Configuration - Commonly Used Providers
 
 # OpenAI Configuration
 OPENAI_API_KEY="sk-proj-your-openai-key"

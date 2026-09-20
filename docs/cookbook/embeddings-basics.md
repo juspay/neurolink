@@ -169,7 +169,7 @@ main();
 
 ### 1. Provider Setup for Embeddings
 
-Embedding models are accessed through the provider directly via `ProviderFactory`. Seven providers implement `embed()` / `embedMany()` natively, each with its own default embedding model:
+Embedding models are accessed through the provider directly via `ProviderFactory`. Nine providers implement `embed()` / `embedMany()` natively, each with its own default embedding model:
 
 | Provider         | Default Embedding Model        | Dimensions |
 | ---------------- | ------------------------------ | ---------- |

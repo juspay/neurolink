@@ -346,9 +346,10 @@ specification.
 The production implementation adds:
 
 - **ContextCompactor** (`src/lib/context/contextCompactor.ts`) -- a multi-stage
-  compaction orchestrator with four sequential stages: tool-output pruning,
-  file-read deduplication, LLM summarization (structured 9-section summaries with
-  iterative merging), and sliding-window truncation.
+  compaction orchestrator with five sequential stages: relevance drop (Stage 0,
+  decision-provider gated), tool-output pruning, file-read deduplication, LLM
+  summarization (structured 10-section summaries with iterative merging), and
+  sliding-window truncation.
 - **BudgetChecker** (`src/lib/context/budgetChecker.ts`) -- pre-generation validation
   that checks token usage against per-model context windows (maintained in
   `src/lib/constants/contextWindows.ts`) and triggers auto-compaction at 80 % usage.
@@ -361,13 +362,13 @@ The production implementation adds:
 
 These two systems address fundamentally different problems:
 
-| Aspect                    | This Design Doc (Map-Reduce)                                                                                                                        | Context Compaction System                                                                                                                                                             |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Problem**               | A **single input document** exceeds the model's context window before generation even begins.                                                       | **Conversation history** grows beyond the context window over the course of a multi-turn session.                                                                                     |
-| **Trigger**               | User opts in via `largeTextHandling: { mode: 'summarize' }` on a `generate()` call.                                                                 | Automatic — `BudgetChecker` fires before every LLM call when token usage exceeds 80% of the model's context window.                                                                   |
-| **Technique**             | Map-reduce chunking: split the document into overlapping pieces, summarize each piece in parallel, then reduce the summaries into one final output. | A 4-stage pipeline applied to the message history: (1) tool-output pruning, (2) file-read deduplication, (3) LLM summarization with iterative merging, (4) sliding-window truncation. |
-| **Scope**                 | One-shot — processes the large text and returns a result.                                                                                           | Ongoing — continuously manages history as the conversation evolves.                                                                                                                   |
-| **Implementation status** | **Proposed only** — no code exists in the repository.                                                                                               | **Fully implemented** in `src/lib/context/`.                                                                                                                                          |
+| Aspect                    | This Design Doc (Map-Reduce)                                                                                                                        | Context Compaction System                                                                                                                                                                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Problem**               | A **single input document** exceeds the model's context window before generation even begins.                                                       | **Conversation history** grows beyond the context window over the course of a multi-turn session.                                                                                                                                                          |
+| **Trigger**               | User opts in via `largeTextHandling: { mode: 'summarize' }` on a `generate()` call.                                                                 | Automatic — `BudgetChecker` fires before every LLM call when token usage exceeds 80% of the model's context window.                                                                                                                                        |
+| **Technique**             | Map-reduce chunking: split the document into overlapping pieces, summarize each piece in parallel, then reduce the summaries into one final output. | A 5-stage pipeline applied to the message history: (0) relevance drop, decision-provider gated and skipped without one, (1) tool-output pruning, (2) file-read deduplication, (3) LLM summarization with iterative merging, (4) sliding-window truncation. |
+| **Scope**                 | One-shot — processes the large text and returns a result.                                                                                           | Ongoing — continuously manages history as the conversation evolves.                                                                                                                                                                                        |
+| **Implementation status** | **Proposed only** — no code exists in the repository.                                                                                               | **Fully implemented** in `src/lib/context/`.                                                                                                                                                                                                               |
 
 For full details on the production context compaction system, see
 [docs/features/context-compaction.md](features/context-compaction.md).

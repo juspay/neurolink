@@ -20,7 +20,7 @@ Each provider is a different type of neuron — different capabilities, differen
 
 The pipe is the vascular layer that carries streams between neurons and organs. This is NeuroLink itself.
 
-What the pipe does every time you call `generate()`, `stream()`, or `decide()`:
+What the pipe does every time you call `generate()` or `stream()`:
 
 1. **Context Building** — RAG retrieval, memory lookup, file processing merge into the prompt
 2. **Budget Check** — BudgetChecker validates the assembled context fits the model's window

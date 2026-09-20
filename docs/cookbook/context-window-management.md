@@ -414,8 +414,10 @@ The manual patterns shown above (token estimation, sliding windows, summarizatio
 are now available as built-in components in NeuroLink. See
 [Context Compaction Guide](../features/context-compaction.md) for full details.
 
-- **ContextCompactor** (`src/lib/context/contextCompactor.ts`) implements a 4-stage
-  pipeline: tool-output pruning, file-read deduplication, LLM summarization, and
+- **ContextCompactor** (`src/lib/context/contextCompactor.ts`) implements a 5-stage
+  pipeline: relevance drop (Stage 0 — asks a decision model which earlier messages
+  the current request still needs; skipped entirely without a decision provider),
+  tool-output pruning, file-read deduplication, LLM summarization, and
   sliding-window truncation. It replaces the need to build custom
   `ContextWindowManager` classes.
 - **BudgetChecker** (`src/lib/context/budgetChecker.ts`) validates context size against
@@ -424,7 +426,7 @@ are now available as built-in components in NeuroLink. See
 - **`getContextStats()`** provides live token counts, remaining capacity, and a
   `shouldCompact` flag -- a production-grade replacement for the manual
   `getStats()` helper shown in this cookbook.
-- **`compactSession()`** runs the full 4-stage pipeline on demand and returns
+- **`compactSession()`** runs the full 5-stage pipeline on demand and returns
   a `CompactionResult` with the compacted messages and token savings.
 
 Provider-specific context window sizes are maintained in

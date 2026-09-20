@@ -14,13 +14,13 @@ you didn't ask for.
 
 ## Providers load on demand, not on import
 
-NeuroLink ships 24 named LLM provider integrations plus a generic OpenAI-compatible adapter. None
+NeuroLink ships 40 named provider integrations plus a generic OpenAI-compatible adapter. None
 of them run at import time. `src/lib/factories/providerRegistry.ts` resolves a provider name to a
 dynamic `import()` of that provider's module only when you actually request it — Anthropic's
 client only loads if you call `createBestAIProvider("anthropic")` or equivalent; Ollama, LiteLLM,
 Hugging Face, Bedrock, Vertex, and the rest are each behind their own `await import("../providers/<name>.js")`
 line, one per provider, all in that same file. Ask for OpenAI and only the OpenAI
-provider module executes — the other 23 never get evaluated.
+provider module executes — the other 39 never get evaluated.
 
 ## Heavy media/document deps are optional and lazy
 

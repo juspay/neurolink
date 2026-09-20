@@ -111,11 +111,12 @@ The turn-based summarization described above is now complemented by a full
 turn level. See the [Context Compaction Guide](./features/context-compaction.md)
 for the complete specification.
 
-The compaction system provides a 4-stage reduction pipeline:
+The compaction system provides a 5-stage reduction pipeline:
 
+0. **Relevance Drop** -- asks a decision model which earlier messages the current request still needs. Skipped entirely when no decision provider is configured, so the pipeline behaves exactly as the four-stage one always did.
 1. **Tool Output Pruning** -- replaces old tool results with lightweight placeholders.
 2. **File Read Deduplication** -- keeps only the latest read of each file path.
-3. **LLM Summarization** -- produces a structured 9-section summary with iterative merging.
+3. **LLM Summarization** -- produces a structured 10-section summary with iterative merging.
 4. **Sliding Window Truncation** -- non-destructive tagging of the oldest messages.
 
 Key components:
@@ -153,7 +154,7 @@ const wasSummarized = await engine.checkAndSummarize(
 );
 ```
 
-## Structured Summary: The 9-Section Format
+## Structured Summary: The 10-Section Format
 
 When summarization runs, the conversation history is distilled into a structured summary with exactly **9 sections**. This structure is defined in `src/lib/context/prompts/summarizationPrompt.ts` and ensures that summaries are comprehensive, consistent, and easy for the AI to consume as context.
 
@@ -168,6 +169,7 @@ The 9 sections are:
 7. **Current Work** — What is being actively worked on right now?
 8. **Next Step** — What is the immediate next action to take?
 9. **Required Files** — What files will need to be accessed or modified to continue?
+10. **Constraints and Established Rules** — What constraints, conventions, or rules has the conversation established that must continue to hold?
 
 If a section is not applicable to the conversation, the summarizer writes "N/A" for that section. The prompt also supports an optional **File Context** addendum listing files read and files modified during the conversation, which is appended to the prompt when available.
 
@@ -177,7 +179,7 @@ When summarization runs **more than once** during a long conversation, the syste
 
 Here is how it works:
 
-1. On the **first** summarization, an initial prompt is used that asks the LLM to analyze the conversation and produce a fresh 9-section summary.
+1. On the **first** summarization, an initial prompt is used that asks the LLM to analyze the conversation and produce a fresh 10-section summary.
 2. On **subsequent** summarizations, the prompt switches to incremental mode. The existing summary is included verbatim in the prompt under an "Existing Summary" block, and the LLM is instructed to **merge** the new conversation content into the existing sections.
 3. The merge instructions tell the LLM to:
    - Review the existing summary
@@ -186,7 +188,7 @@ Here is how it works:
    - Update sections with relevant new information
    - Remove information that is no longer relevant
    - Keep the summary concise but comprehensive
-   - Maintain the 9-section format
+   - Maintain the 10-section format
 
 This incremental approach means that context accumulated over many summarization cycles is preserved and refined, rather than being discarded and regenerated from scratch each time. The `createSummarizationPrompt()` function in `src/lib/utils/conversationMemory.ts` handles this automatically — it checks whether a `previousSummary` exists on the session and sets `isIncremental: true` when one is present.
 

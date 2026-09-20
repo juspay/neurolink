@@ -452,24 +452,7 @@ Access multiple providers through unified interfaces:
 
 ---
 
-## 🧭 Decision-Only Providers {#decision-only-providers}
-
-Providers that serve the `decide()` inference type instead of `generate()`/`stream()` — structured, calibrated answers with no free-text generation:
-
-### TypeSafe Jev
-
-**Typed, calibrated decisions in a single parallel pass**
-
-- 🎯 Takes one `state` plus named typed questions, returns typed answers — no text output
-- ⚡ Answers all questions in one parallel pass
-- 🔓 Fails open — a Jev outage never blocks the calling app
-- 🔑 Auth: `TYPESAFE_API_KEY`
-
-See [`decide()` inference type](../../features/decide-inference-type.md) for the full API.
-
----
-
-## 🧠 Decision Provider
+## 🧠 Decision-Only Providers {#decision-only-providers}
 
 The one provider that serves `decide` rather than `generate`/`stream`. It
 returns typed, calibrated judgments and emits no text, so it never appears in

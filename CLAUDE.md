@@ -122,11 +122,20 @@ configured. Decisions carry their own span type (`SpanType.MODEL_DECISION`),
 never `MODEL_GENERATION`: folding them together would distort generation
 counts, latency percentiles and the output-token aggregate at once.
 
-Consumers today: model routing (`routing/classifierStrategies.ts`), the model
-catalogue (`routing/modelCatalog.ts`), context budget (`context/budgetChecker.ts`),
-relevance compaction and the summary gate (`context/contextDecision.ts`), tool
-/ MCP routing (`core/toolRoutingDecision.ts`) and per-query RAG planning
-(`rag/retrieval/searchDecision.ts`).
+**Five `decide()` call sites, in four files** — verified with
+`grep -rn 'await decide(' src/lib`:
+
+| Call site                         | Powers                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `routing/classifierStrategies.ts` | model routing, the model catalogue AND the per-request context budget — one request, three features |
+| `context/contextDecision.ts` (×2) | relevance compaction, and the summary-quality gate                                                  |
+| `core/toolRoutingDecision.ts`     | tool / MCP server routing                                                                           |
+| `rag/retrieval/searchDecision.ts` | per-query RAG planning (opt-in: `RAGPipeline` only, not the `rag: {}` shortcut)                     |
+
+`routing/modelCatalog.ts` and `context/budgetChecker.ts` are NOT callers: the
+catalogue renders candidate lines that the routing call's `model` question
+chooses between, and the budget threshold is read out of that same call's
+`context` answer. Neither costs a second round trip.
 
 ### Pattern: Factory + Registry
 
@@ -153,7 +162,7 @@ src/
 │   ├── core/                 # BaseProvider, constants, infrastructure
 │   ├── adapters/             # Provider-specific content adapters (image, TTS, video)
 │   ├── utils/                # MessageBuilder, FileDetector, transformations
-│   ├── types/                # ALL type definitions (28+ files)
+│   ├── types/                # ALL type definitions (103 files)
 │   ├── mcp/                  # MCPToolRegistry, client factory, HTTP transport
 │   ├── memory/               # Redis + in-memory conversation memory
 │   ├── context/              # Context compaction, budget checking
@@ -199,7 +208,7 @@ context-budget decision — see rule 4 in "Where the architecture will fight us"
    provider; skipped entirely without one, which is why it is additive.
 1. Tool output pruning (protect recent 40K tokens)
 2. File read deduplication
-3. LLM summarization (9-section structured summary), now behind a gate — a
+3. LLM summarization (10-section structured summary), now behind a gate — a
    summary that loses a decision or an open question is rejected and the
    messages are left for a later stage
 4. Sliding window truncation
@@ -306,6 +315,7 @@ pnpm run check:all        # All quality checks
 pnpm test                 # Main suite (test/continuous-test-suite.ts)
 pnpm run test:ci          # test + test:client
 pnpm run test:client      # SDK client suite
+pnpm run test:decide      # The decide inference type (live; gateway half skips without AI_GATEWAY_API_KEY)
 pnpm run test:context     # Context compaction + file handling
 pnpm run test:mcp         # MCP infrastructure (no-API; mcp-infra.ts)
 pnpm run test:mcp:http    # HTTP-transport suite (mcp-http.ts) — live

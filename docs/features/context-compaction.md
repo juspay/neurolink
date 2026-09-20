@@ -18,11 +18,12 @@ keywords:
 
 NeuroLink's Context Compaction system automatically manages conversation context windows, preventing overflow errors and maintaining conversation quality as sessions grow longer. It runs transparently before every `generate()` and `stream()` call.
 
-Before each LLM call, the **Budget Checker** estimates the total input tokens needed (system prompt + conversation history + current prompt + tool definitions + file attachments) and compares them against the model's available context window. When usage exceeds the configured threshold (default: 80%), the **ContextCompactor** runs a 4-stage reduction pipeline:
+Before each LLM call, the **Budget Checker** estimates the total input tokens needed (system prompt + conversation history + current prompt + tool definitions + file attachments) and compares them against the model's available context window. When usage exceeds the configured threshold (default: 80%), the **ContextCompactor** runs a 5-stage reduction pipeline:
 
+0. **Relevance Drop** — Ask a decision model which earlier messages the current request still needs (needs a decision provider; skipped without one)
 1. **Tool Output Pruning** — Replace old tool results with placeholders (cheapest, no LLM call)
 2. **File Read Deduplication** — Keep only the latest read of each file (cheap, no LLM call)
-3. **LLM Summarization** — Structured 9-section summary of older messages (expensive, requires LLM call)
+3. **LLM Summarization** — Structured 10-section summary of older messages (expensive, requires LLM call)
 4. **Sliding Window Truncation** — Remove oldest messages while preserving the first exchange (fallback, no LLM call)
 
 If a provider still returns a context overflow error after compaction, the system detects it across all supported providers and retries with aggressive compaction.
@@ -178,7 +179,7 @@ Source: `src/lib/neurolink.ts:6624-6661`
 
 ### `compactSession(sessionId, config?)`
 
-Manually trigger context compaction for a session. Runs the full 4-stage pipeline. After compaction, tool pairs are automatically repaired via `repairToolPairs()`.
+Manually trigger context compaction for a session. Runs the full 5-stage pipeline. After compaction, tool pairs are automatically repaired via `repairToolPairs()`.
 
 **Signature:**
 
@@ -445,7 +446,7 @@ A 30% savings threshold (`DEDUP_THRESHOLD = 0.3`) must be met for deduplication 
 
 **File:** `src/lib/context/stages/structuredSummarizer.ts`
 
-Uses the structured 9-section prompt to summarize older messages while keeping recent ones. Delegates to `generateSummary()` from the conversation memory system.
+Uses the structured 10-section prompt to summarize older messages while keeping recent ones. Delegates to `generateSummary()` from the conversation memory system.
 
 ```typescript
 async function summarizeMessages(

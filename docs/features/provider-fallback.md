@@ -217,5 +217,5 @@ const neurolink = new NeuroLink({
 
 - **[Credential Validation](/docs/features/credential-validation)** — `sdk.checkCredentials()` and the typed `ModelAccessDeniedError`
 - **[Real-time Voice Services](/docs/features/real-time-services)** — fallback also applies to realtime sessions on access denial
-- **[Provider Setup](../getting-started/provider-setup.md)** — configuring all 30+ providers
+- **[Provider Setup](../getting-started/provider-setup.md)** — configuring all 40 providers
 - **[Observability](observability.md)** — wiring `model.fallback` events into your monitoring stack

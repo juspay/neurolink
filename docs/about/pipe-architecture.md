@@ -24,10 +24,11 @@ Before any tokens are generated, the pipe assembles the full context:
 `BudgetChecker` validates the assembled context fits within the model's context window before every LLM call.
 
 - Threshold: triggers at **80% of context window**
-- If over budget: runs `ContextCompactor` (4-stage pipeline):
+- If over budget: runs `ContextCompactor` (5-stage pipeline): 0. Relevance drop — asks a decision model which earlier messages the current
+  request still needs (skipped entirely without a decision provider)
   1. Tool output pruning — replaces old tool results with placeholders
   2. File read deduplication — keeps only latest read of each file
-  3. LLM summarization — structured 9-section summary of oldest messages
+  3. LLM summarization — structured 10-section summary of oldest messages
   4. Sliding window truncation — non-destructive tagging of oldest messages
 
 Context windows are tracked per-provider, per-model in `src/lib/constants/contextWindows.ts`.
@@ -107,7 +108,7 @@ Exporters: Langfuse, OTLP, Jaeger, Zipkin, Prometheus, Datadog, NewRelic, Honeyc
 These never change regardless of provider, model, or connector:
 
 1. **Dynamic imports only** — No static imports of providers in the registry (prevents circular deps)
-2. **Stream is the primitive** — `generate()` is always stream collected; nothing bypasses `stream()`
-3. **Budget checked before every call** — No LLM call without a budget check
+2. **Stream is the primitive for text** — `generate()` is always stream collected; nothing in the text path bypasses `stream()`. `decide()` is a separate inference type that returns typed judgments and never enters this path.
+3. **Budget checked before every text call** — no `generate()`/`stream()` call without a budget check. A `decide()` call carries its own input ceilings instead, enforced by the provider.
 4. **Tools are always external** — MCP protocol for all tool integrations, including built-ins
 5. **Memory is scoped** — Each conversation has isolated memory; no cross-contamination

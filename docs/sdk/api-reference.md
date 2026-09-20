@@ -1645,7 +1645,7 @@ Methods for managing conversation context size within model token limits. Requir
 
 ### `compactSession(sessionId, config?)`
 
-Manually trigger the full 4-stage context compaction pipeline for a session. The pipeline stages are: (1) Tool output pruning, (2) File read deduplication, (3) LLM summarization, (4) Sliding window truncation.
+Manually trigger the full 5-stage context compaction pipeline for a session. The pipeline stages are: (0) Relevance drop — needs a decision provider, skipped without one, (1) Tool output pruning, (2) File read deduplication, (3) LLM summarization, (4) Sliding window truncation.
 
 ```typescript
 async compactSession(

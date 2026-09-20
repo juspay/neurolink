@@ -338,7 +338,7 @@ const result = await neurolink.generate({
 - ✅ Hardened OS verified (SELinux, AppArmor)
 - ✅ Zero credential logging
 - ✅ Encrypted configuration storage
-- ✅ Automatic context window management with 4-stage compaction pipeline and 80% budget gate
+- ✅ Automatic context window management with 5-stage compaction pipeline and 80% budget gate
 
 **[📖 Enterprise Deployment Guide](advanced/enterprise.md)** - Complete production checklist
 
@@ -624,7 +624,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](cli/commands.md
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types. |
 | **Voice pipeline**       | TTS (6 providers) + STT (4 providers) + realtime APIs (OpenAI Realtime, Gemini Live).                                    |
 | **Quality & governance** | Auto-evaluation engine (14 scorers), guardrails middleware, HITL workflows, audit logging.                               |
-| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 4-stage context compaction.                           |
+| **Memory & context**     | Per-user condensed memory (S3/Redis/SQLite), Redis session export, 5-stage context compaction.                           |
 | **CLI tooling**          | Loop sessions, setup wizard, config validation, Redis auto-detect, JSON output, TTS/STT flags.                           |
 | **Enterprise ops**       | Claude proxy, OTLP observability, OpenObserve dashboard, regional routing, credential management.                        |
 | **Tool ecosystem**       | MCP auto discovery, HTTP/stdio/SSE/WebSocket transports, LiteLLM hub access, SageMaker custom deployment, web search.    |
