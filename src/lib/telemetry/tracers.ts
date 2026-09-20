@@ -23,6 +23,7 @@ export const tracers = {
   sdk: trace.getTracer("neurolink"),
   provider: trace.getTracer("neurolink.provider"),
   generation: trace.getTracer("neurolink.generation"),
+  decision: trace.getTracer("neurolink.decision"),
   stream: trace.getTracer("neurolink.stream"),
   http: trace.getTracer("neurolink.http"),
   mcp: trace.getTracer("neurolink.mcp"),

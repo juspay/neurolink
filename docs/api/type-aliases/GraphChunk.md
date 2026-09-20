@@ -8,7 +8,7 @@
 
 > **GraphChunk** = `object`
 
-Defined in: [types/rag.ts:1392](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1392)
+Defined in: [types/rag.ts:1411](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1411)
 
 Chunk input for graph creation
 
@@ -18,7 +18,7 @@ Chunk input for graph creation
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1394](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1394)
+Defined in: [types/rag.ts:1413](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1413)
 
 Chunk text content
 
@@ -28,6 +28,6 @@ Chunk text content
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1396](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1396)
+Defined in: [types/rag.ts:1415](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1415)
 
 Chunk metadata

@@ -8,7 +8,7 @@
 
 > **TitleExtractorConfig** = [`BaseExtractorConfig`](BaseExtractorConfig.md) & `object`
 
-Defined in: [types/rag.ts:1082](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1082)
+Defined in: [types/rag.ts:1101](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1101)
 
 Title extractor configuration
 

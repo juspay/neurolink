@@ -8,7 +8,7 @@
 
 > **ClassifierToolDirective** = `object`
 
-Defined in: [types/classifierRouter.ts:99](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L99)
+Defined in: [types/classifierRouter.ts:184](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L184)
 
 Per-difficulty tool policy applied to the request.
 
@@ -18,7 +18,7 @@ Per-difficulty tool policy applied to the request.
 
 > `optional` **toolFilter?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:101](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L101)
+Defined in: [types/classifierRouter.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L186)
 
 Allowlist of tool names to keep (maps to `options.toolFilter`).
 
@@ -28,6 +28,6 @@ Allowlist of tool names to keep (maps to `options.toolFilter`).
 
 > `optional` **excludeTools?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:103](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L103)
+Defined in: [types/classifierRouter.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L188)
 
 Denylist of tool names to drop (appended to `options.excludeTools`).

@@ -8,7 +8,7 @@
 
 > **ParallelDetectionConfig** = `object`
 
-Defined in: [types/providers.ts:2318](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2318)
+Defined in: [types/providers.ts:2381](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2381)
 
 Configuration object for parallel detection test execution.
 
@@ -18,7 +18,7 @@ Configuration object for parallel detection test execution.
 
 > **maxConcurrentTests**: `number`
 
-Defined in: [types/providers.ts:2319](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2319)
+Defined in: [types/providers.ts:2382](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2382)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2319](https://github.com/juspay/neurolink/blob/r
 
 > **maxRateLimitRetries**: `number`
 
-Defined in: [types/providers.ts:2320](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2320)
+Defined in: [types/providers.ts:2383](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2383)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/providers.ts:2320](https://github.com/juspay/neurolink/blob/r
 
 > **initialRateLimitCount**: `number`
 
-Defined in: [types/providers.ts:2321](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2321)
+Defined in: [types/providers.ts:2384](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2384)

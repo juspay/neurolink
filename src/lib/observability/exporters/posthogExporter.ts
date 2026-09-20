@@ -262,6 +262,9 @@ export class PostHogExporter extends BaseExporter {
       [SpanType.WORKFLOW_STEP]: "ai_workflow_step",
       [SpanType.TOOL_CALL]: "ai_tool_call",
       [SpanType.MODEL_GENERATION]: "ai_generation",
+      // A distinct event name: a decision is not a generation, and merging
+      // them would silently inflate generation funnels in PostHog.
+      [SpanType.MODEL_DECISION]: "ai_decision",
       [SpanType.EMBEDDING]: "ai_embedding",
       [SpanType.RETRIEVAL]: "ai_retrieval",
       [SpanType.MEMORY]: "ai_memory_operation",

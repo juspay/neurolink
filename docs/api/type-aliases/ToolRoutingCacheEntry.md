@@ -8,7 +8,7 @@
 
 > **ToolRoutingCacheEntry** = `object`
 
-Defined in: [types/toolRouting.ts:191](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L191)
+Defined in: [types/toolRouting.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L203)
 
 Internal cache entry for `ToolRoutingCache`.
 
@@ -18,7 +18,7 @@ Internal cache entry for `ToolRoutingCache`.
 
 > **excludedToolNames**: `string`[]
 
-Defined in: [types/toolRouting.ts:192](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L192)
+Defined in: [types/toolRouting.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L204)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/toolRouting.ts:192](https://github.com/juspay/neurolink/blob/
 
 > **selectedServerIds**: `string`[]
 
-Defined in: [types/toolRouting.ts:193](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L193)
+Defined in: [types/toolRouting.ts:205](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L205)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/toolRouting.ts:193](https://github.com/juspay/neurolink/blob/
 
 > **expiresAt**: `number`
 
-Defined in: [types/toolRouting.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L195)
+Defined in: [types/toolRouting.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L207)
 
 Absolute expiry timestamp (from the injected `now()` clock).
 
@@ -44,6 +44,6 @@ Absolute expiry timestamp (from the injected `now()` clock).
 
 > **accessOrder**: `number`
 
-Defined in: [types/toolRouting.ts:197](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L197)
+Defined in: [types/toolRouting.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L209)
 
 LRU eviction order — lower = older. Bumped on each get/set.

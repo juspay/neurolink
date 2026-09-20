@@ -8,7 +8,7 @@
 
 > **ToolRoutingServerDescriptor** = `object`
 
-Defined in: [types/toolRouting.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L22)
+Defined in: [types/toolRouting.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L23)
 
 One routable server as declared by the host application.
 
@@ -18,7 +18,7 @@ One routable server as declared by the host application.
 
 > **id**: `string`
 
-Defined in: [types/toolRouting.ts:27](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L27)
+Defined in: [types/toolRouting.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L28)
 
 Server id. Must be the prefix used when the host registered the server's
 tools (`${id}_${toolName}`) — tool names are grouped by this prefix.
@@ -29,6 +29,6 @@ tools (`${id}_${toolName}`) — tool names are grouped by this prefix.
 
 > **description**: `string`
 
-Defined in: [types/toolRouting.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L29)
+Defined in: [types/toolRouting.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L30)
 
 Routing-grade server description shown to the router LLM.

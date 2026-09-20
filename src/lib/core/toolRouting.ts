@@ -25,13 +25,23 @@
  * Tool granularity (ITEM D): when `params.granularity === "tool"`, individual
  * unpicked tools are excluded rather than whole servers. Falls back to "server"
  * if the embedding path is disabled or fails.
+ *
+ * Decision router: when `params.decideFn` is supplied AND a decision provider
+ * is configured, one calibrated yes/no question per server replaces the router
+ * LLM call — ~400ms against a 15s budget, and a probability per server rather
+ * than a list that cannot express doubt. It runs after the embedding
+ * fast-path and before the LLM router, and returning null from it falls
+ * through to the LLM path unchanged. See `toolRoutingDecision.ts` for why a
+ * server is only ever dropped on a CONFIDENT no.
  */
 
 import { z } from "zod";
 import { logger } from "../utils/logger.js";
 import { withTimeout } from "../utils/async/index.js";
 import { selectRelevantToolNames } from "./toolRoutingEmbedding.js";
+import { selectServersByDecision } from "./toolRoutingDecision.js";
 import type {
+  DecisionCallerFn,
   ToolRetrievalItem,
   ToolRoutingCatalogEntry,
   ToolRoutingDecision,
@@ -398,6 +408,8 @@ export async function resolveToolRoutingExclusions(
     routerModel,
     timeoutMs,
     generateFn,
+    decideFn,
+    decisionMinDropConfidence,
     emitDecision,
     // L2 / ITEM D parameters (all optional — omitting reproduces today's behavior)
     embedFn,
@@ -496,12 +508,34 @@ export async function resolveToolRoutingExclusions(
           embeddingActivated: true,
           candidateToolCount: embResult.candidateToolCount,
           granularity: embResult.granularity,
+          strategy: "embedding",
         });
 
         return embResult.excludedToolNames;
       }
       // embedFn was provided but threshold not met OR retriever failed open —
       // fall through to the LLM-router path below.
+    }
+
+    // -------------------------------------------------------------------------
+    // DECISION-MODEL ROUTER — runs when a decision provider is configured
+    // -------------------------------------------------------------------------
+    // Placed after the embedding fast-path (which is cheaper still and only
+    // activates on large catalogs) and before the generative router, which it
+    // replaces: one yes/no question per server, ~400ms, calibrated per server.
+    // Any null return falls through to the LLM path below unchanged.
+    if (decideFn) {
+      const decided = await runDecisionRouter(
+        userQuery,
+        routableServers,
+        decideFn,
+        decisionMinDropConfidence,
+        routingStartTime,
+        emitDecision,
+      );
+      if (decided) {
+        return decided;
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -630,6 +664,7 @@ export async function resolveToolRoutingExclusions(
       cacheHit: false,
       durationMs: Date.now() - routingStartTime,
       granularity: "server",
+      strategy: "llm",
     });
 
     return excludedToolNames;
@@ -656,4 +691,44 @@ export async function resolveToolRoutingExclusions(
     });
     return [];
   }
+}
+
+/**
+ * Decision-model routing path, kept out of `resolveToolRoutingExclusions` so
+ * that function stays readable as a list of strategies rather than growing a
+ * fourth inline block.
+ *
+ * Returns the exclusion list when the decision router produced one, or `null`
+ * to fall through to the generative router unchanged.
+ */
+async function runDecisionRouter(
+  userQuery: string,
+  routableServers: ToolRoutingCatalogEntry[],
+  decideFn: DecisionCallerFn,
+  minDropConfidence: number | undefined,
+  routingStartTime: number,
+  emitDecision: ((decision: ToolRoutingDecision) => void) | undefined,
+): Promise<string[] | null> {
+  const decided = await selectServersByDecision(
+    userQuery,
+    routableServers,
+    decideFn,
+    { minDropConfidence },
+  );
+  if (!decided) {
+    return null;
+  }
+  safeEmitDecision(emitDecision, {
+    outcome: "applied",
+    selectedServerIds: decided.selectedServerIds,
+    excludedServerIds: decided.excludedServerIds,
+    hallucinatedIds: [],
+    excludedToolCount: decided.excludedToolNames.length,
+    routableServerCount: routableServers.length,
+    cacheHit: false,
+    durationMs: Date.now() - routingStartTime,
+    granularity: "server",
+    strategy: "decision",
+  });
+  return decided.excludedToolNames;
 }

@@ -92,8 +92,72 @@ The default fallback order prioritizes self-hosted providers — LiteLLM and Oll
 | Ollama route ignored                | Confirm Ollama server running at `http://localhost:11434` and model tag matches router suggestion. |
 | Fallback cycles between providers   | Pin provider/model explicitly or reduce orchestrated confidence thresholds (see `ModelRouter`).    |
 
+## `ModelPool` — failover with per-member cooldown
+
+Orchestration above _hints_ a provider. `ModelPool` is the separate, explicit
+mechanism that **owns** selection: you hand it an ordered list of
+provider/model/region members and it tries them in turn, taking a failed member
+out of rotation for a while rather than retrying it on every call.
+
+**File:** `src/lib/routing/modelPool.ts` · **Types:** `src/lib/types/modelPool.ts`
+
+```typescript
+import { ModelPool } from "@juspay/neurolink";
+
+const pool = new ModelPool({
+  members: [
+    { provider: "vertex", model: "gemini-2.5-flash" },
+    { provider: "openai", model: "gpt-4o-mini" },
+  ],
+  strategy: "priority", // or "round-robin" | "weighted"
+  cooldownMs: 60_000, // retryable failures only
+});
+```
+
+`strategy` picks among the members that are currently _available_: `priority`
+always takes the first, `round-robin` rotates, `weighted` prefers higher
+`weight`.
+
+### Cooldown is classified, not uniform
+
+A failure is classified into a `ProviderErrorClass` — `rate_limit`, `auth`,
+`context_window`, `server`, `network`, `unknown` — and the class decides how
+long the member sits out:
+
+| Class                                        | Cooldown                                  |
+| -------------------------------------------- | ----------------------------------------- |
+| `rate_limit`, `server`, `network`, `unknown` | `cooldownMs` (default **60s**)            |
+| `auth`, `context_window`                     | **permanent** for the life of the process |
+
+"Permanent" is literal: `PERMANENT_COOLDOWN_MS` is ten years. The reasoning is
+that neither class can fix itself mid-process — a rejected key stays rejected,
+and a request that overflowed a model's window will overflow it again — so
+retrying only burns latency on every subsequent call.
+
+⚠️ **This is why a context budget may only ever shrink.** One optimistic guess
+that overflows a model's window does not cost a retry; it retires that model
+for the life of the process. Everything in
+[context budget](/docs/features/context-budget) and the
+[model catalogue](/docs/features/classifier-router-catalog) that looks
+over-cautious about raising a threshold is cautious for this reason, and the
+catalogue vetoes a model whose window cannot hold the request _regardless of
+how confident the pick was_ — an oversized request is a hard provider error,
+not a slightly worse answer.
+
+### A configured pool disables the classifier router
+
+The [classifier router](/docs/features/classifier-router) is skipped entirely
+when a `modelPool` is configured, because the two would otherwise both claim
+the right to choose a model. The pool wins: it is the explicit, host-declared
+statement, and it is the one carrying failover state. A host that wants
+per-request routing should use the classifier router's own `pool` rather than a
+`ModelPool`.
+
 ## Dive Deeper
 
 - Code reference: `src/lib/utils/modelRouter.ts`
 - Code reference: `src/lib/utils/taskClassifier.ts`
+- Code reference: `src/lib/routing/modelPool.ts`
+- [Classifier Router](/docs/features/classifier-router) — per-request model selection
+- [Provider Fallback](/docs/features/provider-fallback)
 - [`docs/advanced/analytics.md`](../advanced/analytics.md) for logging orchestration metadata.

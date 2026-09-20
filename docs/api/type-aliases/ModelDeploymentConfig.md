@@ -8,7 +8,7 @@
 
 > **ModelDeploymentConfig** = `object`
 
-Defined in: [types/providers.ts:1785](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1785)
+Defined in: [types/providers.ts:1818](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1818)
 
 Model deployment configuration
 
@@ -18,7 +18,7 @@ Model deployment configuration
 
 > **modelName**: `string`
 
-Defined in: [types/providers.ts:1787](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1787)
+Defined in: [types/providers.ts:1820](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1820)
 
 Model name
 
@@ -28,7 +28,7 @@ Model name
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1789](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1789)
+Defined in: [types/providers.ts:1822](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1822)
 
 Endpoint name
 
@@ -38,7 +38,7 @@ Endpoint name
 
 > **instanceType**: `string`
 
-Defined in: [types/providers.ts:1791](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1791)
+Defined in: [types/providers.ts:1824](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1824)
 
 EC2 instance type
 
@@ -48,7 +48,7 @@ EC2 instance type
 
 > **initialInstanceCount**: `number`
 
-Defined in: [types/providers.ts:1793](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1793)
+Defined in: [types/providers.ts:1826](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1826)
 
 Initial instance count
 
@@ -58,7 +58,7 @@ Initial instance count
 
 > **modelDataUrl**: `string`
 
-Defined in: [types/providers.ts:1795](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1795)
+Defined in: [types/providers.ts:1828](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1828)
 
 Model data S3 location
 
@@ -68,7 +68,7 @@ Model data S3 location
 
 > **image**: `string`
 
-Defined in: [types/providers.ts:1797](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1797)
+Defined in: [types/providers.ts:1830](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1830)
 
 Container image URI
 
@@ -78,7 +78,7 @@ Container image URI
 
 > **executionRoleArn**: `string`
 
-Defined in: [types/providers.ts:1799](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1799)
+Defined in: [types/providers.ts:1832](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1832)
 
 IAM execution role ARN
 
@@ -88,7 +88,7 @@ IAM execution role ARN
 
 > `optional` **tags?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/providers.ts:1801](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1801)
+Defined in: [types/providers.ts:1834](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1834)
 
 Resource tags
 
@@ -98,7 +98,7 @@ Resource tags
 
 > `optional` **autoScaling?**: `object`
 
-Defined in: [types/providers.ts:1803](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1803)
+Defined in: [types/providers.ts:1836](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1836)
 
 Auto scaling configuration
 

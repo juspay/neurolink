@@ -8,7 +8,7 @@
 
 > **DocumentLoader** = `object`
 
-Defined in: [types/rag.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L625)
+Defined in: [types/rag.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L644)
 
 Abstract document loader type
 
@@ -18,7 +18,7 @@ Abstract document loader type
 
 > **load**(`source`, `options?`): `Promise`\<[`MDocument`](../classes/MDocument.md)\>
 
-Defined in: [types/rag.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L632)
+Defined in: [types/rag.ts:651](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L651)
 
 Load document from source
 
@@ -48,7 +48,7 @@ Promise resolving to MDocument
 
 > **canHandle**(`source`): `boolean`
 
-Defined in: [types/rag.ts:642](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L642)
+Defined in: [types/rag.ts:661](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L661)
 
 Check if loader can handle the source
 

@@ -8,7 +8,7 @@
 
 > **SpanEvent** = `object`
 
-Defined in: [types/span.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L166)
+Defined in: [types/span.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L177)
 
 Span event for recording discrete occurrences
 
@@ -18,7 +18,7 @@ Span event for recording discrete occurrences
 
 > **name**: `string`
 
-Defined in: [types/span.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L167)
+Defined in: [types/span.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L178)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/span.ts:167](https://github.com/juspay/neurolink/blob/release
 
 > **timestamp**: `string`
 
-Defined in: [types/span.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L168)
+Defined in: [types/span.ts:179](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L179)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/span.ts:168](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **attributes?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/span.ts:169](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L169)
+Defined in: [types/span.ts:180](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L180)

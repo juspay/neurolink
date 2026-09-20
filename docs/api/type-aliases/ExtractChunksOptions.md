@@ -8,7 +8,7 @@
 
 > **ExtractChunksOptions** = `object`
 
-Defined in: [types/rag.ts:1563](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1563)
+Defined in: [types/rag.ts:1582](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1582)
 
 Options for the recursive JSON chunk extractor.
 
@@ -18,7 +18,7 @@ Options for the recursive JSON chunk extractor.
 
 > **data**: `unknown`
 
-Defined in: [types/rag.ts:1564](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1564)
+Defined in: [types/rag.ts:1583](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1583)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:1564](https://github.com/juspay/neurolink/blob/release
 
 > **path**: `string`
 
-Defined in: [types/rag.ts:1565](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1565)
+Defined in: [types/rag.ts:1584](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1584)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:1565](https://github.com/juspay/neurolink/blob/release
 
 > **depth**: `number`
 
-Defined in: [types/rag.ts:1566](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1566)
+Defined in: [types/rag.ts:1585](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1585)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/rag.ts:1566](https://github.com/juspay/neurolink/blob/release
 
 > **maxDepth**: `number`
 
-Defined in: [types/rag.ts:1567](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1567)
+Defined in: [types/rag.ts:1586](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1586)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/rag.ts:1567](https://github.com/juspay/neurolink/blob/release
 
 > **maxSize**: `number`
 
-Defined in: [types/rag.ts:1568](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1568)
+Defined in: [types/rag.ts:1587](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1587)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/rag.ts:1568](https://github.com/juspay/neurolink/blob/release
 
 > **splitKeys**: `string`[]
 
-Defined in: [types/rag.ts:1569](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1569)
+Defined in: [types/rag.ts:1588](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1588)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/rag.ts:1569](https://github.com/juspay/neurolink/blob/release
 
 > **preserveKeys**: `string`[]
 
-Defined in: [types/rag.ts:1570](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1570)
+Defined in: [types/rag.ts:1589](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1589)
 
 ---
 
@@ -74,4 +74,4 @@ Defined in: [types/rag.ts:1570](https://github.com/juspay/neurolink/blob/release
 
 > **includeJsonPath**: `boolean`
 
-Defined in: [types/rag.ts:1571](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1571)
+Defined in: [types/rag.ts:1590](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1590)

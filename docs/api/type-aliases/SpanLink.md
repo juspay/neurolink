@@ -8,7 +8,7 @@
 
 > **SpanLink** = `object`
 
-Defined in: [types/span.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L175)
+Defined in: [types/span.ts:186](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L186)
 
 Link to related span
 
@@ -18,7 +18,7 @@ Link to related span
 
 > **traceId**: `string`
 
-Defined in: [types/span.ts:176](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L176)
+Defined in: [types/span.ts:187](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L187)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/span.ts:176](https://github.com/juspay/neurolink/blob/release
 
 > **spanId**: `string`
 
-Defined in: [types/span.ts:177](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L177)
+Defined in: [types/span.ts:188](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L188)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/span.ts:177](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **attributes?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/span.ts:178](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L178)
+Defined in: [types/span.ts:189](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L189)

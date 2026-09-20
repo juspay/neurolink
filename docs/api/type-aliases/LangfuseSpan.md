@@ -8,7 +8,7 @@
 
 > **LangfuseSpan** = `object`
 
-Defined in: [types/span.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L216)
+Defined in: [types/span.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L227)
 
 Langfuse-specific span format
 
@@ -18,7 +18,7 @@ Langfuse-specific span format
 
 > **id**: `string`
 
-Defined in: [types/span.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L217)
+Defined in: [types/span.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L228)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/span.ts:217](https://github.com/juspay/neurolink/blob/release
 
 > **traceId**: `string`
 
-Defined in: [types/span.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L218)
+Defined in: [types/span.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L229)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/span.ts:218](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **parentObservationId?**: `string`
 
-Defined in: [types/span.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L219)
+Defined in: [types/span.ts:230](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L230)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/span.ts:219](https://github.com/juspay/neurolink/blob/release
 
 > **name**: `string`
 
-Defined in: [types/span.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L220)
+Defined in: [types/span.ts:231](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L231)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/span.ts:220](https://github.com/juspay/neurolink/blob/release
 
 > **startTime**: `string`
 
-Defined in: [types/span.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L221)
+Defined in: [types/span.ts:232](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L232)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/span.ts:221](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **endTime?**: `string`
 
-Defined in: [types/span.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L222)
+Defined in: [types/span.ts:233](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L233)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/span.ts:222](https://github.com/juspay/neurolink/blob/release
 
 > **metadata**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/span.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L223)
+Defined in: [types/span.ts:234](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L234)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/span.ts:223](https://github.com/juspay/neurolink/blob/release
 
 > **level**: `"DEBUG"` \| `"DEFAULT"` \| `"WARNING"` \| `"ERROR"`
 
-Defined in: [types/span.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L224)
+Defined in: [types/span.ts:235](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L235)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/span.ts:224](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **statusMessage?**: `string`
 
-Defined in: [types/span.ts:225](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L225)
+Defined in: [types/span.ts:236](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L236)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/span.ts:225](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **input?**: `unknown`
 
-Defined in: [types/span.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L226)
+Defined in: [types/span.ts:237](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L237)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/span.ts:226](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **output?**: `unknown`
 
-Defined in: [types/span.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L227)
+Defined in: [types/span.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L238)
 
 ---
 
@@ -106,7 +106,7 @@ Defined in: [types/span.ts:227](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/span.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L228)
+Defined in: [types/span.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L239)
 
 #### promptTokens?
 

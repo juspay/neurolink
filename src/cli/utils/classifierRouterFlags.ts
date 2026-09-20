@@ -24,6 +24,16 @@ import { logger } from "../../lib/utils/logger.js";
 const MAX_POOL_INPUT_BYTES = 1_000_000; // 1 MB
 const MAX_POOL_ENTRIES = 1_000;
 
+/** Narrow a raw flag string onto the strategy union without an assertion. */
+function isStrategyKind(value: unknown): value is ClassifierStrategyKind {
+  return (
+    value === "heuristic" ||
+    value === "llm" ||
+    value === "jev" ||
+    value === "auto"
+  );
+}
+
 /**
  * Build a {@link ClassifierRouterConfig} from the parsed CLI flags.
  *
@@ -42,8 +52,14 @@ export function buildClassifierRouterConfigFromCli(
     return undefined;
   }
 
-  const strategy: ClassifierStrategyKind =
-    flags.classifierStrategy === "llm" ? "llm" : "heuristic";
+  // Defaults to "auto", which resolves to "jev" when TYPESAFE_API_KEY is set
+  // and "heuristic" otherwise — so a configured key upgrades CLI routing with
+  // no flag change, and an unset one behaves exactly as before.
+  const strategy: ClassifierStrategyKind = isStrategyKind(
+    flags.classifierStrategy,
+  )
+    ? flags.classifierStrategy
+    : "auto";
 
   const pool =
     typeof flags.classifierPool === "string" &&
@@ -70,6 +86,34 @@ export function buildClassifierRouterConfigFromCli(
     } else {
       logger.warn(
         `[classifier-router] --classifier-timeout value ${String(t)} is not a positive finite number; ignoring (SDK default applies).`,
+      );
+    }
+  }
+
+  // Values above 1 are accepted deliberately: an unreachable floor is a
+  // legitimate way to force the heuristic while leaving the strategy set.
+  const confidenceFlags = [
+    [
+      "classifierMinUpgradeConfidence",
+      "minUpgradeConfidence",
+      "--classifier-min-upgrade-confidence",
+    ],
+    [
+      "classifierMinDowngradeConfidence",
+      "minDowngradeConfidence",
+      "--classifier-min-downgrade-confidence",
+    ],
+  ] as const;
+  for (const [flagKey, configKey, cliName] of confidenceFlags) {
+    const value = flags[flagKey];
+    if (value === undefined) {
+      continue;
+    }
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      config[configKey] = value;
+    } else {
+      logger.warn(
+        `[classifier-router] ${cliName} value ${String(value)} is not a non-negative finite number; ignoring (SDK default applies).`,
       );
     }
   }

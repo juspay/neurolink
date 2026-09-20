@@ -324,8 +324,18 @@ Defined in: [constants/enums.ts:49](https://github.com/juspay/neurolink/blob/rel
 
 ---
 
+### TYPESAFE
+
+> **TYPESAFE**: `"typesafe"`
+
+Defined in: [constants/enums.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L51)
+
+TypeSafe (Jev) — serves the `decide` inference type only.
+
+---
+
 ### AUTO
 
 > **AUTO**: `"auto"`
 
-Defined in: [constants/enums.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L50)
+Defined in: [constants/enums.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/constants/enums.ts#L52)

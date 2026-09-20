@@ -12,7 +12,7 @@ NeuroLink is built around a biological metaphor — not as decoration, but as a 
 
 ### Neurons — LLM Providers
 
-Neurons are where intelligence is generated. In NeuroLink, neurons are the 30+ AI providers, including: Anthropic, OpenAI, Google (AI Studio + Vertex), AWS (Bedrock + SageMaker), Azure, Mistral, LiteLLM, OpenRouter, Ollama, Hugging Face, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenAI-compatible endpoints — plus voice neurons (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT), realtime neurons (OpenAI Realtime, Gemini Live), and media-generation neurons (image, video, music, avatar).
+Neurons are where intelligence is generated. In NeuroLink, neurons are the 40 AI providers, including: Anthropic, OpenAI, Google (AI Studio + Vertex), AWS (Bedrock + SageMaker), Azure, Mistral, LiteLLM, OpenRouter, Ollama, Hugging Face, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenAI-compatible endpoints, TypeSafe Jev (decision-only) — plus voice neurons (OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT), realtime neurons (OpenAI Realtime, Gemini Live), and media-generation neurons (image, video, music, avatar).
 
 Each provider is a different type of neuron — different capabilities, different costs, different latency profiles. NeuroLink's ProviderRegistry gives you access to all of them through one interface, switchable with a single line.
 
@@ -20,7 +20,7 @@ Each provider is a different type of neuron — different capabilities, differen
 
 The pipe is the vascular layer that carries streams between neurons and organs. This is NeuroLink itself.
 
-What the pipe does every time you call `generate()` or `stream()`:
+What the pipe does every time you call `generate()`, `stream()`, or `decide()`:
 
 1. **Context Building** — RAG retrieval, memory lookup, file processing merge into the prompt
 2. **Budget Check** — BudgetChecker validates the assembled context fits the model's window

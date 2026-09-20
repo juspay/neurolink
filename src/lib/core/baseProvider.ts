@@ -28,6 +28,8 @@ import type {
   ValidationSchema,
   ZodUnknownSchema,
   EmbedInput,
+  DecisionRequest,
+  DecisionResult,
 } from "../types/index.js";
 import {
   ERROR_CODES,
@@ -2371,6 +2373,47 @@ export abstract class BaseProvider implements AIProvider {
   }
 
   // ===================
+  // `decide` inference type
+  // ===================
+
+  /**
+   * Evaluate a state against a batch of typed questions.
+   *
+   * Default implementation throws, exactly as `embed()` does: `decide` is an
+   * optional capability, declared per provider by `"decide"` in its
+   * descriptor's `inferenceKinds`. Callers that want a silent no-op on an
+   * unsupporting provider should check the descriptor first rather than
+   * catching this.
+   *
+   * Latency on a decision model is flat in question count while concurrent
+   * requests queue, so this method is deliberately batch-shaped: one call
+   * carries every question a caller needs. There is no single-question
+   * convenience wrapper, because it would invite fanning out.
+   *
+   * @throws Error if the provider does not serve the `decide` inference type
+   */
+  async decide(_request: DecisionRequest): Promise<DecisionResult> {
+    logger.warn(
+      `decide() called on ${this.providerName}, which does not serve the decide inference type`,
+    );
+    throw new Error(
+      `The decide inference type is not supported by the ${this.providerName} provider. ` +
+        `Supported providers: typesafe. A provider declares this capability with ` +
+        `"decide" in its descriptor's inferenceKinds.`,
+    );
+  }
+
+  /**
+   * Get the default decision model for this provider.
+   *
+   * Mirrors {@link getDefaultEmbeddingModel}. Returns undefined for providers
+   * that do not serve the `decide` inference type.
+   */
+  protected getDefaultDecisionModel(): string | undefined {
+    return undefined;
+  }
+
+  // ===================
   // ===================
   // BZ-665: Schema-driven tool call repair
   // ===================
@@ -2596,6 +2639,12 @@ export abstract class BaseProvider implements AIProvider {
   protected getDescriptorGenerateMs(): number | undefined {
     return PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)?.timeouts
       ?.generateMs;
+  }
+
+  /** Per-provider `decide` budget from the descriptor, when one is declared. */
+  protected getDescriptorDecideMs(): number | undefined {
+    return PROVIDER_DESCRIPTORS_BY_NAME.get(this.providerName)?.timeouts
+      ?.decideMs;
   }
 
   protected abstract getAISDKModel(): LanguageModel | Promise<LanguageModel>;

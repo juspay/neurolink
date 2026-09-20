@@ -8,7 +8,7 @@
 
 > **PgClientLike** = `object`
 
-Defined in: [types/rag.ts:533](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L533)
+Defined in: [types/rag.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L552)
 
 Minimal structural interface a caller-supplied Postgres client must
 satisfy. Both `pg.Pool` (`node-postgres`) and `@electric-sql/pglite`
@@ -22,7 +22,7 @@ client; `PgVectorStore` only ever calls `query()` on it.
 
 > **query**(`text`, `values?`): `Promise`\<[`PgQueryResult`](PgQueryResult.md)\<`unknown`\>\>
 
-Defined in: [types/rag.ts:534](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L534)
+Defined in: [types/rag.ts:553](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L553)
 
 #### Parameters
 

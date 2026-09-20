@@ -276,6 +276,10 @@ export class SpanSerializer {
       [SpanType.WORKFLOW_STEP]: "chain",
       [SpanType.TOOL_CALL]: "tool",
       [SpanType.MODEL_GENERATION]: "llm",
+      // Langfuse observation kinds are a closed set with no decision member;
+      // "llm" keeps the call on the model-cost views, which is where a
+      // reader looking for spend will go find it.
+      [SpanType.MODEL_DECISION]: "llm",
       [SpanType.EMBEDDING]: "embedding",
       [SpanType.RETRIEVAL]: "retriever",
       [SpanType.MEMORY]: "chain",

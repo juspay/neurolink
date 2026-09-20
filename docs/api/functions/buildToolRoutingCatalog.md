@@ -8,7 +8,7 @@
 
 > **buildToolRoutingCatalog**(`servers`, `registeredToolNames`): [`ToolRoutingCatalogEntry`](../type-aliases/ToolRoutingCatalogEntry.md)[]
 
-Defined in: [core/toolRouting.ts:77](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRouting.ts#L77)
+Defined in: [core/toolRouting.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/core/toolRouting.ts#L87)
 
 Builds the routing catalog by pairing each declared server with the
 registered tool names that belong to it (`${serverId}_${toolName}`).

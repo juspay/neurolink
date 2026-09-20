@@ -8,6 +8,6 @@
 
 > **McpOperationConfig** = _typeof_ `MCP_OPERATION_CONFIGS`\[keyof _typeof_ `MCP_OPERATION_CONFIGS`\]
 
-Defined in: [types/config.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L567)
+Defined in: [types/config.ts:579](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L579)
 
 MCP-specific operation config.

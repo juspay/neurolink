@@ -280,6 +280,9 @@ export class LaminarExporter extends BaseExporter {
       [SpanType.WORKFLOW_STEP]: "workflow",
       [SpanType.TOOL_CALL]: "tool",
       [SpanType.MODEL_GENERATION]: "llm",
+      // Laminar has no decision primitive; "llm" is the closest bucket that
+      // keeps it visible on a model-spend view.
+      [SpanType.MODEL_DECISION]: "llm",
       [SpanType.EMBEDDING]: "embedding",
       [SpanType.RETRIEVAL]: "retrieval",
       [SpanType.MEMORY]: "memory",

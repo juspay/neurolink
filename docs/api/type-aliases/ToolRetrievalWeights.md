@@ -8,7 +8,7 @@
 
 > **ToolRetrievalWeights** = `object`
 
-Defined in: [types/toolRouting.ts:51](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L51)
+Defined in: [types/toolRouting.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L52)
 
 Weights for the hybrid scoring formula used by `ToolEmbeddingIndex.rank()`.
 Scores are computed as: `cosine * cosine + bm25 * bm25Score` then
@@ -21,7 +21,7 @@ Default: `{ cosine: 0.8, bm25: 0.2 }`.
 
 > **cosine**: `number`
 
-Defined in: [types/toolRouting.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L53)
+Defined in: [types/toolRouting.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L54)
 
 Weight applied to the cosine-similarity (dense) component.
 
@@ -31,6 +31,6 @@ Weight applied to the cosine-similarity (dense) component.
 
 > **bm25**: `number`
 
-Defined in: [types/toolRouting.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L55)
+Defined in: [types/toolRouting.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L56)
 
 Weight applied to the BM25 (sparse/lexical) component.

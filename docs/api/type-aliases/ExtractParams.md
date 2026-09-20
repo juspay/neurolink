@@ -8,7 +8,7 @@
 
 > **ExtractParams** = `object`
 
-Defined in: [types/rag.ts:1136](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1136)
+Defined in: [types/rag.ts:1155](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1155)
 
 Combined extraction parameters
 
@@ -18,7 +18,7 @@ Combined extraction parameters
 
 > `optional` **title?**: `boolean` \| [`TitleExtractorConfig`](TitleExtractorConfig.md)
 
-Defined in: [types/rag.ts:1138](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1138)
+Defined in: [types/rag.ts:1157](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1157)
 
 Extract document title
 
@@ -28,7 +28,7 @@ Extract document title
 
 > `optional` **summary?**: `boolean` \| [`SummaryExtractorConfig`](SummaryExtractorConfig.md)
 
-Defined in: [types/rag.ts:1140](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1140)
+Defined in: [types/rag.ts:1159](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1159)
 
 Extract document summary
 
@@ -38,7 +38,7 @@ Extract document summary
 
 > `optional` **keywords?**: `boolean` \| [`KeywordExtractorConfig`](KeywordExtractorConfig.md)
 
-Defined in: [types/rag.ts:1142](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1142)
+Defined in: [types/rag.ts:1161](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1161)
 
 Extract keywords
 
@@ -48,7 +48,7 @@ Extract keywords
 
 > `optional` **questions?**: `boolean` \| [`QuestionExtractorConfig`](QuestionExtractorConfig.md)
 
-Defined in: [types/rag.ts:1144](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1144)
+Defined in: [types/rag.ts:1163](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1163)
 
 Generate Q&A pairs
 
@@ -58,6 +58,6 @@ Generate Q&A pairs
 
 > `optional` **custom?**: [`CustomSchemaExtractorConfig`](CustomSchemaExtractorConfig.md)
 
-Defined in: [types/rag.ts:1146](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1146)
+Defined in: [types/rag.ts:1165](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1165)
 
 Custom schema extraction

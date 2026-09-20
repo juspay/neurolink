@@ -669,6 +669,17 @@ const PRICING: Record<
       output: 0,
     },
   },
+  typesafe: {
+    // TypeSafe bills per million INPUT tokens only. Output is REPORTED but
+    // not billed: measured live, a decision returns roughly 17 output tokens
+    // per question (1 question → 21, 20 questions → 354), and the rate on
+    // them is zero. So `output: 0` is a price, not a token count — do not
+    // "correct" it by reading a non-zero `usage.output_tokens` off a
+    // response. A three-question decision costs ~$0.000013 in total.
+    // Rates from typesafe.ai/pricing (checked 2026-09-20).
+    _default: { input: 0.042 / 1_000_000, output: 0 },
+    "jev-latest": { input: 0.042 / 1_000_000, output: 0 },
+  },
   stability: {
     // Stability AI bills per image; symbolic per-token rate.
     _default: { input: 0, output: 0.04 / 1_000 },

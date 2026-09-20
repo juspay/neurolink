@@ -8,7 +8,7 @@
 
 > **SageMakerModelConfig** = `object`
 
-Defined in: [types/providers.ts:1425](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1425)
+Defined in: [types/providers.ts:1458](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1458)
 
 Model-specific configuration for SageMaker endpoints
 
@@ -18,7 +18,7 @@ Model-specific configuration for SageMaker endpoints
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1427](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1427)
+Defined in: [types/providers.ts:1460](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1460)
 
 SageMaker endpoint name
 
@@ -28,7 +28,7 @@ SageMaker endpoint name
 
 > `optional` **modelType?**: `"llama"` \| `"mistral"` \| `"claude"` \| `"huggingface"` \| `"jumpstart"` \| `"custom"`
 
-Defined in: [types/providers.ts:1429](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1429)
+Defined in: [types/providers.ts:1462](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1462)
 
 Model type for request/response formatting
 
@@ -38,7 +38,7 @@ Model type for request/response formatting
 
 > `optional` **contentType?**: `string`
 
-Defined in: [types/providers.ts:1437](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1437)
+Defined in: [types/providers.ts:1470](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1470)
 
 Content type for requests
 
@@ -48,7 +48,7 @@ Content type for requests
 
 > `optional` **accept?**: `string`
 
-Defined in: [types/providers.ts:1439](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1439)
+Defined in: [types/providers.ts:1472](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1472)
 
 Accept header for responses
 
@@ -58,7 +58,7 @@ Accept header for responses
 
 > `optional` **customAttributes?**: `string`
 
-Defined in: [types/providers.ts:1441](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1441)
+Defined in: [types/providers.ts:1474](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1474)
 
 Custom attributes for the endpoint
 
@@ -68,7 +68,7 @@ Custom attributes for the endpoint
 
 > `optional` **inputFormat?**: `"huggingface"` \| `"jumpstart"` \| `"custom"`
 
-Defined in: [types/providers.ts:1443](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1443)
+Defined in: [types/providers.ts:1476](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1476)
 
 Input format specification
 
@@ -78,7 +78,7 @@ Input format specification
 
 > `optional` **outputFormat?**: `"huggingface"` \| `"jumpstart"` \| `"custom"`
 
-Defined in: [types/providers.ts:1445](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1445)
+Defined in: [types/providers.ts:1478](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1478)
 
 Output format specification
 
@@ -88,7 +88,7 @@ Output format specification
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/providers.ts:1447](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1447)
+Defined in: [types/providers.ts:1480](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1480)
 
 Maximum tokens for generation
 
@@ -98,7 +98,7 @@ Maximum tokens for generation
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/providers.ts:1449](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1449)
+Defined in: [types/providers.ts:1482](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1482)
 
 Temperature parameter
 
@@ -108,7 +108,7 @@ Temperature parameter
 
 > `optional` **topP?**: `number`
 
-Defined in: [types/providers.ts:1451](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1451)
+Defined in: [types/providers.ts:1484](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1484)
 
 Top-p parameter
 
@@ -118,7 +118,7 @@ Top-p parameter
 
 > `optional` **stopSequences?**: `string`[]
 
-Defined in: [types/providers.ts:1453](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1453)
+Defined in: [types/providers.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1486)
 
 Stop sequences
 
@@ -128,7 +128,7 @@ Stop sequences
 
 > `optional` **initialConcurrency?**: `number`
 
-Defined in: [types/providers.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1455)
+Defined in: [types/providers.ts:1488](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1488)
 
 Initial concurrency for batch processing
 
@@ -138,7 +138,7 @@ Initial concurrency for batch processing
 
 > `optional` **maxConcurrency?**: `number`
 
-Defined in: [types/providers.ts:1457](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1457)
+Defined in: [types/providers.ts:1490](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1490)
 
 Maximum concurrency for batch processing
 
@@ -148,7 +148,7 @@ Maximum concurrency for batch processing
 
 > `optional` **minConcurrency?**: `number`
 
-Defined in: [types/providers.ts:1459](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1459)
+Defined in: [types/providers.ts:1492](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1492)
 
 Minimum concurrency for batch processing
 
@@ -158,6 +158,6 @@ Minimum concurrency for batch processing
 
 > `optional` **maxConcurrentDetectionTests?**: `number`
 
-Defined in: [types/providers.ts:1461](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1461)
+Defined in: [types/providers.ts:1494](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1494)
 
 Maximum concurrent detection tests

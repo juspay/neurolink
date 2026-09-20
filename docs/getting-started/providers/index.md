@@ -42,6 +42,17 @@ Start with zero cost using these free-tier options:
 
 Access leading AI models directly from their creators:
 
+### [OpenAI](/docs/getting-started/providers/openai)
+
+**GPT-5.4, GPT-5, GPT-4o, and o-series reasoning models**
+
+- 🧠 GPT-5.4 and GPT-5 series flagships with up to 400K context
+- 👁️ GPT-4o multimodal (vision) and o3 / o3-pro / o4-mini reasoning models
+- 🔧 Full tool/function calling and embeddings support
+- 🔑 Auth: API Key (`OPENAI_API_KEY`)
+
+[Setup Guide →](/docs/getting-started/providers/openai)
+
 ### [Anthropic](anthropic.md)
 
 **Claude models with API key or OAuth authentication**
@@ -91,6 +102,17 @@ Production-grade providers for enterprise deployments:
 - 💰 Pay-per-use pricing
 
 [Setup Guide →](aws-bedrock.md)
+
+### [AWS SageMaker](/docs/getting-started/providers/sagemaker)
+
+**Custom model endpoints on AWS SageMaker infrastructure**
+
+- 🎯 Deploy fine-tuned, Hugging Face, or JumpStart models
+- 🔐 IAM, VPC, PrivateLink, KMS encryption
+- ⚠️ `generate()` only — streaming is not implemented
+- 💰 Full control over instance types and autoscaling
+
+[Setup Guide →](/docs/getting-started/providers/sagemaker)
 
 ---
 
@@ -183,7 +205,7 @@ Access frontier models via hosted cloud inference APIs:
 
 [Setup Guide →](sambanova.md)
 
-### Together AI
+### [Together AI](together-ai.md)
 
 **Hosted open-model gateway**
 
@@ -226,6 +248,55 @@ Access frontier models via hosted cloud inference APIs:
 - 💬 Command R+ flagship + Command R + Command R7B
 - 🔍 Embed v3 (English / multilingual) + Rerank v3 — top-tier RAG
 - 🔑 API key from [dashboard.cohere.com/api-keys](https://dashboard.cohere.com/api-keys)
+
+### Baseten
+
+**Hosted open-model inference**
+
+- 🤖 Default model: `zai-org/GLM-5.3-Flash`
+- 🔑 `BASETEN_API_KEY` — no dedicated setup guide yet
+
+### GMI Cloud
+
+**Hosted open-model inference**
+
+- 🤖 Default model: `MiniMaxAI/MiniMax-M3`
+- 🔑 `GMICLOUD_API_KEY` — no dedicated setup guide yet
+
+### Inception Labs
+
+**Diffusion LLMs**
+
+- 🤖 Default model: `mercury-2`
+- 🔑 `INCEPTION_LABS_API_KEY` — no dedicated setup guide yet
+
+### io.net Intelligence
+
+**Decentralized GPU inference**
+
+- 🤖 Default model: `meta-llama/Llama-3.3-70B-Instruct`
+- 🔑 `IO_INTELLIGENCE_API_KEY` — no dedicated setup guide yet
+
+### Mancer
+
+**Hosted open-model inference**
+
+- 🤖 Default model: `deepseek-v4-flash`
+- 🔑 `MANCER_API_KEY` — no dedicated setup guide yet
+
+### Upstage
+
+**Solar models**
+
+- 🤖 Default model: `solar-pro4`
+- 🔑 `UPSTAGE_API_KEY` — no dedicated setup guide yet
+
+### API Route
+
+**OpenAI-compatible passthrough**
+
+- 🤖 Default model: `claude-sonnet-4-6`
+- 🔑 `API_ROUTE_API_KEY` — no dedicated setup guide yet
 
 ### [Replicate](replicate.md)
 
@@ -303,6 +374,17 @@ Specialised image-gen providers (in addition to Vertex Imagen / OpenAI DALL-E / 
 
 Run models entirely on your own hardware — no API key or internet required for inference:
 
+### [Ollama](ollama.md)
+
+**Run open-source models locally with full privacy**
+
+- 🖥️ 100% local inference — no data leaves your machine
+- 🦙 70+ models: Llama, Mistral, Qwen, DeepSeek, Gemma, Phi, CodeLlama
+- 🌐 Native Ollama API and OpenAI-compatible mode
+- 🆓 No API key required
+
+[Setup Guide →](ollama.md)
+
 ### [LM Studio](../../getting-started/provider-setup.md#lm-studio)
 
 **Run any supported model locally with a GUI app**
@@ -369,6 +451,140 @@ Access multiple providers through unified interfaces:
 [Setup Guide →](litellm.md)
 
 ---
+
+## 🧭 Decision-Only Providers {#decision-only-providers}
+
+Providers that serve the `decide()` inference type instead of `generate()`/`stream()` — structured, calibrated answers with no free-text generation:
+
+### TypeSafe Jev
+
+**Typed, calibrated decisions in a single parallel pass**
+
+- 🎯 Takes one `state` plus named typed questions, returns typed answers — no text output
+- ⚡ Answers all questions in one parallel pass
+- 🔓 Fails open — a Jev outage never blocks the calling app
+- 🔑 Auth: `TYPESAFE_API_KEY`
+
+See [`decide()` inference type](../../features/decide-inference-type.md) for the full API.
+
+---
+
+## 🧠 Decision Provider
+
+The one provider that serves `decide` rather than `generate`/`stream`. It
+returns typed, calibrated judgments and emits no text, so it never appears in
+generation fallback chains or the health sweep.
+
+### [TypeSafe (Jev)](typesafe.md)
+
+**Typed, calibrated judgments instead of text**
+
+- 🎯 `boolean` / `choice` / `score` answers, each with a calibrated confidence
+- ⚡ Latency flat in question count — 1 question ~393 ms, 400 questions ~465 ms
+- 💰 ~$0.00002 per decision (~$0.042/M input, output billed at zero)
+- 🔌 Two transports: TypeSafe direct, or the Vercel AI Gateway
+- 🛡️ Fails open — with no key configured, every consumer behaves exactly as before
+- 🔑 API key from [console.typesafe.ai/keys](https://console.typesafe.ai/keys)
+- 🔄 Aliases: `jev`, `typesafe-ai`
+
+[Setup Guide →](typesafe.md)
+
+## 🧩 Additional Catalog Providers
+
+Every provider below is a **Tier-2 catalog entry** — OpenAI-wire-compatible
+with no behavioural quirks, so the whole integration is one JSON file under
+`src/lib/providers/catalog/`. Each page is generated from that file, which is
+also what the CI onboarding gate reads.
+
+### [API Route](api-route.md)
+
+**Claude Sonnet 4.6**
+
+- 🤖 8 models; default `claude-sonnet-4-6` (1M context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-17 (authenticated GET /v1/models)
+- 🔑 API key from [api-route.com](https://api-route.com)
+- 🔄 Aliases: `apiroute`
+
+[Setup Guide →](api-route.md)
+
+### [Baseten](baseten.md)
+
+**GLM 5.3 Flash**
+
+- 🤖 16 models; default `zai-org/GLM-5.3-Flash` (1M context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-03 (authenticated GET /v1/models)
+- 🔑 API key from [app.baseten.co](https://app.baseten.co/)
+
+[Setup Guide →](baseten.md)
+
+### [GMI Cloud](gmicloud.md)
+
+**MiniMaxAI/MiniMax-M3**
+
+- 🤖 1 model; default `MiniMaxAI/MiniMax-M3` (1M context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-03 (authenticated GET /v1/models)
+- 🔑 API key from [console.gmicloud.ai](https://console.gmicloud.ai)
+- 🔄 Aliases: `gmi-cloud`
+
+[Setup Guide →](gmicloud.md)
+
+### [Inception Labs](inception-labs.md)
+
+**Mercury 2, Inception's enterprise diffusion LLM (dLLM)**
+
+- 🤖 1 model; default `mercury-2` (125K context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-03 (authenticated GET /v1/models)
+- 🔑 API key from [platform.inceptionlabs.ai/dashboard/api-keys](https://platform.inceptionlabs.ai/dashboard/api-keys)
+- 🔄 Aliases: `inception`, `mercury`
+
+[Setup Guide →](inception-labs.md)
+
+### [io.net Intelligence](io-intelligence.md)
+
+**Meta: Llama 3.3 70B Instruct**
+
+- 🤖 34 models; default `meta-llama/Llama-3.3-70B-Instruct` (125K context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-03 (authenticated GET /v1/models)
+- 🔑 API key from [ai.io.net](https://ai.io.net/)
+- 🔄 Aliases: `io-net`
+
+[Setup Guide →](io-intelligence.md)
+
+### [Mancer](mancer.md)
+
+**DeepSeek V4 Flash**
+
+- 🤖 10 models; default `deepseek-v4-flash` (1M context)
+- ⚠️ **No tool calling** — text generation and structured output only
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-03 (authenticated GET /oai/v1/models; full response retained as evidence/mancer-roster-authenticated.json in the campaign scratchpad and every catalog price/limit machine-checked against it (Mancer re-prices — gpt-oss-120b input moved 0.024 → 0.022 within the day))
+- 🔑 API key from [mancer.tech/dashboard](https://mancer.tech/dashboard)
+- 🔄 Aliases: `mancer-tech`
+
+[Setup Guide →](mancer.md)
+
+### [Upstage](upstage.md)
+
+**Solar Pro 4**
+
+- 🤖 10 models; default `solar-pro4` (512K context)
+- 🛠️ Native tool calling + structured output together
+- 💳 Free tier available
+- ✅ Roster verified 2026-09-03 (authenticated GET /v1/models)
+- 🔑 API key from [console.upstage.ai/api-keys](https://console.upstage.ai/api-keys)
+- 🔄 Aliases: `solar`
+
+[Setup Guide →](upstage.md)
 
 ## 🎙️ Voice Providers {#voice-providers}
 

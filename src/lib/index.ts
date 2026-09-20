@@ -1111,7 +1111,100 @@ export {
   createDefaultRequestRouter,
   ClassifierRouter,
   classifyHeuristic,
+  classifyJev,
 } from "./routing/index.js";
+
+// ============================================================================
+// Decision inference type (`decide`)
+// ============================================================================
+/**
+ * The `decide` inference type — typed, calibrated judgements from a model that
+ * generates no text, alongside `generate` and `stream`.
+ *
+ * Call it with `neurolink.decide({ state, questions })`, or `tryDecide()` for
+ * the fail-open variant every internal consumer uses. TypeSafe's Jev is the
+ * first provider; a provider declares the capability with `"decide"` in its
+ * descriptor's `inferenceKinds`.
+ *
+ * Latency on a decision model is flat in question count — 1 question ~393ms,
+ * 400 questions ~465ms — while concurrent requests queue. Always batch; never
+ * fan out. A `choice` answer carries the full distribution, so one question
+ * over N options also ranks all N.
+ *
+ * @example
+ * ```ts
+ * import { NeuroLink, readDecisionChoice } from '@juspay/neurolink';
+ *
+ * const result = await new NeuroLink().tryDecide({   // null if unconfigured
+ *   state: ticketText,
+ *   questions: {
+ *     team: {
+ *       type: 'choice',
+ *       instructions: 'Which team should handle this?',
+ *       criteria: { billing: 'Payments', technical: 'Bugs', sales: 'Pricing' },
+ *     },
+ *     urgent: { type: 'boolean', instructions: 'Is this urgent?' },
+ *   },
+ * });
+ * const team = result && readDecisionChoice(result.answers, 'team');
+ * if (team && team.confidence > 0.7) { route(team.choice); }
+ * ```
+ */
+export {
+  decisionBooleanConfidence,
+  decisionKey,
+  gateDecisionBoolean,
+  readDecisionBoolean,
+  readDecisionChoice,
+  readDecisionScore,
+  servesInferenceKind,
+} from "./utils/decisionAnswers.js";
+export {
+  DECISION_PROVIDERS,
+  resolveDefaultDecisionProvider,
+} from "./factories/providerDescriptors.js";
+export {
+  TYPESAFE_MAX_REQUEST_TOKENS,
+  TYPESAFE_MAX_STATE_TOKENS,
+} from "./providers/typesafe.js";
+
+/**
+ * The decision consumers.
+ *
+ * Each takes an injected fail-open `decide` caller — a bound
+ * `NeuroLink.tryDecide` — and returns `null` when nothing should change, so a
+ * host that wires one into its own pipeline inherits the same degradation
+ * contract NeuroLink uses internally: no decision provider configured means
+ * the behaviour is exactly what it was before.
+ *
+ * They are exported because each is independently useful. A host routing its
+ * own tool set, compacting its own transcript, or planning its own retrieval
+ * should not have to reimplement the question wording, the calibration gates
+ * or the asymmetric thresholds that make these work.
+ */
+export {
+  CLASSIFIER_CONTEXT_SCOPES,
+  CLASSIFIER_DIFFICULTIES,
+  contextScopeToThreshold,
+} from "./routing/classifierStrategies.js";
+export {
+  buildModelCatalog,
+  buildRegistryIndex,
+  enrichCandidate,
+  rankCatalogue,
+  reachableTextProviders,
+  renderCandidate,
+} from "./routing/modelCatalog.js";
+export { selectServersByDecision } from "./core/toolRoutingDecision.js";
+export {
+  selectIrrelevantMessages,
+  summaryPreservesContext,
+} from "./context/contextDecision.js";
+export { decideSearchPlan } from "./rag/retrieval/searchDecision.js";
+export {
+  DEFAULT_COMPACTION_THRESHOLD,
+  resolveHistoryBudget,
+} from "./context/budgetChecker.js";
 
 // ============================================================================
 // SERVER ADAPTERS - HTTP API Framework Integration

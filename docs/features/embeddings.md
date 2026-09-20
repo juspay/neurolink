@@ -74,7 +74,7 @@ import { ProviderFactory } from "@juspay/neurolink";
 
 // Use the provider's default embedding model
 const provider = await ProviderFactory.createProvider("googleAiStudio");
-const embedding = await provider.embed("NeuroLink supports 12+ AI providers");
+const embedding = await provider.embed("NeuroLink supports 40 AI providers");
 console.log(embedding.length); // 3072
 
 // Override the model

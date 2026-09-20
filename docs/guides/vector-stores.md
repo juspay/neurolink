@@ -83,145 +83,79 @@ const store = new InMemoryVectorStore();
 
 ### Production Vector Stores
 
-For production deployments, integrate with dedicated vector databases. NeuroLink's `VectorStore` interface is designed to work with any vector database.
+For production deployments, NeuroLink ships client-injection `VectorStore` adapters for Pinecone, pgvector, and Chroma — you construct and own the vendor client, and pass it in. None of the three vendor SDKs is a runtime dependency of `@juspay/neurolink`; only the adapter code ships, so you install whichever client library you actually use.
 
 #### Pinecone Integration
 
 ```typescript
 import { Pinecone } from "@pinecone-database/pinecone";
-import type { VectorStore } from "@juspay/neurolink";
+import { PineconeVectorStore } from "@juspay/neurolink";
 
-class PineconeVectorStore implements VectorStore {
-  private client: Pinecone;
-  private index: ReturnType<Pinecone["index"]>;
+const client = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+const pineconeStore = new PineconeVectorStore(client.index("my-index"));
 
-  constructor(apiKey: string, indexName: string) {
-    this.client = new Pinecone({ apiKey });
-    this.index = this.client.index(indexName);
-  }
+await pineconeStore.upsert("tenant-a", [
+  { id: "1", vector: [0.1, 0.2, 0.3], metadata: { text: "hello" } },
+]);
 
-  async query(params: {
-    indexName: string;
-    queryVector: number[];
-    topK?: number;
-    filter?: Record<string, unknown>;
-    includeVectors?: boolean;
-  }) {
-    const response = await this.index.query({
-      vector: params.queryVector,
-      topK: params.topK || 10,
-      filter: params.filter,
-      includeMetadata: true,
-      includeValues: params.includeVectors,
-    });
-
-    return response.matches.map((match) => ({
-      id: match.id,
-      score: match.score,
-      text: match.metadata?.text as string,
-      metadata: match.metadata,
-      vector: match.values,
-    }));
-  }
-}
-
-// Usage
-const pineconeStore = new PineconeVectorStore(
-  process.env.PINECONE_API_KEY!,
-  "my-index",
-);
+const results = await pineconeStore.query({
+  indexName: "tenant-a",
+  queryVector: [0.1, 0.2, 0.3],
+  topK: 5,
+});
 ```
 
-#### pgVector Integration
+The `indexName` passed to `query`/`upsert`/`delete` maps onto a Pinecone **namespace** within the one physical index the injected client is scoped to (Pinecone ties one client `Index` object to one index, created ahead of time via Pinecone's control-plane API). `MetadataFilter` operators are translated to Pinecone's native filter DSL; unsupported operators (`$not`, `$nor`, `$exists`, `$contains`, `$regex`, `$size`) throw rather than silently mis-filter.
+
+#### pgvector Integration
 
 ```typescript
 import { Pool } from "pg";
-import type { VectorStore } from "@juspay/neurolink";
+import { PgVectorStore } from "@juspay/neurolink";
 
-class PgVectorStore implements VectorStore {
-  private pool: Pool;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const pgStore = new PgVectorStore(pool);
 
-  constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString });
-  }
+await pgStore.upsert("my-index", [
+  { id: "1", vector: [0.1, 0.2, 0.3], metadata: { text: "hello" } },
+]);
 
-  async query(params: {
-    indexName: string;
-    queryVector: number[];
-    topK?: number;
-    filter?: Record<string, unknown>;
-  }) {
-    const vectorStr = `[${params.queryVector.join(",")}]`;
-
-    // WARNING: Validate indexName against allowlist before use
-    const safeName = params.indexName.replace(/[^a-zA-Z0-9_]/g, "");
-    const result = await this.pool.query(
-      `
-      SELECT id, text, metadata, 
-             1 - (embedding <=> $1::vector) as score
-      FROM ${safeName}
-      ORDER BY embedding <=> $1::vector
-      LIMIT $2
-    `,
-      [vectorStr, params.topK || 10],
-    );
-
-    return result.rows.map((row) => ({
-      id: row.id,
-      score: row.score,
-      text: row.text,
-      metadata: row.metadata,
-    }));
-  }
-}
+const results = await pgStore.query({
+  indexName: "my-index",
+  queryVector: [0.1, 0.2, 0.3],
+  topK: 5,
+});
 ```
+
+Storage model: one table per `indexName`, created lazily on first `upsert()` (`CREATE TABLE IF NOT EXISTS`). Every value that flows into a query — including metadata field names — is a bound parameter; the one thing embedded textually is the derived table name, and only after it passes a strict identifier allow-list, since Postgres has no way to bind an identifier as a query parameter.
 
 #### Chroma Integration
 
 ```typescript
 import { ChromaClient } from "chromadb";
-import type { VectorStore } from "@juspay/neurolink";
+import { ChromaVectorStore } from "@juspay/neurolink";
 
-class ChromaVectorStore implements VectorStore {
-  private client: ChromaClient;
+const client = new ChromaClient();
+const chromaStore = new ChromaVectorStore(client);
 
-  constructor(path?: string) {
-    this.client = new ChromaClient({ path });
-  }
+await chromaStore.upsert("my-index", [
+  { id: "1", vector: [0.1, 0.2, 0.3], metadata: { text: "hello" } },
+]);
 
-  async query(params: {
-    indexName: string;
-    queryVector: number[];
-    topK?: number;
-    filter?: Record<string, unknown>;
-  }) {
-    const collection = await this.client.getCollection({
-      name: params.indexName,
-    });
-
-    const results = await collection.query({
-      queryEmbeddings: [params.queryVector],
-      nResults: params.topK || 10,
-      where: params.filter,
-    });
-
-    return (results.ids[0] || []).map((id, i) => ({
-      id,
-      score: results.distances?.[0]?.[i]
-        ? 1 - results.distances[0][i]
-        : undefined,
-      text: results.documents?.[0]?.[i] || undefined,
-      metadata: results.metadatas?.[0]?.[i] || undefined,
-    }));
-  }
-}
+const results = await chromaStore.query({
+  indexName: "my-index",
+  queryVector: [0.1, 0.2, 0.3],
+  topK: 5,
+});
 ```
+
+Chroma returns distances, not similarities; `ChromaVectorStore` inverts them into the same higher-is-better `score` convention `InMemoryVectorStore` uses, based on the collection's `distanceMetric` option (`"cosine"` by default, also `"ip"` and `"l2"`).
 
 ## Configuration
 
 ### VectorStore Interface
 
-All vector stores implement this interface:
+Every vector store implements at least `query()`:
 
 ```typescript
 type VectorStore = {
@@ -232,6 +166,21 @@ type VectorStore = {
     filter?: MetadataFilter;
     includeVectors?: boolean;
   }): Promise<VectorQueryResult[]>;
+};
+```
+
+All four built-in stores (`InMemoryVectorStore`, `PineconeVectorStore`, `PgVectorStore`, `ChromaVectorStore`) also implement `upsert()`, satisfying the `UpsertableVectorStore` extension, plus a `delete(indexName, ids)` method each declares independently:
+
+```typescript
+type UpsertableVectorStore = VectorStore & {
+  upsert(
+    indexName: string,
+    items: Array<{
+      id: string;
+      vector: number[];
+      metadata?: Record<string, unknown>;
+    }>,
+  ): Promise<void>;
 };
 ```
 

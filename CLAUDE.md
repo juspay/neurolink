@@ -16,7 +16,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project Overview
 
-NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps 21+ AI providers (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, Cerebras, SambaNova, ElevenLabs, Deepgram, Azure Speech, Fish Audio, Cartesia, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), media generation (image / video / music / avatar with Kling / Runway / Replicate / Beatoven / Lyria / D-ID / HeyGen handlers), RAG pipelines, observability, and a workflow engine.
+NeuroLink is a unified AI development platform shipping as both a **TypeScript SDK** and **CLI**. It wraps 40 AI providers across three inference types (`generate`, `stream`, `decide`) (OpenAI, Anthropic, Google AI Studio, Vertex, AWS Bedrock, Azure, Mistral, LiteLLM, SageMaker, Hugging Face, Ollama, OpenAI-compatible, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, OpenRouter, Cerebras, SambaNova, ElevenLabs, Deepgram, Azure Speech, Fish Audio, Cartesia, and more) behind a single consistent API, with full MCP support, multimodal file processing, voice (TTS/STT/realtime), media generation (image / video / music / avatar with Kling / Runway / Replicate / Beatoven / Lyria / D-ID / HeyGen handlers), RAG pipelines, observability, and a workflow engine.
 
 ---
 
@@ -83,6 +83,51 @@ Rule 15's determinism exception is the `allow` list on `neurolink/e2e-tests-only
 
 ## Architecture
 
+### Three inference types
+
+`generate`, `stream` and `decide` are peers. The first two assume the model
+emits text; `decide` does not — a decision model takes one `state` plus a map
+of named typed questions and returns one typed, calibrated answer each in a
+single parallel pass, with no text anywhere.
+
+The discriminator is one field on `ProviderDescriptor`:
+
+```ts
+inferenceKinds?: readonly ("generate" | "stream" | "decide")[]
+```
+
+Omitted means `["generate","stream"]`, so every text provider keeps its
+meaning. This is the **only declarative statement of provider modality** in the
+codebase — before it, modality was implied by `toolSupport`, `healthCheck` and
+the auto-select ranks, which is why embedding-only providers (voyage, jina)
+have to implement `getAISDKModel()` as a throw. Anything that builds a
+generation fallback chain, runs the health sweep or offers model choices must
+filter on `inferenceKinds` rather than special-casing a provider name.
+
+`AIProvider.decide?()` is optional and `BaseProvider` supplies a throwing
+default, exactly as `embed()` does. Public surface is `neurolink.decide()` and
+`neurolink.tryDecide()` — the fail-open variant, which returns `null` on any
+failure and is what every internal consumer uses.
+
+**Not to be confused with `evaluate()`**, which scores an already-generated
+response with RAGAS scorers. Different feature, different word, ~20
+`Evaluation*` types already taken.
+
+**The degradation contract.** Every internal consumer of `decide` fails open:
+with no decision provider configured, behaviour is exactly what it was before.
+That is deliberate and load-bearing — and it is also why each consumer records
+telemetry even when it does nothing, because a decision path that silently
+stopped working is otherwise indistinguishable from one that was never
+configured. Decisions carry their own span type (`SpanType.MODEL_DECISION`),
+never `MODEL_GENERATION`: folding them together would distort generation
+counts, latency percentiles and the output-token aggregate at once.
+
+Consumers today: model routing (`routing/classifierStrategies.ts`), the model
+catalogue (`routing/modelCatalog.ts`), context budget (`context/budgetChecker.ts`),
+relevance compaction and the summary gate (`context/contextDecision.ts`), tool
+/ MCP routing (`core/toolRoutingDecision.ts`) and per-query RAG planning
+(`rag/retrieval/searchDecision.ts`).
+
 ### Pattern: Factory + Registry
 
 Every extensible system (providers, processors, chunkers, rerankers) follows the same pattern:
@@ -103,7 +148,7 @@ Registry →  holds factory functions (via dynamic import)
 src/
 ├── lib/
 │   ├── neurolink.ts          # Main SDK entry point
-│   ├── providers/            # 21+ AI provider implementations
+│   ├── providers/            # AI provider implementations (40 registered)
 │   ├── factories/            # ProviderFactory + ProviderRegistry
 │   ├── core/                 # BaseProvider, constants, infrastructure
 │   ├── adapters/             # Provider-specific content adapters (image, TTS, video)
@@ -144,12 +189,23 @@ User input (text + files)
 
 ### Context Compaction Pipeline
 
-`BudgetChecker` fires before every LLM call. If context exceeds 80% of the model window, `ContextCompactor` runs 4 stages:
+`BudgetChecker` fires before every LLM call. If context exceeds the threshold
+(80% of the model window by default, and only ever _lowered_ per request by the
+context-budget decision — see rule 4 in "Where the architecture will fight us"),
+`ContextCompactor` runs 5 stages:
 
+0. **Relevance drop** — one boolean per message, batched. The only stage that
+   asks what a message is _for_ rather than how old it is. Needs a decision
+   provider; skipped entirely without one, which is why it is additive.
 1. Tool output pruning (protect recent 40K tokens)
 2. File read deduplication
-3. LLM summarization (9-section structured summary)
+3. LLM summarization (9-section structured summary), now behind a gate — a
+   summary that loses a decision or an open question is rejected and the
+   messages are left for a later stage
 4. Sliding window truncation
+
+`CompactionStage` in `src/lib/types/context.ts` is the source of truth for the
+list: `relevance | prune | deduplicate | summarize | truncate`.
 
 ### MCP Transport Protocols
 
@@ -260,7 +316,7 @@ pnpm run test:mcp:full    # All five mcp-* suites in dependency order
 pnpm run test:rag         # RAG suite
 pnpm run test:skills      # Native skills suite (mostly no-API; live test skips without keys)
 pnpm run test:providers   # Provider-specific feature tests
-pnpm run test:matrix      # Capability sweep across all 17 providers
+pnpm run test:matrix      # Capability sweep across every registered provider
 pnpm run test:media       # Media generation suite
 pnpm run test:memory      # Memory suite (incl. session-memory-bug regressions)
 pnpm run test:observability  # Includes tracing + telemetry-gaps + issue-04
@@ -890,7 +946,7 @@ waits forever on the dpkg lock that `unattended-upgrades` holds.
 
 ### Working with Embeddings
 
-Four providers support embeddings natively: OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock. All expose `embed()` / `embedMany()` on the provider interface. Unsupported providers throw descriptive errors.
+Nine providers implement embeddings natively: OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock, Cohere, Ollama, LiteLLM, Voyage, Jina. All expose `embed()` / `embedMany()`; everything else inherits `BaseProvider`'s throwing default. Voyage and Jina are embedding-only (their `getAISDKModel()` throws); the rest also serve `generate()`/`stream()`.
 
 Server endpoints: `POST /api/agent/embed` and `POST /api/agent/embed-many` in `src/lib/server/routes/agentRoutes.ts`.
 

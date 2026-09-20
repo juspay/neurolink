@@ -45,6 +45,7 @@ import type {
   MultiModalSearchResult,
   MultiModalMatchType,
   EmbedInput,
+  DecisionCallerFn,
 } from "../../types/index.js";
 import { MDocument } from "../document/MDocument.js";
 import { loadDocument } from "../document/loaders.js";
@@ -56,6 +57,7 @@ import {
 
 import { GraphRAG } from "../graphRag/graphRAG.js";
 import { rerank } from "../reranker/reranker.js";
+import { decideSearchPlan } from "../retrieval/searchDecision.js";
 import { ProviderFactory } from "../../factories/providerFactory.js";
 import { ImageLoader } from "../document/imageLoader.js";
 import { ImageProcessor } from "../../utils/imageProcessor.js";
@@ -343,10 +345,55 @@ export class RAGPipeline {
       await this.ensureInitialized();
 
       const startTime = Date.now();
-      const topK = options?.topK || this.config.defaultTopK || 5;
-      const useHybrid = options?.hybrid ?? this.config.enableHybridSearch;
-      const useGraph = options?.graph ?? this.config.enableGraphRAG;
-      const useRerank = options?.rerank ?? this.config.enableReranking;
+      let topK = options?.topK || this.config.defaultTopK || 5;
+      let useHybrid = options?.hybrid ?? this.config.enableHybridSearch;
+      let useGraph = options?.graph ?? this.config.enableGraphRAG;
+      let useRerank = options?.rerank ?? this.config.enableReranking;
+
+      // Per-query retrieval planning. The four knobs above are otherwise
+      // static config, identical for "what is the refund window?" and "how
+      // does billing relate to entitlements?" — one precise passage versus a
+      // survey across documents. A decision model answers all four for THIS
+      // query in one ~400ms round trip.
+      //
+      // Precedence is strict and one-directional: an explicit QueryOptions
+      // field always wins, and the plan can only select among capabilities
+      // this pipeline was configured with. It never enables one that is not
+      // set up, because `graph: true` on a pipeline with no graph index is a
+      // failure rather than a plan.
+      let plan: Awaited<ReturnType<typeof decideSearchPlan>> = null;
+      if (this.config.decide && options?.plan !== false) {
+        try {
+          plan = await decideSearchPlan(query, this.config.decide, {
+            defaultTopK: topK,
+            canHybrid: !!this.config.enableHybridSearch && !!this.hybridSearch,
+            canGraph: !!this.config.enableGraphRAG,
+            canRerank:
+              !!this.config.enableReranking && !!this.config.rerankingModel,
+          });
+        } catch (planError) {
+          logger.debug("[RAGPipeline] Search planning failed, using config", {
+            error:
+              planError instanceof Error
+                ? planError.message
+                : String(planError),
+          });
+        }
+      }
+      if (plan) {
+        if (options?.topK === undefined && plan.topK !== undefined) {
+          topK = plan.topK;
+        }
+        if (options?.hybrid === undefined && plan.hybrid !== undefined) {
+          useHybrid = plan.hybrid;
+        }
+        if (options?.graph === undefined && plan.graph !== undefined) {
+          useGraph = plan.graph;
+        }
+        if (options?.rerank === undefined && plan.rerank !== undefined) {
+          useRerank = plan.rerank;
+        }
+      }
 
       let results: VectorQueryResult[];
       let retrievalMethod = "vector";
@@ -448,6 +495,7 @@ export class RAGPipeline {
           retrievalMethod,
           chunksRetrieved: results.length,
           reranked,
+          ...(plan ? { plan } : {}),
         },
       };
 
@@ -458,6 +506,21 @@ export class RAGPipeline {
         "rag.retrieval_method": retrievalMethod,
         "rag.results_count": results.length,
         "rag.reranked": reranked,
+        // The EFFECTIVE knobs, after planning and caller overrides. The span
+        // recorded the configured values at creation; without these a reader
+        // cannot tell a planned query from an unplanned one, which is the
+        // whole question when a fail-open path stops firing.
+        "rag.effective_top_k": topK,
+        "rag.planned": plan !== null,
+        ...(plan
+          ? {
+              "rag.plan_model": plan.model,
+              "rag.plan_latency_ms": plan.latencyMs,
+              ...(plan.breadthLevel !== undefined
+                ? { "rag.plan_breadth": plan.breadthLevel }
+                : {}),
+            }
+          : {}),
       };
       getMetricsAggregator().recordSpan(endedSpan);
       return response;
@@ -1027,6 +1090,8 @@ export function createRAGPipeline(options: {
   enableHybrid?: boolean;
   enableGraph?: boolean;
   multiModal?: MultiModalRAGConfig;
+  /** Fail-open decision caller for per-query retrieval planning. */
+  decide?: DecisionCallerFn;
 }): RAGPipeline {
   const provider = options.provider || "openai";
 
@@ -1044,5 +1109,6 @@ export function createRAGPipeline(options: {
     enableHybridSearch: options.enableHybrid,
     enableGraphRAG: options.enableGraph,
     multiModal: options.multiModal,
+    decide: options.decide,
   });
 }

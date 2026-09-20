@@ -53,7 +53,7 @@ await runSuite(async () => {
     // cohere, replicate, voyage, jina, stability, ideogram, recraft).
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 23;
+    const NON_CATALOG_PROVIDER_COUNT = 24;
     const expectedCount =
       CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
@@ -363,7 +363,7 @@ await runSuite(async () => {
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 23;
+    const NON_CATALOG_PROVIDER_COUNT = 24;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
@@ -794,6 +794,9 @@ await runSuite(async () => {
       "stability",
       "jina",
       "voyage",
+      // typesafe serves only the `decide` inference type, so it has no tools
+      // at all — the same reason voyage/jina (embedding-only) are here.
+      "typesafe",
     ]);
     // A catalog entry with capabilities.tools: false derives toolSupport
     // "none" (buildCatalogDescriptor), which the runtime treats exactly like

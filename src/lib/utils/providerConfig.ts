@@ -1517,3 +1517,21 @@ export function resolveOpenAICompatConfig(
   }
   return { apiKey, baseURL };
 }
+
+/**
+ * TypeSafe (Jev) — the `decide` inference type. Not a text provider.
+ */
+export function createTypeSafeConfig(): ProviderConfigOptions {
+  return {
+    providerName: "TypeSafe (Jev)",
+    envVarName: "TYPESAFE_API_KEY",
+    setupUrl: "https://console.typesafe.ai/keys",
+    description: "API key",
+    instructions: [
+      "1. Visit: https://console.typesafe.ai/keys",
+      "2. Sign in to your TypeSafe account",
+      "3. Create a new API key",
+      "4. Set TYPESAFE_API_KEY in your .env file",
+    ],
+  };
+}

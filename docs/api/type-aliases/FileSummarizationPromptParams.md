@@ -8,7 +8,7 @@
 
 > **FileSummarizationPromptParams** = `object`
 
-Defined in: [types/context.ts:733](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L733)
+Defined in: [types/context.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L735)
 
 Parameters for `buildFileSummarizationPrompt()`.
 
@@ -18,7 +18,7 @@ Parameters for `buildFileSummarizationPrompt()`.
 
 > **fileName**: `string`
 
-Defined in: [types/context.ts:735](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L735)
+Defined in: [types/context.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L737)
 
 File display name
 
@@ -28,7 +28,7 @@ File display name
 
 > **fileType**: `string`
 
-Defined in: [types/context.ts:737](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L737)
+Defined in: [types/context.ts:739](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L739)
 
 File type label
 
@@ -38,7 +38,7 @@ File type label
 
 > **fileContent**: `string`
 
-Defined in: [types/context.ts:739](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L739)
+Defined in: [types/context.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L741)
 
 Full extracted text of the file
 
@@ -48,7 +48,7 @@ Full extracted text of the file
 
 > **userPrompt**: `string`
 
-Defined in: [types/context.ts:741](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L741)
+Defined in: [types/context.ts:743](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L743)
 
 The user's original prompt / question
 
@@ -58,6 +58,6 @@ The user's original prompt / question
 
 > **targetTokens**: `number`
 
-Defined in: [types/context.ts:743](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L743)
+Defined in: [types/context.ts:745](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L745)
 
 Target output token count for the summary

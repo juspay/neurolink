@@ -338,30 +338,24 @@ const result = await neurolink.generate({
 
 ## Supported Vector Stores
 
-NeuroLink supports multiple vector store adapters, including:
+NeuroLink ships four built-in `VectorStore` adapters:
 
-| Store                 | Type              | Use Case                |
-| --------------------- | ----------------- | ----------------------- |
-| `InMemoryVectorStore` | In-memory         | Development, testing    |
-| Pinecone              | Cloud             | Production, serverless  |
-| Qdrant                | Self-hosted/Cloud | High performance        |
-| pgvector              | PostgreSQL        | Existing Postgres infra |
-| Chroma                | Local/Cloud       | Easy setup              |
-| Weaviate              | Cloud             | Semantic search         |
-| Milvus/Zilliz         | Cloud             | Large scale             |
-| Redis                 | In-memory         | Fast retrieval          |
-| Elasticsearch         | Distributed       | Hybrid search           |
-| MongoDB Atlas         | Cloud             | Existing MongoDB        |
+| Store                 | Type        | Use Case                |
+| --------------------- | ----------- | ----------------------- |
+| `InMemoryVectorStore` | In-memory   | Development, testing    |
+| `PineconeVectorStore` | Cloud       | Production, serverless  |
+| `PgVectorStore`       | PostgreSQL  | Existing Postgres infra |
+| `ChromaVectorStore`   | Local/Cloud | Easy setup              |
+
+The three non-memory stores use client injection — you construct the vendor client and pass it in, so no vendor SDK is a runtime dependency of `@juspay/neurolink`. Any other vector database is reachable by implementing the `VectorStore` interface yourself. See the [Vector Stores Guide](../../guides/vector-stores.md) for the full reference.
 
 ```typescript
 // Example: Pinecone
+import { Pinecone } from "@pinecone-database/pinecone";
 import { PineconeVectorStore } from "@juspay/neurolink";
 
-const vectorStore = new PineconeVectorStore({
-  apiKey: process.env.PINECONE_API_KEY,
-  indexName: "my-index",
-  namespace: "docs",
-});
+const client = new Pinecone({ apiKey: process.env.PINECONE_API_KEY! });
+const vectorStore = new PineconeVectorStore(client.index("my-index"));
 ```
 
 ## Embedding Providers

@@ -44,7 +44,13 @@ const neurolink = new NeuroLink({
 });
 ```
 
-That's it. Auto-compaction triggers at 80% context usage with all four stages enabled.
+That's it. Auto-compaction triggers at 80% context usage with every stage
+enabled.
+
+The threshold is 80% by default and can be **lowered per request** by the
+[context-budget decision](/docs/features/context-budget) — never raised. See
+that page for why the asymmetry is a hard invariant rather than a tuning
+choice.
 
 ---
 
@@ -193,6 +199,9 @@ const result = await neurolink.compactSession("session-1", {
   enableDeduplicate: true,
   enableSummarize: true,
   enableTruncate: true,
+  // Stage 0 has no switch: it runs when a decision caller is injected and is
+  // skipped when one is not, so there is no configuration in which it can
+  // change behaviour on its own.
   pruneProtectTokens: 40_000,
   summarizationProvider: "vertex",
   summarizationModel: "gemini-2.5-flash",
@@ -333,9 +342,48 @@ Source: `src/lib/context/budgetChecker.ts:18-54`
 
 ---
 
-## The 4-Stage Pipeline
+## The 5-Stage Pipeline
 
-The `ContextCompactor` runs stages sequentially. Each stage only runs if the previous stage didn't bring tokens below the target budget.
+The `ContextCompactor` runs stages sequentially. Each stage only runs if the
+previous stage didn't bring tokens below the target budget.
+
+| #   | Stage                     | `CompactionStage` | Needs a decision model                 |
+| --- | ------------------------- | ----------------- | -------------------------------------- |
+| 0   | Relevance drop            | `relevance`       | **yes** — skipped entirely without one |
+| 1   | Tool output pruning       | `prune`           | no                                     |
+| 2   | File read deduplication   | `deduplicate`     | no                                     |
+| 3   | LLM summarization         | `summarize`       | no (its _gate_ uses one)               |
+| 4   | Sliding window truncation | `truncate`        | no                                     |
+
+`result.stagesUsed` reports the ones that actually ran, in order.
+
+### Stage 0: Relevance drop
+
+**File:** `src/lib/context/contextDecision.ts`
+
+Everything below Stage 0 is chronological: the pipeline's only notion of
+"droppable" is "old". Stage 0 is the one stage that asks what a message is
+_for_ — one boolean per message ("is this needed to answer the current
+request?") in a single batch, which costs the same for 200 messages as for one
+because decision latency is flat in question count.
+
+It is **strictly additive**. With no decision provider configured the stage
+does not run, `stagesUsed` omits `relevance`, and the pipeline behaves exactly
+as the four-stage one always did. It is also bounded by `maxDropRatio` and
+walks oldest-first, so when the cap binds it spares the newest candidates —
+the same recency assumption every other stage makes.
+
+### The summary gate
+
+Stage 3 used to accept **any non-empty string** as a summary. When a decision
+model is configured, the generated summary is now checked first ("does this
+preserve every decision and open question?") and a rejected summary leaves the
+messages untouched so a later stage can try instead. The rejection is recorded
+on the span as `compaction.stage3.summaryRejected`, because a gate that
+silently discarded work would be indistinguishable from one that never ran.
+
+Rejection is deliberately rare: the gate exists to catch a summary that lost a
+decision, not to second-guess wording.
 
 ### Stage 1: Tool Output Pruning
 

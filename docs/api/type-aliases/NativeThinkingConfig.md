@@ -8,7 +8,7 @@
 
 > **NativeThinkingConfig** = `object`
 
-Defined in: [types/config.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L630)
+Defined in: [types/config.ts:642](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L642)
 
 Native SDK thinkingConfig structure for Gemini native SDK.
 
@@ -30,7 +30,7 @@ callers building the request pick whichever field the target model accepts.
 
 > **includeThoughts**: `boolean`
 
-Defined in: [types/config.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L631)
+Defined in: [types/config.ts:643](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L643)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/config.ts:631](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **thinkingLevel?**: [`ThinkingLevel`](ThinkingLevel.md)
 
-Defined in: [types/config.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L632)
+Defined in: [types/config.ts:644](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L644)
 
 ---
 
@@ -46,4 +46,4 @@ Defined in: [types/config.ts:632](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **thinkingBudget?**: `number`
 
-Defined in: [types/config.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L633)
+Defined in: [types/config.ts:645](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L645)

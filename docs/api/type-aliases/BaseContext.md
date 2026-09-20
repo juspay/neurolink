@@ -8,7 +8,7 @@
 
 > **BaseContext** = `object`
 
-Defined in: [types/context.ts:13](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L13)
+Defined in: [types/context.ts:14](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L14)
 
 Base context type for all AI operations
 
@@ -22,7 +22,7 @@ Base context type for all AI operations
 
 > `optional` **userId?**: `string`
 
-Defined in: [types/context.ts:15](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L15)
+Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L16)
 
 ---
 
@@ -30,7 +30,7 @@ Defined in: [types/context.ts:15](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L16)
+Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L17)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/context.ts:16](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **requestId?**: `string`
 
-Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L17)
+Defined in: [types/context.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L18)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/context.ts:17](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **userRole?**: `string`
 
-Defined in: [types/context.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L20)
+Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L21)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/context.ts:20](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **userPreferences?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L21)
+Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L22)
 
 ---
 
@@ -62,7 +62,7 @@ Defined in: [types/context.ts:21](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **userMetadata?**: [`JsonObject`](JsonObject.md)
 
-Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L22)
+Defined in: [types/context.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L23)
 
 ---
 
@@ -70,7 +70,7 @@ Defined in: [types/context.ts:22](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **applicationContext?**: `object`
 
-Defined in: [types/context.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L25)
+Defined in: [types/context.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L26)
 
 #### name
 
@@ -90,7 +90,7 @@ Defined in: [types/context.ts:25](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **organizationId?**: `string`
 
-Defined in: [types/context.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L32)
+Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L33)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/context.ts:32](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **departmentId?**: `string`
 
-Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L33)
+Defined in: [types/context.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L34)
 
 ---
 
@@ -106,4 +106,4 @@ Defined in: [types/context.ts:33](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **projectId?**: `string`
 
-Defined in: [types/context.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L34)
+Defined in: [types/context.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L35)

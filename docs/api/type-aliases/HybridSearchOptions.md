@@ -8,7 +8,7 @@
 
 > **HybridSearchOptions** = `object`
 
-Defined in: [types/rag.ts:471](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L471)
+Defined in: [types/rag.ts:490](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L490)
 
 Hybrid search configuration for creating a search function
 
@@ -18,7 +18,7 @@ Hybrid search configuration for creating a search function
 
 > **vectorStore**: [`VectorStore`](VectorStore.md)
 
-Defined in: [types/rag.ts:473](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L473)
+Defined in: [types/rag.ts:492](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L492)
 
 Vector store instance
 
@@ -28,7 +28,7 @@ Vector store instance
 
 > **bm25Index**: [`BM25Index`](BM25Index.md)
 
-Defined in: [types/rag.ts:475](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L475)
+Defined in: [types/rag.ts:494](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L494)
 
 BM25 index instance
 
@@ -38,7 +38,7 @@ BM25 index instance
 
 > **indexName**: `string`
 
-Defined in: [types/rag.ts:477](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L477)
+Defined in: [types/rag.ts:496](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L496)
 
 Index name for vector store
 
@@ -48,7 +48,7 @@ Index name for vector store
 
 > `optional` **embeddingModel?**: `object`
 
-Defined in: [types/rag.ts:479](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L479)
+Defined in: [types/rag.ts:498](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L498)
 
 Embedding model configuration (optional - uses defaults from ProviderFactory if not specified)
 
@@ -66,6 +66,6 @@ Embedding model configuration (optional - uses defaults from ProviderFactory if 
 
 > `optional` **defaultConfig?**: [`HybridSearchConfig`](HybridSearchConfig.md)
 
-Defined in: [types/rag.ts:484](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L484)
+Defined in: [types/rag.ts:503](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L503)
 
 Default search configuration

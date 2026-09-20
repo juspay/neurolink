@@ -27,6 +27,7 @@ import {
   StabilityModels,
   IdeogramModels,
   RecraftModels,
+  TypeSafeModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { PROVIDER_DESCRIPTORS_BY_NAME } from "./providerDescriptors.js";
@@ -643,6 +644,27 @@ export class ProviderRegistry {
         process.env.RECRAFT_MODEL || RecraftModels.RECRAFT_V3,
         ["recraft"],
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.RECRAFT),
+      );
+
+      // Register TypeSafe (Jev) — the `decide` inference type, not text.
+      // Its descriptor declares inferenceKinds: ["decide"], so nothing in the
+      // generation fallback chain can reach it.
+      ProviderFactory.registerProvider(
+        AIProviderName.TYPESAFE,
+        async (
+          modelName?: string,
+          _providerName?: string,
+          sdk?: NeuroLink,
+          _region?: string,
+          credentials?: UnknownRecord,
+        ) => {
+          const typesafeCreds = credentials as NeurolinkCredentials["typesafe"];
+          const { TypeSafeProvider } = await import("../providers/typesafe.js");
+          return new TypeSafeProvider(modelName, sdk, undefined, typesafeCreds);
+        },
+        process.env.TYPESAFE_MODEL || TypeSafeModels.JEV_LATEST,
+        ["jev", "typesafe-ai"],
+        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.TYPESAFE),
       );
 
       logger.debug("All AI providers registered successfully");

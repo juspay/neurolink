@@ -8,7 +8,7 @@
 
 > **TruncationResult** = `object`
 
-Defined in: [types/context.ts:1004](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1004)
+Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1006)
 
 Result of sliding window truncation (Stage 4).
 
@@ -18,7 +18,7 @@ Result of sliding window truncation (Stage 4).
 
 > **truncated**: `boolean`
 
-Defined in: [types/context.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1005)
+Defined in: [types/context.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1007)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:1005](https://github.com/juspay/neurolink/blob/rel
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1006)
+Defined in: [types/context.ts:1008](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1008)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:1006](https://github.com/juspay/neurolink/blob/rel
 
 > **messagesRemoved**: `number`
 
-Defined in: [types/context.ts:1007](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1007)
+Defined in: [types/context.ts:1009](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1009)

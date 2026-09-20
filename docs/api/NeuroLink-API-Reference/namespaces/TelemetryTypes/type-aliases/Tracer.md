@@ -8,7 +8,7 @@
 
 > **Tracer** = `object`
 
-Defined in: [types/providers.ts:1986](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1986)
+Defined in: [types/providers.ts:2019](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2019)
 
 ## Methods
 
@@ -16,7 +16,7 @@ Defined in: [types/providers.ts:1986](https://github.com/juspay/neurolink/blob/r
 
 > **startSpan**(`name`, `options?`): [`Span`](Span.md)
 
-Defined in: [types/providers.ts:1987](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1987)
+Defined in: [types/providers.ts:2020](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2020)
 
 #### Parameters
 

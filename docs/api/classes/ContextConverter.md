@@ -6,7 +6,7 @@
 
 # Class: ContextConverter
 
-Defined in: [types/context.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L462)
+Defined in: [types/context.ts:463](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L463)
 
 ## Constructors
 
@@ -24,7 +24,7 @@ Defined in: [types/context.ts:462](https://github.com/juspay/neurolink/blob/rele
 
 > `static` **convertBusinessContext**(`legacyContext`, `domainType`, `options?`): [`ExecutionContext`](../type-aliases/ExecutionContext.md)
 
-Defined in: [types/context.ts:467](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L467)
+Defined in: [types/context.ts:468](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L468)
 
 Convert legacy business context to generic domain context
 Based on business context patterns
@@ -53,7 +53,7 @@ Based on business context patterns
 
 > `static` **createDomainContext**(`domainType`, `domainData`, `sessionInfo?`): [`ExecutionContext`](../type-aliases/ExecutionContext.md)
 
-Defined in: [types/context.ts:531](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L531)
+Defined in: [types/context.ts:532](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L532)
 
 Create execution context for required domain
 

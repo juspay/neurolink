@@ -8,7 +8,7 @@
 
 > **ClassifierModelMeta** = `object`
 
-Defined in: [types/classifierRouter.ts:172](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L172)
+Defined in: [types/classifierRouter.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L326)
 
 Enriched per-model metadata used while ranking pool members.
 
@@ -18,7 +18,7 @@ Enriched per-model metadata used while ranking pool members.
 
 > `optional` **cost?**: `number`
 
-Defined in: [types/classifierRouter.ts:173](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L173)
+Defined in: [types/classifierRouter.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L327)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/classifierRouter.ts:173](https://github.com/juspay/neurolink/
 
 > `optional` **quality?**: `number`
 
-Defined in: [types/classifierRouter.ts:174](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L174)
+Defined in: [types/classifierRouter.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L328)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/classifierRouter.ts:174](https://github.com/juspay/neurolink/
 
 > `optional` **capabilities?**: `string`[]
 
-Defined in: [types/classifierRouter.ts:175](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L175)
+Defined in: [types/classifierRouter.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L329)

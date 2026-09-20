@@ -6,7 +6,7 @@
 
 # Class: ProviderRegistry
 
-Defined in: [factories/providerRegistry.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L41)
+Defined in: [factories/providerRegistry.ts:42](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L42)
 
 Provider Registry - registers all providers with the factory
 This is where we migrate providers one by one to the new pattern
@@ -27,7 +27,7 @@ This is where we migrate providers one by one to the new pattern
 
 > `static` **realtimeRegistration**: `Record`\<`string`, `"ok"` \| `string`\> = `{}`
 
-Defined in: [factories/providerRegistry.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L52)
+Defined in: [factories/providerRegistry.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L53)
 
 NEW4: per-handler registration outcomes for the realtime voice
 providers. `"ok"` = registered; any other string = the error message.
@@ -39,7 +39,7 @@ Empty until the first `registerAllProviders()` call.
 
 > `static` **getRegistrationReport**(): `object`
 
-Defined in: [factories/providerRegistry.ts:59](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L59)
+Defined in: [factories/providerRegistry.ts:60](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L60)
 
 Returns a snapshot of voice provider registration outcomes so callers
 can detect at runtime which voice handlers are usable. Useful in
@@ -59,7 +59,7 @@ health-check endpoints and CI startup probes.
 
 > `static` **registerAllProviders**(): `Promise`\<`void`\>
 
-Defined in: [factories/providerRegistry.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L66)
+Defined in: [factories/providerRegistry.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L67)
 
 Register all providers with the factory
 
@@ -73,7 +73,7 @@ Register all providers with the factory
 
 > `static` **isRegistered**(): `boolean`
 
-Defined in: [factories/providerRegistry.ts:815](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L815)
+Defined in: [factories/providerRegistry.ts:837](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L837)
 
 Check if providers are registered
 
@@ -87,7 +87,7 @@ Check if providers are registered
 
 > `static` **clearRegistrations**(): `void`
 
-Defined in: [factories/providerRegistry.ts:822](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L822)
+Defined in: [factories/providerRegistry.ts:844](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L844)
 
 Clear registrations (for testing)
 
@@ -101,7 +101,7 @@ Clear registrations (for testing)
 
 > `static` **setOptions**(`options`): `void`
 
-Defined in: [factories/providerRegistry.ts:835](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L835)
+Defined in: [factories/providerRegistry.ts:857](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L857)
 
 Set registry options (should be called before initialization)
 
@@ -121,7 +121,7 @@ Set registry options (should be called before initialization)
 
 > `static` **getOptions**(): [`ProviderRegistryOptions`](../type-aliases/ProviderRegistryOptions.md)
 
-Defined in: [factories/providerRegistry.ts:843](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L843)
+Defined in: [factories/providerRegistry.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerRegistry.ts#L865)
 
 Get current registry options
 

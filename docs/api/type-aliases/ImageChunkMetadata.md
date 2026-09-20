@@ -8,7 +8,7 @@
 
 > **ImageChunkMetadata** = `object`
 
-Defined in: [types/rag.ts:1653](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1653)
+Defined in: [types/rag.ts:1672](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1672)
 
 Image metadata attached to multi-modal chunks
 
@@ -18,7 +18,7 @@ Image metadata attached to multi-modal chunks
 
 > `optional` **width?**: `number`
 
-Defined in: [types/rag.ts:1655](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1655)
+Defined in: [types/rag.ts:1674](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1674)
 
 Image width in pixels
 
@@ -28,7 +28,7 @@ Image width in pixels
 
 > `optional` **height?**: `number`
 
-Defined in: [types/rag.ts:1657](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1657)
+Defined in: [types/rag.ts:1676](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1676)
 
 Image height in pixels
 
@@ -38,7 +38,7 @@ Image height in pixels
 
 > `optional` **mimeType?**: `string`
 
-Defined in: [types/rag.ts:1659](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1659)
+Defined in: [types/rag.ts:1678](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1678)
 
 Image MIME type
 
@@ -48,7 +48,7 @@ Image MIME type
 
 > `optional` **format?**: `string`
 
-Defined in: [types/rag.ts:1661](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1661)
+Defined in: [types/rag.ts:1680](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1680)
 
 Image format (jpeg, png, webp, etc.)
 
@@ -58,7 +58,7 @@ Image format (jpeg, png, webp, etc.)
 
 > `optional` **source?**: `string`
 
-Defined in: [types/rag.ts:1663](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1663)
+Defined in: [types/rag.ts:1682](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1682)
 
 Original file path or URL
 
@@ -68,6 +68,6 @@ Original file path or URL
 
 > **hasImage**: `boolean`
 
-Defined in: [types/rag.ts:1665](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1665)
+Defined in: [types/rag.ts:1684](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1684)
 
 Whether this chunk contains image data

@@ -8,6 +8,6 @@
 
 > **ChunkingStrategy** = `"character"` \| `"recursive"` \| `"sentence"` \| `"token"` \| `"markdown"` \| `"html"` \| `"json"` \| `"latex"` \| `"semantic"` \| `"semantic-markdown"`
 
-Defined in: [types/rag.ts:843](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L843)
+Defined in: [types/rag.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L862)
 
 Available chunking strategy types

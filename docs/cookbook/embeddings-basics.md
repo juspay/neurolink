@@ -169,7 +169,7 @@ main();
 
 ### 1. Provider Setup for Embeddings
 
-Embedding models are accessed through the provider directly via `ProviderFactory`. Each provider has a default embedding model:
+Embedding models are accessed through the provider directly via `ProviderFactory`. Seven providers implement `embed()` / `embedMany()` natively, each with its own default embedding model:
 
 | Provider         | Default Embedding Model        | Dimensions |
 | ---------------- | ------------------------------ | ---------- |
@@ -177,6 +177,13 @@ Embedding models are accessed through the provider directly via `ProviderFactory
 | Google AI Studio | `gemini-embedding-001`         | 3072       |
 | Google Vertex    | `text-embedding-004`           | 768        |
 | Amazon Bedrock   | `amazon.titan-embed-text-v2:0` | 1024       |
+| Cohere           | `embed-english-v3.0`           | 1024       |
+| Voyage AI        | `voyage-3.5`                   | 1024       |
+| Jina AI          | `jina-embeddings-v3`           | 1024       |
+| Ollama           | `nomic-embed-text`             | 768        |
+| LiteLLM          | proxied to the upstream model  | varies     |
+
+Nine providers implement `embed()` / `embedMany()` natively. Voyage AI and Jina AI are embedding-focused and don't serve `generate()` / `stream()` chat completions — Voyage is embedding-only, and Jina also does reranking. Cohere additionally implements `embed()` / `embedMany()`, but its default model (`command-r-plus`) is a full chat model, so unlike Voyage and Jina, Cohere also serves `generate()` / `stream()`.
 
 > **Note:** Google's `text-embedding-004` is being retired. The recommended replacement is `gemini-embedding-001` (3072 dimensions). Override the default with `VERTEX_EMBEDDING_MODEL=gemini-embedding-001`.
 

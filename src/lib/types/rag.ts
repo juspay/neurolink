@@ -1,5 +1,6 @@
 import type { Tool } from "./tools.js";
 import type { EmbedInput } from "./providers.js";
+import type { DecisionCallerFn } from "./decision.js";
 
 /**
  * RAG Type Definitions
@@ -280,6 +281,16 @@ export type RAGPipelineConfig = {
   rerankingModel?: EmbeddingModelConfig;
   /** Multi-modal RAG configuration (image + text embeddings) */
   multiModal?: MultiModalRAGConfig;
+  /**
+   * Fail-open decision caller — typically a bound `NeuroLink.tryDecide`.
+   *
+   * When supplied AND a decision provider is configured, each query gets its
+   * own retrieval plan (`topK`, `hybrid`, `graph`, `rerank`) instead of the
+   * four static config values. An explicit per-call `QueryOptions` field
+   * always wins, and a capability this config did not enable can never be
+   * turned on by the plan.
+   */
+  decide?: DecisionCallerFn;
 };
 
 /**
@@ -320,6 +331,12 @@ export type QueryOptions = {
   systemPrompt?: string;
   /** Temperature for generation */
   temperature?: number;
+  /**
+   * Set false to skip per-query retrieval planning even when a decision
+   * provider is configured. Fields passed explicitly here already override
+   * the plan, so this is for turning the extra round trip off entirely.
+   */
+  plan?: boolean;
 };
 
 /**
@@ -343,6 +360,8 @@ export type RAGResponse = {
     retrievalMethod: string;
     chunksRetrieved: number;
     reranked: boolean;
+    /** The per-query retrieval plan, when one was decided. */
+    plan?: SearchPlanResult;
   };
 };
 
@@ -1782,4 +1801,35 @@ export type ImageLoaderOptions = {
   fetchTimeout?: number;
   /** Custom headers for URL fetches */
   headers?: Record<string, string>;
+};
+
+/**
+ * What a pipeline is *able* to do, handed to the per-search planner so it
+ * never suggests a capability that is not configured.
+ */
+export type SearchPlanCapabilities = {
+  /** The configured topK a breadth reading is scaled against. */
+  defaultTopK: number;
+  canHybrid: boolean;
+  canGraph: boolean;
+  canRerank: boolean;
+  /** Per-call timeout override for the decision request. */
+  timeoutMs?: number;
+};
+
+/**
+ * A suggested retrieval plan for one query. Every field is optional and means
+ * "use this unless the caller passed an explicit option".
+ */
+export type SearchPlanResult = {
+  topK?: number;
+  hybrid?: boolean;
+  graph?: boolean;
+  rerank?: boolean;
+  /** Index into the breadth rubric the topK was derived from. */
+  breadthLevel?: number;
+  /** Resolved decision model id, for telemetry. */
+  model: string;
+  /** Round trip in milliseconds. */
+  latencyMs: number;
 };

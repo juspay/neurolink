@@ -68,6 +68,11 @@ export const textGenerationOptionsSchema: Record<
     type: "number",
     description: "The maximum number of tokens to generate.",
   },
+  compactionThreshold: {
+    type: "number",
+    description:
+      "Fraction of the context window (0-1) at which history is compacted. Default 0.8.",
+  },
   topP: {
     type: "number",
     description:

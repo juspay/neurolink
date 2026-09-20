@@ -8,7 +8,7 @@
 
 > **SageMakerEndpointInfo** = `object`
 
-Defined in: [types/providers.ts:1467](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1467)
+Defined in: [types/providers.ts:1500](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1500)
 
 SageMaker endpoint information and metadata
 
@@ -18,7 +18,7 @@ SageMaker endpoint information and metadata
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:1469](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1469)
+Defined in: [types/providers.ts:1502](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1502)
 
 Endpoint name
 
@@ -28,7 +28,7 @@ Endpoint name
 
 > **endpointArn**: `string`
 
-Defined in: [types/providers.ts:1471](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1471)
+Defined in: [types/providers.ts:1504](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1504)
 
 Endpoint ARN
 
@@ -38,7 +38,7 @@ Endpoint ARN
 
 > **modelName**: `string`
 
-Defined in: [types/providers.ts:1473](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1473)
+Defined in: [types/providers.ts:1506](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1506)
 
 Associated model name
 
@@ -48,7 +48,7 @@ Associated model name
 
 > **instanceType**: `string`
 
-Defined in: [types/providers.ts:1475](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1475)
+Defined in: [types/providers.ts:1508](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1508)
 
 EC2 instance type
 
@@ -58,7 +58,7 @@ EC2 instance type
 
 > **creationTime**: `string`
 
-Defined in: [types/providers.ts:1477](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1477)
+Defined in: [types/providers.ts:1510](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1510)
 
 Endpoint creation timestamp
 
@@ -68,7 +68,7 @@ Endpoint creation timestamp
 
 > **lastModifiedTime**: `string`
 
-Defined in: [types/providers.ts:1479](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1479)
+Defined in: [types/providers.ts:1512](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1512)
 
 Last modification timestamp
 
@@ -78,7 +78,7 @@ Last modification timestamp
 
 > **endpointStatus**: `"InService"` \| `"Creating"` \| `"Updating"` \| `"SystemUpdating"` \| `"RollingBack"` \| `"Deleting"` \| `"Failed"`
 
-Defined in: [types/providers.ts:1481](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1481)
+Defined in: [types/providers.ts:1514](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1514)
 
 Current endpoint status
 
@@ -88,7 +88,7 @@ Current endpoint status
 
 > `optional` **currentInstanceCount?**: `number`
 
-Defined in: [types/providers.ts:1490](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1490)
+Defined in: [types/providers.ts:1523](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1523)
 
 Current instance count
 
@@ -98,7 +98,7 @@ Current instance count
 
 > `optional` **productionVariants?**: `object`[]
 
-Defined in: [types/providers.ts:1492](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1492)
+Defined in: [types/providers.ts:1525](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1525)
 
 Variant weights for A/B testing
 

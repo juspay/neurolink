@@ -8,6 +8,6 @@
 
 > **ProxyShareCliAction** = `"create"` \| `"list"` \| `"status"` \| `"pause"` \| `"resume"` \| `"revoke"` \| `"topup"` \| `"set"` \| `"link"` \| `"rotate"` \| `"level"` \| `"provision"` \| `"url"` \| `"note"` \| `"notes"` \| `"receipts"` \| `"delete"`
 
-Defined in: [types/cli.ts:2140](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2140)
+Defined in: [types/cli.ts:2156](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2156)
 
 Actions accepted by `neurolink proxy share`.

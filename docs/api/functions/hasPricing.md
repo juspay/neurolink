@@ -8,7 +8,7 @@
 
 > **hasPricing**(`provider`, `model`): `boolean`
 
-Defined in: [utils/pricing.ts:1016](https://github.com/juspay/neurolink/blob/release/src/lib/utils/pricing.ts#L1016)
+Defined in: [utils/pricing.ts:1027](https://github.com/juspay/neurolink/blob/release/src/lib/utils/pricing.ts#L1027)
 
 ## Parameters
 

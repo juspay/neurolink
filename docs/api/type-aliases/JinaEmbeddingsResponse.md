@@ -8,7 +8,7 @@
 
 > **JinaEmbeddingsResponse** = `object`
 
-Defined in: [types/providers.ts:273](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L273)
+Defined in: [types/providers.ts:295](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L295)
 
 Jina AI /embeddings response shape (compatible with OpenAI's shape).
 
@@ -18,7 +18,7 @@ Jina AI /embeddings response shape (compatible with OpenAI's shape).
 
 > `optional` **object?**: `string`
 
-Defined in: [types/providers.ts:274](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L274)
+Defined in: [types/providers.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L296)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:274](https://github.com/juspay/neurolink/blob/re
 
 > **data**: `object`[]
 
-Defined in: [types/providers.ts:275](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L275)
+Defined in: [types/providers.ts:297](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L297)
 
 #### object?
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:275](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **model?**: `string`
 
-Defined in: [types/providers.ts:276](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L276)
+Defined in: [types/providers.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L298)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:276](https://github.com/juspay/neurolink/blob/re
 
 > `optional` **usage?**: `object`
 
-Defined in: [types/providers.ts:277](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L277)
+Defined in: [types/providers.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L299)
 
 #### total_tokens?
 

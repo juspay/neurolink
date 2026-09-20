@@ -4,6 +4,10 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 
 ## Supported Providers
 
+NeuroLink ships 40 providers in total. This guide walks through full environment-variable setup for the providers below; the complete roster — including the newer catalog providers and the embedding/media/decision-only providers — is indexed with setup guides at [Provider Guides](providers/index.md).
+
+### Providers configured in this guide
+
 - **OpenAI** - GPT-4o, GPT-4o-mini, GPT-4-turbo
 - **Amazon Bedrock** - Claude 3.7 Sonnet, Claude 3.5 Sonnet, Claude 3 Haiku
 - **Amazon SageMaker** - Custom models deployed on SageMaker endpoints
@@ -14,11 +18,42 @@ NeuroLink supports multiple AI providers with flexible authentication methods. T
 - **LiteLLM** - 100+ models from all providers via proxy server
 - **Hugging Face** - open models served by the unified router (Llama 3.x, Qwen 2.5, DeepSeek, Mistral)
 - **Ollama** - Local AI models including Llama 2, Code Llama, Mistral, Vicuna
+- **OpenRouter** - 300+ models from every major lab via one aggregator endpoint
 - **Mistral AI** - Mistral Tiny, Small, Medium, and Large models
 - **DeepSeek** - deepseek-chat (V3) and deepseek-reasoner (R1)
 - **NVIDIA NIM** - Llama 3.3 70B and 400+ catalog models via NVIDIA hosted or self-hosted NIM
 - **LM Studio** - Any model loaded in LM Studio desktop app (local, no API key required)
 - **llama.cpp** - Any GGUF model served by llama-server (local, no API key required)
+
+### Other providers (setup guides in the Provider Guides index)
+
+Onboarded via the zero-quirk OpenAI-wire-compatible catalog (Tier 2) — each has its own setup guide under [`providers/`](providers/):
+
+- **[Groq](providers/groq.md)** - LPU-accelerated inference; default `openai/gpt-oss-120b`
+- **[Cerebras](providers/cerebras.md)** - Wafer-scale inference; default `gpt-oss-120b`
+- **[SambaNova](providers/sambanova.md)** - default `Meta-Llama-3.3-70B-Instruct`
+- **[Together AI](providers/together-ai.md)** - default `meta-llama/Llama-3.3-70B-Instruct-Turbo`
+- **[Fireworks AI](providers/fireworks.md)** - default `accounts/fireworks/models/kimi-k2p6`
+- **[Perplexity](providers/perplexity.md)** - search-augmented models; default `sonar`
+- **[Cloudflare Workers AI](providers/cloudflare.md)** - edge inference
+- **[xAI](providers/xai.md)** - Grok models; default `grok-4.6`
+- **[Baseten](providers/baseten.md)** - default `zai-org/GLM-5.3-Flash` (`BASETEN_API_KEY`)
+- **[GMI Cloud](providers/gmicloud.md)** - default `MiniMaxAI/MiniMax-M3` (`GMICLOUD_API_KEY`)
+- **[Inception Labs](providers/inception-labs.md)** - diffusion LLMs; default `mercury-2` (`INCEPTION_LABS_API_KEY`)
+- **[io.net Intelligence](providers/io-intelligence.md)** - decentralized GPU inference; default `meta-llama/Llama-3.3-70B-Instruct` (`IO_INTELLIGENCE_API_KEY`)
+- **[Mancer](providers/mancer.md)** - default `deepseek-v4-flash` (`MANCER_API_KEY`); **no tool calling**
+- **[Upstage](providers/upstage.md)** - Solar models; default `solar-pro4` (`UPSTAGE_API_KEY`)
+- **[API Route](providers/api-route.md)** - OpenAI-compatible passthrough; default `claude-sonnet-4-6` (`API_ROUTE_API_KEY`)
+
+Embedding, media-generation, and decision-only providers — not part of `generate()`/`stream()` provider selection in the same way, but each has a setup guide:
+
+- **[Cohere](providers/cohere.md)** - chat + `embed-english-v3.0` embeddings + reranking
+- **[Voyage AI](providers/voyage.md)** - embedding-only; default `voyage-3.5`
+- **[Jina AI](providers/jina.md)** - embeddings + reranking; default `jina-embeddings-v3`
+- **[Replicate](providers/replicate.md)**, **[Stability AI](providers/stability.md)**, **[Ideogram](providers/ideogram.md)**, **[Recraft](providers/recraft.md)** - direct image generation
+- **[TypeSafe Jev](providers/typesafe.md)** - decision-only; serves `decide()`, not `generate()`/`stream()`. Set `TYPESAFE_API_KEY` (or `AI_GATEWAY_API_KEY` for the gateway transport)
+
+Voice providers (TTS/STT/Realtime) are configured further down in this guide — see [OpenAI TTS](#openai-tts) onward.
 
 ## 💰 Model Availability & Cost Considerations
 

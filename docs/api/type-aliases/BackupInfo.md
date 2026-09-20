@@ -8,7 +8,7 @@
 
 > **BackupInfo** = `object`
 
-Defined in: [types/config.ts:446](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L446)
+Defined in: [types/config.ts:458](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L458)
 
 Backup metadata information
 
@@ -18,7 +18,7 @@ Backup metadata information
 
 > **filename**: `string`
 
-Defined in: [types/config.ts:447](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L447)
+Defined in: [types/config.ts:459](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L459)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:447](https://github.com/juspay/neurolink/blob/relea
 
 > **path**: `string`
 
-Defined in: [types/config.ts:448](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L448)
+Defined in: [types/config.ts:460](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L460)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:448](https://github.com/juspay/neurolink/blob/relea
 
 > **metadata**: [`BackupMetadata`](BackupMetadata.md)
 
-Defined in: [types/config.ts:449](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L449)
+Defined in: [types/config.ts:461](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L461)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/config.ts:449](https://github.com/juspay/neurolink/blob/relea
 
 > **config**: [`NeuroLinkConfig`](NeuroLinkConfig.md)
 
-Defined in: [types/config.ts:450](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L450)
+Defined in: [types/config.ts:462](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L462)

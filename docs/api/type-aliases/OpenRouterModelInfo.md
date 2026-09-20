@@ -8,7 +8,7 @@
 
 > **OpenRouterModelInfo** = `object`
 
-Defined in: [types/providers.ts:2012](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2012)
+Defined in: [types/providers.ts:2045](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2045)
 
 OpenRouter model information from /api/v1/models endpoint
 
@@ -18,7 +18,7 @@ OpenRouter model information from /api/v1/models endpoint
 
 > **id**: `string`
 
-Defined in: [types/providers.ts:2014](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2014)
+Defined in: [types/providers.ts:2047](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2047)
 
 Model ID in format 'provider/model-name'
 
@@ -28,7 +28,7 @@ Model ID in format 'provider/model-name'
 
 > `optional` **supported_parameters?**: `string`[]
 
-Defined in: [types/providers.ts:2016](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2016)
+Defined in: [types/providers.ts:2049](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2049)
 
 Supported parameters (e.g., 'tools', 'temperature')
 
@@ -38,7 +38,7 @@ Supported parameters (e.g., 'tools', 'temperature')
 
 > `optional` **name?**: `string`
 
-Defined in: [types/providers.ts:2018](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2018)
+Defined in: [types/providers.ts:2051](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2051)
 
 Model name
 
@@ -48,7 +48,7 @@ Model name
 
 > `optional` **description?**: `string`
 
-Defined in: [types/providers.ts:2020](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2020)
+Defined in: [types/providers.ts:2053](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2053)
 
 Model description
 
@@ -58,7 +58,7 @@ Model description
 
 > `optional` **pricing?**: `object`
 
-Defined in: [types/providers.ts:2022](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2022)
+Defined in: [types/providers.ts:2055](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2055)
 
 Pricing information
 
@@ -76,6 +76,6 @@ Pricing information
 
 > `optional` **context_length?**: `number`
 
-Defined in: [types/providers.ts:2027](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2027)
+Defined in: [types/providers.ts:2060](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2060)
 
 Context length

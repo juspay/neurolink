@@ -47,6 +47,8 @@ export enum AIProviderName {
   STABILITY = "stability",
   IDEOGRAM = "ideogram",
   RECRAFT = "recraft",
+  /** TypeSafe (Jev) — serves the `decide` inference type only. */
+  TYPESAFE = "typesafe",
   AUTO = "auto",
 }
 
@@ -1459,3 +1461,15 @@ export enum XaiModels {
   GROK_BETA = "grok-beta",
 }
 // ── END GENERATED(models-enums) ──
+
+/**
+ * TypeSafe decision models. Hand-written: TypeSafe is a Tier-3 provider, so
+ * it is not in the provider catalog and codegen never touches this.
+ *
+ * `jev-preview` currently resolves to the same build as `jev-latest`; both
+ * report themselves as a pinned version (e.g. `jev-1.13.0`) in the response.
+ */
+export enum TypeSafeModels {
+  JEV_LATEST = "jev-latest",
+  JEV_PREVIEW = "jev-preview",
+}

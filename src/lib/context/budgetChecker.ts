@@ -22,7 +22,7 @@ import {
 } from "../observability/index.js";
 import { getActiveTraceContext } from "../telemetry/traceContext.js";
 /** Default compaction threshold (80% of available input) */
-const DEFAULT_COMPACTION_THRESHOLD = 0.8;
+export const DEFAULT_COMPACTION_THRESHOLD = 0.8;
 
 /**
  * Fraction of the derived history budget actually handed to the compactor.
@@ -49,25 +49,35 @@ const TOKENS_PER_TOOL_DEFINITION = 200;
  * Returns 0 when the fixed overhead already exceeds the window; callers must
  * treat that as unrecoverable rather than compacting to an empty history.
  */
-export function resolveHistoryBudget(result: BudgetCheckResult): number {
+export function resolveHistoryBudget(
+  result: BudgetCheckResult,
+  compactionThreshold?: number,
+): number {
   const { availableInputTokens, breakdown } = result;
+  // A per-request threshold says how much of the window this request should
+  // occupy. Expressed against the 0.8 default it becomes a pure scale factor,
+  // so the default reproduces the previous number EXACTLY (0.8/0.8 = 1) and
+  // anything lower shrinks the target. Clamped to at most 1 because this is
+  // the "give the model less context" lever, never the "give it more" one —
+  // over-filling a window is a hard provider error that ModelPool records as
+  // a permanent cooldown.
+  const scale =
+    compactionThreshold === undefined
+      ? 1
+      : Math.max(
+          0,
+          Math.min(1, compactionThreshold / DEFAULT_COMPACTION_THRESHOLD),
+        );
+  const factor = HISTORY_BUDGET_SAFETY_FACTOR * scale;
   if (!breakdown) {
-    return Math.max(
-      0,
-      Math.floor(availableInputTokens * HISTORY_BUDGET_SAFETY_FACTOR),
-    );
+    return Math.max(0, Math.floor(availableInputTokens * factor));
   }
   const overhead =
     breakdown.systemPrompt +
     breakdown.currentPrompt +
     breakdown.toolDefinitions +
     breakdown.fileAttachments;
-  return Math.max(
-    0,
-    Math.floor(
-      (availableInputTokens - overhead) * HISTORY_BUDGET_SAFETY_FACTOR,
-    ),
-  );
+  return Math.max(0, Math.floor((availableInputTokens - overhead) * factor));
 }
 
 /**
@@ -182,6 +192,11 @@ export function checkContextBudget(
         "context.triggered": shouldCompact,
         "context.estimatedTokens": estimatedInputTokens,
         "context.availableTokens": availableInputTokens,
+        // The threshold this check actually used. `shouldCompact` is
+        // meaningless without it once the threshold became per-request:
+        // the same usageRatio can be over budget for one request and under
+        // it for the next.
+        "context.compactionThreshold": compactionThreshold,
       }),
       SpanStatus.OK,
     );

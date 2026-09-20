@@ -15,6 +15,8 @@ import type {
   CompactionResult,
   CompactionConfig,
   CompactionStage,
+  ContextCompactorDeps,
+  ContextCompactRequest,
 } from "../types/index.js";
 import { estimateMessagesTokens } from "../utils/tokenEstimation.js";
 import { logger } from "../utils/logger.js";
@@ -32,6 +34,10 @@ import { pruneToolOutputs } from "./stages/toolOutputPruner.js";
 import { deduplicateFileReads } from "./stages/fileReadDeduplicator.js";
 import { truncateWithSlidingWindow } from "./stages/slidingWindowTruncator.js";
 import { summarizeMessages } from "./stages/structuredSummarizer.js";
+import {
+  selectIrrelevantMessages,
+  summaryPreservesContext,
+} from "./contextDecision.js";
 
 const DEFAULT_CONFIG: Required<CompactionConfig> = {
   enablePrune: true,
@@ -51,8 +57,17 @@ const DEFAULT_CONFIG: Required<CompactionConfig> = {
 export class ContextCompactor {
   private config: Required<CompactionConfig>;
 
-  constructor(config?: CompactionConfig) {
+  /**
+   * Injected decision caller and its tuning. Kept OUT of `CompactionConfig`
+   * deliberately: that type is `Required<>`-ed into `DEFAULT_CONFIG`, so a
+   * function member would need a default implementation, and the compactor
+   * must stay usable with no decision provider at all.
+   */
+  private readonly deps: ContextCompactorDeps;
+
+  constructor(config?: CompactionConfig, deps?: ContextCompactorDeps) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.deps = deps ?? {};
   }
 
   /**
@@ -63,6 +78,7 @@ export class ContextCompactor {
     targetTokens: number,
     memoryConfig?: Partial<ConversationMemoryConfig>,
     requestId?: string,
+    request?: ContextCompactRequest,
   ): Promise<CompactionResult> {
     return withSpan(
       {
@@ -99,63 +115,45 @@ export class ContextCompactor {
             budgetTokens: targetTokens,
           });
 
+          // Stage 0: Relevance. Runs FIRST, and only when a decision
+          // provider is configured and the current request is known — every
+          // later stage is positional, so removing what the request provably
+          // does not need before they run means they have less to throw away
+          // by recency alone. Fails open to exactly the previous pipeline.
+          const afterRelevance = await this.runRelevanceStage(
+            currentMessages,
+            provider,
+            targetTokens,
+            request,
+            requestId,
+          );
+          if (afterRelevance) {
+            currentMessages = afterRelevance;
+            stagesUsed.push("relevance");
+          }
+
           // Stage 1: Tool Output Pruning
-          if (
-            this.config.enablePrune &&
-            estimateMessagesTokens(currentMessages, provider) > targetTokens
-          ) {
-            const stageTokensBefore = estimateMessagesTokens(
-              currentMessages,
-              provider,
-            );
-            const pruneResult = pruneToolOutputs(currentMessages, {
-              protectTokens: this.config.pruneProtectTokens,
-              minimumSavings: this.config.pruneMinimumSavings,
-              protectedTools: this.config.pruneProtectedTools,
-              provider,
-            });
-            if (pruneResult.pruned) {
-              currentMessages = pruneResult.messages;
-              stagesUsed.push("prune");
-            }
-            const stageTokensAfter = estimateMessagesTokens(
-              currentMessages,
-              provider,
-            );
-            logger.info("[Compaction] Stage 1 (prune)", {
-              requestId,
-              ran: pruneResult.pruned,
-              tokensBefore: stageTokensBefore,
-              tokensAfter: stageTokensAfter,
-              saved: stageTokensBefore - stageTokensAfter,
-            });
+          const afterPrune = this.runPruneStage(
+            currentMessages,
+            provider,
+            targetTokens,
+            requestId,
+          );
+          if (afterPrune) {
+            currentMessages = afterPrune;
+            stagesUsed.push("prune");
           }
 
           // Stage 2: File Read Deduplication
-          if (
-            this.config.enableDeduplicate &&
-            estimateMessagesTokens(currentMessages, provider) > targetTokens
-          ) {
-            const stageTokensBefore = estimateMessagesTokens(
-              currentMessages,
-              provider,
-            );
-            const dedupResult = deduplicateFileReads(currentMessages);
-            if (dedupResult.deduplicated) {
-              currentMessages = dedupResult.messages;
-              stagesUsed.push("deduplicate");
-            }
-            const stageTokensAfter = estimateMessagesTokens(
-              currentMessages,
-              provider,
-            );
-            logger.info("[Compaction] Stage 2 (deduplicate)", {
-              requestId,
-              ran: dedupResult.deduplicated,
-              tokensBefore: stageTokensBefore,
-              tokensAfter: stageTokensAfter,
-              saved: stageTokensBefore - stageTokensAfter,
-            });
+          const afterDedup = this.runDeduplicateStage(
+            currentMessages,
+            provider,
+            targetTokens,
+            requestId,
+          );
+          if (afterDedup) {
+            currentMessages = afterDedup;
+            stagesUsed.push("deduplicate");
           }
 
           // Stage 3: LLM Summarization
@@ -179,7 +177,21 @@ export class ContextCompactor {
                 120_000,
                 "LLM summarization timed out after 120s",
               );
-              if (summarizeResult.summarized) {
+              // Gate the summary before it replaces anything — see
+              // acceptSummary for why a rejection is deliberately rare.
+              const summaryAccepted =
+                summarizeResult.summarized &&
+                (await this.acceptSummary(
+                  currentMessages,
+                  summarizeResult.messages,
+                ));
+              if (summarizeResult.summarized && !summaryAccepted) {
+                span = SpanSerializer.updateAttributes(span, {
+                  "compaction.stage3.summaryRejected": true,
+                });
+              }
+
+              if (summaryAccepted) {
                 // Pinned skill instructions must survive summarization:
                 // re-seat any that the summarized region swallowed right
                 // after the summary message (index 0 of the result).
@@ -207,7 +219,7 @@ export class ContextCompactor {
               );
               logger.info("[Compaction] Stage 3 (summarize)", {
                 requestId,
-                ran: summarizeResult.summarized,
+                ran: summaryAccepted,
                 tokensBefore: stageTokensBefore,
                 tokensAfter: stageTokensAfter,
                 saved: stageTokensBefore - stageTokensAfter,
@@ -342,5 +354,154 @@ export class ContextCompactor {
         }
       },
     ); // end withSpan
+  }
+
+  /**
+   * Stage 0 — drop the earlier messages this request provably does not need.
+   *
+   * Returns the surviving messages, or `null` when nothing changed: no
+   * decision provider, no known request, nothing eligible, or no confident
+   * drop. Never throws — a failure here must leave the positional stages to
+   * run exactly as they did before this stage existed.
+   */
+  private async runRelevanceStage(
+    messages: ChatMessage[],
+    provider: string | undefined,
+    targetTokens: number,
+    request: ContextCompactRequest | undefined,
+    requestId: string | undefined,
+  ): Promise<ChatMessage[] | null> {
+    if (!this.deps.decide || !request?.currentRequest) {
+      return null;
+    }
+    const tokensBefore = estimateMessagesTokens(messages, provider);
+    if (tokensBefore <= targetTokens) {
+      return null;
+    }
+    try {
+      const relevance = await selectIrrelevantMessages(
+        messages,
+        request.currentRequest,
+        this.deps.decide,
+        this.deps.relevance,
+      );
+      logger.info("[Compaction] Stage 0 (relevance)", {
+        requestId,
+        ran: !!relevance,
+        tokensBefore,
+        tokensAfter: relevance
+          ? estimateMessagesTokens(relevance.messages, provider)
+          : tokensBefore,
+        droppedCount: relevance?.droppedIndices.length ?? 0,
+      });
+      return relevance ? relevance.messages : null;
+    } catch (error) {
+      logger.warn("[Compaction] Stage 0 (relevance) FAILED", {
+        requestId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Whether a generated summary may replace the messages it covers.
+   *
+   * Stage 3 accepts any non-empty string today, so a refusal, an error
+   * message or a truncated fragment silently destroys the conversation it was
+   * meant to preserve — and the originals are gone before anyone reads it.
+   *
+   * Returns true unless a decision model CONFIDENTLY rejects the summary,
+   * because rejecting one falls through to truncation, which loses strictly
+   * more than an imperfect summary does.
+   */
+  private async acceptSummary(
+    before: ChatMessage[],
+    after: ChatMessage[],
+  ): Promise<boolean> {
+    if (!this.deps.decide) {
+      return true;
+    }
+    const survivingIds = new Set(after.map((m) => m.id));
+    const replaced = before.filter((m) => !survivingIds.has(m.id));
+    const summaryText = after.find((m) => m.metadata?.isSummary)?.content;
+    if (!summaryText || replaced.length === 0) {
+      return true;
+    }
+    return summaryPreservesContext(
+      summaryText,
+      replaced,
+      this.deps.decide,
+      this.deps.summaryGate,
+    );
+  }
+
+  /**
+   * Stage 2 — collapse repeated reads of the same file to the last one.
+   * Returns the deduplicated messages, or `null` when the stage is disabled,
+   * already within budget, or found nothing to collapse.
+   */
+  private runDeduplicateStage(
+    messages: ChatMessage[],
+    provider: string | undefined,
+    targetTokens: number,
+    requestId: string | undefined,
+  ): ChatMessage[] | null {
+    if (!this.config.enableDeduplicate) {
+      return null;
+    }
+    const tokensBefore = estimateMessagesTokens(messages, provider);
+    if (tokensBefore <= targetTokens) {
+      return null;
+    }
+    const dedupResult = deduplicateFileReads(messages);
+    const tokensAfter = dedupResult.deduplicated
+      ? estimateMessagesTokens(dedupResult.messages, provider)
+      : tokensBefore;
+    logger.info("[Compaction] Stage 2 (deduplicate)", {
+      requestId,
+      ran: dedupResult.deduplicated,
+      tokensBefore,
+      tokensAfter,
+      saved: tokensBefore - tokensAfter,
+    });
+    return dedupResult.deduplicated ? dedupResult.messages : null;
+  }
+
+  /**
+   * Stage 1 — shrink large tool outputs outside the protected recent window.
+   * Returns the pruned messages, or `null` when the stage is disabled,
+   * already within budget, or saved nothing worth keeping.
+   */
+  private runPruneStage(
+    messages: ChatMessage[],
+    provider: string | undefined,
+    targetTokens: number,
+    requestId: string | undefined,
+  ): ChatMessage[] | null {
+    if (!this.config.enablePrune) {
+      return null;
+    }
+    const tokensBefore = estimateMessagesTokens(messages, provider);
+    if (tokensBefore <= targetTokens) {
+      return null;
+    }
+    const pruneResult = pruneToolOutputs(messages, {
+      protectTokens: this.config.pruneProtectTokens,
+      minimumSavings: this.config.pruneMinimumSavings,
+      protectedTools: this.config.pruneProtectedTools,
+      provider,
+    });
+    const tokensAfter = pruneResult.pruned
+      ? estimateMessagesTokens(pruneResult.messages, provider)
+      : tokensBefore;
+    logger.info("[Compaction] Stage 1 (prune)", {
+      requestId,
+      ran: pruneResult.pruned,
+      tokensBefore,
+      tokensAfter,
+      saved: tokensBefore - tokensAfter,
+    });
+    return pruneResult.pruned ? pruneResult.messages : null;
   }
 }

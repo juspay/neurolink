@@ -8,7 +8,7 @@
 
 > **ToolRetrievalRankedResult** = `object`
 
-Defined in: [types/toolRouting.ts:374](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L374)
+Defined in: [types/toolRouting.ts:411](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L411)
 
 One ranked result from `ToolEmbeddingIndex.rank()` or
 `selectRelevantToolNames()`.
@@ -19,7 +19,7 @@ One ranked result from `ToolEmbeddingIndex.rank()` or
 
 > **name**: `string`
 
-Defined in: [types/toolRouting.ts:376](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L376)
+Defined in: [types/toolRouting.ts:413](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L413)
 
 Tool name (mirrors `ToolRetrievalItem.name`).
 
@@ -29,6 +29,6 @@ Tool name (mirrors `ToolRetrievalItem.name`).
 
 > **score**: `number`
 
-Defined in: [types/toolRouting.ts:378](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L378)
+Defined in: [types/toolRouting.ts:415](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L415)
 
 Combined hybrid score (higher = more relevant).

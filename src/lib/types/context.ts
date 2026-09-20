@@ -6,6 +6,7 @@
 import type { ExecutionContext } from "../types/tools.js";
 import type { JsonObject, JsonValue } from "./common.js";
 import type { ChatMessage, ConversationMemoryConfig } from "./conversation.js";
+import type { DecisionCallerFn } from "./decision.js";
 
 /**
  * Base context type for all AI operations
@@ -604,6 +605,7 @@ export class ContextConverter {
 
 /** Stages available in the compaction pipeline. */
 export type CompactionStage =
+  | "relevance"
   | "prune"
   | "deduplicate"
   | "summarize"
@@ -1042,4 +1044,58 @@ export type NativeGenerateGuardConfig = {
   provider: string;
   availableInputTokens: number;
   getFixedOverheadTokens: () => number;
+};
+
+/** Tuning for the relevance stage of context compaction. */
+export type ContextRelevanceOptions = {
+  /** Trailing messages never eligible for dropping. Default 6. */
+  protectRecent?: number;
+  /** Confidence required to drop a message. Default 0.6. */
+  minDropConfidence?: number;
+  /** Ceiling on the share of eligible messages one pass may drop. Default 0.5. */
+  maxDropRatio?: number;
+  /** Per-call timeout override for the decision request. */
+  timeoutMs?: number;
+};
+
+/** What the relevance stage concluded. */
+export type ContextRelevanceResult = {
+  /** The surviving messages, in their original order. */
+  messages: ChatMessage[];
+  /** Indices into the ORIGINAL array that were dropped. */
+  droppedIndices: number[];
+  /** How many messages were asked about. */
+  askedCount: number;
+  /** How many came back with a usable, confident answer. */
+  answeredCount: number;
+  /** Resolved decision model id, for telemetry. */
+  model: string;
+  /** Round trip in milliseconds. */
+  latencyMs: number;
+};
+
+/**
+ * Injected dependencies for {@link ContextCompactor}.
+ *
+ * Deliberately separate from `CompactionConfig`: that type is spread into a
+ * `Required<CompactionConfig>` default, so a function member would need a
+ * default implementation, and the compactor must stay fully usable with no
+ * decision provider configured.
+ */
+export type ContextCompactorDeps = {
+  /** Fail-open decision caller. Omitted = the previous pipeline, exactly. */
+  decide?: DecisionCallerFn;
+  /** Tuning for the relevance stage. */
+  relevance?: ContextRelevanceOptions;
+  /** Tuning for the post-summarization quality gate. */
+  summaryGate?: { timeoutMs?: number; minConfidence?: number };
+};
+
+/** Per-call context handed to `ContextCompactor.compact`. */
+export type ContextCompactRequest = {
+  /**
+   * The request being prepared. Without it the relevance stage cannot run —
+   * "is this message still needed?" is meaningless without knowing what for.
+   */
+  currentRequest?: string;
 };

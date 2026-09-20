@@ -6,7 +6,7 @@
 
 # Enumeration: SpanStatus
 
-Defined in: [types/span.ts:52](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L52)
+Defined in: [types/span.ts:63](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L63)
 
 Span status codes (following OTel conventions)
 
@@ -16,7 +16,7 @@ Span status codes (following OTel conventions)
 
 > **UNSET**: `0`
 
-Defined in: [types/span.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L53)
+Defined in: [types/span.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L64)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/span.ts:53](https://github.com/juspay/neurolink/blob/release/
 
 > **OK**: `1`
 
-Defined in: [types/span.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L54)
+Defined in: [types/span.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L65)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/span.ts:54](https://github.com/juspay/neurolink/blob/release/
 
 > **ERROR**: `2`
 
-Defined in: [types/span.ts:55](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L55)
+Defined in: [types/span.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L66)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/span.ts:55](https://github.com/juspay/neurolink/blob/release/
 
 > **WARNING**: `3`
 
-Defined in: [types/span.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L56)
+Defined in: [types/span.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L67)

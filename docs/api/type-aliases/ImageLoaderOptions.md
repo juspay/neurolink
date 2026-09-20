@@ -8,7 +8,7 @@
 
 > **ImageLoaderOptions** = `object`
 
-Defined in: [types/rag.ts:1776](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1776)
+Defined in: [types/rag.ts:1795](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1795)
 
 Options for loading images
 
@@ -18,7 +18,7 @@ Options for loading images
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1778](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1778)
+Defined in: [types/rag.ts:1797](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1797)
 
 Custom metadata to attach to the image document
 
@@ -28,7 +28,7 @@ Custom metadata to attach to the image document
 
 > `optional` **maxImageSize?**: `number`
 
-Defined in: [types/rag.ts:1780](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1780)
+Defined in: [types/rag.ts:1799](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1799)
 
 Maximum image file size in bytes (default: 10MB)
 
@@ -38,7 +38,7 @@ Maximum image file size in bytes (default: 10MB)
 
 > `optional` **fetchTimeout?**: `number`
 
-Defined in: [types/rag.ts:1782](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1782)
+Defined in: [types/rag.ts:1801](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1801)
 
 Timeout for URL fetches in milliseconds (default: 30000)
 
@@ -48,6 +48,6 @@ Timeout for URL fetches in milliseconds (default: 30000)
 
 > `optional` **headers?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/rag.ts:1784](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1784)
+Defined in: [types/rag.ts:1803](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1803)
 
 Custom headers for URL fetches

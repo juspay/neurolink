@@ -8,7 +8,7 @@
 
 > **FallbackConfig** = `object`
 
-Defined in: [types/config.ts:344](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L344)
+Defined in: [types/config.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L356)
 
 Fallback configuration
 
@@ -18,7 +18,7 @@ Fallback configuration
 
 > `optional` **enabled?**: `boolean`
 
-Defined in: [types/config.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L345)
+Defined in: [types/config.ts:357](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L357)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/config.ts:345](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **maxAttempts?**: `number`
 
-Defined in: [types/config.ts:346](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L346)
+Defined in: [types/config.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L358)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/config.ts:346](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **delayMs?**: `number`
 
-Defined in: [types/config.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L347)
+Defined in: [types/config.ts:359](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L359)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/config.ts:347](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **circuitBreaker?**: `boolean`
 
-Defined in: [types/config.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L348)
+Defined in: [types/config.ts:360](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L360)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/config.ts:348](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **commonResponses?**: `Record`\<`string`, `string`\>
 
-Defined in: [types/config.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L349)
+Defined in: [types/config.ts:361](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L361)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/config.ts:349](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **localFallbackPath?**: `string`
 
-Defined in: [types/config.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L350)
+Defined in: [types/config.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L362)
 
 ---
 
@@ -66,4 +66,4 @@ Defined in: [types/config.ts:350](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **degradedMode?**: `boolean`
 
-Defined in: [types/config.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L351)
+Defined in: [types/config.ts:363](https://github.com/juspay/neurolink/blob/release/src/lib/types/config.ts#L363)

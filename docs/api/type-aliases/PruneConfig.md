@@ -8,7 +8,7 @@
 
 > **PruneConfig** = `object`
 
-Defined in: [types/context.ts:974](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L974)
+Defined in: [types/context.ts:976](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L976)
 
 Configuration for tool output pruning (Stage 1).
 
@@ -18,7 +18,7 @@ Configuration for tool output pruning (Stage 1).
 
 > `optional` **protectTokens?**: `number`
 
-Defined in: [types/context.ts:975](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L975)
+Defined in: [types/context.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L977)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:975](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **minimumSavings?**: `number`
 
-Defined in: [types/context.ts:976](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L976)
+Defined in: [types/context.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L978)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:976](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **protectedTools?**: `string`[]
 
-Defined in: [types/context.ts:977](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L977)
+Defined in: [types/context.ts:979](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L979)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/context.ts:977](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:978](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L978)
+Defined in: [types/context.ts:980](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L980)

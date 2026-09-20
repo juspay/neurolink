@@ -8,7 +8,7 @@
 
 > **RerankResult** = `object`
 
-Defined in: [types/rag.ts:1482](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1482)
+Defined in: [types/rag.ts:1501](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1501)
 
 Reranked result with detailed scoring
 
@@ -18,7 +18,7 @@ Reranked result with detailed scoring
 
 > **result**: [`VectorQueryResult`](VectorQueryResult.md)
 
-Defined in: [types/rag.ts:1484](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1484)
+Defined in: [types/rag.ts:1503](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1503)
 
 Original query result
 
@@ -28,7 +28,7 @@ Original query result
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1486](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1486)
+Defined in: [types/rag.ts:1505](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1505)
 
 Combined reranking score (0-1)
 
@@ -38,7 +38,7 @@ Combined reranking score (0-1)
 
 > **details**: `object`
 
-Defined in: [types/rag.ts:1488](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1488)
+Defined in: [types/rag.ts:1507](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1507)
 
 Detailed score breakdown
 

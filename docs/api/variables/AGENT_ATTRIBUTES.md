@@ -8,7 +8,7 @@
 
 > `const` **AGENT_ATTRIBUTES**: `object`
 
-Defined in: [types/span.ts:96](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L96)
+Defined in: [types/span.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/span.ts#L107)
 
 Agent-specific conventions (emerging standard)
 

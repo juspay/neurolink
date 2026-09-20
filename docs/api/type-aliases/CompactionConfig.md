@@ -8,7 +8,7 @@
 
 > **CompactionConfig** = `object`
 
-Defined in: [types/context.ts:623](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L623)
+Defined in: [types/context.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L625)
 
 Configuration for the context compaction pipeline.
 
@@ -18,7 +18,7 @@ Configuration for the context compaction pipeline.
 
 > `optional` **enablePrune?**: `boolean`
 
-Defined in: [types/context.ts:624](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L624)
+Defined in: [types/context.ts:626](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L626)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:624](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **enableDeduplicate?**: `boolean`
 
-Defined in: [types/context.ts:625](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L625)
+Defined in: [types/context.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L627)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:625](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **enableSummarize?**: `boolean`
 
-Defined in: [types/context.ts:626](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L626)
+Defined in: [types/context.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L628)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/context.ts:626](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **enableTruncate?**: `boolean`
 
-Defined in: [types/context.ts:627](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L627)
+Defined in: [types/context.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L629)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/context.ts:627](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **pruneProtectTokens?**: `number`
 
-Defined in: [types/context.ts:628](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L628)
+Defined in: [types/context.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L630)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/context.ts:628](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **pruneMinimumSavings?**: `number`
 
-Defined in: [types/context.ts:629](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L629)
+Defined in: [types/context.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L631)
 
 ---
 
@@ -66,7 +66,7 @@ Defined in: [types/context.ts:629](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **pruneProtectedTools?**: `string`[]
 
-Defined in: [types/context.ts:630](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L630)
+Defined in: [types/context.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L632)
 
 ---
 
@@ -74,7 +74,7 @@ Defined in: [types/context.ts:630](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **summarizationProvider?**: `string`
 
-Defined in: [types/context.ts:631](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L631)
+Defined in: [types/context.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L633)
 
 ---
 
@@ -82,7 +82,7 @@ Defined in: [types/context.ts:631](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **summarizationModel?**: `string`
 
-Defined in: [types/context.ts:632](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L632)
+Defined in: [types/context.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L634)
 
 ---
 
@@ -90,7 +90,7 @@ Defined in: [types/context.ts:632](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **keepRecentRatio?**: `number`
 
-Defined in: [types/context.ts:633](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L633)
+Defined in: [types/context.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L635)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/context.ts:633](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **truncationFraction?**: `number`
 
-Defined in: [types/context.ts:634](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L634)
+Defined in: [types/context.ts:636](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L636)
 
 ---
 
@@ -106,4 +106,4 @@ Defined in: [types/context.ts:634](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/context.ts:635](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L635)
+Defined in: [types/context.ts:637](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L637)

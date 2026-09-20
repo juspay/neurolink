@@ -246,7 +246,7 @@ Serialize span for OpenTelemetry format
 
 > `static` **createGenerationSpan**(`params`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L320)
+Defined in: [observability/utils/spanSerializer.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L324)
 
 Create a generation span with AI-specific attributes
 
@@ -304,7 +304,7 @@ Create a generation span with AI-specific attributes
 
 > `static` **createToolCallSpan**(`params`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L352)
+Defined in: [observability/utils/spanSerializer.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L356)
 
 Create a tool call span
 
@@ -342,7 +342,7 @@ Create a tool call span
 
 > `static` **enrichWithTokenUsage**(`span`, `usage`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L375)
+Defined in: [observability/utils/spanSerializer.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L379)
 
 Enrich span with token usage
 
@@ -388,7 +388,7 @@ Enrich span with token usage
 
 > `static` **enrichWithCost**(`span`, `cost`): [`SpanData`](../type-aliases/SpanData.md)
 
-Defined in: [observability/utils/spanSerializer.ts:401](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L401)
+Defined in: [observability/utils/spanSerializer.ts:405](https://github.com/juspay/neurolink/blob/release/src/lib/observability/utils/spanSerializer.ts#L405)
 
 Enrich span with cost information
 

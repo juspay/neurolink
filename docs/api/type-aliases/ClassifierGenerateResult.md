@@ -8,7 +8,7 @@
 
 > **ClassifierGenerateResult** = `object`
 
-Defined in: [types/classifierRouter.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L194)
+Defined in: [types/classifierRouter.ts:348](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L348)
 
 Minimal result shape the LLM classifier reads back.
 
@@ -18,7 +18,7 @@ Minimal result shape the LLM classifier reads back.
 
 > `optional` **content?**: `string`
 
-Defined in: [types/classifierRouter.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L195)
+Defined in: [types/classifierRouter.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L349)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/classifierRouter.ts:195](https://github.com/juspay/neurolink/
 
 > `optional` **structuredData?**: `unknown`
 
-Defined in: [types/classifierRouter.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L196)
+Defined in: [types/classifierRouter.ts:350](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L350)

@@ -13,6 +13,7 @@ import {
   OpenRouterModels,
   CohereModels,
   VoyageModels,
+  TypeSafeModels,
   JinaModels,
   StabilityModels,
   IdeogramModels,
@@ -29,6 +30,7 @@ import type {
   ProviderDescriptor,
   ProviderCatalogJson,
 } from "../types/index.js";
+import { DEFAULT_INFERENCE_KINDS } from "../types/index.js";
 
 /**
  * Hand-maintained provider identity, credentials, defaults, and runtime
@@ -490,6 +492,37 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     healthCheck: "env-only",
     setupUrl: "https://www.recraft.ai/api",
   },
+  {
+    name: AIProviderName.TYPESAFE,
+    aliases: ["jev", "typesafe-ai"],
+    credentialsKey: "typesafe",
+    envVars: {
+      apiKey: "TYPESAFE_API_KEY",
+      // A Vercel AI Gateway key reaches the same model through a different
+      // transport, so it satisfies this provider on its own. Listing it here
+      // is what makes `resolveDefaultDecisionProvider()` — and therefore
+      // "if somebody sets the key, we start using it" — true for gateway
+      // users who never hold a TypeSafe key at all.
+      fallbacks: ["AI_GATEWAY_API_KEY"],
+      baseURL: "TYPESAFE_BASE_URL",
+      model: "TYPESAFE_MODEL",
+    },
+    defaultModel: TypeSafeModels.JEV_LATEST,
+    // Jev serves only the `decide` inference type. Declaring that here is
+    // what keeps it out of every generation code path, rather than each of
+    // those having to special-case the provider name.
+    inferenceKinds: ["decide"],
+    // It emits no text, so it cannot call tools and cannot answer a
+    // "live-generate" health probe.
+    toolSupport: "none",
+    localRuntime: false,
+    healthCheck: "env-only",
+    // Deliberately NO autoSelectPriority / autoSelectPreference /
+    // defaultHealthSweepPriority: all three feed generation fallback chains,
+    // and a text-less provider must never be reachable from them.
+    timeouts: { decideMs: 5000 },
+    setupUrl: "https://console.typesafe.ai/keys",
+  },
 ];
 
 /**
@@ -591,3 +624,32 @@ export const PROVIDER_ALIAS_INDEX: ReadonlyMap<string, AIProviderName> =
       ...d.aliases.map((alias) => [alias.toLowerCase(), d.name] as const),
     ]),
   );
+
+/**
+ * Providers that serve the `decide` inference type, derived from each
+ * descriptor's `inferenceKinds`. A provider that declares nothing is a text
+ * provider, so it is not here.
+ */
+export const DECISION_PROVIDERS: readonly ProviderDescriptor[] =
+  PROVIDER_DESCRIPTORS.filter((d) =>
+    (d.inferenceKinds ?? DEFAULT_INFERENCE_KINDS).includes("decide"),
+  );
+
+/**
+ * The decision provider to use when a caller names none: the first one whose
+ * primary credential env var is actually set.
+ *
+ * This is where "if somebody sets the key, we start using it" is implemented.
+ * Returns undefined when none is configured, which every internal consumer
+ * treats as "carry on exactly as before".
+ */
+export function resolveDefaultDecisionProvider(): string | undefined {
+  for (const descriptor of DECISION_PROVIDERS) {
+    const primary = descriptor.envVars.apiKey;
+    const candidates = [primary, ...(descriptor.envVars.fallbacks ?? [])];
+    if (candidates.some((v) => v && (process.env[v] ?? "").trim() !== "")) {
+      return descriptor.name;
+    }
+  }
+  return undefined;
+}

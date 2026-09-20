@@ -16,6 +16,17 @@ export enum SpanType {
   TOOL_CALL = "tool.call",
   /** LLM generation request */
   MODEL_GENERATION = "model.generation",
+  /**
+   * Decision-model request (the `decide` inference type).
+   *
+   * Deliberately NOT folded into MODEL_GENERATION. A decision emits no text,
+   * so it has no output tokens, no finish reason and a latency distribution
+   * roughly an order of magnitude tighter; counting it as a generation would
+   * distort generation counts, p50/p95 latency and the output-token
+   * aggregate simultaneously, and would make a cost dashboard attribute
+   * fractions of a cent to the same bucket as a frontier model.
+   */
+  MODEL_DECISION = "model.decision",
   /** Embedding generation (reserved for future embedding API) */
   EMBEDDING = "embedding",
   /** Retrieval operation (reserved for future RAG support) */

@@ -26,12 +26,19 @@ const PROVIDERS = [
   "Deepgram",
   "Azure Speech",
   "OpenAI TTS",
+  "TypeSafe",
 ];
 
 const QUICK_LINKS = [
   {
+    title: "Decide",
+    description: "Typed, calibrated judgements in ~400ms — no text",
+    href: "/docs/features/decide-inference-type",
+    icon: "🎯",
+  },
+  {
     title: "SDK Guide",
-    description: "Unified API for 21+ providers",
+    description: "Unified API for 40 providers",
     href: "/docs/sdk",
     icon: "📦",
   },
@@ -56,6 +63,12 @@ const QUICK_LINKS = [
 ];
 
 const FEATURES = [
+  {
+    title: "Decide",
+    description:
+      "A third inference type — one state, many typed questions, one calibrated answer each. Confidence gates the decision itself, and every consumer fails open with no key set.",
+    href: "/docs/features/decide-inference-type",
+  },
   {
     title: "Multimodal",
     description: "50+ file types — images, PDFs, video, audio, code",
@@ -105,7 +118,7 @@ const FAQ_ITEMS = [
   {
     question: "What is NeuroLink?",
     answer:
-      "NeuroLink is an enterprise AI development platform that provides unified access to 21+ AI providers (OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice providers like ElevenLabs, Deepgram, and more) through a single TypeScript SDK and professional CLI. It is extracted from production systems at Juspay and battle-tested at enterprise scale.",
+      "NeuroLink is an enterprise AI development platform that provides unified access to 40 AI providers (OpenAI, Anthropic, Google AI, AWS Bedrock, Azure, DeepSeek, NVIDIA NIM, LM Studio, llama.cpp, plus voice providers like ElevenLabs, Deepgram, and more) through a single TypeScript SDK and professional CLI — 39 of them for generate()/stream(), plus TypeSafe for calibrated decide() judgements. It is extracted from production systems at Juspay and battle-tested at enterprise scale.",
   },
   {
     question: "How is NeuroLink different from LangChain or Vercel AI SDK?",
@@ -120,7 +133,7 @@ const FAQ_ITEMS = [
   {
     question: "What AI providers does NeuroLink support?",
     answer:
-      "NeuroLink supports 21+ providers including OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, Ollama, LiteLLM, HuggingFace, SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), and any OpenAI-compatible endpoint. Voice: OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT. Switching providers requires changing a single parameter.",
+      "NeuroLink supports 40 providers in total. 39 serve generate()/stream(): OpenAI, Anthropic, Google AI Studio, Google Vertex AI, AWS Bedrock, Azure OpenAI, Mistral, Ollama, LiteLLM, HuggingFace, SageMaker, OpenRouter, DeepSeek, NVIDIA NIM (400+ catalog models), LM Studio (local), llama.cpp (local GGUF), any OpenAI-compatible endpoint, and voice providers — OpenAI TTS, ElevenLabs, Google TTS, Azure TTS, Whisper, Deepgram, Azure STT, Google STT. The 40th, TypeSafe, serves only decide() — calibrated typed judgements, no text. Switching generate/stream providers requires changing a single parameter.",
   },
   {
     question: "Does NeuroLink support MCP (Model Context Protocol)?",
@@ -131,6 +144,11 @@ const FAQ_ITEMS = [
     question: "Can I use NeuroLink in production?",
     answer:
       "Absolutely. NeuroLink is extracted from production systems and includes enterprise features like Redis-backed conversation memory, provider failover, observability with 9 exporters and Langfuse integration, context compaction, and workflow orchestration with checkpointing.",
+  },
+  {
+    question: "What is the `decide` inference type?",
+    answer:
+      "decide() is a third inference type alongside generate() and stream() — a separate modality, not a mode of the other two, so a text-only provider is never reachable from it and a decide-only provider is never reachable from generation fallback. A decision model takes one state plus a set of named, typed questions and returns one typed, calibrated answer per question in a single parallel pass — no text, nothing to parse out of prose. Because the confidence is calibrated rather than self-reported, it can gate action directly: NeuroLink's classifier router uses asymmetric thresholds (0.3 confidence to route a request up to a pricier model, 0.6 to route it down) since routing too cheap and routing too expensive don't cost the same. Six consumers build on it today — model routing, a registry-derived model catalogue (64 models across 7 providers, 132 aliases, added on top of a host's own declared pool rather than replacing it), context budget sizing, compaction quality gating, calibrated MCP/tool-server routing, and RAG retrieval planning — and every one fails open: with no TYPESAFE_API_KEY configured, behavior is byte-for-byte what it was before. Decisions get their own model.decision observability span with independent cost attribution, kept separate from generation metrics, across all 9 supported exporters. TypeSafe's Jev is the first decision provider; enabling it is that one environment variable.",
   },
 ];
 
@@ -151,7 +169,7 @@ export default function Home(): React.JSX.Element {
   return (
     <Layout
       title="NeuroLink - The Nervous System Pipe for AI Streams"
-      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, voice, and context from 21+ providers through pluggable connectors."
+      description="The pipe layer for the AI nervous system. Stream tokens, data, tools, voice, and context from 40 providers through pluggable connectors."
     >
       <Head>
         <script type="application/ld+json">{JSON.stringify(FAQ_JSONLD)}</script>
@@ -207,7 +225,7 @@ export default function Home(): React.JSX.Element {
               <span className={styles.routingCardLabel}>THE PIPE</span>
               <p className={styles.routingCardTitle}>Start with the pipe</p>
               <p className={styles.routingCardDesc}>
-                Unified API for 21+ AI providers. Token streams, voice, memory,
+                Unified API for 40 AI providers. Token streams, voice, memory,
                 tools, RAG — one consistent interface.
               </p>
             </a>

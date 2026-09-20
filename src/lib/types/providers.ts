@@ -21,6 +21,7 @@ import {
   VertexModels,
 } from "../constants/enums.js";
 import type { ValidationSchema } from "./aliases.js";
+import type { DecisionRequest, DecisionResult } from "./decision.js";
 import type {
   EnhancedGenerateResult,
   TextGenerationOptions,
@@ -255,6 +256,27 @@ export type NeurolinkCredentials = {
   stability?: { apiKey?: string; baseURL?: string };
   ideogram?: { apiKey?: string; baseURL?: string };
   recraft?: { apiKey?: string; baseURL?: string };
+  /** TypeSafe (Jev) — the `decide` inference type, not text generation. */
+  typesafe?: {
+    apiKey?: string;
+    baseURL?: string;
+    /**
+     * Which transport carries the decision request.
+     *
+     * - `"direct"` — TypeSafe's own API, `POST /v1/systemone`.
+     * - `"gateway"` — Vercel's AI Gateway evaluation-model endpoint, which
+     *   bills through an existing Vercel account instead of a TypeSafe one.
+     *
+     * Omitted resolves automatically: `gateway` when only a gateway key is
+     * present, `direct` otherwise. The two differ on the wire — the gateway
+     * already uses the neutral `boolean`/`probability` vocabulary, carries
+     * the model in a header rather than the body, and omits `confidence`
+     * entirely — but a caller sees the identical `DecisionResult` either way.
+     */
+    transport?: "direct" | "gateway";
+    /** Vercel AI Gateway key. Defaults to `AI_GATEWAY_API_KEY`. */
+    gatewayApiKey?: string;
+  };
 };
 
 /**
@@ -894,6 +916,17 @@ export type AIProvider = {
    * Generate embedding vectors for multiple text inputs in batch.
    */
   embedMany(texts: string[], modelName?: string): Promise<number[][]>;
+
+  /**
+   * Evaluate a state against a batch of typed questions — the `decide`
+   * inference type. Implemented by BaseProvider (throws by default, as
+   * `embed` does); only providers whose descriptor declares `"decide"` in
+   * `inferenceKinds` override it.
+   *
+   * Optional so external AIProvider implementations still compile; callers
+   * must treat absence as "this provider cannot decide".
+   */
+  decide?(request: DecisionRequest): Promise<DecisionResult>;
 
   // Tool execution setup - consolidated from NeuroLink SDK
   setupToolExecutor(
@@ -2175,10 +2208,26 @@ export type ProviderRegistration = {
 };
 
 /**
+ * The kinds of inference a provider can serve.
+ *
+ * `generate` and `stream` both produce text. `decide` produces typed,
+ * calibrated judgements and no text at all — see src/lib/types/decision.ts.
+ * They are peers: a provider may serve any subset.
+ */
+export type InferenceKind = "generate" | "stream" | "decide";
+
+/** What a descriptor means when it declares no `inferenceKinds`. */
+export const DEFAULT_INFERENCE_KINDS: readonly InferenceKind[] = [
+  "generate",
+  "stream",
+];
+
+/**
  * Single source of truth for one AI provider's static identity: how it's
  * addressed (name/aliases), how it's authenticated (credentialsKey/envVars),
  * what it defaults to (defaultModel), and how the rest of the codebase
- * should treat it (toolSupport/localRuntime/healthCheck). Every consumer
+ * should treat it (toolSupport/localRuntime/healthCheck/inferenceKinds).
+ * Every consumer
  * that used to hand-maintain its own provider table (CLI choices,
  * CREDENTIAL_KEY_MAP, env-var checks, health-check dispatch, auto-select
  * priority, PROMPT_ONLY_TOOL_PROVIDERS) derives from PROVIDER_DESCRIPTORS
@@ -2189,6 +2238,20 @@ export type ProviderDescriptor = {
   name: AIProviderName;
   /** Alternate spellings accepted by the CLI and the alias index (kebab-case, shorthand, legacy names). Does not include `name` itself. */
   aliases: readonly string[];
+  /**
+   * Which inference types this provider actually serves. Omitted means
+   * `["generate", "stream"]`, which is what every text provider is — so every
+   * existing descriptor keeps its meaning untouched.
+   *
+   * This is the one declarative statement of a provider's modality. Before it
+   * existed, modality was only implied (by `toolSupport`, `healthCheck` and
+   * the auto-select ranks), which is why embedding-only providers like Voyage
+   * and Jina have to implement `getAISDKModel()` as a throw: nothing could
+   * express that they are not text providers. Consumers that build a
+   * generation fallback chain, run the health sweep, or offer CLI model
+   * choices should filter on this rather than special-case a provider name.
+   */
+  inferenceKinds?: readonly InferenceKind[];
   /** Key into NeurolinkCredentials for per-call/per-instance credential overrides. */
   credentialsKey: keyof NeurolinkCredentials;
   /** Environment variables this provider reads at runtime. */
@@ -2243,7 +2306,7 @@ export type ProviderDescriptor = {
    */
   autoSelectPreference?: number;
   setupUrl?: string;
-  timeouts?: { generateMs?: number; streamMs?: number };
+  timeouts?: { generateMs?: number; streamMs?: number; decideMs?: number };
   /** Ascending priority (1 = tried first) in the auto-select fallback chain used by getBestProvider(). Undefined = not part of the auto-select chain. */
   autoSelectPriority?: number;
   /** Format-validation regex sourced from providerConfig.ts's API_KEY_FORMATS, when one exists for this provider. */

@@ -303,6 +303,13 @@ export type GenerateOptions = {
   region?: string;
   temperature?: number;
   maxTokens?: number;
+  /**
+   * Fraction of the model's context window at which history is compacted for
+   * this request, replacing the 0.8 default. Filled in per request by the
+   * classifier router when a decision provider is configured; always at or
+   * below the default, never above. See `TextGenerationOptions`.
+   */
+  compactionThreshold?: number;
   /** Top-p (nucleus) sampling parameter. Controls diversity of generated tokens. */
   topP?: number;
   /** Top-k sampling parameter. Limits the number of tokens considered. (Google/Gemini models only) */
@@ -1242,6 +1249,19 @@ export type FactoryEnhancedProvider = EnhancedProvider & {
  */
 export type TextGenerationOptions = {
   prompt?: string;
+  /**
+   * Fraction of the model's context window at which compaction runs for this
+   * request, replacing the 0.8 default.
+   *
+   * A request that needs only the current message does not need the whole
+   * window kept warm for it, and compacting earlier is free; a request that
+   * depends on the entire conversation should compact as late as possible.
+   * When the classifier router runs with a decision model it fills this in
+   * per request — always at or below the default, never above, because a
+   * request that overflows the window fails hard and `ModelPool` records that
+   * failure as a permanent cooldown.
+   */
+  compactionThreshold?: number;
   /**
    * Alternative input format for multimodal SDK operations.
    *

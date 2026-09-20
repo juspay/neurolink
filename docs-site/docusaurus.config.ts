@@ -218,9 +218,9 @@ const config: Config = {
     },
 
     announcementBar: {
-      id: "v9_12_release",
+      id: "decide_inference_type_launch",
       content:
-        'NeuroLink v9.12 is out — SDK boundary items, context windows & caching. <a href="/docs/community/changelog">See changelog</a>',
+        'New: <code>decide()</code> — a third inference type for typed, calibrated judgements with no text. <a href="/docs/features/decide-inference-type">Read the docs</a>',
       backgroundColor: "var(--neurolink-accent)",
       textColor: "#ffffff",
       isCloseable: true,
@@ -296,6 +296,10 @@ const config: Config = {
         {
           title: "Features",
           items: [
+            {
+              label: "Decide (typed judgements)",
+              to: "/docs/features/decide-inference-type",
+            },
             {
               label: "MCP Integration",
               to: "/docs/features/mcp-tools-showcase",

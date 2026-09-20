@@ -29,6 +29,7 @@ import type { NeurolinkCredentials } from "./providers.js";
 import type { ModelPoolConfig } from "./modelPool.js";
 import type { RequestRouter } from "./requestRouter.js";
 import type { ClassifierRouterConfig } from "./classifierRouter.js";
+import type { ContextRelevanceOptions } from "./context.js";
 import type { SkillsConfig } from "./skills.js";
 import type { KnowledgeGroundingConfig } from "./knowledge.js";
 
@@ -162,6 +163,17 @@ export type NeurolinkConstructorConfig = {
    * caller pinned both `provider` and `model`. See {@link ClassifierRouterConfig}.
    */
   classifierRouter?: ClassifierRouterConfig;
+  /**
+   * Relevance-driven context compaction. When a decision provider is
+   * configured, compaction gains a stage-zero pass that drops the earlier
+   * messages the current request provably does not need, before the
+   * positional stages (which protect by recency alone) get to choose.
+   *
+   * This object only TUNES that stage; it does not enable it. The stage runs
+   * whenever a decision provider is configured, and does nothing otherwise,
+   * which is the same activation rule every other decision consumer uses.
+   */
+  contextRelevance?: ContextRelevanceOptions;
   /**
    * Native skills: versioned, discoverable instruction packs (SOPs,
    * playbooks) with progressive disclosure. When enabled, each

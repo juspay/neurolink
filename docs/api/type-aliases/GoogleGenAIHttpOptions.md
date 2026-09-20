@@ -8,7 +8,7 @@
 
 > **GoogleGenAIHttpOptions** = `object`
 
-Defined in: [types/providers.ts:1233](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1233)
+Defined in: [types/providers.ts:1266](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1266)
 
 HTTP options for Google GenAI SDK
 Allows custom fetch implementation for proxy support
@@ -19,7 +19,7 @@ Allows custom fetch implementation for proxy support
 
 > `optional` **fetch?**: _typeof_ `fetch`
 
-Defined in: [types/providers.ts:1235](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1235)
+Defined in: [types/providers.ts:1268](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1268)
 
 Custom fetch implementation for proxy support
 
@@ -29,6 +29,6 @@ Custom fetch implementation for proxy support
 
 > `optional` **baseUrl?**: `string`
 
-Defined in: [types/providers.ts:1237](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1237)
+Defined in: [types/providers.ts:1270](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1270)
 
 Override the API base URL (e.g. a corporate proxy or mock endpoint)

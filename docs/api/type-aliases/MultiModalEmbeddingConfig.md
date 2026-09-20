@@ -8,7 +8,7 @@
 
 > **MultiModalEmbeddingConfig** = `object`
 
-Defined in: [types/rag.ts:1639](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1639)
+Defined in: [types/rag.ts:1658](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1658)
 
 Multi-modal embedding model configuration
 
@@ -18,7 +18,7 @@ Multi-modal embedding model configuration
 
 > **provider**: `string`
 
-Defined in: [types/rag.ts:1641](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1641)
+Defined in: [types/rag.ts:1660](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1660)
 
 Provider name (e.g. "bedrock")
 
@@ -28,7 +28,7 @@ Provider name (e.g. "bedrock")
 
 > **modelName**: `string`
 
-Defined in: [types/rag.ts:1643](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1643)
+Defined in: [types/rag.ts:1662](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1662)
 
 Model name (e.g. "amazon.titan-embed-image-v1")
 
@@ -38,7 +38,7 @@ Model name (e.g. "amazon.titan-embed-image-v1")
 
 > **modality**: [`EmbeddingModality`](EmbeddingModality.md)
 
-Defined in: [types/rag.ts:1645](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1645)
+Defined in: [types/rag.ts:1664](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1664)
 
 What modalities this model supports
 
@@ -48,6 +48,6 @@ What modalities this model supports
 
 > `optional` **dimensions?**: `number`
 
-Defined in: [types/rag.ts:1647](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1647)
+Defined in: [types/rag.ts:1666](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1666)
 
 Embedding dimension (e.g. 1024 for Titan Image)

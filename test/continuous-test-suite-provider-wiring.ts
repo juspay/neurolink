@@ -80,6 +80,7 @@ const KNOWN_CREDENTIAL_KEYS = {
   stability: undefined,
   ideogram: undefined,
   recraft: undefined,
+  typesafe: undefined,
 } satisfies Record<
   Exclude<keyof NeurolinkCredentials, CatalogCredentialKey>,
   undefined
@@ -353,7 +354,7 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
   // ideogram, recraft). Onboarding a new catalog provider grows
   // CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
   // hand-written provider bumps this literal.
-  const NON_CATALOG_PROVIDER_COUNT = 23;
+  const NON_CATALOG_PROVIDER_COUNT = 24;
   const totalProviderCount =
     CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
   assert(

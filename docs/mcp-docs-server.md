@@ -151,7 +151,7 @@ Search across all NeuroLink documentation with optional section filtering.
   "results": [
     {
       "title": "RAG (Retrieval-Augmented Generation)",
-      "description": "Complete RAG pipeline with 9 chunking strategies...",
+      "description": "Complete RAG pipeline with 10 chunking strategies...",
       "section": "features",
       "path": "features/rag",
       "url": "https://docs.neurolink.ink/docs/features/rag",

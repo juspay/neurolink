@@ -8,7 +8,7 @@
 
 > **ExtractionResult** = `object`
 
-Defined in: [types/rag.ts:1152](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1152)
+Defined in: [types/rag.ts:1171](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1171)
 
 Extraction result for a single chunk
 
@@ -18,7 +18,7 @@ Extraction result for a single chunk
 
 > `optional` **title?**: `string`
 
-Defined in: [types/rag.ts:1154](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1154)
+Defined in: [types/rag.ts:1173](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1173)
 
 Extracted title
 
@@ -28,7 +28,7 @@ Extracted title
 
 > `optional` **summary?**: `string`
 
-Defined in: [types/rag.ts:1156](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1156)
+Defined in: [types/rag.ts:1175](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1175)
 
 Extracted summary
 
@@ -38,7 +38,7 @@ Extracted summary
 
 > `optional` **keywords?**: `string`[]
 
-Defined in: [types/rag.ts:1158](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1158)
+Defined in: [types/rag.ts:1177](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1177)
 
 Extracted keywords
 
@@ -48,7 +48,7 @@ Extracted keywords
 
 > `optional` **questions?**: `object`[]
 
-Defined in: [types/rag.ts:1160](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1160)
+Defined in: [types/rag.ts:1179](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1179)
 
 Generated Q&A pairs
 
@@ -66,6 +66,6 @@ Generated Q&A pairs
 
 > `optional` **custom?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1162](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1162)
+Defined in: [types/rag.ts:1181](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1181)
 
 Custom schema extraction result

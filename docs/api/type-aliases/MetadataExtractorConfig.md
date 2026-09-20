@@ -8,7 +8,7 @@
 
 > **MetadataExtractorConfig** = `object`
 
-Defined in: [types/rag.ts:119](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L119)
+Defined in: [types/rag.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L120)
 
 Metadata extractor configuration
 
@@ -18,7 +18,7 @@ Metadata extractor configuration
 
 > **type**: [`MetadataExtractorType`](MetadataExtractorType.md)
 
-Defined in: [types/rag.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L121)
+Defined in: [types/rag.ts:122](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L122)
 
 Extractor type
 
@@ -28,7 +28,7 @@ Extractor type
 
 > `optional` **provider?**: `string`
 
-Defined in: [types/rag.ts:123](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L123)
+Defined in: [types/rag.ts:124](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L124)
 
 Language model provider
 
@@ -38,7 +38,7 @@ Language model provider
 
 > `optional` **modelName?**: `string`
 
-Defined in: [types/rag.ts:125](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L125)
+Defined in: [types/rag.ts:126](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L126)
 
 Model name for LLM-based extraction
 
@@ -48,7 +48,7 @@ Model name for LLM-based extraction
 
 > `optional` **promptTemplate?**: `string`
 
-Defined in: [types/rag.ts:127](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L127)
+Defined in: [types/rag.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L128)
 
 Custom prompt template
 
@@ -58,7 +58,7 @@ Custom prompt template
 
 > `optional` **maxTokens?**: `number`
 
-Defined in: [types/rag.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L129)
+Defined in: [types/rag.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L130)
 
 Maximum tokens for LLM response
 
@@ -68,6 +68,6 @@ Maximum tokens for LLM response
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/rag.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L131)
+Defined in: [types/rag.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L132)
 
 Temperature for LLM generation

@@ -2025,8 +2025,24 @@ export type CliToolRoutingFlags = {
 export type CliClassifierRouterFlags = {
   /** Master enable switch (--classifier-router). */
   classifierRouter?: boolean;
-  /** Strategy: "heuristic" (default) or "llm" (--classifier-strategy). */
+  /**
+   * Strategy: "auto" (default), "heuristic", "llm" or "jev"
+   * (--classifier-strategy). "auto" resolves to "jev" when TYPESAFE_API_KEY
+   * is set and "heuristic" otherwise.
+   */
   classifierStrategy?: string;
+  /**
+   * Minimum confidence required to route UP to a costlier model
+   * (--classifier-min-upgrade-confidence). Only meaningful for "jev", whose
+   * confidence is calibrated. Default: 0.3.
+   */
+  classifierMinUpgradeConfidence?: number;
+  /**
+   * Minimum confidence required to route DOWN to a cheaper model
+   * (--classifier-min-downgrade-confidence). Higher than the upgrade bar
+   * because the mistakes cost differently. Default: 0.6.
+   */
+  classifierMinDowngradeConfidence?: number;
   /** LLM-classifier provider override (--classifier-model-provider). */
   classifierModelProvider?: string;
   /** LLM-classifier model override (--classifier-model-name). */

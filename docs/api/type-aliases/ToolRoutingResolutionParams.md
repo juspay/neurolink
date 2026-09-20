@@ -8,7 +8,7 @@
 
 > **ToolRoutingResolutionParams** = `object`
 
-Defined in: [types/toolRouting.ts:278](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L278)
+Defined in: [types/toolRouting.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L296)
 
 Parameters for `resolveToolRoutingExclusions()`.
 
@@ -18,7 +18,7 @@ Parameters for `resolveToolRoutingExclusions()`.
 
 > **catalog**: [`ToolRoutingCatalogEntry`](ToolRoutingCatalogEntry.md)[]
 
-Defined in: [types/toolRouting.ts:280](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L280)
+Defined in: [types/toolRouting.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L298)
 
 Full catalog; always-include servers are filtered out internally.
 
@@ -28,7 +28,7 @@ Full catalog; always-include servers are filtered out internally.
 
 > **alwaysIncludeServerIds**: `string`[]
 
-Defined in: [types/toolRouting.ts:282](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L282)
+Defined in: [types/toolRouting.ts:300](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L300)
 
 Server ids never offered to the router.
 
@@ -38,7 +38,7 @@ Server ids never offered to the router.
 
 > **userQuery**: `string`
 
-Defined in: [types/toolRouting.ts:284](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L284)
+Defined in: [types/toolRouting.ts:302](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L302)
 
 Current user query (the stream input text, before memory enrichment).
 
@@ -48,7 +48,7 @@ Current user query (the stream input text, before memory enrichment).
 
 > `optional` **routerPromptPrefix?**: `string`
 
-Defined in: [types/toolRouting.ts:286](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L286)
+Defined in: [types/toolRouting.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L304)
 
 Instruction text placed before the user query. Defaults to the SDK built-in.
 
@@ -58,7 +58,7 @@ Instruction text placed before the user query. Defaults to the SDK built-in.
 
 > **routerModel**: [`ToolRoutingModelConfig`](ToolRoutingModelConfig.md)
 
-Defined in: [types/toolRouting.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L288)
+Defined in: [types/toolRouting.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L306)
 
 Router LLM settings, already resolved against the stream call's options.
 
@@ -68,7 +68,7 @@ Router LLM settings, already resolved against the stream call's options.
 
 > **timeoutMs**: `number`
 
-Defined in: [types/toolRouting.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L290)
+Defined in: [types/toolRouting.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L308)
 
 Timeout for the router call in milliseconds.
 
@@ -78,7 +78,7 @@ Timeout for the router call in milliseconds.
 
 > **generateFn**: (`options`) => `Promise`\<[`GenerateResult`](GenerateResult.md)\>
 
-Defined in: [types/toolRouting.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L292)
+Defined in: [types/toolRouting.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L310)
 
 Invokes the router LLM — `NeuroLink.generate` bound by the caller.
 
@@ -94,11 +94,42 @@ Invokes the router LLM — `NeuroLink.generate` bound by the caller.
 
 ---
 
+### decideFn?
+
+> `optional` **decideFn?**: [`DecisionCallerFn`](DecisionCallerFn.md)
+
+Defined in: [types/toolRouting.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L322)
+
+Invokes a decision model — `NeuroLink.tryDecide` bound by the caller.
+When supplied AND a decision provider is configured, one yes/no question
+per server replaces the router LLM call: ~400ms and ~$0.00002 instead of
+a generative call on a 15-second budget, and a calibrated probability per
+server instead of a list that cannot express doubt.
+
+Omitting it reproduces the LLM-only behaviour exactly, and so does
+supplying it with no decision provider configured — the caller's bound
+`tryDecide` returns null and the LLM path runs.
+
+---
+
+### decisionMinDropConfidence?
+
+> `optional` **decisionMinDropConfidence?**: `number`
+
+Defined in: [types/toolRouting.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L329)
+
+How confidently the decision router must answer "no" before a server's
+tools are withheld. Default 0.6. Deliberately asymmetric: a wrongly
+dropped server breaks the turn, a wrongly kept one costs a few hundred
+tokens.
+
+---
+
 ### emitDecision?
 
 > `optional` **emitDecision?**: (`decision`) => `void`
 
-Defined in: [types/toolRouting.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L299)
+Defined in: [types/toolRouting.ts:336](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L336)
 
 Optional callback invoked once per resolution with a structured summary of
 the routing decision. Called on every return path (applied, skipped,
@@ -121,7 +152,7 @@ the resolver.
 
 > `optional` **embedFn?**: (`texts`) => `Promise`\<`number`[][]\>
 
-Defined in: [types/toolRouting.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L310)
+Defined in: [types/toolRouting.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L347)
 
 Injected async function that converts an array of texts into embedding
 vectors. Built by the caller (NeuroLink) from the configured embedding
@@ -144,7 +175,7 @@ When undefined the embedding fast-path is skipped entirely.
 
 > `optional` **embeddingConfig?**: [`ToolRoutingEmbeddingConfig`](ToolRoutingEmbeddingConfig.md)
 
-Defined in: [types/toolRouting.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L315)
+Defined in: [types/toolRouting.ts:352](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L352)
 
 Embedding fast-path configuration forwarded from `ToolRoutingConfig`.
 Only consulted when `embedFn` is provided.
@@ -155,7 +186,7 @@ Only consulted when `embedFn` is provided.
 
 > `optional` **granularity?**: `"server"` \| `"tool"`
 
-Defined in: [types/toolRouting.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L319)
+Defined in: [types/toolRouting.ts:356](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L356)
 
 Routing granularity forwarded from `ToolRoutingConfig`. Default: "server".
 
@@ -165,7 +196,7 @@ Routing granularity forwarded from `ToolRoutingConfig`. Default: "server".
 
 > `optional` **embeddingVectorCache?**: `Map`\<`string`, `number`[]\>
 
-Defined in: [types/toolRouting.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L330)
+Defined in: [types/toolRouting.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/toolRouting.ts#L367)
 
 Optional shared vector cache for the L2 embedding fast-path. When
 supplied, tool embedding vectors computed on prior turns are reused rather

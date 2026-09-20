@@ -1229,6 +1229,635 @@ async function runEmbeddingsSection(): Promise<void> {
 }
 
 // ───────────────────────────────────────────────────────────────────────
+// Section: TypeSafe (decide-only)
+// ───────────────────────────────────────────────────────────────────────
+
+/**
+ * TypeSafe serves the `decide` inference type, not text. The contract worth
+ * pinning is the wire translation in both directions — our provider-neutral
+ * `boolean` primitive becomes TypeSafe's `noul` on the way out and its
+ * `noul` answer becomes `probability` on the way back — plus the two
+ * distinct error envelopes the real API returns.
+ */
+const TYPESAFE_DECIDE_SPEC = {
+  provider: "typesafe",
+  envVar: "TYPESAFE_API_KEY",
+  urlMatch: "api.typesafe.ai/v1/systemone",
+  model: "jev-latest",
+};
+
+async function runTypeSafeDecide(): Promise<void> {
+  setEnv(TYPESAFE_DECIDE_SPEC.envVar, "test-fake-typesafe-credential");
+
+  // ── happy path: all three primitives, and the boolean↔noul mapping ──
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: TYPESAFE_DECIDE_SPEC.urlMatch,
+          respond: {
+            status: 200,
+            json: {
+              model: "jev-1.13.0",
+              answers: {
+                urgent: { type: "noul", noul: 0.97 },
+                team: {
+                  type: "choice",
+                  choice: "billing",
+                  confidence: 0.81,
+                  probabilities: { billing: 0.87, technical: 0.13, sales: 0 },
+                },
+                mood: {
+                  type: "score",
+                  score: 2.4,
+                  confidence: 0.78,
+                  legend: { "0": "calm", "1": "annoyed", "2": "angry" },
+                  probabilities: { "0": 0.05, "1": 0.3, "2": 0.65 },
+                },
+              },
+              usage: { input_tokens: 312, output_tokens: 48 },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider(
+          TYPESAFE_DECIDE_SPEC.provider,
+          TYPESAFE_DECIDE_SPEC.model,
+        );
+        const result = await provider.decide!({
+          state: "payouts have failed for three days",
+          questions: {
+            urgent: { type: "boolean", instructions: "Is this urgent?" },
+            team: {
+              type: "choice",
+              instructions: "Which team?",
+              criteria: {
+                billing: "money",
+                technical: "bugs",
+                sales: "pricing",
+              },
+            },
+            mood: {
+              type: "score",
+              instructions: "How angry?",
+              criteria: ["calm", "annoyed", "angry"],
+            },
+          },
+        });
+
+        expect(calls.length === 1, "single POST to /v1/systemone");
+        const body = calls[0].bodyJson as {
+          model: string;
+          questions: Record<string, { type: string }>;
+        };
+        expectEq(body.model, TYPESAFE_DECIDE_SPEC.model, "decide body.model");
+        // The translation that matters: our `boolean` must leave as `noul`.
+        expectEq(body.questions.urgent.type, "noul", "boolean sent as noul");
+        expectEq(body.questions.team.type, "choice", "choice sent unchanged");
+        expectEq(body.questions.mood.type, "score", "score sent unchanged");
+
+        // …and TypeSafe's `noul` answer must arrive as `probability`.
+        const urgent = result.answers.urgent;
+        expectEq(urgent.type, "boolean", "noul answer typed as boolean");
+        expectEq(
+          urgent.type === "boolean" ? urgent.probability : -1,
+          0.97,
+          "noul mapped to probability",
+        );
+        expectEq(result.model, "jev-1.13.0", "resolved model reported");
+        expectEq(result.usage.inputTokens, 312, "usage.input_tokens mapped");
+        record(results, "DECIDE typesafe: wire translation both ways", true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      "DECIDE typesafe: wire translation both ways",
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── error envelope A: application error, `detail` is an OBJECT ───────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: TYPESAFE_DECIDE_SPEC.urlMatch,
+          respond: {
+            status: 400,
+            json: { detail: { error_type: "max_tokens_exceeded" } },
+          },
+        },
+      ],
+      async () => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider(
+          TYPESAFE_DECIDE_SPEC.provider,
+        );
+        let kind: string | undefined;
+        let message = "";
+        try {
+          await provider.decide!({
+            state: "x",
+            questions: { q: { type: "boolean", instructions: "?" } },
+          });
+        } catch (error) {
+          kind = (error as { cause?: { kind?: string } }).cause?.kind;
+          message = error instanceof Error ? error.message : "";
+        }
+        expectEq(kind, "max_tokens_exceeded", "object envelope classified");
+        // The real API sends this one with no `message` at all, so the
+        // provider must supply a sentence rather than leaving it undefined.
+        expect(message.length > 20, "size error carries a real message");
+        record(results, "DECIDE typesafe: object error envelope", true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      "DECIDE typesafe: object error envelope",
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── error envelope B: schema validation, `detail` is an ARRAY ────────
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: TYPESAFE_DECIDE_SPEC.urlMatch,
+          respond: {
+            status: 422,
+            json: {
+              detail: [
+                {
+                  type: "missing",
+                  loc: ["body", "questions", "q", "choice", "criteria"],
+                  msg: "Field required",
+                  input: { secret: "state text must never be logged" },
+                },
+              ],
+            },
+          },
+        },
+      ],
+      async () => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider(
+          TYPESAFE_DECIDE_SPEC.provider,
+        );
+        let kind: string | undefined;
+        let message = "";
+        try {
+          await provider.decide!({
+            state: "x",
+            questions: { q: { type: "boolean", instructions: "?" } },
+          });
+        } catch (error) {
+          kind = (error as { cause?: { kind?: string } }).cause?.kind;
+          message = error instanceof Error ? error.message : "";
+        }
+        expectEq(kind, "invalid_request", "array envelope classified");
+        expect(message.includes("criteria"), "names the offending field");
+        // The validation envelope echoes the caller's input back; it must
+        // never reach a log or an error message.
+        expect(!message.includes("secret"), "echoed input is not surfaced");
+        record(results, "DECIDE typesafe: array error envelope", true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      "DECIDE typesafe: array error envelope",
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  await runTypeSafeGatewayDecide();
+}
+
+/**
+ * The Vercel AI Gateway transport.
+ *
+ * It reaches the same model over a different wire, and every difference is
+ * load-bearing: the model is named in a header rather than the body (sending
+ * it in the body is rejected), `ai-gateway-protocol-version` omitted fails the
+ * request outright rather than defaulting, the question vocabulary is already
+ * the neutral one so `boolean` must NOT be renamed to `noul`, and answers
+ * carry no `confidence` at all — it has to be derived from the distribution.
+ *
+ * This is a mocked contract rather than a live test because it pins a wire
+ * format, and a live call would only prove that one account's key works.
+ */
+async function runTypeSafeGatewayDecide(): Promise<void> {
+  const section = "DECIDE typesafe gateway";
+  // Only a gateway key: this is also the assertion that transport resolution
+  // activates on the gateway key ALONE, with no TypeSafe key present.
+  setEnv("TYPESAFE_API_KEY", undefined);
+  setEnv("AI_GATEWAY_API_KEY", "test-fake-gateway-credential");
+
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "ai-gateway.vercel.sh/v4/ai/evaluation-model",
+          respond: {
+            status: 200,
+            json: {
+              answers: {
+                urgent: { type: "boolean", probability: 0.94 },
+                team: {
+                  type: "choice",
+                  choice: "billing",
+                  // No `confidence` — the gateway never sends one.
+                  probabilities: { billing: 0.72, technical: 0.2, sales: 0.08 },
+                },
+              },
+              // The real gateway spells usage in camelCase and relocates
+              // confidence to providerMetadata — both measured live.
+              usage: { inputTokens: 210, outputTokens: 51 },
+              providerMetadata: {
+                typesafe: { confidence: { team: 0.1 } },
+              },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider("typesafe");
+        const result = await provider.decide!({
+          state: "payouts have failed for three days",
+          questions: {
+            urgent: { type: "boolean", instructions: "Is this urgent?" },
+            team: {
+              type: "choice",
+              instructions: "Which team?",
+              criteria: { billing: "money", technical: "bugs", sales: "price" },
+            },
+          },
+        });
+
+        expect(calls.length === 1, "single POST to the gateway route");
+        const call = calls[0];
+        const headers = call.headers as Record<string, string>;
+        const headerOf = (name: string): string | undefined =>
+          headers[name] ?? headers[name.toLowerCase()];
+
+        expectEq(
+          headerOf("ai-model-id"),
+          "typesafe-ai/jev",
+          "gateway model id header",
+        );
+        expectEq(
+          headerOf("ai-gateway-protocol-version"),
+          "0.0.1",
+          "gateway protocol version header",
+        );
+        expectEq(
+          headerOf("ai-gateway-auth-method"),
+          "api-key",
+          "gateway auth method header",
+        );
+        expectEq(
+          headerOf("ai-evaluation-model-specification-version"),
+          "4",
+          "gateway evaluation spec version header",
+        );
+
+        const body = call.bodyJson as {
+          model?: unknown;
+          questions: Record<string, { type: string }>;
+        };
+        // The gateway rejects a body carrying a model.
+        expect(body.model === undefined, "gateway body omits model");
+        // …and it already uses the neutral name, so no rename must happen.
+        expectEq(
+          body.questions.urgent.type,
+          "boolean",
+          "boolean NOT renamed to noul on the gateway",
+        );
+
+        const urgent = result.answers.urgent;
+        expectEq(urgent.type, "boolean", "gateway probability typed boolean");
+        expectEq(
+          urgent.type === "boolean" ? urgent.probability : -1,
+          0.94,
+          "gateway probability field read",
+        );
+        const team = result.answers.team;
+        // The gateway relocates confidence rather than omitting it. Taking the
+        // distribution peak (0.72) instead of the reported 0.1 overstated it
+        // sevenfold — and 0.72 clears every routing bar that 0.1 fails, so the
+        // router acted on near-random picks as if they were confident ones.
+        expectEq(
+          team.type === "choice" ? team.confidence : -1,
+          0.1,
+          "vendor confidence from providerMetadata beats the derived peak",
+        );
+        // Usage is camelCase on the gateway. Reading only snake_case reported
+        // zero tokens, and decisions are priced on input alone — so every
+        // gateway decision was costed at exactly $0 without anything failing.
+        expectEq(
+          result.usage?.inputTokens,
+          210,
+          "gateway camelCase usage read",
+        );
+        expectEq(
+          result.usage?.outputTokens,
+          51,
+          "gateway camelCase output usage read",
+        );
+        record(results, `${section}: wire contract`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: wire contract`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // An explicit transport choice must win over key-presence inference.
+  try {
+    setEnv("TYPESAFE_API_KEY", "test-fake-typesafe-credential");
+    setEnv("TYPESAFE_TRANSPORT", "gateway");
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "ai-gateway.vercel.sh/v4/ai/evaluation-model",
+          respond: {
+            status: 200,
+            json: {
+              answers: { q: { type: "boolean", probability: 0.1 } },
+              usage: { input_tokens: 10, output_tokens: 0 },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider("typesafe");
+        await provider.decide!({
+          state: "x",
+          questions: { q: { type: "boolean", instructions: "?" } },
+        });
+        expect(
+          calls.length === 1,
+          "explicit gateway transport used despite a direct key being present",
+        );
+        record(results, `${section}: explicit transport wins`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: explicit transport wins`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    setEnv("TYPESAFE_TRANSPORT", undefined);
+    setEnv("AI_GATEWAY_API_KEY", undefined);
+  }
+
+  // …and the derived peak must remain the fallback for a response that
+  // reports no confidence anywhere. Both paths have to keep working: the
+  // relocation was discovered late, and a gateway build that stops sending
+  // providerMetadata must degrade to the old behaviour rather than to zero.
+  try {
+    setEnv("TYPESAFE_API_KEY", undefined);
+    setEnv("AI_GATEWAY_API_KEY", "test-fake-gateway-credential");
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "ai-gateway.vercel.sh/v4/ai/evaluation-model",
+          respond: {
+            status: 200,
+            json: {
+              answers: {
+                team: {
+                  type: "choice",
+                  choice: "billing",
+                  probabilities: { billing: 0.72, technical: 0.2, sales: 0.08 },
+                },
+              },
+              usage: { inputTokens: 10, outputTokens: 0 },
+            },
+          },
+        },
+      ],
+      async () => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider("typesafe");
+        const result = await provider.decide!({
+          state: "x",
+          questions: {
+            team: {
+              type: "choice",
+              instructions: "Which team?",
+              criteria: { billing: "money", technical: "bugs", sales: "price" },
+            },
+          },
+        });
+        const team = result.answers.team;
+        expectEq(
+          team.type === "choice" ? team.confidence : -1,
+          0.72,
+          "derived peak still used when nothing reports a confidence",
+        );
+        record(results, `${section}: derivation remains the fallback`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: derivation remains the fallback`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    setEnv("AI_GATEWAY_API_KEY", undefined);
+  }
+
+  await runTypeSafeGatewayErrors();
+}
+
+/**
+ * The gateway's error envelope.
+ *
+ * `{"error":{"message","type"}}` is a third shape, unrelated to TypeSafe's own
+ * `{"detail":…}`, and it was reached only when the gateway was first exercised
+ * against a real account. Until then every gateway failure was reported as a
+ * bare `HTTP <status>` with the cause discarded, and a 403 for an account with
+ * no card on file — a valid key — tripped the auth circuit breaker under the
+ * message "API key rejected".
+ *
+ * Both cases below were observed live before being pinned here.
+ */
+async function runTypeSafeGatewayErrors(): Promise<void> {
+  const section = "DECIDE typesafe gateway errors";
+  setEnv("TYPESAFE_API_KEY", undefined);
+  setEnv("AI_GATEWAY_API_KEY", "test-fake-gateway-credential");
+
+  // The live 403: a valid key on an account with no card on file.
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "ai-gateway.vercel.sh/v4/ai/evaluation-model",
+          respond: {
+            status: 403,
+            json: {
+              error: {
+                message:
+                  "AI Gateway requires a valid credit card on file to service requests.",
+                type: "customer_verification_required",
+              },
+            },
+          },
+        },
+      ],
+      async () => {
+        const { ProviderFactory } =
+          await import("../dist/factories/providerFactory.js");
+        const provider = await ProviderFactory.createProvider("typesafe");
+        let thrown: unknown;
+        try {
+          await provider.decide!({
+            state: "x",
+            questions: { q: { type: "boolean", instructions: "?" } },
+          });
+        } catch (err) {
+          thrown = err;
+        }
+        expect(thrown !== undefined, "gateway 403 throws");
+        const cause = (
+          thrown as { cause?: { kind?: string; message?: string } }
+        ).cause;
+        expectEq(cause?.kind, "authentication", "billing 403 kind");
+        // The whole point: the gateway's own sentence survives to the caller
+        // instead of being flattened to "HTTP 403".
+        expect(
+          (cause?.message ?? "").includes("credit card on file"),
+          "gateway error message reaches the caller",
+        );
+        record(results, `${section}: billing 403 surfaces its cause`, true);
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: billing 403 surfaces its cause`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // `type` must beat `status`: a 403 carrying `invalid_request_error` is a bad
+  // request, not a bad credential, so the breaker must NOT trip and the same
+  // provider instance must still serve the next call.
+  try {
+    const { ProviderFactory } =
+      await import("../dist/factories/providerFactory.js");
+    const provider = await ProviderFactory.createProvider("typesafe");
+
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "ai-gateway.vercel.sh/v4/ai/evaluation-model",
+          respond: {
+            status: 403,
+            json: {
+              error: { message: "bad question", type: "invalid_request_error" },
+            },
+          },
+        },
+      ],
+      async () => {
+        let cause: { kind?: string } | undefined;
+        try {
+          await provider.decide!({
+            state: "x",
+            questions: { q: { type: "boolean", instructions: "?" } },
+          });
+        } catch (err) {
+          cause = (err as { cause?: { kind?: string } }).cause;
+        }
+        expectEq(
+          cause?.kind,
+          "invalid_request",
+          "gateway error type beats HTTP status",
+        );
+      },
+    );
+
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "ai-gateway.vercel.sh/v4/ai/evaluation-model",
+          respond: {
+            status: 200,
+            json: {
+              answers: { q: { type: "boolean", probability: 0.4 } },
+              usage: { input_tokens: 10, output_tokens: 0 },
+            },
+          },
+        },
+      ],
+      async ({ calls }) => {
+        const again = await provider.decide!({
+          state: "x",
+          questions: { q: { type: "boolean", instructions: "?" } },
+        });
+        expect(calls.length === 1, "provider instance still reaches the wire");
+        expectEq(
+          again.answers.q.type === "boolean" ? again.answers.q.probability : -1,
+          0.4,
+          "same instance serves the next call",
+        );
+        record(
+          results,
+          `${section}: non-auth 403 does not trip the breaker`,
+          true,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: non-auth 403 does not trip the breaker`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  } finally {
+    setEnv("AI_GATEWAY_API_KEY", undefined);
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
 // Section: Stability / Ideogram / Recraft (image-gen-only)
 // ───────────────────────────────────────────────────────────────────────
 
@@ -1597,6 +2226,11 @@ async function runRecraftImageGen(): Promise<void> {
       err instanceof Error ? err.message : String(err),
     );
   }
+}
+
+async function runDecideSection(): Promise<void> {
+  console.log("\n=== Decision providers (TypeSafe) ===");
+  await runTypeSafeDecide();
 }
 
 async function runImageGenSection(): Promise<void> {
@@ -4016,6 +4650,7 @@ async function main(): Promise<void> {
     await runReplicateLLMSection();
     await runEmbeddingsSection();
     await runImageGenSection();
+    await runDecideSection();
     await runOpenAISection();
     await runAzureSection();
     await runAnthropicSection();

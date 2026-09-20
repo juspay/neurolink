@@ -689,9 +689,21 @@ export class CLICommandFactory {
     classifierStrategy: {
       type: "string" as const,
       description:
-        "Classifier strategy: 'heuristic' (default, no LLM) or 'llm' (a cheap model picks per prompt).",
-      choices: ["heuristic", "llm"] as const,
+        "Classifier strategy: 'auto' (default — 'jev' when TYPESAFE_API_KEY is set, else 'heuristic'), 'heuristic' (no LLM), 'llm' (a cheap model picks per prompt), or 'jev' (TypeSafe System One, ~400ms with calibrated confidence).",
+      choices: ["auto", "heuristic", "llm", "jev"] as const,
       alias: "classifier-strategy",
+    },
+    classifierMinUpgradeConfidence: {
+      type: "number" as const,
+      description:
+        "Minimum confidence to route UP to a costlier model; below it the heuristic is used. Only meaningful for 'jev'. Default: 0.3.",
+      alias: "classifier-min-upgrade-confidence",
+    },
+    classifierMinDowngradeConfidence: {
+      type: "number" as const,
+      description:
+        "Minimum confidence to route DOWN to a cheaper model. Higher than the upgrade bar, because the two mistakes cost differently. Default: 0.6.",
+      alias: "classifier-min-downgrade-confidence",
     },
     classifierModelProvider: {
       type: "string" as const,
@@ -1165,6 +1177,11 @@ export class CLICommandFactory {
       // Classifier-router flags — constructor-level config (see note above).
       classifierRouter: argv.classifierRouter as boolean | undefined,
       classifierStrategy: argv.classifierStrategy as string | undefined,
+      classifierMinUpgradeConfidence: argv.classifierMinUpgradeConfidence as
+        | number
+        | undefined,
+      classifierMinDowngradeConfidence:
+        argv.classifierMinDowngradeConfidence as number | undefined,
       classifierModelProvider: argv.classifierModelProvider as
         | string
         | undefined,

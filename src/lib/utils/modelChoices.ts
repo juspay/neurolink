@@ -24,6 +24,7 @@ import {
   StabilityModels,
   IdeogramModels,
   RecraftModels,
+  TypeSafeModels,
   ReplicateModels,
 } from "../constants/enums.js";
 import { getCatalogJsonEntries } from "../providers/catalog/loader.js";
@@ -431,6 +432,16 @@ const TOP_MODELS_CONFIG: Record<
     },
     { model: RecraftModels.RECRAFT_V2, description: "V2" },
   ],
+  [AIProviderName.TYPESAFE]: [
+    {
+      model: TypeSafeModels.JEV_LATEST,
+      description: "Recommended - Jev (decisions, not text)",
+    },
+    {
+      model: TypeSafeModels.JEV_PREVIEW,
+      description: "Preview build of Jev",
+    },
+  ],
   [AIProviderName.AUTO]: [],
 };
 
@@ -474,6 +485,7 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.STABILITY]: StabilityModels.STABLE_IMAGE_ULTRA,
   [AIProviderName.IDEOGRAM]: IdeogramModels.IDEOGRAM_V3,
   [AIProviderName.RECRAFT]: RecraftModels.RECRAFT_V3,
+  [AIProviderName.TYPESAFE]: TypeSafeModels.JEV_LATEST,
 };
 
 /**
@@ -510,6 +522,7 @@ const MODEL_ENUMS: Record<
   [AIProviderName.STABILITY]: StabilityModels,
   [AIProviderName.IDEOGRAM]: IdeogramModels,
   [AIProviderName.RECRAFT]: RecraftModels,
+  [AIProviderName.TYPESAFE]: TypeSafeModels,
   [AIProviderName.AUTO]: null,
 };
 

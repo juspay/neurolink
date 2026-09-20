@@ -8,7 +8,7 @@
 
 > **RepairResult** = `object`
 
-Defined in: [types/context.ts:842](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L842)
+Defined in: [types/context.ts:844](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L844)
 
 Result of tool pair repair.
 
@@ -18,7 +18,7 @@ Result of tool pair repair.
 
 > **repaired**: `boolean`
 
-Defined in: [types/context.ts:843](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L843)
+Defined in: [types/context.ts:845](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L845)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:843](https://github.com/juspay/neurolink/blob/rele
 
 > **messages**: [`ChatMessage`](ChatMessage.md)[]
 
-Defined in: [types/context.ts:844](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L844)
+Defined in: [types/context.ts:846](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L846)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:844](https://github.com/juspay/neurolink/blob/rele
 
 > **orphanedCallsFixed**: `number`
 
-Defined in: [types/context.ts:845](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L845)
+Defined in: [types/context.ts:847](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L847)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/context.ts:845](https://github.com/juspay/neurolink/blob/rele
 
 > **orphanedResultsFixed**: `number`
 
-Defined in: [types/context.ts:846](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L846)
+Defined in: [types/context.ts:848](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L848)

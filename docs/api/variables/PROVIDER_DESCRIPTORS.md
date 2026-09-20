@@ -8,7 +8,7 @@
 
 > `const` **PROVIDER_DESCRIPTORS**: readonly [`ProviderDescriptor`](../type-aliases/ProviderDescriptor.md)[]
 
-Defined in: [factories/providerDescriptors.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L571)
+Defined in: [factories/providerDescriptors.ts:604](https://github.com/juspay/neurolink/blob/release/src/lib/factories/providerDescriptors.ts#L604)
 
 Single source of truth for provider identity, credentials, defaults, and
 runtime behavior classification — the hand-maintained providers plus the

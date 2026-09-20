@@ -1,5 +1,7 @@
 # Provider Feature Compatibility Reference
 
+> This is a dated point-in-time test run covering the providers listed below, not all 40 providers NeuroLink ships today. For the current full roster, see [Provider Setup](../getting-started/provider-setup.md) and the [Provider Capabilities Audit](provider-capabilities-audit.md).
+
 **Last Updated:** 2025-12-31
 **Test Suite:** continuous-test-suite.ts (19 comprehensive tests)
 **Providers Tested:** 11 providers across CSV, PDF, MCP tools, business tools, and enterprise features

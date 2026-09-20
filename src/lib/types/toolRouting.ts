@@ -17,6 +17,7 @@
  */
 
 import type { GenerateOptions, GenerateResult } from "./generate.js";
+import type { DecisionCallerFn } from "./decision.js";
 
 /** One routable server as declared by the host application. */
 export type ToolRoutingServerDescriptor = {
@@ -177,6 +178,17 @@ export type ToolRoutingConfig = {
    *   off (or fails) the granularity falls back to `"server"` automatically.
    */
   granularity?: "server" | "tool";
+  /**
+   * How confidently a decision model must rule a server OUT before its tools
+   * are withheld. Default 0.6.
+   *
+   * Only consulted when a decision provider is configured, in which case one
+   * calibrated yes/no question per server replaces the generative router. The
+   * bar is deliberately asymmetric and high: keeping an unneeded server costs
+   * a few hundred tokens, while dropping a needed one costs the turn, because
+   * the model cannot call — or even ask for — a tool it was never shown.
+   */
+  minDropConfidence?: number;
 };
 
 /** Catalog entry pairing a server descriptor with its registered tool names. */
@@ -272,6 +284,12 @@ export type ToolRoutingDecision = {
    * applied (outcome === "applied").
    */
   granularity?: "server" | "tool";
+  /**
+   * Which strategy produced this decision. Absent on skip/fail-open paths that
+   * never reached one. "decision" is the calibrated per-server router,
+   * "embedding" the L2 retriever, "llm" the generative router.
+   */
+  strategy?: "decision" | "embedding" | "llm";
 };
 
 /** Parameters for `resolveToolRoutingExclusions()`. */
@@ -290,6 +308,25 @@ export type ToolRoutingResolutionParams = {
   timeoutMs: number;
   /** Invokes the router LLM — `NeuroLink.generate` bound by the caller. */
   generateFn: (options: GenerateOptions) => Promise<GenerateResult>;
+  /**
+   * Invokes a decision model — `NeuroLink.tryDecide` bound by the caller.
+   * When supplied AND a decision provider is configured, one yes/no question
+   * per server replaces the router LLM call: ~400ms and ~$0.00002 instead of
+   * a generative call on a 15-second budget, and a calibrated probability per
+   * server instead of a list that cannot express doubt.
+   *
+   * Omitting it reproduces the LLM-only behaviour exactly, and so does
+   * supplying it with no decision provider configured — the caller's bound
+   * `tryDecide` returns null and the LLM path runs.
+   */
+  decideFn?: DecisionCallerFn;
+  /**
+   * How confidently the decision router must answer "no" before a server's
+   * tools are withheld. Default 0.6. Deliberately asymmetric: a wrongly
+   * dropped server breaks the turn, a wrongly kept one costs a few hundred
+   * tokens.
+   */
+  decisionMinDropConfidence?: number;
   /**
    * Optional callback invoked once per resolution with a structured summary of
    * the routing decision. Called on every return path (applied, skipped,
@@ -422,4 +459,24 @@ export type ToolRoutingBm25Doc = {
   tokens: string[];
   /** Frequency map: token → count (built once at index construction). */
   tf: Map<string, number>;
+};
+
+/**
+ * What the decision-model tool router concluded. Distinct from
+ * {@link ToolRoutingDecision}, which is the telemetry record for a routing
+ * turn regardless of which strategy produced it.
+ */
+export type ToolRoutingDecisionOutcome = {
+  /** Servers whose tools stay available. */
+  selectedServerIds: string[];
+  /** Servers the model confidently ruled out. */
+  excludedServerIds: string[];
+  /** Flattened tool names to add to the request denylist. */
+  excludedToolNames: string[];
+  /** How many servers came back with a usable, confident answer. */
+  answeredCount: number;
+  /** Resolved decision model id, for telemetry. */
+  model: string;
+  /** Round trip in milliseconds. */
+  latencyMs: number;
 };

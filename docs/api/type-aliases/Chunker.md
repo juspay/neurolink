@@ -8,7 +8,7 @@
 
 > **Chunker** = `object`
 
-Defined in: [types/rag.ts:23](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L23)
+Defined in: [types/rag.ts:24](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L24)
 
 Chunker type - all chunking strategies implement this
 
@@ -18,7 +18,7 @@ Chunker type - all chunking strategies implement this
 
 > `readonly` **strategy**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:25](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L25)
+Defined in: [types/rag.ts:26](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L26)
 
 Strategy name for identification
 
@@ -28,7 +28,7 @@ Strategy name for identification
 
 > **chunk**(`text`, `config?`): `Promise`\<[`Chunk`](Chunk.md)[]\>
 
-Defined in: [types/rag.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L33)
+Defined in: [types/rag.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L34)
 
 Split text into chunks
 

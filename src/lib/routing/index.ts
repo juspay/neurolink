@@ -7,4 +7,8 @@
 export { classifyProviderError, ModelPool } from "./modelPool.js";
 export { createDefaultRequestRouter } from "./requestRouter.js";
 export { ClassifierRouter } from "./classifierRouter.js";
-export { classifyHeuristic, classifyLlm } from "./classifierStrategies.js";
+export {
+  classifyHeuristic,
+  classifyJev,
+  classifyLlm,
+} from "./classifierStrategies.js";

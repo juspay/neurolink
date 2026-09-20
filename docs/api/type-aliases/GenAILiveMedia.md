@@ -8,7 +8,7 @@
 
 > **GenAILiveMedia** = `object`
 
-Defined in: [types/providers.ts:1089](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1089)
+Defined in: [types/providers.ts:1122](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1122)
 
 Google AI Live media configuration
 
@@ -18,7 +18,7 @@ Google AI Live media configuration
 
 > **data**: `string`
 
-Defined in: [types/providers.ts:1090](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1090)
+Defined in: [types/providers.ts:1123](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1123)
 
 ---
 
@@ -26,4 +26,4 @@ Defined in: [types/providers.ts:1090](https://github.com/juspay/neurolink/blob/r
 
 > **mimeType**: `string`
 
-Defined in: [types/providers.ts:1091](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1091)
+Defined in: [types/providers.ts:1124](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1124)

@@ -8,7 +8,7 @@
 
 > **GraphEdge** = `object`
 
-Defined in: [types/rag.ts:1378](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1378)
+Defined in: [types/rag.ts:1397](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1397)
 
 Graph edge representing semantic relationship
 
@@ -18,7 +18,7 @@ Graph edge representing semantic relationship
 
 > **source**: `string`
 
-Defined in: [types/rag.ts:1380](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1380)
+Defined in: [types/rag.ts:1399](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1399)
 
 Source node ID
 
@@ -28,7 +28,7 @@ Source node ID
 
 > **target**: `string`
 
-Defined in: [types/rag.ts:1382](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1382)
+Defined in: [types/rag.ts:1401](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1401)
 
 Target node ID
 
@@ -38,7 +38,7 @@ Target node ID
 
 > **weight**: `number`
 
-Defined in: [types/rag.ts:1384](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1384)
+Defined in: [types/rag.ts:1403](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1403)
 
 Edge weight (similarity score)
 
@@ -48,6 +48,6 @@ Edge weight (similarity score)
 
 > `optional` **type?**: `string`
 
-Defined in: [types/rag.ts:1386](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1386)
+Defined in: [types/rag.ts:1405](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1405)
 
 Edge type

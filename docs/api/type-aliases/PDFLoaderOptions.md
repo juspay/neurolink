@@ -8,7 +8,7 @@
 
 > **PDFLoaderOptions** = [`LoaderOptions`](LoaderOptions.md) & `object`
 
-Defined in: [types/rag.ts:590](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L590)
+Defined in: [types/rag.ts:609](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L609)
 
 PDF loader options
 

@@ -24,6 +24,10 @@ import type { AIProviderName } from "./constants/enums.js";
 import { ErrorCategory, ErrorSeverity } from "./constants/enums.js";
 // Multi-agent orchestration type imports
 import type {
+  ContextCompactorDeps,
+  ContextRelevanceOptions,
+  DecisionOptions,
+  DecisionResult,
   AgentDefinition,
   AgentNetworkConfig,
   AgentRunOptions,
@@ -174,6 +178,7 @@ import {
   KnowledgeGroundingEngine,
 } from "./knowledge/index.js";
 import { AIProviderFactory } from "./core/factory.js";
+import { resolveDefaultDecisionProvider } from "./factories/providerDescriptors.js";
 import type { RedisConversationMemoryManager } from "./core/redisConversationMemoryManager.js";
 import { resolveRequestKind } from "./core/resolveRequestKind.js";
 import { createToolEventPayload } from "./core/toolEvents.js";
@@ -247,6 +252,9 @@ import type {
   TeamAnalyticsResult,
 } from "./types/index.js";
 import { SpanSerializer } from "./observability/utils/spanSerializer.js";
+import { withSpan } from "./telemetry/withSpan.js";
+import { getActiveTraceContext } from "./telemetry/traceContext.js";
+import { calculateCost } from "./utils/pricing.js";
 import {
   flushOpenTelemetry,
   getLangfuseContext,
@@ -865,6 +873,11 @@ export class NeuroLink {
   // Built from config.classifierRouter; null when not configured.
   private readonly classifierRouter: ClassifierRouter | null;
 
+  // Tuning for the decision-driven relevance stage of context compaction.
+  // Undefined = the stage's own defaults; the stage itself is gated on a
+  // decision provider being configured, not on this.
+  private readonly contextRelevanceOptions: ContextRelevanceOptions | undefined;
+
   /**
    * Merge instance-level credentials with per-call credentials.
    *
@@ -1435,6 +1448,11 @@ export class NeuroLink {
     // RequestRouter: store the host-supplied function; null when not configured.
     this.requestRouter = config?.requestRouter ?? null;
 
+    // Tuning for the relevance stage of compaction. Storing it (rather than
+    // reading config at each call site) keeps compactor construction uniform
+    // across the five places that build one.
+    this.contextRelevanceOptions = config?.contextRelevance;
+
     // ClassifierRouter: opt-in. The LLM strategy reuses this instance's
     // generate() (marked so it never recursively re-routes). Fails open.
     this.classifierRouter = config?.classifierRouter?.enabled
@@ -1443,6 +1461,10 @@ export class NeuroLink {
             this.generate({
               ...genOptions,
             }),
+          // Fail-open by construction: tryDecide returns null rather than
+          // throwing, so an absent or broken decision provider leaves routing
+          // exactly as it was.
+          decide: (decideOptions) => this.tryDecide(decideOptions),
           logger: {
             debug: (message, meta) =>
               logger.debug(message, meta as Record<string, unknown>),
@@ -5367,6 +5389,21 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Dependencies handed to every `ContextCompactor`.
+   *
+   * `tryDecide` returns null whenever no decision provider is configured or
+   * the call fails, so passing this unconditionally is safe: the compactor
+   * runs its previous pipeline unchanged and pays nothing for the option.
+   */
+  private contextCompactorDeps(): ContextCompactorDeps {
+    return {
+      decide: (decisionOptions: DecisionOptions) =>
+        this.tryDecide(decisionOptions),
+      relevance: this.contextRelevanceOptions,
+    };
+  }
+
+  /**
    * Applies the host-configured `classifierRouter` to `options` in place.
    *
    * Classifies the request by difficulty and selects a provider/model from the
@@ -5379,7 +5416,12 @@ Current user's request: ${currentInput}`;
    * Fails open — any error leaves options unchanged.
    */
   private async applyClassifierRouting(
-    options: { provider?: string; model?: string; region?: string },
+    options: {
+      provider?: string;
+      model?: string;
+      region?: string;
+      compactionThreshold?: number;
+    },
     promptText: string,
     hasTools: boolean,
     requiresVision: boolean,
@@ -5463,11 +5505,67 @@ Current user's request: ${currentInput}`;
         }
       }
 
+      // Context budget: only ever narrowed, and only when the caller left it
+      // unset. A caller that pinned a threshold has made a statement about
+      // their own traffic that a per-request guess should not overrule.
+      if (
+        decision.compactionThreshold !== undefined &&
+        options.compactionThreshold === undefined
+      ) {
+        options.compactionThreshold = decision.compactionThreshold;
+        logger.debug("[NeuroLink] classifierRouter context budget", {
+          compactionThreshold: decision.compactionThreshold,
+          contextScope: decision.contextScope,
+        });
+      }
+
       // Mark routed so orchestration/requestRouter stand down this turn.
       if (decision.provider || decision.model) {
         const ctx = opt.context ?? {};
         ctx.__classifierRouted = true;
         opt.context = ctx;
+      }
+
+      // Telemetry: a debug log is not an observability surface. Routing
+      // silently changes which model — and therefore which bill — serves a
+      // request, so the decision has to be visible on the trace next to the
+      // generation it produced.
+      try {
+        const activeSpan = trace.getActiveSpan();
+        if (activeSpan) {
+          activeSpan.setAttribute(
+            "classifier_routing.difficulty",
+            decision.difficulty ?? "unknown",
+          );
+          activeSpan.setAttribute(
+            "classifier_routing.provider",
+            options.provider ?? "",
+          );
+          activeSpan.setAttribute(
+            "classifier_routing.model",
+            options.model ?? "",
+          );
+          if (decision.contextScope) {
+            activeSpan.setAttribute(
+              "classifier_routing.context_scope",
+              decision.contextScope,
+            );
+          }
+          if (decision.compactionThreshold !== undefined) {
+            activeSpan.setAttribute(
+              "classifier_routing.compaction_threshold",
+              decision.compactionThreshold,
+            );
+          }
+          if (decision.reason) {
+            activeSpan.setAttribute(
+              "classifier_routing.reason",
+              decision.reason,
+            );
+          }
+        }
+      } catch {
+        // Telemetry must never affect routing behaviour.
       }
 
       if (decision.reason) {
@@ -6996,13 +7094,16 @@ Current user's request: ${currentInput}`;
 
       for (let i = 0; i < escalationFractions.length; i++) {
         const fraction = escalationFractions[i];
-        const compactor = new ContextCompactor({
-          enableSummarize: false,
-          enablePrune: true,
-          enableDeduplicate: true,
-          enableTruncate: true,
-          truncationFraction: fraction,
-        });
+        const compactor = new ContextCompactor(
+          {
+            enableSummarize: false,
+            enablePrune: true,
+            enableDeduplicate: true,
+            enableTruncate: true,
+            truncationFraction: fraction,
+          },
+          this.contextCompactorDeps(),
+        );
         const compactionResult = await compactor.compact(
           originalMessages as import("./types/index.js").ChatMessage[],
           compactionTarget,
@@ -7806,6 +7907,7 @@ Current user's request: ${currentInput}`;
       }>,
       currentPrompt: options.prompt,
       toolDefinitions: availableTools,
+      compactionThreshold: options.compactionThreshold,
     });
 
     logger.info("[TokenBudget] Token breakdown", {
@@ -7860,7 +7962,10 @@ Current user's request: ${currentInput}`;
       availableTools,
       conversationMessages,
       availableInputTokens: budgetResult.availableInputTokens,
-      historyBudget: resolveHistoryBudget(budgetResult),
+      historyBudget: resolveHistoryBudget(
+        budgetResult,
+        options.compactionThreshold,
+      ),
       usageRatio: budgetResult.usageRatio,
       estimatedInputTokens: budgetResult.estimatedInputTokens,
       compactionSessionId,
@@ -7903,14 +8008,17 @@ Current user's request: ${currentInput}`;
       },
     );
 
-    const compactor = new ContextCompactor({
-      provider: providerName,
-      summarizationProvider:
-        this.conversationMemoryConfig?.conversationMemory
-          ?.summarizationProvider,
-      summarizationModel:
-        this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
-    });
+    const compactor = new ContextCompactor(
+      {
+        provider: providerName,
+        summarizationProvider:
+          this.conversationMemoryConfig?.conversationMemory
+            ?.summarizationProvider,
+        summarizationModel:
+          this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
+      },
+      this.contextCompactorDeps(),
+    );
 
     // Fixed overhead (system + prompt + tools + files) already exceeds the
     // window — no amount of history compaction can fit this request, and
@@ -7935,6 +8043,7 @@ Current user's request: ${currentInput}`;
       historyBudget,
       this.conversationMemoryConfig?.conversationMemory,
       requestId,
+      { currentRequest: options.prompt },
     );
 
     let compactedMessages = conversationMessages;
@@ -8453,6 +8562,7 @@ Current user's request: ${currentInput}`;
           toolDefinitions: options.tools
             ? Object.values(options.tools)
             : undefined,
+          compactionThreshold: options.compactionThreshold,
         });
 
         const dpgMessageCount = conversationMessages?.length || 0;
@@ -8611,22 +8721,26 @@ Current user's request: ${currentInput}`;
           dpgMessageCount >
             (this.lastCompactionMessageCount.get(dpgCompactionSessionId) ?? 0)
         ) {
-          const compactor = new ContextCompactor({
-            provider: providerName,
-            summarizationProvider:
-              this.conversationMemoryConfig?.conversationMemory
-                ?.summarizationProvider,
-            summarizationModel:
-              this.conversationMemoryConfig?.conversationMemory
-                ?.summarizationModel,
-          });
+          const compactor = new ContextCompactor(
+            {
+              provider: providerName,
+              summarizationProvider:
+                this.conversationMemoryConfig?.conversationMemory
+                  ?.summarizationProvider,
+              summarizationModel:
+                this.conversationMemoryConfig?.conversationMemory
+                  ?.summarizationModel,
+            },
+            this.contextCompactorDeps(),
+          );
           const compactionResult = await compactor.compact(
             conversationMessages as import("./types/index.js").ChatMessage[],
-            resolveHistoryBudget(budgetCheck),
+            resolveHistoryBudget(budgetCheck, options.compactionThreshold),
             this.conversationMemoryConfig?.conversationMemory,
             (options.context as Record<string, unknown>)?.requestId as
               | string
               | undefined,
+            { currentRequest: options.prompt },
           );
           if (compactionResult.compacted) {
             const repairedResult = repairToolPairs(compactionResult.messages);
@@ -9713,6 +9827,14 @@ Current user's request: ${currentInput}`;
               decision.granularity,
             );
           }
+          // Which router actually decided. Three strategies can produce an
+          // "applied" outcome and they have wildly different cost and
+          // latency profiles, so an outcome without a strategy cannot be
+          // acted on — and a decision router that silently stopped firing
+          // looks identical to one that was never configured.
+          if (decision.strategy !== undefined) {
+            activeSpan.setAttribute("tool_routing.strategy", decision.strategy);
+          }
         } catch {
           // Telemetry must never affect routing behaviour.
         }
@@ -9871,6 +9993,15 @@ Current user's request: ${currentInput}`;
               ...generateOptions,
               abortSignal: options.abortSignal,
             }),
+          // Calibrated per-server routing when a decision provider is
+          // configured. tryDecide returns null without one, so the resolver
+          // falls straight through to the generative router as before.
+          decideFn: (decisionOptions) =>
+            this.tryDecide({
+              ...decisionOptions,
+              signal: options.abortSignal,
+            }),
+          decisionMinDropConfidence: routingConfig.minDropConfidence,
           emitDecision: captureDecision,
           // L2 / ITEM D — only populated when embedding is configured.
           embedFn: routingEmbedFn,
@@ -11641,6 +11772,7 @@ Current user's request: ${currentInput}`;
       }>,
       currentPrompt: options.input.text,
       toolDefinitions: availableTools,
+      compactionThreshold: options.compactionThreshold,
     });
 
     const streamMessageCount = conversationMessages?.length || 0;
@@ -11691,21 +11823,26 @@ Current user's request: ${currentInput}`;
       streamMessageCount >
         (this.lastCompactionMessageCount.get(streamCompactionSessionId) ?? 0)
     ) {
-      const compactor = new ContextCompactor({
-        provider: providerName,
-        summarizationProvider:
-          this.conversationMemoryConfig?.conversationMemory
-            ?.summarizationProvider,
-        summarizationModel:
-          this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
-      });
+      const compactor = new ContextCompactor(
+        {
+          provider: providerName,
+          summarizationProvider:
+            this.conversationMemoryConfig?.conversationMemory
+              ?.summarizationProvider,
+          summarizationModel:
+            this.conversationMemoryConfig?.conversationMemory
+              ?.summarizationModel,
+        },
+        this.contextCompactorDeps(),
+      );
       const compactionResult = await compactor.compact(
         conversationMessages as import("./types/index.js").ChatMessage[],
-        resolveHistoryBudget(streamBudget),
+        resolveHistoryBudget(streamBudget, options.compactionThreshold),
         this.conversationMemoryConfig?.conversationMemory,
         (options.context as Record<string, unknown> | undefined)?.requestId as
           | string
           | undefined,
+        { currentRequest: options.input.text },
       );
       if (compactionResult.compacted) {
         const repairedResult = repairToolPairs(compactionResult.messages);
@@ -17215,6 +17352,209 @@ Current user's request: ${currentInput}`;
   }
 
   /**
+   * Run the `decide` inference type: evaluate a `state` against a batch of
+   * named, typed questions and get one typed answer each.
+   *
+   * This is NOT {@link NeuroLink.evaluate}, which scores an already-generated
+   * response with RAGAS scorers. `decide` calls a decision model — one that
+   * emits no text at all and returns calibrated, typed judgements your code
+   * can branch on.
+   *
+   * **Batch, never fan out.** On a decision model, latency is flat in
+   * question count (measured: 1 question 393ms, 400 questions 465ms) while
+   * concurrent requests queue. Put every question you might need into one
+   * call — speculative questions are nearly free, a second round trip is not.
+   *
+   * A `choice` answer carries the full probability distribution, so one
+   * question over N options also ranks all N.
+   *
+   * @example
+   * ```typescript
+   * const result = await neurolink.decide({
+   *   state: ticketText,
+   *   questions: {
+   *     team: {
+   *       type: "choice",
+   *       instructions: "Which team should handle this?",
+   *       criteria: { billing: "Payments", technical: "Bugs", sales: "Pricing" },
+   *     },
+   *     urgent: { type: "boolean", instructions: "Is this urgent?" },
+   *   },
+   * });
+   * const team = readDecisionChoice(result.answers, "team");
+   * if (team && team.confidence > 0.7) { assign(team.choice); }
+   * ```
+   *
+   * @throws when no decision provider is configured, or the call fails
+   */
+  async decide(options: DecisionOptions): Promise<DecisionResult> {
+    const providerName = options.provider ?? resolveDefaultDecisionProvider();
+    if (!providerName) {
+      throw new Error(
+        "No decision provider is configured. Set TYPESAFE_API_KEY, or pass `provider` explicitly.",
+      );
+    }
+
+    const questionCount = Object.keys(options.questions).length;
+
+    // Observability parity with generate()/stream(): an OTEL span for the
+    // trace view, a serialized span for the in-process metrics aggregator,
+    // and a cost figure. Without these a decision model is invisible — and
+    // "invisible" is the failure mode that matters here, because every
+    // internal consumer is fail-open, so a decision path that has silently
+    // stopped working looks exactly like one that was never configured.
+    return withSpan(
+      {
+        name: `gen_ai.${providerName}.decide`,
+        tracer: tracers.decision,
+        attributes: {
+          "gen_ai.system": providerName,
+          "gen_ai.operation.name": "decide",
+          "ai.provider": providerName,
+          "decision.question_count": questionCount,
+        },
+      },
+      async (otelSpan) => {
+        const { traceId, parentSpanId } = getActiveTraceContext();
+        const startedAt = Date.now();
+        let span = SpanSerializer.createSpan(
+          SpanType.MODEL_DECISION,
+          `decision.${providerName}`,
+          {
+            "ai.provider": providerName,
+            "ai.model": options.model ?? "",
+            "decision.question_count": questionCount,
+          },
+          parentSpanId,
+          traceId,
+        );
+
+        try {
+          // enableMCP: false — a decision model has no tools and never will.
+          const provider = await AIProviderFactory.createProvider(
+            providerName,
+            options.model,
+            false,
+            this,
+            undefined,
+            this.resolveCredentials(options.credentials),
+          );
+
+          if (typeof provider.decide !== "function") {
+            throw new Error(
+              `Provider "${providerName}" does not serve the decide inference type.`,
+            );
+          }
+
+          const result = await provider.decide({
+            state: options.state,
+            questions: options.questions,
+            model: options.model,
+            signal: options.signal,
+            timeoutMs: options.timeoutMs,
+          });
+
+          const answerCount = Object.keys(result.answers).length;
+          const cost = calculateCost(providerName, result.model, {
+            input: result.usage.inputTokens,
+            output: result.usage.outputTokens,
+            total: result.usage.inputTokens + result.usage.outputTokens,
+          });
+
+          otelSpan.setAttribute("gen_ai.response.model", result.model);
+          otelSpan.setAttribute(
+            "gen_ai.usage.input_tokens",
+            result.usage.inputTokens,
+          );
+          otelSpan.setAttribute(
+            "gen_ai.usage.output_tokens",
+            result.usage.outputTokens,
+          );
+          otelSpan.setAttribute("decision.answer_count", answerCount);
+          otelSpan.setAttribute("ai.cost.total", cost);
+          if (result.upstreamMs !== undefined) {
+            otelSpan.setAttribute("decision.upstream_ms", result.upstreamMs);
+          }
+          if (result.requestId) {
+            otelSpan.setAttribute("gen_ai.response.id", result.requestId);
+          }
+
+          span.durationMs = Date.now() - startedAt;
+          span = SpanSerializer.updateAttributes(span, {
+            // The key names the cost aggregator reads. `ai.model` is
+            // overwritten with the RESOLVED model (e.g. "jev-1.13.0"), not
+            // the alias that was sent, so spend is attributed to what
+            // actually ran.
+            "ai.model": result.model,
+            "ai.tokens.input": result.usage.inputTokens,
+            "ai.tokens.output": result.usage.outputTokens,
+            "ai.cost.input": cost,
+            "ai.cost.output": 0,
+            "ai.cost.total": cost,
+            "decision.answer_count": answerCount,
+            "decision.latency_ms": result.latencyMs,
+            ...(result.upstreamMs !== undefined
+              ? { "decision.upstream_ms": result.upstreamMs }
+              : {}),
+          });
+          // BOTH aggregators, exactly as the generate path does. The
+          // instance one is what `neurolink.getMetrics()` / `getSpans()`
+          // read; the global one is what the exporters drain. Recording to
+          // only the global one would make a decision invisible to the very
+          // API a caller would use to check whether it ran.
+          const ended = SpanSerializer.endSpan(span, SpanStatus.OK);
+          this.metricsAggregator.recordSpan(ended);
+          getMetricsAggregator().recordSpan(ended);
+          return result;
+        } catch (error) {
+          span.durationMs = Date.now() - startedAt;
+          const ended = SpanSerializer.endSpan(
+            span,
+            SpanStatus.ERROR,
+            error instanceof Error ? error.message : String(error),
+          );
+          this.metricsAggregator.recordSpan(ended);
+          getMetricsAggregator().recordSpan(ended);
+          throw error;
+        }
+      },
+    );
+  }
+
+  /**
+   * Fail-open {@link NeuroLink.decide}: returns null on any failure instead
+   * of throwing.
+   *
+   * This is the contract every internal consumer relies on. A decision model
+   * that is unconfigured, slow, rate-limited or down must never change
+   * NeuroLink's observable behaviour — the caller falls back to whatever it
+   * did before the decision was available.
+   */
+  async tryDecide(options: DecisionOptions): Promise<DecisionResult | null> {
+    try {
+      const result = await this.decide(options);
+      if (logger.shouldLog("debug")) {
+        logger.debug(
+          `decide: ${Object.keys(result.answers).length} answers in ${result.latencyMs}ms` +
+            (result.upstreamMs ? ` (upstream ${result.upstreamMs}ms)` : ""),
+          {
+            provider: result.provider,
+            model: result.model,
+            requestId: result.requestId,
+            usage: result.usage,
+          },
+        );
+      }
+      return result;
+    } catch (error) {
+      logger.debug(
+        `decide unavailable: ${error instanceof Error ? error.message : String(error)} — falling back`,
+      );
+      return null;
+    }
+  }
+
+  /**
    * Evaluate an AI response using the specified pipeline or scorers.
    * This is a convenience method that creates a pipeline and executes it in one call.
    *
@@ -18716,16 +19056,19 @@ Current user's request: ${currentInput}`;
       return null;
     }
 
-    const compactor = new ContextCompactor({
-      ...config,
-      summarizationProvider:
-        config?.summarizationProvider ??
-        this.conversationMemoryConfig?.conversationMemory
-          ?.summarizationProvider,
-      summarizationModel:
-        config?.summarizationModel ??
-        this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
-    });
+    const compactor = new ContextCompactor(
+      {
+        ...config,
+        summarizationProvider:
+          config?.summarizationProvider ??
+          this.conversationMemoryConfig?.conversationMemory
+            ?.summarizationProvider,
+        summarizationModel:
+          config?.summarizationModel ??
+          this.conversationMemoryConfig?.conversationMemory?.summarizationModel,
+      },
+      this.contextCompactorDeps(),
+    );
     // Use actual context window to determine target, not arbitrary heuristic
     const budgetInfo = checkContextBudget({
       provider: config?.provider || "openai",

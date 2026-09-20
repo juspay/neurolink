@@ -41,9 +41,11 @@ Typical use cases:
 
 Each request flows through two stages:
 
-1. **Classify** — produce a difficulty bucket (`trivial | simple | moderate | hard | expert`) plus optional `requiredCapabilities` and tool hints. Two strategies:
-   - `heuristic` (default): zero-cost keyword/length scoring of the prompt text. No LLM call, fully deterministic, provider-agnostic.
+1. **Classify** — produce a difficulty bucket (`trivial | simple | moderate | hard | expert`) plus optional `requiredCapabilities` and tool hints. Four strategies:
+   - `auto` (default): resolves to `jev` when `TYPESAFE_API_KEY` is set, and `heuristic` otherwise. Setting a key therefore upgrades routing with no code change; without one, behaviour is exactly as it was.
+   - `heuristic`: zero-cost keyword/length scoring of the prompt text. No LLM call, fully deterministic, provider-agnostic.
    - `llm`: a cheap "classifier model" reads the prompt and returns a difficulty — and, when given your pool, **picks a model directly** by id.
+   - `jev`: [a decision model](/docs/features/decide-inference-type) (TypeSafe's Jev) answers difficulty, required capabilities **and** the model pick in one ~400 ms request, with a _calibrated_ confidence. Verdicts that miss the applicable confidence bar (`minUpgradeConfidence` 0.3 to route up, `minDowngradeConfidence` 0.6 to route down) fall through to the heuristic rather than acting on a guess. See [the `decide` inference type](/docs/features/decide-inference-type).
 2. **Select** — turn that into a concrete `{ provider, model, region }` from your `pool`, optionally narrowing `tools`.
 
 The router runs **before** the provider/model is constructed (it reuses the same pre-call seam as `requestRouter`). It is skipped when the caller pinned both `provider` and `model`, or when a [`modelPool`](/docs/features/provider-orchestration) is configured (the pool owns selection).
@@ -180,15 +182,17 @@ neurolink generate "Design a multi-region architecture" \
   --classifier-pool ./pool.json
 ```
 
-| Flag                          | Description                                             |
-| ----------------------------- | ------------------------------------------------------- |
-| `--classifier-router`         | Enable the classifier router.                           |
-| `--classifier-strategy`       | `heuristic` (default) or `llm`.                         |
-| `--classifier-model-provider` | Provider for the LLM classifier model (`strategy=llm`). |
-| `--classifier-model-name`     | Model name for the LLM classifier model.                |
-| `--classifier-model-region`   | Region for the LLM classifier model.                    |
-| `--classifier-pool`           | JSON file path or inline JSON array of pool members.    |
-| `--classifier-timeout`        | LLM classifier hard timeout (ms).                       |
+| Flag                                    | Description                                             |
+| --------------------------------------- | ------------------------------------------------------- |
+| `--classifier-router`                   | Enable the classifier router.                           |
+| `--classifier-strategy`                 | `auto` (default), `heuristic`, `llm` or `jev`.          |
+| `--classifier-min-upgrade-confidence`   | Confidence needed to route UP (`jev`; 0.3).             |
+| `--classifier-min-downgrade-confidence` | Confidence needed to route DOWN (`jev`; 0.6).           |
+| `--classifier-model-provider`           | Provider for the LLM classifier model (`strategy=llm`). |
+| `--classifier-model-name`               | Model name for the LLM classifier model.                |
+| `--classifier-model-region`             | Region for the LLM classifier model.                    |
+| `--classifier-pool`                     | JSON file path or inline JSON array of pool members.    |
+| `--classifier-timeout`                  | LLM classifier hard timeout (ms).                       |
 
 > CLI flags cover the common case (strategy, classifier model, pool). For `tierMap` and `toolDirectives`, use the SDK config.
 
@@ -197,7 +201,9 @@ neurolink generate "Design a multi-region architecture" \
 ```typescript
 type ClassifierRouterConfig = {
   enabled: boolean; // master switch; false/absent → router never built
-  classifier?: "heuristic" | "llm"; // default: "heuristic"
+  classifier?: "auto" | "heuristic" | "llm" | "jev"; // default: "auto"
+  minUpgradeConfidence?: number; // route UP ("jev"); default 0.3
+  minDowngradeConfidence?: number; // route DOWN ("jev"); default 0.6
   classifierModel?: {
     provider?: string;
     model?: string;
@@ -213,6 +219,8 @@ type ClassifierRouterConfig = {
     >
   >;
   timeoutMs?: number; // LLM classifier hard timeout (default 8000)
+  catalog?: ClassifierCatalogConfig; // widen pool with registry models this host has credentials for; off by default
+  contextBudget?: boolean; // ask the classifier how much context is needed and lower compaction threshold; default true for a decision-model strategy
 };
 
 type ClassifierRouterPoolMember = {
@@ -239,12 +247,15 @@ Model selection resolves in this order: **caller-pinned `provider`+`model`** > *
 ## Caveats
 
 - **Registry quality is coarse.** Auto-enrichment maps a model to a 3-bucket quality (`high/medium/low`), so two "high" models can't be separated on capability alone — declare `quality`/`tiers`/`tierMap` or use the LLM pick for reliable hard-vs-easy routing.
-- **LLM classifier latency/cost.** The `llm` strategy adds one cheap call per uncached turn; prefer a small, fast, non-Gemini model and keep `heuristic` as the default where determinism matters.
+- **LLM classifier latency/cost.** The `llm` strategy adds one cheap call per uncached turn; prefer a small, fast, non-Gemini model and use `heuristic` where determinism matters.
+- **Jev confidence is a gate, not a score.** Unlike the `llm` strategy — whose self-reported confidence defaults to a hard-coded `0.7` when the model omits it — `jev` returns a calibrated value, which is what makes `minConfidence` meaningful. The two bars differ because the mistakes cost differently: spending more on a wrong guess wastes money, spending less produces a wrong answer. Set either above 1 to force the heuristic while leaving the strategy configured.
 - **Gemini tools + JSON schema.** The classifier call uses a schema with tools disabled, so the Gemini exclusivity rule doesn't apply to it; when routing a tools + structured-output request, prefer a non-Gemini target model.
-- **Prompt privacy (LLM strategy).** The `llm` classifier sends a truncated copy of the prompt to the classifier model, so the same data-handling/retention considerations as any provider call apply. The `heuristic` default keeps classification fully in-process (no prompt leaves your environment) — prefer it where that matters.
+- **Prompt privacy (`llm` and `jev`).** Both strategies send a truncated copy of the prompt off-machine — to the classifier model, or to TypeSafe — so the same data-handling and retention considerations as any provider call apply. `heuristic` keeps classification fully in-process (no prompt leaves your environment); prefer it where that matters, and note that `auto` selects `jev` as soon as a TypeSafe key is present.
 
 ## See also
 
 - [Provider Orchestration & Model Pool](/docs/features/provider-orchestration)
 - [Provider Fallback](/docs/features/provider-fallback)
 - [Per-Request Credentials](/docs/features/per-request-credentials)
+- [Model routing with a decision model](/docs/features/classifier-router-jev-strategy)
+- [The model catalogue](/docs/features/classifier-router-catalog)

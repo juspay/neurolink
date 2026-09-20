@@ -8,7 +8,7 @@
 
 > **RAGResponse** = `object`
 
-Defined in: [types/rag.ts:328](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L328)
+Defined in: [types/rag.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L345)
 
 Query response
 
@@ -18,7 +18,7 @@ Query response
 
 > `optional` **answer?**: `string`
 
-Defined in: [types/rag.ts:330](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L330)
+Defined in: [types/rag.ts:347](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L347)
 
 Generated answer (if generate=true)
 
@@ -28,7 +28,7 @@ Generated answer (if generate=true)
 
 > **context**: `string`
 
-Defined in: [types/rag.ts:332](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L332)
+Defined in: [types/rag.ts:349](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L349)
 
 Retrieved context chunks
 
@@ -38,7 +38,7 @@ Retrieved context chunks
 
 > **sources**: `object`[]
 
-Defined in: [types/rag.ts:334](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L334)
+Defined in: [types/rag.ts:351](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L351)
 
 Source documents/chunks
 
@@ -64,7 +64,7 @@ Source documents/chunks
 
 > **metadata**: `object`
 
-Defined in: [types/rag.ts:341](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L341)
+Defined in: [types/rag.ts:358](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L358)
 
 Query metadata
 
@@ -83,3 +83,9 @@ Query metadata
 #### reranked
 
 > **reranked**: `boolean`
+
+#### plan?
+
+> `optional` **plan?**: [`SearchPlanResult`](SearchPlanResult.md)
+
+The per-query retrieval plan, when one was decided.

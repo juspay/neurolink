@@ -8,7 +8,7 @@
 
 > **SageMakerUsage** = `object`
 
-Defined in: [types/providers.ts:1504](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1504)
+Defined in: [types/providers.ts:1537](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1537)
 
 Token usage and billing information
 
@@ -18,7 +18,7 @@ Token usage and billing information
 
 > **promptTokens**: `number`
 
-Defined in: [types/providers.ts:1506](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1506)
+Defined in: [types/providers.ts:1539](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1539)
 
 Number of prompt tokens
 
@@ -28,7 +28,7 @@ Number of prompt tokens
 
 > **completionTokens**: `number`
 
-Defined in: [types/providers.ts:1508](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1508)
+Defined in: [types/providers.ts:1541](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1541)
 
 Number of completion tokens
 
@@ -38,7 +38,7 @@ Number of completion tokens
 
 > **total**: `number`
 
-Defined in: [types/providers.ts:1510](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1510)
+Defined in: [types/providers.ts:1543](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1543)
 
 Total tokens used
 
@@ -48,7 +48,7 @@ Total tokens used
 
 > `optional` **requestTime?**: `number`
 
-Defined in: [types/providers.ts:1512](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1512)
+Defined in: [types/providers.ts:1545](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1545)
 
 Request processing time in milliseconds
 
@@ -58,7 +58,7 @@ Request processing time in milliseconds
 
 > `optional` **inferenceTime?**: `number`
 
-Defined in: [types/providers.ts:1514](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1514)
+Defined in: [types/providers.ts:1547](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1547)
 
 Model inference time in milliseconds
 
@@ -68,6 +68,6 @@ Model inference time in milliseconds
 
 > `optional` **estimatedCost?**: `number`
 
-Defined in: [types/providers.ts:1516](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1516)
+Defined in: [types/providers.ts:1549](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1549)
 
 Estimated cost in USD

@@ -8,7 +8,7 @@
 
 > **HTMLChunkerConfig** = [`BaseChunkerConfig`](BaseChunkerConfig.md) & `object`
 
-Defined in: [types/rag.ts:953](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L953)
+Defined in: [types/rag.ts:972](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L972)
 
 HTML chunker configuration
 HTML structure-aware splitting

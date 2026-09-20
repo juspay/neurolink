@@ -17,6 +17,7 @@ import { GitChangeDetector, type GitChangeInfo } from "./gitChangeDetector.js";
 
 // Configuration
 const SOURCE_DIR = path.resolve(__dirname, "../../docs");
+const PROVIDER_DOCS_DIR = path.join(SOURCE_DIR, "getting-started/providers");
 const TARGET_DIR = path.resolve(__dirname, "../docs");
 const STATIC_DIR = path.resolve(__dirname, "../static");
 
@@ -1438,6 +1439,31 @@ const LINK_MAPPINGS: Record<string, string> = {
     "/provider-integration/adr/0003-mocked-contract-as-merge-gate",
   "manifests/README": "/provider-integration/manifests/readme",
 };
+
+/**
+ * Bare provider names, derived from the filesystem rather than hand-listed.
+ *
+ * Pages under `docs/getting-started/providers/` link to each other with plain
+ * sibling links (`[Groq](groq.md)`), and `transformLinkPath` resolves those
+ * through LINK_MAPPINGS. A name that is missing falls through to the generic
+ * `/docs/<name>`, which is not a route — so the Docusaurus build fails with
+ * "broken links" for a page that exists and is perfectly well formed.
+ *
+ * That list was maintained by hand and had drifted to 49 of 54 providers.
+ * Deriving it means adding a provider page can never reintroduce the gap:
+ * every `.md` in that directory is mapped by construction, and an explicit
+ * entry above still wins for anything needing a special case.
+ */
+for (const file of fs.existsSync(PROVIDER_DOCS_DIR)
+  ? fs.readdirSync(PROVIDER_DOCS_DIR)
+  : []) {
+  if (!file.endsWith(".md") || file === "index.md") {
+    continue;
+  }
+  const name = file.slice(0, -3);
+  LINK_MAPPINGS[name] ??= `/getting-started/providers/${name}`;
+  LINK_MAPPINGS[file] ??= `/getting-started/providers/${name}`;
+}
 
 /**
  * Transform a link path to its new location with /docs prefix

@@ -346,6 +346,19 @@ export type ExecutionControlOptions = {
 
 export type StreamOptions = {
   /**
+   * Fraction of the model's context window at which compaction runs for this
+   * request, replacing the 0.8 default.
+   *
+   * A request that needs only the current message does not need the whole
+   * window kept warm for it, and compacting earlier is free; a request that
+   * depends on the entire conversation should compact as late as possible.
+   * When the classifier router runs with a decision model it fills this in
+   * per request — always at or below the default, never above, because a
+   * request that overflows the window fails hard and `ModelPool` records that
+   * failure as a permanent cooldown.
+   */
+  compactionThreshold?: number;
+  /**
    * Opt this stream call into the knowledge grounding configured on the
    * NeuroLink instance. Defaults to `false` when omitted.
    */

@@ -8,7 +8,7 @@
 
 > **FileSummarizationPlanEntry** = `object`
 
-Defined in: [types/context.ts:763](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L763)
+Defined in: [types/context.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L765)
 
 Plan entry for a single file.
 
@@ -18,7 +18,7 @@ Plan entry for a single file.
 
 > **file**: [`FileForSummarization`](FileForSummarization.md)
 
-Defined in: [types/context.ts:764](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L764)
+Defined in: [types/context.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L766)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:764](https://github.com/juspay/neurolink/blob/rele
 
 > **action**: `"summarize"` \| `"keep"`
 
-Defined in: [types/context.ts:765](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L765)
+Defined in: [types/context.ts:767](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L767)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/context.ts:765](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **targetTokens?**: `number`
 
-Defined in: [types/context.ts:766](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L766)
+Defined in: [types/context.ts:768](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L768)

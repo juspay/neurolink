@@ -10,7 +10,7 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 
 ### Q: Which AI providers does NeuroLink support?
 
-**A:** NeuroLink supports 30+ AI providers across text, voice, realtime, and media generation. The text and multimodal providers include:
+**A:** NeuroLink ships 40 AI providers for text generation, streaming, and decision-making — plus separate provider systems for voice and media generation. The text and multimodal providers include:
 
 - **OpenAI** (GPT-4o, GPT-4.1, o3, o4-mini)
 - **Google AI Studio** (Gemini 3 Flash/Pro, Gemini 2.5 Pro/Flash)
@@ -29,8 +29,14 @@ Common questions and answers about NeuroLink usage, configuration, and troublesh
 - **NVIDIA NIM** (Llama 3.3 70B, 400+ catalog models)
 - **LM Studio** (Local models loaded in LM Studio)
 - **llama.cpp** (Local GGUF models via llama-server)
+- **Groq, Cerebras, SambaNova, Together AI, Fireworks AI, Perplexity, Cloudflare Workers AI, xAI, Baseten, GMI Cloud, Inception Labs, io.net Intelligence, Mancer, Upstage, API Route** (zero-quirk OpenAI-wire-compatible catalog providers)
+- **Cohere** (chat, plus `embed()` and reranking)
+- **Voyage AI**, **Jina AI** (embedding and/or reranking only — no chat completions)
+- **TypeSafe Jev** (decision-only — serves `decide()`, not `generate()`/`stream()`)
 
-Voice providers:
+See [Provider Setup](../getting-started/provider-setup.md) for the complete roster with setup guides.
+
+Voice providers (a separate system from the 40 above):
 
 - **OpenAI TTS** (TTS-1, TTS-1-HD, GPT-4o Audio)
 - **ElevenLabs** (Multilingual v2, Turbo v2.5, Flash v2.5)
@@ -38,9 +44,11 @@ Voice providers:
 - **Azure Speech** (Azure Cognitive Services TTS + STT)
 - **Google TTS / STT** (Google Cloud Speech)
 - **Whisper** (OpenAI Whisper — STT)
+- **Fish Audio** (TTS)
+- **Cartesia** (TTS)
 - **OpenAI Realtime** + **Gemini Live** (realtime voice APIs)
 
-Media generation providers (image / video / music / avatar) — Kling, Runway, Replicate, Beatoven, Lyria, D-ID, HeyGen — round out the 30+ total. See [Media Generation](../features/index.md) for the full list.
+Media generation providers (image / video / music / avatar) — Kling, Runway, Replicate, Beatoven, Lyria, D-ID, HeyGen. See [Media Generation](../features/index.md) for the full list.
 
 ### Q: Do I need to install anything?
 

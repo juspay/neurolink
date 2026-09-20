@@ -6,8 +6,8 @@
 
 # Type Alias: CompactionStage
 
-> **CompactionStage** = `"prune"` \| `"deduplicate"` \| `"summarize"` \| `"truncate"`
+> **CompactionStage** = `"relevance"` \| `"prune"` \| `"deduplicate"` \| `"summarize"` \| `"truncate"`
 
-Defined in: [types/context.ts:606](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L606)
+Defined in: [types/context.ts:607](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L607)
 
 Stages available in the compaction pipeline.

@@ -8,7 +8,7 @@
 
 > **MetadataExtractorMetadata** = `object`
 
-Defined in: [types/rag.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L137)
+Defined in: [types/rag.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L138)
 
 Metadata extractor metadata for discovery and documentation
 
@@ -18,7 +18,7 @@ Metadata extractor metadata for discovery and documentation
 
 > **description**: `string`
 
-Defined in: [types/rag.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L139)
+Defined in: [types/rag.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L140)
 
 Human-readable description
 
@@ -28,7 +28,7 @@ Human-readable description
 
 > **defaultConfig**: `Partial`\<[`MetadataExtractorConfig`](MetadataExtractorConfig.md)\>
 
-Defined in: [types/rag.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L141)
+Defined in: [types/rag.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L142)
 
 Default configuration
 
@@ -38,7 +38,7 @@ Default configuration
 
 > **supportedOptions**: `string`[]
 
-Defined in: [types/rag.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L143)
+Defined in: [types/rag.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L144)
 
 Supported configuration options
 
@@ -48,7 +48,7 @@ Supported configuration options
 
 > **useCases**: `string`[]
 
-Defined in: [types/rag.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L145)
+Defined in: [types/rag.ts:146](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L146)
 
 Recommended use cases
 
@@ -58,7 +58,7 @@ Recommended use cases
 
 > **aliases**: `string`[]
 
-Defined in: [types/rag.ts:147](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L147)
+Defined in: [types/rag.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L148)
 
 Alternative names for this extractor
 
@@ -68,7 +68,7 @@ Alternative names for this extractor
 
 > **requiresModel**: `boolean`
 
-Defined in: [types/rag.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L149)
+Defined in: [types/rag.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L150)
 
 Whether this extractor requires an AI model
 
@@ -78,6 +78,6 @@ Whether this extractor requires an AI model
 
 > **extractionTypes**: `string`[]
 
-Defined in: [types/rag.ts:151](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L151)
+Defined in: [types/rag.ts:152](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L152)
 
 Extraction types this extractor can produce

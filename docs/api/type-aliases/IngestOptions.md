@@ -8,7 +8,7 @@
 
 > **IngestOptions** = `object`
 
-Defined in: [types/rag.ts:288](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L288)
+Defined in: [types/rag.ts:299](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L299)
 
 Ingestion options
 
@@ -18,7 +18,7 @@ Ingestion options
 
 > `optional` **strategy?**: [`ChunkingStrategy`](ChunkingStrategy.md)
 
-Defined in: [types/rag.ts:290](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L290)
+Defined in: [types/rag.ts:301](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L301)
 
 Chunking strategy override
 
@@ -28,7 +28,7 @@ Chunking strategy override
 
 > `optional` **chunkSize?**: `number`
 
-Defined in: [types/rag.ts:292](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L292)
+Defined in: [types/rag.ts:303](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L303)
 
 Chunk size override
 
@@ -38,7 +38,7 @@ Chunk size override
 
 > `optional` **chunkOverlap?**: `number`
 
-Defined in: [types/rag.ts:294](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L294)
+Defined in: [types/rag.ts:305](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L305)
 
 Chunk overlap override
 
@@ -48,7 +48,7 @@ Chunk overlap override
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:296](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L296)
+Defined in: [types/rag.ts:307](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L307)
 
 Custom metadata to add
 
@@ -58,6 +58,6 @@ Custom metadata to add
 
 > `optional` **extractMetadata?**: `boolean`
 
-Defined in: [types/rag.ts:298](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L298)
+Defined in: [types/rag.ts:309](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L309)
 
 Extract metadata using LLM

@@ -8,7 +8,7 @@
 
 > **NativeGenerateGuardConfig** = `object`
 
-Defined in: [types/context.ts:1041](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1041)
+Defined in: [types/context.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1043)
 
 Per-turn configuration for reclaiming a native V3 conversation.
 
@@ -18,7 +18,7 @@ Per-turn configuration for reclaiming a native V3 conversation.
 
 > **provider**: `string`
 
-Defined in: [types/context.ts:1042](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1042)
+Defined in: [types/context.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1044)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/context.ts:1042](https://github.com/juspay/neurolink/blob/rel
 
 > **availableInputTokens**: `number`
 
-Defined in: [types/context.ts:1043](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1043)
+Defined in: [types/context.ts:1045](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1045)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/context.ts:1043](https://github.com/juspay/neurolink/blob/rel
 
 > **getFixedOverheadTokens**: () => `number`
 
-Defined in: [types/context.ts:1044](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1044)
+Defined in: [types/context.ts:1046](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L1046)
 
 #### Returns
 

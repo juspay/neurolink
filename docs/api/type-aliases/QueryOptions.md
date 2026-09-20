@@ -8,7 +8,7 @@
 
 > **QueryOptions** = `object`
 
-Defined in: [types/rag.ts:304](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L304)
+Defined in: [types/rag.ts:315](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L315)
 
 Query options
 
@@ -18,7 +18,7 @@ Query options
 
 > `optional` **topK?**: `number`
 
-Defined in: [types/rag.ts:306](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L306)
+Defined in: [types/rag.ts:317](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L317)
 
 Number of chunks to retrieve
 
@@ -28,7 +28,7 @@ Number of chunks to retrieve
 
 > `optional` **hybrid?**: `boolean`
 
-Defined in: [types/rag.ts:308](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L308)
+Defined in: [types/rag.ts:319](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L319)
 
 Use hybrid search
 
@@ -38,7 +38,7 @@ Use hybrid search
 
 > `optional` **graph?**: `boolean`
 
-Defined in: [types/rag.ts:310](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L310)
+Defined in: [types/rag.ts:321](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L321)
 
 Use Graph RAG
 
@@ -48,7 +48,7 @@ Use Graph RAG
 
 > `optional` **rerank?**: `boolean`
 
-Defined in: [types/rag.ts:312](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L312)
+Defined in: [types/rag.ts:323](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L323)
 
 Enable reranking
 
@@ -58,7 +58,7 @@ Enable reranking
 
 > `optional` **filter?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:314](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L314)
+Defined in: [types/rag.ts:325](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L325)
 
 Metadata filter
 
@@ -68,7 +68,7 @@ Metadata filter
 
 > `optional` **includeSources?**: `boolean`
 
-Defined in: [types/rag.ts:316](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L316)
+Defined in: [types/rag.ts:327](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L327)
 
 Include sources in response
 
@@ -78,7 +78,7 @@ Include sources in response
 
 > `optional` **generate?**: `boolean`
 
-Defined in: [types/rag.ts:318](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L318)
+Defined in: [types/rag.ts:329](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L329)
 
 Generate response (vs just retrieve)
 
@@ -88,7 +88,7 @@ Generate response (vs just retrieve)
 
 > `optional` **systemPrompt?**: `string`
 
-Defined in: [types/rag.ts:320](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L320)
+Defined in: [types/rag.ts:331](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L331)
 
 Custom system prompt for generation
 
@@ -98,6 +98,18 @@ Custom system prompt for generation
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/rag.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L322)
+Defined in: [types/rag.ts:333](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L333)
 
 Temperature for generation
+
+---
+
+### plan?
+
+> `optional` **plan?**: `boolean`
+
+Defined in: [types/rag.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L339)
+
+Set false to skip per-query retrieval planning even when a decision
+provider is configured. Fields passed explicitly here already override
+the plan, so this is for turning the extra round trip off entirely.

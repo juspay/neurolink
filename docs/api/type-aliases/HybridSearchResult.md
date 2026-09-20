@@ -8,7 +8,7 @@
 
 > **HybridSearchResult** = `object`
 
-Defined in: [types/rag.ts:1339](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1339)
+Defined in: [types/rag.ts:1358](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1358)
 
 Hybrid search result
 
@@ -18,7 +18,7 @@ Hybrid search result
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:1341](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1341)
+Defined in: [types/rag.ts:1360](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1360)
 
 Document ID
 
@@ -28,7 +28,7 @@ Document ID
 
 > **score**: `number`
 
-Defined in: [types/rag.ts:1343](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1343)
+Defined in: [types/rag.ts:1362](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1362)
 
 Combined score
 
@@ -38,7 +38,7 @@ Combined score
 
 > **text**: `string`
 
-Defined in: [types/rag.ts:1345](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1345)
+Defined in: [types/rag.ts:1364](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1364)
 
 Document text
 
@@ -48,7 +48,7 @@ Document text
 
 > `optional` **metadata?**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/rag.ts:1347](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1347)
+Defined in: [types/rag.ts:1366](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1366)
 
 Associated metadata
 
@@ -58,7 +58,7 @@ Associated metadata
 
 > `optional` **scores?**: `object`
 
-Defined in: [types/rag.ts:1349](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1349)
+Defined in: [types/rag.ts:1368](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L1368)
 
 Score breakdown
 

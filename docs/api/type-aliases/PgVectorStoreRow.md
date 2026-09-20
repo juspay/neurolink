@@ -8,7 +8,7 @@
 
 > **PgVectorStoreRow** = `object`
 
-Defined in: [types/rag.ts:548](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L548)
+Defined in: [types/rag.ts:567](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L567)
 
 Row shape returned by `PgVectorStore`'s SELECT queries.
 
@@ -18,7 +18,7 @@ Row shape returned by `PgVectorStore`'s SELECT queries.
 
 > **id**: `string`
 
-Defined in: [types/rag.ts:549](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L549)
+Defined in: [types/rag.ts:568](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L568)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/rag.ts:549](https://github.com/juspay/neurolink/blob/release/
 
 > **metadata**: `unknown`
 
-Defined in: [types/rag.ts:550](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L550)
+Defined in: [types/rag.ts:569](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L569)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/rag.ts:550](https://github.com/juspay/neurolink/blob/release/
 
 > **score**: `unknown`
 
-Defined in: [types/rag.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L551)
+Defined in: [types/rag.ts:570](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L570)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/rag.ts:551](https://github.com/juspay/neurolink/blob/release/
 
 > `optional` **embedding?**: `unknown`
 
-Defined in: [types/rag.ts:552](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L552)
+Defined in: [types/rag.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/rag.ts#L571)

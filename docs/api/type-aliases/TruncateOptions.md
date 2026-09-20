@@ -8,7 +8,7 @@
 
 > **TruncateOptions** = `object`
 
-Defined in: [types/context.ts:792](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L792)
+Defined in: [types/context.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L794)
 
 ## Deprecated
 
@@ -20,7 +20,7 @@ Use ToolOutputPreviewOptions instead.
 
 > `optional` **maxBytes?**: `number`
 
-Defined in: [types/context.ts:793](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L793)
+Defined in: [types/context.ts:795](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L795)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/context.ts:793](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **maxLines?**: `number`
 
-Defined in: [types/context.ts:794](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L794)
+Defined in: [types/context.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L796)
 
 ---
 
@@ -36,7 +36,7 @@ Defined in: [types/context.ts:794](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **direction?**: `"head"` \| `"tail"`
 
-Defined in: [types/context.ts:795](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L795)
+Defined in: [types/context.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L797)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/context.ts:795](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **saveToDisk?**: `boolean`
 
-Defined in: [types/context.ts:796](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L796)
+Defined in: [types/context.ts:798](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L798)
 
 ---
 
@@ -52,4 +52,4 @@ Defined in: [types/context.ts:796](https://github.com/juspay/neurolink/blob/rele
 
 > `optional` **saveDir?**: `string`
 
-Defined in: [types/context.ts:797](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L797)
+Defined in: [types/context.ts:799](https://github.com/juspay/neurolink/blob/release/src/lib/types/context.ts#L799)

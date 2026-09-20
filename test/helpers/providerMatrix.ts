@@ -46,6 +46,12 @@ export type Capabilities = {
   imageGeneration: boolean;
   videoGeneration: boolean;
   tts: boolean;
+  /**
+   * The `decide` inference type: a state plus typed questions in, typed
+   * calibrated answers out, no text. Mutually exclusive with `text` in
+   * practice — a decision model generates nothing.
+   */
+  decide: boolean;
 };
 
 export type ProviderEntry = Capabilities & {
@@ -169,6 +175,7 @@ const CATALOG_PROVIDERS: Record<string, ProviderEntry> = Object.fromEntries(
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     };
     return [entry.id, providerEntry];
   }),
@@ -202,6 +209,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true,
       videoGeneration: false,
       tts: true,
+      decide: false,
     },
   ],
   [
@@ -222,6 +230,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -243,6 +252,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true,
       videoGeneration: true, // Veo
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -268,6 +278,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -303,6 +314,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -335,6 +347,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -355,6 +368,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -375,6 +389,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -402,6 +417,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -426,6 +442,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -446,6 +463,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -466,6 +484,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -491,6 +510,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -517,6 +537,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -537,6 +558,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -560,6 +582,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -583,6 +606,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -604,6 +628,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -625,6 +650,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: false,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -645,6 +671,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -665,6 +692,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -685,6 +713,7 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true,
       videoGeneration: false,
       tts: false,
+      decide: false,
     },
   ],
   [
@@ -707,9 +736,33 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       imageGeneration: true, // Flux / SDXL etc. via Predictions
       videoGeneration: true, // Veo / Kling / Runway via Predictions
       tts: false,
+      decide: false,
     },
   ],
   ...Object.entries(CATALOG_PROVIDERS),
+  [
+    "typesafe",
+    {
+      name: "typesafe",
+      defaultModel: "jev-latest",
+      envVars: ["TYPESAFE_API_KEY"],
+      // Jev serves only `decide`. Every generation capability is false
+      // because it emits no text at all, not because it is unimplemented.
+      text: false,
+      streaming: false,
+      tools: false,
+      toolsWithStreaming: false,
+      structuredOutput: false,
+      structuredOutputWithTools: false,
+      vision: false,
+      embeddings: false,
+      thinking: false,
+      imageGeneration: false,
+      videoGeneration: false,
+      tts: false,
+      decide: true,
+    },
+  ],
 ];
 
 export const PROVIDERS: Record<string, ProviderEntry> =

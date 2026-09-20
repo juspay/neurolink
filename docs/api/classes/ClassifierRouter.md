@@ -6,7 +6,7 @@
 
 # Class: ClassifierRouter
 
-Defined in: [routing/classifierRouter.ts:53](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L53)
+Defined in: [routing/classifierRouter.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L68)
 
 ModelPool and RequestRouter — opt-in multi-provider failover with
 error-class-aware cooldown, and a pluggable pre-call provider/model router.
@@ -42,7 +42,7 @@ const router = createDefaultRequestRouter({
 
 > **new ClassifierRouter**(`config`, `deps?`): `ClassifierRouter`
 
-Defined in: [routing/classifierRouter.ts:56](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L56)
+Defined in: [routing/classifierRouter.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L82)
 
 #### Parameters
 
@@ -60,11 +60,63 @@ Defined in: [routing/classifierRouter.ts:56](https://github.com/juspay/neurolink
 
 ## Methods
 
+### setPool()
+
+> **setPool**(`members`): `number`
+
+Defined in: [routing/classifierRouter.ts:121](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L121)
+
+Replace the routable pool at runtime. Returns the new size.
+
+Clears the metadata cache, since a member's declared cost/quality is
+cached per `provider::model` and a replacement pool may declare different
+values for the same pair.
+
+#### Parameters
+
+##### members
+
+[`ClassifierRouterPoolMember`](../type-aliases/ClassifierRouterPoolMember.md)[]
+
+#### Returns
+
+`number`
+
+---
+
+### getPool()
+
+> **getPool**(): [`ClassifierRouterPoolMember`](../type-aliases/ClassifierRouterPoolMember.md)[]
+
+Defined in: [routing/classifierRouter.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L128)
+
+The pool currently routed over, declared plus catalogue.
+
+#### Returns
+
+[`ClassifierRouterPoolMember`](../type-aliases/ClassifierRouterPoolMember.md)[]
+
+---
+
+### refreshCatalog()
+
+> **refreshCatalog**(): `number`
+
+Defined in: [routing/classifierRouter.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L133)
+
+Rebuild the catalogue half of the pool (e.g. after credentials change).
+
+#### Returns
+
+`number`
+
+---
+
 ### route()
 
 > **route**(`input`): `Promise`\<[`ClassifierRouterDecision`](../type-aliases/ClassifierRouterDecision.md) \| `null`\>
 
-Defined in: [routing/classifierRouter.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L65)
+Defined in: [routing/classifierRouter.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/routing/classifierRouter.ts#L143)
 
 Classify the request and produce a combined model + tool decision, or
 `null` when nothing should change. Never throws (fails open).
