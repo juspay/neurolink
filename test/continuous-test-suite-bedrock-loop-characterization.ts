@@ -345,6 +345,39 @@ await test("a text-only turn streams its text and stops after one call", async (
   }
 });
 
+await test("a text-only stream emits generation:end exactly once", async () => {
+  const server = await startStandIn(() => textFrames("one stream event"));
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink();
+  const events: unknown[] = [];
+  nl.getEventEmitter().on("generation:end", (event: unknown) =>
+    events.push(event),
+  );
+  try {
+    const result = await nl.stream({
+      input: { text: "hi" },
+      provider: "bedrock",
+      model: MODEL,
+      maxTokens: 32,
+    });
+    for await (const chunk of result.stream) {
+      void chunk;
+    }
+    assert(
+      server.calls.length === 1,
+      "precondition: the Bedrock streaming request did not reach the stand-in exactly once",
+    );
+    assert(
+      events.length === 1,
+      `one Bedrock stream must emit generation:end exactly once, emitted ${events.length}`,
+    );
+  } finally {
+    await nl.dispose();
+    restore();
+    await server.close();
+  }
+});
+
 await test("a tool_use turn runs the tool and finishes on the following turn", async () => {
   const server = await startStandIn((i) =>
     i === 0 ? toolUseFrames(BUILT_IN_TOOL, {}, "tool_1") : textFrames("done"),
@@ -454,6 +487,36 @@ await test("a text-only generate turn returns its text after one call", async ()
       "the generate path should use the non-streaming Converse operation",
     );
   } finally {
+    restore();
+    await server.close();
+  }
+});
+
+await test("a text-only generate emits generation:end exactly once", async () => {
+  const server = await startStandIn(() => converseText("one generate event"));
+  const restore = withEnv(server.port);
+  const nl = new NeuroLink();
+  const events: unknown[] = [];
+  nl.getEventEmitter().on("generation:end", (event: unknown) =>
+    events.push(event),
+  );
+  try {
+    const result = await nl.generate({
+      input: { text: "hi" },
+      provider: "bedrock",
+      model: MODEL,
+      maxTokens: 32,
+    });
+    assert(
+      server.calls.length === 1 && result?.content === "one generate event",
+      "precondition: the successful Bedrock generate path did not complete exactly once",
+    );
+    assert(
+      events.length === 1,
+      `one Bedrock generate must emit generation:end exactly once, emitted ${events.length}`,
+    );
+  } finally {
+    await nl.dispose();
     restore();
     await server.close();
   }
