@@ -21,15 +21,17 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * A turn that cannot legally open a history.
+ * A turn that cannot open a history.
  *
- * The Messages API rejects a conversation whose first message is not from the
- * user, so truncation that stops on an assistant turn would trade a local
- * refusal for an upstream 400. Items with no role (Codex `function_call` and
- * `function_call_output`) are not turns and are left alone.
+ * Verified against the live API: an assistant turn at the head is accepted
+ * (plain, carrying a complete tool pair, repeated, or opening with a signed
+ * `thinking` block). A `role: "system"` message is not — the Messages API
+ * requires the initial system prompt in the top-level `system` parameter.
+ * Items with no role (Codex `function_call` / `function_call_output`) are not
+ * turns and are left alone.
  */
-function isNonUserTurn(item: unknown): boolean {
-  return record(item) && typeof item.role === "string" && item.role !== "user";
+function isDirectiveTurn(item: unknown): boolean {
+  return record(item) && item.role === "system";
 }
 
 function blocksOf(item: Record<string, unknown>): unknown[] {
@@ -186,11 +188,14 @@ export function truncateHistoryForBudget<T extends object>(args: {
   if (removedUnits === 0) {
     return unchanged;
   }
-  // Advance by whole units so the kept history opens on a user turn without
-  // stranding a tool call from its answer.
+  // Only leading system directives are skipped. Advancing to the next *user*
+  // turn instead would discard every tool exchange in between, which in an
+  // agentic history is most of the conversation; an assistant head is
+  // accepted upstream, and unit grouping already keeps every `tool_result`
+  // with its `tool_use`.
   while (
     removedUnits < removable &&
-    isNonUserTurn(items[units[removedUnits][0]])
+    isDirectiveTurn(items[units[removedUnits][0]])
   ) {
     removedUnits += 1;
   }

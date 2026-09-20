@@ -506,11 +506,12 @@ await test("accepts a compaction trigger above its target and below the window",
   assert.equal(parsed.models?.["codex/gpt-5.6-sol"].compactToTokens, 650000);
 });
 
-// A truncated Claude history must still be dispatchable: the Messages API rejects
-// a conversation whose first message is not from the user.
-await test("keeps a user message at the head after truncating conversationMessages", () => {
+// Truncation stops at the budget boundary. It deliberately does not advance to
+// the next user turn: an assistant-headed history is accepted upstream, so
+// advancing would discard turns the budget never asked for.
+await test("stops at the budget boundary when truncating conversationMessages", () => {
   // One huge oldest turn: removing it alone clears the budget, so the loop stops
-  // with an assistant turn at the head unless the role rule advances past it.
+  // with an assistant turn at the head, and leaves it there.
   const huge = "word ".repeat(20000);
   const body = {
     systemPrompt: "system policy",
@@ -537,13 +538,25 @@ await test("keeps a user message at the head after truncating conversationMessag
     },
   });
   assert.equal(result.evidence.historyModified, true);
-  assert.ok(result.body.conversationMessages.length < 4);
-  assert.equal(result.body.conversationMessages[0].role, "user");
+  const kept = result.body.conversationMessages as Array<{
+    role: string;
+    content: string;
+  }>;
+  assert.ok(
+    kept.every((message) => !message.content.startsWith("oldest ")),
+    "the oldest turn must be the one removed",
+  );
+  assert.equal(
+    kept.length,
+    3,
+    "only the oldest turn was needed to clear the budget",
+  );
+  assert.equal(kept[0].role, "assistant");
   assert.equal(result.body.systemPrompt, "system policy");
   assert.deepEqual(result.body.input, { text: "current turn" });
 });
 
-await test("keeps a user head and whole tool pairs when truncating Claude messages", () => {
+await test("keeps whole tool pairs when truncating Claude messages", () => {
   const huge = "word ".repeat(20000);
   const body = {
     system: "system policy",
@@ -580,7 +593,6 @@ await test("keeps a user head and whole tool pairs when truncating Claude messag
     },
   });
   assert.equal(result.evidence.historyModified, true);
-  assert.equal(result.body.messages[0].role, "user");
   const kept = JSON.stringify(result.body.messages);
   assert.equal(
     kept.includes("tool_result"),
@@ -589,9 +601,9 @@ await test("keeps a user head and whole tool pairs when truncating Claude messag
   );
 });
 
-// Items with no role (Codex function_call / function_call_output) must not be
-// dragged into the role rule.
-await test("role-less Codex items are not dropped by the user-head rule", () => {
+// Codex function_call / function_call_output items carry no role at all, so
+// removal must be driven purely by unit boundaries.
+await test("role-less Codex items are removed only in whole pairs", () => {
   const filler = "word ".repeat(4000);
   const body = {
     instructions: "system policy",
@@ -755,6 +767,122 @@ await test("conversationMessages may lose every unit, since the turn is elsewher
     "a trailing assistant turn must not be stranded",
   );
   assert.deepEqual(result.body.input, { text: "current turn" });
+});
+
+// Real agentic histories run long stretches of assistant/tool_result turns
+// between user turns. Advancing to the next user turn to open the kept history
+// discarded the whole stretch, landing far below the target and dropping turns
+// the budget never asked to remove.
+await test("lands on the target when user turns are sparse", () => {
+  const filler = "x".repeat(24_000);
+  const messages: unknown[] = [
+    { role: "user", content: [{ type: "text", text: `start ${filler}` }] },
+  ];
+  for (let i = 0; i < 60; i += 1) {
+    messages.push({
+      role: "assistant",
+      content: [
+        { type: "text", text: `step ${i}` },
+        { type: "tool_use", id: `tu_${i}`, name: "Read", input: { i } },
+      ],
+    });
+    messages.push({
+      role: "user",
+      content: [
+        { type: "tool_result", tool_use_id: `tu_${i}`, content: filler },
+      ],
+    });
+  }
+  const result = prepareProxyRequestContext({
+    provider: "anthropic",
+    model: "sparse",
+    body: { messages, max_tokens: 1024 },
+    policy: {
+      models: {
+        "anthropic/sparse": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 300_000,
+          compactToTokens: 250_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  assert.ok(
+    result.inputTokensEstimate <= 250_000,
+    `expected at or below the target, got ${result.inputTokensEstimate}`,
+  );
+  // The regression: the only user turn is at index 0, so advancing to a user
+  // head used to drop the entire conversation instead of ~20% of it.
+  assert.ok(
+    result.inputTokensEstimate > 200_000,
+    `expected to land near the target, got ${result.inputTokensEstimate}`,
+  );
+  const kept = result.body.messages as Array<{
+    role: string;
+    content: Array<{ type: string; id?: string; tool_use_id?: string }>;
+  }>;
+  const opened = new Set<string>();
+  for (const message of kept) {
+    for (const block of message.content) {
+      if (block.type === "tool_use" && block.id) {
+        opened.add(block.id);
+      }
+    }
+  }
+  for (const message of kept) {
+    for (const block of message.content) {
+      if (block.type === "tool_result") {
+        assert.ok(
+          opened.has(String(block.tool_use_id)),
+          "a kept tool_result must keep its tool_use",
+        );
+      }
+    }
+  }
+});
+
+// Verified against the live API: `messages.0` with role "system" is rejected
+// ("use the top-level 'system' parameter"), while an assistant head is served.
+// Claude Code interleaves these directives, so a cut can land on one.
+await test("skips a leading system directive but keeps the assistant head", () => {
+  const filler = "z".repeat(24_000);
+  const messages: unknown[] = [
+    { role: "user", content: [{ type: "text", text: `start ${filler}` }] },
+  ];
+  for (let i = 0; i < 40; i += 1) {
+    messages.push({ role: "system", content: `directive ${i}` });
+    messages.push({
+      role: "assistant",
+      content: [{ type: "text", text: `step ${i} ${filler}` }],
+    });
+  }
+  const result = prepareProxyRequestContext({
+    provider: "anthropic",
+    model: "directives",
+    body: { messages, max_tokens: 1024 },
+    policy: {
+      models: {
+        "anthropic/directives": {
+          contextWindow: 1_000_000,
+          compactAtTokens: 300_000,
+          compactToTokens: 250_000,
+        },
+      },
+    },
+  });
+  assert.equal(result.evidence.historyModified, true);
+  const kept = result.body.messages as Array<{ role: string }>;
+  assert.notEqual(
+    kept[0].role,
+    "system",
+    "a system directive cannot open a history",
+  );
+  assert.equal(kept[0].role, "assistant");
+  assert.ok(
+    result.inputTokensEstimate <= 250_000,
+    `expected at or below the target, got ${result.inputTokensEstimate}`,
+  );
 });
 
 console.log(`Passed: ${passed}; Failed: 0; RESULT: PASS`);
