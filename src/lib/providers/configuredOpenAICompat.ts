@@ -16,6 +16,9 @@ import { classifyProviderError } from "../utils/errorClassifier.js";
 import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
+const PERPLEXITY_API_HOST = "api.perplexity.ai";
+const PERPLEXITY_INTEGRATION = "neurolink";
+
 /**
  * Collapse OpenAI's `content` union down to the plain string that
  * string-only vendors accept. Image parts carry no string representation and
@@ -132,10 +135,19 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
    * its `api-key` header.
    */
   protected override getAuthHeaders(): Record<string, string> {
-    if (this.entry.authHeaderStyle === "x-api-key") {
-      return { "X-Api-Key": this.config.apiKey };
+    const headers: Record<string, string> =
+      this.entry.authHeaderStyle === "x-api-key"
+        ? { "X-Api-Key": this.config.apiKey }
+        : super.getAuthHeaders();
+    // Perplexity asks to identify NeuroLink on its own API host only; a
+    // custom Perplexity-compatible endpoint gets no attribution header.
+    if (
+      this.entry.providerName === "perplexity" &&
+      new URL(this.config.baseURL).hostname === PERPLEXITY_API_HOST
+    ) {
+      headers["X-Pplx-Integration"] = PERPLEXITY_INTEGRATION;
     }
-    return super.getAuthHeaders();
+    return headers;
   }
 
   /**
