@@ -13,6 +13,18 @@
 # prompt, config error, crash. Green means "review delivered", not "approved";
 # merge gating stays with branch protection and human review.
 #
+# Silent-no-op guard (juspay/neurolink#1754): a run can exit 0 having posted
+# nothing at all — seen on #1746, where Yama's own GitHub client read the repo
+# slug as `juspay/juspay`, got 404s on every call, and treated the empty result
+# as "nothing to report" instead of failing. The "Guard against a silent no-op
+# review" step below re-reads the PR through this job's OWN GITHUB_TOKEN (never
+# through Yama's client, so it can't inherit the same misconfigured slug) and
+# fails the job if no review with a verdict and a summary landed on this PR
+# since the run started. That closes the observable half of #1754 — a silent
+# no-op can no longer pass as green — but not the root cause: the repo-slug bug
+# is inside @juspay/yama's own GitHub client construction, which this repo does
+# not own and cannot fix here. See #1754 for that follow-up.
+#
 # Required repository secrets:
 #   YAMA_GITHUB_TOKEN : real PAT (PRs read/write + contents read) — the hosted
 #                       GitHub MCP endpoint rejects the ephemeral Actions token.
@@ -93,6 +105,13 @@ jobs:
           uvx --from code-review-graph==2.3.7 code-review-graph build \
             || echo "::warning::graph build failed (non-fatal; the review runs without graph context)"
 
+      - name: Record review start time
+        if: steps.gate.outputs.run == 'true'
+        id: started
+        # Recorded BEFORE Yama runs so the guard below only counts a review
+        # posted by THIS run, not one left over from an earlier synchronize.
+        run: echo "at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
       - name: Yama review
         if: steps.gate.outputs.run == 'true'
         # Pinned to the 6.x major: this wiring is the v6 config layout, and the
@@ -114,6 +133,43 @@ jobs:
         run: |
           npx --yes @juspay/yama@^6.1.1 run "pr=$PR_NUMBER" "branch=$HEAD_REF" 2>&1 | tee review-run.log
           exit "${PIPESTATUS[0]}"
+
+      - name: Guard against a silent no-op review
+        if: steps.gate.outputs.run == 'true'
+        # The step above can exit 0 without posting anything (#1754). Re-check
+        # the PR through this job's own GITHUB_TOKEN — a reader independent of
+        # whatever repo-slug bug may exist in Yama's internal GitHub client —
+        # and fail loudly if no review with a verdict and a summary body landed
+        # since this run started. Zero inline comments alone is not a failure
+        # (a clean PR is legitimately approved with none); zero reviews is.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          STARTED_AT: ${{ steps.started.outputs.at }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STARTED_AT}" ]; then
+            echo "::error::STARTED_AT is empty, so the recency check below would be trivially true for any historical review and silently reintroduce the #1754 no-op bug. Failing closed instead."
+            exit 1
+          fi
+          # --paginate applies --jq per page, not to the combined result, so a
+          # naive `--jq '... | length'` would print one count per page instead
+          # of a true total on any PR with more than one page of reviews. Emit
+          # the matching-review array per page instead, then slurp all pages
+          # and concatenate before counting.
+          posted=$(gh api --paginate "repos/${REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+            --jq '[.[] | select(
+              .submitted_at != null
+              and .submitted_at >= env.STARTED_AT
+              and (.state == "APPROVED" or .state == "CHANGES_REQUESTED")
+              and (.body | length) > 0
+            )]' | jq -s 'add | length')
+          echo "Reviews with a verdict and a summary posted since ${STARTED_AT}: ${posted}"
+          if [ "$posted" -eq 0 ]; then
+            echo "::error::Yama review exited 0 but posted no review with a verdict and a summary on ${REPOSITORY}#${PR_NUMBER} since ${STARTED_AT}. This is the silent no-op from juspay/neurolink#1754 (Yama's internal GitHub client can read the wrong repo slug, get a 404, and treat it as \"nothing to report\"). Failing the job so this can no longer pass as green."
+            exit 1
+          fi
 
       - name: Archive the run log
         # A run that failed still logged what it did, and that is what you read.
