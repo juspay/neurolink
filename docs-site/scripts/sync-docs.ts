@@ -13,10 +13,11 @@ import * as fs from "fs";
 import { glob } from "glob";
 import matter from "gray-matter";
 import * as path from "path";
+import { pathToFileURL } from "url";
 import { GitChangeDetector, type GitChangeInfo } from "./gitChangeDetector.js";
 
 // Configuration
-const SOURCE_DIR = path.resolve(__dirname, "../../docs");
+export const SOURCE_DIR = path.resolve(__dirname, "../../docs");
 const PROVIDER_DOCS_DIR = path.join(SOURCE_DIR, "getting-started/providers");
 const TARGET_DIR = path.resolve(__dirname, "../docs");
 const STATIC_DIR = path.resolve(__dirname, "../static");
@@ -59,19 +60,33 @@ const ADMONITION_TYPES: Record<string, string> = {
  * File mappings to reorganize docs into proper categories
  * Format: 'source-path': 'destination-path'
  */
-const FILE_MAPPINGS: Record<string, string> = {
-  // Provider integrations -> getting-started/providers/
-  "ollama-setup.md": "getting-started/providers/ollama.md",
-  "litellm-integration.md": "getting-started/providers/litellm.md",
-  "sagemaker-integration.md": "getting-started/providers/sagemaker.md",
-
+// Entries removed from this table (see git history / #1751 for prior values):
+// "ollama-setup.md", "litellm-integration.md", "sagemaker-integration.md",
+// "mcp-integration.md", "mcp-testing-guide.md", "enterprise-proxy-setup.md",
+// "configuration.md", "api-reference.md", "framework-integration.md",
+// "troubleshooting.md", "provider-comparison.md", "contributing.md",
+// "human-in-the-loop.md", "real-time-services.md", "dynamic-models.md",
+// "testing.md", "factory-pattern-migration.md".
+//
+// Each was a bare basename mapping a single top-level legacy doc into a
+// reorganized target directory (e.g. "ollama-setup.md" -> a file already
+// named "getting-started/providers/ollama.md" existed independently).
+// Because applyFileMapping()'s basename fallback matches ANY source file
+// sharing that basename at ANY depth, every one of these 17 keys collided
+// with at least one other real, independently-authored source file that
+// resolved to the exact same target — 21 files total, silently overwritten
+// in filesystem-enumeration order with no error (#1751). Removing the key
+// lets every affected source fall back to its own existing path instead:
+// nothing is lost or overwritten, though the specific top-level legacy doc
+// no longer gets relocated into the reorganized directory. Deciding which
+// of two same-topic docs (if either) is stale and safe to delete or merge
+// is a content call for a follow-up, not something to guess here.
+export const FILE_MAPPINGS: Record<string, string> = {
   // MCP docs -> mcp/
   "mcp-foundation.md": "mcp/overview.md",
-  "mcp-integration.md": "mcp/integration.md",
   "mcp-http-transport.md": "mcp/http-transport.md",
   "mcp-configuration-locations.md": "mcp/configuration.md",
   "mcp-concurrency-guide.md": "mcp/concurrency.md",
-  "mcp-testing-guide.md": "mcp/testing.md",
   "mcp-latency-optimization-implementation-guide.md": "mcp/optimization.md",
   "mcp-docs-server.md": "mcp/docs-server.md",
 
@@ -94,48 +109,36 @@ const FILE_MAPPINGS: Record<string, string> = {
   "provider-status-monitoring.md": "observability/provider-status.md",
 
   // Deployment -> deployment/
-  "enterprise-proxy-setup.md": "deployment/enterprise-proxy.md",
   "performance-optimization.md": "deployment/performance.md",
   "performance-optimization-guide.md": "deployment/performance-guide.md",
-  "configuration.md": "deployment/configuration.md",
   "configuration-management.md": "deployment/configuration-management.md",
 
   // SDK -> sdk/
-  "api-reference.md": "sdk/api-reference.md",
-  "framework-integration.md": "sdk/framework-integration.md",
   "sdk-custom-tools.md": "sdk/custom-tools-guide.md",
 
   // Reference -> reference/
-  "troubleshooting.md": "reference/troubleshooting.md",
-  "provider-comparison.md": "reference/provider-comparison.md",
   "provider-behavior.md": "reference/provider-behavior.md",
 
   // Community -> community/
-  "contributing.md": "community/contributing.md",
   "code-of-conduct.md": "community/code-of-conduct.md",
   "changelog.md": "community/changelog.md",
 
   // Features consolidation
-  "human-in-the-loop.md": "features/hitl.md",
   "guardrails-implementation.md": "features/guardrails-implementation.md",
   "guardrails-ai-integration.md": "features/guardrails-ai.md",
   "image-generation-streaming.md": "features/image-generation.md",
-  "real-time-services.md": "features/real-time-services.md",
   "real-time-speech-agents.md": "features/speech-agents.md",
 
   // Guides
   "domain-specific-usage.md": "guides/domain-specific.md",
-  "dynamic-models.md": "guides/dynamic-models.md",
   "session-management-guide.md": "guides/session-management.md",
 
   // Testing -> development/
-  "testing.md": "development/testing.md",
   "comprehensive-testing-plan.md": "development/testing-plan.md",
   "provider-agnostic-testing.md": "development/provider-testing.md",
 
   // Architecture -> development/
   "factory-pattern-architecture.md": "development/factory-architecture.md",
-  "factory-pattern-migration.md": "development/factory-migration.md",
   "large-context-handling-design-doc.md": "development/large-context-design.md",
 };
 
@@ -144,7 +147,7 @@ type TransformResult = {
   frontmatter: Record<string, unknown>;
 };
 
-type FileInfo = {
+export type FileInfo = {
   sourcePath: string;
   relativePath: string;
   targetPath: string;
@@ -1734,7 +1737,7 @@ async function copyAssets(sourceDir: string, staticDir: string): Promise<void> {
  * Checks the full relative path FIRST (for more specific matches),
  * then falls back to basename matching (for generic mappings)
  */
-function applyFileMapping(relativePath: string): string {
+export function applyFileMapping(relativePath: string): string {
   // Check if the full relative path matches (for files in subdirectories)
   // This takes precedence over basename matching to allow subdirectory files
   // to keep their location even if there's a basename-based mapping
@@ -1761,13 +1764,38 @@ function applyFileMapping(relativePath: string): string {
 }
 
 /**
+ * Group files by their resolved target path and return only the groups
+ * where more than one distinct source resolves to the same target — i.e.
+ * the sources that would silently overwrite each other (see #1751).
+ */
+export function findDuplicateMappingTargets(files: FileInfo[]): Map<string, string[]> {
+  const byTarget = new Map<string, string[]>();
+  for (const file of files) {
+    const targetRelative = path.relative(TARGET_DIR, file.targetPath).split(path.sep).join("/");
+    const sources = byTarget.get(targetRelative);
+    if (sources) {
+      sources.push(file.relativePath);
+    } else {
+      byTarget.set(targetRelative, [file.relativePath]);
+    }
+  }
+
+  for (const [target, sources] of byTarget) {
+    if (sources.length < 2) {
+      byTarget.delete(target);
+    }
+  }
+  return byTarget;
+}
+
+/**
  * Get all markdown files to process
  */
-async function getMarkdownFiles(sourceDir: string): Promise<FileInfo[]> {
+export async function getMarkdownFiles(sourceDir: string): Promise<FileInfo[]> {
   const pattern = "**/*.md";
   const files = await glob(pattern, { cwd: sourceDir, nodir: true });
 
-  return files
+  const fileInfos = files
     .filter((file) => {
       // Exclude certain directories
       const parts = file.split(path.sep);
@@ -1784,6 +1812,22 @@ async function getMarkdownFiles(sourceDir: string): Promise<FileInfo[]> {
         targetPath: path.join(TARGET_DIR, mappedPath),
       };
     });
+
+  // Fail loudly instead of silently overwriting: two sources resolving to
+  // the same target means one of them would vanish from the published site
+  // with no error and a filesystem-order-dependent winner (#1751).
+  const duplicates = findDuplicateMappingTargets(fileInfos);
+  if (duplicates.size > 0) {
+    const details = [...duplicates.entries()]
+      .map(([target, sources]) => `  ${target}:\n${sources.map((source) => `    - ${source}`).join("\n")}`)
+      .join("\n");
+    throw new Error(
+      `sync-docs: ${duplicates.size} target path(s) have more than one source file mapping to them. ` +
+        `Add a path-qualified FILE_MAPPINGS entry for each extra source so every source has a unique target:\n${details}`,
+    );
+  }
+
+  return fileInfos;
 }
 
 /**
@@ -1916,8 +1960,11 @@ async function syncDocs(): Promise<void> {
   }
 }
 
-// Run the sync
-syncDocs().catch((error) => {
-  console.error("Sync failed:", error);
-  process.exit(1);
-});
+// Run the sync — only when executed directly, not when imported for testing
+// (see test-sync-docs-mapping-collisions.ts).
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  syncDocs().catch((error) => {
+    console.error("Sync failed:", error);
+    process.exit(1);
+  });
+}
