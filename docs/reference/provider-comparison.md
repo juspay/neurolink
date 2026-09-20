@@ -1,5 +1,7 @@
 # AI Provider Comparison Guide
 
+> ⚠️ **STALE DOCUMENT** — This comparison predates the current provider roster, including the JSON-catalog providers, and is due for a fresh pass. Provider rows below may be missing or out of date; see the [README](https://github.com/juspay/neurolink/blob/release/README.md) for the current provider list.
+
 **Last Updated:** May 2026
 **NeuroLink Version:** 9.62.0
 

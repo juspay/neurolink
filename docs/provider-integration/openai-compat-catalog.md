@@ -1,8 +1,9 @@
 # OpenAI-Compatible Provider Catalog
 
-Nine OpenAI-compatible providers — SambaNova, Cerebras, Groq, xAI,
-Together AI, Fireworks, Perplexity, Mistral, Cloudflare Workers AI — are
-registered from **one JSON file each**, under
+Sixteen OpenAI-compatible providers — API Route, Baseten, SambaNova,
+Cerebras, Groq, xAI, Together AI, Fireworks AI, Perplexity, Mistral,
+Cloudflare Workers AI, GMI Cloud, Inception Labs, io.net Intelligence,
+Mancer, Upstage — are registered from **one JSON file each**, under
 `src/lib/providers/catalog/<id>.json`, and served by one generic class,
 `ConfiguredOpenAICompatProvider`
 (`src/lib/providers/configuredOpenAICompat.ts`). Adding another provider to
@@ -76,7 +77,7 @@ preserved verbatim — including xAI's "top up your account" quota URL and
 Groq's decommissioned-vs-not-found distinction — via each rule's own
 `message` field (`string | ((ctx) => string)`), with model-name
 interpolation carried through `ctx.modelName`. There is no message-wording
-regression here. Timeout classification is likewise unchanged: 8 of the 9
+regression here. Timeout classification is likewise unchanged: 15 of the 16
 providers map `TimeoutError` to `NetworkError` (the classifier's default),
 and Groq alone maps it to `ProviderError`. Groq's subclass override is
 preserved verbatim via the JSON's `quirks.timeoutErrorClass`, so no

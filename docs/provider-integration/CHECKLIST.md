@@ -32,10 +32,12 @@ commands — don't paste a generic 12-file list anymore, it's stale.
       written in the manifest)
 - [ ] All files listed in the matching `tiers/tier-N-*.md` checklist
       touched
-- [ ] `docs/provider-integration/manifests/<name>.json` created (Tier 2+
-      only; see `manifests/README.md`)
+- [ ] `docs/provider-integration/manifests/<name>.json` created (Tier 3+
+      only — Tier 2 providers use catalog JSON evidence instead; see
+      `manifests/README.md`)
 - [ ] Mocked-contract section added to
-      `test/continuous-test-suite-providers-mocked.ts` (Tier 2+ only)
+      `test/continuous-test-suite-providers-mocked.ts` (Tier 3+ only —
+      Tier 2 mocked coverage is derived automatically from the catalog JSON)
 - [ ] `pnpm run check && pnpm run lint && pnpm run test:providers-mocked
 && pnpm run verify:provider-onboarding && pnpm run build` all green
 - [ ] CLI smoke test passes (`pnpm run cli generate "..." --provider

@@ -3,9 +3,10 @@
  * NeuroLink's providers supports. Used by the matrix test runner and any
  * suite that needs to skip a test based on provider capability.
  *
- * The 9 Tier-2 catalog providers (cerebras, cloudflare, fireworks, groq,
- * mistral, perplexity, sambanova, together-ai, xai) are NOT hand-written
- * here — their rows are derived below from the built provider catalog
+ * The 16 Tier-2 catalog providers (api-route, baseten, cerebras, cloudflare,
+ * fireworks, gmicloud, groq, inception-labs, io-intelligence, mancer,
+ * mistral, perplexity, sambanova, together-ai, upstage, xai) are NOT
+ * hand-written here — their rows are derived below from the built provider catalog
  * (`dist/providers/catalog/`), so onboarding a future catalog provider adds
  * zero lines to this file. Rule-15 exception (allow-listed in
  * eslint.config.js): the rows are an exact enumeration of the built catalog
@@ -76,8 +77,10 @@ export type ProviderEntry = Capabilities & {
 };
 
 // ---------------------------------------------------------------------------
-// Tier-2 catalog derivation — cerebras, cloudflare, fireworks, groq, mistral,
-// perplexity, sambanova, together-ai, xai. Reads the BUILT catalog (dist),
+// Tier-2 catalog derivation — api-route, baseten, cerebras, cloudflare,
+// fireworks, gmicloud, groq, inception-labs, io-intelligence, mancer,
+// mistral, perplexity, sambanova, together-ai, upstage, xai. Reads the
+// BUILT catalog (dist),
 // not src: continuous-test-suite-provider-matrix*.ts import PROVIDERS
 // directly and drive it against dist-built providers, so this helper stays
 // on the dist graph too (CLAUDE.md rule 15's "one module graph per suite").

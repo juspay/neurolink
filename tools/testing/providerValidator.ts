@@ -2,7 +2,9 @@
 
 /**
  * NeuroLink Provider Validation System
- * Advanced testing for all 21+ AI providers with performance benchmarking
+ * Advanced testing for a subset of 23 AI providers (7 hand-listed + 16
+ * JSON-catalog) with performance benchmarking — not the full provider
+ * roster; see `this.providers` below for exactly what's covered.
  * Part of Developer Experience Enhancement Plan 2.0 - Phase 3A
  */
 
@@ -89,9 +91,11 @@ class ProviderValidator {
       "azure",
       "huggingface",
       "ollama",
-      // The 9 JSON-catalog providers (cerebras, cloudflare, fireworks, groq,
-      // mistral, perplexity, sambanova, together-ai, xai) — derived so a new
-      // catalog entry is picked up here automatically.
+      // The 16 JSON-catalog providers (api-route, baseten, cerebras,
+      // cloudflare, fireworks, gmicloud, groq, inception-labs,
+      // io-intelligence, mancer, mistral, perplexity, sambanova,
+      // together-ai, upstage, xai) — derived so a new catalog entry is
+      // picked up here automatically.
       ...CATALOG_PROVIDER_IDS,
     ];
 
@@ -312,7 +316,7 @@ class ProviderValidator {
     const NATIVE_WIRE_PROVIDERS = new Set(["openai", "azure"]);
 
     try {
-      // All 9 JSON-catalog providers (mistral and groq included — they no
+      // All 16 JSON-catalog providers (mistral and groq included — they no
       // longer use @ai-sdk/mistral / groq-sdk, see providerRegistry.ts's
       // OPENAI_COMPAT_CATALOG loop) share the in-repo
       // ConfiguredOpenAICompatProvider wire client, so there is no external
