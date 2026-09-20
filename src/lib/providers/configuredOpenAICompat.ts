@@ -15,6 +15,9 @@ import { classifyProviderError } from "../utils/errorClassifier.js";
 import { TimeoutError } from "../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
 
+const PERPLEXITY_API_HOST = "api.perplexity.ai";
+const PERPLEXITY_INTEGRATION = "neurolink";
+
 /**
  * Collapse OpenAI's `content` union down to the plain string that
  * string-only vendors accept. Image parts carry no string representation and
@@ -110,6 +113,17 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
 
   protected getFallbackModels(): string[] {
     return this.entry.fallbackModels;
+  }
+
+  protected getAuthHeaders(): Record<string, string> {
+    const headers = super.getAuthHeaders();
+    if (
+      this.entry.providerName === "perplexity" &&
+      new URL(this.config.baseURL).hostname === PERPLEXITY_API_HOST
+    ) {
+      headers["X-Pplx-Integration"] = PERPLEXITY_INTEGRATION;
+    }
+    return headers;
   }
 
   /**

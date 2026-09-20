@@ -312,6 +312,13 @@ async function runOpenAICompatProvider(spec: OpenAICompatSpec): Promise<void> {
           ),
           `Authorization header starts with '${spec.authPrefix}${fakeKey.slice(0, 12)}...'`,
         );
+        if (spec.provider === "perplexity") {
+          expectEq(
+            call.headers["x-pplx-integration"],
+            "neurolink",
+            "Perplexity integration attribution",
+          );
+        }
         const body = call.bodyJson as { model: string; messages: unknown[] };
         expect(typeof body === "object", "body is JSON object");
         expectEq(body.model, spec.model, "body.model");
