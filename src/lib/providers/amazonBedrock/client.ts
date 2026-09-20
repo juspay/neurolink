@@ -41,6 +41,7 @@ import type {
   TextGenerationOptions,
   BedrockMessage,
   ProviderErrorRule,
+  StreamGenerationEndContext,
 } from "../../types/index.js";
 import {
   AuthenticationError,
@@ -382,6 +383,15 @@ export class AmazonBedrockProvider extends BaseProvider {
           success: false,
           error: error instanceof Error ? error.message : String(error),
         });
+        // #1741: the SDK emits its own `generation:end` unless the native
+        // path marks that it already did. The failure branch has no result
+        // to carry the mark, so it goes on the error — the same shape the
+        // AI Studio path uses. Without it one failed Bedrock generate is
+        // counted twice in analytics and as two Pipeline B spans.
+        if (error && typeof error === "object") {
+          (error as { _generationEndEmitted?: boolean })._generationEndEmitted =
+            true;
+        }
       }
       throw error;
     }
@@ -411,7 +421,7 @@ export class AmazonBedrockProvider extends BaseProvider {
     // `baseProvider` fell back to `result.toolsUsed || []` and every turn
     // reported zero tools while running them correctly — leaving analytics,
     // cost attribution and audit blind on this path.
-    return {
+    const generateResult: EnhancedGenerateResult = {
       content: text, // CLI expects 'content' not 'text'
       usage,
       model: this.modelName || this.getDefaultModel(),
@@ -448,6 +458,22 @@ export class AmazonBedrockProvider extends BaseProvider {
         (execution) => execution.error === undefined,
       ),
     };
+
+    // #1741: the SDK's `finalizeGenerateRequestResult` emits its own
+    // `generation:end` unless the result carries this mark, so every
+    // SUCCESSFUL Bedrock generate was counted twice — an extra Langfuse
+    // `model.generation` observation and an extra analytics record per call,
+    // which inflates Bedrock's cost against every other provider. Vertex and
+    // AI Studio have always set it; Bedrock emitted without marking. Set
+    // after construction, like those two, because the field is deliberately
+    // not part of the public `EnhancedGenerateResult` surface.
+    (
+      generateResult as EnhancedGenerateResult & {
+        _generationEndEmitted?: boolean;
+      }
+    )._generationEndEmitted = true;
+
+    return generateResult;
   }
 
   private async conversationLoop(options: TextGenerationOptions): Promise<{
@@ -1447,6 +1473,20 @@ export class AmazonBedrockProvider extends BaseProvider {
           // never injected and generation:end is emitted by hand for
           // Pipeline B (Langfuse).
           if (streamEmitter) {
+            // #1741: tell the orchestration's finally block this stream's
+            // `generation:end` has already been emitted here, exactly as the
+            // other native stream paths do. The context object is attached to
+            // the caller's options by `NeuroLink.stream()`; BaseProvider
+            // spreads the options but carries the same context reference, so
+            // mutating it is what the orchestration reads back.
+            const dedupContext = (
+              options as StreamOptions & {
+                _streamDedupContext?: StreamGenerationEndContext;
+              }
+            )._streamDedupContext;
+            if (dedupContext) {
+              dedupContext.providerEmitted = true;
+            }
             streamEmitter.emit("generation:end", {
               provider: self.providerName,
               responseTime: Date.now() - startTime,

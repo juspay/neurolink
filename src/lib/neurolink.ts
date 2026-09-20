@@ -10440,6 +10440,29 @@ Current user's request: ${currentInput}`;
         factoryResult,
         sessionId: enhancedOptions.context?.sessionId,
       });
+      // Curator P2-4 dedup (concurrency-safe): native provider stream paths
+      // emit `generation:end` themselves. We attach a per-stream mutable
+      // flag to `enhancedOptions._streamDedupContext`; the provider flips it
+      // before its own emit and the finally block below reads the same
+      // closed-over reference, so the orchestration does not emit a second
+      // event for the same stream. Concurrent streams have different option
+      // objects and therefore different contexts, so they cannot interfere.
+      //
+      // #1741: this MUST be attached before `createMCPStream`. That call
+      // reaches `provider.stream({ ...options })`, which copies the options
+      // — so a context attached afterwards never reaches the provider, and
+      // every native stream path silently emitted twice. The flag looked
+      // present on `enhancedOptions` and was simply absent from the object
+      // the provider actually held.
+      const dedupContext: StreamGenerationEndContext = {
+        providerEmitted: false,
+      };
+      (
+        enhancedOptions as StreamOptions & {
+          _streamDedupContext?: StreamGenerationEndContext;
+        }
+      )._streamDedupContext = dedupContext;
+
       // Kept whole (not just destructured) so its toolsUsed/toolExecutions
       // descriptors can be re-applied onto the final StreamResult near the
       // bottom of this method, without ever reading — and thereby freezing —
@@ -10492,21 +10515,6 @@ Current user's request: ${currentInput}`;
       const streamStartTime = Date.now();
       const sessionId = (enhancedOptions.context as Record<string, unknown>)
         ?.sessionId as string | undefined;
-      // Curator P2-4 dedup (concurrency-safe): native provider stream paths
-      // (Gemini 3 on Vertex / Google AI Studio) emit `generation:end`
-      // themselves. We attach a per-stream mutable flag directly to
-      // `enhancedOptions._streamDedupContext` — native providers receive
-      // these options and flip the flag before their emit; this finally
-      // block reads the same closed-over reference. Concurrent streams
-      // have different option objects so the contexts don't interfere.
-      const dedupContext: StreamGenerationEndContext = {
-        providerEmitted: false,
-      };
-      (
-        enhancedOptions as StreamOptions & {
-          _streamDedupContext?: StreamGenerationEndContext;
-        }
-      )._streamDedupContext = dedupContext;
       const processedStream = (async function* () {
         let streamError: unknown;
         // Curator P2-4: hoist `resolvedUsage` so the finally block can emit a
