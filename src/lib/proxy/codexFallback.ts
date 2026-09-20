@@ -7,6 +7,7 @@
  * rules as a native Codex request.
  */
 
+import { createHash } from "node:crypto";
 import { ClaudeStreamSerializer, generateToolUseId } from "./claudeFormat.js";
 import { classifyProxyFailureCode } from "./proxyFailureDetails.js";
 import { extractCodexUsage } from "./codexUsage.js";
@@ -284,6 +285,45 @@ function convertClaudeMessage(
   return input;
 }
 
+/**
+ * Stable per-conversation routing key for OpenAI prompt caching.
+ *
+ * Anthropic caching is explicit — the client marks breakpoints and the provider
+ * honours them. OpenAI caching is automatic: a prefix is reused only when the
+ * request lands on infrastructure already holding it, and `prompt_cache_key` is
+ * what pins a conversation to one. Without it this hop takes its chances on
+ * routing, which is the worst case for a fallback that arrives in bursts
+ * separated by long gaps.
+ *
+ * Claude Code carries its session id inside `metadata.user_id`, alongside
+ * account and device identifiers. Only the session id is read, and it is
+ * hashed, so no account or device identifier reaches the upstream. When no
+ * session id can be recovered the field is omitted rather than filled with
+ * something shared: a key common to every conversation would pin unrelated
+ * prefixes onto one cache instead of separating them.
+ */
+export function codexPromptCacheKey(body: ClaudeRequest): string | undefined {
+  const raw = body.metadata?.user_id;
+  if (typeof raw !== "string" || raw.length === 0) {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  const fields = parsed as Record<string, unknown>;
+  const sessionId = fields.session_id ?? fields.parent_session_id;
+  if (typeof sessionId !== "string" || sessionId.length === 0) {
+    return undefined;
+  }
+  return createHash("sha256").update(sessionId).digest("hex");
+}
+
 /** Convert a Claude Messages request into the ChatGPT Codex Responses shape. */
 export function convertClaudeRequestToCodex(
   body: ClaudeRequest,
@@ -305,6 +345,11 @@ export function convertClaudeRequestToCodex(
       ? { reasoning: { effort: reasoningEffort } }
       : {}),
   };
+
+  const promptCacheKey = codexPromptCacheKey(body);
+  if (promptCacheKey) {
+    request.prompt_cache_key = promptCacheKey;
+  }
 
   const instructions = buildSystemInstructions(body);
   if (instructions) {

@@ -179,6 +179,8 @@ export type CodexResponsesRequest = {
   input: CodexResponsesInputItem[];
   stream: true;
   store: false;
+  /** Pins one conversation to the cache that already holds its prefix. */
+  prompt_cache_key?: string;
   reasoning?: { effort: CodexReasoningEffort };
   instructions?: string;
   tools?: Array<{

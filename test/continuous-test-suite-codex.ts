@@ -3513,4 +3513,87 @@ await test("streaming tool output has a bounded aggregate size", async () => {
   assert(rejected && tools < 18, "aggregate tool output grew without a bound");
 });
 
+// The bridged fallback builds its own Codex payload, so nothing pins a
+// conversation to the cache holding its prefix unless this sets it. Measured
+// over 36h: this path cached 28.2% of 228M input tokens, against ~49% on the
+// native path where the Codex client supplies its own key.
+await test("Claude fallback pins a conversation to one prompt cache", () => {
+  const sessionId = "ee313449-09b0-4f0e-bae6-1c0bf6573ad5";
+  const userId = JSON.stringify({
+    device_id: "d".repeat(64),
+    account_uuid: "acf41e1b-0444-41fd-8b4b-8c58d6579a09",
+    session_id: sessionId,
+    parent_session_id: sessionId,
+  });
+  const body = {
+    model: "claude-opus-5",
+    max_tokens: 64,
+    messages: [{ role: "user", content: "hello" }],
+    metadata: { user_id: userId },
+  } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0];
+
+  const request = convertClaudeRequestToCodex(body, "gpt-5.6-sol");
+  assert(
+    typeof request.prompt_cache_key === "string" &&
+      request.prompt_cache_key.length === 64,
+    "a conversation must carry a prompt cache key",
+  );
+  // Stable across turns, or it pins nothing.
+  const second = convertClaudeRequestToCodex(body, "gpt-5.6-sol");
+  assert(
+    request.prompt_cache_key === second.prompt_cache_key,
+    "the cache key must be stable across turns of one conversation",
+  );
+  // A different conversation must not share the key.
+  const other = convertClaudeRequestToCodex(
+    {
+      ...(body as object),
+      metadata: {
+        user_id: JSON.stringify({
+          session_id: "11111111-2222-3333-4444-555555555555",
+        }),
+      },
+    } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+    "gpt-5.6-sol",
+  );
+  assert(
+    other.prompt_cache_key !== request.prompt_cache_key,
+    "separate conversations must not share a cache key",
+  );
+  // The key is hashed: no account, device or raw session identifier upstream.
+  const wire = JSON.stringify(request);
+  assert(
+    !wire.includes(sessionId) &&
+      !wire.includes("acf41e1b-0444-41fd-8b4b-8c58d6579a09") &&
+      !wire.includes("d".repeat(64)),
+    "identifiers must not reach the upstream in the clear",
+  );
+});
+
+// A key shared by every conversation would pin unrelated prefixes onto one
+// cache, which is worse than leaving routing alone.
+await test("Claude fallback omits the cache key when no session is known", () => {
+  const plain = {
+    model: "claude-opus-5",
+    max_tokens: 64,
+    messages: [{ role: "user", content: "hello" }],
+  } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0];
+  assert(
+    convertClaudeRequestToCodex(plain, "gpt-5.6-sol").prompt_cache_key ===
+      undefined,
+    "no metadata must mean no cache key",
+  );
+  for (const userId of ["not json", JSON.stringify({ device_id: "d" }), ""]) {
+    const body = {
+      ...(plain as object),
+      metadata: { user_id: userId },
+    } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0];
+    assert(
+      convertClaudeRequestToCodex(body, "gpt-5.6-sol").prompt_cache_key ===
+        undefined,
+      `unusable metadata must not produce a shared key: ${userId.slice(0, 20)}`,
+    );
+  }
+});
+
 await runSuite();
