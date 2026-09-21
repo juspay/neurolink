@@ -1,5 +1,9 @@
 # The `decide` inference type
 
+> **Deep-dive:** [generate, stream, decide: a third inference type for NeuroLink](https://blog.neurolink.ink/posts/generate-stream-decide-a-third-inference-type-for-neurolink/) —
+> why this shipped as a provider rather than a subsystem, the five call sites, and the four
+> transport bugs found by adding the Vercel AI Gateway (two of which produced plausible output).
+
 NeuroLink recognises three inference types. Two of them produce text:
 
 | Type         | Call                     | Produces                                   |

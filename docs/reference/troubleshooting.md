@@ -90,10 +90,10 @@ npx @juspay/neurolink generate "Test" --debug
 ### PPT Generation (PowerPoint Presentations)
 
 - `PPT_PLANNING_FAILED` -- Check AI provider connection and ensure valid prompt. See [PPT Generation Guide](../features/ppt-generation.md#troubleshooting)
-- `PPT_INVALID_AI_RESPONSE` during generation -- Simplify prompt/topic and retry. See [PPT Generation Guide](../features/ppt-generation.md#error-handling)
-- `PPT_FILE_WRITE_FAILED` -- Check write permissions for output directory and disk space. See [PPT Generation Guide](../features/ppt-generation.md#file-output)
+- `PPT_INVALID_AI_RESPONSE` during generation -- Simplify prompt/topic and retry. See [PPT Generation Guide](../features/ppt-generation.md#error-codes)
+- `PPT_FILE_WRITE_FAILED` -- Check write permissions for output directory and disk space. See [PPT Generation Guide](../features/ppt-generation.md#error-codes)
 - Empty slides in presentation -- Ensure content plan has enough detail; try more specific prompts
-- Images not generating -- Set `generateAIImages: true` in `output.ppt` (SDK) or avoid `--pptNoImages` (CLI), and configure `VERTEX_IMAGE_MODEL`. See [PPT Generation Guide](../features/ppt-generation.md#ai-image-generation)
+- Images not generating -- Set `generateAIImages: true` in `output.ppt` (SDK) or avoid `--pptNoImages` (CLI), and configure `VERTEX_IMAGE_MODEL`. See [PPT Generation Guide](../features/ppt-generation.md#troubleshooting)
 - Theme not applying correctly -- Verify theme name: `modern`, `corporate`, `creative`, `minimal`, or `dark`
 
 ---

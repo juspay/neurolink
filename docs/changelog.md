@@ -1,15 +1,24 @@
 # Changelog
 
-All notable changes to NeuroLink are documented in this changelog.
+**The current release notes live on GitHub Releases:
+[github.com/juspay/neurolink/releases](https://github.com/juspay/neurolink/releases)** — generated
+automatically by semantic-release on every publish, so they are always current. An RSS/Atom feed
+is available at [releases.atom](https://github.com/juspay/neurolink/releases.atom).
 
-For the complete and most up-to-date changelog, please visit:
-**[CHANGELOG.md](https://github.com/juspay/neurolink/blob/release/CHANGELOG.md)** in the GitHub repository.
+> `CHANGELOG.md` in the repository is **not** a reliable source of the current version.
+> `@semantic-release/git` was deliberately removed so that nothing pushes back to the `release`
+> branch (branch protection rejects pushes that carry no check runs), which means the committed
+> `CHANGELOG.md` stops at the last version that was committed by hand. It still ships inside the
+> published npm package, where it is generated at publish time and is correct.
 
 ---
 
-## Latest Releases
+## Release highlights
 
-### v9.14.0 (Current Release - February 28, 2026)
+The entries below are hand-written highlights for selected past releases. They are an archive,
+not a complete or current list — use GitHub Releases above for that.
+
+### v9.14.0 (February 28, 2026)
 
 **Features:**
 

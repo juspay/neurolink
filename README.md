@@ -39,7 +39,7 @@ const decision = await pipe.tryDecide({
 // decision?.answers.autoApprove.probability -> 0.91
 ```
 
-**[→ Docs](https://docs.neurolink.ink) · [→ Quick Start](https://docs.neurolink.ink/docs/getting-started/quick-start) · [→ npm](https://www.npmjs.com/package/@juspay/neurolink)**
+**[→ Docs](https://docs.neurolink.ink) · [→ Quick Start](https://docs.neurolink.ink/docs/getting-started/quick-start) · [→ npm](https://www.npmjs.com/package/@juspay/neurolink) · [→ Blog](https://blog.neurolink.ink)**
 
 ---
 

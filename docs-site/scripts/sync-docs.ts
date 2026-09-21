@@ -1761,18 +1761,95 @@ function applyFileMapping(relativePath: string): string {
 }
 
 /**
+ * A page that moved leaves a redirect stub behind at its old path. A stub must
+ * never win a target collision — it would replace the real page with a link to
+ * itself.
+ */
+const REDIRECT_STUB_MARKER = "This page has moved to";
+
+/**
+ * Every source file that is deliberately not published because another file
+ * owns its target path. `FILE_MAPPINGS` is keyed by basename, so a mapping
+ * intended for one root-level file also catches every same-named file deeper
+ * in the tree, and the site has no room for two pages at one URL.
+ *
+ * Keeping the list here rather than letting the sync decide quietly is the
+ * point: a target claimed by a file that is NOT listed fails the sync, so a
+ * new collision has to be looked at instead of silently costing a page. The
+ * fourteen stubs are already covered by `config/redirects.ts`; the seven real
+ * pages are legacy copies that were never removed when their content moved,
+ * and publishing them is not an option — their URLs are redirect sources in
+ * `config/redirects.ts`, so a page there collides with the redirect table.
+ */
+const KNOWN_SUPERSEDED: ReadonlyArray<{ source: string; target: string }> = [
+  { source: "advanced/api-reference.md", target: "sdk/api-reference.md" },
+  { source: "api-reference.md", target: "sdk/api-reference.md" },
+  { source: "configuration.md", target: "deployment/configuration.md" },
+  { source: "contributing.md", target: "community/contributing.md" },
+  { source: "dynamic-models.md", target: "guides/dynamic-models.md" },
+  { source: "enterprise-proxy-setup.md", target: "deployment/enterprise-proxy.md" },
+  { source: "factory-pattern-migration.md", target: "development/factory-migration.md" },
+  { source: "framework-integration.md", target: "sdk/framework-integration.md" },
+  { source: "getting-started/api-reference.md", target: "sdk/api-reference.md" },
+  { source: "guides/troubleshooting.md", target: "reference/troubleshooting.md" },
+  { source: "human-in-the-loop.md", target: "features/hitl.md" },
+  { source: "litellm-integration.md", target: "getting-started/providers/litellm.md" },
+  { source: "mcp-integration.md", target: "mcp/integration.md" },
+  { source: "mcp-testing-guide.md", target: "mcp/testing.md" },
+  { source: "ollama-setup.md", target: "getting-started/providers/ollama.md" },
+  { source: "provider-comparison.md", target: "reference/provider-comparison.md" },
+  { source: "real-time-services.md", target: "features/real-time-services.md" },
+  { source: "sagemaker-integration.md", target: "getting-started/providers/sagemaker.md" },
+  { source: "skills/neurolink-guide/troubleshooting.md", target: "reference/troubleshooting.md" },
+  { source: "testing.md", target: "development/testing.md" },
+  { source: "troubleshooting.md", target: "reference/troubleshooting.md" },
+];
+
+function isRedirectStub(file: FileInfo): boolean {
+  return fs.readFileSync(file.sourcePath, "utf-8").includes(REDIRECT_STUB_MARKER);
+}
+
+/** Codepoint order — `localeCompare` varies with the Node ICU build. */
+function byCodepoint(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Pick the one source file that gets written to a target path.
+ *
+ * `FILE_MAPPINGS` is keyed by basename, so every `api-reference.md` anywhere in
+ * the tree resolves to `sdk/api-reference.md` — 17 targets have more than one
+ * candidate. Whoever was written last used to win, and `glob` walks in
+ * filesystem order, so the winner differed by platform: CI published the
+ * 96-byte redirect stub for `sdk/api-reference` while a macOS build published
+ * the real 55 KB page, which made `search-index.json` unreproducible and the
+ * currency check permanently red for one of the two.
+ *
+ * Order: a real page at the target path, then any real page (codepoint-last),
+ * then the same two among stubs. A stub can only win when every candidate is
+ * one.
+ */
+function resolveTargetCollision(candidates: FileInfo[], targetRelative: string): FileInfo {
+  const real = candidates.filter((c) => !isRedirectStub(c));
+  const pool = real.length > 0 ? real : candidates;
+  const atTarget = pool.find((c) => c.relativePath.replace(/\\/g, "/") === targetRelative);
+  return atTarget ?? pool[pool.length - 1];
+}
+
+/**
  * Get all markdown files to process
  */
 async function getMarkdownFiles(sourceDir: string): Promise<FileInfo[]> {
   const pattern = "**/*.md";
   const files = await glob(pattern, { cwd: sourceDir, nodir: true });
 
-  return files
+  const mapped = files
     .filter((file) => {
       // Exclude certain directories
       const parts = file.split(path.sep);
       return !parts.some((part) => EXCLUDED_DIRS.includes(part));
     })
+    .sort(byCodepoint)
     .map((file) => {
       // Apply file mapping to determine target path
       const mappedPath = applyFileMapping(file);
@@ -1784,6 +1861,67 @@ async function getMarkdownFiles(sourceDir: string): Promise<FileInfo[]> {
         targetPath: path.join(TARGET_DIR, mappedPath),
       };
     });
+
+  const byTarget = new Map<string, FileInfo[]>();
+  for (const file of mapped) {
+    const targetRelative = path.relative(TARGET_DIR, file.targetPath).replace(/\\/g, "/");
+    const bucket = byTarget.get(targetRelative);
+    if (bucket) {
+      bucket.push(file);
+    } else {
+      byTarget.set(targetRelative, [file]);
+    }
+  }
+
+  const resolved: FileInfo[] = [];
+  const seenSuperseded = new Set<string>();
+  const unexpected: string[] = [];
+
+  for (const [targetRelative, candidates] of [...byTarget].sort(([a], [b]) => byCodepoint(a, b))) {
+    if (candidates.length === 1) {
+      resolved.push(candidates[0]);
+      continue;
+    }
+    const winner = resolveTargetCollision(candidates, targetRelative);
+    for (const loser of candidates) {
+      if (loser === winner) {
+        continue;
+      }
+      const key = `${loser.relativePath} -> ${targetRelative}`;
+      if (KNOWN_SUPERSEDED.some((k) => k.source === loser.relativePath && k.target === targetRelative)) {
+        seenSuperseded.add(key);
+        console.log(`  Superseded: ${key} (written from ${winner.relativePath})`);
+      } else {
+        unexpected.push(`  ${key} (would be written from ${winner.relativePath})`);
+      }
+    }
+    resolved.push(winner);
+  }
+
+  if (unexpected.length > 0) {
+    console.error(
+      [
+        "",
+        `Error: ${unexpected.length} source file(s) would be silently dropped by a target collision.`,
+        "",
+        ...unexpected,
+        "",
+        "FILE_MAPPINGS is keyed by basename, so a mapping meant for one file also",
+        "catches every same-named file deeper in docs/. Give the file an explicit",
+        "full-path entry in FILE_MAPPINGS so it lands somewhere of its own, or add",
+        "it to KNOWN_SUPERSEDED if losing the page is intended.",
+        "",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+
+  const stale = KNOWN_SUPERSEDED.filter((k) => !seenSuperseded.has(`${k.source} -> ${k.target}`));
+  for (const k of stale) {
+    console.warn(`  Note: ${k.source} no longer collides with ${k.target}; drop it from KNOWN_SUPERSEDED.`);
+  }
+
+  return resolved;
 }
 
 /**
