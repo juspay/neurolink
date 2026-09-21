@@ -85,6 +85,34 @@ export function mapVertexOutputConfig(
 }
 
 /** Strip what Vertex rejects and pin the API version it requires. */
+/**
+ * Vertex refuses `role: "system"` messages outright — "role 'system' is not
+ * supported on this model" — where the first-party Messages API accepts them
+ * anywhere except index 0.
+ *
+ * Claude Code interleaves them as positional notices: a file changed on disk
+ * since it was last read, a tool became available, an MCP server dropped. Their
+ * meaning depends on where they sit, so hoisting them into the top-level
+ * `system` parameter would strip exactly what makes them useful, and dropping
+ * them would silently lose context the turn depends on. They become user turns
+ * instead, which keeps both the text and the position. Consecutive same-role
+ * turns are accepted, so this never produces an invalid sequence.
+ */
+function normalizeVertexRoles(messages: unknown): unknown {
+  if (!Array.isArray(messages)) {
+    return messages;
+  }
+  let changed = false;
+  const mapped = messages.map((message) => {
+    if (!record(message) || message.role !== "system") {
+      return message;
+    }
+    changed = true;
+    return { ...message, role: "user" };
+  });
+  return changed ? mapped : messages;
+}
+
 export function buildVertexAnthropicPayload(
   body: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
@@ -99,6 +127,9 @@ export function buildVertexAnthropicPayload(
     } else {
       payload.output_config = mapped;
     }
+  }
+  if ("messages" in payload) {
+    payload.messages = normalizeVertexRoles(payload.messages);
   }
   return { ...payload, anthropic_version: VERTEX_ANTHROPIC_VERSION };
 }

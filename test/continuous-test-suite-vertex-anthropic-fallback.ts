@@ -321,4 +321,62 @@ test("an unreadable non-streaming body reports zero rather than a guess", () => 
   });
 });
 
+// Vertex refuses `role: "system"` outright — "role 'system' is not supported on
+// this model" — while the first-party Messages API accepts it anywhere but
+// index 0. Claude Code interleaves these as positional notices, so every real
+// agentic request carried them and every Vertex fallback died on a 400.
+await test("converts interleaved system turns Vertex refuses", () => {
+  const payload = buildVertexAnthropicPayload({
+    model: "claude-opus-4-6",
+    max_tokens: 32,
+    system: [{ type: "text", text: "top-level system prompt" }],
+    messages: [
+      { role: "user", content: [{ type: "text", text: "first" }] },
+      { role: "system", content: "a file changed on disk" },
+      { role: "assistant", content: [{ type: "text", text: "noted" }] },
+      { role: "system", content: [{ type: "text", text: "a tool appeared" }] },
+      { role: "user", content: [{ type: "text", text: "carry on" }] },
+    ],
+  });
+  const messages = payload.messages as Array<{
+    role: string;
+    content: unknown;
+  }>;
+  assert.equal(
+    messages.filter((message) => message.role === "system").length,
+    0,
+    "no system turn may survive into the Vertex payload",
+  );
+  assert.equal(messages.length, 5, "turns are converted, never dropped");
+  // Position carries the meaning of these notices, so it must not move.
+  assert.equal(messages[1].role, "user");
+  assert.deepEqual(messages[1].content, "a file changed on disk");
+  assert.equal(messages[3].role, "user");
+  assert.deepEqual(messages[3].content, [
+    { type: "text", text: "a tool appeared" },
+  ]);
+  // The top-level system parameter is untouched: it is a different channel.
+  assert.deepEqual(payload.system, [
+    { type: "text", text: "top-level system prompt" },
+  ]);
+  assert.equal(payload.anthropic_version, "vertex-2023-10-16");
+});
+
+await test("leaves a history without system turns untouched", () => {
+  const messages = [
+    { role: "user", content: [{ type: "text", text: "hello" }] },
+    { role: "assistant", content: [{ type: "text", text: "hi" }] },
+  ];
+  const payload = buildVertexAnthropicPayload({
+    model: "claude-opus-4-6",
+    max_tokens: 16,
+    messages,
+  });
+  assert.equal(
+    payload.messages,
+    messages,
+    "an untouched history must not be copied",
+  );
+});
+
 console.log(`Passed: ${passed}; Failed: 0; RESULT: PASS`);
