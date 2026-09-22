@@ -29,6 +29,16 @@ import type {
 
 export const CODEX_ACCOUNT_PREFIX = "codex:";
 
+/**
+ * Native fallback legs (e.g. Claude-on-Vertex) key their usage rows as
+ * `vertex/<model>` rather than a provider-qualified `<provider>:<label>`
+ * pair — there is no OAuth account behind them, just a served model. They
+ * are not served by Codex, so without this prefix they fell through to the
+ * generic "other" branch below and lost both their identity and their live
+ * status in the CLI's proxy status output.
+ */
+const VERTEX_ACCOUNT_PREFIX = "vertex/";
+
 /** Keep an account label in the Codex namespace used by its token store. */
 export function normalizeCodexAccountKey(value: string): string {
   const trimmed = value.trim();
@@ -55,11 +65,17 @@ export function resolveProxyStatusAccountIdentity(
   if (persistedKey?.startsWith(CODEX_ACCOUNT_PREFIX)) {
     return { provider: "codex", key: persistedKey };
   }
+  if (persistedKey?.startsWith(VERTEX_ACCOUNT_PREFIX)) {
+    return { provider: "vertex", key: persistedKey };
+  }
   if (type === "oauth" || type === "api_key") {
     return { provider: "anthropic", key: normalizeAnthropicAccountKey(label) };
   }
   if (type === "codex-oauth") {
     return { provider: "codex", key: normalizeCodexAccountKey(label) };
+  }
+  if (type === "vertex") {
+    return { provider: "vertex", key: persistedKey ?? label };
   }
   return { provider: "other", key: null };
 }

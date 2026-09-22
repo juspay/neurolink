@@ -137,6 +137,7 @@ export type CodexRuntimeAccount = {
 export type CodexProxyStatusAccountIdentity =
   | { provider: "anthropic"; key: string }
   | { provider: "codex"; key: string }
+  | { provider: "vertex"; key: string }
   | { provider: "other"; key: null };
 
 /** A text or image content part accepted by the Codex Responses backend. */

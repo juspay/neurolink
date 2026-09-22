@@ -8,7 +8,7 @@
 
 > **CodexFallbackResult** = `object`
 
-Defined in: [types/codex.ts:200](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L200)
+Defined in: [types/codex.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L201)
 
 Fully buffered Codex result rendered back as an Anthropic response.
 
@@ -18,7 +18,7 @@ Fully buffered Codex result rendered back as an Anthropic response.
 
 > **text**: `string`
 
-Defined in: [types/codex.ts:201](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L201)
+Defined in: [types/codex.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L202)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/codex.ts:201](https://github.com/juspay/neurolink/blob/releas
 
 > **toolCalls**: `NonNullable`\<[`InternalResult`](InternalResult.md)\[`"toolCalls"`\]\>
 
-Defined in: [types/codex.ts:202](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L202)
+Defined in: [types/codex.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L203)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/codex.ts:202](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **usage?**: `NonNullable`\<[`InternalResult`](InternalResult.md)\[`"usage"`\]\> & `object`
 
-Defined in: [types/codex.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L203)
+Defined in: [types/codex.ts:204](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L204)
 
 #### Type Declaration
 
@@ -54,4 +54,4 @@ Numeric serializer compatibility must not imply provider observation.
 
 > **finishReason**: `"end_turn"` \| `"tool_use"`
 
-Defined in: [types/codex.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L208)
+Defined in: [types/codex.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L209)

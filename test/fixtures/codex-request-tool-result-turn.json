@@ -1,0 +1,150 @@
+{
+  "_fixtureMeta": {
+    "variation": "a turn carrying a prior function_call plus its function_call_output (tool result) in the input array, exec mode, both beta headers present",
+    "generatedBy": "scripts/generate-codex-fixtures.mjs",
+    "basedOn": "~/.neurolink/reference/codex-cli-wire-sample.json (redacted codex_exec/0.155.1 capture; shape only, not copied verbatim)",
+    "mode": "exec"
+  },
+  "method": "POST",
+  "url": "https://REDACTED/backend-api/codex/responses",
+  "headers": {
+    "authorization": "Bearer REDACTED",
+    "content-type": "application/json",
+    "openai-beta": "responses=experimental",
+    "user-agent": "codex_cli_rs/0.155.1 (macOS; arm64)",
+    "x-codex-beta-features": "remote_compaction_v2",
+    "x-openai-internal-codex-responses-lite": "true"
+  },
+  "body": {
+    "model": "gpt-5-codex",
+    "stream": true,
+    "store": false,
+    "input": [
+      {
+        "type": "additional_tools",
+        "role": "developer",
+        "tools": {
+          "functions": [
+            {
+              "name": "read_file",
+              "description": "Read a UTF-8 text file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": { "type": "string" },
+                  "offset": { "type": "integer" },
+                  "limit": { "type": "integer" }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "apply_patch",
+              "description": "Apply a unified-diff style patch to one or more files.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "patch": { "type": "string" }
+                },
+                "required": ["patch"],
+                "additionalProperties": false
+              }
+            }
+          ],
+          "collaboration": [
+            {
+              "name": "exec",
+              "type": "custom",
+              "description": "Execute a shell command in the sandboxed workspace and return stdout/stderr.",
+              "grammar": "start: command\ncommand: WORD (\" \" ARG)*\nWORD: /[a-zA-Z0-9_\\-\\.\\/]+/\nARG: /[^\\n]+/"
+            },
+            {
+              "name": "request_review",
+              "description": "Ask the operator to review a proposed change before applying it.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "summary": { "type": "string" }
+                },
+                "required": ["summary"],
+                "additionalProperties": false
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "message",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "You are Codex, a coding agent operating inside a local sandbox. Follow the operator's instructions and the tool contracts exactly."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Sandbox policy: workspace-write, network access is restricted unless explicitly approved. Never exfiltrate secrets."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Tool usage: prefer `apply_patch` for file edits over raw shell redirection. Use `exec` only for commands, not for editing files directly."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "role": "developer",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Output formatting: keep responses concise; summarize diffs instead of pasting full file contents when the file is large."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "List the files in the current directory and summarize the layout."
+          }
+        ]
+      },
+      {
+        "type": "message",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "<environment_context>cwd=/workspace/repo approval_policy=never sandbox=workspace-write</environment_context>"
+          }
+        ]
+      },
+      {
+        "type": "function_call",
+        "call_id": "call_synthetic_0001",
+        "name": "exec",
+        "arguments": "ls -la"
+      },
+      {
+        "type": "function_call_output",
+        "call_id": "call_synthetic_0001",
+        "output": "{\"stdout\":\"total 0\\ndrwxr-xr-x  2 codex  staff  64 Jan  1 00:00 .\\n\",\"stderr\":\"\",\"exit_code\":0}"
+      }
+    ]
+  }
+}

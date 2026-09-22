@@ -2580,6 +2580,77 @@ for (const [name, payload] of [
   });
 }
 
+await test("Codex bridge treats a premature close after a complete response.completed as success", async () => {
+  const encoder = new TextEncoder();
+  let pulls = 0;
+  const upstream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls++;
+      if (pulls === 1) {
+        controller.enqueue(encoder.encode(codexDone([], "hello")));
+        return;
+      }
+      throw new Error("simulated premature close");
+    },
+  });
+  const bridge = await createCodexFallbackStream(
+    new Response(upstream, {
+      headers: { "content-type": "text/event-stream" },
+    }),
+    "claude-test",
+  );
+  let result;
+  while (true) {
+    const next = await within(bridge.frames.next());
+    if (next.done) {
+      result = next.value;
+      break;
+    }
+  }
+  assertEqual(
+    result?.text,
+    "hello",
+    "a premature close after a complete turn was reported as a failure",
+  );
+});
+
+await test("Codex bridge still rejects a premature close before response.completed", async () => {
+  const encoder = new TextEncoder();
+  let pulls = 0;
+  const upstream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls++;
+      if (pulls === 1) {
+        controller.enqueue(
+          encoder.encode(
+            codexEvent("response.output_text.delta", {
+              output_index: 0,
+              delta: "partial",
+            }),
+          ),
+        );
+        return;
+      }
+      throw new Error("simulated premature close");
+    },
+  });
+  const bridge = await createCodexFallbackStream(
+    new Response(upstream, {
+      headers: { "content-type": "text/event-stream" },
+    }),
+    "claude-test",
+  );
+  let rejected = false;
+  try {
+    for await (const _frame of bridge.frames) {
+      /* drain */
+    }
+  } catch {
+    rejected = true;
+  }
+  assert(rejected, "truncation before completion was swallowed as success");
+});
+
 async function withFallbackRoute(
   run: (
     route: NonNullable<
