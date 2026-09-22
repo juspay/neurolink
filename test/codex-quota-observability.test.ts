@@ -16,6 +16,7 @@ import { AIProviderName } from "../src/lib/constants/enums.js";
 import {
   clearAccountCooldown,
   loadAccountCooldowns,
+  saveAccountCooldown,
 } from "../src/lib/proxy/accountCooldown.js";
 import {
   resetProxyActivityForTests,
@@ -303,6 +304,31 @@ describe.sequential("Codex quota observability", () => {
     });
   });
 
+  it("resolves a native fallback leg account (not served by Codex) to its own provider, not the generic other branch", () => {
+    const persistedKey = "vertex/claude-opus-4-6-vertex";
+    expect(
+      resolveProxyStatusAccountIdentity(
+        "vertex/claude-opus-4-6-vertex",
+        "vertex",
+        persistedKey,
+      ),
+    ).toEqual({
+      provider: "vertex",
+      key: persistedKey,
+    });
+    // Same account type, but no persisted key yet (first row created from the
+    // live label/type pair) still resolves to "vertex" rather than "other".
+    expect(
+      resolveProxyStatusAccountIdentity(
+        "vertex/claude-opus-4-6-vertex",
+        "vertex",
+      ),
+    ).toEqual({
+      provider: "vertex",
+      key: "vertex/claude-opus-4-6-vertex",
+    });
+  });
+
   it("does not misclassify adapter cleanup after a completed stream as cancellation", async () => {
     const completed: string[] = [];
     const closedSource = new ReadableStream<Uint8Array>({
@@ -431,6 +457,34 @@ describe.sequential("Codex quota observability", () => {
         rateLimitKind: "quota",
         cooldownReason: "session",
       }),
+    );
+  });
+
+  it("emits a terminal SSE error instead of a bare 429 when every account is cooling", async () => {
+    const account = await saveCodexAccount();
+    const coolingUntil = Date.now() + 5 * 60 * 1000;
+    await saveAccountCooldown(account.key, coolingUntil, "session");
+    globalThis.fetch = (async () => {
+      throw new Error("must not dispatch upstream while every account cools");
+    }) as typeof globalThis.fetch;
+
+    const response = await handleCodexResponsesRequest(
+      requestContext("codex-all-cooling"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("text/event-stream");
+    expect(response.headers.get("retry-after")).toBeTruthy();
+
+    const body = await response.text();
+    expect(body).toContain("event: response.failed");
+    const dataLine = body.split("\n").find((line) => line.startsWith("data: "));
+    expect(dataLine).toBeDefined();
+    const payload = JSON.parse(dataLine!.slice("data: ".length));
+    expect(payload.type).toBe("response.failed");
+    expect(payload.response.error.message).toMatch(/quota exhausted/i);
+    expect(payload.response.error.message).toContain(
+      new Date(coolingUntil).toISOString(),
     );
   });
 

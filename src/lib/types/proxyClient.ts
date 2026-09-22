@@ -199,8 +199,11 @@ export type CliAccountsRow = {
   /**
    * Which pool engine owns this login. Absent on plumbing rows. Consumers
    * that key a list by row must key by `key`, not `label` — see above.
+   *
+   * `"vertex"` is not a login: native fallback legs are keyed by served
+   * model, with no OAuth account behind them, so they carry no token state.
    */
-  provider?: "anthropic" | "codex";
+  provider?: "anthropic" | "codex" | "vertex";
   /**
    * What this row actually is. Only "account" rows are real logins; the proxy
    * also tracks internal and translation pseudo-accounts, which have no quota

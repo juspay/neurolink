@@ -244,6 +244,41 @@ function buildCodexErrorResponse(
 }
 
 /**
+ * Build a terminal Codex Responses SSE stream for a quota-exhaustion failure
+ * that never reached an upstream request (every pooled account is cooling).
+ * A bare non-2xx status with no body reads to the Codex CLI as a dropped
+ * connection, so it shows "Reconnecting... waiting for network" forever
+ * instead of a real error. Emitting a well-formed `response.failed` event —
+ * the same terminal shape the CLI already parses out of a live stream —
+ * lets it render the actual failure instead.
+ */
+function buildCodexQuotaExhaustedResponse(
+  message: string,
+  retryAfterSec?: number,
+): Response {
+  const payload = {
+    type: "response.failed",
+    response: {
+      error: {
+        type: "insufficient_quota",
+        code: "insufficient_quota",
+        message,
+      },
+    },
+  };
+  const headers: Record<string, string> = {
+    "content-type": "text/event-stream",
+  };
+  if (retryAfterSec !== undefined) {
+    headers["retry-after"] = String(retryAfterSec);
+  }
+  return new Response(
+    `event: response.failed\ndata: ${JSON.stringify(payload)}\n\n`,
+    { status: 200, headers },
+  );
+}
+
+/**
  * Load the Codex account pool from the token store, refreshing expired OAuth
  * tokens and hydrating cooldown + quota state from disk.
  */
@@ -866,20 +901,12 @@ async function executeCodexResponsesRequest(
         errorType: "all_accounts_cooling",
         errorMessage: "All Codex accounts are rate-limited",
       });
-      return new Response(
-        JSON.stringify({
-          error: {
-            type: "rate_limit_error",
-            message: "All Codex accounts are currently rate-limited",
-          },
-        }),
-        {
-          status: 429,
-          headers: {
-            "content-type": "application/json",
-            "retry-after": String(retryAfterSec),
-          },
-        },
+      const resetAt = soonest ? new Date(soonest).toISOString() : undefined;
+      return buildCodexQuotaExhaustedResponse(
+        resetAt
+          ? `Codex quota exhausted: all accounts are rate-limited. Resets at ${resetAt}.`
+          : "Codex quota exhausted: all accounts are rate-limited.",
+        retryAfterSec,
       );
     }
 

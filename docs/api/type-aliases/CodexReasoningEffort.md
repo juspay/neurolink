@@ -8,6 +8,6 @@
 
 > **CodexReasoningEffort** = `"none"` \| `"minimal"` \| `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` \| `"max"`
 
-Defined in: [types/codex.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L167)
+Defined in: [types/codex.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/codex.ts#L168)
 
 Codex reasoning settings; supported levels depend on the selected model.

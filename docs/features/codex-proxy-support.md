@@ -155,13 +155,13 @@ Every pooled Codex response carries attribution headers:
 
 ## 6. Error handling
 
-| Condition                    | Behaviour                                                                                   |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| No Codex accounts configured | `401` with a message pointing at `neurolink auth login codex`                               |
-| All accounts cooling         | `429` with a `retry-after` computed from the soonest recovery                               |
-| `401` / `403` from upstream  | One forced token refresh, then rotate; a failed refresh disables the account until re-login |
-| `429`                        | Cool the account per its reported window, then rotate                                       |
-| `5xx` / network              | Rotate to the next account                                                                  |
+| Condition                    | Behaviour                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No Codex accounts configured | `401` with a message pointing at `neurolink auth login codex`                                                                                                                    |
+| All accounts cooling         | Terminal `response.failed` SSE event (200, `retry-after` computed from the soonest recovery) instead of a bare `429`, so the CLI shows a real error instead of "Reconnecting..." |
+| `401` / `403` from upstream  | One forced token refresh, then rotate; a failed refresh disables the account until re-login                                                                                      |
+| `429`                        | Cool the account per its reported window, then rotate                                                                                                                            |
+| `5xx` / network              | Rotate to the next account                                                                                                                                                       |
 
 Access tokens are refreshed proactively when within 5 minutes of expiry, and the rotated refresh token is written back to the store.
 

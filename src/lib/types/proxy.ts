@@ -3753,7 +3753,7 @@ export type StatusStats = {
   accounts?: {
     /** Provider-qualified key; null for explicitly unattributed legacy rows. */
     key?: string | null;
-    provider?: "anthropic" | "codex" | "other" | "unknown";
+    provider?: "anthropic" | "codex" | "vertex" | "other" | "unknown";
     label: string;
     type: string;
     attempts?: number;

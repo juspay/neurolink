@@ -150,7 +150,7 @@ Provider-qualified key; null for explicitly unattributed legacy rows.
 
 #### provider?
 
-> `optional` **provider?**: `"anthropic"` \| `"codex"` \| `"other"` \| `"unknown"`
+> `optional` **provider?**: `"anthropic"` \| `"codex"` \| `"vertex"` \| `"other"` \| `"unknown"`
 
 #### label
 

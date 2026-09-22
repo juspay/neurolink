@@ -38,12 +38,15 @@ Full pool key, e.g. "anthropic:someone@example.com" or
 
 ### provider?
 
-> `optional` **provider?**: `"anthropic"` \| `"codex"`
+> `optional` **provider?**: `"anthropic"` \| `"codex"` \| `"vertex"`
 
-Defined in: [types/proxyClient.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L203)
+Defined in: [types/proxyClient.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L206)
 
 Which pool engine owns this login. Absent on plumbing rows. Consumers
 that key a list by row must key by `key`, not `label` — see above.
+
+`"vertex"` is not a login: native fallback legs are keyed by served
+model, with no OAuth account behind them, so they carry no token state.
 
 ---
 
@@ -51,7 +54,7 @@ that key a list by row must key by `key`, not `label` — see above.
 
 > **kind**: `"account"` \| `"internal"` \| `"translation"`
 
-Defined in: [types/proxyClient.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L209)
+Defined in: [types/proxyClient.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L212)
 
 What this row actually is. Only "account" rows are real logins; the proxy
 also tracks internal and translation pseudo-accounts, which have no quota
@@ -63,7 +66,7 @@ and should not be rendered as credentials.
 
 > **type**: `string`
 
-Defined in: [types/proxyClient.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L210)
+Defined in: [types/proxyClient.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L213)
 
 ---
 
@@ -71,7 +74,7 @@ Defined in: [types/proxyClient.ts:210](https://github.com/juspay/neurolink/blob/
 
 > **status**: `string` \| `null`
 
-Defined in: [types/proxyClient.ts:211](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L211)
+Defined in: [types/proxyClient.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L214)
 
 ---
 
@@ -79,7 +82,7 @@ Defined in: [types/proxyClient.ts:211](https://github.com/juspay/neurolink/blob/
 
 > **cooling**: `boolean`
 
-Defined in: [types/proxyClient.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L212)
+Defined in: [types/proxyClient.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L215)
 
 ---
 
@@ -87,7 +90,7 @@ Defined in: [types/proxyClient.ts:212](https://github.com/juspay/neurolink/blob/
 
 > **allowed**: `boolean` \| `null`
 
-Defined in: [types/proxyClient.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L213)
+Defined in: [types/proxyClient.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L216)
 
 ---
 
@@ -95,7 +98,7 @@ Defined in: [types/proxyClient.ts:213](https://github.com/juspay/neurolink/blob/
 
 > **expired**: `boolean` \| `null`
 
-Defined in: [types/proxyClient.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L214)
+Defined in: [types/proxyClient.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L217)
 
 ---
 
@@ -103,7 +106,7 @@ Defined in: [types/proxyClient.ts:214](https://github.com/juspay/neurolink/blob/
 
 > **isPrimary**: `boolean`
 
-Defined in: [types/proxyClient.ts:215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L215)
+Defined in: [types/proxyClient.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L218)
 
 ---
 
@@ -111,7 +114,7 @@ Defined in: [types/proxyClient.ts:215](https://github.com/juspay/neurolink/blob/
 
 > **requests**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:216](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L216)
+Defined in: [types/proxyClient.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L219)
 
 ---
 
@@ -119,7 +122,7 @@ Defined in: [types/proxyClient.ts:216](https://github.com/juspay/neurolink/blob/
 
 > **errors**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:217](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L217)
+Defined in: [types/proxyClient.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L220)
 
 ---
 
@@ -127,7 +130,7 @@ Defined in: [types/proxyClient.ts:217](https://github.com/juspay/neurolink/blob/
 
 > **rateLimits**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L218)
+Defined in: [types/proxyClient.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L221)
 
 ---
 
@@ -135,7 +138,7 @@ Defined in: [types/proxyClient.ts:218](https://github.com/juspay/neurolink/blob/
 
 > **quotaRateLimits**: `number` \| `null`
 
-Defined in: [types/proxyClient.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L219)
+Defined in: [types/proxyClient.ts:222](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L222)
 
 ---
 
@@ -143,7 +146,7 @@ Defined in: [types/proxyClient.ts:219](https://github.com/juspay/neurolink/blob/
 
 > **quota**: [`JsonObject`](JsonObject.md) \| `null`
 
-Defined in: [types/proxyClient.ts:221](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L221)
+Defined in: [types/proxyClient.ts:224](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L224)
 
 Quota block from the limits snapshot, timestamps normalised to ms.
 
@@ -153,6 +156,6 @@ Quota block from the limits snapshot, timestamps normalised to ms.
 
 > **usage**: [`CliAccountUsageTotals`](CliAccountUsageTotals.md) \| `null`
 
-Defined in: [types/proxyClient.ts:223](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L223)
+Defined in: [types/proxyClient.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxyClient.ts#L226)
 
 Today's usage from the request log, or null when the log is unreadable.

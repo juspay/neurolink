@@ -860,7 +860,20 @@ export async function createCodexFallbackStream(
     try {
       yield* serializer.start();
       while (true) {
-        const chunk = await reader.read();
+        let chunk: ReadableStreamReadResult<Uint8Array>;
+        try {
+          chunk = await reader.read();
+        } catch (err) {
+          // A premature stream close after a complete SSE stream (but before
+          // the zero-length terminator) rejects here. If response.completed
+          // already landed, treat the close as a normal end-of-stream rather
+          // than failing a fully successful turn; otherwise this is genuine
+          // truncation and must still fail visibly.
+          if (completed) {
+            break;
+          }
+          throw err;
+        }
         carry += decoder.decode(chunk.value, { stream: !chunk.done });
         // Search only new bytes plus the boundary overlap. Long tool payloads
         // split over many chunks must not rescan their accumulated prefix.
