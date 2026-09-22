@@ -2,9 +2,9 @@
  * Size Guard Utility
  *
  * Provides bounded binary downloads to prevent OOM when fetching generated
- * media from external providers. Applies a Content-Length pre-check and a
- * post-buffer guard so multi-GB responses are rejected before they fully
- * materialise in process memory.
+ * media from external providers. Applies a Content-Length pre-check and
+ * counts bytes while streaming, so multi-GB responses are rejected before
+ * they fully materialise in process memory.
  *
  * @module utils/sizeGuard
  */
@@ -25,8 +25,11 @@ export const MAX_IMAGE_BYTES = 25 * 1024 * 1024;
  * Two checks are performed:
  * 1. If the response includes a `Content-Length` header that exceeds
  *    `maxBytes`, the download is rejected immediately (no data is read).
- * 2. After buffering, the actual buffer size is verified against `maxBytes`.
- *    This catches chunked transfers where no `Content-Length` was provided.
+ * 2. The body is read as a stream and the reader is cancelled as soon as
+ *    more than `maxBytes` arrive. This catches chunked transfers where no
+ *    `Content-Length` was provided (or it understated the body) without
+ *    buffering the excess. A response without a readable stream falls back
+ *    to buffering and checking afterwards.
  *
  * @param response  The fetch {@link Response} to drain.
  * @param maxBytes  Maximum number of bytes allowed.
@@ -49,11 +52,34 @@ export async function readBoundedBuffer(
       `${label} download too large: ${contentLength} bytes (max ${maxBytes})`,
     );
   }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length > maxBytes) {
-    throw new Error(
-      `${label} download exceeded size cap after fetch: ${buffer.length} bytes (max ${maxBytes})`,
+  const exceeded = (bytes: number): Error =>
+    new Error(
+      `${label} download exceeded size cap after fetch: ${bytes} bytes (max ${maxBytes})`,
     );
+
+  const body: ReadableStream<Uint8Array> | null | undefined = response.body;
+  if (!body || typeof body.getReader !== "function") {
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length > maxBytes) {
+      throw exceeded(buffer.length);
+    }
+    return buffer;
   }
-  return buffer;
+
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    received += value.byteLength;
+    if (received > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw exceeded(received);
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, received);
 }

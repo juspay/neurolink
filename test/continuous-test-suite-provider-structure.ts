@@ -73,11 +73,20 @@ const PROVIDER_REGISTRATION_EXCLUSIONS = new Set([
   "openaiCompatCatalog",
   // The generic class the catalog drives. It IS registered and IS dynamically
   // imported (once, inside the OPENAI_COMPAT_CATALOG loop), but never under a
-  // provider ID of its own — one module backs all seven catalog entries. The
+  // provider ID of its own — one module backs all ten catalog entries. The
   // PROVIDER_MODULE_TO_ID manifest maps one module to exactly one
-  // AIProviderName, so this module has no single honest entry there; the seven
+  // AIProviderName, so this module has no single honest entry there; the ten
   // IDs it registers are covered by their own manifest keys instead.
   "configuredOpenAICompat",
+  // Shared error-rule builder for Ollama/LM Studio/llama.cpp — a plain
+  // function, not a provider class (the neurolink/provider-base-class lint
+  // rule requires each of those three to extend OpenAIChatCompletionsProvider
+  // directly, so this is a helper import, never a dynamic import target).
+  "localRuntimeOpenAICompat",
+  // Shared embeddings-response validator for Voyage/Jina — a plain function,
+  // not a provider class, for the same reason as localRuntimeOpenAICompat
+  // above.
+  "embeddingResponseParsing",
 ]);
 
 const DYNAMIC_PROVIDER_IMPORT_RE =

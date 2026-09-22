@@ -26,6 +26,7 @@ import {
   TimeoutError,
 } from "../../utils/timeout.js";
 import { OpenAIChatCompletionsProvider } from "../openaiChatCompletionsBase.js";
+import { buildLocalUnreachableErrorRule } from "../localRuntimeOpenAICompat.js";
 import { stripTrailingSlash } from "../openaiChatCompletionsClient.js";
 import { DEFAULT_OLLAMA_MODEL } from "./constants.js";
 
@@ -140,19 +141,14 @@ export class OllamaProvider extends OpenAIChatCompletionsProvider {
       typeof errorRecord?.responseBody === "string"
         ? errorRecord.responseBody
         : "";
-    const cause = (errorRecord?.cause as UnknownRecord) ?? {};
-    const code = (errorRecord?.code ?? cause?.code) as string | undefined;
 
     const rules: ProviderErrorRule[] = [
-      {
-        match: (ctx) =>
-          code === "ECONNREFUSED" ||
-          /ECONNREFUSED|Failed to fetch|fetch failed/.test(ctx.message),
-        errorClass: NetworkError,
-        message: () =>
+      buildLocalUnreachableErrorRule(
+        error,
+        () =>
           `Cannot connect to Ollama at ${redactUrlCredentials(this.config.baseURL)}. ` +
           `Install Ollama (https://ollama.com), start it with 'ollama serve', then try again.`,
-      },
+      ),
       // The base client (buildAPIError) attaches statusCode + responseBody to
       // HTTP failures. Distinguish a genuine missing-model error (give 'ollama
       // pull' guidance) from a bare endpoint-mismatch 404 (wrong base URL / not

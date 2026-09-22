@@ -43,16 +43,17 @@ A provider belongs in the JSON catalog if it needs **only**:
   extra credential field)
 - a default/fallback model
 - error-message classification (auth / rate-limit / invalid-model / generic)
+- a named, closed catalog quirk. DeepSeek is the worked example: it 400s on
+  `json_schema` structured-output requests, so `deepseek.json` sets
+  `quirks.responseFormatDowngrade: "json-schema-to-json-object"` and the
+  generic `ConfiguredOpenAICompatProvider` downgrades to `json_object` before
+  sending — no subclass.
 
 ## When a provider needs a dedicated subclass instead
 
-Two providers in this family are deliberately **not** in the catalog because
-they override real request-shaping behavior that a flat data table can't
-express:
+Azure OpenAI is deliberately **not** in the catalog because it overrides real
+request-shaping behavior that no named catalog quirk expresses:
 
-- **DeepSeek** (`src/lib/providers/deepseek.ts`) overrides
-  `adjustResponseFormat`: DeepSeek 400s on `json_schema` structured-output
-  requests, so the subclass downgrades to `json_object` before sending.
 - **Azure OpenAI** (`src/lib/providers/azureOpenai.ts`) overrides four hooks:
   `getChatCompletionsURL` (deployment-name URL routing across two Azure
   endpoint schemes), `getAuthHeaders` (Azure's `api-key` header instead of
@@ -63,8 +64,9 @@ express:
 If a future provider needs any hook beyond the 3 mandatory ones
 (`getProviderName`, `getDefaultModel`, `formatProviderError`) or the 2
 purely-declarative optional ones (`getFallbackModelName`,
-`getFallbackModels`), it needs a dedicated subclass — follow the DeepSeek or
-Azure OpenAI pattern, not the catalog.
+`getFallbackModels`) and that hook is not already a named catalog quirk, it
+needs either a new closed quirk (the DeepSeek route) or a dedicated subclass
+(the Azure OpenAI route).
 
 ## Error-message fidelity
 

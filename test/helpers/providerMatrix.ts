@@ -162,7 +162,11 @@ const CATALOG_PROVIDERS: Record<string, ProviderEntry> = Object.fromEntries(
       ],
       text: entry.capabilities.text,
       streaming: entry.capabilities.streaming,
-      tools: entry.capabilities.tools,
+      // "model-dependent" (HuggingFace: varies per served model) has no
+      // single answer for a matrix pinned to one defaultModel — conservative
+      // false rather than an unearned true, matching buildCatalogManifest's
+      // identical narrowing in manifestRegistry.ts.
+      tools: entry.capabilities.tools === true,
       toolsWithStreaming: entry.capabilities.toolsWithStreaming,
       structuredOutput: entry.capabilities.structuredOutput,
       structuredOutputWithTools: entry.capabilities.structuredOutputWithTools,
@@ -354,27 +358,6 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
     },
   ],
   [
-    "huggingface",
-    {
-      name: "huggingface",
-      defaultModel: "meta-llama/Llama-3.1-8B-Instruct",
-      envVars: ["HUGGINGFACE_API_KEY"],
-      text: true,
-      streaming: true,
-      tools: false,
-      toolsWithStreaming: false,
-      structuredOutput: false,
-      structuredOutputWithTools: false,
-      vision: false,
-      embeddings: false,
-      thinking: false,
-      imageGeneration: false,
-      videoGeneration: false,
-      tts: false,
-      decide: false,
-    },
-  ],
-  [
     "ollama",
     {
       name: "ollama",
@@ -463,27 +446,6 @@ const PROVIDER_ROWS: Array<[string, ProviderEntry]> = [
       vision: false,
       embeddings: false,
       thinking: false,
-      imageGeneration: false,
-      videoGeneration: false,
-      tts: false,
-      decide: false,
-    },
-  ],
-  [
-    "deepseek",
-    {
-      name: "deepseek",
-      defaultModel: "deepseek-chat",
-      envVars: ["DEEPSEEK_API_KEY"],
-      text: true,
-      streaming: true,
-      tools: true,
-      toolsWithStreaming: true,
-      structuredOutput: true,
-      structuredOutputWithTools: true,
-      vision: false,
-      embeddings: false,
-      thinking: true,
       imageGeneration: false,
       videoGeneration: false,
       tts: false,

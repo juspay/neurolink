@@ -3,7 +3,9 @@ import "dotenv/config";
 import { jsonSchema } from "../dist/index.js";
 import type { NeurolinkCredentials } from "../dist/index.js";
 import { spawnSync } from "node:child_process";
+import dnsPromises from "node:dns/promises";
 import { mkdtempSync, writeFileSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -1065,6 +1067,66 @@ async function runEmbeddingProvider(spec: EmbeddingSpec): Promise<void> {
     );
   }
 
+  // ── embedMany() rejects an entry without an embedding ───────────────
+  // A count-correct response whose second entry has no `embedding` array
+  // must fail loudly instead of handing the caller an undefined vector.
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: spec.urlMatch,
+          respond: {
+            status: 200,
+            json: {
+              object: "list",
+              model: spec.model,
+              data: [
+                { object: "embedding", index: 0, embedding: [0.1, 0.2] },
+                { object: "embedding", index: 1 },
+              ],
+            },
+          },
+        },
+      ],
+      async () => {
+        const provider = (await ProviderFactory.createProvider(
+          spec.provider,
+          spec.model,
+        )) as unknown as {
+          embedMany: (s: string[]) => Promise<number[][]>;
+        };
+        let message = "";
+        let returned: number[][] | undefined;
+        try {
+          returned = await provider.embedMany(["first", "second"]);
+        } catch (err) {
+          message = err instanceof Error ? err.message : String(err);
+        }
+        expect(
+          returned === undefined,
+          "embedMany() must not return a result containing a missing vector",
+        );
+        expect(
+          /entry 1 is not an \{index, embedding/.test(message),
+          "error names the malformed entry",
+        );
+        record(
+          results,
+          `${section}: embedMany() rejects an entry without an embedding`,
+          true,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: embedMany() rejects an entry without an embedding`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
   // ── embedMany() batch ───────────────────────────────────────────────
   try {
     await withMocks(
@@ -1984,7 +2046,39 @@ async function runStabilityImageGen(): Promise<void> {
   }
 }
 
+// assertSafeUrl() resolves the download host with node:dns/promises before
+// the (mocked) fetch runs. Answering that lookup with a fixed public address
+// keeps the suite offline; the fixture host is under .invalid, which never
+// resolves for real, so a download test passes only while this stub holds.
+const IDEOGRAM_FIXTURE_HOST = "cdn.ideogram-fixture.invalid";
+
+async function withPublicDns<T>(fn: () => Promise<T>): Promise<T> {
+  const original = dnsPromises.lookup;
+  const fixedLookup = async (
+    _host: string,
+    options?: { family?: number; all?: boolean },
+  ) => {
+    const answer = { address: "93.184.215.14", family: 4 };
+    if (options?.all) {
+      return options.family === 6 ? [] : [answer];
+    }
+    return answer;
+  };
+  dnsPromises.lookup = fixedLookup as typeof dnsPromises.lookup;
+  syncBuiltinESMExports();
+  try {
+    return await fn();
+  } finally {
+    dnsPromises.lookup = original;
+    syncBuiltinESMExports();
+  }
+}
+
 async function runIdeogramImageGen(): Promise<void> {
+  await withPublicDns(runIdeogramImageGenCases);
+}
+
+async function runIdeogramImageGenCases(): Promise<void> {
   const section = "IMG ideogram";
   const fakeKey = "test-fake-ideogram-credential";
   setEnv("IDEOGRAM_API_KEY", fakeKey);
@@ -2001,13 +2095,13 @@ async function runIdeogramImageGen(): Promise<void> {
           respond: {
             status: 200,
             json: {
-              data: [{ url: "https://mock-ideogram-cdn.test/image.png" }],
+              data: [{ url: `https://${IDEOGRAM_FIXTURE_HOST}/image.png` }],
             },
           },
         },
         {
           method: "GET",
-          url: "mock-ideogram-cdn.test/image.png",
+          url: `${IDEOGRAM_FIXTURE_HOST}/image.png`,
           respond: {
             status: 200,
             bytes: FAKE_PNG_BYTES,
@@ -2061,6 +2155,84 @@ async function runIdeogramImageGen(): Promise<void> {
     record(
       results,
       `${section}: happy-path generate+CDN download`,
+      false,
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+
+  // ── oversized CDN download is cancelled at the size cap ─────────────
+  // No Content-Length and a body far larger than the 25 MiB image cap: the
+  // download must stop at the cap and cancel the stream rather than buffer
+  // everything first.
+  const MiB = 1024 * 1024;
+  const streamLimit = 64 * MiB;
+  const observed = { produced: 0, cancelled: false };
+  try {
+    await withMocks(
+      [
+        {
+          method: "POST",
+          url: "api.ideogram.ai/v1/ideogram-v3/generate",
+          respond: {
+            status: 200,
+            json: {
+              data: [{ url: `https://${IDEOGRAM_FIXTURE_HOST}/huge.png` }],
+            },
+          },
+        },
+        {
+          method: "GET",
+          url: `${IDEOGRAM_FIXTURE_HOST}/huge.png`,
+          respond: {
+            status: 200,
+            contentType: "image/png",
+            stream: () =>
+              new ReadableStream<Uint8Array>({
+                pull(controller) {
+                  if (observed.produced >= streamLimit) {
+                    controller.close();
+                    return;
+                  }
+                  observed.produced += MiB;
+                  controller.enqueue(new Uint8Array(MiB));
+                },
+                cancel() {
+                  observed.cancelled = true;
+                },
+              }),
+          },
+        },
+      ],
+      async () => {
+        const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+        let message = "";
+        try {
+          await nl.generate({
+            provider: "ideogram",
+            model: "V_3",
+            input: { text: "A very large poster" },
+            disableTools: true,
+          });
+        } catch (err) {
+          message = err instanceof Error ? err.message : String(err);
+        }
+        expect(/size cap/i.test(message), "oversized download is rejected");
+        expect(observed.cancelled, "download stream was cancelled");
+        expect(
+          observed.produced < streamLimit,
+          `download stopped early (${observed.produced / MiB} of ${streamLimit / MiB} MiB produced)`,
+        );
+        record(
+          results,
+          `${section}: oversized CDN download is cancelled at the size cap`,
+          true,
+        );
+      },
+    );
+  } catch (err) {
+    record(
+      results,
+      `${section}: oversized CDN download is cancelled at the size cap`,
       false,
       err instanceof Error ? err.message : String(err),
     );

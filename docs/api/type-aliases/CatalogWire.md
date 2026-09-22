@@ -8,7 +8,7 @@
 
 > **CatalogWire** = `object`
 
-Defined in: [types/providerCatalog.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L31)
+Defined in: [types/providerCatalog.ts:44](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L44)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:31](https://github.com/juspay/neurolink/bl
 
 > `optional` **baseURL?**: `string`
 
-Defined in: [types/providerCatalog.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L32)
+Defined in: [types/providerCatalog.ts:45](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L45)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:32](https://github.com/juspay/neurolink/bl
 
 > `optional` **baseURLTemplate?**: `string`
 
-Defined in: [types/providerCatalog.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L33)
+Defined in: [types/providerCatalog.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L46)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:33](https://github.com/juspay/neurolink/bl
 
 > `optional` **extraCredentials?**: `string`[]
 
-Defined in: [types/providerCatalog.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L34)
+Defined in: [types/providerCatalog.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L47)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/providerCatalog.ts:34](https://github.com/juspay/neurolink/bl
 
 > `optional` **missingCredentialMessage?**: `string`
 
-Defined in: [types/providerCatalog.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L35)
+Defined in: [types/providerCatalog.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L48)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/providerCatalog.ts:35](https://github.com/juspay/neurolink/bl
 
 > `optional` **envOverrides?**: `object`
 
-Defined in: [types/providerCatalog.ts:36](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L36)
+Defined in: [types/providerCatalog.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L49)
 
 #### apiKey?
 
@@ -61,3 +61,16 @@ Defined in: [types/providerCatalog.ts:36](https://github.com/juspay/neurolink/bl
 #### model?
 
 > `optional` **model?**: `string`
+
+---
+
+### apiKeyFallbackEnvVars?
+
+> `optional` **apiKeyFallbackEnvVars?**: `string`[]
+
+Defined in: [types/providerCatalog.ts:54](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L54)
+
+Additional env vars validateApiKey() tries, in order, when the primary
+apiKeyEnvVar is unset (e.g. HuggingFace's HF_TOKEN alongside
+HUGGINGFACE_API_KEY). Consumed by buildCatalogConfigOptions() via
+ProviderConfigOptions.fallbackEnvVars.

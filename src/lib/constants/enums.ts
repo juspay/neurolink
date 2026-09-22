@@ -14,11 +14,9 @@ export enum AIProviderName {
   ANTHROPIC = "anthropic",
   AZURE = "azure",
   GOOGLE_AI = "google-ai",
-  HUGGINGFACE = "huggingface",
   OLLAMA = "ollama",
   LITELLM = "litellm",
   SAGEMAKER = "sagemaker",
-  DEEPSEEK = "deepseek",
   NVIDIA_NIM = "nvidia-nim",
   LM_STUDIO = "lm-studio",
   LLAMACPP = "llamacpp",
@@ -27,10 +25,12 @@ export enum AIProviderName {
   BASETEN = "baseten",
   CEREBRAS = "cerebras",
   CLOUDFLARE = "cloudflare",
+  DEEPSEEK = "deepseek",
   FIREWORKS = "fireworks",
   FRIENDLI = "friendli",
   GMICLOUD = "gmicloud",
   GROQ = "groq",
+  HUGGINGFACE = "huggingface",
   INCEPTION_LABS = "inception-labs",
   IO_INTELLIGENCE = "io-intelligence",
   MANCER = "mancer",
@@ -799,113 +799,6 @@ export enum LiteLLMModels {
 }
 
 /**
- * Supported Models for Hugging Face Inference API
- */
-export enum HuggingFaceModels {
-  // Meta Llama 3.3
-  LLAMA_3_3_70B_INSTRUCT = "meta-llama/Llama-3.3-70B-Instruct",
-
-  // Meta Llama 3.2
-  LLAMA_3_2_1B = "meta-llama/Llama-3.2-1B",
-  LLAMA_3_2_3B_INSTRUCT = "meta-llama/Llama-3.2-3B-Instruct",
-
-  // Meta Llama 3.1
-  LLAMA_3_1_8B = "meta-llama/Llama-3.1-8B",
-  LLAMA_3_1_70B_INSTRUCT = "meta-llama/Llama-3.1-70B-Instruct",
-  LLAMA_3_1_405B_INSTRUCT = "meta-llama/Llama-3.1-405B-Instruct",
-
-  // Meta Llama 3.0
-  LLAMA_3_8B_INSTRUCT = "meta-llama/Meta-Llama-3-8B-Instruct",
-  LLAMA_3_70B_INSTRUCT = "meta-llama/Meta-Llama-3-70B-Instruct",
-
-  // Mistral Large
-  MISTRAL_LARGE_3_675B = "mistralai/Mistral-Large-3-675B-Instruct-2512",
-
-  // Mistral Small
-  MISTRAL_SMALL_3_1_24B = "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
-  MISTRAL_SMALL_24B = "mistralai/Mistral-Small-24B-Instruct-2501",
-
-  // Mistral
-  MISTRAL_7B_INSTRUCT = "mistralai/Mistral-7B-Instruct-v0.2",
-  MIXTRAL_8X7B_INSTRUCT = "mistralai/Mixtral-8x7B-Instruct-v0.1",
-
-  // Mistral Devstral
-  DEVSTRAL_2 = "mistralai/Devstral-2",
-
-  // Qwen 2.5
-  QWEN_2_5_7B = "Qwen/Qwen2.5-7B",
-  QWEN_2_5_32B = "Qwen/Qwen2.5-32B",
-  QWEN_2_5_72B_INSTRUCT = "Qwen/Qwen2.5-72B-Instruct",
-
-  // Qwen 2.5 Coder
-  QWEN_2_5_CODER_7B = "Qwen/Qwen2.5-Coder-7B",
-  QWEN_2_5_CODER_32B_INSTRUCT = "Qwen/Qwen2.5-Coder-32B-Instruct",
-
-  // Qwen QwQ
-  QWQ_32B = "Qwen/QwQ-32B",
-
-  // Qwen 2.5 VL (Multimodal)
-  QWEN_2_5_VL_32B = "Qwen/Qwen2.5-VL-32B-Instruct",
-
-  // DeepSeek
-  DEEPSEEK_R1 = "deepseek-ai/DeepSeek-R1",
-  DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
-  DEEPSEEK_V3_1 = "deepseek-ai/DeepSeek-V3.1",
-  DEEPSEEK_V3_2_EXP = "deepseek-ai/DeepSeek-V3.2-Exp",
-
-  // Microsoft Phi
-  PHI_4 = "microsoft/phi-4",
-  PHI_4_REASONING = "microsoft/Phi-4-reasoning",
-  PHI_4_MINI_INSTRUCT = "microsoft/Phi-4-mini-instruct",
-  PHI_4_MINI_REASONING = "microsoft/Phi-4-mini-reasoning",
-  PHI_3_MINI_128K_INSTRUCT = "microsoft/Phi-3-mini-128k-instruct",
-  PHI_3_VISION_128K_INSTRUCT = "microsoft/Phi-3-vision-128k-instruct",
-
-  // Google Gemma 3
-  GEMMA_3_270M = "google/gemma-3-270m",
-  GEMMA_3_1B_IT = "google/gemma-3-1b-it",
-  GEMMA_3_4B_IT = "google/gemma-3-4b-it",
-  GEMMA_3_12B_IT = "google/gemma-3-12b-it",
-  GEMMA_3_27B_IT = "google/gemma-3-27b-it",
-
-  // Google Gemma 2
-  GEMMA_2_9B = "google/gemma-2-9b",
-  GEMMA_2_27B = "google/gemma-2-27b",
-
-  // Google Gemma 1
-  GEMMA_2B = "google/gemma-2b",
-  GEMMA_7B = "google/gemma-7b",
-
-  // Falcon
-  FALCON_40B_INSTRUCT = "tiiuae/falcon-40b-instruct",
-  FALCON_180B_CHAT = "tiiuae/falcon-180B-chat",
-
-  // Code Models
-  STARCODER2_15B = "bigcode/starcoder2-15b",
-  CODELLAMA_34B_INSTRUCT = "codellama/CodeLlama-34b-Instruct-hf",
-
-  // BLOOM
-  BLOOM_7B1 = "bigscience/bloom-7b1",
-  BLOOM_1B3 = "bigscience/bloom-1b3",
-
-  // Z.AI GLM-5 (February 2026)
-  GLM_5 = "zai-org/GLM-5",
-
-  // Qwen 3.5 Multimodal (February 2026)
-  QWEN_3_5_397B_A17B = "Qwen/Qwen3.5-397B-A17B",
-
-  // NVIDIA Nemotron 3 Nano
-  NEMOTRON_3_NANO_30B = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-
-  // HuggingFace SmolLM3
-  SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B",
-
-  // Falcon 3 Series
-  FALCON_3_7B_INSTRUCT = "tiiuae/Falcon3-7B-Instruct",
-  FALCON_3_10B_INSTRUCT = "tiiuae/Falcon3-10B-Instruct",
-}
-
-/**
  * Supported Models for AWS SageMaker JumpStart
  * https://docs.aws.amazon.com/sagemaker/latest/dg/jumpstart-foundation-models-latest.html
  */
@@ -1013,17 +906,6 @@ export enum AnthropicBetaFeature {
   CLAUDE_CODE = "claude-code-20250219",
   INTERLEAVED_THINKING = "interleaved-thinking-2025-05-14",
   FINE_GRAINED_STREAMING = "fine-grained-tool-streaming-2025-05-14",
-}
-
-/**
- * Supported Models for DeepSeek
- * Docs: https://api-docs.deepseek.com/quick_start/pricing
- */
-export enum DeepSeekModels {
-  /** General-purpose chat (DeepSeek-V3) */
-  DEEPSEEK_CHAT = "deepseek-chat",
-  /** Reasoning model (DeepSeek-R1) — exposes reasoning_content */
-  DEEPSEEK_REASONER = "deepseek-reasoner",
 }
 
 /**
@@ -1278,6 +1160,11 @@ export enum CloudflareModels {
   GEMMA_2B_IT_LORA = "@cf/google/gemma-2b-it-lora",
 }
 
+export enum DeepSeekModels {
+  DEEPSEEK_CHAT = "deepseek-chat",
+  DEEPSEEK_REASONER = "deepseek-reasoner",
+}
+
 export enum FireworksModels {
   KIMI_K2P6 = "accounts/fireworks/models/kimi-k2p6",
   GPT_OSS_120B = "accounts/fireworks/models/gpt-oss-120b",
@@ -1324,6 +1211,62 @@ export enum GroqModels {
   LLAMA_GUARD_3_8B = "llama-guard-3-8b",
   LLAMA_3_2_90B_VISION_PREVIEW = "llama-3.2-90b-vision-preview",
   LLAMA_3_2_11B_VISION_PREVIEW = "llama-3.2-11b-vision-preview",
+}
+
+export enum HuggingFaceModels {
+  LLAMA_3_3_70B_INSTRUCT = "meta-llama/Llama-3.3-70B-Instruct",
+  LLAMA_3_2_1B = "meta-llama/Llama-3.2-1B",
+  LLAMA_3_2_3B_INSTRUCT = "meta-llama/Llama-3.2-3B-Instruct",
+  LLAMA_3_1_8B = "meta-llama/Llama-3.1-8B",
+  LLAMA_3_1_8B_INSTRUCT = "meta-llama/Llama-3.1-8B-Instruct",
+  LLAMA_3_1_70B_INSTRUCT = "meta-llama/Llama-3.1-70B-Instruct",
+  LLAMA_3_1_405B_INSTRUCT = "meta-llama/Llama-3.1-405B-Instruct",
+  LLAMA_3_8B_INSTRUCT = "meta-llama/Meta-Llama-3-8B-Instruct",
+  LLAMA_3_70B_INSTRUCT = "meta-llama/Meta-Llama-3-70B-Instruct",
+  MISTRAL_LARGE_3_675B = "mistralai/Mistral-Large-3-675B-Instruct-2512",
+  MISTRAL_SMALL_3_1_24B = "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
+  MISTRAL_SMALL_24B = "mistralai/Mistral-Small-24B-Instruct-2501",
+  MISTRAL_7B_INSTRUCT = "mistralai/Mistral-7B-Instruct-v0.2",
+  MIXTRAL_8X7B_INSTRUCT = "mistralai/Mixtral-8x7B-Instruct-v0.1",
+  DEVSTRAL_2 = "mistralai/Devstral-2",
+  QWEN_2_5_7B = "Qwen/Qwen2.5-7B",
+  QWEN_2_5_32B = "Qwen/Qwen2.5-32B",
+  QWEN_2_5_72B_INSTRUCT = "Qwen/Qwen2.5-72B-Instruct",
+  QWEN_2_5_CODER_7B = "Qwen/Qwen2.5-Coder-7B",
+  QWEN_2_5_CODER_32B_INSTRUCT = "Qwen/Qwen2.5-Coder-32B-Instruct",
+  QWQ_32B = "Qwen/QwQ-32B",
+  QWEN_2_5_VL_32B = "Qwen/Qwen2.5-VL-32B-Instruct",
+  DEEPSEEK_R1 = "deepseek-ai/DeepSeek-R1",
+  DEEPSEEK_V3 = "deepseek-ai/DeepSeek-V3",
+  DEEPSEEK_V3_1 = "deepseek-ai/DeepSeek-V3.1",
+  DEEPSEEK_V3_2_EXP = "deepseek-ai/DeepSeek-V3.2-Exp",
+  PHI_4 = "microsoft/phi-4",
+  PHI_4_REASONING = "microsoft/Phi-4-reasoning",
+  PHI_4_MINI_INSTRUCT = "microsoft/Phi-4-mini-instruct",
+  PHI_4_MINI_REASONING = "microsoft/Phi-4-mini-reasoning",
+  PHI_3_MINI_128K_INSTRUCT = "microsoft/Phi-3-mini-128k-instruct",
+  PHI_3_VISION_128K_INSTRUCT = "microsoft/Phi-3-vision-128k-instruct",
+  GEMMA_3_270M = "google/gemma-3-270m",
+  GEMMA_3_1B_IT = "google/gemma-3-1b-it",
+  GEMMA_3_4B_IT = "google/gemma-3-4b-it",
+  GEMMA_3_12B_IT = "google/gemma-3-12b-it",
+  GEMMA_3_27B_IT = "google/gemma-3-27b-it",
+  GEMMA_2_9B = "google/gemma-2-9b",
+  GEMMA_2_27B = "google/gemma-2-27b",
+  GEMMA_2B = "google/gemma-2b",
+  GEMMA_7B = "google/gemma-7b",
+  FALCON_40B_INSTRUCT = "tiiuae/falcon-40b-instruct",
+  FALCON_180B_CHAT = "tiiuae/falcon-180B-chat",
+  STARCODER2_15B = "bigcode/starcoder2-15b",
+  CODELLAMA_34B_INSTRUCT = "codellama/CodeLlama-34b-Instruct-hf",
+  BLOOM_7B1 = "bigscience/bloom-7b1",
+  BLOOM_1B3 = "bigscience/bloom-1b3",
+  GLM_5 = "zai-org/GLM-5",
+  QWEN_3_5_397B_A17B = "Qwen/Qwen3.5-397B-A17B",
+  NEMOTRON_3_NANO_30B = "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+  SMOLLM3_3B = "HuggingFaceTB/SmolLM3-3B",
+  FALCON_3_7B_INSTRUCT = "tiiuae/Falcon3-7B-Instruct",
+  FALCON_3_10B_INSTRUCT = "tiiuae/Falcon3-10B-Instruct",
 }
 
 export enum InceptionLabsModels {

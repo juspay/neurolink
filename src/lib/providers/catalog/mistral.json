@@ -223,12 +223,17 @@
   "quirks": {
     "registryDefaultIgnoresModelEnvVar": true
   },
+  "timeouts": {
+    "generateMs": 45000,
+    "streamMs": 120000
+  },
+  "autoSelectPriority": 9,
   "setup": {
-    "url": "https://console.mistral.ai/",
-    "apiKeyFormat": null,
+    "url": "https://console.mistral.ai/api-keys",
+    "apiKeyFormat": "^[A-Za-z0-9]{32}$",
     "billingPolicy": "free-with-card",
     "instructions": [
-      "1. Visit: https://console.mistral.ai/",
+      "1. Visit: https://console.mistral.ai/api-keys",
       "2. Create or sign in to your account",
       "3. Generate a new API key"
     ]

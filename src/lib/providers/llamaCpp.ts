@@ -1,9 +1,8 @@
 import type { AIProviderName } from "../constants/enums.js";
-import { NetworkError, ProviderError } from "../types/index.js";
+import { ProviderError } from "../types/index.js";
 import type {
   NeurolinkCredentials,
   ProviderErrorRule,
-  UnknownRecord,
 } from "../types/index.js";
 import {
   classifyProviderError,
@@ -12,6 +11,7 @@ import {
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+import { buildLocalUnreachableErrorRule } from "./localRuntimeOpenAICompat.js";
 
 const LLAMACPP_DEFAULT_BASE_URL = "http://localhost:8080/v1";
 const LLAMACPP_PLACEHOLDER_KEY = "llamacpp";
@@ -78,24 +78,13 @@ export class LlamaCppProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    // `code`/`cause.code` aren't part of ProviderErrorContext, so they're read
-    // off the raw error here (mirrors ollama's `responseBody` extraction) for
-    // the ECONNREFUSED rule below, which the pre-migration code also checked
-    // via a duck-typed error code in addition to the message text.
-    const errorRecord = error as UnknownRecord;
-    const cause = (errorRecord?.cause as UnknownRecord) ?? {};
-    const code = (errorRecord?.code ?? cause?.code) as string | undefined;
-
     const rules: ProviderErrorRule[] = [
-      {
-        match: (ctx) =>
-          code === "ECONNREFUSED" ||
-          /ECONNREFUSED|Failed to fetch|fetch failed/.test(ctx.message),
-        errorClass: NetworkError,
-        message: () =>
+      buildLocalUnreachableErrorRule(
+        error,
+        () =>
           `llama.cpp server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
           "Start it with: ./llama-server -m model.gguf --port 8080",
-      },
+      ),
       {
         match: (ctx) => /400/.test(ctx.message),
         errorClass: ProviderError,

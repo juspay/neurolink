@@ -42,6 +42,7 @@ const catalogWireSchema = z
     baseURLTemplate: z.string().optional(),
     extraCredentials: z.array(z.string()).optional(),
     missingCredentialMessage: z.string().optional(),
+    apiKeyFallbackEnvVars: z.array(z.string()).optional(),
     envOverrides: z
       .strictObject({
         apiKey: z.string().optional(),
@@ -153,6 +154,12 @@ const catalogQuirksSchema = z.strictObject({
   timeoutErrorClass: z.literal("provider").optional(),
   messageContentFormat: z.literal("string").optional(),
   registryDefaultIgnoresModelEnvVar: z.boolean().optional(),
+  responseFormatDowngrade: z.literal("json-schema-to-json-object").optional(),
+});
+
+const catalogTimeoutsSchema = z.strictObject({
+  generateMs: z.number().optional(),
+  streamMs: z.number().optional(),
 });
 
 const catalogBillingPolicySchema = z.enum([
@@ -192,7 +199,7 @@ const catalogEvidenceSchema = z.strictObject({
 const catalogCapabilitiesSchema = z.strictObject({
   text: z.boolean(),
   streaming: z.boolean(),
-  tools: z.boolean(),
+  tools: z.union([z.boolean(), z.literal("model-dependent")]),
   toolsWithStreaming: z.boolean(),
   structuredOutput: z.boolean(),
   structuredOutputWithTools: z.boolean(),
@@ -372,6 +379,8 @@ export const providerCatalogJsonSchema = z.strictObject({
   capabilities: catalogCapabilitiesSchema,
   errorRules: z.array(catalogErrorRuleJsonSchema),
   quirks: catalogQuirksSchema.optional(),
+  timeouts: catalogTimeoutsSchema.optional(),
+  autoSelectPriority: z.number().optional(),
   setup: catalogSetupSchema,
   evidence: catalogEvidenceSchema,
 });

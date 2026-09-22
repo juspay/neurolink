@@ -8,7 +8,7 @@
 
 > **OpenAICompatConfigInput** = `Pick`\<[`OpenAICompatCatalogEntry`](OpenAICompatCatalogEntry.md), `"providerName"` \| `"apiKeyEnvVar"` \| `"baseURLEnvVar"` \| `"defaultBaseURL"` \| `"computedBaseURL"` \| `"configOptions"`\>
 
-Defined in: [types/providers.ts:875](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L875)
+Defined in: [types/providers.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L879)
 
 The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()
 needs — lets call sites pass a minimal object without the full catalog

@@ -23,6 +23,8 @@ import {
   getProviderModel,
   validateApiKey,
 } from "../utils/providerConfig.js";
+import { MAX_IMAGE_BYTES, readBoundedBuffer } from "../utils/sizeGuard.js";
+import { assertSafeUrl } from "../utils/ssrfGuard.js";
 import type { LanguageModel } from "../types/index.js";
 
 const IDEOGRAM_DEFAULT_BASE_URL = "https://api.ideogram.ai";
@@ -219,6 +221,11 @@ export class IdeogramProvider extends BaseProvider {
       throw new Error("Ideogram returned no image URL");
     }
 
+    // Guard the API-returned URL before fetching (provider-returned URLs
+    // carry the same SSRF risk as caller-supplied ones) — matches Recraft's
+    // equivalent download path.
+    await assertSafeUrl(url);
+
     // Download the image and convert to base64 to match the imageOutput
     // contract used by other image-gen providers. Apply a 60s timeout so the
     // download cannot hang indefinitely.
@@ -240,7 +247,11 @@ export class IdeogramProvider extends BaseProvider {
     if (!dl.ok) {
       throw new Error(`Failed to download Ideogram image: ${dl.status}`);
     }
-    const buffer = Buffer.from(await dl.arrayBuffer());
+    const buffer = await readBoundedBuffer(
+      dl,
+      MAX_IMAGE_BYTES,
+      "Ideogram image",
+    );
     const base64 = buffer.toString("base64");
 
     const generationTimeMs = Date.now() - startTime;

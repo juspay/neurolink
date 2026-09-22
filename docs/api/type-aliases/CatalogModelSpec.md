@@ -8,7 +8,7 @@
 
 > **CatalogModelSpec** = `object`
 
-Defined in: [types/providerCatalog.ts:16](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L16)
+Defined in: [types/providerCatalog.ts:29](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L29)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:16](https://github.com/juspay/neurolink/bl
 
 > `optional` **contextWindow?**: `number`
 
-Defined in: [types/providerCatalog.ts:17](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L17)
+Defined in: [types/providerCatalog.ts:30](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L30)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:17](https://github.com/juspay/neurolink/bl
 
 > `optional` **maxOutputTokens?**: `number`
 
-Defined in: [types/providerCatalog.ts:18](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L18)
+Defined in: [types/providerCatalog.ts:31](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L31)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:18](https://github.com/juspay/neurolink/bl
 
 > `optional` **pricingPerMTok?**: [`CatalogPricingPerMTok`](CatalogPricingPerMTok.md)
 
-Defined in: [types/providerCatalog.ts:19](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L19)
+Defined in: [types/providerCatalog.ts:32](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L32)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/providerCatalog.ts:19](https://github.com/juspay/neurolink/bl
 
 > **vision**: `boolean`
 
-Defined in: [types/providerCatalog.ts:20](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L20)
+Defined in: [types/providerCatalog.ts:33](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L33)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/providerCatalog.ts:20](https://github.com/juspay/neurolink/bl
 
 > **status**: [`CatalogModelStatus`](CatalogModelStatus.md)
 
-Defined in: [types/providerCatalog.ts:21](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L21)
+Defined in: [types/providerCatalog.ts:34](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L34)
 
 ---
 
@@ -56,7 +56,7 @@ Defined in: [types/providerCatalog.ts:21](https://github.com/juspay/neurolink/bl
 
 > **description**: `string`
 
-Defined in: [types/providerCatalog.ts:22](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L22)
+Defined in: [types/providerCatalog.ts:35](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L35)
 
 ---
 
@@ -64,7 +64,7 @@ Defined in: [types/providerCatalog.ts:22](https://github.com/juspay/neurolink/bl
 
 > `optional` **enumMember?**: `string`
 
-Defined in: [types/providerCatalog.ts:28](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L28)
+Defined in: [types/providerCatalog.ts:41](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L41)
 
 Enum member name override. Default is the derived constant-case of the
 model id; REQUIRED where the derived name differs from a pre-existing

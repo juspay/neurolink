@@ -8,7 +8,7 @@
 
 > **ProviderCatalogJson** = `object`
 
-Defined in: [types/providerCatalog.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L109)
+Defined in: [types/providerCatalog.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L139)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:109](https://github.com/juspay/neurolink/b
 
 > `optional` **$schema?**: `string`
 
-Defined in: [types/providerCatalog.ts:111](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L111)
+Defined in: [types/providerCatalog.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L141)
 
 Editor-only pointer to provider-catalog.schema.json — accepted and ignored.
 
@@ -26,7 +26,7 @@ Editor-only pointer to provider-catalog.schema.json — accepted and ignored.
 
 > **id**: `string`
 
-Defined in: [types/providerCatalog.ts:112](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L112)
+Defined in: [types/providerCatalog.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L142)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providerCatalog.ts:112](https://github.com/juspay/neurolink/b
 
 > **displayName**: `string`
 
-Defined in: [types/providerCatalog.ts:113](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L113)
+Defined in: [types/providerCatalog.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L143)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providerCatalog.ts:113](https://github.com/juspay/neurolink/b
 
 > `optional` **enumTypeName?**: `string`
 
-Defined in: [types/providerCatalog.ts:120](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L120)
+Defined in: [types/providerCatalog.ts:150](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L150)
 
 Exported <Name>Models enum name override. Default: PascalCase(id) +
 "Models". REQUIRED where the derived name differs from a pre-existing
@@ -55,7 +55,7 @@ export ("together-ai" derives "TogetherAiModels"; the legacy export is
 
 > `optional` **credentialsKey?**: `string`
 
-Defined in: [types/providerCatalog.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L129)
+Defined in: [types/providerCatalog.ts:159](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L159)
 
 NeurolinkCredentials key override. Default: toCamelCase(id). REQUIRED
 where the derived key differs from a pre-existing public credential
@@ -70,7 +70,7 @@ forbids).
 
 > **aliases**: `string`[]
 
-Defined in: [types/providerCatalog.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L130)
+Defined in: [types/providerCatalog.ts:160](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L160)
 
 ---
 
@@ -78,7 +78,7 @@ Defined in: [types/providerCatalog.ts:130](https://github.com/juspay/neurolink/b
 
 > **tier**: `2`
 
-Defined in: [types/providerCatalog.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L131)
+Defined in: [types/providerCatalog.ts:161](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L161)
 
 ---
 
@@ -86,7 +86,7 @@ Defined in: [types/providerCatalog.ts:131](https://github.com/juspay/neurolink/b
 
 > **wire**: [`CatalogWire`](CatalogWire.md)
 
-Defined in: [types/providerCatalog.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L132)
+Defined in: [types/providerCatalog.ts:162](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L162)
 
 ---
 
@@ -94,7 +94,7 @@ Defined in: [types/providerCatalog.ts:132](https://github.com/juspay/neurolink/b
 
 > **models**: `object`
 
-Defined in: [types/providerCatalog.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L133)
+Defined in: [types/providerCatalog.ts:163](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L163)
 
 #### default
 
@@ -166,7 +166,7 @@ runtime default.
 
 > **capabilities**: [`CatalogCapabilities`](CatalogCapabilities.md)
 
-Defined in: [types/providerCatalog.ts:164](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L164)
+Defined in: [types/providerCatalog.ts:194](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L194)
 
 ---
 
@@ -174,7 +174,7 @@ Defined in: [types/providerCatalog.ts:164](https://github.com/juspay/neurolink/b
 
 > **errorRules**: [`CatalogErrorRuleJson`](CatalogErrorRuleJson.md)[]
 
-Defined in: [types/providerCatalog.ts:165](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L165)
+Defined in: [types/providerCatalog.ts:195](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L195)
 
 ---
 
@@ -182,7 +182,35 @@ Defined in: [types/providerCatalog.ts:165](https://github.com/juspay/neurolink/b
 
 > `optional` **quirks?**: [`CatalogQuirks`](CatalogQuirks.md)
 
-Defined in: [types/providerCatalog.ts:166](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L166)
+Defined in: [types/providerCatalog.ts:196](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L196)
+
+---
+
+### timeouts?
+
+> `optional` **timeouts?**: [`CatalogTimeouts`](CatalogTimeouts.md)
+
+Defined in: [types/providerCatalog.ts:203](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L203)
+
+Descriptor-only generate/stream turn-budget override — see
+CatalogTimeouts. Absent = buildCatalogDescriptor() omits
+ProviderDescriptor.timeouts entirely, matching every catalog provider's
+behavior before this field existed.
+
+---
+
+### autoSelectPriority?
+
+> `optional` **autoSelectPriority?**: `number`
+
+Defined in: [types/providerCatalog.ts:212](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L212)
+
+Descriptor-only ascending auto-select priority override — mirrors
+ProviderDescriptor.autoSelectPriority field-for-field (lower = tried
+first in getBestProvider()'s fallback chain). Absent = not part of the
+auto-select chain, matching every catalog provider's behavior before
+this field existed (only mistral sets it today, preserving its
+pre-migration hand-typed value).
 
 ---
 
@@ -190,7 +218,7 @@ Defined in: [types/providerCatalog.ts:166](https://github.com/juspay/neurolink/b
 
 > **setup**: [`CatalogSetup`](CatalogSetup.md)
 
-Defined in: [types/providerCatalog.ts:167](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L167)
+Defined in: [types/providerCatalog.ts:213](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L213)
 
 ---
 
@@ -198,4 +226,4 @@ Defined in: [types/providerCatalog.ts:167](https://github.com/juspay/neurolink/b
 
 > **evidence**: [`CatalogEvidence`](CatalogEvidence.md)
 
-Defined in: [types/providerCatalog.ts:168](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L168)
+Defined in: [types/providerCatalog.ts:214](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L214)

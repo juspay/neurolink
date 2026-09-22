@@ -29,6 +29,8 @@ type RespondSpec = {
   json?: unknown;
   text?: string;
   bytes?: Uint8Array;
+  /** Built per request; lets a test serve an unbounded or observed body. */
+  stream?: () => ReadableStream<Uint8Array>;
   contentType?: string;
   headers?: Record<string, string>;
 };
@@ -120,6 +122,13 @@ function safeJson(text: string): unknown {
 
 function buildResponse(spec: RespondSpec): Response {
   const status = spec.status ?? 200;
+  if (spec.stream !== undefined) {
+    const headers = new Headers({
+      "Content-Type": spec.contentType ?? "application/octet-stream",
+      ...(spec.headers ?? {}),
+    });
+    return new Response(spec.stream(), { status, headers });
+  }
   if (spec.bytes !== undefined) {
     const headers = new Headers({
       "Content-Type": spec.contentType ?? "application/octet-stream",

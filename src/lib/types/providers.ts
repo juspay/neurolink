@@ -215,12 +215,10 @@ export type NeurolinkCredentials = {
     // best-effort deployment-name heuristic is used.
     useMaxCompletionTokens?: boolean;
   };
-  huggingFace?: { apiKey?: string; baseURL?: string };
   openrouter?: { apiKey?: string; baseURL?: string };
   litellm?: { apiKey?: string; baseURL?: string };
   openaiCompatible?: { apiKey?: string; baseURL?: string };
   ollama?: { baseURL?: string; apiKey?: string };
-  deepseek?: { apiKey?: string; baseURL?: string };
   nvidiaNim?: { apiKey?: string; baseURL?: string };
   // apiKey is optional for LM Studio / llama.cpp; use only when running them
   // behind an auth-proxying reverse-proxy.
@@ -231,10 +229,12 @@ export type NeurolinkCredentials = {
   baseten?: { apiKey?: string; baseURL?: string };
   cerebras?: { apiKey?: string; baseURL?: string };
   cloudflare?: { apiKey?: string; baseURL?: string; accountId?: string };
+  deepseek?: { apiKey?: string; baseURL?: string };
   fireworks?: { apiKey?: string; baseURL?: string };
   friendli?: { apiKey?: string; baseURL?: string };
   gmicloud?: { apiKey?: string; baseURL?: string };
   groq?: { apiKey?: string; baseURL?: string };
+  huggingFace?: { apiKey?: string; baseURL?: string };
   inceptionLabs?: { apiKey?: string; baseURL?: string };
   ioIntelligence?: { apiKey?: string; baseURL?: string };
   mancer?: { apiKey?: string; baseURL?: string };
@@ -867,6 +867,10 @@ export type OpenAICompatCatalogEntry = {
   /** See CatalogQuirks.messageContentFormat — a vendor that accepts
    *  `messages[].content` only as a plain string. */
   messageContentFormat?: "string";
+  /** See CatalogQuirks.responseFormatDowngrade — a vendor that rejects
+   *  `response_format: { type: "json_schema" }` but accepts
+   *  `{ type: "json_object" }`. */
+  responseFormatDowngrade?: "json-schema-to-json-object";
 };
 
 /** The subset of OpenAICompatCatalogEntry that resolveOpenAICompatConfig()

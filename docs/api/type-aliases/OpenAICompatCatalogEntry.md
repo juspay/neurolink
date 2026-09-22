@@ -268,3 +268,15 @@ Defined in: [types/providers.ts:869](https://github.com/juspay/neurolink/blob/re
 
 See CatalogQuirks.messageContentFormat — a vendor that accepts
 `messages[].content` only as a plain string.
+
+---
+
+### responseFormatDowngrade?
+
+> `optional` **responseFormatDowngrade?**: `"json-schema-to-json-object"`
+
+Defined in: [types/providers.ts:873](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L873)
+
+See CatalogQuirks.responseFormatDowngrade — a vendor that rejects
+`response_format: { type: "json_schema" }` but accepts
+`{ type: "json_object" }`.

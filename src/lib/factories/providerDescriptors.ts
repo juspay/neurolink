@@ -4,11 +4,8 @@ import {
   OpenAIModels,
   AnthropicModels,
   VertexModels,
-  MistralModels,
   OllamaModels,
   LiteLLMModels,
-  HuggingFaceModels,
-  DeepSeekModels,
   NvidiaNimModels,
   OpenRouterModels,
   CohereModels,
@@ -34,10 +31,9 @@ import { DEFAULT_INFERENCE_KINDS } from "../types/index.js";
 
 /**
  * Hand-maintained provider identity, credentials, defaults, and runtime
- * behavior classification for every provider EXCEPT the 15 JSON-catalog
- * providers derived by buildCatalogDescriptors() below (see
- * PROVIDER_DESCRIPTORS's own doc for why Mistral, the remaining catalog
- * provider, stays here too). Pure data — no provider-class imports, no dynamic
+ * behavior classification for every provider EXCEPT the JSON-catalog
+ * providers derived by buildCatalogDescriptors() below (see that
+ * function's own doc). Pure data — no provider-class imports, no dynamic
  * import(), no side effects beyond building the two derived lookup maps
  * below. Order follows the AIProviderName enum declaration order
  * (enums.ts:8-40) so this file stays easy to diff against it.
@@ -222,30 +218,8 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     autoSelectPriority: 4,
     apiKeyFormatPattern: API_KEY_FORMATS["google-ai"],
   },
-  {
-    name: AIProviderName.HUGGINGFACE,
-    aliases: ["hf"],
-    credentialsKey: "huggingFace",
-    envVars: {
-      // Only HF_TOKEN is an actual accepted fallback — confirmed against
-      // createHuggingFaceConfig() in providerConfig.ts, which is the only
-      // place the huggingFace/client.ts provider resolves its key from.
-      // The plan snippet additionally listed HUGGINGFACE_API_TOKEN and
-      // HF_API_TOKEN, but neither is read anywhere in the codebase; removed.
-      apiKey: "HUGGINGFACE_API_KEY",
-      fallbacks: ["HF_TOKEN"],
-      baseURL: "HUGGINGFACE_BASE_URL",
-      model: "HUGGINGFACE_MODEL",
-    },
-    defaultModel: HuggingFaceModels.QWEN_2_5_72B_INSTRUCT,
-    toolSupport: "model-dependent",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://huggingface.co/settings/tokens",
-    timeouts: { generateMs: 120_000, streamMs: 120_000 },
-    autoSelectPriority: 10,
-    apiKeyFormatPattern: API_KEY_FORMATS.huggingface,
-  },
+  // HuggingFace migrated to the JSON catalog (catalog/huggingface.json) —
+  // its descriptor is now derived by buildCatalogDescriptors() below.
   {
     name: AIProviderName.OLLAMA,
     defaultHealthSweepPriority: 8,
@@ -266,20 +240,10 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     timeouts: { generateMs: 300_000, streamMs: 120_000 },
     autoSelectPriority: 2,
   },
-  {
-    name: AIProviderName.MISTRAL,
-    aliases: [],
-    credentialsKey: "mistral",
-    envVars: { apiKey: "MISTRAL_API_KEY", baseURL: "MISTRAL_BASE_URL" },
-    defaultModel: MistralModels.MISTRAL_LARGE_LATEST,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://console.mistral.ai/api-keys",
-    timeouts: { generateMs: 45_000, streamMs: 120_000 },
-    autoSelectPriority: 9,
-    apiKeyFormatPattern: API_KEY_FORMATS.mistral,
-  },
+  // Mistral migrated to the JSON catalog (catalog/mistral.json, which now
+  // carries timeouts/autoSelectPriority/apiKeyFormat/setup.url matching
+  // this removed block exactly) — its descriptor is derived by
+  // buildCatalogDescriptors() below like deepseek's.
   {
     name: AIProviderName.LITELLM,
     defaultHealthSweepPriority: 7,
@@ -327,21 +291,11 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
     setupUrl: "https://console.aws.amazon.com/iam/",
     apiKeyFormatPattern: API_KEY_FORMATS.aws,
   },
-  {
-    name: AIProviderName.DEEPSEEK,
-    aliases: ["ds"],
-    credentialsKey: "deepseek",
-    envVars: {
-      apiKey: "DEEPSEEK_API_KEY",
-      baseURL: "DEEPSEEK_BASE_URL",
-      model: "DEEPSEEK_MODEL",
-    },
-    defaultModel: DeepSeekModels.DEEPSEEK_CHAT,
-    toolSupport: "native",
-    localRuntime: false,
-    healthCheck: "env-only",
-    setupUrl: "https://platform.deepseek.com/api_keys",
-  },
+  // DeepSeek migrated to the JSON catalog (catalog/deepseek.json) — its
+  // descriptor is now derived by buildCatalogDescriptors() below, with no
+  // exclusion needed (unlike mistral): every field it derives matches this
+  // block byte-for-byte (credentialsKey, envVars, defaultModel, toolSupport,
+  // setupUrl), so removing the hand entry changes nothing observable.
   {
     name: AIProviderName.NVIDIA_NIM,
     aliases: ["nvidia", "nim"],
@@ -526,21 +480,20 @@ const HAND_DESCRIPTORS: readonly ProviderDescriptor[] = [
 ];
 
 /**
- * Builds ProviderDescriptor entries for 15 of the 16 JSON-catalog providers —
- * api-route, baseten, cerebras, cloudflare, fireworks, gmicloud, groq,
- * inception-labs, io-intelligence, mancer, perplexity, sambanova,
- * together-ai, upstage, xai. Every field is derived from the catalog JSON
- * (src/lib/providers/catalog/<id>.json), never hand-typed.
+ * Builds a ProviderDescriptor for every JSON-catalog provider. Every field
+ * is derived from the catalog JSON (src/lib/providers/catalog/<id>.json),
+ * never hand-typed.
  *
- * Mistral is the remaining catalog provider but is deliberately excluded
- * here and stays in HAND_DESCRIPTORS above: its JSON setup.url
- * ("https://console.mistral.ai/") diverges from the long-shipped descriptor
- * setupUrl ("https://console.mistral.ai/api-keys" — a real value conflict,
- * not missing enrichment), its envVars has no `model` key the JSON would
- * otherwise add, and it carries 3 fields (timeouts, autoSelectPriority,
- * apiKeyFormatPattern) no JSON field produces. Deriving it would either
- * silently change setupUrl or require as many per-field overrides as the
- * hand entry itself — so it is left alone.
+ * defaultModel prefers models.registryDefaultModel over models.default —
+ * only mistral sets registryDefaultModel today (its long-shipped descriptor's
+ * defaultModel was MISTRAL_LARGE_LATEST, while models.default is the smaller
+ * mistral-small-2506 the OpenAI-compat runtime path actually defaults to via
+ * MISTRAL_MODEL); every other provider's registryDefaultModel is absent, so
+ * `?? entry.models.default` is a no-op for them.
+ *
+ * timeouts and autoSelectPriority are included only when the JSON sets
+ * them — today only mistral does, preserving its pre-migration hand-typed
+ * values.
  */
 function buildCatalogDescriptor(
   entry: ProviderCatalogJson,
@@ -551,9 +504,13 @@ function buildCatalogDescriptor(
   // computedBaseURL.envVar formula exactly. Duplicated intentionally, the
   // same way loader.ts itself duplicates toCamelCase from
   // tools/codegen-catalog.ts (src/ must not import from tools/).
+  const fallbacks = entry.wire.apiKeyFallbackEnvVars?.length
+    ? { fallbacks: [...entry.wire.apiKeyFallbackEnvVars] }
+    : {};
   const envVars: ProviderDescriptor["envVars"] = entry.wire.baseURLTemplate
     ? {
         apiKey: catalogEnvVar(entry, "apiKey"),
+        ...fallbacks,
         extraRequired: [
           `${entry.id.toUpperCase().replace(/-/g, "_")}_${(
             entry.wire.extraCredentials?.[0] ?? "accountId"
@@ -565,6 +522,7 @@ function buildCatalogDescriptor(
       }
     : {
         apiKey: catalogEnvVar(entry, "apiKey"),
+        ...fallbacks,
         baseURL: catalogEnvVar(entry, "baseURL"),
         model: catalogEnvVar(entry, "model"),
       };
@@ -575,33 +533,40 @@ function buildCatalogDescriptor(
       entry,
     ) as ProviderDescriptor["credentialsKey"],
     envVars,
-    defaultModel: entry.models.default,
-    // 15 of the 16 catalog providers have capabilities.tools: true; Mancer
-    // ships tools: false, so this ternary's false branch is live, not
-    // hypothetical. "none" (not an invented literal — it's the union's own
+    defaultModel: entry.models.registryDefaultModel ?? entry.models.default,
+    // "none" (not an invented literal — it's the union's own
     // no-tool-support member, the same one
-    // REPLICATE/VOYAGE/JINA/STABILITY/IDEOGRAM/RECRAFT use above) is the
-    // correct false-branch here.
-    toolSupport: entry.capabilities.tools ? "native" : "none",
+    // REPLICATE/VOYAGE/JINA/STABILITY/IDEOGRAM/RECRAFT use above) is
+    // mancer's branch; "model-dependent" is huggingface's (matches
+    // ProviderDescriptor.toolSupport's own union member, same value
+    // Ollama's hand descriptor already uses).
+    toolSupport:
+      entry.capabilities.tools === "model-dependent"
+        ? "model-dependent"
+        : entry.capabilities.tools
+          ? "native"
+          : "none",
     localRuntime: false,
     healthCheck: "env-only",
     setupUrl: entry.setup.url,
     ...(entry.setup.apiKeyFormat
       ? { apiKeyFormatPattern: new RegExp(entry.setup.apiKeyFormat) }
       : {}),
+    ...(entry.timeouts ? { timeouts: entry.timeouts } : {}),
+    ...(entry.autoSelectPriority !== undefined
+      ? { autoSelectPriority: entry.autoSelectPriority }
+      : {}),
   };
 }
 
 function buildCatalogDescriptors(): ProviderDescriptor[] {
-  return getCatalogJsonEntries()
-    .filter((entry) => entry.id !== "mistral")
-    .map(buildCatalogDescriptor);
+  return getCatalogJsonEntries().map(buildCatalogDescriptor);
 }
 
 /**
  * Single source of truth for provider identity, credentials, defaults, and
  * runtime behavior classification — the hand-maintained providers plus the
- * 15 JSON-catalog providers derived above.
+ * JSON-catalog providers derived above.
  */
 export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
   ...HAND_DESCRIPTORS,
