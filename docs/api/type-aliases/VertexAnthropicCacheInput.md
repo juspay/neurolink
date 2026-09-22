@@ -8,7 +8,7 @@
 
 > **VertexAnthropicCacheInput** = `object`
 
-Defined in: [types/providers.ts:2613](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2613)
+Defined in: [types/providers.ts:2617](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2617)
 
 Input to `applyVertexAnthropicCacheBreakpoints`.
 
@@ -18,7 +18,7 @@ Input to `applyVertexAnthropicCacheBreakpoints`.
 
 > `optional` **system?**: `string`
 
-Defined in: [types/providers.ts:2614](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2614)
+Defined in: [types/providers.ts:2618](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2618)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2614](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **tools?**: [`VertexAnthropicTool`](VertexAnthropicTool.md)[]
 
-Defined in: [types/providers.ts:2615](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2615)
+Defined in: [types/providers.ts:2619](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2619)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2615](https://github.com/juspay/neurolink/blob/r
 
 > **messages**: [`VertexAnthropicMessage`](VertexAnthropicMessage.md)[]
 
-Defined in: [types/providers.ts:2616](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2616)
+Defined in: [types/providers.ts:2620](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2620)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:2616](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **maxHistoryBreakpoints?**: `number`
 
-Defined in: [types/providers.ts:2623](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2623)
+Defined in: [types/providers.ts:2627](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2627)
 
 Cap on how many of the most-recent messages receive a rolling history
 breakpoint. Defaults to "use the remaining budget". Two or more gives

@@ -4,6 +4,7 @@ import type {
   OpenAICompatChatMessage,
   OpenAICompatChatRequest,
   OpenAICompatCredentials,
+  OpenAICompatResponseFormat,
 } from "../types/index.js";
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
@@ -47,13 +48,13 @@ const flattenMessageContent = (
  * If a provider needs a real hook override (adjustRequestBody,
  * adjustBodyAfter400, getChatCompletionsURL, getAuthHeaders,
  * suppressResponseFormatWithTools, ...) it does NOT belong in the catalog —
- * write a dedicated subclass instead (see deepseek.ts, azureOpenai.ts).
+ * write a dedicated subclass instead (see azureOpenai.ts).
  *
  * The exception is a WIRE DIALECT: a vendor that speaks OpenAI for ordinary
  * chat but encodes one part of the request differently. Expressing that as
- * data (the catalog's `messageContentFormat`) keeps the provider a
- * one-JSON-file entry instead of promoting it to a hand-written subclass
- * over a single incompatibility.
+ * data (the catalog's `messageContentFormat` / `responseFormatDowngrade`)
+ * keeps the provider a one-JSON-file entry instead of promoting it to a
+ * hand-written subclass over a single incompatibility.
  *
  * Today that is Cloudflare Workers AI, whose OpenAI-compatible endpoint
  * accepts `messages[].content` only as a plain string — never the
@@ -64,6 +65,14 @@ const flattenMessageContent = (
  * every tool round-trip fails. Normalizing content to a string below is the
  * whole fix: tools, tool_choice, the `tool` role and `tool_calls` are all
  * accepted as-is.
+ *
+ * The same shape covers DeepSeek: its `/chat/completions` rejects
+ * `response_format: { type: "json_schema" }` outright ("This response_format
+ * type is unavailable now"), but accepts `{ type: "json_object" }`. The
+ * catalog's `responseFormatDowngrade` quirk downgrades the request so
+ * `generate({ schema })` keeps working, matching the
+ * `supportsStructuredOutputs: false` behavior of the `@ai-sdk/openai-compatible`
+ * provider this replaced.
  */
 export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvider {
   private readonly entry: OpenAICompatCatalogEntry;
@@ -144,6 +153,19 @@ export class ConfiguredOpenAICompatProvider extends OpenAIChatCompletionsProvide
         content: flattenMessageContent(message.content),
       })),
     };
+  }
+
+  protected adjustResponseFormat(
+    rf: OpenAICompatResponseFormat | undefined,
+    modelId: string,
+  ): OpenAICompatResponseFormat | undefined {
+    if (
+      this.entry.responseFormatDowngrade === "json-schema-to-json-object" &&
+      rf?.type === "json_schema"
+    ) {
+      return { type: "json_object" };
+    }
+    return super.adjustResponseFormat(rf, modelId);
   }
 
   protected formatProviderError(error: unknown): Error {

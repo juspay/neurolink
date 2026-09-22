@@ -13,10 +13,8 @@ import {
   OllamaModels,
   AzureOpenAIModels,
   LiteLLMModels,
-  HuggingFaceModels,
   SageMakerModels,
   OpenRouterModels,
-  DeepSeekModels,
   NvidiaNimModels,
   CohereModels,
   VoyageModels,
@@ -35,7 +33,7 @@ import type {
 } from "../types/index.js";
 
 /**
- * Looks up the JSON catalog entry for a provider, if it is one of the 9
+ * Looks up the JSON catalog entry for a provider, if it is one of the 11
  * JSON-catalog providers. Used to short-circuit the hand tables below so a
  * catalog provider's models are always sourced from its catalog JSON, never
  * from stale hand-written duplicates.
@@ -72,11 +70,11 @@ function catalogTopModels(
  * Top models per provider with descriptions for CLI prompts
  * These are curated lists of the most commonly used/recommended models
  *
- * Covers every provider EXCEPT the 9 JSON-catalog providers (cerebras,
- * cloudflare, fireworks, groq, mistral, perplexity, sambanova, together-ai,
- * xai) — their entries are derived from `models.catalog[*].description` by
- * `catalogTopModels()` and merged in at the accessor-function level below,
- * never hand-duplicated here.
+ * Covers every provider EXCEPT the 11 JSON-catalog providers (cerebras,
+ * cloudflare, deepseek, fireworks, groq, huggingface, mistral, perplexity,
+ * sambanova, together-ai, xai) — their entries are derived from
+ * `models.catalog[*].description` by `catalogTopModels()` and merged in at
+ * the accessor-function level below, never hand-duplicated here.
  */
 const TOP_MODELS_CONFIG: Record<
   Exclude<AIProviderName, CatalogProviderName>,
@@ -233,23 +231,6 @@ const TOP_MODELS_CONFIG: Record<
       description: "Vertex via LiteLLM",
     },
   ],
-  [AIProviderName.HUGGINGFACE]: [
-    {
-      model: HuggingFaceModels.LLAMA_3_3_70B_INSTRUCT,
-      description: "Recommended - Latest Llama",
-    },
-    {
-      model: HuggingFaceModels.MISTRAL_LARGE_3_675B,
-      description: "Mistral Large",
-    },
-    { model: HuggingFaceModels.DEEPSEEK_R1, description: "Advanced reasoning" },
-    {
-      model: HuggingFaceModels.QWEN_2_5_72B_INSTRUCT,
-      description: "Qwen flagship",
-    },
-    { model: HuggingFaceModels.PHI_4, description: "Microsoft Phi-4" },
-    { model: HuggingFaceModels.GEMMA_3_27B_IT, description: "Google Gemma 3" },
-  ],
   [AIProviderName.SAGEMAKER]: [
     {
       model: SageMakerModels.LLAMA_4_MAVERICK_17B_128E,
@@ -283,13 +264,6 @@ const TOP_MODELS_CONFIG: Record<
     { model: "gpt-4o-mini", description: "Fast compatible model" },
     { model: "gpt-4-turbo", description: "Turbo compatible model" },
     { model: "gpt-3.5-turbo", description: "Legacy compatible model" },
-  ],
-  [AIProviderName.DEEPSEEK]: [
-    { model: "deepseek-chat", description: "DeepSeek-V3 general chat" },
-    {
-      model: "deepseek-reasoner",
-      description: "DeepSeek-R1 reasoning (slower, deeper)",
-    },
   ],
   [AIProviderName.NVIDIA_NIM]: [
     {
@@ -448,9 +422,9 @@ const TOP_MODELS_CONFIG: Record<
 /**
  * Default models per provider (first choice/recommended).
  *
- * Covers every provider EXCEPT the 9 JSON-catalog providers — those default
+ * Covers every provider EXCEPT the 11 JSON-catalog providers — those default
  * models come from `models.default` in the catalog JSON, read directly by
- * `getDefaultModel()` below. (Two of the 9 — cerebras, sambanova — never had
+ * `getDefaultModel()` below. (Two of the 11 — cerebras, sambanova — never had
  * a hand entry here at all; `getDefaultModel()` now resolves them too.)
  *
  * AUTO is also excluded — it never had an entry here either (matches
@@ -468,11 +442,9 @@ export const DEFAULT_MODELS: Record<
   [AIProviderName.AZURE]: AzureOpenAIModels.GPT_4O,
   [AIProviderName.OLLAMA]: OllamaModels.LLAMA4_LATEST,
   [AIProviderName.LITELLM]: LiteLLMModels.OPENAI_GPT_4O,
-  [AIProviderName.HUGGINGFACE]: HuggingFaceModels.LLAMA_3_3_70B_INSTRUCT,
   [AIProviderName.SAGEMAKER]: SageMakerModels.LLAMA_4_MAVERICK_17B_128E,
   [AIProviderName.OPENROUTER]: OpenRouterModels.CLAUDE_SONNET_4_5,
   [AIProviderName.OPENAI_COMPATIBLE]: "gpt-4o",
-  [AIProviderName.DEEPSEEK]: DeepSeekModels.DEEPSEEK_CHAT,
   [AIProviderName.NVIDIA_NIM]: NvidiaNimModels.GPT_OSS_20B,
   // LM Studio + llama.cpp auto-discover their loaded model from /v1/models;
   // an empty default is the documented signal to use that path.
@@ -491,7 +463,7 @@ export const DEFAULT_MODELS: Record<
 /**
  * Model enum mappings for getAllModels.
  *
- * Covers every provider EXCEPT the 9 JSON-catalog providers — those model
+ * Covers every provider EXCEPT the 11 JSON-catalog providers — those model
  * lists come from `Object.keys(models.catalog)` in the catalog JSON, read
  * directly by `getAllModels()` below.
  */
@@ -507,11 +479,9 @@ const MODEL_ENUMS: Record<
   [AIProviderName.AZURE]: AzureOpenAIModels,
   [AIProviderName.OLLAMA]: OllamaModels,
   [AIProviderName.LITELLM]: LiteLLMModels,
-  [AIProviderName.HUGGINGFACE]: HuggingFaceModels,
   [AIProviderName.SAGEMAKER]: SageMakerModels,
   [AIProviderName.OPENROUTER]: OpenRouterModels,
   [AIProviderName.OPENAI_COMPATIBLE]: null,
-  [AIProviderName.DEEPSEEK]: DeepSeekModels,
   [AIProviderName.NVIDIA_NIM]: NvidiaNimModels,
   [AIProviderName.LM_STUDIO]: null,
   [AIProviderName.LLAMACPP]: null,

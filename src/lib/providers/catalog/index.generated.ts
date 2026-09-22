@@ -4,10 +4,12 @@ import apiRouteJson from "./api-route.json" with { type: "json" };
 import basetenJson from "./baseten.json" with { type: "json" };
 import cerebrasJson from "./cerebras.json" with { type: "json" };
 import cloudflareJson from "./cloudflare.json" with { type: "json" };
+import deepseekJson from "./deepseek.json" with { type: "json" };
 import fireworksJson from "./fireworks.json" with { type: "json" };
 import friendliJson from "./friendli.json" with { type: "json" };
 import gmicloudJson from "./gmicloud.json" with { type: "json" };
 import groqJson from "./groq.json" with { type: "json" };
+import huggingfaceJson from "./huggingface.json" with { type: "json" };
 import inceptionLabsJson from "./inception-labs.json" with { type: "json" };
 import ioIntelligenceJson from "./io-intelligence.json" with { type: "json" };
 import mancerJson from "./mancer.json" with { type: "json" };
@@ -24,10 +26,12 @@ export const CATALOG_JSON_ENTRIES: ProviderCatalogJson[] = [
   basetenJson as ProviderCatalogJson,
   cerebrasJson as ProviderCatalogJson,
   cloudflareJson as ProviderCatalogJson,
+  deepseekJson as ProviderCatalogJson,
   fireworksJson as ProviderCatalogJson,
   friendliJson as ProviderCatalogJson,
   gmicloudJson as ProviderCatalogJson,
   groqJson as ProviderCatalogJson,
+  huggingfaceJson as ProviderCatalogJson,
   inceptionLabsJson as ProviderCatalogJson,
   ioIntelligenceJson as ProviderCatalogJson,
   mancerJson as ProviderCatalogJson,
@@ -44,10 +48,12 @@ export const CATALOG_PROVIDER_IDS = [
   "baseten",
   "cerebras",
   "cloudflare",
+  "deepseek",
   "fireworks",
   "friendli",
   "gmicloud",
   "groq",
+  "huggingface",
   "inception-labs",
   "io-intelligence",
   "mancer",

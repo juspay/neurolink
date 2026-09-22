@@ -2,6 +2,7 @@ import type { AIProviderName } from "../constants/enums.js";
 import { JinaModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { isNeuroLink } from "../neurolink.js";
+import { parseIndexedEmbeddingsResponse } from "./embeddingResponseParsing.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import type {
   EmbedInput,
@@ -299,28 +300,16 @@ export class JinaProvider extends BaseProvider {
     }
 
     const data = (await response.json()) as JinaEmbeddingsResponse;
-    if (!data.data || data.data.length === 0) {
-      throw new Error("Jina embeddings response missing data");
-    }
-
-    // Validate that the response covers all requested inputs.
-    if (data.data.length !== inputs.length) {
-      throw new Error(
-        `Jina embeddings response count mismatch: expected ${inputs.length}, got ${data.data.length}`,
-      );
-    }
-
-    // Sort by index and verify sequential coverage (0 … n-1).
-    const sorted = data.data.slice().sort((a, b) => a.index - b.index);
-    for (let i = 0; i < sorted.length; i++) {
-      if (sorted[i].index !== i) {
-        throw new Error(
-          `Jina embeddings response has unexpected index ordering: position ${i} has index ${sorted[i].index}`,
-        );
-      }
-    }
-
-    return sorted.map((d) => d.embedding);
+    // Sorts by index and verifies sequential 0..n-1 coverage. Note: throws
+    // plain Error, not ProviderError, unlike Voyage's equivalent — a real,
+    // pre-existing inconsistency between the two, preserved as-is rather
+    // than silently "fixed" by this refactor.
+    return parseIndexedEmbeddingsResponse(
+      data,
+      inputs.length,
+      "Jina",
+      (message) => new Error(message),
+    );
   }
 
   async validateConfiguration(): Promise<boolean> {

@@ -13,6 +13,19 @@ export type CatalogPricingPerMTok = {
 
 export type CatalogModelStatus = "production" | "preview" | "retired";
 
+/**
+ * Descriptor-only per-provider turn-budget override — mirrors
+ * ProviderDescriptor.timeouts field-for-field (src/lib/types/providers.ts).
+ * Consumed only by buildCatalogDescriptor() (providerDescriptors.ts), never
+ * by the OpenAI-compat runtime path (loader.ts's buildCatalogEntries()).
+ * Optional and absent for every catalog provider except mistral, whose
+ * value preserves its pre-migration hand-typed descriptor exactly.
+ */
+export type CatalogTimeouts = {
+  generateMs?: number;
+  streamMs?: number;
+};
+
 export type CatalogModelSpec = {
   contextWindow?: number;
   maxOutputTokens?: number;
@@ -34,6 +47,11 @@ export type CatalogWire = {
   extraCredentials?: string[];
   missingCredentialMessage?: string;
   envOverrides?: { apiKey?: string; baseURL?: string; model?: string };
+  /** Additional env vars validateApiKey() tries, in order, when the primary
+   *  apiKeyEnvVar is unset (e.g. HuggingFace's HF_TOKEN alongside
+   *  HUGGINGFACE_API_KEY). Consumed by buildCatalogConfigOptions() via
+   *  ProviderConfigOptions.fallbackEnvVars. */
+  apiKeyFallbackEnvVars?: string[];
 };
 
 export type CatalogErrorRuleClass =
@@ -59,6 +77,11 @@ export type CatalogQuirks = {
    *  ConfiguredOpenAICompatProvider so tool round-trips work. */
   messageContentFormat?: "string";
   registryDefaultIgnoresModelEnvVar?: boolean;
+  /** Vendor rejects `response_format: { type: "json_schema" }` outright but
+   *  accepts `{ type: "json_object" }`. Normalized by
+   *  ConfiguredOpenAICompatProvider so `generate({ schema })` keeps working
+   *  (mirrors the pre-catalog `supportsStructuredOutputs: false` behavior). */
+  responseFormatDowngrade?: "json-schema-to-json-object";
 };
 
 export type CatalogBillingPolicy =
@@ -98,7 +121,14 @@ export type CatalogEvidence = {
 export type CatalogCapabilities = {
   text: boolean;
   streaming: boolean;
-  tools: boolean;
+  /** "model-dependent" when tool support varies per served model and the
+   *  vendor doesn't reject `tools` for unsupported ones (the model just
+   *  never emits tool_calls) — e.g. HuggingFace's router. Maps to
+   *  ProviderDescriptor.toolSupport's own "model-dependent" member and
+   *  leaves OpenAICompatCatalogEntry.supportsTools unset so
+   *  ConfiguredOpenAICompatProvider falls through to the model-registry
+   *  default, exactly like an entry that never set supportsTools at all. */
+  tools: boolean | "model-dependent";
   toolsWithStreaming: boolean;
   structuredOutput: boolean;
   structuredOutputWithTools: boolean;
@@ -164,6 +194,22 @@ export type ProviderCatalogJson = {
   capabilities: CatalogCapabilities;
   errorRules: CatalogErrorRuleJson[];
   quirks?: CatalogQuirks;
+  /**
+   * Descriptor-only generate/stream turn-budget override — see
+   * CatalogTimeouts. Absent = buildCatalogDescriptor() omits
+   * ProviderDescriptor.timeouts entirely, matching every catalog provider's
+   * behavior before this field existed.
+   */
+  timeouts?: CatalogTimeouts;
+  /**
+   * Descriptor-only ascending auto-select priority override — mirrors
+   * ProviderDescriptor.autoSelectPriority field-for-field (lower = tried
+   * first in getBestProvider()'s fallback chain). Absent = not part of the
+   * auto-select chain, matching every catalog provider's behavior before
+   * this field existed (only mistral sets it today, preserving its
+   * pre-migration hand-typed value).
+   */
+  autoSelectPriority?: number;
   setup: CatalogSetup;
   evidence: CatalogEvidence;
 };

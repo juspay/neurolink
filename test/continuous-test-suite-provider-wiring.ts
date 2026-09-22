@@ -30,6 +30,7 @@ import "dotenv/config";
 import { createServer, type Server } from "node:http";
 import { defineSuite, assert, Skip } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
+import { installMockFetch } from "./utils/mockFetch.js";
 import type {
   NeurolinkCredentials,
   CatalogCredentialKey,
@@ -53,7 +54,7 @@ const { test, runSuite } = defineSuite("Provider Wiring", { offline: true });
 // belongs to a NON-catalog provider. If a key is renamed/removed in
 // NeurolinkCredentials, or a provider moves into/out of the JSON catalog,
 // this literal fails to typecheck (Exclude<> collapses the omitted key set),
-// so it can't silently drift from the real type. The 9 catalog providers'
+// so it can't silently drift from the real type. The 18 catalog providers'
 // credential keys (CatalogCredentialKey) are read from the built catalog at
 // runtime instead — see the union below.
 const KNOWN_CREDENTIAL_KEYS = {
@@ -64,12 +65,10 @@ const KNOWN_CREDENTIAL_KEYS = {
   bedrock: undefined,
   sagemaker: undefined,
   azure: undefined,
-  huggingFace: undefined,
   openrouter: undefined,
   litellm: undefined,
   openaiCompatible: undefined,
   ollama: undefined,
-  deepseek: undefined,
   nvidiaNim: undefined,
   lmStudio: undefined,
   llamacpp: undefined,
@@ -149,8 +148,100 @@ await test("HuggingFace factory forwards the sdk instance through to BaseProvide
   const internal = provider as unknown as { neurolink?: unknown };
   assert(
     internal.neurolink === fakeSdk,
-    "expected HuggingFaceProvider to forward the sdk instance to BaseProvider",
+    "expected the huggingface provider to forward the sdk instance to BaseProvider",
   );
+});
+
+await test("catalog key fallbacks reach the descriptor that routing and availability read", async () => {
+  const { CATALOG_JSON_ENTRIES } =
+    await import("../dist/providers/catalog/index.generated.js");
+  const { PROVIDER_DESCRIPTORS } =
+    await import("../dist/factories/providerDescriptors.js");
+
+  const withFallbacks = CATALOG_JSON_ENTRIES.filter(
+    (entry) => (entry.wire.apiKeyFallbackEnvVars ?? []).length > 0,
+  );
+  assert(
+    withFallbacks.some((entry) => entry.id === "huggingface"),
+    "expected the huggingface catalog entry to declare the HF_TOKEN key fallback",
+  );
+  for (const entry of withFallbacks) {
+    const declared =
+      PROVIDER_DESCRIPTORS.find((descriptor) => descriptor.name === entry.id)
+        ?.envVars.fallbacks ?? [];
+    assert(
+      (entry.wire.apiKeyFallbackEnvVars ?? []).every((name) =>
+        declared.includes(name),
+      ),
+      `descriptor for catalog entry ${entry.id} drops a declared key fallback`,
+    );
+  }
+});
+
+await test("HuggingFace authenticates with HF_TOKEN when it is the only key set", async () => {
+  const { NeuroLink } = await import("../dist/index.js");
+
+  // HUGGINGFACE_BASE_URL is cleared too so the request reaches the mocked
+  // router.huggingface.co route whatever the host environment sets.
+  const isolated = ["HUGGINGFACE_API_KEY", "HF_TOKEN", "HUGGINGFACE_BASE_URL"];
+  const saved = new Map(isolated.map((name) => [name, process.env[name]]));
+  const token = "hf_fallbackOnlyTokenForWiringSuite000000000";
+  isolated.forEach((name) => delete process.env[name]);
+  process.env.HF_TOKEN = token;
+  const { unset, calls } = installMockFetch([
+    {
+      method: "POST",
+      url: "router.huggingface.co/v1/chat/completions",
+      respond: {
+        status: 200,
+        json: {
+          id: "wiring-hf-token",
+          object: "chat.completion",
+          created: 0,
+          model: "some-model",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "pong" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        },
+      },
+    },
+  ]);
+  try {
+    const nl = new NeuroLink({ conversationMemory: { enabled: false } });
+    // Caught here and asserted on a boolean: a propagated provider error
+    // would be classified as a SKIP by defineSuite, hiding the regression.
+    let generateThrew = false;
+    try {
+      await nl.generate({
+        provider: "huggingface",
+        model: "some-model",
+        input: { text: "ping" },
+        disableTools: true,
+      });
+    } catch {
+      generateThrew = true;
+    }
+    assert(!generateThrew, "fallback-only generate did not return a result");
+    assert(calls.length > 0, "expected a captured HuggingFace request");
+    assert(
+      calls[0].headers["authorization"] === `Bearer ${token}`,
+      "expected the Authorization header to carry the HF_TOKEN fallback",
+    );
+  } finally {
+    unset();
+    saved.forEach((value, name) => {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    });
+  }
 });
 
 await test("getAvailableProviders returns every canonical provider, not a stale historical subset", async () => {
@@ -338,7 +429,7 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
     "azure",
     "bedrock",
     "vertex",
-    "huggingface",
+    "huggingface", // catalog provider, but still wizard-handled specially
     "mistral", // catalog provider, but still wizard-handled specially
     "openrouter",
   ]);
@@ -346,15 +437,15 @@ await test("EXTRA_PROVIDER_CONFIGS covers exactly the providers unhandled by the
     (name) => name !== AIProviderName.AUTO,
   );
 
-  // Total canonical provider count = the 9 JSON-catalog providers + this
-  // literal count of hand-registered non-catalog providers (openai,
-  // anthropic, google-ai, vertex, bedrock, sagemaker, azure, huggingface,
-  // ollama, openrouter, litellm, openai-compatible, deepseek, nvidia-nim,
-  // lm-studio, llamacpp, cohere, replicate, voyage, jina, stability,
-  // ideogram, recraft). Onboarding a new catalog provider grows
-  // CATALOG_PROVIDER_IDS and needs no change here; onboarding a new
-  // hand-written provider bumps this literal.
-  const NON_CATALOG_PROVIDER_COUNT = 24;
+  // Total canonical provider count = the JSON-catalog providers (now
+  // including deepseek, huggingface and mistral) + this literal count of
+  // hand-registered non-catalog providers (openai, anthropic, google-ai,
+  // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
+  // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
+  // voyage, jina, stability, ideogram, recraft, typesafe). Onboarding a new
+  // catalog provider grows CATALOG_PROVIDER_IDS and needs no change here;
+  // onboarding a new hand-written provider bumps this literal.
+  const NON_CATALOG_PROVIDER_COUNT = 22;
   const totalProviderCount =
     CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
   assert(

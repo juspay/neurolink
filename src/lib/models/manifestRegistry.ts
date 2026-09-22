@@ -58,6 +58,15 @@ import { recraftManifest } from "./manifests/recraft.js";
 function buildCatalogManifest(
   entry: ProviderCatalogJson,
 ): ProviderModelManifest {
+  // capabilities.tools is "model-dependent" for huggingface, but
+  // huggingface uses its own hand-written manifest (see MANIFEST_REGISTRY
+  // below), never this generic path — cerebras/sambanova, the only two
+  // providers actually routed through buildCatalogManifest() today, both
+  // have a plain boolean here. Narrowed rather than widening
+  // ProviderModelManifestEntry.functionCalling itself: a provider entering
+  // this generic (non-hand-curated) path with "model-dependent" tools gets
+  // the conservative false, not an unearned optimistic true.
+  const functionCalling = entry.capabilities.tools === true;
   const namedModels: Record<string, ProviderModelManifestEntry> =
     Object.fromEntries(
       Object.entries(entry.models.catalog).map(([modelId, spec]) => [
@@ -68,7 +77,7 @@ function buildCatalogManifest(
             spec.contextWindow ?? entry.models.defaultContextWindow,
           maxOutputTokens: entry.models.defaultMaxOutputTokens,
           vision: spec.vision,
-          functionCalling: entry.capabilities.tools,
+          functionCalling,
         },
       ]),
     );
@@ -80,7 +89,7 @@ function buildCatalogManifest(
         contextWindow: entry.models.defaultContextWindow,
         maxOutputTokens: entry.models.defaultMaxOutputTokens,
         vision: false,
-        functionCalling: entry.capabilities.tools,
+        functionCalling,
       },
       ...namedModels,
     },

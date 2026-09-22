@@ -8,7 +8,7 @@
 
 > **CatalogProbeEvidence** = `object`
 
-Defined in: [types/providerCatalog.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L83)
+Defined in: [types/providerCatalog.ts:106](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L106)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:83](https://github.com/juspay/neurolink/bl
 
 > **date**: `string`
 
-Defined in: [types/providerCatalog.ts:84](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L84)
+Defined in: [types/providerCatalog.ts:107](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L107)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:84](https://github.com/juspay/neurolink/bl
 
 > `optional` **status?**: `number`
 
-Defined in: [types/providerCatalog.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L85)
+Defined in: [types/providerCatalog.ts:108](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L108)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:85](https://github.com/juspay/neurolink/bl
 
 > `optional` **code?**: `string`
 
-Defined in: [types/providerCatalog.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L86)
+Defined in: [types/providerCatalog.ts:109](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L109)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/providerCatalog.ts:86](https://github.com/juspay/neurolink/bl
 
 > `optional` **method?**: `string`
 
-Defined in: [types/providerCatalog.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L87)
+Defined in: [types/providerCatalog.ts:110](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L110)

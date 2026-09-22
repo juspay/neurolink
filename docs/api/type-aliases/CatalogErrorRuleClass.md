@@ -8,4 +8,4 @@
 
 > **CatalogErrorRuleClass** = `"authentication"` \| `"rate-limit"` \| `"invalid-model"` \| `"network"` \| `"provider"`
 
-Defined in: [types/providerCatalog.ts:39](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L39)
+Defined in: [types/providerCatalog.ts:57](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L57)

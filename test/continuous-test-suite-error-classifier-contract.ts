@@ -84,13 +84,11 @@ import { ConfiguredOpenAICompatProvider } from "../src/lib/providers/configuredO
 import { OPENAI_COMPAT_CATALOG } from "../src/lib/providers/openaiCompatCatalog.js";
 import { OpenAICompatibleProvider } from "../src/lib/providers/openaiCompatible/client.js";
 import { OpenAIProvider } from "../src/lib/providers/openAI/client.js";
-import { DeepSeekProvider } from "../src/lib/providers/deepseek.js";
 import { AzureOpenAIProvider } from "../src/lib/providers/azureOpenai.js";
 import { LiteLLMProvider } from "../src/lib/providers/litellm/client.js";
 import { NvidiaNimProvider } from "../src/lib/providers/nvidiaNim/client.js";
 import { OpenRouterProvider } from "../src/lib/providers/openRouter/client.js";
 import { OllamaProvider } from "../src/lib/providers/ollama/client.js";
-import { HuggingFaceProvider } from "../src/lib/providers/huggingFace/client.js";
 import { LlamaCppProvider } from "../src/lib/providers/llamaCpp.js";
 import { LMStudioProvider } from "../src/lib/providers/lmStudio.js";
 import { CohereProvider } from "../src/lib/providers/cohere.js";
@@ -409,7 +407,7 @@ void runSuite(async () => {
     timeoutErrorClass: typeof NetworkError | typeof ProviderError;
   };
 
-  // The 7 OpenAI-compat providers migrated onto ConfiguredOpenAICompatProvider
+  // The 9 OpenAI-compat providers migrated onto ConfiguredOpenAICompatProvider
   // (plan 05) no longer have a concrete subclass to import — each is now a
   // data row in OPENAI_COMPAT_CATALOG. Constructing through the same generic
   // class + catalog entry the registry itself uses keeps this suite testing
@@ -520,7 +518,12 @@ void runSuite(async () => {
     },
     {
       name: "deepseek",
-      instance: new DeepSeekProvider(),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.DEEPSEEK),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {
@@ -550,7 +553,12 @@ void runSuite(async () => {
     },
     {
       name: "huggingface",
-      instance: new HuggingFaceProvider(),
+      instance: new ConfiguredOpenAICompatProvider(
+        getCatalogEntry(AIProviderName.HUGGINGFACE),
+        undefined,
+        undefined,
+        { apiKey: "test-key-not-used" },
+      ),
       timeoutErrorClass: NetworkError,
     },
     {

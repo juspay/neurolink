@@ -17,8 +17,6 @@ import {
   VertexModels,
   OllamaModels,
   LiteLLMModels,
-  HuggingFaceModels,
-  DeepSeekModels,
   NvidiaNimModels,
   OpenRouterModels,
   CohereModels,
@@ -242,31 +240,14 @@ export class ProviderRegistry {
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.VERTEX),
       );
 
-      // Register Hugging Face provider (Unified Router implementation)
-      ProviderFactory.registerProvider(
-        AIProviderName.HUGGINGFACE,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const hfCreds = credentials as NeurolinkCredentials["huggingFace"];
-          const { HuggingFaceProvider } =
-            await import("../providers/huggingFace/index.js");
-          return new HuggingFaceProvider(modelName, sdk, region, hfCreds);
-        },
-        process.env.HUGGINGFACE_MODEL ||
-          HuggingFaceModels.QWEN_2_5_72B_INSTRUCT,
-        ["huggingface", "hf"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.HUGGINGFACE),
-      );
+      // HuggingFace migrated to the JSON catalog (catalog/huggingface.json)
+      // — it is now registered by the "config-driven OpenAI-compatible
+      // catalog providers" loop below, not a dedicated block here.
 
       // Register the config-driven OpenAI-compatible catalog providers
       // (cerebras, groq, xai, together-ai, fireworks, perplexity, mistral,
-      // cloudflare).
-      // To add a new zero-quirk OpenAI-compatible provider, add one entry to
+      // cloudflare, deepseek, huggingface).
+      // To add a new OpenAI-compatible provider, add one entry to
       // OPENAI_COMPAT_CATALOG (openaiCompatCatalog.ts) — not a new block here.
       for (const entry of OPENAI_COMPAT_CATALOG) {
         ProviderFactory.registerProvider(
@@ -419,24 +400,9 @@ export class ProviderRegistry {
         PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.SAGEMAKER),
       );
 
-      // Register DeepSeek provider
-      ProviderFactory.registerProvider(
-        AIProviderName.DEEPSEEK,
-        async (
-          modelName?: string,
-          _providerName?: string,
-          sdk?: NeuroLink,
-          _region?: string,
-          credentials?: UnknownRecord,
-        ) => {
-          const deepseekCreds = credentials as NeurolinkCredentials["deepseek"];
-          const { DeepSeekProvider } = await import("../providers/deepseek.js");
-          return new DeepSeekProvider(modelName, sdk, undefined, deepseekCreds);
-        },
-        process.env.DEEPSEEK_MODEL || DeepSeekModels.DEEPSEEK_CHAT,
-        ["deepseek", "ds"],
-        PROVIDER_DESCRIPTORS_BY_NAME.get(AIProviderName.DEEPSEEK),
-      );
+      // DeepSeek migrated to the JSON catalog (catalog/deepseek.json) — it is
+      // now registered by the "config-driven OpenAI-compatible catalog
+      // providers" loop above, not a dedicated block here.
 
       // Register NVIDIA NIM provider
       ProviderFactory.registerProvider(

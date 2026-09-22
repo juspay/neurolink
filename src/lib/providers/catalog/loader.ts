@@ -70,11 +70,13 @@ function interpolate(
   template: string,
   entry: ProviderCatalogJson,
   modelName?: string,
+  rawMessage?: string,
 ): string {
   return template
     .replace(/\{apiKeyEnvVar\}/g, catalogEnvVar(entry, "apiKey"))
     .replace(/\{setupUrl\}/g, entry.setup.url)
-    .replace(/\{model\}/g, modelName ?? "");
+    .replace(/\{model\}/g, modelName ?? "")
+    .replace(/\{message\}/g, rawMessage ?? "");
 }
 
 export function buildCatalogConfigOptions(
@@ -88,19 +90,24 @@ export function buildCatalogConfigOptions(
     instructions: entry.setup.instructions.map((line) =>
       interpolate(line, entry),
     ),
+    ...(entry.wire.apiKeyFallbackEnvVars
+      ? { fallbackEnvVars: entry.wire.apiKeyFallbackEnvVars }
+      : {}),
   };
 }
 
 function buildErrorRules(entry: ProviderCatalogJson): ProviderErrorRule[] {
   const bespoke: ProviderErrorRule[] = entry.errorRules.map((rule) => {
     const regex = rule.pattern ? new RegExp(rule.pattern, "i") : undefined;
+    const needsContext =
+      rule.message.includes("{model}") || rule.message.includes("{message}");
     return {
       match: (ctx) =>
         (rule.status !== undefined && ctx.statusCode === rule.status) ||
         (regex !== undefined && regex.test(ctx.message)),
       errorClass: ERROR_CLASS_MAP[rule.class],
-      message: rule.message.includes("{model}")
-        ? (ctx) => interpolate(rule.message, entry, ctx.modelName)
+      message: needsContext
+        ? (ctx) => interpolate(rule.message, entry, ctx.modelName, ctx.message)
         : interpolate(rule.message, entry),
     };
   });
@@ -160,7 +167,14 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
         entry.models.fallbacks[0],
       fallbackModels: [...entry.models.fallbacks],
       errorRules: buildErrorRules(entry),
-      supportsTools: entry.capabilities.tools,
+      // "model-dependent" leaves this field unset entirely (not the string
+      // itself, which OpenAICompatCatalogEntry.supportsTools types as
+      // boolean|undefined) so ConfiguredOpenAICompatProvider.supportsTools()
+      // falls through to the model-registry default, same as an entry that
+      // never set this field at all.
+      ...(typeof entry.capabilities.tools === "boolean"
+        ? { supportsTools: entry.capabilities.tools }
+        : {}),
     };
     const { baseURLTemplate } = entry.wire;
     if (baseURLTemplate) {
@@ -185,6 +199,9 @@ export function buildCatalogEntries(): OpenAICompatCatalogEntry[] {
     }
     if (entry.quirks?.timeoutErrorClass === "provider") {
       base.timeoutErrorClass = ProviderError;
+    }
+    if (entry.quirks?.responseFormatDowngrade) {
+      base.responseFormatDowngrade = entry.quirks.responseFormatDowngrade;
     }
     return base;
   });

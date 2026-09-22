@@ -1945,6 +1945,7 @@ console.log(result.content);
 - [CatalogCredentialKey](type-aliases/CatalogCredentialKey.md)
 - [CatalogPricingPerMTok](type-aliases/CatalogPricingPerMTok.md)
 - [CatalogModelStatus](type-aliases/CatalogModelStatus.md)
+- [CatalogTimeouts](type-aliases/CatalogTimeouts.md)
 - [CatalogModelSpec](type-aliases/CatalogModelSpec.md)
 - [CatalogWire](type-aliases/CatalogWire.md)
 - [CatalogErrorRuleClass](type-aliases/CatalogErrorRuleClass.md)

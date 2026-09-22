@@ -2,6 +2,7 @@ import type { AIProviderName } from "../constants/enums.js";
 import { VoyageModels } from "../constants/enums.js";
 import { BaseProvider } from "../core/baseProvider.js";
 import { isNeuroLink } from "../neurolink.js";
+import { parseIndexedEmbeddingsResponse } from "./embeddingResponseParsing.js";
 import { createProxyFetch } from "../proxy/proxyFetch.js";
 import {
   AuthenticationError,
@@ -243,37 +244,15 @@ export class VoyageProvider extends BaseProvider {
     }
 
     const data = (await response.json()) as VoyageEmbeddingsResponse;
-    if (!data.data || data.data.length === 0) {
-      throw new ProviderError(
-        "Voyage embeddings response missing data",
-        "voyage",
-      );
-    }
-
-    // Validate that the response covers all requested inputs.
-    // Voyage may return partial results in edge-case error scenarios.
-    if (data.data.length !== inputs.length) {
-      throw new ProviderError(
-        `Voyage embeddings response count mismatch: expected ${inputs.length}, got ${data.data.length}`,
-        "voyage",
-      );
-    }
-
-    // Sort by index (Voyage returns out-of-order under some conditions)
-    // and drop to a flat number[][] result.
-    const sorted = data.data.slice().sort((a, b) => a.index - b.index);
-
-    // Verify that index coverage is complete (0 … n-1).
-    for (let i = 0; i < sorted.length; i++) {
-      if (sorted[i].index !== i) {
-        throw new ProviderError(
-          `Voyage embeddings response has unexpected index ordering: position ${i} has index ${sorted[i].index}`,
-          "voyage",
-        );
-      }
-    }
-
-    return sorted.map((d) => d.embedding);
+    // Sorts by index (Voyage returns out-of-order under some conditions) and
+    // verifies complete 0..n-1 coverage (Voyage may return partial results
+    // in edge-case error scenarios).
+    return parseIndexedEmbeddingsResponse(
+      data,
+      inputs.length,
+      "Voyage",
+      (message) => new ProviderError(message, "voyage"),
+    );
   }
 
   async validateConfiguration(): Promise<boolean> {

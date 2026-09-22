@@ -2,9 +2,8 @@ import type { AIProviderName } from "../constants/enums.js";
 import type {
   NeurolinkCredentials,
   ProviderErrorRule,
-  UnknownRecord,
 } from "../types/index.js";
-import { InvalidModelError, NetworkError } from "../types/index.js";
+import { InvalidModelError } from "../types/index.js";
 import {
   classifyProviderError,
   DEFAULT_ERROR_RULES,
@@ -12,6 +11,7 @@ import {
 import { logger } from "../utils/logger.js";
 import { redactUrlCredentials } from "../utils/logSanitize.js";
 import { OpenAIChatCompletionsProvider } from "./openaiChatCompletionsBase.js";
+import { buildLocalUnreachableErrorRule } from "./localRuntimeOpenAICompat.js";
 
 const LM_STUDIO_DEFAULT_BASE_URL = "http://localhost:1234/v1";
 const LM_STUDIO_PLACEHOLDER_KEY = "lm-studio";
@@ -71,24 +71,13 @@ export class LMStudioProvider extends OpenAIChatCompletionsProvider {
   }
 
   protected formatProviderError(error: unknown): Error {
-    // `code`/`cause.code` aren't part of ProviderErrorContext, so they're read
-    // off the raw error here (mirrors ollama's `responseBody` extraction) for
-    // the ECONNREFUSED rule below, which the pre-migration code also checked
-    // via a duck-typed error code in addition to the message text.
-    const errorRecord = error as UnknownRecord;
-    const cause = (errorRecord?.cause as UnknownRecord) ?? {};
-    const code = (errorRecord?.code ?? cause?.code) as string | undefined;
-
     const rules: ProviderErrorRule[] = [
-      {
-        match: (ctx) =>
-          code === "ECONNREFUSED" ||
-          /ECONNREFUSED|Failed to fetch|fetch failed/.test(ctx.message),
-        errorClass: NetworkError,
-        message: () =>
+      buildLocalUnreachableErrorRule(
+        error,
+        () =>
           `LM Studio server not reachable at ${redactUrlCredentials(this.config.baseURL)}. ` +
           `Open the LM Studio app, load a model, and click "Start Server".`,
-      },
+      ),
       {
         match: (ctx) => /model_not_found|404/.test(ctx.message),
         errorClass: InvalidModelError,

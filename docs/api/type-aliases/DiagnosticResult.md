@@ -8,7 +8,7 @@
 
 > **DiagnosticResult** = `object`
 
-Defined in: [types/providers.ts:2393](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2393)
+Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2397)
 
 Individual SageMaker diagnostic result.
 
@@ -18,7 +18,7 @@ Individual SageMaker diagnostic result.
 
 > **name**: `string`
 
-Defined in: [types/providers.ts:2394](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2394)
+Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2398)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/providers.ts:2394](https://github.com/juspay/neurolink/blob/r
 
 > **category**: `"configuration"` \| `"connectivity"` \| `"streaming"`
 
-Defined in: [types/providers.ts:2395](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2395)
+Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2399)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/providers.ts:2395](https://github.com/juspay/neurolink/blob/r
 
 > **status**: `"pass"` \| `"fail"` \| `"warning"`
 
-Defined in: [types/providers.ts:2396](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2396)
+Defined in: [types/providers.ts:2400](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2400)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/providers.ts:2396](https://github.com/juspay/neurolink/blob/r
 
 > **message**: `string`
 
-Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2397)
+Defined in: [types/providers.ts:2401](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2401)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/providers.ts:2397](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **details?**: `string`
 
-Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2398)
+Defined in: [types/providers.ts:2402](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2402)
 
 ---
 
@@ -58,4 +58,4 @@ Defined in: [types/providers.ts:2398](https://github.com/juspay/neurolink/blob/r
 
 > `optional` **recommendation?**: `string`
 
-Defined in: [types/providers.ts:2399](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2399)
+Defined in: [types/providers.ts:2403](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2403)

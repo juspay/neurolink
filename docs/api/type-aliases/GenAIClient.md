@@ -8,7 +8,7 @@
 
 > **GenAIClient** = `object`
 
-Defined in: [types/providers.ts:1258](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1258)
+Defined in: [types/providers.ts:1262](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1262)
 
 Google AI client interface
 
@@ -18,7 +18,7 @@ Google AI client interface
 
 > **live**: `object`
 
-Defined in: [types/providers.ts:1259](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1259)
+Defined in: [types/providers.ts:1263](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1263)
 
 #### connect
 
@@ -40,4 +40,4 @@ Defined in: [types/providers.ts:1259](https://github.com/juspay/neurolink/blob/r
 
 > **models**: [`GenAIModelsAPI`](GenAIModelsAPI.md)
 
-Defined in: [types/providers.ts:1260](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1260)
+Defined in: [types/providers.ts:1264](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L1264)

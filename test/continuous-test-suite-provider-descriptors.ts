@@ -46,14 +46,14 @@ await runSuite(async () => {
     const { ProviderFactory } = await import("../dist/index.js");
     const { CATALOG_PROVIDER_IDS } =
       await import("../dist/providers/catalog/index.generated.js");
-    // Total = the 9 JSON-catalog providers + this literal count of
+    // Total = the JSON-catalog providers + this literal count of
     // hand-registered non-catalog providers (openai, anthropic, google-ai,
-    // vertex, bedrock, sagemaker, azure, huggingface, ollama, openrouter,
-    // litellm, openai-compatible, deepseek, nvidia-nim, lm-studio, llamacpp,
-    // cohere, replicate, voyage, jina, stability, ideogram, recraft).
+    // vertex, bedrock, sagemaker, azure, ollama, openrouter, litellm,
+    // openai-compatible, nvidia-nim, lm-studio, llamacpp, cohere, replicate,
+    // voyage, jina, stability, ideogram, recraft, typesafe).
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 24;
+    const NON_CATALOG_PROVIDER_COUNT = 22;
     const expectedCount =
       CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const all = ProviderFactory.getAllDescriptors();
@@ -319,30 +319,24 @@ await runSuite(async () => {
     const { PROVIDER_DESCRIPTORS } = await import("../dist/index.js");
     const { CATALOG_PROVIDER_IDS, CATALOG_JSON_ENTRIES } =
       await import("../dist/providers/catalog/index.generated.js");
-    // These 8 hand-typed descriptors legitimately set apiKeyFormatPattern
-    // (providerDescriptors.ts's HAND_DESCRIPTORS). Mistral is a catalog
-    // provider identity but its descriptor is deliberately hand-sourced, not
-    // catalog-derived (see buildCatalogDescriptors()'s mistral exclusion) —
-    // its own catalog JSON is irrelevant to this field.
+    // These 6 hand-typed descriptors legitimately set apiKeyFormatPattern
+    // (providerDescriptors.ts's HAND_DESCRIPTORS).
     const withPattern = new Set([
       "bedrock",
       "openai",
       "anthropic",
       "azure",
       "google-ai",
-      "huggingface",
-      "mistral",
       "sagemaker",
     ]);
-    // Catalog entries (excluding mistral — never catalog-derived for
-    // descriptors) that set a non-null setup.apiKeyFormat contribute a real
-    // apiKeyFormatPattern via buildCatalogDescriptor(). Derived from the
+    // Catalog entries that set a non-null setup.apiKeyFormat contribute a
+    // real apiKeyFormatPattern via buildCatalogDescriptor(). Derived from the
     // JSON rather than hand-listed so a new catalog entry that declares a
     // key format joins this set without editing the suite.
     const catalogWithPattern = new Set(
-      CATALOG_JSON_ENTRIES.filter(
-        (e) => e.id !== "mistral" && e.setup.apiKeyFormat !== null,
-      ).map((e) => e.id),
+      CATALOG_JSON_ENTRIES.filter((e) => e.setup.apiKeyFormat !== null).map(
+        (e) => e.id,
+      ),
     );
     let checkedAbsent = 0;
     for (const d of PROVIDER_DESCRIPTORS) {
@@ -363,7 +357,7 @@ await runSuite(async () => {
     }
     // Mirrors continuous-test-suite-provider-wiring.ts's
     // NON_CATALOG_PROVIDER_COUNT.
-    const NON_CATALOG_PROVIDER_COUNT = 24;
+    const NON_CATALOG_PROVIDER_COUNT = 22;
     const totalCount = CATALOG_PROVIDER_IDS.length + NON_CATALOG_PROVIDER_COUNT;
     const catalogWithPatternCount = catalogWithPattern.size;
     const expectedAbsentCount =
@@ -803,7 +797,7 @@ await runSuite(async () => {
     // the original prompt-only set. Derived from the JSON so the next such
     // vendor joins without editing the suite (mancer is the first).
     for (const entry of CATALOG_JSON_ENTRIES) {
-      if (entry.id !== "mistral" && !entry.capabilities.tools) {
+      if (!entry.capabilities.tools) {
         originalPromptOnly.add(entry.id);
       }
     }

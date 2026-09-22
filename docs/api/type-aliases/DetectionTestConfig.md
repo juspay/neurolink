@@ -8,7 +8,7 @@
 
 > **DetectionTestConfig** = `object`
 
-Defined in: [types/providers.ts:2367](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2367)
+Defined in: [types/providers.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2371)
 
 Configuration object for a detection test wrapper.
 
@@ -18,7 +18,7 @@ Configuration object for a detection test wrapper.
 
 > **test**: () => `Promise`\<`void`\>
 
-Defined in: [types/providers.ts:2368](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2368)
+Defined in: [types/providers.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2372)
 
 #### Returns
 
@@ -30,7 +30,7 @@ Defined in: [types/providers.ts:2368](https://github.com/juspay/neurolink/blob/r
 
 > **index**: `number`
 
-Defined in: [types/providers.ts:2369](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2369)
+Defined in: [types/providers.ts:2373](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2373)
 
 ---
 
@@ -38,7 +38,7 @@ Defined in: [types/providers.ts:2369](https://github.com/juspay/neurolink/blob/r
 
 > **testName**: `string`
 
-Defined in: [types/providers.ts:2370](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2370)
+Defined in: [types/providers.ts:2374](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2374)
 
 ---
 
@@ -46,7 +46,7 @@ Defined in: [types/providers.ts:2370](https://github.com/juspay/neurolink/blob/r
 
 > **endpointName**: `string`
 
-Defined in: [types/providers.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2371)
+Defined in: [types/providers.ts:2375](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2375)
 
 ---
 
@@ -54,7 +54,7 @@ Defined in: [types/providers.ts:2371](https://github.com/juspay/neurolink/blob/r
 
 > **semaphore**: `object`
 
-Defined in: [types/providers.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2372)
+Defined in: [types/providers.ts:2376](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2376)
 
 #### acquire()
 
@@ -78,7 +78,7 @@ Defined in: [types/providers.ts:2372](https://github.com/juspay/neurolink/blob/r
 
 > **incrementRateLimit**: () => `void`
 
-Defined in: [types/providers.ts:2376](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2376)
+Defined in: [types/providers.ts:2380](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2380)
 
 #### Returns
 
@@ -90,7 +90,7 @@ Defined in: [types/providers.ts:2376](https://github.com/juspay/neurolink/blob/r
 
 > **maxRateLimitRetries**: `number`
 
-Defined in: [types/providers.ts:2377](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2377)
+Defined in: [types/providers.ts:2381](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2381)
 
 ---
 
@@ -98,7 +98,7 @@ Defined in: [types/providers.ts:2377](https://github.com/juspay/neurolink/blob/r
 
 > **rateLimitState**: `object`
 
-Defined in: [types/providers.ts:2378](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2378)
+Defined in: [types/providers.ts:2382](https://github.com/juspay/neurolink/blob/release/src/lib/types/providers.ts#L2382)
 
 #### count
 

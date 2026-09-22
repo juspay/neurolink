@@ -67,6 +67,13 @@
         "missingCredentialMessage": {
           "type": "string"
         },
+        "apiKeyFallbackEnvVars": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional env vars validateApiKey() tries, in order, when the primary apiKeyEnvVar is unset (e.g. HF_TOKEN alongside HUGGINGFACE_API_KEY)."
+        },
         "envOverrides": {
           "type": "object",
           "additionalProperties": false,
@@ -205,7 +212,8 @@
           "type": "boolean"
         },
         "tools": {
-          "type": "boolean"
+          "anyOf": [{ "type": "boolean" }, { "const": "model-dependent" }],
+          "description": "\"model-dependent\" when tool support varies per served model and the vendor doesn't reject tools for unsupported ones (e.g. HuggingFace's router)."
         },
         "toolsWithStreaming": {
           "type": "boolean"
@@ -267,8 +275,30 @@
           "type": "string",
           "enum": ["string"],
           "description": "Vendor accepts messages[].content only as a plain string, rejecting OpenAI's content-parts array and the null used on an assistant message with tool_calls. Normalized by ConfiguredOpenAICompatProvider."
+        },
+        "responseFormatDowngrade": {
+          "type": "string",
+          "enum": ["json-schema-to-json-object"],
+          "description": "Vendor rejects response_format: { type: \"json_schema\" } outright but accepts { type: \"json_object\" }. ConfiguredOpenAICompatProvider downgrades the request so generate({ schema }) keeps working."
         }
       }
+    },
+    "timeouts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Descriptor-only generate/stream turn-budget override consumed by buildCatalogDescriptor(); never read by the OpenAI-compat runtime path.",
+      "properties": {
+        "generateMs": {
+          "type": "number"
+        },
+        "streamMs": {
+          "type": "number"
+        }
+      }
+    },
+    "autoSelectPriority": {
+      "type": "number",
+      "description": "Descriptor-only ascending auto-select priority override (lower = tried first in getBestProvider()'s fallback chain). Absent = provider is not part of the auto-select chain."
     },
     "setup": {
       "type": "object",

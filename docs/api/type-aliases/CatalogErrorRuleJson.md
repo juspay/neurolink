@@ -8,7 +8,7 @@
 
 > **CatalogErrorRuleJson** = `object`
 
-Defined in: [types/providerCatalog.ts:46](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L46)
+Defined in: [types/providerCatalog.ts:64](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L64)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/providerCatalog.ts:46](https://github.com/juspay/neurolink/bl
 
 > `optional` **status?**: `number`
 
-Defined in: [types/providerCatalog.ts:47](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L47)
+Defined in: [types/providerCatalog.ts:65](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L65)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/providerCatalog.ts:47](https://github.com/juspay/neurolink/bl
 
 > `optional` **pattern?**: `string`
 
-Defined in: [types/providerCatalog.ts:48](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L48)
+Defined in: [types/providerCatalog.ts:66](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L66)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/providerCatalog.ts:48](https://github.com/juspay/neurolink/bl
 
 > **class**: [`CatalogErrorRuleClass`](CatalogErrorRuleClass.md)
 
-Defined in: [types/providerCatalog.ts:49](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L49)
+Defined in: [types/providerCatalog.ts:67](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L67)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/providerCatalog.ts:49](https://github.com/juspay/neurolink/bl
 
 > **message**: `string`
 
-Defined in: [types/providerCatalog.ts:50](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L50)
+Defined in: [types/providerCatalog.ts:68](https://github.com/juspay/neurolink/blob/release/src/lib/types/providerCatalog.ts#L68)

@@ -5,9 +5,9 @@
  * quirks (env var names, default model, error mapping).
  *
  * Currently extended by:
- *   - OpenAICompatibleProvider (generic /v1/chat/completions backend)
- *   - LiteLLMProvider          (LiteLLM proxy server)
- *   - DeepSeekProvider         (api.deepseek.com)
+ *   - OpenAICompatibleProvider   (generic /v1/chat/completions backend)
+ *   - LiteLLMProvider            (LiteLLM proxy server)
+ *   - ConfiguredOpenAICompatProvider (JSON-catalog providers, incl. deepseek)
  *
  * Subclasses provide:
  *   - getProviderName() / getDefaultModel() / formatProviderError() (abstract)
