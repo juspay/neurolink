@@ -2,7 +2,7 @@
   "name": "@juspay/neurolink",
   "version": "11.2.3",
   "packageManager": "pnpm@10.15.1",
-  "description": "TypeScript AI SDK: 40 providers behind one API across three inference types — generate, stream and decide. `decide` returns typed, calibrated judgements from a non-generative model (~400ms, ~$0.00002/call) for routing, tool selection and context budgeting. MCP-native (4 transports), voice TTS/STT/realtime, RAG, agents, memory, compaction, 9 observability exporters. OpenAI · Anthropic · Gemini · Bedrock · Azure · Ollama · TypeSafe Jev and more.",
+  "description": "The pipe layer of an AI nervous system: one interface connecting provider neurons to your application, across three inference types — generate, stream and decide. `decide` returns typed, calibrated judgements from a non-generative model (~400ms, ~$0.00002/call) for routing, tool selection and context budgeting. MCP-native (4 transports), voice TTS/STT/realtime, RAG, agents, memory, compaction, 9 observability exporters. OpenAI · Anthropic · Gemini · Bedrock · Azure · Ollama · TypeSafe Jev and more.",
   "author": {
     "name": "Juspay Technologies",
     "email": "support@juspay.in",

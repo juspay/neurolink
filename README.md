@@ -45,11 +45,11 @@ const decision = await pipe.tryDecide({
 
 ## 🧠 What is NeuroLink?
 
-**NeuroLink is the universal AI integration platform that unifies 40 AI providers under one consistent API, across three inference types: `generate`, `stream`, and `decide`.** A curated 64-model registry (7 providers, 132 aliases) backs model metadata, routing, and context-window checks out of the box, and hundreds more models are reachable through aggregator providers — 100+ via LiteLLM, 300+ via OpenRouter.
+**NeuroLink is the pipe layer of an AI nervous system.** Providers — OpenAI, Anthropic, Google, AWS, Azure, Mistral, local runtimes like Ollama, and dozens more — are the neurons: each generates a different kind of intelligence, at a different cost and latency. NeuroLink is the vascular layer that carries that intelligence, as a stream, to the applications — the organs — that consume it, across three inference types: `generate` and `stream` produce text, `decide` produces a calibrated `boolean`/`choice`/`score` judgment instead. A curated model registry (64 models, 132 aliases) backs metadata, routing, and context-window checks out of the box, and hundreds more models are reachable through aggregator providers — 100+ via LiteLLM, 300+ via OpenRouter.
 
-Extracted from production systems at Juspay, NeuroLink provides a practical, TypeScript-first way to integrate AI into any application. Whether you're building with OpenAI, Anthropic, Google, AWS Bedrock, Azure, or any of our 40 supported providers, NeuroLink gives you a single, consistent interface that works everywhere. `decide` is the third inference type — a typed, calibrated judgment instead of text — for the model-routing and gating decisions `generate`/`stream` were never meant to make.
+Extracted from production systems at Juspay, NeuroLink provides a practical, TypeScript-first way to plug any application into that nervous system. Switch which neuron answers a request with a single parameter change — OpenAI, Anthropic, Google, AWS Bedrock, Azure, a local runtime, or any provider you add. `decide` is the third inference type — a typed, calibrated judgment instead of text — for the model-routing and gating decisions `generate`/`stream` were never meant to make, powered by a purpose-built decision model (TypeSafe Jev) rather than a general-purpose LLM: routing decisions land in ~400ms for about $0.00002, instead of a full generation call.
 
-**Why NeuroLink?** Three genuine inference types, not one dressed up three ways — `generate` and `stream` produce text; `decide` produces a calibrated `boolean`/`choice`/`score` judgment, and which types a provider serves is declared per-provider via `inferenceKinds` rather than inferred from behavior. One API spans all 40 providers, including 3 fully local runtimes (Ollama, LM Studio, llama.cpp) with per-request credential overrides, and MCP support covers all 4 transports (stdio, HTTP, SSE, WebSocket). Every AI-driven optimization — model routing, context compaction, tool selection — fails open: no key configured behaves exactly like NeuroLink without it, and routing uses asymmetric confidence thresholds (upgrade at 0.3, downgrade at 0.6) rather than a single cutoff, because a wrong downgrade costs more than a wrong upgrade. Switch providers with a single parameter change, leverage built-in tools plus any MCP-compliant tool server, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
+**Why NeuroLink?** Three genuine inference types, not one dressed up three ways — `generate` and `stream` produce text; `decide` produces a calibrated `boolean`/`choice`/`score` judgment, and which types a provider serves is declared per-provider via `inferenceKinds` rather than inferred from behavior. Every neuron plugs into the same pipe, including 3 fully local runtimes (Ollama, LM Studio, llama.cpp) with per-request credential overrides, and MCP support covers all 4 transports (stdio, HTTP, SSE, WebSocket). Every AI-driven optimization the pipe performs — model routing, context compaction, tool selection — fails open: no key configured behaves exactly like NeuroLink without it, and routing uses asymmetric confidence thresholds (upgrade at 0.3, downgrade at 0.6) rather than a single cutoff, because a wrong downgrade costs more than a wrong upgrade. Switch providers with a single parameter change, leverage built-in tools plus any MCP-compliant tool server, deploy with confidence using enterprise features like Redis memory and multi-provider failover, and optimize costs automatically with intelligent routing. Use it via our professional CLI or TypeScript SDK—whichever fits your workflow.
 
 **Where we're headed:** We're building for the future of AI—edge-first execution and continuous streaming architectures that make AI practically free and universally available. **[Read our vision →](docs/about/vision.md)**
 
@@ -410,7 +410,7 @@ npx @juspay/neurolink --help
 
 ### Configuration
 
-NeuroLink works with 40 AI providers. You'll need at least one API key to get started:
+NeuroLink works with every major AI provider — and local runtimes that need no API key at all. You'll need at least one to get started:
 
 **Option 1: Interactive Setup (Recommended)**
 
@@ -597,7 +597,7 @@ const result = await neurolink.generate({
 ### Next Steps
 
 - **[Complete Documentation](https://docs.neurolink.ink)** - Comprehensive guides and API reference
-- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure all 40 providers
+- **[Provider Setup Guide](docs/getting-started/provider-setup.md)** - Configure any provider
 - **[SDK API Reference](docs/sdk/api-reference.md)** - Full TypeScript API documentation
 - **[CLI Command Reference](docs/cli/commands.md)** - Complete CLI documentation
 - **[Example Projects](docs/examples/index.md)** - Real-world integration examples
@@ -629,7 +629,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is shi
 
 ### 🤖 AI Provider Integration
 
-**40 providers unified under one API** - Switch providers with a single parameter change. 39 serve `generate`/`stream`; 1 (TypeSafe Jev) serves `decide`. Tool support: 29 native tool-calling, 3 model-dependent, 8 that serve no tools at all (embedding-, media- and decision-only). 3 are fully local runtimes (Ollama, LM Studio, llama.cpp) and 4 need zero configuration to start (those three plus LiteLLM) — no cloud account, no API key. 9 providers (OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock, Cohere, Ollama, LiteLLM, Voyage, Jina) expose `embed()`/`embedMany()` natively for RAG and custom vector search.
+**Every provider neuron behind one API** - Switch providers with a single parameter change. Nearly all serve `generate`/`stream`; TypeSafe Jev alone serves `decide`. Tool support: 29 native tool-calling, 3 model-dependent, 8 that serve no tools at all (embedding-, media- and decision-only). 3 are fully local runtimes (Ollama, LM Studio, llama.cpp) and 4 need zero configuration to start (those three plus LiteLLM) — no cloud account, no API key. 9 providers (OpenAI, Google AI Studio, Google Vertex, Amazon Bedrock, Cohere, Ollama, LiteLLM, Voyage, Jina) expose `embed()`/`embedMany()` natively for RAG and custom vector search.
 
 | Provider              | Models                                                                     | Free Tier       | Tool Support | Status        | Documentation                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------- | --------------- | ------------ | ------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -668,7 +668,7 @@ NeuroLink is a comprehensive AI development platform. Every feature below is shi
 **Decision-only provider:** **TypeSafe Jev** (`TYPESAFE_API_KEY`) does not appear in the table above because it does not serve `generate`/`stream` — it is the first provider for the `decide` inference type. See [Decide: Calibrated Judgments, Not Text](#decide-calibrated-judgments-not-text).
 
 **[📖 Provider Comparison Guide](docs/reference/provider-comparison.md)** - Detailed feature matrix and selection criteria
-**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across 40 providers
+**[🔬 Provider Feature Compatibility](docs/reference/provider-feature-compatibility.md)** - Test-based compatibility reference for all 19 features across every provider
 
 ---
 
@@ -854,7 +854,7 @@ neurolink generate "Describe what happens" --file ./demo.mp4
 - **ProcessorRegistry** - Priority-based processor selection with fallback
 - **OWASP Security** - HTML/SVG sanitization prevents XSS attacks
 - **Auto-detection** - FileDetector identifies file types by extension and content
-- **Provider-agnostic** - All processors work across all 40 AI providers
+- **Provider-agnostic** - All processors work across every AI provider
 
 **[📖 File Processors Guide](docs/features/file-processors.md)** - Complete reference for all file types
 
@@ -984,7 +984,7 @@ node your-app.js
 
 ### 🤖 GitHub Action
 
-Run AI-powered workflows directly in GitHub Actions with 40 provider support and automatic PR/issue commenting.
+Run AI-powered workflows directly in GitHub Actions with support for every provider and automatic PR/issue commenting.
 
 ```yaml
 - uses: juspay/neurolink@v1
@@ -996,7 +996,7 @@ Run AI-powered workflows directly in GitHub Actions with 40 provider support and
 
 | Feature                | Description                                                                               |
 | ---------------------- | ----------------------------------------------------------------------------------------- |
-| **Multi-Provider**     | 40 providers with unified interface                                                       |
+| **Multi-Provider**     | Every provider behind one unified interface                                               |
 | **PR/Issue Comments**  | Auto-post AI responses with intelligent updates                                           |
 | **Multimodal Support** | Attach images, PDFs, CSVs, Excel, Word, JSON, YAML, XML, HTML, SVG, code files to prompts |
 | **Cost Tracking**      | Built-in analytics and quality evaluation                                                 |
@@ -1189,7 +1189,7 @@ Full command and API breakdown lives in [`docs/cli/commands.md`](docs/cli/comman
 
 | Capability               | Highlights                                                                                                                                                                                                                                                                                                     |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Provider unification** | 40 providers with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                                                                                                                                                                                      |
+| **Provider unification** | Every provider neuron behind one API, with automatic fallback, cost-aware routing, `providerFallback` policy, `modelChain` config.                                                                                                                                                                             |
 | **Decision inference**   | Third inference type (`decide`) alongside generate/stream: calibrated `boolean`/`choice`/`score` judgments via TypeSafe Jev, ~400ms flat, ~$0.00002/decision. Used internally for model routing, context budgeting, relevance compaction and tool routing; per-query RAG planning is opt-in via `RAGPipeline`. |
 | **Multimodal pipeline**  | Stream images + CSV data + PDF documents across providers with local/remote assets. Auto-detection for mixed file types.                                                                                                                                                                                       |
 | **Voice pipeline**       | TTS (6 providers: Google, OpenAI, ElevenLabs, Azure, Fish Audio, Cartesia) + STT (4 providers) + realtime voice APIs (OpenAI Realtime, Gemini Live).                                                                                                                                                           |
