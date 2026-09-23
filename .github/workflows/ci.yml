@@ -444,6 +444,10 @@ jobs:
         if: matrix.group == 'rest'
         run: pnpm run test:proxy-reliability
 
+      - name: Codex fallback contract (local SSE stand-in, no API keys required)
+        if: matrix.group == 'rest'
+        run: pnpm run test:codex
+
       - name: AI Studio loop characterization (local SSE stand-in, no API keys required)
         if: matrix.group == 'rest'
         run: pnpm run test:aistudio-loop-characterization
@@ -838,7 +842,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       # Every shard runs even if another fails, so one broken suite never
-      # hides the state of the other 37 — the same property the loop below
+      # hides the state of the other 42 — the same property the loop below
       # has always had within a single job.
       fail-fast: false
       matrix:
@@ -1143,7 +1147,6 @@ jobs:
             test:dynamic@10
             test:local-usage@8
             test:provider-fallback-latency@6
-            test:codex@5
             test:credentials@4
             test:stt:unit@4
             test:avatar:unit@3

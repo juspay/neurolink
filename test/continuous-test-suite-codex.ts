@@ -1546,6 +1546,14 @@ await test("Claude fallback forwards effort through routing, reloads, and both r
   const key = "codex:fallback-reasoning@example.test";
   const originalFetch = globalThis.fetch;
   const requests: CodexResponsesRequest[] = [];
+  // The primary Anthropic pool is tried before any configured fallback, and a
+  // credential reaches this process even when the shell sets none: loadProxyEnv
+  // reads the repo .env with `override: true`. This test is about the Codex
+  // leg, so the ambient key is withdrawn for its duration. Asserting a lone
+  // Codex upstream instead only held where no credential happened to exist,
+  // which is why this passed in CI and failed on a developer machine.
+  const ambientAnthropicKey = process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
   const writeConfig = (effort?: unknown) =>
     writeFileSync(
       configPath,
@@ -1738,6 +1746,9 @@ await test("Claude fallback forwards effort through routing, reloads, and both r
     await call("claude-opus-4-6", true);
   } finally {
     globalThis.fetch = originalFetch;
+    if (ambientAnthropicKey !== undefined) {
+      process.env.ANTHROPIC_API_KEY = ambientAnthropicKey;
+    }
     await tokenStore.clearTokens(key);
     rmSync(dir, { recursive: true, force: true });
   }
