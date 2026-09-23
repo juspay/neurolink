@@ -251,7 +251,15 @@ export const convertContentForOpenAI = (
         (part as { image?: unknown; data?: unknown; url?: unknown }).image ??
         (part as { data?: unknown }).data ??
         (part as { url?: unknown }).url;
-      const url = imageDataToURL(data);
+      // ImagePart carries the resolved format as `mediaType` (MessageBuilder
+      // canonicalizes to it); `mimeType` is accepted for parts that bypass
+      // that normalization. Without this, a raw base64 payload (as opposed to
+      // an already-labelled data: URI) always fell back to imageDataToURL's
+      // hardcoded "image/png" default, mislabeling real JPEG/WebP/etc bytes.
+      const mediaType =
+        (part as { mediaType?: string }).mediaType ??
+        (part as { mimeType?: string }).mimeType;
+      const url = imageDataToURL(data, mediaType);
       if (url) {
         out.push({ type: "image_url", image_url: { url } });
       }
