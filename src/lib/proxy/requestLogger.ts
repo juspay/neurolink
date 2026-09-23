@@ -14,6 +14,7 @@ import {
   publishProxyOtelBody,
 } from "./otelLogSink.js";
 import { randomUUID } from "node:crypto";
+import { createProxyBodyCapturePolicy } from "./bodyCapturePolicy.js";
 import { join } from "path";
 import { homedir } from "os";
 import { logger } from "../utils/logger.js";
@@ -73,6 +74,7 @@ import {
 
 let logDir: string | null = null;
 let logEnabled = false;
+let bodyCapturePolicy = createProxyBodyCapturePolicy();
 const pendingLogOperations = new Set<Promise<unknown>>();
 const REQUEST_LOG_IO_TIMEOUT_MS = 5_000;
 // launchd gives the service 45 seconds after SIGTERM. Leave fifteen seconds
@@ -110,6 +112,7 @@ export function getRequestLoggerSnapshot(): ProxyRequestLoggerSnapshot {
     attempts: { ...metadataSinks.attempts },
     debug: { ...metadataSinks.debug },
     bodyCapture: getBodyCaptureWorkerSnapshot(),
+    bodyCapturePolicy: bodyCapturePolicy.snapshot(),
   };
 }
 
@@ -244,6 +247,10 @@ export function initRequestLogger(
   // Lifecycle metadata deliberately shares the request logger's enablement,
   // directory permissions, retention boundary, and operator privacy control.
   logEnabled = enabled;
+  bodyCapturePolicy = createProxyBodyCapturePolicy({
+    bytesPerMinute: process.env.NEUROLINK_PROXY_BODY_BYTES_PER_MINUTE,
+    deduplicate: process.env.NEUROLINK_PROXY_BODY_DEDUPLICATION !== "false",
+  });
   if (!enabled) {
     configureProxyLifecycleLogger({ enabled: false });
     return;
@@ -864,16 +871,22 @@ export async function logBodyCapture(
     }
 
     if (isProxyOtelOnly()) {
-      const delivery = await emitOtlpBodyLogRecord(
-        {
-          ...metadata,
-          traceId: traceCtx?.traceId ?? metadata.traceId,
-          spanId: traceCtx?.spanId ?? metadata.spanId,
-          traceFlags: traceCtx?.traceFlags ?? metadata.traceFlags,
-        },
+      const publication = await bodyCapturePolicy.publish(
+        metadata,
         stored,
+        () =>
+          emitOtlpBodyLogRecord(
+            {
+              ...metadata,
+              traceId: traceCtx?.traceId ?? metadata.traceId,
+              spanId: traceCtx?.spanId ?? metadata.spanId,
+              traceFlags: traceCtx?.traceFlags ?? metadata.traceFlags,
+            },
+            stored,
+          ),
       );
-      indexEntry.bodyDelivery = delivery ?? {
+      indexEntry.bodyReference = publication.reference;
+      indexEntry.bodyDelivery = publication.delivery ?? {
         status: processed.error
           ? "capture_rejected"
           : stored.redactedBody === undefined

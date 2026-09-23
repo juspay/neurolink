@@ -8,6 +8,6 @@
 
 > **ProxyResponseTerminalOutcome** = `"completed"` \| `"bodyless"` \| `"client_cancelled"` \| `"stream_error"`
 
-Defined in: [types/proxy.ts:2179](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2179)
+Defined in: [types/proxy.ts:2230](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2230)
 
 Terminal state observed while the HTTP adapter relays a response body.

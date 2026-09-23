@@ -17,10 +17,8 @@ import { promisify } from "node:util";
 import { gzip } from "node:zlib";
 import { ExportResultCode, parseKeyPairsIntoRecord } from "@opentelemetry/core";
 import { JsonLogsSerializer } from "@opentelemetry/otlp-transformer";
-import type {
-  LogRecordExporter,
-  ReadableLogRecord,
-} from "@opentelemetry/sdk-logs";
+import type { ReadableLogRecord } from "@opentelemetry/sdk-logs";
+import type { ProxyOtlpLogTransport } from "../types/index.js";
 
 const gzipAsync = promisify(gzip);
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -46,6 +44,15 @@ class ProxyOtlpResponseError extends Error {
     super(message);
     this.name = "ProxyOtlpResponseError";
   }
+}
+
+/** Only explicit transient transport failures may be retained and retried. */
+export function getProxyOtlpRetryAfter(
+  error: Error | undefined,
+): number | undefined {
+  return error instanceof ProxyOtlpResponseError && error.retryable
+    ? (error.retryAfterMs ?? 0)
+    : undefined;
 }
 
 function signalSetting(suffix: string): string | undefined {
@@ -189,7 +196,7 @@ function validateAcknowledgement(bytes: Buffer): void {
 export function createProxyOtlpLogTransport(
   endpoint: string,
   timeoutMillis: number,
-): LogRecordExporter {
+): ProxyOtlpLogTransport {
   let url: URL;
   try {
     url = new URL(endpoint);
@@ -246,6 +253,7 @@ export function createProxyOtlpLogTransport(
   const request = url.protocol === "https:" ? httpsRequest : httpRequest;
   let closed = false;
   const active = new Set<Promise<void>>();
+  const controllers = new Set<AbortController>();
   const sendOnce = (data: Uint8Array, signal: AbortSignal): Promise<void> =>
     new Promise<void>((resolve, reject) => {
       let receivedResponse = false;
@@ -342,9 +350,8 @@ export function createProxyOtlpLogTransport(
             signal.aborted
               ? "OTLP export deadline exceeded"
               : "OTLP transport failed",
-            !signal.aborted &&
-              !receivedResponse &&
-              RETRYABLE_NETWORK_CODES.has(error.code ?? ""),
+            !receivedResponse &&
+              (signal.aborted || RETRYABLE_NETWORK_CODES.has(error.code ?? "")),
           ),
         ),
       );
@@ -352,6 +359,7 @@ export function createProxyOtlpLogTransport(
     });
   const send = async (records: ReadableLogRecord[]): Promise<void> => {
     const controller = new AbortController();
+    controllers.add(controller);
     const deadlineAt = Date.now() + timeoutMillis;
     const deadline = setTimeout(() => controller.abort(), timeoutMillis);
     deadline.unref();
@@ -379,6 +387,8 @@ export function createProxyOtlpLogTransport(
           if (attempt >= MAX_EXPORT_ATTEMPTS) {
             throw new ProxyOtlpResponseError(
               "OTLP retry attempt limit reached",
+              true,
+              error.retryAfterMs,
             );
           }
           const exponential = Math.min(
@@ -394,12 +404,14 @@ export function createProxyOtlpLogTransport(
           if (wait >= deadlineAt - Date.now()) {
             throw new ProxyOtlpResponseError(
               "OTLP retry exceeds export deadline",
+              true,
+              wait,
             );
           }
           await delay(wait, undefined, { signal: controller.signal });
         }
       }
-      throw new ProxyOtlpResponseError("OTLP export deadline exceeded");
+      throw new ProxyOtlpResponseError("OTLP export deadline exceeded", true);
     } catch (error) {
       if (error instanceof ProxyOtlpResponseError) {
         throw error;
@@ -408,12 +420,21 @@ export function createProxyOtlpLogTransport(
         controller.signal.aborted
           ? "OTLP export deadline exceeded"
           : "OTLP export failed",
+        controller.signal.aborted,
       );
     } finally {
       clearTimeout(deadline);
+      controllers.delete(controller);
     }
   };
   return {
+    abortPending() {
+      closed = true;
+      for (const controller of controllers) {
+        controller.abort();
+      }
+      agent.destroy();
+    },
     export(records, callback) {
       if (closed) {
         callback({

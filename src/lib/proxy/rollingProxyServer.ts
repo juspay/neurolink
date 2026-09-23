@@ -24,6 +24,9 @@ export async function startRollingProxyServer(
   let requestedReplacementSchedule = 0;
   let requestedReplacementPending = false;
   let requestedReplacementReason = "environment";
+  let stalledGeneration: number | undefined;
+  let stallReplacementFailures = 0;
+  let nextStallReplacementAt = 0;
   let replacementQueueTail: Promise<void> | null = null;
 
   const recoveryDelayMs = Math.max(
@@ -33,6 +36,14 @@ export async function startRollingProxyServer(
   const maxRecoveryDelayMs = Math.max(
     recoveryDelayMs,
     options.maxRecoveryDelayMs ?? DEFAULT_MAX_RECOVERY_DELAY_MS,
+  );
+  const stallReplacementDelayMs = Math.max(
+    1,
+    options.stallReplacementDelayMs ?? 60_000,
+  );
+  const maxStallReplacementDelayMs = Math.max(
+    stallReplacementDelayMs,
+    options.maxStallReplacementDelayMs ?? 15 * 60_000,
   );
 
   const queueReplacement = <T>(operation: () => Promise<T>): Promise<T> => {
@@ -94,6 +105,23 @@ export async function startRollingProxyServer(
   };
 
   const stateChanged = (snapshot: RollingWorkerSupervisorSnapshot): void => {
+    if (
+      requestedReplacementReason !== "environment" &&
+      stalledGeneration !== undefined &&
+      snapshot.active?.generation !== stalledGeneration
+    ) {
+      // A pressure retry belongs only to the generation that stalled. Once it
+      // exits or is replaced, ordinary recovery owns the next generation.
+      if (requestedReplacementTimer) {
+        clearTimeout(requestedReplacementTimer);
+        requestedReplacementTimer = undefined;
+      }
+      requestedReplacementSchedule += 1;
+      requestedReplacementPending = false;
+      stalledGeneration = undefined;
+      stallReplacementFailures = 0;
+      nextStallReplacementAt = 0;
+    }
     try {
       options.onStateChange?.(snapshot);
     } catch (error) {
@@ -117,39 +145,76 @@ export async function startRollingProxyServer(
     requestedReplacementPending = true;
     if (request) {
       requestedReplacementReason = request.reason;
+      if (
+        request.reason !== "environment" &&
+        stalledGeneration !== request.generation
+      ) {
+        stalledGeneration = request.generation;
+        stallReplacementFailures = 0;
+        nextStallReplacementAt = 0;
+      }
     }
     if (requestedReplacementTimer || replacementQueueTail) {
       return;
     }
     const schedule = ++requestedReplacementSchedule;
-    requestedReplacementTimer = setTimeout(() => {
-      requestedReplacementTimer = undefined;
-      if (schedule !== requestedReplacementSchedule) {
-        return;
-      }
-      if (closing || !supervisor.snapshot().active) {
-        return;
-      }
-      requestedReplacementPending = false;
-      const replacementVersion = desiredVersion;
-      const replacementReason = requestedReplacementReason;
-      void queueReplacement(async () => {
-        if (closing || !supervisor.snapshot().active) {
+    requestedReplacementTimer = setTimeout(
+      () => {
+        requestedReplacementTimer = undefined;
+        if (schedule !== requestedReplacementSchedule) {
           return;
         }
-        options.log?.(
-          `[proxy-supervisor] preparing same-version worker replacement version=${replacementVersion} reason=${replacementReason}`,
-        );
-        await supervisor.replace(replacementVersion);
-        options.log?.(
-          `[proxy-supervisor] same-version worker replacement complete version=${replacementVersion} reason=${replacementReason}`,
-        );
-      }).catch((error) => {
-        options.log?.(
-          `[proxy-supervisor] same-version worker replacement failed version=${replacementVersion} reason=${replacementReason}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      });
-    }, 50);
+        if (closing || !supervisor.snapshot().active) {
+          requestedReplacementPending = false;
+          return;
+        }
+        requestedReplacementPending = false;
+        const replacementVersion = desiredVersion;
+        const replacementReason = requestedReplacementReason;
+        const replacementGeneration = supervisor.snapshot().active?.generation;
+        void queueReplacement(async () => {
+          if (closing || !supervisor.snapshot().active) {
+            return;
+          }
+          options.log?.(
+            `[proxy-supervisor] preparing same-version worker replacement version=${replacementVersion} reason=${replacementReason}`,
+          );
+          await supervisor.replace(replacementVersion);
+          stallReplacementFailures = 0;
+          nextStallReplacementAt = 0;
+          options.log?.(
+            `[proxy-supervisor] same-version worker replacement complete version=${replacementVersion} reason=${replacementReason}`,
+          );
+        }).catch((error) => {
+          options.log?.(
+            `[proxy-supervisor] same-version worker replacement failed version=${replacementVersion} reason=${replacementReason}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          // A failed candidate does not invalidate the old generation's streams.
+          // Retry pressure recovery with a growing, capped delay. New requests
+          // cannot reset that delay, and an unrelated successful rotation ends it.
+          if (
+            replacementReason !== "environment" &&
+            !closing &&
+            supervisor.snapshot().active?.generation ===
+              replacementGeneration &&
+            schedule === requestedReplacementSchedule
+          ) {
+            stallReplacementFailures += 1;
+            const delay = Math.min(
+              maxStallReplacementDelayMs,
+              stallReplacementDelayMs *
+                2 ** Math.min(stallReplacementFailures - 1, 16),
+            );
+            nextStallReplacementAt = Date.now() + delay;
+            options.log?.(
+              `[proxy-supervisor] stall replacement retry deferred failures=${stallReplacementFailures} delayMs=${delay}`,
+            );
+            scheduleRequestedReplacement();
+          }
+        });
+      },
+      Math.max(50, nextStallReplacementAt - Date.now()),
+    );
     requestedReplacementTimer.unref?.();
   }
   const supervisor = new RollingWorkerSupervisor({
@@ -240,6 +305,8 @@ export async function startRollingProxyServer(
           supervisor.replace(expectedVersion),
         );
         recoveryFailures = 0;
+        stallReplacementFailures = 0;
+        nextStallReplacementAt = 0;
         return snapshot;
       } catch (error) {
         // The explicit replacement failed (invalid version, closed, or a

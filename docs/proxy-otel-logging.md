@@ -61,6 +61,11 @@ count and digest. The index is emitted after publication settles:
 - `transport_acknowledged`: all prepared chunks received validated OTLP JSON
   acknowledgments reporting no rejected records; this does not prove backend
   persistence or independently verified per-record acceptance.
+- `reference`: identical redacted bytes for this request already received a
+  transport acknowledgment. `bodyReference` identifies that exported capture,
+  digest, byte count and export time. Reconstruct its chunks and verify the
+  current index's digest and byte count; references never form chains. A
+  reference alone does not prove the source is retained in backend storage.
 - `export_unconfirmed`: all chunks were submitted, but at least one export was
   not acknowledged. Some or all may still be stored in the backend.
 - `partial`: publication stopped after only part of the capture was submitted,
@@ -90,6 +95,32 @@ inputs remain bounded and explicitly rejected or truncated. This is a logging
 policy and does not truncate the request sent to the model. Borrowed traffic
 still excludes body capture and emits a metadata-only `policy_excluded` index
 with reason `borrowed_traffic`; it does not expose the borrowed body.
+
+OTel-only mode deduplicates identical redacted payloads within one request,
+including concurrent client/upstream phases. Every phase keeps its own capture
+index, headers, identity and truncation/redaction metadata. Transformed payloads
+with different digests and payloads from different requests are exported
+independently. Partial or unconfirmed exports never become reference sources;
+a waiting duplicate attempts its own export instead. The metadata-only cache
+holds at most 1,024 references for five minutes and retains no body strings.
+Set `NEUROLINK_PROXY_BODY_DEDUPLICATION=false` to disable this optimization.
+File logging/replay retain their existing independent artifacts.
+
+`NEUROLINK_PROXY_BODY_BYTES_PER_MINUTE` optionally limits unique redacted body
+bytes submitted to OTel using a token bucket with a one-minute burst capacity.
+Unset means no additional byte-rate policy. A positive safe integer enables
+the budget; invalid configured values explicitly exclude bodies instead of
+silently disabling the policy. Each omission retains a phase index with
+`bodyDelivery.status=policy_excluded` and reason `body_byte_budget_exhausted`
+or `body_byte_budget_invalid`. Metadata and inference payloads are unaffected.
+The budget counts attempted unique payload bytes even if export later fails;
+transport retry and protocol overhead are outside this payload budget.
+`/status` request logging includes `bodyCapturePolicy` counters for submitted,
+deduplicated and omitted bytes/captures and the current reference/budget bounds.
+Doctor treats configured omissions as incomplete retained content, resolves
+references for sampled body verification, and cannot report backend completeness
+from transport acknowledgments alone. Backend retention remains a separate
+operator policy; expiring the source also makes its references unreconstructable.
 
 `/status.observability.process` reports the worker's actual lifecycle sink,
 OTel initialization and stdout/stderr descriptor types. The `supervisor` field
@@ -282,3 +313,31 @@ quota and supervisor state is not application logging and remains persistent.
 For rollback, restore the previous service environment and launchd configuration,
 then replace the supervisor with the previous runtime after draining requests.
 Removing `NEUROLINK_PROXY_LOG_SINK=otel` restores the default file behavior.
+
+## Bounded critical evidence under collector pressure
+
+The proxy maintains four independent in-memory log queues, including records
+currently exporting. `metadata` reserves 2,048 records / 8 MiB for lifecycle,
+attempt, final, stream-error and supervisor evidence. `indexes` reserves 1,024
+records / 8 MiB for body-capture indexes. `diagnostics` reserves 512 records /
+2 MiB for console, runtime and delivery diagnostics. `bodies` reserves 256
+chunks / 40 MiB. Byte accounting uses UTF-8
+payload and attributes plus per-record overhead; these are admission budgets,
+not an exact process RSS cap. Status exposes outstanding bytes, high-water
+bytes, byte-limit drops and oldest outstanding age for each queue.
+
+Critical metadata remains owned across transient transport failures for a
+120-second budget from admission. An active HTTP attempt can finish within its
+existing 31-second callback deadline. Retries keep the original event IDs, respect
+Retry-After and use capped backoff. The doctor deduplicates identical backend
+retries by event identity. Partial acceptance, malformed acknowledgements and
+permanent rejection are never replayed. Exhausted retention is explicitly
+unconfirmed; transport acknowledgement is not proof of backend persistence.
+Status exposes retrying records, retried batches and retention exhaustion.
+
+Shutdown ends waiting retries immediately, allows healthy in-flight exports to
+finish and cancels remaining HTTP work after four seconds, within the service's
+five-second telemetry cleanup budget. Interrupted exports remain unconfirmed.
+No application disk spool is introduced. A crash can still lose process memory;
+durable collector enqueue, bounded storage, backend reconciliation and capacity
+monitoring remain necessary. Infinite outages cannot be covered by finite queues.

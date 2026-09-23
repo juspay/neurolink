@@ -4,7 +4,7 @@
  * Queries the npm registry for the latest published version of
  * `@juspay/neurolink` and compares it against the currently running version.
  * Designed to be non-blocking and failure-tolerant — any error (network,
- * timeout, parse) silently returns `updateAvailable: false`.
+ * timeout, parse) returns an explicit failed check without inventing a release.
  */
 
 import { execFile as execFileCb } from "node:child_process";
@@ -63,17 +63,19 @@ function isNewerVersion(current: string, latest: string): boolean {
  * Query npm for the latest version of `@juspay/neurolink` and compare it
  * against {@link currentVersion}.
  *
- * On **any** failure the function resolves (never rejects) with
- * `{ updateAvailable: false, latestVersion: currentVersion }`.
+ * Failure retains the legacy version fallback but marks it unverified. Callers
+ * must not persist it as a successful registry observation.
  */
 export async function checkForUpdate(
   currentVersion: string,
 ): Promise<UpdateCheckResult> {
-  const fail: UpdateCheckResult = {
+  const fail = (checkError: string): UpdateCheckResult => ({
     currentVersion,
     latestVersion: currentVersion,
     updateAvailable: false,
-  };
+    checkSucceeded: false,
+    checkError,
+  });
 
   try {
     logger.debug("[UpdateChecker] Checking for updates", { currentVersion });
@@ -91,7 +93,7 @@ export async function checkForUpdate(
       logger.warn("[UpdateChecker] Unexpected npm output type", {
         type: typeof parsed,
       });
-      return fail;
+      return fail("Registry returned a non-string version");
     }
 
     const latestVersion = parsed.trim();
@@ -100,7 +102,7 @@ export async function checkForUpdate(
       logger.warn("[UpdateChecker] Failed to parse latest version", {
         latestVersion,
       });
-      return fail;
+      return fail("Registry returned an invalid version");
     }
 
     const updateAvailable = isNewerVersion(currentVersion, latestVersion);
@@ -111,10 +113,15 @@ export async function checkForUpdate(
       updateAvailable,
     });
 
-    return { currentVersion, latestVersion, updateAvailable };
+    return {
+      currentVersion,
+      latestVersion,
+      updateAvailable,
+      checkSucceeded: true,
+    };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     logger.warn("[UpdateChecker] Update check failed", { error: message });
-    return fail;
+    return fail("Registry version check failed; see updater diagnostics");
   }
 }

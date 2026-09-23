@@ -394,6 +394,7 @@ export default [
             "test/continuous-test-suite-proxy-route-accounting.ts",
             "test/continuous-test-suite-proxy-capture-pipeline.ts",
             "test/continuous-test-suite-proxy-update-staging.ts",
+            "test/continuous-test-suite-proxy-pressure-recovery.ts",
             "test/continuous-test-suite-proxy-token-budget.ts",
             "test/fixtures/proxyTokenBudgetWorker.mts",
             "test/continuous-test-suite-proxy-context-preflight.ts",

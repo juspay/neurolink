@@ -8,7 +8,7 @@
 
 > **VertexAnthropicPassthroughTarget** = `object`
 
-Defined in: [types/proxy.ts:4829](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4829)
+Defined in: [types/proxy.ts:4926](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4926)
 
 Where a native Claude-to-Vertex passthrough is addressed.
 
@@ -18,7 +18,7 @@ Where a native Claude-to-Vertex passthrough is addressed.
 
 > **projectId**: `string`
 
-Defined in: [types/proxy.ts:4830](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4830)
+Defined in: [types/proxy.ts:4927](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4927)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4830](https://github.com/juspay/neurolink/blob/relea
 
 > **location**: `string`
 
-Defined in: [types/proxy.ts:4831](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4831)
+Defined in: [types/proxy.ts:4928](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4928)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4831](https://github.com/juspay/neurolink/blob/relea
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:4832](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4832)
+Defined in: [types/proxy.ts:4929](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4929)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:4832](https://github.com/juspay/neurolink/blob/relea
 
 > **stream**: `boolean`
 
-Defined in: [types/proxy.ts:4833](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4833)
+Defined in: [types/proxy.ts:4930](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4930)

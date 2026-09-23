@@ -8,7 +8,7 @@
 
 > **VideoSaveResult** = `object`
 
-Defined in: [types/cli.ts:1813](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1813)
+Defined in: [types/cli.ts:1833](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1833)
 
 Result of saving video to file.
 
@@ -18,7 +18,7 @@ Result of saving video to file.
 
 > **success**: `boolean`
 
-Defined in: [types/cli.ts:1814](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1814)
+Defined in: [types/cli.ts:1834](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1834)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1814](https://github.com/juspay/neurolink/blob/release
 
 > **path**: `string`
 
-Defined in: [types/cli.ts:1815](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1815)
+Defined in: [types/cli.ts:1835](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1835)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/cli.ts:1815](https://github.com/juspay/neurolink/blob/release
 
 > **size**: `number`
 
-Defined in: [types/cli.ts:1816](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1816)
+Defined in: [types/cli.ts:1836](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1836)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/cli.ts:1816](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **error?**: `string`
 
-Defined in: [types/cli.ts:1817](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1817)
+Defined in: [types/cli.ts:1837](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1837)

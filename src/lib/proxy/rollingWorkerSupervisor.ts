@@ -2,6 +2,7 @@ import type {
   RollingCandidateWorker,
   RollingManagedWorker,
   RollingQueuedSocket,
+  RollingSocketAdmission,
   RollingWorkerFailureDetails,
   RollingWorkerHandle,
   RollingWorkerSupervisorOptions,
@@ -19,6 +20,7 @@ const DEFAULT_READY_TIMEOUT_MS = 120_000;
 const DEFAULT_SOCKET_QUEUE_LIMIT = 1_024;
 const DEFAULT_SOCKET_QUEUE_TIMEOUT_MS = 30_000;
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 30_000;
+const DEFAULT_SOCKET_TRANSFER_TIMEOUT_MS = 60_000;
 const MAX_RECENT_SUPERVISOR_EVENTS = 100;
 
 /**
@@ -157,15 +159,26 @@ export class RollingWorkerSupervisor {
       this.rejectSocket(socket, undefined, undefined, "supervisor_closed");
       return;
     }
+    const admission: RollingSocketAdmission = {
+      socket,
+      // Preserve the original offer + commit allowance. Queued sockets also
+      // retain their existing queue wait, but no retry ever renews this budget.
+      deadlineAt:
+        Date.now() +
+        (this.active?.handle.socketTransferTimeoutMs ??
+          DEFAULT_SOCKET_TRANSFER_TIMEOUT_MS),
+      retried: false,
+    };
     if (
       this.active &&
       this.queuedSockets.length === 0 &&
       this.active.pendingTransfers < this.options.maxPendingTransfers
     ) {
-      this.transferSocket(this.active, socket);
+      this.transferSocket(this.active, admission);
       return;
     }
-    this.queueSocket(socket);
+    admission.deadlineAt += this.options.socketQueueTimeoutMs;
+    this.queueSocket(admission);
     this.flushQueuedSockets();
   }
 
@@ -173,21 +186,31 @@ export class RollingWorkerSupervisor {
    * Retain a socket only within the queue capacity and deadline, recording
    * classified rejection.
    */
-  private queueSocket(socket: TransferableProxySocket): void {
+  private queueSocket(admission: RollingSocketAdmission): void {
+    const { socket } = admission;
     if (this.queuedSockets.length >= this.options.socketQueueLimit) {
       this.rejectSocket(socket, undefined, undefined, "queue_capacity");
       return;
     }
 
     const queued: RollingQueuedSocket = {
-      socket,
-      timeout: setTimeout(() => {
-        const index = this.queuedSockets.indexOf(queued);
-        if (index >= 0) {
-          this.queuedSockets.splice(index, 1);
-          this.rejectSocket(socket, undefined, undefined, "queue_timeout");
-        }
-      }, this.options.socketQueueTimeoutMs),
+      ...admission,
+      timeout: setTimeout(
+        () => {
+          const index = this.queuedSockets.indexOf(queued);
+          if (index >= 0) {
+            this.queuedSockets.splice(index, 1);
+            this.rejectSocket(socket, undefined, undefined, "queue_timeout");
+          }
+        },
+        Math.max(
+          0,
+          Math.min(
+            this.options.socketQueueTimeoutMs,
+            admission.deadlineAt - Date.now(),
+          ),
+        ),
+      ),
     };
     queued.timeout.unref?.();
     this.queuedSockets.push(queued);
@@ -569,7 +592,7 @@ export class RollingWorkerSupervisor {
           break;
         }
         clearTimeout(queued.timeout);
-        this.transferSocket(this.active, queued.socket);
+        this.transferSocket(this.active, queued);
       }
     } finally {
       this.flushingSockets = false;
@@ -578,8 +601,18 @@ export class RollingWorkerSupervisor {
 
   private transferSocket(
     worker: RollingManagedWorker,
-    socket: TransferableProxySocket,
+    admission: RollingSocketAdmission,
   ): void {
+    const { socket } = admission;
+    if (Date.now() >= admission.deadlineAt) {
+      this.rejectSocket(
+        socket,
+        worker.generation,
+        worker.version,
+        "admission_timeout",
+      );
+      return;
+    }
     worker.pendingTransfers += 1;
     this.scheduleTransferState();
     let settled = false;
@@ -590,7 +623,7 @@ export class RollingWorkerSupervisor {
       settled = true;
       worker.pendingTransfers = Math.max(0, worker.pendingTransfers - 1);
       if (error) {
-        this.handleTransferFailure(worker, socket, error);
+        this.handleTransferFailure(worker, admission, error);
       } else if (this.active?.generation === worker.generation) {
         this.consecutiveOfferTimeouts = 0;
       }
@@ -599,7 +632,12 @@ export class RollingWorkerSupervisor {
       this.scheduleTransferState();
     };
     try {
-      worker.handle.sendSocket(worker.generation, socket, complete);
+      worker.handle.sendSocket(
+        worker.generation,
+        socket,
+        complete,
+        admission.deadlineAt,
+      );
     } catch (error) {
       complete(error instanceof Error ? error : new Error(String(error)));
     }
@@ -630,9 +668,10 @@ export class RollingWorkerSupervisor {
    */
   private handleTransferFailure(
     worker: RollingManagedWorker,
-    socket: TransferableProxySocket,
+    admission: RollingSocketAdmission,
     error: unknown,
   ): void {
+    const { socket } = admission;
     this.failedTransfers += 1;
     const detail = this.describeTransferError(error);
     this.recordEvent({
@@ -702,6 +741,27 @@ export class RollingWorkerSupervisor {
     // A failed handoff is not evidence that every connection on this worker
     // failed. Cancel only the affected socket and activate a replacement before
     // draining existing streams. Actual exits are handled by onExit below.
+    const replacement = this.active;
+    if (
+      cancelledOffer &&
+      error instanceof Error &&
+      "socketNeverTransferred" in error &&
+      error.socketNeverTransferred === true &&
+      !lifecycle.observedExit &&
+      !admission.retried &&
+      !this.closed &&
+      replacement &&
+      replacement.generation !== worker.generation &&
+      replacement.pendingTransfers < this.options.maxPendingTransfers &&
+      Date.now() < admission.deadlineAt
+    ) {
+      // Only negotiated control-only offers retain every byte on this parent.
+      // Legacy descriptor offers can buffer bytes before commit and never retry.
+      // The removed IPC entry also prevents a late acceptance issuing a commit.
+      // Every other failure is ambiguous and must never replay request bytes.
+      this.transferSocket(replacement, { ...admission, retried: true });
+      return;
+    }
     this.rejectSocket(
       socket,
       worker.generation,

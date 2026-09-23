@@ -8,7 +8,7 @@
 
 > **ClaudeRequest** = `object`
 
-Defined in: [types/proxy.ts:128](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L128)
+Defined in: [types/proxy.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L134)
 
 Inbound Claude Messages API request body.
 Matches POST /v1/messages.
@@ -19,7 +19,7 @@ Matches POST /v1/messages.
 
 > **model**: `string`
 
-Defined in: [types/proxy.ts:129](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L129)
+Defined in: [types/proxy.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L135)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/proxy.ts:129](https://github.com/juspay/neurolink/blob/releas
 
 > **messages**: [`ClaudeMessage`](ClaudeMessage.md)[]
 
-Defined in: [types/proxy.ts:130](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L130)
+Defined in: [types/proxy.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L136)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/proxy.ts:130](https://github.com/juspay/neurolink/blob/releas
 
 > **max_tokens**: `number`
 
-Defined in: [types/proxy.ts:131](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L131)
+Defined in: [types/proxy.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L137)
 
 ---
 
@@ -43,7 +43,7 @@ Defined in: [types/proxy.ts:131](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **system?**: `string` \| `object`[]
 
-Defined in: [types/proxy.ts:132](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L132)
+Defined in: [types/proxy.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L138)
 
 ---
 
@@ -51,7 +51,7 @@ Defined in: [types/proxy.ts:132](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **temperature?**: `number`
 
-Defined in: [types/proxy.ts:133](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L133)
+Defined in: [types/proxy.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L139)
 
 ---
 
@@ -59,7 +59,7 @@ Defined in: [types/proxy.ts:133](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **top_p?**: `number`
 
-Defined in: [types/proxy.ts:134](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L134)
+Defined in: [types/proxy.ts:140](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L140)
 
 ---
 
@@ -67,7 +67,7 @@ Defined in: [types/proxy.ts:134](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **top_k?**: `number`
 
-Defined in: [types/proxy.ts:135](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L135)
+Defined in: [types/proxy.ts:141](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L141)
 
 ---
 
@@ -75,7 +75,7 @@ Defined in: [types/proxy.ts:135](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **stop_sequences?**: `string`[]
 
-Defined in: [types/proxy.ts:136](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L136)
+Defined in: [types/proxy.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L142)
 
 ---
 
@@ -83,7 +83,7 @@ Defined in: [types/proxy.ts:136](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **stream?**: `boolean`
 
-Defined in: [types/proxy.ts:137](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L137)
+Defined in: [types/proxy.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L143)
 
 ---
 
@@ -91,7 +91,7 @@ Defined in: [types/proxy.ts:137](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tools?**: [`ClaudeTool`](ClaudeTool.md)[]
 
-Defined in: [types/proxy.ts:138](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L138)
+Defined in: [types/proxy.ts:144](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L144)
 
 ---
 
@@ -99,7 +99,7 @@ Defined in: [types/proxy.ts:138](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **tool_choice?**: \{ `type`: `"auto"` \| `"any"` \| `"none"`; \} \| \{ `type`: `"tool"`; `name`: `string`; \}
 
-Defined in: [types/proxy.ts:139](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L139)
+Defined in: [types/proxy.ts:145](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L145)
 
 ---
 
@@ -107,7 +107,7 @@ Defined in: [types/proxy.ts:139](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **thinking?**: `object`
 
-Defined in: [types/proxy.ts:142](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L142)
+Defined in: [types/proxy.ts:148](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L148)
 
 #### type
 
@@ -123,4 +123,4 @@ Defined in: [types/proxy.ts:142](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **metadata?**: [`ClaudeMetadata`](ClaudeMetadata.md)
 
-Defined in: [types/proxy.ts:143](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L143)
+Defined in: [types/proxy.ts:149](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L149)

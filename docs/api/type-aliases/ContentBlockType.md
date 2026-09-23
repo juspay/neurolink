@@ -8,6 +8,6 @@
 
 > **ContentBlockType** = `"text"` \| `"thinking"` \| `"tool_use"` \| `null`
 
-Defined in: [types/proxy.ts:339](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L339)
+Defined in: [types/proxy.ts:345](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L345)
 
 The type of content block currently being streamed.

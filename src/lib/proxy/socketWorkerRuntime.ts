@@ -9,6 +9,8 @@ import type {
 } from "../types/index.js";
 import { isProxyWorkerControlMessage } from "./rollingWorkerProtocol.js";
 
+const DEFAULT_FIRST_REQUEST_GRACE_MS = 30_000;
+
 function isTransferableProxySocket(
   handle: unknown,
 ): handle is DetachableTransferableProxySocket {
@@ -52,8 +54,38 @@ export function createSocketWorkerRuntime(
   const sockets = new Set<TransferableProxySocket>();
   const activeBySocket = new Map<TransferableProxySocket, number>();
   const activeResponses = new Set<ServerResponse>();
+  const awaitingFirstRequest = new Set<TransferableProxySocket>();
+  const firstRequestTimers = new Map<TransferableProxySocket, NodeJS.Timeout>();
+  const firstRequestGraceMs = Math.max(
+    1,
+    options?.firstRequestGraceMs ?? DEFAULT_FIRST_REQUEST_GRACE_MS,
+  );
   let draining = false;
   let drained = false;
+
+  const clearFirstRequestWait = (socket: TransferableProxySocket): void => {
+    awaitingFirstRequest.delete(socket);
+    const timer = firstRequestTimers.get(socket);
+    if (timer) {
+      clearTimeout(timer);
+      firstRequestTimers.delete(socket);
+    }
+  };
+
+  const boundFirstRequestWait = (socket: TransferableProxySocket): void => {
+    if (firstRequestTimers.has(socket)) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      firstRequestTimers.delete(socket);
+      awaitingFirstRequest.delete(socket);
+      if (draining && sockets.has(socket) && !activeBySocket.has(socket)) {
+        socket.end();
+      }
+    }, firstRequestGraceMs);
+    timer.unref?.();
+    firstRequestTimers.set(socket, timer);
+  };
 
   const maybeFinishDrain = (): void => {
     if (draining && !drained && sockets.size === 0) {
@@ -67,6 +99,7 @@ export function createSocketWorkerRuntime(
     response: ServerResponse,
   ): void => {
     const socket = request.socket as TransferableProxySocket;
+    clearFirstRequestWait(socket);
     activeBySocket.set(socket, (activeBySocket.get(socket) ?? 0) + 1);
     activeResponses.add(response);
     if (draining) {
@@ -100,7 +133,9 @@ export function createSocketWorkerRuntime(
       return;
     }
     sockets.add(socket);
+    awaitingFirstRequest.add(socket);
     socket.once("close", () => {
+      clearFirstRequestWait(socket);
       sockets.delete(socket);
       activeBySocket.delete(socket);
       maybeFinishDrain();
@@ -118,7 +153,14 @@ export function createSocketWorkerRuntime(
       response.shouldKeepAlive = false;
     }
     for (const socket of sockets) {
-      if (!activeBySocket.has(socket)) {
+      if (awaitingFirstRequest.has(socket)) {
+        // IPC commit confirms descriptor delivery, not HTTP parser admission.
+        // Under host pressure a drain can otherwise end the socket before its
+        // first buffered request reaches the server. Preserve it for one
+        // bounded header-start window; the worker supervisor remains the outer
+        // hard shutdown bound.
+        boundFirstRequestWait(socket);
+      } else if (!activeBySocket.has(socket)) {
         socket.end();
       }
     }
@@ -130,6 +172,11 @@ export function createSocketWorkerRuntime(
     drain,
     close: () => {
       server.off("request", requestStarted);
+      for (const timer of firstRequestTimers.values()) {
+        clearTimeout(timer);
+      }
+      firstRequestTimers.clear();
+      awaitingFirstRequest.clear();
       for (const socket of sockets) {
         socket.destroy();
       }
@@ -223,6 +270,35 @@ export function attachSocketWorkerProcess(
   /** Apply supervisor messages while retaining ownership of pending and committed sockets. */
   const onMessage = (message: unknown, handle: unknown): void => {
     if (
+      handle !== undefined &&
+      isProxyWorkerControlMessage(message) &&
+      message.type === "proxy-worker:socket-commit" &&
+      message.generation === input.generation
+    ) {
+      // New supervisors first offer only a socket ID. The descriptor arrives
+      // here at commit, so an abandoned offer cannot consume any client bytes.
+      if (
+        !activated ||
+        gracefulDrain ||
+        !isTransferableProxySocket(handle) ||
+        pendingSockets.has(message.socketId) ||
+        committedSockets.has(message.socketId)
+      ) {
+        destroyTransferredHandle(handle);
+        return;
+      }
+      committedSockets.set(message.socketId, handle);
+      handle.once("close", () => committedSockets.delete(message.socketId));
+      runtime.acceptSocket(handle);
+      send({
+        type: "proxy-worker:socket-committed",
+        generation: input.generation,
+        pid: process.pid,
+        socketId: message.socketId,
+      });
+      return;
+    }
+    if (
       message &&
       typeof message === "object" &&
       (message as { type?: unknown }).type === "proxy-worker:socket"
@@ -302,7 +378,16 @@ export function attachSocketWorkerProcess(
       isProxyWorkerControlMessage(message) &&
       message.generation === input.generation
     ) {
-      if (message.type === "proxy-worker:activate") {
+      if (message.type === "proxy-worker:socket-offer") {
+        if (activated && !gracefulDrain && process.connected) {
+          send({
+            type: "proxy-worker:socket-accepted",
+            generation: input.generation,
+            pid: process.pid,
+            socketId: message.socketId,
+          });
+        }
+      } else if (message.type === "proxy-worker:activate") {
         if (!activated) {
           try {
             input.onActivated?.();
@@ -338,6 +423,12 @@ export function attachSocketWorkerProcess(
           committedSockets.set(message.socketId, socket);
           socket.once("close", () => committedSockets.delete(message.socketId));
           runtime.acceptSocket(socket);
+          send({
+            type: "proxy-worker:socket-committed",
+            generation: input.generation,
+            pid: process.pid,
+            socketId: message.socketId,
+          });
         } else {
           committedSockets.delete(message.socketId);
           socket.destroy();
@@ -356,8 +447,9 @@ export function attachSocketWorkerProcess(
   // Terminal shutdown path: the parent IPC channel is gone (disconnect) or the
   // process is being killed (SIGTERM/SIGINT). Unlike the graceful rolling drain
   // above, pending offers can no longer be committed, so they are destroyed and
-  // the drain runs immediately — a best-effort close is correct when the process
-  // is exiting. The zero-downtime guarantee applies to the rolling handoff
+  // the bounded runtime drain starts immediately. A committed socket may still
+  // use its first-request grace; the supervisor remains the outer hard shutdown
+  // bound. The zero-downtime guarantee applies to the rolling handoff
   // (control-message) path, not to process termination.
   const drain = (): void => {
     for (const socketId of [...pendingSockets.keys()]) {
@@ -376,6 +468,8 @@ export function attachSocketWorkerProcess(
     pid: process.pid,
     version: input.version,
     processInstanceId: input.processInstanceId,
+    socketOfferProtocol: "control-before-handle",
+    socketCommitProtocol: "worker-ack",
   });
   return {
     ...runtime,

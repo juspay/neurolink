@@ -1219,6 +1219,26 @@ export type TelemetryStatsArgs = TelemetryCommandArgs & {
   byProvider?: boolean;
 };
 
+/** Staging-only native collector migration; never activates a service. */
+export type TelemetryNativePrepareArgs = {
+  collectorConfig: string;
+  output: string;
+  queueDirectory: string;
+  compactionDirectory: string;
+  bodyPort: number;
+  bodyStream?: string;
+  metadataQueueMib: number;
+  bodyQueueMib: number;
+  diskQuotaMib: number;
+  metadataRetentionDays: number;
+  bodyRetentionDays: number;
+};
+
+export type TelemetryNativeValidateArgs = {
+  directory: string;
+  collectorBin: string;
+};
+
 /** Available exporter names */
 export type ExporterName =
   | "langfuse"

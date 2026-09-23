@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryBackend** = `object`
 
-Defined in: [types/proxy.ts:893](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L893)
+Defined in: [types/proxy.ts:943](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L943)
 
 Read adapter configuration; credentials never appear in diagnostic reports.
 
@@ -18,7 +18,7 @@ Read adapter configuration; credentials never appear in diagnostic reports.
 
 > **baseUrl**: `string`
 
-Defined in: [types/proxy.ts:894](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L894)
+Defined in: [types/proxy.ts:944](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L944)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:894](https://github.com/juspay/neurolink/blob/releas
 
 > **organization**: `string`
 
-Defined in: [types/proxy.ts:895](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L895)
+Defined in: [types/proxy.ts:945](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L945)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:895](https://github.com/juspay/neurolink/blob/releas
 
 > **stream**: `string`
 
-Defined in: [types/proxy.ts:896](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L896)
+Defined in: [types/proxy.ts:946](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L946)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:896](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **bodyStream?**: `string`
 
-Defined in: [types/proxy.ts:898](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L898)
+Defined in: [types/proxy.ts:948](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L948)
 
 Optional separate backend storage for bulk body chunks.
 
@@ -52,7 +52,7 @@ Optional separate backend storage for bulk body chunks.
 
 > `optional` **authorization?**: `string`
 
-Defined in: [types/proxy.ts:899](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L899)
+Defined in: [types/proxy.ts:949](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L949)
 
 ---
 
@@ -60,4 +60,4 @@ Defined in: [types/proxy.ts:899](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **collectorMetricsUrl?**: `string`
 
-Defined in: [types/proxy.ts:900](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L900)
+Defined in: [types/proxy.ts:950](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L950)

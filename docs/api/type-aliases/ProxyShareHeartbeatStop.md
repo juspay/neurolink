@@ -8,6 +8,6 @@
 
 > **ProxyShareHeartbeatStop** = `Extract`\<[`ProxyShareHeartbeatResponse`](ProxyShareHeartbeatResponse.md), \{ `ok`: `false`; \}\>
 
-Defined in: [types/proxy.ts:4665](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4665)
+Defined in: [types/proxy.ts:4762](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4762)
 
 The stopping half of [ProxyShareHeartbeatResponse](ProxyShareHeartbeatResponse.md).

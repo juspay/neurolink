@@ -8,7 +8,7 @@
 
 > **DirectEvaluateArgs** = [`BaseEvaluateArgs`](BaseEvaluateArgs.md) & `object`
 
-Defined in: [types/cli.ts:1541](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1541)
+Defined in: [types/cli.ts:1561](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1561)
 
 Arguments for the bare `neurolink evaluate` invocation.
 

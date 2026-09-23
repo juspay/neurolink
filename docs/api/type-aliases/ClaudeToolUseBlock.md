@@ -8,7 +8,7 @@
 
 > **ClaudeToolUseBlock** = `object`
 
-Defined in: [types/proxy.ts:79](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L79)
+Defined in: [types/proxy.ts:85](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L85)
 
 Tool-use block returned by Claude in assistant messages.
 
@@ -18,7 +18,7 @@ Tool-use block returned by Claude in assistant messages.
 
 > **type**: `"tool_use"`
 
-Defined in: [types/proxy.ts:80](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L80)
+Defined in: [types/proxy.ts:86](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L86)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:80](https://github.com/juspay/neurolink/blob/release
 
 > **id**: `string`
 
-Defined in: [types/proxy.ts:81](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L81)
+Defined in: [types/proxy.ts:87](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L87)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:81](https://github.com/juspay/neurolink/blob/release
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:82](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L82)
+Defined in: [types/proxy.ts:88](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L88)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:82](https://github.com/juspay/neurolink/blob/release
 
 > **input**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:83](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L83)
+Defined in: [types/proxy.ts:89](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L89)

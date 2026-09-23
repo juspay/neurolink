@@ -29,6 +29,7 @@ export function isProxyWorkerControlMessage(
     return false;
   }
   if (
+    message.type === "proxy-worker:socket-offer" ||
     message.type === "proxy-worker:socket-commit" ||
     message.type === "proxy-worker:socket-cancel"
   ) {
@@ -85,7 +86,10 @@ export function isProxyWorkerStatusMessage(
   ) {
     return true;
   }
-  if (message.type === "proxy-worker:socket-accepted") {
+  if (
+    message.type === "proxy-worker:socket-accepted" ||
+    message.type === "proxy-worker:socket-committed"
+  ) {
     return typeof message.socketId === "string" && message.socketId.length > 0;
   }
   if (message.type === "proxy-worker:replacement-requested") {

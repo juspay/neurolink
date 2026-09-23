@@ -8,7 +8,7 @@
 
 > **ProxyPeer** = `object`
 
-Defined in: [types/proxy.ts:4512](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4512)
+Defined in: [types/proxy.ts:4609](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4609)
 
 A lender this node may borrow from.
 
@@ -18,7 +18,7 @@ A lender this node may borrow from.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4513](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4513)
+Defined in: [types/proxy.ts:4610](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4610)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4513](https://github.com/juspay/neurolink/blob/relea
 
 > **name**: `string`
 
-Defined in: [types/proxy.ts:4514](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4514)
+Defined in: [types/proxy.ts:4611](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4611)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4514](https://github.com/juspay/neurolink/blob/relea
 
 > **url**: `string`
 
-Defined in: [types/proxy.ts:4515](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4515)
+Defined in: [types/proxy.ts:4612](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4612)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:4515](https://github.com/juspay/neurolink/blob/relea
 
 > **token**: `string`
 
-Defined in: [types/proxy.ts:4516](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4516)
+Defined in: [types/proxy.ts:4613](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4613)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:4516](https://github.com/juspay/neurolink/blob/relea
 
 > **priority**: `number`
 
-Defined in: [types/proxy.ts:4518](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4518)
+Defined in: [types/proxy.ts:4615](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4615)
 
 Lower is tried first. Peers of equal priority keep insertion order.
 
@@ -60,7 +60,7 @@ Lower is tried first. Peers of equal priority keep insertion order.
 
 > **enabled**: `boolean`
 
-Defined in: [types/proxy.ts:4519](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4519)
+Defined in: [types/proxy.ts:4616](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4616)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/proxy.ts:4519](https://github.com/juspay/neurolink/blob/relea
 
 > **createdAt**: `number`
 
-Defined in: [types/proxy.ts:4520](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4520)
+Defined in: [types/proxy.ts:4617](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4617)
 
 ---
 
@@ -76,7 +76,7 @@ Defined in: [types/proxy.ts:4520](https://github.com/juspay/neurolink/blob/relea
 
 > **updatedAt**: `number`
 
-Defined in: [types/proxy.ts:4521](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4521)
+Defined in: [types/proxy.ts:4618](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4618)
 
 ---
 
@@ -84,7 +84,7 @@ Defined in: [types/proxy.ts:4521](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **note?**: `string`
 
-Defined in: [types/proxy.ts:4522](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4522)
+Defined in: [types/proxy.ts:4619](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4619)
 
 ---
 
@@ -92,7 +92,7 @@ Defined in: [types/proxy.ts:4522](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **lastUsedAt?**: `number`
 
-Defined in: [types/proxy.ts:4523](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4523)
+Defined in: [types/proxy.ts:4620](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4620)
 
 ---
 
@@ -100,7 +100,7 @@ Defined in: [types/proxy.ts:4523](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **cooldownUntil?**: `number`
 
-Defined in: [types/proxy.ts:4524](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4524)
+Defined in: [types/proxy.ts:4621](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4621)
 
 ---
 
@@ -108,7 +108,7 @@ Defined in: [types/proxy.ts:4524](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **cooldownReason?**: [`ProxyPeerCooldownReason`](ProxyPeerCooldownReason.md)
 
-Defined in: [types/proxy.ts:4525](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4525)
+Defined in: [types/proxy.ts:4622](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4622)
 
 ---
 
@@ -116,7 +116,7 @@ Defined in: [types/proxy.ts:4525](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **lastObservation?**: [`ProxyPeerObservation`](ProxyPeerObservation.md)
 
-Defined in: [types/proxy.ts:4526](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4526)
+Defined in: [types/proxy.ts:4623](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4623)
 
 ---
 
@@ -124,7 +124,7 @@ Defined in: [types/proxy.ts:4526](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **pendingProvision?**: [`ProxyPeerPendingProvision`](ProxyPeerPendingProvision.md)
 
-Defined in: [types/proxy.ts:4528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4528)
+Defined in: [types/proxy.ts:4625](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4625)
 
 Set while a split-PKCE provisioning request is outstanding.
 
@@ -134,7 +134,7 @@ Set while a split-PKCE provisioning request is outstanding.
 
 > `optional` **receiptSecret?**: `string`
 
-Defined in: [types/proxy.ts:4530](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4530)
+Defined in: [types/proxy.ts:4627](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4627)
 
 Shared secret this lender's receipts are signed with, when known.
 
@@ -144,7 +144,7 @@ Shared secret this lender's receipts are signed with, when known.
 
 > `optional` **reciprocalPeer?**: `string`
 
-Defined in: [types/proxy.ts:4532](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4532)
+Defined in: [types/proxy.ts:4629](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4629)
 
 Label of the grant this node issued to the same person, for netting.
 
@@ -154,6 +154,6 @@ Label of the grant this node issued to the same person, for netting.
 
 > `optional` **lastReceiptSequence?**: `number`
 
-Defined in: [types/proxy.ts:4534](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4534)
+Defined in: [types/proxy.ts:4631](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4631)
 
 Highest receipt sequence collected from this lender.

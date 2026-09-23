@@ -8,7 +8,7 @@
 
 > **ProxyUsageStatsSnapshot** = `object`
 
-Defined in: [types/proxy.ts:1477](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1477)
+Defined in: [types/proxy.ts:1528](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1528)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:1477](https://github.com/juspay/neurolink/blob/relea
 
 > **stats**: [`ProxyStats`](ProxyStats.md)
 
-Defined in: [types/proxy.ts:1478](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1478)
+Defined in: [types/proxy.ts:1529](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1529)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:1478](https://github.com/juspay/neurolink/blob/relea
 
 > **statsVersion**: `number`
 
-Defined in: [types/proxy.ts:1479](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1479)
+Defined in: [types/proxy.ts:1530](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1530)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:1479](https://github.com/juspay/neurolink/blob/relea
 
 > **terminalErrors**: [`ProxyTerminalErrorJournal`](ProxyTerminalErrorJournal.md)
 
-Defined in: [types/proxy.ts:1480](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1480)
+Defined in: [types/proxy.ts:1531](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1531)
 
 ---
 
@@ -40,4 +40,4 @@ Defined in: [types/proxy.ts:1480](https://github.com/juspay/neurolink/blob/relea
 
 > **terminalErrorsVersion**: `number`
 
-Defined in: [types/proxy.ts:1481](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1481)
+Defined in: [types/proxy.ts:1532](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1532)

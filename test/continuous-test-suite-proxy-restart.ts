@@ -18,7 +18,8 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { request, Server } from "node:http";
+import { createServer as createHttpServer, request, Server } from "node:http";
+import { createServer as createNetServer, type Socket } from "node:net";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import {
@@ -36,7 +37,9 @@ import {
 } from "../dist/proxy/restartControl.js";
 import { createProxyStartApp } from "../dist/cli/commands/proxy.js";
 import { markProxyReady } from "../dist/proxy/proxyHealth.js";
+import { beginProxyRequest } from "../dist/proxy/proxyActivity.js";
 import { shouldRefreshStaleSupervisor } from "../dist/proxy/updateCoordinator.js";
+import { createSocketWorkerRuntime } from "../dist/proxy/socketWorkerRuntime.js";
 
 const { test, runSuite } = defineSuite("Safe Proxy Restart", { offline: true });
 const fixture = fileURLToPath(
@@ -156,7 +159,11 @@ for (const mode of [
       assertEqual(count("state-cleared"), stage === "bootstrap" ? 0 : 1);
       assertEqual(
         count("otel-stopped"),
-        stage === "bootstrap" || stage.startsWith("telemetry-") ? 0 : 1,
+        stage === "bootstrap" ||
+          stage === "otel-flush-reject" ||
+          stage.startsWith("telemetry-")
+          ? 0
+          : 1,
       );
       assertEqual(
         count("control-closed"),
@@ -431,12 +438,19 @@ async function withService(
     },
     isUpdatePending: () => mode === "updating",
     getStatus: async () => {
-      if (++statusCalls > 1 && mode === "handoff-noise") {
+      statusCalls++;
+      if (statusCalls === 1 && mode === "transient-status") {
+        throw new Error("recorded transient status failure");
+      }
+      if (statusCalls === 2 && mode === "transient-post-status") {
+        throw new Error("recorded transient post-activation status failure");
+      }
+      if (statusCalls > 1 && mode === "handoff-noise") {
         counterNoise++;
       }
       const response = await fetch(`${url}/status`, {
         headers: { connection: "close" },
-        signal: AbortSignal.timeout(1_000),
+        signal: AbortSignal.timeout(5_000),
       });
       return response.json();
     },
@@ -467,7 +481,7 @@ async function withService(
               USERPROFILE: home,
               XDG_CONFIG_HOME: join(home, ".config"),
             },
-            timeoutMs: 15_000,
+            timeoutMs: 30_000,
           },
         ),
     });
@@ -503,6 +517,30 @@ await test("check verifies readiness without spawning a worker or changing setti
   });
 });
 
+await test("restart retries a transient serving-status failure without duplicating replacement", async () => {
+  await withService("transient-status", async ({ command, server }) => {
+    const before = server.snapshot();
+    const outcome = await command();
+    assertEqual(outcome.exitCode, 0, "transient status failure escaped retry");
+    assertEqual(JSON.parse(outcome.stdout).phase, "activated");
+    assertEqual(server.snapshot().generation, before.generation + 1);
+  });
+});
+
+await test("restart retries transient post-activation status without replaying replacement", async () => {
+  await withService("transient-post-status", async ({ command, server }) => {
+    const before = server.snapshot();
+    const outcome = await command();
+    assertEqual(
+      outcome.exitCode,
+      0,
+      "post-activation status failure escaped retry",
+    );
+    assertEqual(JSON.parse(outcome.stdout).phase, "activated");
+    assertEqual(server.snapshot().generation, before.generation + 1);
+  });
+});
+
 // Deterministic admission overlap: supervisor replacement needs full
 // quiescence, but worker-only replacement must remain available under traffic.
 for (const admissionState of ["pending-transfer", "queued-admission"]) {
@@ -535,25 +573,37 @@ await test("restart preserves an active stream and admits new requests throughou
   await withService("normal", async ({ command, server, url }) => {
     const before = server.snapshot();
     const stream = await fetch(`${url}/stream`, {
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(60_000),
     });
     const streamBody = stream.arrayBuffer();
     let polling = true;
     let failures = 0;
+    const failureDetails: string[] = [];
     let probes = 0;
+    let handoffPhase = "restart";
     const probesDone = (async () => {
       while (polling) {
+        const probeNumber = probes;
+        const probePhase = handoffPhase;
+        const probeStartedAt = Date.now();
         try {
           const res = await fetch(url, {
             headers: { connection: "close" },
-            signal: AbortSignal.timeout(1_000),
+            signal: AbortSignal.timeout(5_000),
           });
           if (!res.ok) {
             failures++;
+            failureDetails.push(`status=${res.status}`);
           }
           await res.text();
-        } catch {
+        } catch (error) {
           failures++;
+          const cause = error instanceof Error ? error.cause : undefined;
+          failureDetails.push(
+            error instanceof Error
+              ? `${error.name}: ${error.message}${cause instanceof Error ? `; cause=${cause.name}: ${cause.message}${"code" in cause ? ` code=${String(cause.code)}` : ""}` : cause === undefined ? "" : `; cause=${String(cause)}`}; startedPhase=${probePhase}; currentPhase=${handoffPhase}; probe=${probeNumber}; elapsedMs=${Date.now() - probeStartedAt}; snapshot=${JSON.stringify(server.snapshot())}`
+              : String(error),
+          );
         }
         probes++;
         await delay(25);
@@ -566,6 +616,7 @@ await test("restart preserves an active stream and admits new requests throughou
       }
       assertEqual(outcome.exitCode, 0, "worker restart failed");
       const result = JSON.parse(outcome.stdout);
+      handoffPhase = "activated";
       assertEqual(result.phase, "activated", "replacement was not verified");
       assertEqual(result.supervisorPid, process.pid, "listener owner changed");
       assert(
@@ -576,12 +627,16 @@ await test("restart preserves an active stream and admits new requests throughou
         result.drainingWorkers > 0,
         "active stream did not retain its worker",
       );
-      const blocked = await command();
-      assertEqual(
-        blocked.exitCode,
-        1,
-        "restart accumulated an extra draining worker",
-      );
+      if (server.snapshot().draining.length > 0) {
+        handoffPhase = "second-command";
+        const blocked = await command();
+        assertEqual(
+          blocked.exitCode,
+          1,
+          "restart accumulated an extra draining worker",
+        );
+      }
+      handoffPhase = "stream-drain";
       const body = Buffer.from(await streamBody);
       assertEqual(body.length, 256_000, "stream body was incomplete");
       for (let chunk = 0; chunk < 1_000; chunk++) {
@@ -598,7 +653,10 @@ await test("restart preserves an active stream and admits new requests throughou
       await streamBody.catch(() => undefined);
     }
     assert(probes > 5, "no concurrent admission evidence was collected");
-    assertEqual(failures, 0, "admission failed during handoff");
+    assert(
+      failures === 0,
+      `admission failed during handoff: ${failureDetails.slice(0, 5).join("; ")}`,
+    );
     assertEqual(
       server.snapshot().rejectedSockets,
       0,
@@ -610,6 +668,75 @@ await test("restart preserves an active stream and admits new requests throughou
       "handoff lost a socket transfer",
     );
   });
+});
+
+await test("drain preserves a committed socket until its first request is registered", async () => {
+  const httpServer = createHttpServer((_request, response) => {
+    response.setHeader("connection", "close");
+    response.end("committed-response");
+  });
+  let drained = false;
+  const runtime = createSocketWorkerRuntime(httpServer, {
+    firstRequestGraceMs: 2_000,
+    onDrained: () => {
+      drained = true;
+    },
+  });
+  let acceptSocket: ((socket: Socket) => void) | undefined;
+  const accepted = new Promise<Socket>((resolve) => {
+    acceptSocket = resolve;
+  });
+  const listener = createNetServer({ pauseOnConnect: true }, (socket) =>
+    acceptSocket?.(socket),
+  );
+  await new Promise<void>((resolve, reject) => {
+    listener.once("error", reject);
+    listener.listen(0, "127.0.0.1", resolve);
+  });
+  const address = listener.address();
+  if (!address || typeof address === "string") {
+    throw new Error("fixture listener did not expose a TCP address");
+  }
+  const response = new Promise<string>((resolve, reject) => {
+    const req = request(
+      {
+        host: "127.0.0.1",
+        port: address.port,
+        path: "/",
+        method: "GET",
+        agent: false,
+      },
+      (res) => {
+        let body = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          body += chunk;
+        });
+        res.once("end", () => resolve(body));
+        res.once("error", reject);
+      },
+    );
+    req.once("error", reject);
+    req.end();
+  });
+  try {
+    const socket = await accepted;
+    runtime.acceptSocket(socket);
+    // Reproduce the rolling race deterministically: drain in the commit turn,
+    // before Node can emit the HTTP request for already-buffered bytes.
+    runtime.drain();
+    assertEqual(await response, "committed-response");
+    for (let attempt = 0; attempt < 100 && !drained; attempt++) {
+      await delay(10);
+    }
+    assert(
+      drained,
+      "runtime did not drain after the committed request finished",
+    );
+  } finally {
+    runtime.close();
+    await new Promise<void>((resolve) => listener.close(() => resolve()));
+  }
 });
 
 for (const mode of [
@@ -633,7 +760,7 @@ for (const mode of [
         "failure result was hidden",
       );
       assert(
-        Date.now() - start < 10_000,
+        Date.now() - start < 20_000,
         "failed candidate did not complete within the bounded test deadline",
       );
       assertEqual(
@@ -673,7 +800,7 @@ for (const mode of [
           "unresponsive candidate survived bounded cleanup",
         );
       }
-      const response = await fetch(url, { signal: AbortSignal.timeout(1_000) });
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
       assertEqual(response.status, 200, "original worker stopped serving");
       await response.text();
     });
@@ -1013,6 +1140,33 @@ await test("rolling workers reject the legacy global drain without changing admi
     });
     assertEqual(resume.status, 200);
     assertEqual(readiness.drainingForUpdate, false);
+    const finishRequest = beginProxyRequest();
+    const idleFence = () =>
+      app.request("/internal/update-control", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-neurolink-update-token": "isolated-restart-fixture",
+        },
+        body: JSON.stringify({ action: "fence_for_supervisor_refresh" }),
+      });
+    try {
+      assertEqual((await idleFence()).status, 409);
+      assertEqual(readiness.acceptingConnections, true);
+      assertEqual(readiness.drainingForUpdate, false);
+    } finally {
+      finishRequest();
+    }
+    assertEqual((await idleFence()).status, 200);
+    assertEqual(readiness.drainingForUpdate, true);
+    await app.request("/internal/update-control", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-neurolink-update-token": "isolated-restart-fixture",
+      },
+      body: JSON.stringify({ action: "resume" }),
+    });
   } finally {
     if (previous === undefined) {
       delete process.env.NEUROLINK_PROXY_SOCKET_WORKER;

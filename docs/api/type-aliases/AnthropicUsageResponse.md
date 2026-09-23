@@ -8,7 +8,7 @@
 
 > **AnthropicUsageResponse** = `object`
 
-Defined in: [types/proxy.ts:1690](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1690)
+Defined in: [types/proxy.ts:1741](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1741)
 
 Response body of GET https://api.anthropic.com/api/oauth/usage (loose —
 unknown keys are ignored, known keys may be absent or null).
@@ -19,7 +19,7 @@ unknown keys are ignored, known keys may be absent or null).
 
 > `optional` **five_hour?**: [`AnthropicUsageWindow`](AnthropicUsageWindow.md) \| `null`
 
-Defined in: [types/proxy.ts:1691](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1691)
+Defined in: [types/proxy.ts:1742](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1742)
 
 ---
 
@@ -27,7 +27,7 @@ Defined in: [types/proxy.ts:1691](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **seven_day?**: [`AnthropicUsageWindow`](AnthropicUsageWindow.md) \| `null`
 
-Defined in: [types/proxy.ts:1692](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1692)
+Defined in: [types/proxy.ts:1743](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1743)
 
 ---
 
@@ -35,7 +35,7 @@ Defined in: [types/proxy.ts:1692](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **limits?**: [`AnthropicUsageLimit`](AnthropicUsageLimit.md)[] \| `null`
 
-Defined in: [types/proxy.ts:1693](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1693)
+Defined in: [types/proxy.ts:1744](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1744)
 
 ---
 
@@ -43,4 +43,4 @@ Defined in: [types/proxy.ts:1693](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **extra_usage?**: \{ `is_enabled?`: `boolean` \| `null`; \} \| `null`
 
-Defined in: [types/proxy.ts:1694](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1694)
+Defined in: [types/proxy.ts:1745](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1745)

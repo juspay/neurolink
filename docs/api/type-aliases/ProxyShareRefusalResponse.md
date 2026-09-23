@@ -8,7 +8,7 @@
 
 > **ProxyShareRefusalResponse** = `object`
 
-Defined in: [types/proxy.ts:4379](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4379)
+Defined in: [types/proxy.ts:4476](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4476)
 
 A refusal rendered for the wire: status, headers and Anthropic-shaped body.
 
@@ -18,7 +18,7 @@ A refusal rendered for the wire: status, headers and Anthropic-shaped body.
 
 > **status**: `number`
 
-Defined in: [types/proxy.ts:4380](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4380)
+Defined in: [types/proxy.ts:4477](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4477)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4380](https://github.com/juspay/neurolink/blob/relea
 
 > **headers**: `Record`\<`string`, `string`\>
 
-Defined in: [types/proxy.ts:4381](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4381)
+Defined in: [types/proxy.ts:4478](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4478)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4381](https://github.com/juspay/neurolink/blob/relea
 
 > **body**: `object`
 
-Defined in: [types/proxy.ts:4382](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4382)
+Defined in: [types/proxy.ts:4479](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4479)
 
 #### type
 

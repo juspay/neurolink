@@ -18,7 +18,9 @@ initializeCliLifecycle(async () => {
     registerCliShutdownOwner(async (signal) => {
       process.stdout.write(`draining signal=${signal}\n`);
       await new Promise((resolve) => setTimeout(resolve, 60));
-      process.stdout.write("drained\n");
+      await new Promise((resolve) =>
+        process.stdout.write("drained\n", resolve),
+      );
       process.exit(0);
     });
     process.stdout.write("owner-registered\n");
@@ -48,6 +50,10 @@ if (mode.startsWith("supervisor-stop-")) {
   });
   const stage = mode.slice("supervisor-stop-".length);
   const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  let resolveLateWorkerClosed;
+  const lateWorkerClosed = new Promise((resolve) => {
+    resolveLateWorkerClosed = resolve;
+  });
   const signalSelf = process.kill.bind(process);
   process.kill = (pid, signal) => {
     if (pid !== process.pid) {
@@ -109,17 +115,16 @@ if (mode.startsWith("supervisor-stop-")) {
   await replaceModule("../../dist/proxy/otelLogSink.js", {
     initializeProxyOtelLogs: () => {},
     routeProxyConsoleToOtel: () => {},
-    flushProxyOtelLogs: async () => {
+    shutdownProxyOtelLogs: async () => {
       if (stage === "otel-flush-reject") {
         throw new Error("fixture OTel flush failure");
       }
       if (stage === "worker-late") {
-        // Observe a late resource while bounded telemetry cleanup is pending.
-        await pause(140);
+        // Observe a late resource while the consolidated bounded telemetry
+        // flush-and-shutdown operation is pending. Synchronize to the close
+        // continuation instead of relying on timer ordering under host load.
+        await lateWorkerClosed;
       }
-      process.stdout.write("otel-flushed\n");
-    },
-    shutdownProxyOtelLogs: async () => {
       if (stage === "telemetry-reject") {
         throw new Error("fixture telemetry shutdown failure");
       }
@@ -156,6 +161,7 @@ if (mode.startsWith("supervisor-stop-")) {
         close: async () => {
           await pause(20);
           process.stdout.write("worker-closed\n");
+          resolveLateWorkerClosed();
         },
       };
     },

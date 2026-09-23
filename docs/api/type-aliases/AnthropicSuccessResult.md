@@ -8,4 +8,4 @@
 
 > **AnthropicSuccessResult** = \{ `retryNextAccount`: `true`; `failure?`: \{ `message`: `string`; `rateLimit`: `boolean`; `retryDelayMs?`: `number`; \}; \} \| \{ `response`: `Response` \| `unknown`; `holdsAccountAdmission?`: `boolean`; \}
 
-Defined in: [types/proxy.ts:1229](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1229)
+Defined in: [types/proxy.ts:1280](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1280)
