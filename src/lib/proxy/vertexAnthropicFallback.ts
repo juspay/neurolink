@@ -14,6 +14,8 @@
  */
 
 import { GoogleAuth } from "google-auth-library";
+import { logger } from "../utils/logger.js";
+import { isTransientNetworkError } from "./proxyFetch.js";
 import type {
   VertexAccessTokenProvider,
   UsageContext,
@@ -85,7 +87,129 @@ export function mapVertexOutputConfig(
   return Object.keys(rest).length > 0 ? rest : undefined;
 }
 
-/** Strip what Vertex rejects and pin the API version it requires. */
+/**
+ * Vertex's message schema is exactly `{ role, content }`. Claude Code 2.1.x
+ * also puts `output_config` on its system "directive" turn, which the
+ * first-party API accepts and Vertex refuses: "messages.1.output_config:
+ * Extra inputs are not permitted".
+ */
+const VERTEX_MESSAGE_KEYS: ReadonlySet<string> = new Set(["role", "content"]);
+
+/**
+ * Claude Code stamps its version into a system block as
+ * `x-anthropic-billing-header: cc_version=…`. That is first-party billing
+ * plumbing; on Vertex it only triggers a client-version check against the
+ * fallback model, which the client never asked for ("Claude Code 2.1.278 does
+ * not support this model"). It also sits first in `system` and varies with the
+ * client build, entrypoint and subagent flag, so identical conversations from
+ * different builds could never share a Vertex prompt cache while it stayed.
+ *
+ * Matched as a prefix, not anywhere in the text: the generator
+ * (`buildStableClaudeCodeBillingHeader`) always emits it first, and a looser
+ * match would delete a caller's own block that merely mentions the header.
+ */
+const BILLING_HEADER_MARKER = "x-anthropic-billing-header";
+
+/**
+ * How each mid-conversation tool change reads once it is plain text: the prefix
+ * when the tool is named, and a sentence for a reference with no usable name.
+ */
+const TOOL_CHANGE_TEXT: Readonly<
+  Record<string, { named: string; unnamed: string }>
+> = {
+  tool_addition: {
+    named: "Tool now available: ",
+    unnamed: "A tool became available.",
+  },
+  tool_removal: {
+    named: "Tool no longer available: ",
+    unnamed: "A tool was withdrawn.",
+  },
+};
+
+/**
+ * A change references a tool rather than defining one: `tool_reference` and
+ * `mcp_tool_reference` carry a `name`, and an MCP toolset reference carries
+ * only its `server_name`.
+ */
+function toolChangeText(type: string, tool: unknown): string {
+  const wording = TOOL_CHANGE_TEXT[type];
+  const label = !record(tool)
+    ? ""
+    : typeof tool.name === "string" && tool.name.trim()
+      ? tool.name.trim()
+      : typeof tool.server_name === "string"
+        ? tool.server_name.trim()
+        : "";
+  return label ? `${wording.named}${label}` : wording.unnamed;
+}
+
+/**
+ * Vertex rejects the `tool_addition` and `tool_removal` tags that offer or
+ * withdraw a tool mid-conversation. Each one becomes a text block in the same
+ * position, so the notice survives and the array never empties. Only the
+ * message's own content array is touched: nested `tool_result` content stays
+ * exactly as sent.
+ */
+function rewriteToolChanges(content: unknown): unknown {
+  if (!Array.isArray(content)) {
+    return content;
+  }
+  let changed = false;
+  const mapped = content.map((block) => {
+    if (
+      !record(block) ||
+      typeof block.type !== "string" ||
+      !Object.hasOwn(TOOL_CHANGE_TEXT, block.type)
+    ) {
+      return block;
+    }
+    changed = true;
+    return {
+      type: "text",
+      text: toolChangeText(block.type, block.tool),
+      ...(block.cache_control !== undefined
+        ? { cache_control: block.cache_control }
+        : {}),
+    };
+  });
+  return changed ? mapped : content;
+}
+
+function isEmptyContent(content: unknown): boolean {
+  return (
+    content === undefined ||
+    content === "" ||
+    (Array.isArray(content) && content.length === 0)
+  );
+}
+
+/**
+ * Move a `cache_control` set on the message itself onto its last content
+ * block, which caches the same prefix, since Vertex accepts only `role` and
+ * `content` on a message. String content becomes one text block to carry it.
+ * A breakpoint with no block to land on, or whose block already has one, is
+ * reported rather than dropped silently.
+ */
+function carryMessageBreakpoint(content: unknown, marker: unknown): unknown {
+  if (marker === undefined) {
+    return content;
+  }
+  if (typeof content === "string" && content !== "") {
+    return [{ type: "text", text: content, cache_control: marker }];
+  }
+  const last = Array.isArray(content) ? content.at(-1) : undefined;
+  if (
+    Array.isArray(content) &&
+    record(last) &&
+    last.cache_control === undefined
+  ) {
+    return [...content.slice(0, -1), { ...last, cache_control: marker }];
+  }
+  warnDroppedBreakpoint("a message-level cache_control");
+  return content;
+}
+
 /**
  * Vertex refuses `role: "system"` messages outright — "role 'system' is not
  * supported on this model" — where the first-party Messages API accepts them
@@ -99,21 +223,179 @@ export function mapVertexOutputConfig(
  * instead, which keeps both the text and the position. Consecutive same-role
  * turns are accepted, so this never produces an invalid sequence.
  */
-function normalizeVertexRoles(messages: unknown): unknown {
+function normalizeVertexMessage(message: unknown): unknown {
+  if (!record(message)) {
+    return message;
+  }
+  const role = message.role === "system" ? "user" : message.role;
+  const content = carryMessageBreakpoint(
+    rewriteToolChanges(message.content),
+    message.cache_control,
+  );
+  const onlyKnownKeys = Object.keys(message).every((key) =>
+    VERTEX_MESSAGE_KEYS.has(key),
+  );
+  if (onlyKnownKeys && role === message.role && content === message.content) {
+    return message;
+  }
+  return { role, ...("content" in message ? { content } : {}) };
+}
+
+/** Index of the last `role: "user"` message, or -1 when there is none. */
+function lastUserIndex(messages: readonly unknown[]): number {
+  return messages.findLastIndex(
+    (message) => record(message) && message.role === "user",
+  );
+}
+
+/**
+ * A turn-scoped system message (`clear_at: "next_user_message"`) renders only
+ * while no user message comes after it — one carrying only `tool_result`
+ * counts — and renders nothing once one does. Sent to Vertex as a user turn it
+ * would keep speaking after it should have gone quiet.
+ */
+function isClearedTurnScopedMessage(
+  message: unknown,
+  index: number,
+  lastUser: number,
+): boolean {
+  return (
+    record(message) &&
+    message.role === "system" &&
+    message.clear_at === "next_user_message" &&
+    index < lastUser
+  );
+}
+
+/**
+ * A system turn left with no content carries nothing once its extra keys are
+ * gone — the directive-only form is `content: []` plus `output_config`, whose
+ * effort is resolved at the top level — so it is dropped rather than sent as
+ * an empty user turn. So is a turn-scoped message that has already cleared.
+ */
+function normalizeVertexMessages(messages: unknown): unknown {
   if (!Array.isArray(messages)) {
     return messages;
   }
+  const lastUser = lastUserIndex(messages);
   let changed = false;
-  const mapped = messages.map((message) => {
-    if (!record(message) || message.role !== "system") {
-      return message;
+  const normalized = messages.flatMap((message, index) => {
+    if (isClearedTurnScopedMessage(message, index, lastUser)) {
+      changed = true;
+      return [];
     }
-    changed = true;
-    return { ...message, role: "user" };
+    const next = normalizeVertexMessage(message);
+    if (next !== message) {
+      changed = true;
+    }
+    if (
+      record(message) &&
+      message.role === "system" &&
+      record(next) &&
+      isEmptyContent(next.content)
+    ) {
+      return [];
+    }
+    return [next];
   });
-  return changed ? mapped : messages;
+  return changed ? normalized : messages;
 }
 
+/**
+ * The effort in force for the turn being answered. A per-message directive
+ * "takes effect from the next user turn and holds until a later message changes
+ * it", so the governing one is the last directive before the final user
+ * message; one after it belongs to a turn not yet taken. It overrides only the
+ * settings it names. Vertex has no per-message effort, so this becomes the
+ * request's top-level `output_config`.
+ */
+function resolveOutputConfig(topLevel: unknown, messages: unknown): unknown {
+  if (!Array.isArray(messages)) {
+    return topLevel;
+  }
+  const lastUser = lastUserIndex(messages);
+  const directive = messages
+    .slice(0, Math.max(lastUser, 0))
+    .findLast(
+      (message) =>
+        record(message) &&
+        message.role === "system" &&
+        record(message.output_config),
+    );
+  if (!record(directive) || !record(directive.output_config)) {
+    return topLevel;
+  }
+  return {
+    ...(record(topLevel) ? topLevel : {}),
+    ...directive.output_config,
+  };
+}
+
+function isBillingBlock(block: unknown): boolean {
+  return (
+    record(block) &&
+    typeof block.text === "string" &&
+    block.text.trimStart().startsWith(BILLING_HEADER_MARKER)
+  );
+}
+
+function warnDroppedBreakpoint(source: string): void {
+  logger.warn(
+    `[proxy] Vertex fallback could not keep the cache_control breakpoint on ${source}`,
+  );
+}
+
+/**
+ * Remove the billing block without losing a cache breakpoint it carried: the
+ * marker moves onto the block that takes its place. When there is no such
+ * block, or that block already has its own marker, the loss is reported rather
+ * than passed over, because this path bills in real currency.
+ */
+function stripBillingBlock(system: unknown): unknown {
+  if (!Array.isArray(system) || !system.some(isBillingBlock)) {
+    return system;
+  }
+  const kept: unknown[] = [];
+  let carried: unknown;
+  for (const block of system) {
+    if (isBillingBlock(block)) {
+      if (record(block) && block.cache_control !== undefined) {
+        if (carried !== undefined) {
+          warnDroppedBreakpoint("the Claude Code billing block");
+        }
+        carried = block.cache_control;
+      }
+      continue;
+    }
+    if (carried !== undefined && record(block)) {
+      if (block.cache_control === undefined) {
+        kept.push({ ...block, cache_control: carried });
+      } else {
+        warnDroppedBreakpoint("the Claude Code billing block");
+        kept.push(block);
+      }
+      carried = undefined;
+      continue;
+    }
+    kept.push(block);
+  }
+  if (carried !== undefined) {
+    warnDroppedBreakpoint("the Claude Code billing block");
+  }
+  return kept.length > 0 ? kept : undefined;
+}
+
+/**
+ * Strip what Vertex rejects and pin the API version it requires.
+ *
+ * Prompt caching constrains every rewrite here. Anthropic caches only up to an
+ * explicit `cache_control` marker, at most four per request, over a prefix
+ * rendered `tools → system → messages`; anything removed or inserted before a
+ * marker invalidates it and everything after. So: never drop a marker, never
+ * reorder `system`, and keep each rewrite deterministic so consecutive turns
+ * share a prefix. Vertex holds its own cache, apart from the first-party one,
+ * so nothing here can disturb first-party hits.
+ */
 export function buildVertexAnthropicPayload(
   body: Readonly<Record<string, unknown>>,
 ): Record<string, unknown> {
@@ -121,8 +403,12 @@ export function buildVertexAnthropicPayload(
   const payload = Object.fromEntries(
     Object.entries(body).filter(([key]) => !dropped.has(key)),
   );
-  if ("output_config" in payload) {
-    const mapped = mapVertexOutputConfig(payload.output_config);
+  const outputConfig = resolveOutputConfig(
+    payload.output_config,
+    payload.messages,
+  );
+  if (outputConfig !== undefined) {
+    const mapped = mapVertexOutputConfig(outputConfig);
     if (mapped === undefined) {
       delete payload.output_config;
     } else {
@@ -130,7 +416,15 @@ export function buildVertexAnthropicPayload(
     }
   }
   if ("messages" in payload) {
-    payload.messages = normalizeVertexRoles(payload.messages);
+    payload.messages = normalizeVertexMessages(payload.messages);
+  }
+  if ("system" in payload) {
+    const system = stripBillingBlock(payload.system);
+    if (system === undefined) {
+      delete payload.system;
+    } else {
+      payload.system = system;
+    }
   }
   return { ...payload, anthropic_version: VERTEX_ANTHROPIC_VERSION };
 }
@@ -194,6 +488,57 @@ export function setVertexAccessTokenProviderForTests(
   accessTokenProviderForTests = provider;
 }
 
+const DNS_FAILURE_CODES: ReadonlySet<string> = new Set([
+  "ENOTFOUND",
+  "EAI_AGAIN",
+]);
+const DNS_FAILURE_MESSAGE = /\bgetaddrinfo (ENOTFOUND|EAI_AGAIN)\b/;
+const TOKEN_RETRY_DELAY_MS = 250;
+
+/**
+ * A resolver failure while reaching Google's token endpoint. The shared proxy
+ * classifier leaves DNS codes out, since elsewhere one can mean a mistyped
+ * host, but this endpoint is fixed and its failures on 2026-09-23 were blips
+ * reported only in the message text ("getaddrinfo ENOTFOUND
+ * oauth2.googleapis.com").
+ */
+function isDnsFailure(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && record(current); depth++) {
+    if (
+      (typeof current.code === "string" &&
+        DNS_FAILURE_CODES.has(current.code)) ||
+      (typeof current.message === "string" &&
+        DNS_FAILURE_MESSAGE.test(current.message))
+    ) {
+      return true;
+    }
+    current = current.cause;
+  }
+  return false;
+}
+
+/**
+ * Run once more after a short pause when the first attempt hit a transient
+ * network failure: anything the shared proxy classifier retries, plus a DNS
+ * blip. One retry absorbs a blip without hiding a real outage: a second
+ * failure, or any other error, surfaces unchanged.
+ */
+export async function withTransientNetworkRetry<T>(
+  run: () => Promise<T>,
+  delayMs: number = TOKEN_RETRY_DELAY_MS,
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    if (!isTransientNetworkError(error) && !isDnsFailure(error)) {
+      throw error;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+    return run();
+  }
+}
+
 /**
  * Send one Anthropic-shaped request to Vertex and return the upstream response
  * untouched, so the caller can stream its bytes straight to the client.
@@ -201,7 +546,7 @@ export function setVertexAccessTokenProviderForTests(
 export async function dispatchVertexAnthropicPassthrough(
   request: VertexAnthropicPassthroughRequest,
 ): Promise<Response> {
-  const token = await vertexAccessToken();
+  const token = await withTransientNetworkRetry(() => vertexAccessToken());
   if (!token) {
     throw new Error(
       "Vertex passthrough could not obtain a Google access token; " +
