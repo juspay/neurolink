@@ -8,7 +8,7 @@
 
 > **VoiceServerArgs** = `object`
 
-Defined in: [types/cli.ts:1800](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1800)
+Defined in: [types/cli.ts:1817](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1817)
 
 Arguments for `neurolink voice-server`.
 
@@ -18,4 +18,4 @@ Arguments for `neurolink voice-server`.
 
 > **port**: `number`
 
-Defined in: [types/cli.ts:1801](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1801)
+Defined in: [types/cli.ts:1818](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1818)

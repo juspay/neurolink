@@ -385,6 +385,9 @@ export async function classifyJev(
   // are already assembled by the caller. Sending them costs almost nothing
   // and they are exactly what distinguishes a long tool-using request from a
   // short conversational one.
+  // Continuity is sent as `session_bound` / `prior_messages`, never as the
+  // raw sessionId: the id is an opaque identifier that tells a third-party
+  // model nothing, so it stays in-process.
   const result = await decide({
     state: {
       request: (input.prompt ?? "").slice(0, 8000),
@@ -392,6 +395,10 @@ export async function classifyJev(
       has_tools_available: input.hasTools ?? false,
       request_includes_images: input.requiresVision ?? false,
       caller_requested_thinking: input.thinkingLevel ?? "none",
+      session_bound: input.sessionBound ?? false,
+      ...(typeof input.priorMessageCount === "number"
+        ? { prior_messages: input.priorMessageCount }
+        : {}),
     },
     questions,
     timeoutMs,

@@ -8,7 +8,7 @@
 
 > **ClassifierRouterDeps** = `object`
 
-Defined in: [types/classifierRouter.ts:375](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L375)
+Defined in: [types/classifierRouter.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L379)
 
 Injected dependencies — keep `ClassifierRouter` provider-import-free and
 unit-testable (mirrors the `toolRouting` generateFn-injection pattern).
@@ -19,7 +19,7 @@ unit-testable (mirrors the `toolRouting` generateFn-injection pattern).
 
 > `optional` **generate?**: [`ClassifierGenerateFn`](ClassifierGenerateFn.md)
 
-Defined in: [types/classifierRouter.ts:377](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L377)
+Defined in: [types/classifierRouter.ts:381](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L381)
 
 LLM caller for the "llm" strategy. Omit to disable LLM classification.
 
@@ -29,7 +29,7 @@ LLM caller for the "llm" strategy. Omit to disable LLM classification.
 
 > `optional` **decide?**: [`ClassifierDecideFn`](ClassifierDecideFn.md)
 
-Defined in: [types/classifierRouter.ts:379](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L379)
+Defined in: [types/classifierRouter.ts:383](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L383)
 
 Decision caller for the "jev" strategy. Omit to disable it.
 
@@ -39,4 +39,4 @@ Decision caller for the "jev" strategy. Omit to disable it.
 
 > `optional` **logger?**: [`ClassifierLogger`](ClassifierLogger.md)
 
-Defined in: [types/classifierRouter.ts:380](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L380)
+Defined in: [types/classifierRouter.ts:384](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L384)

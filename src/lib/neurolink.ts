@@ -5438,6 +5438,7 @@ Current user's request: ${currentInput}`;
       disableTools?: boolean;
       excludeTools?: string[];
       toolFilter?: string[];
+      conversationMessages?: unknown[];
     };
     // Prevent recursion: the LLM classifier itself calls generate() with this
     // marker set. Also respect any explicit prior routing decision.
@@ -5461,6 +5462,12 @@ Current user's request: ${currentInput}`;
       typeof opt.context?.sessionId === "string"
         ? opt.context.sessionId
         : undefined;
+    // Routing runs before conversation memory is loaded, so only the history
+    // the caller passed in is countable here.
+    const sessionBound = sessionId !== undefined;
+    const priorMessageCount = Array.isArray(opt.conversationMessages)
+      ? opt.conversationMessages.length
+      : undefined;
 
     try {
       const decision = await this.classifierRouter.route({
@@ -5470,6 +5477,8 @@ Current user's request: ${currentInput}`;
         requiresVision,
         thinkingLevel,
         sessionId,
+        sessionBound,
+        priorMessageCount,
       });
       if (!decision) {
         return;

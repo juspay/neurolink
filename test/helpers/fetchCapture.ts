@@ -17,7 +17,19 @@ export type FetchCapture = {
   bodyBytes: number;
   approxTokens: number;
   ts: number;
+  /**
+   * The request body's text, captured only for string bodies at or under
+   * `BODY_TEXT_CAP_BYTES`. Small-payload suites (e.g. `decide()` requests)
+   * can inspect the actual JSON; large-payload suites (huge prompts,
+   * compaction fixtures) never pay to retain megabytes of text they only
+   * ever measured by size. Undefined means "not captured", not "empty" —
+   * callers that need the body must check for that before reading it.
+   */
+  bodyText?: string;
 };
+
+/** Bodies larger than this are measured (bodyBytes) but not retained as text. */
+const BODY_TEXT_CAP_BYTES = 262_144; // 256 KiB
 
 let installed = false;
 const records: FetchCapture[] = [];
@@ -78,6 +90,10 @@ export function installFetchCapture(): {
           ? (input.body as BodyInit | null | undefined)
           : undefined);
       const bodyBytes = bytesOf(body as BodyInit | null | undefined);
+      const bodyText =
+        typeof body === "string" && bodyBytes <= BODY_TEXT_CAP_BYTES
+          ? body
+          : undefined;
       records.push({
         url,
         method,
@@ -86,6 +102,7 @@ export function installFetchCapture(): {
         // human-readable log output; assertions use the byte count directly.
         approxTokens: bodyBytes > 0 ? Math.round(bodyBytes / 4) : 0,
         ts: Date.now(),
+        bodyText,
       });
       return original.call(globalThis, input as RequestInfo, init);
     } as typeof globalThis.fetch;

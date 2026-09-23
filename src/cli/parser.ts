@@ -37,6 +37,7 @@ import { proxyPeerCommand } from "./commands/proxyPeer.js";
 import { proxyExposeCommand } from "./commands/proxyExpose.js";
 import { proxyReplayCommand } from "./commands/proxyReplay.js";
 import { EvaluateCommandFactory } from "./commands/evaluate.js";
+import { DecideCommandFactory } from "./commands/decide.js";
 import { TaskCommandFactory } from "./commands/task.js";
 import { AutoresearchCommandFactory } from "./commands/autoresearch.js";
 import { voiceServerCommand } from "./commands/voiceServer.js";
@@ -85,6 +86,10 @@ export function initializeCliParser() {
           // Always set to false when debug is not enabled (including when not provided)
           process.env.NEUROLINK_DEBUG = "false";
         }
+
+        // With --format json, stdout carries the payload; a debug or info
+        // line there would make it unparseable, so diagnostics go to stderr.
+        logger.setDiagnosticsToStderr(argv.format === "json");
 
         // Keep existing quiet middleware
         if (
@@ -194,6 +199,9 @@ export function initializeCliParser() {
 
       // Stream Text Command - Using CLICommandFactory
       .command(CLICommandFactory.createStreamCommand())
+
+      // Decide Command - typed, calibrated judgements (no free text)
+      .command(DecideCommandFactory.createDecideCommand())
 
       // Batch Processing Command - Using CLICommandFactory
       .command(CLICommandFactory.createBatchCommand())

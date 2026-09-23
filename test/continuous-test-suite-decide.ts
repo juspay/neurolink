@@ -1,6 +1,13 @@
 #!/usr/bin/env tsx
 import "dotenv/config";
 
+// Patches globalThis.fetch before any test runs, so section 6's session-signal
+// test can read the outbound decision request. ES imports are hoisted, so this
+// runs after dist/ has loaded; it works because fetch is resolved at request
+// time (same usage as continuous-test-suite-context.ts's issue-02 tests).
+import { installFetchCapture } from "./helpers/fetchCapture.js";
+const fetchCapture = installFetchCapture();
+
 /**
  * Continuous Test Suite — the `decide` inference type (TypeSafe / Jev)
  *
@@ -58,7 +65,7 @@ import {
   summaryPreservesContext,
   TYPESAFE_MAX_STATE_TOKENS,
 } from "../dist/index.js";
-import { defineSuite, logSection } from "./helpers/harness.js";
+import { defineSuite, logSection, runCLI } from "./helpers/harness.js";
 import { assertDistFresh } from "./helpers/distFreshness.js";
 
 assertDistFresh();
@@ -107,6 +114,11 @@ function requireKey(): void {
   if (!HAS_KEY) {
     throw new Error("SKIP: TYPESAFE_API_KEY not set");
   }
+}
+
+/** Narrows a `JSON.parse` result enough to read named fields off it. */
+function isRecordLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const SUPPORT_TICKET =
@@ -643,6 +655,61 @@ await test("6.5 — an unreachable confidence bar defers to the heuristic", asyn
   assert(
     decision!.reason?.includes("below the") === true,
     "an unreachable confidence floor must trigger the heuristic fallback path",
+  );
+});
+
+await test("6.6 — the routing state carries session continuity signals but never the raw session id", async () => {
+  requireKey();
+  restoreEnv();
+  fetchCapture.reset();
+  const nl = new NeuroLink();
+  const router = new ClassifierRouter(
+    { enabled: true, pool: POOL },
+    { decide: (o) => nl.tryDecide(o) },
+  );
+  // A marker distinctive enough that an accidental substring match (e.g.
+  // inside the prompt) cannot produce a false pass.
+  const RAW_SESSION_ID = "sess_do_not_leak_7f2c9a1e";
+  const decision = await router.route({
+    prompt: HARD_PROMPT,
+    sessionId: RAW_SESSION_ID,
+    sessionBound: true,
+    priorMessageCount: 7,
+  });
+  assert(decision !== null, "the router must still produce a decision");
+
+  const jevDispatches = fetchCapture
+    .forHostname("typesafe.ai")
+    .filter((d) => d.method === "POST" && typeof d.bodyText === "string");
+  assert(jevDispatches.length > 0, "no outbound decision request was observed");
+
+  let statesChecked = 0;
+  for (const dispatch of jevDispatches) {
+    const bodyText = dispatch.bodyText!;
+    assert(
+      !bodyText.includes(RAW_SESSION_ID),
+      "the raw session id must never appear in the outbound decision request",
+    );
+    const parsed: unknown = JSON.parse(bodyText);
+    const state = isRecordLike(parsed) ? parsed.state : undefined;
+    if (!isRecordLike(state)) {
+      continue;
+    }
+    statesChecked += 1;
+    assert(
+      state.session_bound === true,
+      "the decision request state is missing session_bound",
+    );
+    assert(
+      state.prior_messages === 7,
+      "the decision request state is missing prior_messages",
+    );
+  }
+  // Without this, a capture that saw no structured state would pass having
+  // asserted nothing about the continuity fields.
+  assert(
+    statesChecked > 0,
+    "no captured decision request carried a structured state to inspect",
   );
 });
 
@@ -1834,6 +1901,204 @@ await test("14.4 — a gateway failure fails open through tryDecide", async () =
     }
     restoreEnv();
   }
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+logSection("15. The decide command (CLI)");
+// ───────────────────────────────────────────────────────────────────────────
+// Drives the BUILT CLI (`node dist/cli/index.js decide ...`) via `runCLI`,
+// never the source command module — the same "one module graph" discipline
+// as the SDK tests above, just for the CLI surface instead of `dist/index.js`.
+
+/** True when a stdout/stderr blob contains a printed JS stack frame. */
+function looksLikeStackTrace(output: string): boolean {
+  return output.split("\n").some((line) => /^\s*at\s+\S/.test(line));
+}
+
+// Deterministic: both decision-provider env vars are blanked for the child
+// regardless of what the parent process has ambient, so this behaves the
+// same in a shell with TYPESAFE_API_KEY exported and one without.
+const NO_PROVIDER_ENV = { TYPESAFE_API_KEY: "", AI_GATEWAY_API_KEY: "" };
+
+await test("15.1 — no decision provider configured ⇒ clean one-line error, no stack trace", async () => {
+  const result = await runCLI(
+    [
+      "decide",
+      "Refund request for a damaged item",
+      "--questions",
+      JSON.stringify({
+        urgent: { type: "boolean", instructions: "Is this urgent?" },
+      }),
+    ],
+    { env: NO_PROVIDER_ENV, timeoutMs: 30_000 },
+  );
+  assert(
+    result.exitCode !== 0,
+    "decide must fail when no decision provider is configured",
+  );
+  assert(
+    result.stderr.includes(
+      "Error: No decision provider is configured. Set TYPESAFE_API_KEY, or AI_GATEWAY_API_KEY for the Vercel AI Gateway route.",
+    ),
+    "the no-provider case did not print the expected one-line error",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the no-provider error printed a stack trace instead of a clean message",
+  );
+});
+
+await test("15.2 — malformed --questions fails validation before any provider work", async () => {
+  const result = await runCLI(
+    ["decide", "some state", "--questions", "{not valid json"],
+    { env: NO_PROVIDER_ENV, timeoutMs: 30_000 },
+  );
+  assert(
+    result.exitCode !== 0,
+    "a malformed --questions payload must exit non-zero",
+  );
+  assert(
+    result.stderr.includes("Error: --questions is not valid JSON."),
+    "the malformed-JSON case did not print the expected validation message",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "a validation failure printed a stack trace instead of a clean message",
+  );
+});
+
+await test("15.3 — live: boolean + choice + score render in both text and json", async () => {
+  requireKey();
+  const questions = JSON.stringify(ALL_THREE);
+  const liveEnv = { TYPESAFE_API_KEY: REAL_KEY as string };
+
+  const textResult = await runCLI(
+    ["decide", SUPPORT_TICKET, "--questions", questions],
+    { env: liveEnv, timeoutMs: 60_000 },
+  );
+  assert(
+    textResult.exitCode === 0,
+    "the live text-format decide call did not succeed",
+  );
+  assert(
+    /^urgent: probability \d/m.test(textResult.stdout),
+    "text output is missing the boolean answer line",
+  );
+  assert(
+    /^team: choice \S/m.test(textResult.stdout),
+    "text output is missing the choice answer line",
+  );
+  assert(
+    /^frustration: score \d/m.test(textResult.stdout),
+    "text output is missing the score answer line",
+  );
+  assert(
+    textResult.stdout.includes("Model:"),
+    "text output is missing the Model line",
+  );
+  assert(
+    textResult.stdout.includes("Latency:"),
+    "text output is missing the Latency line",
+  );
+
+  const jsonResult = await runCLI(
+    ["decide", SUPPORT_TICKET, "--questions", questions, "--format", "json"],
+    { env: liveEnv, timeoutMs: 60_000 },
+  );
+  assert(
+    jsonResult.exitCode === 0,
+    "the live json-format decide call did not succeed",
+  );
+  const parsed: unknown = JSON.parse(jsonResult.stdout);
+  assert(
+    isRecordLike(parsed) && isRecordLike(parsed.answers),
+    "json output has no answers object",
+  );
+  const answers = (parsed as { answers: Record<string, unknown> }).answers;
+  for (const id of ["urgent", "team", "frustration"]) {
+    assert(id in answers, `json output is missing the "${id}" answer`);
+  }
+});
+
+// Debug logging at debug level is the noisiest the CLI gets, and most of it
+// is emitted while modules are still importing — before any CLI middleware
+// runs — so it is the case that would leak into a JSON payload first.
+const DEBUG_LOG_ENV = { ...NO_PROVIDER_ENV, NEUROLINK_LOG_LEVEL: "debug" };
+const ONE_QUESTION = JSON.stringify({
+  urgent: { type: "boolean", instructions: "Is this urgent?" },
+});
+
+await test("15.4 — --format json keeps diagnostics off stdout, even with --debug", async () => {
+  const json = await runCLI(
+    [
+      "decide",
+      "some state",
+      "--questions",
+      ONE_QUESTION,
+      "--format",
+      "json",
+      "--debug",
+    ],
+    { env: DEBUG_LOG_ENV, timeoutMs: 30_000 },
+  );
+  // Precondition: diagnostics were actually emitted. Without it, a clean
+  // stdout would prove nothing.
+  assert(
+    json.stderr.includes("[NEUROLINK:DEBUG]"),
+    "no debug output was produced, so the routing could not be observed",
+  );
+  assert(
+    !json.stdout.includes("[NEUROLINK:"),
+    "a diagnostic line reached stdout in JSON mode",
+  );
+
+  // Control: text mode keeps the existing behaviour, diagnostics on stdout.
+  const text = await runCLI(
+    ["decide", "some state", "--questions", ONE_QUESTION, "--debug"],
+    { env: DEBUG_LOG_ENV, timeoutMs: 30_000 },
+  );
+  assert(
+    text.stdout.includes("[NEUROLINK:DEBUG]"),
+    "text mode no longer writes debug output to stdout",
+  );
+});
+
+await test("15.5 — a provider error keeps the provider's own detail", async () => {
+  // Same network call as 5.3: a key the service rejects, no real key needed.
+  const result = await runCLI(
+    ["decide", "some state", "--questions", ONE_QUESTION],
+    {
+      env: {
+        TYPESAFE_API_KEY: "apikey_definitely_not_valid",
+        AI_GATEWAY_API_KEY: "",
+      },
+      timeoutMs: 60_000,
+    },
+  );
+  assert(result.exitCode !== 0, "a rejected key must exit non-zero");
+  // Only a key rejection can be judged here. When the service is slow or
+  // overloaded it answers with a transient error instead, which says nothing
+  // about how the CLI reports a rejection — so that run is skipped, not failed.
+  const TRANSIENT_REPLIES = [
+    "timed out",
+    "rate-limiting",
+    "overloaded",
+    "network error",
+    "server error",
+  ];
+  if (TRANSIENT_REPLIES.some((phrase) => result.stderr.includes(phrase))) {
+    throw new Error(
+      "SKIP: the decision service returned a transient error, not a key rejection",
+    );
+  }
+  assert(
+    /Error: Authentication failed[^\n]*\(.+\)/.test(result.stderr),
+    "the rejected-credential message lost the provider's detail",
+  );
+  assert(
+    !looksLikeStackTrace(result.stdout + result.stderr),
+    "the rejected-credential message printed a stack trace",
+  );
 });
 
 restoreEnv();

@@ -793,6 +793,7 @@ console.log(result.content);
 - [ProviderSetupConfig](type-aliases/ProviderSetupConfig.md)
 - [SupportedProvider](type-aliases/SupportedProvider.md)
 - [AutoresearchInitArgs](type-aliases/AutoresearchInitArgs.md)
+- [CliDecideArgs](type-aliases/CliDecideArgs.md)
 - [BaseEvaluateArgs](type-aliases/BaseEvaluateArgs.md)
 - [DirectEvaluateArgs](type-aliases/DirectEvaluateArgs.md)
 - [EvaluateRunArgs](type-aliases/EvaluateRunArgs.md)

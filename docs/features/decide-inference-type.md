@@ -192,6 +192,19 @@ Use `decide()` instead of `tryDecide()` when you want the failure to surface;
 it throws a `ProviderError` whose `cause` carries a typed `kind`
 (`authentication`, `rate_limit`, `max_tokens_exceeded`, …).
 
+### From the CLI
+
+The same primitive is available as `neurolink decide [state]`, which calls
+`decide()` (not `tryDecide()`) and prints one line per answer:
+
+```bash
+npx @juspay/neurolink decide "Refund request for a damaged item" \
+  --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'
+```
+
+See the [CLI command reference](../cli/commands.md#decide) for the full flag
+list, including `--state-file`, `--questions-file` and `--format json`.
+
 ### A choice answer is also a ranking
 
 `readDecisionChoice` returns `ranked` — every option sorted by probability,
