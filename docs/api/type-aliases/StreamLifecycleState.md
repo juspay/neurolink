@@ -8,6 +8,6 @@
 
 > **StreamLifecycleState** = `"idle"` \| `"streaming"` \| `"done"` \| `"error"`
 
-Defined in: [types/proxy.ts:342](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L342)
+Defined in: [types/proxy.ts:362](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L362)
 
 Lifecycle state for the SSE serializer.

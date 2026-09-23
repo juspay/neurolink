@@ -72,6 +72,7 @@ import { runWithShareContext } from "../src/lib/proxy/shareContext.js";
 import { loadProxyConfig } from "../src/lib/proxy/proxyConfig.js";
 import { ProxyRuntimeConfigStore } from "../src/lib/proxy/runtimeConfig.js";
 import { TokenStore, tokenStore } from "../src/lib/auth/tokenStore.js";
+import { setVertexAccessTokenProviderForTests } from "../src/lib/proxy/vertexAnthropicFallback.js";
 import {
   __testHooks as claudeProxyTestHooks,
   createClaudeProxyRoutes,
@@ -3593,6 +3594,352 @@ await test("Claude fallback omits the cache key when no session is known", () =>
         undefined,
       `unusable metadata must not produce a shared key: ${userId.slice(0, 20)}`,
     );
+  }
+});
+
+// Keying by session gave every caller a private cache namespace, so a fan-out
+// of N agents over one system prompt and tool set paid that shared prefix N
+// times. The key describes the prefix now, so they share it.
+await test("Claude fallback shares one cache key across callers with one prefix", () => {
+  const shared = {
+    model: "claude-opus-5",
+    max_tokens: 64,
+    system: "You are a coding agent operating in /repo.",
+    tools: [
+      {
+        name: "read_file",
+        description: "Read a file",
+        input_schema: {
+          type: "object",
+          properties: { path: { type: "string" } },
+        },
+      },
+    ],
+  };
+  const keyFor = (sessionId: string, userTurn: string): string | undefined =>
+    convertClaudeRequestToCodex(
+      {
+        ...shared,
+        messages: [{ role: "user", content: userTurn }],
+        metadata: { user_id: JSON.stringify({ session_id: sessionId }) },
+      } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+      "gpt-5.6-sol",
+    ).prompt_cache_key;
+
+  // Different sessions, different conversations, one prefix: one key.
+  const a = keyFor("11111111-1111-1111-1111-111111111111", "find the bug");
+  const b = keyFor("22222222-2222-2222-2222-222222222222", "write a test");
+  assert(
+    typeof a === "string" && a.length === 64,
+    "a request carrying a prefix must produce a cache key",
+  );
+  assert(
+    a === b,
+    "subagents sharing a prefix must share its cache, not pay it each",
+  );
+
+  // No session id at all must not change the answer — the prefix is the key.
+  const anonymous = convertClaudeRequestToCodex(
+    {
+      ...shared,
+      messages: [{ role: "user", content: "find the bug" }],
+    } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+    "gpt-5.6-sol",
+  ).prompt_cache_key;
+  assert(anonymous === a, "the key must not depend on caller identity");
+
+  // A conversation grows without changing its prefix, so its key holds still.
+  const laterTurn = convertClaudeRequestToCodex(
+    {
+      ...shared,
+      messages: [
+        { role: "user", content: "find the bug" },
+        { role: "assistant", content: "Looking." },
+        { role: "user", content: "and fix it" },
+      ],
+      metadata: {
+        user_id: JSON.stringify({
+          session_id: "11111111-1111-1111-1111-111111111111",
+        }),
+      },
+    } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+    "gpt-5.6-sol",
+  ).prompt_cache_key;
+  assert(laterTurn === a, "the key must be stable across turns");
+});
+
+// Sharing is only safe while the prefixes really are identical: a key common
+// to genuinely different prefixes pins them onto one cache and they evict each
+// other.
+await test("Claude fallback separates cache keys when the prefix differs", () => {
+  const base = {
+    model: "claude-opus-5",
+    max_tokens: 64,
+    system: "You are a coding agent operating in /repo.",
+    tools: [
+      {
+        name: "read_file",
+        description: "Read a file",
+        input_schema: {
+          type: "object",
+          properties: { path: { type: "string" } },
+        },
+      },
+    ],
+    messages: [{ role: "user", content: "hello" }],
+  };
+  const keyOf = (patch: Record<string, unknown>): string | undefined =>
+    convertClaudeRequestToCodex(
+      { ...base, ...patch } as unknown as Parameters<
+        typeof convertClaudeRequestToCodex
+      >[0],
+      "gpt-5.6-sol",
+    ).prompt_cache_key;
+
+  const original = keyOf({});
+  for (const [label, patch] of [
+    [
+      "a different system prompt",
+      { system: "You are a coding agent in /other." },
+    ],
+    ["a renamed tool", { tools: [{ ...base.tools[0], name: "open_file" }] }],
+    [
+      "an added tool",
+      { tools: [...base.tools, { name: "write_file", input_schema: {} }] },
+    ],
+  ] as const) {
+    assert(
+      keyOf(patch as Record<string, unknown>) !== original,
+      `${label} must not reuse the original prefix's cache key`,
+    );
+  }
+});
+
+// The system prompt is not byte-stable: its trailing session-memory section is
+// rewritten every turn while the first ~88% holds still. Keying on the whole
+// string therefore minted a fresh key per request, which pins nothing at all.
+// The key covers a bounded head for exactly this reason.
+await test("Claude fallback holds its cache key when the prompt's tail churns", () => {
+  const head = "You are a coding agent operating in /repo.\n".repeat(400);
+  assert(head.length > 8192, "the fixture must exceed the bounded head");
+  const keyWithTail = (tail: string): string | undefined =>
+    convertClaudeRequestToCodex(
+      {
+        model: "claude-opus-5",
+        max_tokens: 64,
+        system: `${head}\n## Session memory\n${tail}`,
+        tools: [{ name: "read_file", input_schema: {} }],
+        messages: [{ role: "user", content: "hello" }],
+      } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+      "gpt-5.6-sol",
+    ).prompt_cache_key;
+
+  assert(
+    keyWithTail("Task 4 still running clean; repeated idle checks confirm.") ===
+      keyWithTail(
+        "Task 4 still running clean; latest check confirmed no change.",
+      ),
+    "a rewritten tail must not mint a new cache key",
+  );
+});
+
+// A request with no instructions and no tools has no prefix worth pinning, so
+// the session id is all that is left to keep its own turns together.
+await test("Claude fallback falls back to the session when there is no prefix", () => {
+  const sessionId = "ee313449-09b0-4f0e-bae6-1c0bf6573ad5";
+  const bare = {
+    model: "claude-opus-5",
+    max_tokens: 64,
+    messages: [{ role: "user", content: "hello" }],
+    metadata: { user_id: JSON.stringify({ session_id: sessionId }) },
+  } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0];
+  const key = convertClaudeRequestToCodex(bare, "gpt-5.6-sol").prompt_cache_key;
+  assert(
+    typeof key === "string" && key.length === 64,
+    "a bare conversation must still pin its own turns",
+  );
+  const other = convertClaudeRequestToCodex(
+    {
+      ...(bare as object),
+      metadata: {
+        user_id: JSON.stringify({
+          session_id: "11111111-2222-3333-4444-555555555555",
+        }),
+      },
+    } as unknown as Parameters<typeof convertClaudeRequestToCodex>[0],
+    "gpt-5.6-sol",
+  ).prompt_cache_key;
+  assert(
+    other !== key,
+    "without a prefix, separate sessions must not share a key",
+  );
+  assert(
+    !JSON.stringify(convertClaudeRequestToCodex(bare, "gpt-5.6-sol")).includes(
+      sessionId,
+    ),
+    "the session id must not reach the upstream in the clear",
+  );
+});
+
+// The two real bugs this PR fixed both lived in the seam between fallback
+// legs, and neither was reachable by a test that drives a single leg: a failed
+// Codex leg left its model, account, deferred-failure flag and failure usage
+// in `ctx.metadata`, and the leg that served next read them. This drives the
+// configured chain for real — Codex attempted and failing, Vertex then
+// serving — through the shipped `/v1/messages` route.
+await test("a failed Codex leg leaves nothing behind for the Vertex leg that serves", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "codex-vertex-chain-"));
+  const configPath = join(dir, "proxy.json");
+  const key = "codex:chain-test@example.test";
+  const originalFetch = globalThis.fetch;
+  const prevProject = process.env.GOOGLE_CLOUD_PROJECT;
+  const prevLocation = process.env.GOOGLE_CLOUD_LOCATION;
+  const upstreams: string[] = [];
+  try {
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        routing: {
+          fallbackChain: [
+            { provider: "codex", model: "gpt-6-astra" },
+            { provider: "vertex", model: "claude-opus-5-5" },
+          ],
+        },
+      }),
+    );
+    await tokenStore.saveTokens(key, {
+      accessToken: "chain-test-access",
+      refreshToken: "chain-test-refresh",
+      expiresAt: Date.now() + 3_600_000,
+      tokenType: "Bearer",
+    });
+    process.env.GOOGLE_CLOUD_PROJECT = "chain-test-project";
+    process.env.GOOGLE_CLOUD_LOCATION = "global";
+    // gaxios resolves its transport to node-fetch rather than
+    // `globalThis.fetch`, so the credential lookup cannot be reached by the
+    // mock below. Without this seam the leg throws before reaching the model.
+    setVertexAccessTokenProviderForTests(async () => "chain-test-token");
+
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      upstreams.push(url);
+      if (url.includes("api.anthropic.com")) {
+        // The primary is tried before any configured fallback. Exhaust it so
+        // the chain runs, which is what this test is about.
+        return new Response(
+          JSON.stringify({
+            type: "error",
+            error: { type: "rate_limit_error", message: "quota exhausted" },
+          }),
+          { status: 429, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("chatgpt.com")) {
+        // Fails after recording its model — the state that used to leak onto
+        // the turn Vertex went on to serve.
+        return new Response(
+          JSON.stringify({ error: { message: "codex down" } }),
+          { status: 500, headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.includes("aiplatform.googleapis.com")) {
+        return new Response(
+          JSON.stringify({
+            id: "msg_vrtx_chain",
+            type: "message",
+            role: "assistant",
+            model: "claude-opus-5-5",
+            content: [{ type: "text", text: "vertex-served" }],
+            usage: { input_tokens: 1200, output_tokens: 34 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error(`unexpected upstream: ${url}`);
+    }) as typeof globalThis.fetch;
+
+    const runtime = await ProxyRuntimeConfigStore.create({
+      configPath,
+      configRequired: true,
+      baseEnv: {},
+      passthrough: false,
+    });
+    const route = createClaudeProxyRoutes(
+      undefined,
+      "",
+      "fill-first",
+      false,
+      undefined,
+      { runtimeConfigProvider: () => runtime.getSnapshot() },
+    ).routes.find(
+      (entry) => entry.method === "POST" && entry.path === "/v1/messages",
+    );
+    assert(route !== undefined, "Messages route was not registered");
+
+    const ctx = {
+      requestId: "codex-then-vertex",
+      method: "POST",
+      path: "/v1/messages",
+      headers: {},
+      query: {},
+      params: {},
+      metadata: {} as Record<string, unknown>,
+      responseHeaders: {},
+      timestamp: Date.now(),
+      neurolink: {},
+      toolRegistry: {},
+      body: {
+        model: "claude-sonnet-5",
+        stream: false,
+        max_tokens: 64,
+        messages: [{ role: "user", content: "Reply briefly." }],
+      },
+    } as unknown as ServerContext;
+
+    await route!.handler(ctx);
+
+    assert(
+      upstreams.some((u) => u.includes("chatgpt.com")),
+      "the Codex leg was never attempted, so nothing was left behind to clear",
+    );
+    assert(
+      upstreams.some((u) => u.includes("aiplatform.googleapis.com")),
+      "the Vertex leg never served the turn",
+    );
+    // The point of the test: the turn Vertex served carries Vertex's identity
+    // and none of the failed Codex leg's.
+    assertEqual(
+      ctx.metadata.vertexFallbackModel,
+      "claude-opus-5-5",
+      "the served Vertex model must be recorded for billing",
+    );
+    for (const leftover of [
+      "codexFallbackModel",
+      "codexFallbackAccount",
+      "codexFallbackAccountType",
+      "codexFallbackDeferredFailure",
+      "codexFallbackFailureUsage",
+    ]) {
+      assertEqual(
+        ctx.metadata[leftover],
+        undefined,
+        `${leftover} survived the failed Codex leg and would mis-bill this turn`,
+      );
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    setVertexAccessTokenProviderForTests(undefined);
+    if (prevProject === undefined) {
+      delete process.env.GOOGLE_CLOUD_PROJECT;
+    } else {
+      process.env.GOOGLE_CLOUD_PROJECT = prevProject;
+    }
+    if (prevLocation === undefined) {
+      delete process.env.GOOGLE_CLOUD_LOCATION;
+    } else {
+      process.env.GOOGLE_CLOUD_LOCATION = prevLocation;
+    }
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

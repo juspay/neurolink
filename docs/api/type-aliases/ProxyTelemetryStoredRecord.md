@@ -8,7 +8,7 @@
 
 > **ProxyTelemetryStoredRecord** = `Partial`\<[`RequestLogEntry`](RequestLogEntry.md)\> & `object`
 
-Defined in: [types/proxy.ts:985](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L985)
+Defined in: [types/proxy.ts:1005](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1005)
 
 Small stored metadata used by the doctor; bodies are queried separately.
 

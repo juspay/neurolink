@@ -8,7 +8,7 @@
 
 > **UpdateState** = `object`
 
-Defined in: [types/proxy.ts:3053](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3053)
+Defined in: [types/proxy.ts:3073](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3073)
 
 Persisted state for the proxy auto-update feature.
 
@@ -18,7 +18,7 @@ Persisted state for the proxy auto-update feature.
 
 > **lastCheckAt**: `string`
 
-Defined in: [types/proxy.ts:3054](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3054)
+Defined in: [types/proxy.ts:3074](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3074)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3054](https://github.com/juspay/neurolink/blob/relea
 
 > **lastCheckVersion**: `string`
 
-Defined in: [types/proxy.ts:3055](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3055)
+Defined in: [types/proxy.ts:3075](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3075)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3055](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **lastCheckAttemptAt?**: `string`
 
-Defined in: [types/proxy.ts:3057](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3057)
+Defined in: [types/proxy.ts:3077](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3077)
 
 Last attempt is distinct from the last successful registry observation.
 
@@ -44,7 +44,7 @@ Last attempt is distinct from the last successful registry observation.
 
 > `optional` **lastCheckError?**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3058](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3058)
+Defined in: [types/proxy.ts:3078](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3078)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/proxy.ts:3058](https://github.com/juspay/neurolink/blob/relea
 
 > **suppressedVersions**: `Record`\<`string`, [`SuppressedVersion`](SuppressedVersion.md)\>
 
-Defined in: [types/proxy.ts:3059](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3059)
+Defined in: [types/proxy.ts:3079](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3079)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/proxy.ts:3059](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **installedVersion?**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3068](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3068)
+Defined in: [types/proxy.ts:3088](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3088)
 
 Last package version whose stable trampoline was successfully validated.
 
@@ -75,7 +75,7 @@ state files written before this field existed legitimately omit it.
 
 > **lastUpdateAt**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3069](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3069)
+Defined in: [types/proxy.ts:3089](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3089)
 
 ---
 
@@ -83,7 +83,7 @@ Defined in: [types/proxy.ts:3069](https://github.com/juspay/neurolink/blob/relea
 
 > **lastUpdateVersion**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3070](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3070)
+Defined in: [types/proxy.ts:3090](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3090)
 
 ---
 
@@ -91,7 +91,7 @@ Defined in: [types/proxy.ts:3070](https://github.com/juspay/neurolink/blob/relea
 
 > **pendingRestartVersion**: `string` \| `null`
 
-Defined in: [types/proxy.ts:3072](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3072)
+Defined in: [types/proxy.ts:3092](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3092)
 
 Installed by the updater but not yet confirmed as the running version.
 
@@ -101,7 +101,7 @@ Installed by the updater but not yet confirmed as the running version.
 
 > **deferredUpdate**: \{ `version`: `string`; `since`: `string`; `updatedAt`: `string`; `reason`: `"waiting_for_quiet"` \| `"draining"` \| `"drain_timeout"` \| `"drain_unavailable"` \| `"activity_unavailable"`; `activeRequests`: `number` \| `null`; \} \| `null`
 
-Defined in: [types/proxy.ts:3074](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3074)
+Defined in: [types/proxy.ts:3094](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3094)
 
 Why an available update has not yet reached a safe install/restart boundary.
 
@@ -111,6 +111,6 @@ Why an available update has not yet reached a safe install/restart boundary.
 
 > **lastFailure**: \{ `at`: `string`; `version`: `string`; `stage`: `"check"` \| `"install"` \| `"validation"` \| `"restart"` \| `"health"`; `message`: `string`; \} \| `null`
 
-Defined in: [types/proxy.ts:3087](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3087)
+Defined in: [types/proxy.ts:3107](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3107)
 
 Last updater failure, retained until a successful update or replacement.

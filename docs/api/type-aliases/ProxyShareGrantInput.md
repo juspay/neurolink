@@ -8,7 +8,7 @@
 
 > **ProxyShareGrantInput** = `object`
 
-Defined in: [types/proxy.ts:4192](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4192)
+Defined in: [types/proxy.ts:4212](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4212)
 
 Everything `createShareGrant` needs to mint a grant.
 
@@ -18,7 +18,7 @@ Everything `createShareGrant` needs to mint a grant.
 
 > **peerLabel**: `string`
 
-Defined in: [types/proxy.ts:4193](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4193)
+Defined in: [types/proxy.ts:4213](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4213)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4193](https://github.com/juspay/neurolink/blob/relea
 
 > **level**: [`ProxyShareLevel`](ProxyShareLevel.md)
 
-Defined in: [types/proxy.ts:4194](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4194)
+Defined in: [types/proxy.ts:4214](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4214)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4194](https://github.com/juspay/neurolink/blob/relea
 
 > **entitlement**: [`ProxyShareEntitlement`](ProxyShareEntitlement.md)
 
-Defined in: [types/proxy.ts:4195](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4195)
+Defined in: [types/proxy.ts:4215](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4215)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:4195](https://github.com/juspay/neurolink/blob/relea
 
 > **gates**: [`ProxyShareGates`](ProxyShareGates.md)
 
-Defined in: [types/proxy.ts:4196](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4196)
+Defined in: [types/proxy.ts:4216](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4216)
 
 ---
 
@@ -50,4 +50,4 @@ Defined in: [types/proxy.ts:4196](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **note?**: `string`
 
-Defined in: [types/proxy.ts:4197](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4197)
+Defined in: [types/proxy.ts:4217](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4217)

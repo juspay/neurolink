@@ -1012,6 +1012,216 @@ await test("OTLP request finals emit exact price-table estimates and explicit un
     }
   });
 });
+await test("every model the proxy routes carries an exact price, not an inferred one", async () => {
+  await withCollector(200, async (batches) => {
+    initRequestLogger(true);
+    // `annotateRequestPricing` returns a null cost for anything it cannot match
+    // exactly, so a model missing from the table is not merely approximated —
+    // its spend disappears from the ledger entirely. A dot-release whose family
+    // root is present is the dangerous case: it resolves by longest prefix, so
+    // it looks priced while reporting `inferred` and costing nothing. Measured
+    // on 69 live turns of claude-opus-5-5 before this entry existed: 30.6M
+    // tokens booked at null, which the prefix rates would have overstated by
+    // 55% had anything trusted them.
+    const routed: ReadonlyArray<readonly [string, string]> = [
+      ["anthropic", "claude-opus-5-5"],
+      ["anthropic", "claude-opus-5"],
+      ["anthropic", "claude-sonnet-5"],
+      ["anthropic", "claude-fable-5-1"],
+      ["anthropic", "claude-mythos-5-1"],
+      ["vertex", "claude-opus-5-5"],
+      ["vertex", "claude-opus-5"],
+      ["vertex", "claude-sonnet-5"],
+      ["vertex", "claude-opus-4-6"],
+      ["openai", "gpt-5.6-sol"],
+    ];
+    const base: RequestLogEntry = {
+      timestamp: new Date().toISOString(),
+      requestId: "routed",
+      method: "POST",
+      path: "/v1/messages",
+      model: "unset",
+      provider: "anthropic",
+      stream: false,
+      toolCount: 0,
+      account: "fixture",
+      accountType: "oauth",
+      responseStatus: 200,
+      responseTimeMs: 10,
+      inputTokens: 1000000,
+      outputTokens: 100000,
+      cacheReadTokens: 600000,
+      inputIncludesCachedTokens: true,
+    };
+    try {
+      for (const [provider, model] of routed) {
+        // Vertex reports cached tokens separately, so its final log omits
+        // `inputIncludesCachedTokens` — see the fallback log site. Sending the
+        // flag anyway would price these rows on a contract production never
+        // produces.
+        const { inputIncludesCachedTokens: _codexShaped, ...vertexShaped } =
+          base;
+        await logRequest({
+          ...(provider === "vertex" ? vertexShaped : base),
+          requestId: `routed-${provider}-${model}`,
+          provider,
+          model,
+        });
+      }
+      await flushRequestLogs();
+      await flushProxyOtelLogs();
+      const byId = new Map(
+        batches
+          .flat()
+          .map((row) => {
+            const body = row.body as { stringValue: string };
+            return JSON.parse(body.stringValue) as RequestLogEntry;
+          })
+          .filter((row) => row.requestId?.startsWith("routed-"))
+          .map((row) => [row.requestId, row]),
+      );
+      for (const [provider, model] of routed) {
+        const row = byId.get(`routed-${provider}-${model}`);
+        assertEqual(row?.pricingStatus, "exact", `${provider}/${model}`);
+        assert(
+          typeof row?.apiEquivalentCostUsd === "number" &&
+            row.apiEquivalentCostUsd > 0,
+          `${provider}/${model} must carry a non-null cost`,
+        );
+      }
+      // Opus 5.5 is not the 5.0 family at a different size: base input is $4
+      // rather than $5, and its cache hits bill at 0.05x base rather than the
+      // 0.1x every other model uses. Pinning the figure keeps a future edit
+      // from quietly folding it back into the prefix match.
+      assertEqual(
+        byId.get("routed-anthropic-claude-opus-5-5")?.apiEquivalentCostUsd,
+        3.72,
+      );
+    } finally {
+      initRequestLogger(false);
+    }
+  });
+});
+await test("a Vertex turn after a failed Codex leg bills as Vertex, not Codex", async () => {
+  await withCollector(200, async (batches) => {
+    initRequestLogger(true);
+    // The configured fallback chain tries Codex first. A Codex leg that fails
+    // records its model in metadata on the way out, so by the time Vertex
+    // serves the turn BOTH keys are set. Selecting the served model by key
+    // precedence therefore logged and priced the Vertex turn as the Codex
+    // model — the exact misattribution the Vertex pricing fix exists to stop.
+    // The serving account type is the only authoritative signal.
+    const { resolveServedFallbackModel } =
+      await import("../src/lib/server/routes/claudeProxyRoutes.js");
+    const afterFailedCodexLeg = {
+      codexFallbackModel: "gpt-5.6-sol",
+      vertexFallbackModel: "claude-opus-5-5",
+    };
+    assertEqual(
+      resolveServedFallbackModel(afterFailedCodexLeg, "vertex"),
+      "claude-opus-5-5",
+      "a Vertex-served turn must not report the failed Codex leg's model",
+    );
+    assertEqual(
+      resolveServedFallbackModel(afterFailedCodexLeg, "codex-oauth"),
+      "gpt-5.6-sol",
+      "a Codex-served turn must still report its own model",
+    );
+    assertEqual(
+      resolveServedFallbackModel({}, "vertex"),
+      undefined,
+      "no fallback metadata must mean no served model",
+    );
+
+    // Selecting on the serving account is the backstop. What actually keeps a
+    // failed Codex leg out of this turn is that the Vertex leg starts clean,
+    // the same way every other fallback leg does — the leftovers are read by
+    // more than the model selection. `codexFallbackDeferredFailure` plus
+    // `codexFallbackModel` would re-attribute the tracer to "openai" after the
+    // Vertex leg set it, and `codexFallbackFailureUsage` would merge the
+    // failed leg's reasoning tokens into this turn's counts.
+    const { __testHooks } =
+      await import("../src/lib/server/routes/claudeProxyRoutes.js");
+    const dirty = {
+      metadata: {
+        codexFallbackAccount: "codex:someone@example.com",
+        codexFallbackAccountType: "codex-oauth",
+        codexFallbackModel: "gpt-5.6-sol",
+        codexFallbackDeferredFailure: true,
+        codexFallbackFailureUsage: { reasoning: 4096 },
+        vertexFallbackModel: "claude-opus-5-5",
+      } as Record<string, unknown>,
+    };
+    __testHooks.clearClaudeFallbackTerminalEvidence(
+      dirty as unknown as Parameters<
+        typeof __testHooks.clearClaudeFallbackTerminalEvidence
+      >[0],
+    );
+    for (const leftover of [
+      "codexFallbackAccount",
+      "codexFallbackAccountType",
+      "codexFallbackModel",
+      "codexFallbackDeferredFailure",
+      "codexFallbackFailureUsage",
+      "vertexFallbackModel",
+    ]) {
+      assertEqual(
+        dirty.metadata[leftover],
+        undefined,
+        `${leftover} must not survive into the next fallback leg`,
+      );
+    }
+
+    const servedModel = resolveServedFallbackModel(
+      afterFailedCodexLeg,
+      "vertex",
+    );
+    const base: RequestLogEntry = {
+      timestamp: new Date().toISOString(),
+      requestId: "fallback-vertex",
+      method: "POST",
+      path: "/v1/messages",
+      model: servedModel ?? "claude-sonnet-5",
+      requestedModel: "claude-sonnet-5",
+      provider: "vertex",
+      stream: false,
+      toolCount: 0,
+      account: "vertex/claude-opus-5-5",
+      accountType: "vertex",
+      responseStatus: 200,
+      responseTimeMs: 10,
+      inputTokens: 1000000,
+      outputTokens: 100000,
+      cacheReadTokens: 600000,
+      // Deliberately absent. Codex reports input inclusive of cached tokens;
+      // the Vertex Anthropic wire reports them separately, and the fallback
+      // log site omits the flag for exactly that reason. Setting it here would
+      // subtract the cached tokens from input and assert $3.72 — a figure no
+      // production Vertex row can produce.
+    };
+    try {
+      await logRequest(base);
+      await flushRequestLogs();
+      await flushProxyOtelLogs();
+      const row = batches
+        .flat()
+        .map((r) => {
+          const body = r.body as { stringValue: string };
+          return JSON.parse(body.stringValue) as RequestLogEntry;
+        })
+        .find((r) => r.requestId === "fallback-vertex");
+      assertEqual(row?.model, "claude-opus-5-5");
+      assertEqual(row?.requestedModel, "claude-sonnet-5");
+      assertEqual(row?.pricingProvider, "vertex");
+      // Vertex is the one leg that bills real currency, so its turns must
+      // carry a figure rather than the null an unpriced model produces.
+      assertEqual(row?.pricingStatus, "exact");
+      assertEqual(row?.apiEquivalentCostUsd, 6.12);
+    } finally {
+      initRequestLogger(false);
+    }
+  });
+});
 await test("indexed final outcomes preserve semantic failures after HTTP 200", async () => {
   await withCollector(200, async (batches) => {
     initRequestLogger(true);

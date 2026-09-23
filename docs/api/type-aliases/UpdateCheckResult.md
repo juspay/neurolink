@@ -8,7 +8,7 @@
 
 > **UpdateCheckResult** = `object` & \{ `checkSucceeded`: `true`; `checkError?`: `never`; \} \| \{ `checkSucceeded`: `false`; `checkError`: `string`; `updateAvailable`: `false`; \}
 
-Defined in: [types/proxy.ts:3013](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3013)
+Defined in: [types/proxy.ts:3033](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3033)
 
 Outcome of a proxy auto-update version check against npm.
 

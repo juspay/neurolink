@@ -8,7 +8,7 @@
 
 > **ProxyShareLevel** = `"live"` \| `"complete"`
 
-Defined in: [types/proxy.ts:4004](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4004)
+Defined in: [types/proxy.ts:4024](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4024)
 
 How a borrower reaches the lender's capacity.
 

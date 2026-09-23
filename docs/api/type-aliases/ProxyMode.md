@@ -8,7 +8,7 @@
 
 > **ProxyMode** = `"full"` \| `"passthrough"` \| `"transparent"`
 
-Defined in: [types/proxy.ts:465](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L465)
+Defined in: [types/proxy.ts:485](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L485)
 
 Proxy operating mode:
 

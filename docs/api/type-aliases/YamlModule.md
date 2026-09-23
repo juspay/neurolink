@@ -8,7 +8,7 @@
 
 > **YamlModule** = `object`
 
-Defined in: [types/proxy.ts:3481](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3481)
+Defined in: [types/proxy.ts:3501](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3501)
 
 Shape of the dynamically-imported js-yaml module. `dump` is optional —
 read-only consumers (proxy config loader) only need `load`; writers
@@ -20,7 +20,7 @@ read-only consumers (proxy config loader) only need `load`; writers
 
 > `optional` **dump?**: (`obj`, `opts?`) => `string`
 
-Defined in: [types/proxy.ts:3483](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3483)
+Defined in: [types/proxy.ts:3503](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3503)
 
 #### Parameters
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:3483](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **default?**: `object`
 
-Defined in: [types/proxy.ts:3484](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3484)
+Defined in: [types/proxy.ts:3504](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3504)
 
 #### load()
 
@@ -82,7 +82,7 @@ Defined in: [types/proxy.ts:3484](https://github.com/juspay/neurolink/blob/relea
 
 > **load**(`content`): `unknown`
 
-Defined in: [types/proxy.ts:3482](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3482)
+Defined in: [types/proxy.ts:3502](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3502)
 
 #### Parameters
 

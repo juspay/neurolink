@@ -8,7 +8,7 @@
 
 > **AnthropicUpstreamFetchResult** = `object`
 
-Defined in: [types/proxy.ts:1409](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1409)
+Defined in: [types/proxy.ts:1429](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1429)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:1409](https://github.com/juspay/neurolink/blob/relea
 
 > **continueLoop**: `boolean`
 
-Defined in: [types/proxy.ts:1410](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1410)
+Defined in: [types/proxy.ts:1430](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1430)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:1410](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **retrySameAccount?**: `boolean`
 
-Defined in: [types/proxy.ts:1411](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1411)
+Defined in: [types/proxy.ts:1431](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1431)
 
 ---
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:1411](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **transportScope?**: [`ProxyNetworkTransportScope`](ProxyNetworkTransportScope.md)
 
-Defined in: [types/proxy.ts:1412](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1412)
+Defined in: [types/proxy.ts:1432](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1432)
 
 ---
 
@@ -40,7 +40,7 @@ Defined in: [types/proxy.ts:1412](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **errorCode?**: `string`
 
-Defined in: [types/proxy.ts:1413](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1413)
+Defined in: [types/proxy.ts:1433](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1433)
 
 ---
 
@@ -48,7 +48,7 @@ Defined in: [types/proxy.ts:1413](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **connectPhase?**: `boolean`
 
-Defined in: [types/proxy.ts:1416](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1416)
+Defined in: [types/proxy.ts:1436](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1436)
 
 The transport failure happened while connecting, before any request
 byte was sent, so retrying it cannot duplicate provider work.
@@ -59,7 +59,7 @@ byte was sent, so retrying it cannot duplicate provider work.
 
 > `optional` **retryAfterMs?**: `number`
 
-Defined in: [types/proxy.ts:1418](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1418)
+Defined in: [types/proxy.ts:1438](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1438)
 
 When set, the caller should wait this many ms before retrying (from upstream retry-after).
 
@@ -69,7 +69,7 @@ When set, the caller should wait this many ms before retrying (from upstream ret
 
 > `optional` **cooldownPlan?**: [`AccountCooldownPlan`](AccountCooldownPlan.md)
 
-Defined in: [types/proxy.ts:1420](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1420)
+Defined in: [types/proxy.ts:1440](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1440)
 
 Set on a genuine 429: how long / why to cool this account before rotating.
 
@@ -79,7 +79,7 @@ Set on a genuine 429: how long / why to cool this account before rotating.
 
 > `optional` **quota?**: [`AccountQuota`](AccountQuota.md)
 
-Defined in: [types/proxy.ts:1422](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1422)
+Defined in: [types/proxy.ts:1442](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1442)
 
 Quota snapshot parsed from the response headers (429 or success), if present.
 
@@ -89,7 +89,7 @@ Quota snapshot parsed from the response headers (429 or success), if present.
 
 > `optional` **terminalError?**: `object`
 
-Defined in: [types/proxy.ts:1426](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1426)
+Defined in: [types/proxy.ts:1446](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1446)
 
 A terminal upstream rejection already captured and classified by the
 fetch layer. The route must finalize it directly instead of feeding it
@@ -117,7 +117,7 @@ through the generic non-OK handler a second time.
 
 > `optional` **response?**: `Response`
 
-Defined in: [types/proxy.ts:1432](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1432)
+Defined in: [types/proxy.ts:1452](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1452)
 
 ---
 
@@ -125,7 +125,7 @@ Defined in: [types/proxy.ts:1432](https://github.com/juspay/neurolink/blob/relea
 
 > **lastError**: `unknown`
 
-Defined in: [types/proxy.ts:1433](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1433)
+Defined in: [types/proxy.ts:1453](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1453)
 
 ---
 
@@ -133,7 +133,7 @@ Defined in: [types/proxy.ts:1433](https://github.com/juspay/neurolink/blob/relea
 
 > **sawRateLimit**: `boolean`
 
-Defined in: [types/proxy.ts:1434](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1434)
+Defined in: [types/proxy.ts:1454](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1454)
 
 ---
 
@@ -141,7 +141,7 @@ Defined in: [types/proxy.ts:1434](https://github.com/juspay/neurolink/blob/relea
 
 > **sawNetworkError**: `boolean`
 
-Defined in: [types/proxy.ts:1435](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1435)
+Defined in: [types/proxy.ts:1455](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1455)
 
 ---
 
@@ -149,4 +149,4 @@ Defined in: [types/proxy.ts:1435](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **upstreamSpan?**: `Span`
 
-Defined in: [types/proxy.ts:1436](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1436)
+Defined in: [types/proxy.ts:1456](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1456)

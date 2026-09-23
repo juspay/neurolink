@@ -8,7 +8,7 @@
 
 > **QuietStatus** = `object`
 
-Defined in: [types/proxy.ts:2206](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2206)
+Defined in: [types/proxy.ts:2226](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2226)
 
 Result of a traffic-quiet check.
 
@@ -18,7 +18,7 @@ Result of a traffic-quiet check.
 
 > **isQuiet**: `boolean`
 
-Defined in: [types/proxy.ts:2207](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2207)
+Defined in: [types/proxy.ts:2227](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2227)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2207](https://github.com/juspay/neurolink/blob/relea
 
 > **lastActivityAt**: `Date` \| `null`
 
-Defined in: [types/proxy.ts:2208](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2208)
+Defined in: [types/proxy.ts:2228](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2228)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/proxy.ts:2208](https://github.com/juspay/neurolink/blob/relea
 
 > **silenceDurationMs**: `number`
 
-Defined in: [types/proxy.ts:2209](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2209)
+Defined in: [types/proxy.ts:2229](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2229)

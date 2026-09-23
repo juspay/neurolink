@@ -8,7 +8,7 @@
 
 > **ProxyResidentGrantFile** = `object`
 
-Defined in: [types/proxy.ts:4790](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4790)
+Defined in: [types/proxy.ts:4810](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4810)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4790](https://github.com/juspay/neurolink/blob/relea
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:4791](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4791)
+Defined in: [types/proxy.ts:4811](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4811)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:4791](https://github.com/juspay/neurolink/blob/relea
 
 > **grants**: `Record`\<`string`, [`ProxyResidentGrant`](ProxyResidentGrant.md)\>
 
-Defined in: [types/proxy.ts:4792](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4792)
+Defined in: [types/proxy.ts:4812](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4812)

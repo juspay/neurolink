@@ -8,7 +8,7 @@
 
 > **ProxySharePoolUsage** = `object`
 
-Defined in: [types/proxy.ts:4249](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4249)
+Defined in: [types/proxy.ts:4269](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4269)
 
 A grant's consumption of the pool, normalised to one window's worth.
 
@@ -21,7 +21,7 @@ a fifth of total pool capacity however it was spread across credentials.
 
 > **sessionFraction**: `number`
 
-Defined in: [types/proxy.ts:4250](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4250)
+Defined in: [types/proxy.ts:4270](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4270)
 
 ---
 
@@ -29,4 +29,4 @@ Defined in: [types/proxy.ts:4250](https://github.com/juspay/neurolink/blob/relea
 
 > **weeklyFraction**: `number`
 
-Defined in: [types/proxy.ts:4251](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4251)
+Defined in: [types/proxy.ts:4271](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4271)

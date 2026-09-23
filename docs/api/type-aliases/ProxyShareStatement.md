@@ -8,7 +8,7 @@
 
 > **ProxyShareStatement** = `object`
 
-Defined in: [types/proxy.ts:4333](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4333)
+Defined in: [types/proxy.ts:4353](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4353)
 
 What a borrower makes of the receipts it collected.
 
@@ -18,7 +18,7 @@ What a borrower makes of the receipts it collected.
 
 > **grantId**: `string`
 
-Defined in: [types/proxy.ts:4334](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4334)
+Defined in: [types/proxy.ts:4354](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4354)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:4334](https://github.com/juspay/neurolink/blob/relea
 
 > **receipts**: `number`
 
-Defined in: [types/proxy.ts:4335](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4335)
+Defined in: [types/proxy.ts:4355](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4355)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:4335](https://github.com/juspay/neurolink/blob/relea
 
 > **coins**: `number`
 
-Defined in: [types/proxy.ts:4336](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4336)
+Defined in: [types/proxy.ts:4356](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4356)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:4336](https://github.com/juspay/neurolink/blob/relea
 
 > **unverified**: `number`
 
-Defined in: [types/proxy.ts:4338](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4338)
+Defined in: [types/proxy.ts:4358](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4358)
 
 Receipts whose signature did not verify against the shared secret.
 
@@ -52,7 +52,7 @@ Receipts whose signature did not verify against the shared secret.
 
 > **miscounted**: `number`
 
-Defined in: [types/proxy.ts:4340](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4340)
+Defined in: [types/proxy.ts:4360](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4360)
 
 Receipts whose coin figure disagrees with its own usage block.
 
@@ -62,7 +62,7 @@ Receipts whose coin figure disagrees with its own usage block.
 
 > **gaps**: `number`[]
 
-Defined in: [types/proxy.ts:4342](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4342)
+Defined in: [types/proxy.ts:4362](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4362)
 
 Sequence numbers missing from an otherwise contiguous run.
 
@@ -72,4 +72,4 @@ Sequence numbers missing from an otherwise contiguous run.
 
 > **latestSequence**: `number`
 
-Defined in: [types/proxy.ts:4343](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4343)
+Defined in: [types/proxy.ts:4363](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4363)

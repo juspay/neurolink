@@ -8,7 +8,7 @@
 
 > **ResponseCacheEntry**\<`T`\> = `object`
 
-Defined in: [types/proxy.ts:1968](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1968)
+Defined in: [types/proxy.ts:1988](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1988)
 
 Cache entry for response caching middleware.
 
@@ -24,7 +24,7 @@ Cache entry for response caching middleware.
 
 > **value**: `T`
 
-Defined in: [types/proxy.ts:1969](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1969)
+Defined in: [types/proxy.ts:1989](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1989)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:1969](https://github.com/juspay/neurolink/blob/relea
 
 > **expiresAt**: `number`
 
-Defined in: [types/proxy.ts:1970](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1970)
+Defined in: [types/proxy.ts:1990](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1990)

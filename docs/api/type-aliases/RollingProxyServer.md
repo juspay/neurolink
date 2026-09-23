@@ -8,7 +8,7 @@
 
 > **RollingProxyServer** = `object`
 
-Defined in: [types/proxy.ts:3422](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3422)
+Defined in: [types/proxy.ts:3442](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3442)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:3422](https://github.com/juspay/neurolink/blob/relea
 
 > **address**: `object`
 
-Defined in: [types/proxy.ts:3423](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3423)
+Defined in: [types/proxy.ts:3443](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3443)
 
 #### host
 
@@ -32,7 +32,7 @@ Defined in: [types/proxy.ts:3423](https://github.com/juspay/neurolink/blob/relea
 
 > **replace**: (`expectedVersion`) => `Promise`\<[`RollingWorkerSupervisorSnapshot`](RollingWorkerSupervisorSnapshot.md)\>
 
-Defined in: [types/proxy.ts:3424](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3424)
+Defined in: [types/proxy.ts:3444](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3444)
 
 #### Parameters
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:3424](https://github.com/juspay/neurolink/blob/relea
 
 > **snapshot**: () => [`RollingWorkerSupervisorSnapshot`](RollingWorkerSupervisorSnapshot.md)
 
-Defined in: [types/proxy.ts:3427](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3427)
+Defined in: [types/proxy.ts:3447](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3447)
 
 #### Returns
 
@@ -62,7 +62,7 @@ Defined in: [types/proxy.ts:3427](https://github.com/juspay/neurolink/blob/relea
 
 > **close**: () => `Promise`\<`void`\>
 
-Defined in: [types/proxy.ts:3428](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3428)
+Defined in: [types/proxy.ts:3448](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3448)
 
 #### Returns
 

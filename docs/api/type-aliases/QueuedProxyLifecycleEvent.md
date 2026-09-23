@@ -8,7 +8,7 @@
 
 > **QueuedProxyLifecycleEvent** = `object`
 
-Defined in: [types/proxy.ts:2367](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2367)
+Defined in: [types/proxy.ts:2387](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2387)
 
 Serialized lifecycle line awaiting a bounded batch write.
 
@@ -18,7 +18,7 @@ Serialized lifecycle line awaiting a bounded batch write.
 
 > `optional` **filePrefix?**: `string`
 
-Defined in: [types/proxy.ts:2368](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2368)
+Defined in: [types/proxy.ts:2388](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2388)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:2368](https://github.com/juspay/neurolink/blob/relea
 
 > **logDir**: `string`
 
-Defined in: [types/proxy.ts:2369](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2369)
+Defined in: [types/proxy.ts:2389](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2389)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:2369](https://github.com/juspay/neurolink/blob/relea
 
 > **date**: `string`
 
-Defined in: [types/proxy.ts:2370](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2370)
+Defined in: [types/proxy.ts:2390](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2390)
 
 ---
 
@@ -42,7 +42,7 @@ Defined in: [types/proxy.ts:2370](https://github.com/juspay/neurolink/blob/relea
 
 > **record**: `Record`\<`string`, `unknown`\>
 
-Defined in: [types/proxy.ts:2371](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2371)
+Defined in: [types/proxy.ts:2391](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2391)
 
 ---
 
@@ -50,7 +50,7 @@ Defined in: [types/proxy.ts:2371](https://github.com/juspay/neurolink/blob/relea
 
 > **writeRetries**: `number`
 
-Defined in: [types/proxy.ts:2372](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2372)
+Defined in: [types/proxy.ts:2392](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2392)
 
 ---
 
@@ -58,7 +58,7 @@ Defined in: [types/proxy.ts:2372](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **onPersisted?**: (`confirmed`) => `void`
 
-Defined in: [types/proxy.ts:2374](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2374)
+Defined in: [types/proxy.ts:2394](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L2394)
 
 Resolve only after the original append settles; uncertain writes fail.
 

@@ -8,7 +8,7 @@
 
 > **ProxyShareEntitlement** = `object`
 
-Defined in: [types/proxy.ts:4072](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4072)
+Defined in: [types/proxy.ts:4092](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4092)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:4072](https://github.com/juspay/neurolink/blob/relea
 
 > **ledger**: [`ProxyShareLedgerMode`](ProxyShareLedgerMode.md)
 
-Defined in: [types/proxy.ts:4073](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4073)
+Defined in: [types/proxy.ts:4093](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4093)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:4073](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **coins?**: `number`
 
-Defined in: [types/proxy.ts:4075](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4075)
+Defined in: [types/proxy.ts:4095](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4095)
 
 Remaining balance when `ledger` is "coins".
 
@@ -34,7 +34,7 @@ Remaining balance when `ledger` is "coins".
 
 > `optional` **refill?**: `object`
 
-Defined in: [types/proxy.ts:4076](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4076)
+Defined in: [types/proxy.ts:4096](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L4096)
 
 #### amount
 

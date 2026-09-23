@@ -8,7 +8,7 @@
 
 > **PersistedProxyStatsSnapshot** = `object`
 
-Defined in: [types/proxy.ts:1558](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1558)
+Defined in: [types/proxy.ts:1578](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1578)
 
 Versioned on-disk snapshot shared by overlapping proxy workers.
 
@@ -18,7 +18,7 @@ Versioned on-disk snapshot shared by overlapping proxy workers.
 
 > **schemaVersion**: `1`
 
-Defined in: [types/proxy.ts:1559](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1559)
+Defined in: [types/proxy.ts:1579](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1579)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:1559](https://github.com/juspay/neurolink/blob/relea
 
 > **revision**: `number`
 
-Defined in: [types/proxy.ts:1560](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1560)
+Defined in: [types/proxy.ts:1580](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1580)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:1560](https://github.com/juspay/neurolink/blob/relea
 
 > **updatedAt**: `number`
 
-Defined in: [types/proxy.ts:1561](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1561)
+Defined in: [types/proxy.ts:1581](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1581)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:1561](https://github.com/juspay/neurolink/blob/relea
 
 > **stats**: [`ProxyStats`](ProxyStats.md)
 
-Defined in: [types/proxy.ts:1562](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1562)
+Defined in: [types/proxy.ts:1582](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1582)

@@ -64,10 +64,28 @@ export type ModelRouterInterface = {
 // CLAUDE API TYPES (from claudeFormat.ts)
 // =============================================================================
 
+/**
+ * Anthropic prompt-cache breakpoint marker.
+ *
+ * Anthropic caching is explicit: the prefix up to each marker is cached, and a
+ * request carrying none is cached not at all. Four markers is the hard ceiling.
+ */
+export type ClaudeCacheControl = {
+  type: "ephemeral";
+  /**
+   * How long the marked prefix stays cached. The API accepts a 5-minute or a
+   * 1-hour window, priced at 1.25x and 2x base input respectively; omitting it
+   * means 5 minutes. Without this field a caller cannot express the 1-hour
+   * marker at all.
+   */
+  ttl?: "5m" | "1h";
+};
+
 /** A single text block in a Claude content array. */
 export type ClaudeTextBlock = {
   type: "text";
   text: string;
+  cache_control?: ClaudeCacheControl;
 };
 
 /** A single image block in a Claude content array. */
@@ -94,6 +112,7 @@ export type ClaudeToolResultBlock = {
   type: "tool_result";
   tool_use_id: string;
   content: string | ClaudeContentBlock[];
+  cache_control?: ClaudeCacheControl;
 };
 
 /** A thinking/reasoning block in a Claude content array. */
@@ -120,6 +139,7 @@ export type ClaudeTool = {
   name: string;
   description?: string;
   input_schema: Record<string, unknown>;
+  cache_control?: ClaudeCacheControl;
 };
 
 /** Metadata attached to a Claude Messages API request. */
@@ -135,7 +155,7 @@ export type ClaudeRequest = {
   model: string;
   messages: ClaudeMessage[];
   max_tokens: number;
-  system?: string | Array<{ type: "text"; text: string }>;
+  system?: string | ClaudeTextBlock[];
   temperature?: number;
   top_p?: number;
   top_k?: number;

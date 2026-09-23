@@ -26,6 +26,7 @@ import type {
   StreamLifecycleState,
 } from "../types/index.js";
 import { normalizeJsonSchemaObject } from "../utils/schemaConversion.js";
+import { applyClaudeRequestCacheBreakpoints } from "../utils/anthropicCacheBreakpoints.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -712,7 +713,13 @@ export function convertOpenAIToClaudeRequest(
       : [openai.stop];
   }
 
-  return result;
+  // An OpenAI-shaped caller has no way to ask for caching: its provider does it
+  // automatically from the first token, so the format carries no equivalent of
+  // `cache_control`. Translating faithfully therefore produces a request
+  // Anthropic caches at 0% on every turn — and a caller that arrives here after
+  // its own pool ran dry would burn the replacement quota faster than the one
+  // it was spared. Synthesise the breakpoints the caller could not express.
+  return applyClaudeRequestCacheBreakpoints(result);
 }
 
 /**

@@ -8,7 +8,7 @@
 
 > **ClaudeSnapshotBody** = `object`
 
-Defined in: [types/proxy.ts:3515](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3515)
+Defined in: [types/proxy.ts:3535](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3535)
 
 Parsed fields captured from a Claude Code client request body.
 
@@ -18,7 +18,7 @@ Parsed fields captured from a Claude Code client request body.
 
 > `optional` **metadataUserId?**: `string`
 
-Defined in: [types/proxy.ts:3516](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3516)
+Defined in: [types/proxy.ts:3536](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3536)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:3516](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **billingHeader?**: `string`
 
-Defined in: [types/proxy.ts:3517](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3517)
+Defined in: [types/proxy.ts:3537](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3537)
 
 ---
 
@@ -34,7 +34,7 @@ Defined in: [types/proxy.ts:3517](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **agentBlock?**: `string`
 
-Defined in: [types/proxy.ts:3518](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3518)
+Defined in: [types/proxy.ts:3538](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3538)
 
 ---
 
@@ -42,4 +42,4 @@ Defined in: [types/proxy.ts:3518](https://github.com/juspay/neurolink/blob/relea
 
 > `optional` **sessionId?**: `string`
 
-Defined in: [types/proxy.ts:3519](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3519)
+Defined in: [types/proxy.ts:3539](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L3539)

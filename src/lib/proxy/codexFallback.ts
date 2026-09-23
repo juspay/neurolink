@@ -286,23 +286,101 @@ function convertClaudeMessage(
 }
 
 /**
- * Stable per-conversation routing key for OpenAI prompt caching.
+ * Routing key that pins a request to the cache already holding its prefix.
  *
  * Anthropic caching is explicit — the client marks breakpoints and the provider
  * honours them. OpenAI caching is automatic: a prefix is reused only when the
  * request lands on infrastructure already holding it, and `prompt_cache_key` is
- * what pins a conversation to one. Without it this hop takes its chances on
- * routing, which is the worst case for a fallback that arrives in bursts
- * separated by long gaps.
+ * what pins a request to one. Without it this hop takes its chances on routing,
+ * which is the worst case for a fallback that arrives in bursts separated by
+ * long gaps.
  *
- * Claude Code carries its session id inside `metadata.user_id`, alongside
- * account and device identifiers. Only the session id is read, and it is
- * hashed, so no account or device identifier reaches the upstream. When no
- * session id can be recovered the field is omitted rather than filled with
- * something shared: a key common to every conversation would pin unrelated
+ * The key must therefore describe the *prefix*, not the caller. Keying it by
+ * session id gives every session a private namespace, so N agents that share
+ * one system prompt and tool set each pay that shared prefix in full rather
+ * than paying it once — the cost is linear in fan-out width and invisible,
+ * because each request looks individually well-behaved. Across 42 captured
+ * fallback bodies the prefixes collapse to 10 distinct values, the largest
+ * shared by 12 requests belonging to different sessions.
+ *
+ * So derive the key from the prefix itself: the instructions and the tool
+ * declarations, which are exactly the leading bytes the upstream caches and
+ * the only part stable across a conversation's turns. Identical prefixes then
+ * share one cache across sessions and subagents, a prefix that genuinely
+ * differs still gets its own key so nothing unrelated contends, and turns
+ * within one session keep sharing a key because neither input changes between
+ * them.
+ *
+ * A request carrying neither instructions nor tools has no prefix worth
+ * pinning, and falls back to the session id so its turns at least stay
+ * together. With neither available the field is omitted rather than filled
+ * with something shared: a key common to every request would pin unrelated
  * prefixes onto one cache instead of separating them.
+ *
+ * The digest covers only content already sent upstream in `instructions` and
+ * `tools`; no account, device or session identifier reaches the wire.
  */
 export function codexPromptCacheKey(body: ClaudeRequest): string | undefined {
+  const prefix = codexCachePrefix(body);
+  if (prefix !== undefined) {
+    return createHash("sha256").update(prefix).digest("hex");
+  }
+  const sessionId = codexSessionId(body);
+  if (sessionId !== undefined) {
+    return createHash("sha256").update(sessionId).digest("hex");
+  }
+  return undefined;
+}
+
+/**
+ * How much of the instructions the key covers.
+ *
+ * Claude Code's system prompt is not byte-stable: measured across live 16,722
+ * character prompts, the first 14,768 characters (88.3%) are identical and the
+ * divergence sits in a trailing session-memory section that is rewritten every
+ * turn. Hashing the whole thing therefore produces a fresh key per request —
+ * the opposite of pinning. Hashing a bounded head instead tracks the part the
+ * upstream can actually reuse, since its cache is built forward from the first
+ * token.
+ *
+ * 8192 is below the observed divergence point with margin, and the error is
+ * asymmetric: too long only costs sharing, while too short pins genuinely
+ * unrelated prefixes onto one cache where they evict each other.
+ *
+ * The bound only helps a prompt long enough to have a tail beyond it. A
+ * shorter prompt is hashed whole, so a churning section inside it would move
+ * the key every turn — where keying by session used to hold still. Measured on
+ * the same corpus, that does not happen: 85 of 92 prompts carrying a system
+ * block sit under this bound, and within a session they resolve to a handful
+ * of keys rather than one per request (28 requests to 4 keys, 17 to 2, 31 to
+ * 2) — those are distinct agents, not one agent churning. Identifying the
+ * stable section structurally would remove the assumption, and is worth doing
+ * if a prompt ever proves otherwise.
+ */
+const CACHE_KEY_PREFIX_CHARS = 8192;
+
+/**
+ * The leading, turn-stable bytes of a Codex request: a bounded head of the
+ * instructions plus the tool names, which distinguish one agent's tool surface
+ * from another's when their instructions open identically. Descriptions and
+ * schemas are deliberately left out — they sit behind the instructions in the
+ * prefix, so two requests agreeing on this much already share a cacheable head
+ * worth routing together.
+ */
+function codexCachePrefix(body: ClaudeRequest): string | undefined {
+  const head = (buildSystemInstructions(body) ?? "").slice(
+    0,
+    CACHE_KEY_PREFIX_CHARS,
+  );
+  const toolNames = (body.tools ?? []).map((tool) => tool.name).join("\u0000");
+  if (!head && !toolNames) {
+    return undefined;
+  }
+  return `${head}\u0001${toolNames}`;
+}
+
+/** Claude Code carries its session id inside `metadata.user_id`. */
+function codexSessionId(body: ClaudeRequest): string | undefined {
   const raw = body.metadata?.user_id;
   if (typeof raw !== "string" || raw.length === 0) {
     return undefined;
@@ -318,10 +396,9 @@ export function codexPromptCacheKey(body: ClaudeRequest): string | undefined {
   }
   const fields = parsed as Record<string, unknown>;
   const sessionId = fields.session_id ?? fields.parent_session_id;
-  if (typeof sessionId !== "string" || sessionId.length === 0) {
-    return undefined;
-  }
-  return createHash("sha256").update(sessionId).digest("hex");
+  return typeof sessionId === "string" && sessionId.length > 0
+    ? sessionId
+    : undefined;
 }
 
 /** Convert a Claude Messages request into the ChatGPT Codex Responses shape. */
