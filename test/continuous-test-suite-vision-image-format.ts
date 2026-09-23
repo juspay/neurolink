@@ -13,21 +13,23 @@
  * (`test/helpers/mockChatServer.ts`), not a live provider, so it needs no
  * credentials and runs unconditionally.
  *
- * ## Why magic bytes, and nothing else
+ * ## Why magic bytes, primarily
  *
- * Two things about the outbound request are proven unreliable for this
- * assertion, so the test decodes the base64 image payload itself and reads
- * its first bytes instead of trusting either:
+ * The outbound request's `data:` URI label used to be unreliable for this
+ * assertion: every `type:"image"` content part reached the OpenAI wire
+ * labelled `image/png` regardless of the bytes it actually encoded. Two
+ * independent drops caused it, and each alone reproduces the bug: core
+ * `MessageBuilder` rebuilt image parts without their resolved media type,
+ * and `convertContentForOpenAI` never read it before falling back to
+ * `imageDataToURL`'s hardcoded default. Both are fixed, so this suite checks
+ * the decoded bytes (the ground truth for what was actually sent) and,
+ * separately, that the label matches — on generate() and on stream(), which
+ * serialize to the wire at different call sites.
  *
- *   - **Filenames** carry no format information here at all — the fixture is
- *     an in-memory Buffer, never a path.
- *   - **The `data:` URI's declared mime label** is not authoritative. The
- *     OpenAI chat-completions adapter labels every `type:"image"` content
- *     part's data URI `image/png` regardless of the bytes it actually
- *     encodes — confirmed empirically: requesting `outputFormat: "jpeg"`
- *     produces a wire payload labelled `image/png` whose bytes are real
- *     JPEG. Asserting on the label would make this suite pass whether or not
- *     the transcode option did anything.
+ *   - **Filenames** still carry no format information here at all — the
+ *     fixture is an in-memory Buffer, never a path.
+ *   - **Decoding the bytes** is still the primary assertion, since a label
+ *     could in principle be fixed without the underlying bytes being correct.
  *
  * PNG magic bytes: `89 50 4E 47`. JPEG magic bytes: `FF D8 FF`.
  *
@@ -69,7 +71,7 @@ async function makeTiffFixture(): Promise<Buffer> {
  * returns null) so a shape change in the request fails loudly instead of
  * being read as "no image".
  */
-function decodedImageBytesFromRequest(body: string): Buffer {
+function extractImageDataUrl(body: string): string {
   const parsed = JSON.parse(body) as { messages?: ChatMessage[] };
   const userMessage = parsed.messages?.find((m) => m.role === "user");
   assert(
@@ -79,19 +81,29 @@ function decodedImageBytesFromRequest(body: string): Buffer {
   const content = userMessage!.content as ImageUrlPart[];
   const imagePart = content.find((p) => p.type === "image_url");
   const url = imagePart?.image_url?.url ?? "";
-  const commaIndex = url.indexOf(",");
   assert(
-    url.startsWith("data:") && commaIndex > -1,
+    url.startsWith("data:") && url.indexOf(",") > -1,
     "the captured request's image part was not a data: URI",
   );
-  return Buffer.from(url.slice(commaIndex + 1), "base64");
+  return url;
 }
 
-async function runGenerateAndCapture(
+function decodedImageBytesFromRequest(body: string): Buffer {
+  const url = extractImageDataUrl(body);
+  return Buffer.from(url.slice(url.indexOf(",") + 1), "base64");
+}
+
+/** The `data:<label>;base64,...` label, e.g. "image/jpeg". */
+function decodedImageLabelFromRequest(body: string): string {
+  const url = extractImageDataUrl(body);
+  return url.slice("data:".length, url.indexOf(";"));
+}
+
+async function generateAndCaptureBody(
   server: MockChatServer,
   tiff: Buffer,
   outputFormat?: "jpeg",
-): Promise<Buffer> {
+): Promise<string> {
   const nl = new NeuroLink();
   await nl.generate({
     provider: "openai",
@@ -106,7 +118,17 @@ async function runGenerateAndCapture(
     server.wasCalled(),
     "generate() must have sent a request before its body can be inspected",
   );
-  return decodedImageBytesFromRequest(server.getLastRequestBody() ?? "");
+  return server.getLastRequestBody() ?? "";
+}
+
+async function runGenerateAndCapture(
+  server: MockChatServer,
+  tiff: Buffer,
+  outputFormat?: "jpeg",
+): Promise<Buffer> {
+  return decodedImageBytesFromRequest(
+    await generateAndCaptureBody(server, tiff, outputFormat),
+  );
 }
 
 /**
@@ -117,11 +139,11 @@ async function runGenerateAndCapture(
  * coverage gap the header docstring claims is closed: the option must be
  * proven on both call paths, not asserted only on one.
  */
-async function runStreamAndCapture(
+async function streamAndCaptureBody(
   server: MockChatServer,
   tiff: Buffer,
   outputFormat?: "jpeg",
-): Promise<Buffer> {
+): Promise<string> {
   const nl = new NeuroLink();
   const result = await nl.stream({
     provider: "openai",
@@ -139,7 +161,17 @@ async function runStreamAndCapture(
     server.wasCalled(),
     "stream() must have sent a request before its body can be inspected",
   );
-  return decodedImageBytesFromRequest(server.getLastRequestBody() ?? "");
+  return server.getLastRequestBody() ?? "";
+}
+
+async function runStreamAndCapture(
+  server: MockChatServer,
+  tiff: Buffer,
+  outputFormat?: "jpeg",
+): Promise<Buffer> {
+  return decodedImageBytesFromRequest(
+    await streamAndCaptureBody(server, tiff, outputFormat),
+  );
 }
 
 await test("an explicit outputFormat: jpeg reaches the wire as real JPEG bytes", async () => {
@@ -153,6 +185,21 @@ await test("an explicit outputFormat: jpeg reaches the wire as real JPEG bytes",
         bytes[1] === 0xd8 &&
         bytes[2] === 0xff,
       "the transcoded image's decoded bytes did not carry JPEG magic bytes",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+await test("an explicit outputFormat: jpeg is labelled image/jpeg on the wire, not image/png", async () => {
+  const tiff = await makeTiffFixture();
+  const server = await startMockChatServer();
+  try {
+    const body = await generateAndCaptureBody(server, tiff, "jpeg");
+    const label = decodedImageLabelFromRequest(body);
+    assert(
+      label === "image/jpeg",
+      `the outbound data URI must be labelled image/jpeg for a jpeg transcode, got ${label}`,
     );
   } finally {
     await server.close();
@@ -188,6 +235,24 @@ await test("stream(): an explicit outputFormat: jpeg reaches the wire as real JP
         bytes[1] === 0xd8 &&
         bytes[2] === 0xff,
       "the transcoded image's decoded bytes did not carry JPEG magic bytes on the streaming path",
+    );
+  } finally {
+    await server.close();
+  }
+});
+
+// stream() serializes to the OpenAI wire at its own call site (doStream), not
+// the one generate() uses, so a label regression there is invisible to the
+// generate() label test above.
+await test("stream(): an explicit outputFormat: jpeg is labelled image/jpeg on the wire, not image/png", async () => {
+  const tiff = await makeTiffFixture();
+  const server = await startMockChatServer();
+  try {
+    const body = await streamAndCaptureBody(server, tiff, "jpeg");
+    const label = decodedImageLabelFromRequest(body);
+    assert(
+      label === "image/jpeg",
+      `the streaming path's outbound data URI must be labelled image/jpeg for a jpeg transcode, got ${label}`,
     );
   } finally {
     await server.close();

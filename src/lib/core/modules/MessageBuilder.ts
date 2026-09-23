@@ -199,9 +199,19 @@ export class MessageBuilder {
                       }),
                     };
                   } else if (item.type === "image") {
+                    // Upstream image builders label the resolved format as
+                    // either `mediaType` (canonical ImagePart field) or
+                    // `mimeType` (messageBuilder's convertSimpleImagesToProviderFormat).
+                    // Dropping it here silently reset every transcoded image
+                    // back to the provider's hardcoded PNG default even
+                    // though the transcoded bytes themselves were correct.
+                    const mediaType = (item.mediaType ?? item.mimeType) as
+                      | string
+                      | undefined;
                     return {
                       type: "image" as const,
                       image: (item.image as string) || "",
+                      ...(mediaType && { mediaType }),
                       ...(itemProviderOptions && {
                         providerOptions: itemProviderOptions,
                       }),
@@ -350,9 +360,19 @@ export class MessageBuilder {
                       }),
                     };
                   } else if (item.type === "image") {
+                    // Upstream image builders label the resolved format as
+                    // either `mediaType` (canonical ImagePart field) or
+                    // `mimeType` (messageBuilder's convertSimpleImagesToProviderFormat).
+                    // Dropping it here silently reset every transcoded image
+                    // back to the provider's hardcoded PNG default even
+                    // though the transcoded bytes themselves were correct.
+                    const mediaType = (item.mediaType ?? item.mimeType) as
+                      | string
+                      | undefined;
                     return {
                       type: "image" as const,
                       image: (item.image as string) || "",
+                      ...(mediaType && { mediaType }),
                       ...(itemProviderOptions && {
                         providerOptions: itemProviderOptions,
                       }),
