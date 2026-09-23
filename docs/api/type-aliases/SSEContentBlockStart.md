@@ -8,7 +8,7 @@
 
 > **SSEContentBlockStart** = `object`
 
-Defined in: [types/proxy.ts:206](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L206)
+Defined in: [types/proxy.ts:226](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L226)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:206](https://github.com/juspay/neurolink/blob/releas
 
 > **type**: `"content_block_start"`
 
-Defined in: [types/proxy.ts:207](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L207)
+Defined in: [types/proxy.ts:227](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L227)
 
 ---
 
@@ -24,7 +24,7 @@ Defined in: [types/proxy.ts:207](https://github.com/juspay/neurolink/blob/releas
 
 > **index**: `number`
 
-Defined in: [types/proxy.ts:208](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L208)
+Defined in: [types/proxy.ts:228](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L228)
 
 ---
 
@@ -32,4 +32,4 @@ Defined in: [types/proxy.ts:208](https://github.com/juspay/neurolink/blob/releas
 
 > **content_block**: [`SSEContentBlockDescriptor`](SSEContentBlockDescriptor.md)
 
-Defined in: [types/proxy.ts:209](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L209)
+Defined in: [types/proxy.ts:229](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L229)

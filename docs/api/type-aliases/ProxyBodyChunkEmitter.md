@@ -8,7 +8,7 @@
 
 > **ProxyBodyChunkEmitter** = (`chunk`, `index`, `count`) => `void`
 
-Defined in: [types/proxy.ts:1012](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1012)
+Defined in: [types/proxy.ts:1032](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1032)
 
 Chunk emission stays in the request logger, which owns request attributes.
 

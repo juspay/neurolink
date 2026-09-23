@@ -400,6 +400,132 @@ function appendDecoyMediaBox(
 // ============================================================================
 
 const tests: TestFunction[] = [
+  // ---------- OpenAI -> Claude bridge prompt-cache breakpoints ----------
+  {
+    name: "OpenAI-shaped requests reach Anthropic with synthesised cache breakpoints",
+    category: "proxy-bridge",
+    fn: async () => {
+      // Anthropic caches only up to an explicit `cache_control` marker, and the
+      // OpenAI wire format has no way to express one — its own provider caches
+      // automatically from the first token. So a faithful translation arrives
+      // with zero markers and is cached at 0% on every turn, which is worst for
+      // exactly the caller that landed here after its own pool ran dry.
+      const { convertOpenAIToClaudeRequest } =
+        await import("../src/lib/proxy/openaiFormat.js");
+      const markers = (request: {
+        system?: unknown;
+        tools?: ReadonlyArray<{ cache_control?: unknown }>;
+        messages: ReadonlyArray<{ content: unknown }>;
+      }): number => {
+        let n = 0;
+        if (Array.isArray(request.system)) {
+          n += request.system.filter(
+            (b: { cache_control?: unknown }) => b.cache_control,
+          ).length;
+        }
+        n += (request.tools ?? []).filter((t) => t.cache_control).length;
+        for (const message of request.messages) {
+          if (Array.isArray(message.content)) {
+            n += message.content.filter(
+              (b: { cache_control?: unknown }) => b.cache_control,
+            ).length;
+          }
+        }
+        return n;
+      };
+
+      const converted = convertOpenAIToClaudeRequest({
+        model: "claude-sonnet-5",
+        messages: [
+          { role: "system", content: "You are a helpful coding agent." },
+          { role: "user", content: "turn 1" },
+          { role: "assistant", content: "ok" },
+          { role: "user", content: [{ type: "text", text: "turn 2" }] },
+          {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "t1",
+                type: "function",
+                function: { name: "read", arguments: "{}" },
+              },
+            ],
+          },
+          { role: "tool", tool_call_id: "t1", content: "file contents" },
+          { role: "user", content: [{ type: "text", text: "turn 3" }] },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "read",
+              description: "read",
+              parameters: { type: "object" },
+            },
+          },
+        ],
+      } as never);
+
+      const total = markers(converted);
+      // Anthropic rejects a request carrying more than four.
+      if (total === 0 || total > 4) {
+        return false;
+      }
+      // The stable head must be anchored on the last system block: system
+      // renders after tools, so one marker there caches both.
+      if (
+        !Array.isArray(converted.system) ||
+        !converted.system[converted.system.length - 1]?.cache_control
+      ) {
+        return false;
+      }
+      // Only text and tool_result blocks accept a marker; a message ending in
+      // tool_use must be skipped rather than annotated into a 400.
+      for (const message of converted.messages) {
+        if (!Array.isArray(message.content)) {
+          continue;
+        }
+        for (const block of message.content) {
+          const marked = (block as { cache_control?: unknown }).cache_control;
+          if (marked && block.type !== "text" && block.type !== "tool_result") {
+            return false;
+          }
+        }
+      }
+      // A plain-text conversation carries every turn as a *string*, not a
+      // block array. Skipping strings left exactly that shape — the common
+      // one — with only the system marker and no history breakpoint at all,
+      // so the growing history this exists to cache was never cached.
+      const plainText = convertOpenAIToClaudeRequest({
+        model: "claude-sonnet-5",
+        messages: [
+          { role: "system", content: "You are a helpful coding agent." },
+          { role: "user", content: "turn 1" },
+          { role: "assistant", content: "ok" },
+          { role: "user", content: "turn 2" },
+        ],
+      } as never);
+      if (markers(plainText) !== 4) {
+        return false;
+      }
+      for (const message of plainText.messages) {
+        if (!Array.isArray(message.content)) {
+          return false;
+        }
+      }
+      // A request with nothing but a system prompt and one turn gets the
+      // system marker plus that turn's.
+      const minimal = convertOpenAIToClaudeRequest({
+        model: "claude-sonnet-5",
+        messages: [
+          { role: "system", content: "You are a helpful coding agent." },
+          { role: "user", content: "hi" },
+        ],
+      } as never);
+      return markers(minimal) === 2;
+    },
+  },
   // ---------- CSV processor line ending handling ----------
   {
     name: "CSVProcessor.parseCSVString handles Unix, Windows, and classic Mac line endings",

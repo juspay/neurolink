@@ -8,4 +8,4 @@
 
 > **ProxyQuotaCooldownUpdate** = \{ `kind`: `"cooled"`; `coolingUntil`: `number`; `coolingReason`: [`AccountCoolingReason`](AccountCoolingReason.md); \} \| \{ `kind`: `"cleared"`; `coolingUntil`: `number`; \} \| `null`
 
-Defined in: [types/proxy.ts:1395](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1395)
+Defined in: [types/proxy.ts:1415](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1415)

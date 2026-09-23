@@ -310,6 +310,16 @@ function resolveRequestLogAccountIdentity(
       provider: "anthropic",
     };
   }
+  if (accountType === "vertex") {
+    // A native fallback leg has no OAuth login — the account IS the served
+    // model, e.g. "vertex/claude-opus-4-6". Without this branch `provider`
+    // stays unset, `annotateRequestPricing` falls back to
+    // "openai-compatible", and that resolves to a cross-provider scan which
+    // prices the turn from the *requested* alias in the Anthropic table
+    // instead of the served model in the Vertex one — a 2.5x under-report on
+    // the only leg that bills in real currency.
+    return { accountKey: accountLabel, provider: "vertex" };
+  }
   return {};
 }
 
@@ -5012,11 +5022,37 @@ async function loadClaudeProxyAccounts(args: {
   };
 }
 
+/**
+ * The model that actually served a fallback turn.
+ *
+ * One request can leave more than one leg's model in metadata: the Codex leg
+ * records its model on the failure path before the chain moves on, and the
+ * configured chain tries Codex first. Choosing by key precedence therefore
+ * billed a Vertex-served turn as the Codex model — the exact misattribution
+ * this file's pricing fix exists to prevent. The account type that reached
+ * `logFinalRequest` is the only authoritative signal for which leg answered,
+ * so select on that and ignore the other leg's leftovers.
+ */
+export function resolveServedFallbackModel(
+  metadata: {
+    codexFallbackModel?: unknown;
+    vertexFallbackModel?: unknown;
+  },
+  accountType: string | undefined,
+): string | undefined {
+  const served =
+    accountType === "vertex"
+      ? metadata.vertexFallbackModel
+      : metadata.codexFallbackModel;
+  return typeof served === "string" && served.length > 0 ? served : undefined;
+}
+
 function clearClaudeFallbackTerminalEvidence(ctx: ServerContext): void {
   for (const key of [
     "codexFallbackAccount",
     "codexFallbackAccountType",
     "codexFallbackModel",
+    "vertexFallbackModel",
     "codexFallbackFailureUsage",
     "codexFallbackDeferredFailure",
     "sdkFallbackFailure",
@@ -5705,6 +5741,19 @@ async function tryConfiguredClaudeFallbackChain(args: {
         // the caller's pending tool call, which strands every agentic turn.
         const vertexModel = fallback.model;
         const vertexAccount = `vertex/${vertexModel}`;
+        // A Codex leg that already failed left its own terminal evidence
+        // behind — its model, account, deferred-failure flag and failure
+        // usage. Every one of those is read again when this turn finalizes:
+        // the model would be logged and priced in place of the Vertex one,
+        // the deferred-failure branch would re-attribute the tracer to
+        // "openai" after the Vertex leg set it, and the failure usage would
+        // merge its reasoning tokens into this turn's counts. Start the leg
+        // clean, the same way a fresh upstream dispatch does.
+        clearClaudeFallbackTerminalEvidence(ctx);
+        // Billing follows the model that served the turn. The request log
+        // otherwise records `body.model` — the alias the client asked for —
+        // and prices Opus-on-Vertex at Sonnet rates.
+        ctx.metadata.vertexFallbackModel = vertexModel;
         response = await executeVertexAnthropicFallback({
           body,
           model: vertexModel,
@@ -8973,19 +9022,27 @@ function createClaudeRequestRuntimeContext(args: {
       recordFinalSuccess(finalAccountLabel, finalAccountType);
     }
     const traceCtx = tracer?.getTraceContext();
+    const servedModel = resolveServedFallbackModel(
+      ctx.metadata,
+      finalAccountType,
+    );
     logRequest({
       timestamp: new Date().toISOString(),
       requestId: ctx.requestId,
       method: ctx.method,
       path: ctx.path,
-      model:
-        typeof ctx.metadata.codexFallbackModel === "string"
-          ? ctx.metadata.codexFallbackModel
-          : body.model,
-      ...(typeof ctx.metadata.codexFallbackModel === "string"
+      model: servedModel ?? body.model,
+      ...(servedModel
         ? {
             requestedModel: body.model,
-            inputIncludesCachedTokens: false,
+            // Codex reports input inclusive of cached tokens; the Vertex
+            // Anthropic wire reports them separately, exactly as the native
+            // path does, so the flag stays Codex-only. Keyed off the serving
+            // account for the same reason `servedModel` is: a failed Codex leg
+            // leaves its model behind on a turn Vertex went on to serve.
+            ...(finalAccountType === "vertex"
+              ? {}
+              : { inputIncludesCachedTokens: false }),
           }
         : {}),
       ...(ctx.metadata.contextPreflight
@@ -12233,6 +12290,7 @@ export function redactProviderErrorMessage(message: string): string {
 // ---------------------------------------------------------------------------
 
 export const __testHooks = {
+  clearClaudeFallbackTerminalEvidence,
   normalizeQuotaForAccounts,
   resolveHomeIndex,
   maybeResetPrimaryToHome,

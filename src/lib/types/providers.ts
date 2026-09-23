@@ -2597,6 +2597,17 @@ export type VertexAnthropicTool = {
   cache_control?: VertexAnthropicCacheControl;
 };
 
+/**
+ * Supplies the bearer token for a Vertex publisher call.
+ *
+ * Exists so a test can stand in for the Google credential lookup: gaxios
+ * resolves its transport to node-fetch rather than `globalThis.fetch`, so a
+ * test that swaps the global cannot intercept the token exchange.
+ */
+export type VertexAccessTokenProvider = () => Promise<
+  string | null | undefined
+>;
+
 /** Input to `applyVertexAnthropicCacheBreakpoints`. */
 export type VertexAnthropicCacheInput = {
   system?: string;

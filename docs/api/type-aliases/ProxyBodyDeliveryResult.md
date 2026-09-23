@@ -8,7 +8,7 @@
 
 > **ProxyBodyDeliveryResult** = `object`
 
-Defined in: [types/proxy.ts:851](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L851)
+Defined in: [types/proxy.ts:871](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L871)
 
 Collector transport evidence; acknowledgement does not prove backend storage.
 
@@ -18,7 +18,7 @@ Collector transport evidence; acknowledgement does not prove backend storage.
 
 > **status**: `"transport_acknowledged"` \| `"export_unconfirmed"` \| `"rejected"` \| `"partial"`
 
-Defined in: [types/proxy.ts:852](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L852)
+Defined in: [types/proxy.ts:872](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L872)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/proxy.ts:852](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **expectedChunks?**: `number`
 
-Defined in: [types/proxy.ts:858](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L858)
+Defined in: [types/proxy.ts:878](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L878)
 
 Absent when publication was rejected before chunking.
 
@@ -36,7 +36,7 @@ Absent when publication was rejected before chunking.
 
 > **acknowledgedChunks**: `number`
 
-Defined in: [types/proxy.ts:859](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L859)
+Defined in: [types/proxy.ts:879](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L879)
 
 ---
 
@@ -44,7 +44,7 @@ Defined in: [types/proxy.ts:859](https://github.com/juspay/neurolink/blob/releas
 
 > **unconfirmedChunks**: `number`
 
-Defined in: [types/proxy.ts:860](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L860)
+Defined in: [types/proxy.ts:880](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L880)
 
 ---
 
@@ -52,7 +52,7 @@ Defined in: [types/proxy.ts:860](https://github.com/juspay/neurolink/blob/releas
 
 > **droppedChunks**: `number`
 
-Defined in: [types/proxy.ts:861](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L861)
+Defined in: [types/proxy.ts:881](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L881)
 
 ---
 
@@ -60,7 +60,7 @@ Defined in: [types/proxy.ts:861](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **notSubmittedChunks?**: `number`
 
-Defined in: [types/proxy.ts:862](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L862)
+Defined in: [types/proxy.ts:882](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L882)
 
 ---
 
@@ -68,7 +68,7 @@ Defined in: [types/proxy.ts:862](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **publicationMs?**: `number`
 
-Defined in: [types/proxy.ts:864](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L864)
+Defined in: [types/proxy.ts:884](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L884)
 
 Total publication elapsed time, including capacity and exporter waits.
 
@@ -78,7 +78,7 @@ Total publication elapsed time, including capacity and exporter waits.
 
 > `optional` **capacityWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:865](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L865)
+Defined in: [types/proxy.ts:885](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L885)
 
 ---
 
@@ -86,7 +86,7 @@ Defined in: [types/proxy.ts:865](https://github.com/juspay/neurolink/blob/releas
 
 > `optional` **maxChunkQueueWaitMs?**: `number`
 
-Defined in: [types/proxy.ts:867](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L867)
+Defined in: [types/proxy.ts:887](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L887)
 
 Maximum per-chunk residence before an OTLP export starts.
 
@@ -96,7 +96,7 @@ Maximum per-chunk residence before an OTLP export starts.
 
 > `optional` **maxChunkExportMs?**: `number`
 
-Defined in: [types/proxy.ts:869](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L869)
+Defined in: [types/proxy.ts:889](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L889)
 
 Maximum per-chunk transport duration; never sums overlapping exports.
 
@@ -106,4 +106,4 @@ Maximum per-chunk transport duration; never sums overlapping exports.
 
 > `optional` **reason?**: `string`
 
-Defined in: [types/proxy.ts:870](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L870)
+Defined in: [types/proxy.ts:890](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L890)

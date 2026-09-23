@@ -8,6 +8,6 @@
 
 > **SSEContentBlockDescriptor** = \{ `type`: `"text"`; `text`: `""`; \} \| \{ `type`: `"thinking"`; `thinking`: `""`; \} \| \{ `type`: `"tool_use"`; `id`: `string`; `name`: `string`; `input`: `""`; \}
 
-Defined in: [types/proxy.ts:190](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L190)
+Defined in: [types/proxy.ts:210](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L210)
 
 Content block descriptor for content_block_start events.

@@ -8,7 +8,7 @@
 
 > **SSEPing** = `object`
 
-Defined in: [types/proxy.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L238)
+Defined in: [types/proxy.ts:258](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L258)
 
 ## Properties
 
@@ -16,4 +16,4 @@ Defined in: [types/proxy.ts:238](https://github.com/juspay/neurolink/blob/releas
 
 > **type**: `"ping"`
 
-Defined in: [types/proxy.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L239)
+Defined in: [types/proxy.ts:259](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L259)

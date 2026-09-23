@@ -8,7 +8,7 @@
 
 > **SSEContentBlockStop** = `object`
 
-Defined in: [types/proxy.ts:218](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L218)
+Defined in: [types/proxy.ts:238](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L238)
 
 ## Properties
 
@@ -16,7 +16,7 @@ Defined in: [types/proxy.ts:218](https://github.com/juspay/neurolink/blob/releas
 
 > **type**: `"content_block_stop"`
 
-Defined in: [types/proxy.ts:219](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L219)
+Defined in: [types/proxy.ts:239](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L239)
 
 ---
 
@@ -24,4 +24,4 @@ Defined in: [types/proxy.ts:219](https://github.com/juspay/neurolink/blob/releas
 
 > **index**: `number`
 
-Defined in: [types/proxy.ts:220](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L220)
+Defined in: [types/proxy.ts:240](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L240)

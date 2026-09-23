@@ -113,8 +113,28 @@ const PRICING: Record<
   // Anthropic (direct API) — updated March 2026
   anthropic: {
     // Claude 5 family. Rates from platform.claude.com/docs/en/about-claude/pricing
-    // (checked 2026-08-21). Cache multipliers are the documented ones: a 5-minute
-    // cache write is 1.25x base input, a cache hit 0.1x.
+    // (checked 2026-09-23). A 5-minute cache write is 1.25x base input. The cache
+    // hit multiplier is 0.1x for most models but 0.05x on Opus 5.5 and 0.025x on
+    // Fable/Mythos 5.1, so those three are listed in full rather than left to the
+    // longest-prefix fallback — which would silently quote the 5.0 family's rates.
+    "claude-fable-5-1": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 0.25 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-mythos-5-1": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 0.25 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-opus-5-5": {
+      input: 4.0 / 1_000_000,
+      output: 20.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 5.0 / 1_000_000,
+    },
     "claude-fable-5": {
       input: 10.0 / 1_000_000,
       output: 50.0 / 1_000_000,
@@ -261,6 +281,53 @@ const PRICING: Record<
   },
   // Google Vertex AI — Claude models on Vertex (same pricing, @ date suffix)
   vertex: {
+    // Claude 5 family. Absent here until now, so a Vertex leg serving any of
+    // them resolved to no rate at all and booked the turn at $0 — on the one
+    // provider in the chain that bills in real currency.
+    // `isVertexAnthropicModel` admits every `claude-*` id, so the whole
+    // family needs an entry, not only the ones the chain names today.
+    "claude-fable-5-1": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 0.25 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-mythos-5-1": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 0.25 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-fable-5": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 1.0 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-mythos-5": {
+      input: 10.0 / 1_000_000,
+      output: 50.0 / 1_000_000,
+      cacheRead: 1.0 / 1_000_000,
+      cacheCreation: 12.5 / 1_000_000,
+    },
+    "claude-opus-5-5": {
+      input: 4.0 / 1_000_000,
+      output: 20.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 5.0 / 1_000_000,
+    },
+    "claude-opus-5": {
+      input: 5.0 / 1_000_000,
+      output: 25.0 / 1_000_000,
+      cacheRead: 0.5 / 1_000_000,
+      cacheCreation: 6.25 / 1_000_000,
+    },
+    "claude-sonnet-5": {
+      input: 2.0 / 1_000_000,
+      output: 10.0 / 1_000_000,
+      cacheRead: 0.2 / 1_000_000,
+      cacheCreation: 2.5 / 1_000_000,
+    },
     "claude-sonnet-4-6": {
       input: 3.0 / 1_000_000,
       output: 15.0 / 1_000_000,

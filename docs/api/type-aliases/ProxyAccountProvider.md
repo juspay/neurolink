@@ -8,6 +8,6 @@
 
 > **ProxyAccountProvider** = `"anthropic"` \| `"codex"`
 
-Defined in: [types/proxy.ts:1810](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1810)
+Defined in: [types/proxy.ts:1830](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L1830)
 
 The pool engine a login belongs to, as named on limits and accounts rows.

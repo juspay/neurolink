@@ -1,4 +1,7 @@
 import type {
+  ClaudeCacheControl,
+  ClaudeMessage,
+  ClaudeRequest,
   VertexAnthropicCacheControl,
   VertexAnthropicCacheInput,
   VertexAnthropicCacheOutput,
@@ -189,4 +192,133 @@ function markLastContentBlock(
   content[lastIndex] = { ...content[lastIndex], cache_control: EPHEMERAL };
   messages[i] = { ...message, content };
   return true;
+}
+
+/**
+ * Breakpoint placement for a Claude Messages request the proxy built itself,
+ * rather than one a client authored.
+ *
+ * A request translated from another wire format arrives with no markers at
+ * all, because the format it came from has no way to express one: OpenAI-shaped
+ * callers rely on automatic prefix caching, which Anthropic does not do. A
+ * faithful translation is therefore cached at 0% on every turn, and a caller
+ * that fell back here from an exhausted pool burns the replacement quota faster
+ * than the one it was spared.
+ *
+ * Placement follows Anthropic's `tools → system → messages` rendering: one
+ * marker on the last system block covers tools *and* system in a single
+ * breakpoint, and the rest roll along the tail of the history so a growing
+ * conversation keeps its settled prefix cached. Markers the caller supplied are
+ * counted first and never displaced — this only spends what is left of the
+ * four.
+ *
+ * Pure: inputs are cloned, never mutated.
+ */
+export function applyClaudeRequestCacheBreakpoints(
+  request: ClaudeRequest,
+): ClaudeRequest {
+  const existing = countAnthropicCacheMarkers({
+    system: request.system,
+    tools: request.tools,
+    messages: [],
+  });
+  const inMessages = request.messages.reduce(
+    (n, m) =>
+      n +
+      (Array.isArray(m.content)
+        ? m.content.filter((b) => "cache_control" in b && b.cache_control)
+            .length
+        : 0),
+    0,
+  );
+  let budget = MAX_BREAKPOINTS - existing - inMessages;
+  if (budget <= 0) {
+    return request;
+  }
+
+  const out: ClaudeRequest = { ...request };
+
+  // One marker on the stable head. The last system block is the better anchor
+  // than the last tool, because system renders after tools and so a single
+  // marker there caches both.
+  if (Array.isArray(out.system) && out.system.length > 0 && existing === 0) {
+    const system = out.system.map((b) => ({ ...b }));
+    system[system.length - 1] = {
+      ...system[system.length - 1],
+      cache_control: CLAUDE_EPHEMERAL,
+    };
+    out.system = system;
+    budget--;
+  } else if (
+    (!out.system || (Array.isArray(out.system) && out.system.length === 0)) &&
+    out.tools &&
+    out.tools.length > 0 &&
+    existing === 0
+  ) {
+    const tools = out.tools.map((t) => ({ ...t }));
+    tools[tools.length - 1] = {
+      ...tools[tools.length - 1],
+      cache_control: CLAUDE_EPHEMERAL,
+    };
+    out.tools = tools;
+    budget--;
+  }
+
+  if (budget > 0) {
+    out.messages = applyClaudeHistoryBreakpoints(out.messages, budget);
+  }
+  return out;
+}
+
+const CLAUDE_EPHEMERAL: ClaudeCacheControl = { type: "ephemeral" };
+
+/**
+ * Roll `budget` markers backwards along the history, marking the last content
+ * block of each message that can carry one. Only text and tool_result blocks
+ * accept `cache_control`; a message ending in anything else is skipped without
+ * spending budget.
+ *
+ * A message whose content is a plain string is promoted to the single text
+ * block the marker has to live on. Skipping strings instead would have left an
+ * ordinary conversation with no history breakpoint at all, since the OpenAI
+ * bridge emits every plain-text turn as a string — which is precisely the
+ * growing history this is here to keep cached.
+ */
+function applyClaudeHistoryBreakpoints(
+  input: ReadonlyArray<ClaudeMessage>,
+  budget: number,
+): ClaudeMessage[] {
+  const messages = input.map((m) => ({ ...m }));
+  let remaining = Math.max(0, Math.min(budget, MAX_BREAKPOINTS));
+  for (let i = messages.length - 1; i >= 0 && remaining > 0; i--) {
+    const content = messages[i].content;
+    if (typeof content === "string") {
+      if (content.length === 0) {
+        continue;
+      }
+      messages[i] = {
+        ...messages[i],
+        content: [
+          { type: "text", text: content, cache_control: CLAUDE_EPHEMERAL },
+        ],
+      };
+      remaining--;
+      continue;
+    }
+    if (!Array.isArray(content) || content.length === 0) {
+      continue;
+    }
+    const last = content[content.length - 1];
+    if (last.type !== "text" && last.type !== "tool_result") {
+      continue;
+    }
+    if (last.cache_control) {
+      continue;
+    }
+    const blocks = content.map((b) => ({ ...b }));
+    blocks[blocks.length - 1] = { ...last, cache_control: CLAUDE_EPHEMERAL };
+    messages[i] = { ...messages[i], content: blocks };
+    remaining--;
+  }
+  return messages;
 }

@@ -8,4 +8,4 @@
 
 > **ProxyQuotaSaturationKind** = `"none"` \| `"soft"` \| `"hard"`
 
-Defined in: [types/proxy.ts:551](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L551)
+Defined in: [types/proxy.ts:571](https://github.com/juspay/neurolink/blob/release/src/lib/types/proxy.ts#L571)

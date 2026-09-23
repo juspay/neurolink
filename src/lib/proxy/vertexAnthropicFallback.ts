@@ -15,6 +15,7 @@
 
 import { GoogleAuth } from "google-auth-library";
 import type {
+  VertexAccessTokenProvider,
   UsageContext,
   VertexPassthroughTerminal,
   VertexAnthropicPassthroughRequest,
@@ -164,6 +165,35 @@ function auth(): GoogleAuth {
   return cachedAuth;
 }
 
+let accessTokenProviderForTests: VertexAccessTokenProvider | undefined;
+
+async function vertexAccessToken(): Promise<string | null | undefined> {
+  return accessTokenProviderForTests
+    ? accessTokenProviderForTests()
+    : auth().getAccessToken();
+}
+
+/**
+ * Replace the Google credential lookup, for tests only.
+ *
+ * Without this seam the two-leg fallback chain cannot be driven end to end.
+ * The rest of the hop is reachable — `dispatchVertexAnthropicPassthrough`
+ * calls the global `fetch`, which a test can replace — but the credential
+ * lookup goes through gaxios, and gaxios resolves its transport to
+ * `(await import("node-fetch")).default` rather than `globalThis.fetch`. A
+ * test that swaps the global therefore cannot intercept the token exchange,
+ * and on a machine with no Application Default Credentials the leg throws
+ * before it ever reaches the model. That left the one path that bills in real
+ * currency with no end-to-end coverage at all.
+ *
+ * Pass `undefined` to restore the real credential lookup.
+ */
+export function setVertexAccessTokenProviderForTests(
+  provider: VertexAccessTokenProvider | undefined,
+): void {
+  accessTokenProviderForTests = provider;
+}
+
 /**
  * Send one Anthropic-shaped request to Vertex and return the upstream response
  * untouched, so the caller can stream its bytes straight to the client.
@@ -171,7 +201,7 @@ function auth(): GoogleAuth {
 export async function dispatchVertexAnthropicPassthrough(
   request: VertexAnthropicPassthroughRequest,
 ): Promise<Response> {
-  const token = await auth().getAccessToken();
+  const token = await vertexAccessToken();
   if (!token) {
     throw new Error(
       "Vertex passthrough could not obtain a Google access token; " +
