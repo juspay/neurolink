@@ -107,7 +107,8 @@ filter on `inferenceKinds` rather than special-casing a provider name.
 `AIProvider.decide?()` is optional and `BaseProvider` supplies a throwing
 default, exactly as `embed()` does. Public surface is `neurolink.decide()` and
 `neurolink.tryDecide()` — the fail-open variant, which returns `null` on any
-failure and is what every internal consumer uses.
+failure and is what every internal consumer uses — plus the CLI's
+`neurolink decide [state]`, a thin wrapper over `decide()` (`src/cli/commands/decide.ts`).
 
 **Not to be confused with `evaluate()`**, which scores an already-generated
 response with RAGAS scorers. Different feature, different word, ~20

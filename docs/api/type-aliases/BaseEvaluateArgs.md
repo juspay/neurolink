@@ -8,7 +8,7 @@
 
 > **BaseEvaluateArgs** = `object`
 
-Defined in: [types/cli.ts:1554](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1554)
+Defined in: [types/cli.ts:1571](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1571)
 
 Base options shared across all `neurolink evaluate` subcommands.
 
@@ -18,7 +18,7 @@ Base options shared across all `neurolink evaluate` subcommands.
 
 > `optional` **json?**: `boolean`
 
-Defined in: [types/cli.ts:1555](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1555)
+Defined in: [types/cli.ts:1572](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1572)
 
 ---
 
@@ -26,7 +26,7 @@ Defined in: [types/cli.ts:1555](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **verbose?**: `boolean`
 
-Defined in: [types/cli.ts:1556](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1556)
+Defined in: [types/cli.ts:1573](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1573)
 
 ---
 
@@ -34,4 +34,4 @@ Defined in: [types/cli.ts:1556](https://github.com/juspay/neurolink/blob/release
 
 > `optional` **format?**: `"text"` \| `"json"` \| `"table"`
 
-Defined in: [types/cli.ts:1557](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1557)
+Defined in: [types/cli.ts:1574](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1574)

@@ -320,6 +320,10 @@ export type ClassifierRouterInput = {
   requiresVision?: boolean;
   thinkingLevel?: string;
   sessionId?: string;
+  /** Whether this request is tied to a session, independent of the (withheld) session id itself. */
+  sessionBound?: boolean;
+  /** Number of prior conversation messages the caller supplied, when known. */
+  priorMessageCount?: number;
 };
 
 /** Enriched per-model metadata used while ranking pool members. */

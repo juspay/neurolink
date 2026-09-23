@@ -17,32 +17,33 @@ npm install @juspay/neurolink
 
 ## Command Map
 
-| Command               | Description                                                      | Example                                                                     |
-| --------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `generate` / `gen`    | One-shot content generation with optional multimodal input.      | `npx @juspay/neurolink generate "Draft release notes" --image ./before.png` |
-| `stream`              | Real-time streaming output with tool support.                    | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`      |
-| `batch`               | Process multiple prompts from a file.                            | `npx @juspay/neurolink batch prompts.txt --format json`                     |
-| `loop`                | Interactive session with persistent variables & memory.          | `npx @juspay/neurolink loop --auto-redis`                                   |
-| `auth <subcommand>`   | Manage provider authentication (API key or OAuth).               | `npx @juspay/neurolink auth login anthropic --method oauth`                 |
-| `setup` / `s`         | Guided provider onboarding and validation.                       | `npx @juspay/neurolink setup --provider openai`                             |
-| `status`              | Health check for configured providers.                           | `npx @juspay/neurolink status --verbose`                                    |
-| `get-best-provider`   | Show the best available AI provider.                             | `npx @juspay/neurolink get-best-provider --format json`                     |
-| `models list`         | Inspect available models and capabilities.                       | `npx @juspay/neurolink models list --capability vision`                     |
-| `config <subcommand>` | Initialise, validate, export, or reset configuration.            | `npx @juspay/neurolink config validate`                                     |
-| `memory <subcommand>` | View, export, or clear conversation history.                     | `npx @juspay/neurolink memory history NL_x3yr --format json`                |
-| `mcp <subcommand>`    | Manage Model Context Protocol servers/tools.                     | `npx @juspay/neurolink mcp list`                                            |
-| `ollama <subcommand>` | Manage Ollama local AI models.                                   | `npx @juspay/neurolink ollama list-models`                                  |
-| `sagemaker <command>` | Manage Amazon SageMaker endpoints and models.                    | `npx @juspay/neurolink sagemaker status`                                    |
-| `server <subcommand>` | Manage NeuroLink HTTP server                                     | `npx @juspay/neurolink server start --port 3000`                            |
-| `serve`               | Start server in foreground mode                                  | `npx @juspay/neurolink serve --port 3000`                                   |
-| `proxy <subcommand>`  | Manage the Claude multi-account proxy and its local telemetry.   | `npx @juspay/neurolink proxy telemetry setup`                               |
-| `rag <subcommand>`    | RAG document processing (chunk, index, query).                   | `npx @juspay/neurolink rag chunk ./docs/guide.md`                           |
-| `workflow <sub>`      | Manage and execute AI workflows.                                 | `npx @juspay/neurolink workflow list`                                       |
-| `observability`       | Observability and telemetry management (aliases: `obs`, `otel`). | `npx @juspay/neurolink observability status`                                |
-| `telemetry`           | Telemetry and exporter management (alias: `tel`).                | `npx @juspay/neurolink telemetry status`                                    |
-| `docs`                | Start the NeuroLink documentation MCP server.                    | `npx @juspay/neurolink docs --transport http --port 3001`                   |
-| `validate`            | Alias for `config validate`.                                     | `npx @juspay/neurolink validate`                                            |
-| `completion`          | Generate shell completion script.                                | `npx @juspay/neurolink completion > ~/.neurolink-completion.sh`             |
+| Command               | Description                                                        | Example                                                                                                                      |
+| --------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `generate` / `gen`    | One-shot content generation with optional multimodal input.        | `npx @juspay/neurolink generate "Draft release notes" --image ./before.png`                                                  |
+| `stream`              | Real-time streaming output with tool support.                      | `npx @juspay/neurolink stream "Narrate sprint demo" --enableAnalytics`                                                       |
+| `decide [state]`      | Typed, calibrated judgements from a decision model (no free text). | `npx @juspay/neurolink decide "Refund request" --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'` |
+| `batch`               | Process multiple prompts from a file.                              | `npx @juspay/neurolink batch prompts.txt --format json`                                                                      |
+| `loop`                | Interactive session with persistent variables & memory.            | `npx @juspay/neurolink loop --auto-redis`                                                                                    |
+| `auth <subcommand>`   | Manage provider authentication (API key or OAuth).                 | `npx @juspay/neurolink auth login anthropic --method oauth`                                                                  |
+| `setup` / `s`         | Guided provider onboarding and validation.                         | `npx @juspay/neurolink setup --provider openai`                                                                              |
+| `status`              | Health check for configured providers.                             | `npx @juspay/neurolink status --verbose`                                                                                     |
+| `get-best-provider`   | Show the best available AI provider.                               | `npx @juspay/neurolink get-best-provider --format json`                                                                      |
+| `models list`         | Inspect available models and capabilities.                         | `npx @juspay/neurolink models list --capability vision`                                                                      |
+| `config <subcommand>` | Initialise, validate, export, or reset configuration.              | `npx @juspay/neurolink config validate`                                                                                      |
+| `memory <subcommand>` | View, export, or clear conversation history.                       | `npx @juspay/neurolink memory history NL_x3yr --format json`                                                                 |
+| `mcp <subcommand>`    | Manage Model Context Protocol servers/tools.                       | `npx @juspay/neurolink mcp list`                                                                                             |
+| `ollama <subcommand>` | Manage Ollama local AI models.                                     | `npx @juspay/neurolink ollama list-models`                                                                                   |
+| `sagemaker <command>` | Manage Amazon SageMaker endpoints and models.                      | `npx @juspay/neurolink sagemaker status`                                                                                     |
+| `server <subcommand>` | Manage NeuroLink HTTP server                                       | `npx @juspay/neurolink server start --port 3000`                                                                             |
+| `serve`               | Start server in foreground mode                                    | `npx @juspay/neurolink serve --port 3000`                                                                                    |
+| `proxy <subcommand>`  | Manage the Claude multi-account proxy and its local telemetry.     | `npx @juspay/neurolink proxy telemetry setup`                                                                                |
+| `rag <subcommand>`    | RAG document processing (chunk, index, query).                     | `npx @juspay/neurolink rag chunk ./docs/guide.md`                                                                            |
+| `workflow <sub>`      | Manage and execute AI workflows.                                   | `npx @juspay/neurolink workflow list`                                                                                        |
+| `observability`       | Observability and telemetry management (aliases: `obs`, `otel`).   | `npx @juspay/neurolink observability status`                                                                                 |
+| `telemetry`           | Telemetry and exporter management (alias: `tel`).                  | `npx @juspay/neurolink telemetry status`                                                                                     |
+| `docs`                | Start the NeuroLink documentation MCP server.                      | `npx @juspay/neurolink docs --transport http --port 3001`                                                                    |
+| `validate`            | Alias for `config validate`.                                       | `npx @juspay/neurolink validate`                                                                                             |
+| `completion`          | Generate shell completion script.                                  | `npx @juspay/neurolink completion > ~/.neurolink-completion.sh`                                                              |
 
 ## Primary Commands
 
@@ -65,7 +66,7 @@ Key flags:
 - `--temperature`, `-t` – creativity (default `0.7`).
 - `--maxTokens`, `--max` – response limit (default `1000`).
 - `--system`, `-s` – system prompt.
-- `--format`, `-f`, `--output-format` – `text` (default), `json`, or `table`.
+- `--format`, `-f`, `--output-format` – `text` (default), `json`, or `table`. With `json`, stdout carries only the JSON result; debug and info logs go to stderr, so the output stays parseable even with `--debug`.
 - `--output`, `-o` – write response to file.
 - `--imageOutput`, `--image-output` – custom path for generated image (default: `generated-images/image-<timestamp>.png`).
 - `--enableAnalytics` / `--enableEvaluation` – capture metrics & quality scores.
@@ -203,6 +204,34 @@ npx @juspay/neurolink stream "Walk through the timeline" \
 ```
 
 `stream` shares the same flags as `generate` and adds chunked output for live UIs. Evaluation results are emitted after the stream completes when `--enableEvaluation` is set.
+
+### `decide [state]` {#decide}
+
+Get typed, calibrated judgements from a decision model — the `decide` inference type, alongside `generate` and `stream`. Takes one `state` plus a map of named typed questions and prints one answer per question; there is no free text anywhere in the response.
+
+```bash
+# State as a positional argument
+npx @juspay/neurolink decide "Refund request for a damaged item" \
+  --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'
+
+# State and questions from files, raw JSON output
+npx @juspay/neurolink decide --state-file ticket.json \
+  --questions-file questions.json --format json
+```
+
+| Option                      | Description                                                                   |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `state`                     | The content to judge, as a positional argument (or use `--state-file`).       |
+| `--state-file <path>`       | Path to a file holding the state (plain text or JSON).                        |
+| `--questions <json>`        | Inline JSON map of questions. Exactly one of this or `--questions-file`.      |
+| `--questions-file <path>`   | Path to a JSON file holding the questions map.                                |
+| `--provider <name>`         | Decision provider to use.                                                     |
+| `--model <name>`            | Overrides the provider's configured model for this call.                      |
+| `--timeout <ms>`            | Timeout in milliseconds.                                                      |
+| `--format text\|json`, `-f` | Output format (default: `text`). With `json`, stdout carries only the result. |
+| `--debug`, `-v`             | Debug logging; written to stderr when `--format json` is used.                |
+
+Each question is one of `boolean`, `choice`, or `score`; `--questions`/`--questions-file` is validated before any provider work, so a malformed payload fails fast with no network call. A provider error prints one line that keeps the provider's own detail, such as which field was rejected. Credentials are env-only, exactly like every other CLI command — the decision provider (TypeSafe) reads `TYPESAFE_API_KEY`, or `AI_GATEWAY_API_KEY` for the Vercel AI Gateway route, from the environment. See [The `decide` inference type](../features/decide-inference-type.md) for the full concept and the SDK equivalent.
 
 ### `batch <file>` {#batch}
 

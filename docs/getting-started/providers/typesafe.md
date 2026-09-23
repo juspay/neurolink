@@ -98,6 +98,17 @@ if (team && team.confidence >= 0.7) {
 failure to surface; it throws a `ProviderError` whose `cause` carries a typed
 `kind`.
 
+### From the CLI
+
+```bash
+npx @juspay/neurolink decide "Refund request for a damaged item" \
+  --questions '{"urgent":{"type":"boolean","instructions":"Is this urgent?"}}'
+```
+
+`neurolink decide [state]` calls `decide()` under the hood and reads
+`TYPESAFE_API_KEY` from the environment like every other CLI command. See the
+[CLI command reference](../../cli/commands.md#decide).
+
 ---
 
 ## The degradation contract

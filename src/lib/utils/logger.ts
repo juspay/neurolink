@@ -47,11 +47,29 @@ const UPPERCASE_LOG_LEVELS: Record<LogLevel, string> = {
   error: "ERROR",
 } as const;
 
+const FORMAT_FLAGS = ["--format", "-f", "--output-format"];
+
+/**
+ * True when the process was started with JSON output requested. Read from
+ * argv on every write, like the `--debug` check in `shouldLog`: modules log
+ * while they are still being imported, before the CLI middleware that calls
+ * `setDiagnosticsToStderr` has run.
+ */
+function argvRequestsJsonOutput(): boolean {
+  const argv = process.argv;
+  return argv.some(
+    (arg, index) =>
+      (FORMAT_FLAGS.includes(arg) && argv[index + 1] === "json") ||
+      FORMAT_FLAGS.some((flag) => arg === `${flag}=json`),
+  );
+}
+
 class NeuroLinkLogger {
   private logLevel: LogLevel = "info";
   private logs: LogEntry[] = [];
   private maxLogs = 1000;
   private isDebugMode: boolean;
+  private diagnosticsToStderr = false;
   private eventEmitter?: {
     emit: (event: string, ...args: unknown[]) => boolean;
   };
@@ -108,6 +126,17 @@ class NeuroLinkLogger {
    */
   setLogLevel(level: LogLevel): void {
     this.logLevel = level;
+  }
+
+  /**
+   * Routes debug and info output to stderr instead of stdout. The CLI turns
+   * this on for `--format json`, where stdout carries the payload and any
+   * diagnostic line in it would make the output unparseable.
+   *
+   * @param enabled - True to send debug/info to stderr; false restores stdout
+   */
+  setDiagnosticsToStderr(enabled: boolean): void {
+    this.diagnosticsToStderr = enabled;
   }
 
   /**
@@ -248,9 +277,10 @@ class NeuroLinkLogger {
     message: string,
     data?: unknown,
   ): void {
+    const toStderr = this.diagnosticsToStderr || argvRequestsJsonOutput();
     const logMethod = {
-      debug: console.debug,
-      info: console.info,
+      debug: toStderr ? console.error : console.debug,
+      info: toStderr ? console.error : console.info,
       warn: console.warn,
       error: console.error,
     }[level];
@@ -534,6 +564,8 @@ export const logger = {
   shouldLog: (level: LogLevel) => neuroLinkLogger.shouldLog(level),
   // Expose structured logging methods
   setLogLevel: (level: LogLevel) => neuroLinkLogger.setLogLevel(level),
+  setDiagnosticsToStderr: (enabled: boolean) =>
+    neuroLinkLogger.setDiagnosticsToStderr(enabled),
   getLogs: (level?: LogLevel) => neuroLinkLogger.getLogs(level),
   clearLogs: () => neuroLinkLogger.clearLogs(),
   setEventEmitter: (emitter: {

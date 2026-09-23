@@ -59,3 +59,23 @@ Defined in: [types/classifierRouter.ts:321](https://github.com/juspay/neurolink/
 > `optional` **sessionId?**: `string`
 
 Defined in: [types/classifierRouter.ts:322](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L322)
+
+---
+
+### sessionBound?
+
+> `optional` **sessionBound?**: `boolean`
+
+Defined in: [types/classifierRouter.ts:324](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L324)
+
+Whether this request is tied to a session, independent of the (withheld) session id itself.
+
+---
+
+### priorMessageCount?
+
+> `optional` **priorMessageCount?**: `number`
+
+Defined in: [types/classifierRouter.ts:326](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L326)
+
+Number of prior conversation messages the caller supplied, when known.

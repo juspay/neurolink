@@ -8,7 +8,7 @@
 
 > **CliServeRouteGroup** = `object`
 
-Defined in: [types/cli.ts:1993](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1993)
+Defined in: [types/cli.ts:2010](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2010)
 
 Minimal route-group shape reflected at runtime by `neurolink serve routes`.
 Named with a `CliServe` prefix to disambiguate from the richer RouteGroup
@@ -20,7 +20,7 @@ in server.ts (§Rule 9).
 
 > **prefix**: `string`
 
-Defined in: [types/cli.ts:1994](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1994)
+Defined in: [types/cli.ts:2011](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2011)
 
 ---
 
@@ -28,7 +28,7 @@ Defined in: [types/cli.ts:1994](https://github.com/juspay/neurolink/blob/release
 
 > **routes**: `object`[]
 
-Defined in: [types/cli.ts:1995](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L1995)
+Defined in: [types/cli.ts:2012](https://github.com/juspay/neurolink/blob/release/src/lib/types/cli.ts#L2012)
 
 #### method
 

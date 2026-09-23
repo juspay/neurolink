@@ -1547,6 +1547,23 @@ export type AutoresearchInitArgs = {
 };
 
 // =============================================================================
+// DECIDE COMMAND (from cli/commands/decide.ts)
+// =============================================================================
+
+/** Arguments for `neurolink decide` — the third inference type's CLI surface. */
+export type CliDecideArgs = {
+  state?: string;
+  stateFile?: string;
+  questions?: string;
+  questionsFile?: string;
+  provider?: string;
+  model?: string;
+  timeout?: number;
+  format?: "text" | "json";
+  debug?: boolean;
+};
+
+// =============================================================================
 // EVALUATE COMMAND (from cli/commands/evaluate.ts)
 // =============================================================================
 

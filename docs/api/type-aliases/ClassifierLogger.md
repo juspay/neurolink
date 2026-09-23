@@ -8,7 +8,7 @@
 
 > **ClassifierLogger** = `object`
 
-Defined in: [types/classifierRouter.ts:366](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L366)
+Defined in: [types/classifierRouter.ts:370](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L370)
 
 Minimal logger surface the router uses (debug/warn).
 
@@ -18,7 +18,7 @@ Minimal logger surface the router uses (debug/warn).
 
 > **debug**: (`message`, `meta?`) => `void`
 
-Defined in: [types/classifierRouter.ts:367](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L367)
+Defined in: [types/classifierRouter.ts:371](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L371)
 
 #### Parameters
 
@@ -40,7 +40,7 @@ Defined in: [types/classifierRouter.ts:367](https://github.com/juspay/neurolink/
 
 > **warn**: (`message`, `meta?`) => `void`
 
-Defined in: [types/classifierRouter.ts:368](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L368)
+Defined in: [types/classifierRouter.ts:372](https://github.com/juspay/neurolink/blob/release/src/lib/types/classifierRouter.ts#L372)
 
 #### Parameters
 
